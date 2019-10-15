@@ -10,6 +10,8 @@
 #include "token.h"
 
 namespace lang::scanner {
+	constexpr bool IsSpace (int chr) { return chr == 0x09 || chr == 0x20; }
+
 	class Scanner {
 	private:
 		std::istream& source_;
