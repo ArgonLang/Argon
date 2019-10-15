@@ -40,3 +40,6 @@ message(STATUS "Test case source files: ${TEST_SRC_FILES}")
 
 add_executable(ArgonTests ${TEST_SRC_FILES})
 target_link_libraries(ArgonTests gtest gtest_main)
+
+add_dependencies(ArgonTests Parser)
+target_link_libraries(ArgonTests Parser)
