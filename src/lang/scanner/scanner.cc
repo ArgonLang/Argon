@@ -107,6 +107,20 @@ Token Scanner::ParseNumber() {
 	return tk;
 }
 
+Token lang::scanner::Scanner::ParseWord() {
+	std::string word;
+	int colno = this->colno_;
+	int value = this->source_.peek();
+
+	while (IsAlpha(value)||IsDigit(value)) {
+		word += value;
+		this->GetCh();
+		value = this->source_.peek();
+	}
+
+	return Token(TokenType::WORD, colno, this->lineno_, word);
+}
+
 int Scanner::Skip(unsigned char byte) {
 	int times = 0;
 
@@ -124,7 +138,7 @@ int Scanner::GetCh() {
 }
 
 Token Scanner::NextToken() {
-	char value;
+	int value;
 	unsigned colno = 0;
 	unsigned lineno = 0;
 
@@ -137,6 +151,9 @@ Token Scanner::NextToken() {
 			for (; IsSpace(this->source_.peek()); this->GetCh())
 				continue;
 		} // Skip spaces
+
+		if (IsAlpha(value))
+			return this->ParseWord();
 
 		if (IsDigit(value))
 			return this->ParseNumber();

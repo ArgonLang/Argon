@@ -10,7 +10,7 @@
 
 namespace lang::scanner {
 
-	enum class TokenType { END_OF_FILE, END_OF_LINE, NUMBER_BIN, NUMBER_OCT, NUMBER_HEX, NUMBER, DECIMAL };
+	enum class TokenType { END_OF_FILE, END_OF_LINE, NUMBER_BIN, NUMBER_OCT, NUMBER_HEX, NUMBER, DECIMAL, WORD};
 
 	struct Token {
 		TokenType type = TokenType::END_OF_FILE;

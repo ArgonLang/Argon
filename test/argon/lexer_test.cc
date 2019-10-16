@@ -59,3 +59,12 @@ TEST(Scanner, Number) {
 	ASSERT_EQ(scanner.NextToken(), lang::scanner::Token(lang::scanner::TokenType::DECIMAL, 15, 0, "22.3"));
 	ASSERT_EQ(scanner.NextToken(), lang::scanner::Token(lang::scanner::TokenType::DECIMAL, 20, 0, "6."));
 }
+
+TEST(Scanner, Word) {
+	auto source = std::istringstream("var v4r v_48_ __private_var__");
+	lang::scanner::Scanner scanner(source);
+	ASSERT_EQ(scanner.NextToken(), lang::scanner::Token(lang::scanner::TokenType::WORD, 0, 0, "var"));
+	ASSERT_EQ(scanner.NextToken(), lang::scanner::Token(lang::scanner::TokenType::WORD, 4, 0, "v4r"));
+	ASSERT_EQ(scanner.NextToken(), lang::scanner::Token(lang::scanner::TokenType::WORD, 8, 0, "v_48_"));
+	ASSERT_EQ(scanner.NextToken(), lang::scanner::Token(lang::scanner::TokenType::WORD, 14, 0, "__private_var__"));
+}

@@ -11,6 +11,7 @@
 
 namespace lang::scanner {
 	constexpr bool IsSpace (int chr) { return chr == 0x09 || chr == 0x20; }
+	constexpr bool IsAlpha(int chr) { return (chr >= 'a' && chr <= 'z') || (chr >= 'A' && chr <= 'Z') || chr=='_'; }
 	constexpr bool IsDigit(int chr) { return chr >= '0' && chr <= '9'; }
 	constexpr bool IsHexDigit(int chr) { return (chr >= '0' && chr <= '9') || (tolower(chr) >= 'a' && tolower(chr) <= 'f'); }
 
@@ -33,6 +34,8 @@ namespace lang::scanner {
 		Token ParseDecimal();
 
 		Token ParseNumber();
+
+		Token ParseWord();
 
 		int Skip(unsigned char byte);
 
