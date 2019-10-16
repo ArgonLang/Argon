@@ -11,6 +11,8 @@
 
 namespace lang::scanner {
 	constexpr bool IsSpace (int chr) { return chr == 0x09 || chr == 0x20; }
+	constexpr bool IsDigit(int chr) { return chr >= '0' && chr <= '9'; }
+	constexpr bool IsHexDigit(int chr) { return (chr >= '0' && chr <= '9') || (tolower(chr) >= 'a' && tolower(chr) <= 'f'); }
 
 	class Scanner {
 	private:
@@ -22,7 +24,19 @@ namespace lang::scanner {
 
 		Token Emit(TokenType type, unsigned lineno, const std::string& value);
 
+		Token ParseBinary();
+
+		Token ParseOctal();
+
+		Token ParseHex();
+
+		Token ParseDecimal();
+
+		Token ParseNumber();
+
 		int Skip(unsigned char byte);
+
+		int GetCh();
 
 	public:
 		explicit Scanner(std::istream& source) : source_(source) {};
