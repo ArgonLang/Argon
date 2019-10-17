@@ -68,3 +68,44 @@ TEST(Scanner, Word) {
 	ASSERT_EQ(scanner.NextToken(), lang::scanner::Token(lang::scanner::TokenType::WORD, 8, 0, "v_48_"));
 	ASSERT_EQ(scanner.NextToken(), lang::scanner::Token(lang::scanner::TokenType::WORD, 14, 0, "__private_var__"));
 }
+
+TEST(Scanner, Punctuation) {
+	auto source = std::istringstream("()+ -% &  *./:;< => ][  #^|}{ ~");
+	lang::scanner::Scanner scanner(source);
+	ASSERT_EQ(scanner.NextToken(), lang::scanner::Token(lang::scanner::TokenType::LEFT_ROUND, 0, 0, ""));
+	ASSERT_EQ(scanner.NextToken(), lang::scanner::Token(lang::scanner::TokenType::RIGHT_ROUND, 1, 0, ""));
+	ASSERT_EQ(scanner.NextToken(), lang::scanner::Token(lang::scanner::TokenType::PLUS, 2, 0, ""));
+	ASSERT_EQ(scanner.NextToken(), lang::scanner::Token(lang::scanner::TokenType::MINUS, 4, 0, ""));
+	ASSERT_EQ(scanner.NextToken(), lang::scanner::Token(lang::scanner::TokenType::PERCENT, 5, 0, ""));
+	ASSERT_EQ(scanner.NextToken(), lang::scanner::Token(lang::scanner::TokenType::AMPERSAND, 7, 0, ""));
+	ASSERT_EQ(scanner.NextToken(), lang::scanner::Token(lang::scanner::TokenType::ASTERISK, 10, 0, ""));
+	ASSERT_EQ(scanner.NextToken(), lang::scanner::Token(lang::scanner::TokenType::DOT, 11, 0, ""));
+	ASSERT_EQ(scanner.NextToken(), lang::scanner::Token(lang::scanner::TokenType::FRACTION_SLASH, 12, 0, ""));
+	ASSERT_EQ(scanner.NextToken(), lang::scanner::Token(lang::scanner::TokenType::COLON, 13, 0, ""));
+	ASSERT_EQ(scanner.NextToken(), lang::scanner::Token(lang::scanner::TokenType::SEMICOLON, 14, 0, ""));
+	ASSERT_EQ(scanner.NextToken(), lang::scanner::Token(lang::scanner::TokenType::LESS, 15, 0, ""));
+	ASSERT_EQ(scanner.NextToken(), lang::scanner::Token(lang::scanner::TokenType::EQUAL, 17, 0, ""));
+	ASSERT_EQ(scanner.NextToken(), lang::scanner::Token(lang::scanner::TokenType::GREATER, 18, 0, ""));
+	ASSERT_EQ(scanner.NextToken(), lang::scanner::Token(lang::scanner::TokenType::RIGHT_SQUARE, 20, 0, ""));
+	ASSERT_EQ(scanner.NextToken(), lang::scanner::Token(lang::scanner::TokenType::LEFT_SQUARE, 21, 0, ""));
+	ASSERT_EQ(scanner.NextToken(), lang::scanner::Token(lang::scanner::TokenType::HASH, 24, 0, ""));
+	ASSERT_EQ(scanner.NextToken(), lang::scanner::Token(lang::scanner::TokenType::CARET, 25, 0, ""));
+	ASSERT_EQ(scanner.NextToken(), lang::scanner::Token(lang::scanner::TokenType::PIPE, 26, 0, ""));
+	ASSERT_EQ(scanner.NextToken(), lang::scanner::Token(lang::scanner::TokenType::RIGHT_BRACES, 27, 0, ""));
+	ASSERT_EQ(scanner.NextToken(), lang::scanner::Token(lang::scanner::TokenType::LEFT_BRACES, 28, 0, ""));
+	ASSERT_EQ(scanner.NextToken(), lang::scanner::Token(lang::scanner::TokenType::TILDE, 30, 0, ""));
+}
+
+TEST(Scanner, CompoundSyms) {
+	auto source = std::istringstream("&& || >= <= != ... .. .");
+	lang::scanner::Scanner scanner(source);
+	ASSERT_EQ(scanner.NextToken(), lang::scanner::Token(lang::scanner::TokenType::AND, 0, 0, ""));
+	ASSERT_EQ(scanner.NextToken(), lang::scanner::Token(lang::scanner::TokenType::OR, 3, 0, ""));
+	ASSERT_EQ(scanner.NextToken(), lang::scanner::Token(lang::scanner::TokenType::GREATER_EQ, 6, 0, ""));
+	ASSERT_EQ(scanner.NextToken(), lang::scanner::Token(lang::scanner::TokenType::LESS_EQ, 9, 0, ""));
+	ASSERT_EQ(scanner.NextToken(), lang::scanner::Token(lang::scanner::TokenType::NOT_EQUAL, 12, 0, ""));
+	ASSERT_EQ(scanner.NextToken(), lang::scanner::Token(lang::scanner::TokenType::ELLIPSIS, 15, 0, ""));
+	ASSERT_EQ(scanner.NextToken(), lang::scanner::Token(lang::scanner::TokenType::DOT, 19, 0, ""));
+	ASSERT_EQ(scanner.NextToken(), lang::scanner::Token(lang::scanner::TokenType::DOT, 20, 0, ""));
+	ASSERT_EQ(scanner.NextToken(), lang::scanner::Token(lang::scanner::TokenType::DOT, 22, 0, ""));
+}
