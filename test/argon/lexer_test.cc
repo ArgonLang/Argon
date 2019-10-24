@@ -62,12 +62,14 @@ TEST(Scanner, Number) {
 }
 
 TEST(Scanner, Word) {
-	auto source = std::istringstream("var v4r v_48_ __private_var__");
+	auto source = std::istringstream("var v4r v_48_ __private_var__ byte b");
 	lang::scanner::Scanner scanner(&source);
 	ASSERT_EQ(scanner.NextToken(), lang::scanner::Token(lang::scanner::TokenType::WORD, 0, 0, "var"));
 	ASSERT_EQ(scanner.NextToken(), lang::scanner::Token(lang::scanner::TokenType::WORD, 4, 0, "v4r"));
 	ASSERT_EQ(scanner.NextToken(), lang::scanner::Token(lang::scanner::TokenType::WORD, 8, 0, "v_48_"));
 	ASSERT_EQ(scanner.NextToken(), lang::scanner::Token(lang::scanner::TokenType::WORD, 14, 0, "__private_var__"));
+	ASSERT_EQ(scanner.NextToken(), lang::scanner::Token(lang::scanner::TokenType::WORD, 30, 0, "byte"));
+	ASSERT_EQ(scanner.NextToken(), lang::scanner::Token(lang::scanner::TokenType::WORD, 35, 0, "b"));
 }
 
 TEST(Scanner, Punctuation) {
@@ -121,7 +123,7 @@ TEST(Scanner, String) {
 }
 
 TEST(Scanner, StringEscape) {
-	auto source = std::istringstream(R"("bell\a" "\x7b" "\0" "\1" "\41" "\234" "\u0024" "\u03a3" "\u0939" "\U00010348" )");
+	auto source = std::istringstream(R"("bell\a" "\x7b" "\0" "\1" "\41" "\234" "\u0024" "\u03a3" "\u0939" "\U00010348" "Ignore\\"")");
 	std::wstring_convert<std::codecvt_utf8<wchar_t>> converter;
 	lang::scanner::Scanner scanner(&source);
 
@@ -137,6 +139,9 @@ TEST(Scanner, StringEscape) {
 	ASSERT_EQ(scanner.NextToken(), lang::scanner::Token(lang::scanner::TokenType::STRING, 49, 0, converter.to_bytes(L"\u03a3")));
 	ASSERT_EQ(scanner.NextToken(), lang::scanner::Token(lang::scanner::TokenType::STRING, 58, 0, converter.to_bytes(L"\u0939")));
 	ASSERT_EQ(scanner.NextToken(), lang::scanner::Token(lang::scanner::TokenType::STRING, 67, 0, "\xF0\x90\x8D\x88"));
+
+	// Ignore Escape
+	ASSERT_EQ(scanner.NextToken(), lang::scanner::Token(lang::scanner::TokenType::STRING, 80, 0, "Ignore\\"));
 }
 
 TEST(Scanner, UnterminatedString) {
@@ -147,4 +152,12 @@ TEST(Scanner, UnterminatedString) {
 	source = std::istringstream("\"hello worl\nd\"");
 	scanner = lang::scanner::Scanner(&source);
 	ASSERT_EQ(scanner.NextToken().type, lang::scanner::TokenType::ERROR);
+}
+
+TEST(Scanner, bString) {
+	auto source = std::istringstream(R"(b"ByteString" b"Ignore\u2342Unico\U00002312de" b"é")");
+	auto scanner = lang::scanner::Scanner(&source);
+	ASSERT_EQ(scanner.NextToken(), lang::scanner::Token(lang::scanner::TokenType::BYTE_STRING, 2, 0, "ByteString"));
+	ASSERT_EQ(scanner.NextToken(), lang::scanner::Token(lang::scanner::TokenType::BYTE_STRING, 16, 0, "Ignore\\u2342Unico\\U00002312de"));
+	ASSERT_EQ(scanner.NextToken().type, lang::scanner::TokenType::ERROR); // Extended ASCII not allowed here!
 }

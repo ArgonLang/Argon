@@ -23,7 +23,7 @@ namespace lang::scanner {
 		unsigned colno_ = 0;
 		unsigned lineno_ = 0;
 
-		bool ParseEscape(int stopChr, std::string& dest, std::string& error);
+		bool ParseEscape(int stopChr, bool ignore_unicode_escape, std::string& dest, std::string& error);
 
 		bool ParseUnicodeEscape(std::string& dest, std::string& error, bool extended); 
 
@@ -47,7 +47,7 @@ namespace lang::scanner {
 
 		Token ParseNumber();
 
-		Token ParseString();
+		Token ParseString(TokenType type, bool ignore_unicode_escape);
 
 		Token ParseWord();
 

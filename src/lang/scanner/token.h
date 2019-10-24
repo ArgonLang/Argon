@@ -16,6 +16,7 @@ namespace lang::scanner {
 		EXCLAMATION,
 		NOT_EQUAL,
 		STRING,
+		BYTE_STRING,
 		HASH,
 		PERCENT,
 		AMPERSAND,

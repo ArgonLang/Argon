@@ -107,7 +107,7 @@ Token Scanner::ParseNumber() {
 	return tk;
 }
 
-bool Scanner::ParseEscape(int stopChr, std::string& dest, std::string& error) {
+bool Scanner::ParseEscape(int stopChr, bool ignore_unicode_escape, std::string& dest, std::string& error) {
 	int op = this->GetCh();
 
 	if (op == stopChr) {
@@ -115,10 +115,14 @@ bool Scanner::ParseEscape(int stopChr, std::string& dest, std::string& error) {
 		return true;
 	}
 
+	if (!ignore_unicode_escape) {
+		if(op=='u')
+			return this->ParseUnicodeEscape(dest, error, false);
+		else if (op=='U')
+			return this->ParseUnicodeEscape(dest, error, true);
+	}
+
 	switch (op) {
-	case '\\':
-		dest += '\\';
-		break;
 	case 'a':
 		dest += (char)0x07;
 		break;
@@ -139,16 +143,14 @@ bool Scanner::ParseEscape(int stopChr, std::string& dest, std::string& error) {
 		break;
 	case 'v':
 		dest += (char)0x0B;
-		break;
-	case 'u':
-		return this->ParseUnicodeEscape(dest, error, false);
-	case 'U':
-		return this->ParseUnicodeEscape(dest, error, true);
+		break;		
 	case 'x':
 		return this->ParseHexEscape(dest, error);
 	default:
-		if (!this->ParseOctEscape(dest, error, op))
-			dest += "\\\\" + op;
+		if (!this->ParseOctEscape(dest, error, op)) {
+			dest += '\\';
+			dest += (char)op;
+		}
 	}
 	return true;
 }
@@ -247,7 +249,7 @@ bool Scanner::ParseHexToByte(unsigned char& byte) {
 	return true;
 }
 
-Token Scanner::ParseString() {
+Token Scanner::ParseString(TokenType type, bool ignore_unicode_escape) {
 	std::string string;
 	int start = this->source_->tellg();
 	int colno = this->colno_;
@@ -256,9 +258,14 @@ Token Scanner::ParseString() {
 	while (curr != '"') {
 		if (!this->source_->good() || curr == '\n')
 			return Token(TokenType::ERROR, colno, this->lineno_, "unterminated string");
+
+		// Byte string accept byte in range (0x00 - 0x7F)
+		if(ignore_unicode_escape && curr > 0x7F)
+			return Token(TokenType::ERROR, colno, this->lineno_, "byte string can only contain ASCII literal characters");
+
 		if (curr == '\\') {
 			if (this->source_->peek() != '\\') {
-				if(!this->ParseEscape('"', string, string))
+				if (!this->ParseEscape('"', ignore_unicode_escape, string, string))
 					return Token(TokenType::ERROR, colno, this->lineno_, string);
 				curr = this->GetCh();
 				continue;
@@ -271,13 +278,23 @@ Token Scanner::ParseString() {
 
 	curr = this->GetCh();
 
-	return Token(TokenType::STRING, colno, this->lineno_, string);
+	return Token(type, colno, this->lineno_, string);
 }
 
 Token Scanner::ParseWord() {
 	std::string word;
 	int colno = this->colno_;
-	int value = this->source_->peek();
+	int value = this->GetCh();
+
+	if (value == 'b') {
+		if (this->source_->peek() == '"') {
+			this->GetCh();
+			return this->ParseString(TokenType::BYTE_STRING, true);
+		}
+	}
+
+	word += value;
+	value = this->source_->peek();
 
 	while (IsAlpha(value)||IsDigit(value)) {
 		word += value;
@@ -339,7 +356,7 @@ Token Scanner::NextToken() {
 			return Token(TokenType::EXCLAMATION, colno, lineno, "");
 		case '"':
 			this->GetCh();
-			return this->ParseString();
+			return this->ParseString(TokenType::STRING, false);
 		case '#':
 			this->GetCh();
 			return Token(TokenType::HASH, colno, lineno, "");
