@@ -17,12 +17,12 @@ inline Token Scanner::Emit(TokenType type, unsigned lineno, const std::string& v
 Token Scanner::ParseBinary() {
 	std::string number;
 	int colno = this->colno_;
-	int value = this->source_.peek();
+	int value = this->source_->peek();
 
 	while (value >= '0' && value <= '1') {
 		number += value;
 		this->GetCh();
-		value = this->source_.peek();
+		value = this->source_->peek();
 	}
 
 	return Token(TokenType::NUMBER_BIN, colno, this->lineno_, number);
@@ -31,12 +31,12 @@ Token Scanner::ParseBinary() {
 Token Scanner::ParseOctal() {
 	std::string number;
 	int colno = this->colno_;
-	int value = this->source_.peek();
+	int value = this->source_->peek();
 
 	while (value >= '0' && value <= '7') {
 		number += value;
 		this->GetCh();
-		value = this->source_.peek();
+		value = this->source_->peek();
 	}
 
 	return Token(TokenType::NUMBER_OCT, colno, this->lineno_, number);
@@ -45,12 +45,12 @@ Token Scanner::ParseOctal() {
 Token Scanner::ParseHex() {
 	std::string number;
 	int colno = this->colno_;
-	int value = this->source_.peek();
+	int value = this->source_->peek();
 
 	while (IsHexDigit(value)) {
 		number += value;
 		this->GetCh();
-		value = this->source_.peek();
+		value = this->source_->peek();
 	}
 
 	return Token(TokenType::NUMBER_HEX, colno, this->lineno_, number);
@@ -61,12 +61,12 @@ Token Scanner::ParseDecimal() {
 	std::string number;
 	int colno = this->colno_;
 
-	for (; IsDigit(this->source_.peek()); number += this->GetCh());
+	for (; IsDigit(this->source_->peek()); number += this->GetCh());
 
 	// Look for a fractional part.
-	if (this->source_.peek() == '.') {
+	if (this->source_->peek() == '.') {
 		number += this->GetCh();
-		for (; IsDigit(this->source_.peek()); number += this->GetCh());
+		for (; IsDigit(this->source_->peek()); number += this->GetCh());
 		type = TokenType::DECIMAL;
 	}
 
@@ -78,9 +78,9 @@ Token Scanner::ParseNumber() {
 	unsigned lineno = this->lineno_;
 	Token tk;
 
-	if (this->source_.peek() == '0') {
+	if (this->source_->peek() == '0') {
 		this->GetCh();
-		switch (tolower(this->source_.peek())) {
+		switch (tolower(this->source_->peek())) {
 		case 'b':
 			this->GetCh();
 			tk = this->ParseBinary();
@@ -98,7 +98,7 @@ Token Scanner::ParseNumber() {
 			return tk;
 		}
 
-		if (!IsDigit(this->source_.peek()))
+		if (!IsDigit(this->source_->peek()))
 			return Token(TokenType::NUMBER, colno, lineno, "0");
 	}
 
@@ -107,15 +107,182 @@ Token Scanner::ParseNumber() {
 	return tk;
 }
 
-Token lang::scanner::Scanner::ParseWord() {
+bool Scanner::ParseEscape(int stopChr, std::string& dest, std::string& error) {
+	int op = this->GetCh();
+
+	if (op == stopChr) {
+		dest += stopChr;
+		return true;
+	}
+
+	switch (op) {
+	case '\\':
+		dest += '\\';
+		break;
+	case 'a':
+		dest += (char)0x07;
+		break;
+	case 'b':
+		dest += (char)0x08;
+		break;
+	case 'f':
+		dest += (char)0x0C;
+		break;
+	case 'n':
+		dest += (char)0x0A;
+		break;
+	case 'r':
+		dest += (char)0x0D;
+		break;
+	case 't':
+		dest += (char)0x09;
+		break;
+	case 'v':
+		dest += (char)0x0B;
+		break;
+	case 'u':
+		return this->ParseUnicodeEscape(dest, error, false);
+	case 'U':
+		return this->ParseUnicodeEscape(dest, error, true);
+	case 'x':
+		return this->ParseHexEscape(dest, error);
+	default:
+		if (!this->ParseOctEscape(dest, error, op))
+			dest += "\\\\" + op;
+	}
+	return true;
+}
+
+bool Scanner::ParseUnicodeEscape(std::string& dest, std::string& error, bool extended) {
+	unsigned char sequence[] = { 0,0,0,0 };
+	unsigned int* sq_ptr = (unsigned int*)sequence;
+	unsigned char byte;
+	int width = 2;
+
+	if (extended)
+		width = 4;
+
+	for (int i = 0; i < width; i++) {
+		if (!this->ParseHexToByte(byte)) {
+			if (!extended)
+				error = "can't decode bytes in unicode sequence, escape format must be: \\uhhhh";
+			else
+				error = "can't decode bytes in unicode sequence, escape format must be: \\Uhhhhhhhh";
+			return false;
+		}
+		sequence[(width - 1) - i] = byte;
+	}
+
+	if (*sq_ptr < 0x80)
+		dest += (*sq_ptr) >> 0 & 0x7F;
+	else if (*sq_ptr < 0x0800) {
+		dest += (*sq_ptr) >> 6 & 0x1F | 0xC0;
+		dest += (*sq_ptr) >> 0 & 0xBF;
+	}
+	else if (*sq_ptr < 0x010000) {
+		dest += (*sq_ptr) >> 12 & 0x0F | 0xE0;
+		dest += (*sq_ptr) >> 6 & 0x3F | 0x80;
+		dest += (*sq_ptr) >> 0 & 0x3F | 0x80;
+	}
+	else if (*sq_ptr < 0x110000) {
+		dest += (*sq_ptr) >> 18 & 0x07 | 0xF0;
+		dest += (*sq_ptr) >> 12 & 0x3F | 0x80;
+		dest += (*sq_ptr) >> 6 & 0x3F | 0x80;
+		dest += (*sq_ptr) >> 0 & 0x3F | 0x80;
+	}
+	else {
+		error = "illegal Unicode character";
+		return false;
+	}
+
+	return true;
+}
+
+bool Scanner::ParseOctEscape(std::string& dest, std::string& error, int value) {
+	unsigned char sequence[] = { 0,0,0 };
+	unsigned char byte = 0;
+	unsigned char curr;
+
+	if (!IsOctDigit(value))
+		return false;
+
+	sequence[2] = HexDigitToNumber(value);
+
+	for (int i = 1; i >= 0 && IsOctDigit(this->source_->peek()); i--)
+		sequence[i] = HexDigitToNumber(this->GetCh());
+
+	for (int i = 0, mul = 0; i < 3; i++) {
+		byte |= sequence[i] << (mul * 3);
+		if (sequence[i] != 0)
+			mul++;
+	}
+
+	dest += byte;
+	return true;
+}
+
+bool Scanner::ParseHexEscape(std::string& dest, std::string& error){
+	unsigned char byte;
+
+	if (!this->ParseHexToByte(byte)) {
+		error = "can't decode byte, hex escape must be: \\xhh";
+		return false;
+	}
+
+	dest += byte;
+
+	return true;
+}
+
+bool Scanner::ParseHexToByte(unsigned char& byte) {
+	int curr;
+
+	byte = 0;
+
+	for (int i = 1; i >= 0; i--) {
+		if (!IsHexDigit(curr = this->GetCh()))	
+			return false;
+		byte |= HexDigitToNumber(curr) << (i * 4);
+	}
+	return true;
+}
+
+Token Scanner::ParseString() {
+	std::string string;
+	int start = this->source_->tellg();
+	int colno = this->colno_;
+	int curr = this->GetCh();
+
+	while (curr != '"') {
+		if (!this->source_->good() || curr == '\n')
+			return Token(TokenType::ERROR, colno, this->lineno_, "unterminated string");
+		if (curr == '\\') {
+			if (this->source_->peek() != '\\') {
+				if(!this->ParseEscape('"', string, string))
+					return Token(TokenType::ERROR, colno, this->lineno_, string);
+				curr = this->GetCh();
+				continue;
+			}
+			curr = this->GetCh();
+		}
+		string += curr;
+		curr = this->GetCh();
+	}
+
+	curr = this->GetCh();
+
+	return Token(TokenType::STRING, colno, this->lineno_, string);
+}
+
+Token Scanner::ParseWord() {
 	std::string word;
 	int colno = this->colno_;
-	int value = this->source_.peek();
+	int value = this->source_->peek();
 
 	while (IsAlpha(value)||IsDigit(value)) {
 		word += value;
 		this->GetCh();
-		value = this->source_.peek();
+		value = this->source_->peek();
 	}
 
 	return Token(TokenType::WORD, colno, this->lineno_, word);
@@ -124,7 +291,7 @@ Token lang::scanner::Scanner::ParseWord() {
 int Scanner::Skip(unsigned char byte) {
 	int times = 0;
 
-	while (this->source_.peek() == byte) {
+	while (this->source_->peek() == byte) {
 		this->GetCh();
 		times++;
 	}
@@ -134,7 +301,7 @@ int Scanner::Skip(unsigned char byte) {
 
 int Scanner::GetCh() {
 	this->colno_++;
-	return this->source_.get();
+	return this->source_->get();
 }
 
 Token Scanner::NextToken() {
@@ -142,13 +309,13 @@ Token Scanner::NextToken() {
 	unsigned colno = 0;
 	unsigned lineno = 0;
 
-	while (this->source_.good()) {
-		value= this->source_.peek();
+	while (this->source_->good()) {
+		value= this->source_->peek();
 		colno = this->colno_;
 		lineno = this->lineno_;
 
 		if (IsSpace(value)) {
-			for (; IsSpace(this->source_.peek()); this->GetCh())
+			for (; IsSpace(this->source_->peek()); this->GetCh())
 				continue;
 		} // Skip spaces
 
@@ -165,14 +332,14 @@ Token Scanner::NextToken() {
 			return Token(TokenType::END_OF_LINE, colno, lineno, "");
 		case '!':
 			this->GetCh();
-			if (this->source_.peek() == '=') {
+			if (this->source_->peek() == '=') {
 				this->GetCh();
 				return Token(TokenType::NOT_EQUAL, colno, lineno, "");
 			}
 			return Token(TokenType::EXCLAMATION, colno, lineno, "");
 		case '"':
 			this->GetCh();
-			break;
+			return this->ParseString();
 		case '#':
 			this->GetCh();
 			return Token(TokenType::HASH, colno, lineno, "");
@@ -181,7 +348,7 @@ Token Scanner::NextToken() {
 			return Token(TokenType::PERCENT, colno, lineno, "");
 		case '&':
 			this->GetCh();
-			if (this->source_.peek() == '&') {
+			if (this->source_->peek() == '&') {
 				this->GetCh();
 				return Token(TokenType::AND, colno, lineno, "");
 			}
@@ -209,13 +376,13 @@ Token Scanner::NextToken() {
 			return Token(TokenType::MINUS, colno, lineno, "");
 		case '.':
 			this->GetCh();
-			if (this->source_.peek() == '.') {
+			if (this->source_->peek() == '.') {
 				this->GetCh();
-				if (this->source_.peek() == '.') {
+				if (this->source_->peek() == '.') {
 					this->GetCh();
 					return Token(TokenType::ELLIPSIS, colno, lineno, "");
 				}
-				this->source_.seekg(this->source_.tellg().operator-(1));
+				this->source_->seekg(this->source_->tellg().operator-(1));
 				this->colno_--;
 			}
 			return Token(TokenType::DOT, colno, lineno, "");
@@ -230,7 +397,7 @@ Token Scanner::NextToken() {
 			return Token(TokenType::SEMICOLON, colno, lineno, "");
 		case '<':
 			this->GetCh();
-			if (this->source_.peek() == '=') {
+			if (this->source_->peek() == '=') {
 				this->GetCh();
 				return Token(TokenType::LESS_EQ, colno, lineno, "");
 			}
@@ -240,7 +407,7 @@ Token Scanner::NextToken() {
 			return Token(TokenType::EQUAL, colno, lineno, "");
 		case '>':
 			this->GetCh();
-			if (this->source_.peek() == '=') {
+			if (this->source_->peek() == '=') {
 				this->GetCh();
 				return Token(TokenType::GREATER_EQ, colno, lineno, "");
 			}
@@ -259,7 +426,7 @@ Token Scanner::NextToken() {
 			return Token(TokenType::LEFT_BRACES, colno, lineno, "");
 		case '|':
 			this->GetCh();
-			if (this->source_.peek() == '|') {
+			if (this->source_->peek() == '|') {
 				this->GetCh();
 				return Token(TokenType::OR, colno, lineno, "");
 			}

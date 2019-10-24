@@ -15,7 +15,7 @@ namespace lang::scanner {
 		END_OF_LINE,
 		EXCLAMATION,
 		NOT_EQUAL,
-		// DOBULE QUOTE
+		STRING,
 		HASH,
 		PERCENT,
 		AMPERSAND,
@@ -51,7 +51,8 @@ namespace lang::scanner {
 		PIPE,
 		OR,
 		RIGHT_BRACES,
-		TILDE
+		TILDE,
+		ERROR
 	};
 
 	struct Token {
