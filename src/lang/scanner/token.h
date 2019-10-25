@@ -17,6 +17,7 @@ namespace lang::scanner {
 		NOT_EQUAL,
 		STRING,
 		BYTE_STRING,
+		RAW_STRING,
 		HASH,
 		PERCENT,
 		AMPERSAND,

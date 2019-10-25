@@ -281,6 +281,38 @@ Token Scanner::ParseString(TokenType type, bool ignore_unicode_escape) {
 	return Token(type, colno, this->lineno_, string);
 }
 
+Token Scanner::ParseRawString() {
+	std::string raw;
+	int colno = this->colno_ - 1;
+	int lineno = this->lineno_;
+	int hashes = 0;
+	int count = 0;
+
+	for (; this->source_->peek() == '#'; this->GetCh(), hashes++);
+
+	if(this->GetCh() != '"')
+		return Token(TokenType::ERROR, colno, lineno, "invalid raw string prologue");
+
+	while (this->source_->good()) {
+		if (this->source_->peek() == '"') {
+			this->GetCh();
+			for (; this->source_->peek() == '#' && count != hashes; this->GetCh(), count++);
+			if (count != hashes) {
+				raw += '"';
+				while (count > 0) {
+					raw += '#';
+					count--;
+				}
+				continue;
+			}
+			return Token(TokenType::RAW_STRING, colno, lineno, raw);
+		}
+		raw += this->GetCh();
+	}
+
+	return Token(TokenType::ERROR, colno, lineno, "unterminated raw string");
+}
+
 Token Scanner::ParseWord() {
 	std::string word;
 	int colno = this->colno_;
@@ -291,6 +323,11 @@ Token Scanner::ParseWord() {
 			this->GetCh();
 			return this->ParseString(TokenType::BYTE_STRING, true);
 		}
+	}
+
+	if (value == 'r') {
+		if (this->source_->peek() == '#' || this->source_->peek() == '"')
+			return this->ParseRawString();
 	}
 
 	word += value;
@@ -305,20 +342,14 @@ Token Scanner::ParseWord() {
 	return Token(TokenType::WORD, colno, this->lineno_, word);
 }
 
-int Scanner::Skip(unsigned char byte) {
-	int times = 0;
-
-	while (this->source_->peek() == byte) {
-		this->GetCh();
-		times++;
-	}
-
-	return times;
-}
-
 int Scanner::GetCh() {
+	int value = this->source_->get();
 	this->colno_++;
-	return this->source_->get();
+	if (value == '\n') {
+		this->colno_ = 0;
+		this->lineno_++;
+	}
+	return value;
 }
 
 Token Scanner::NextToken() {
@@ -344,8 +375,7 @@ Token Scanner::NextToken() {
 
 		switch (value) {
 		case 0x0A: // NewLine
-			this->lineno_ += this->Skip(0xA);
-			this->colno_ = 0;
+			for (; this->source_->peek() == '\n'; this->GetCh());
 			return Token(TokenType::END_OF_LINE, colno, lineno, "");
 		case '!':
 			this->GetCh();

@@ -49,9 +49,9 @@ namespace lang::scanner {
 
 		Token ParseString(TokenType type, bool ignore_unicode_escape);
 
-		Token ParseWord();
+		Token ParseRawString();
 
-		int Skip(unsigned char byte);
+		Token ParseWord();
 
 		int GetCh();
 

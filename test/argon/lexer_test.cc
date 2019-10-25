@@ -161,3 +161,33 @@ TEST(Scanner, bString) {
 	ASSERT_EQ(scanner.NextToken(), lang::scanner::Token(lang::scanner::TokenType::BYTE_STRING, 16, 0, "Ignore\\u2342Unico\\U00002312de"));
 	ASSERT_EQ(scanner.NextToken().type, lang::scanner::TokenType::ERROR); // Extended ASCII not allowed here!
 }
+
+TEST(Scanner, rString) {
+	auto source = std::istringstream(R"(r"plain" r#"plain hash"# r###"multiple hash"### r##"internal " h"#sh#"## r####"New "###
+Line!
+
+rString"#### r"")");
+	auto scanner = lang::scanner::Scanner(&source);
+	ASSERT_EQ(scanner.NextToken(), lang::scanner::Token(lang::scanner::TokenType::RAW_STRING, 0, 0, "plain"));
+	ASSERT_EQ(scanner.NextToken(), lang::scanner::Token(lang::scanner::TokenType::RAW_STRING, 9, 0, "plain hash"));
+	ASSERT_EQ(scanner.NextToken(), lang::scanner::Token(lang::scanner::TokenType::RAW_STRING, 25, 0, "multiple hash"));
+	ASSERT_EQ(scanner.NextToken(), lang::scanner::Token(lang::scanner::TokenType::RAW_STRING, 48, 0, "internal \" h\"#sh#"));
+	ASSERT_EQ(scanner.NextToken(), lang::scanner::Token(lang::scanner::TokenType::RAW_STRING, 73, 0, "New \"###\nLine!\n\nrString"));
+	ASSERT_EQ(scanner.NextToken(), lang::scanner::Token(lang::scanner::TokenType::RAW_STRING, 13, 3, ""));
+
+	source = std::istringstream("r\"Error!");
+	scanner = lang::scanner::Scanner(&source);
+	ASSERT_EQ(scanner.NextToken().type, lang::scanner::TokenType::ERROR);
+
+	source = std::istringstream("r#\"Error!\"");
+	scanner = lang::scanner::Scanner(&source);
+	ASSERT_EQ(scanner.NextToken().type, lang::scanner::TokenType::ERROR);
+
+	source = std::istringstream("r##\"Error!##");
+	scanner = lang::scanner::Scanner(&source);
+	ASSERT_EQ(scanner.NextToken().type, lang::scanner::TokenType::ERROR);
+
+	source = std::istringstream("r##Error!\"##");
+	scanner = lang::scanner::Scanner(&source);
+	ASSERT_EQ(scanner.NextToken().type, lang::scanner::TokenType::ERROR);
+}
