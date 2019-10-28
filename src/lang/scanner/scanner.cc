@@ -411,15 +411,35 @@ Token Scanner::NextToken() {
 			return Token(TokenType::RIGHT_ROUND, colno, lineno, "");
 		case '*':
 			this->GetCh();
+			if (this->source_->peek() == '=') {
+				this->GetCh();
+				return Token(TokenType::ASTERISK_EQ, colno, lineno, "");
+			}
 			return Token(TokenType::ASTERISK, colno, lineno, "");
 		case '+':
 			this->GetCh();
+			if (this->source_->peek() == '=') {
+				this->GetCh();
+				return Token(TokenType::PLUS_EQ, colno, lineno, "");
+			}
+			if (this->source_->peek() == '+') {
+				this->GetCh();
+				return Token(TokenType::PLUS_PLUS, colno, lineno, "");
+			}
 			return Token(TokenType::PLUS, colno, lineno, "");
 		case ',':
 			this->GetCh();
 			return Token(TokenType::COMMA, colno, lineno, "");
 		case '-':
 			this->GetCh();
+			if (this->source_->peek() == '=') {
+				this->GetCh();
+				return Token(TokenType::MINUS_EQ, colno, lineno, "");
+			}
+			if (this->source_->peek() == '-') {
+				this->GetCh();
+				return Token(TokenType::MINUS_MINUS, colno, lineno, "");
+			}
 			return Token(TokenType::MINUS, colno, lineno, "");
 		case '.':
 			this->GetCh();
@@ -435,6 +455,10 @@ Token Scanner::NextToken() {
 			return Token(TokenType::DOT, colno, lineno, "");
 		case '/':
 			this->GetCh();
+			if (this->source_->peek() == '=') {
+				this->GetCh();
+				return Token(TokenType::SLASH_EQ, colno, lineno, "");
+			}
 			return Token(TokenType::FRACTION_SLASH, colno, lineno, "");
 		case ':':
 			this->GetCh();
@@ -448,15 +472,27 @@ Token Scanner::NextToken() {
 				this->GetCh();
 				return Token(TokenType::LESS_EQ, colno, lineno, "");
 			}
+			if (this->source_->peek() == '<') {
+				this->GetCh();
+				return Token(TokenType::SHL, colno, lineno, "");
+			}
 			return Token(TokenType::LESS, colno, lineno, "");
 		case '=':
 			this->GetCh();
+			if (this->source_->peek() == '=') {
+				this->GetCh();
+				return Token(TokenType::EQUAL_EQUAL, colno, lineno, "");
+			}
 			return Token(TokenType::EQUAL, colno, lineno, "");
 		case '>':
 			this->GetCh();
 			if (this->source_->peek() == '=') {
 				this->GetCh();
 				return Token(TokenType::GREATER_EQ, colno, lineno, "");
+			}
+			if (this->source_->peek() == '>') {
+				this->GetCh();
+				return Token(TokenType::SHR, colno, lineno, "");
 			}
 			return Token(TokenType::GREATER, colno, lineno, "");
 		case '[':
