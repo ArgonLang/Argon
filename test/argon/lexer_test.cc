@@ -85,7 +85,7 @@ TEST(Scanner, Delimiters) {
 }
 
 TEST(Scanner, Punctuation) {
-	auto source = std::istringstream("+ -% &  *./:;< =>  #^| ~,");
+	auto source = std::istringstream("+ -% &  *./:;< =>  ^| ~,");
 	lang::scanner::Scanner scanner(&source);
 	ASSERT_EQ(scanner.NextToken(), lang::scanner::Token(lang::scanner::TokenType::PLUS, 0, 0, ""));
 	ASSERT_EQ(scanner.NextToken(), lang::scanner::Token(lang::scanner::TokenType::MINUS, 2, 0, ""));
@@ -99,11 +99,11 @@ TEST(Scanner, Punctuation) {
 	ASSERT_EQ(scanner.NextToken(), lang::scanner::Token(lang::scanner::TokenType::LESS, 13, 0, ""));
 	ASSERT_EQ(scanner.NextToken(), lang::scanner::Token(lang::scanner::TokenType::EQUAL, 15, 0, ""));
 	ASSERT_EQ(scanner.NextToken(), lang::scanner::Token(lang::scanner::TokenType::GREATER, 16, 0, ""));
-	ASSERT_EQ(scanner.NextToken(), lang::scanner::Token(lang::scanner::TokenType::HASH, 19, 0, ""));
-	ASSERT_EQ(scanner.NextToken(), lang::scanner::Token(lang::scanner::TokenType::CARET, 20, 0, ""));
-	ASSERT_EQ(scanner.NextToken(), lang::scanner::Token(lang::scanner::TokenType::PIPE, 21, 0, ""));
-	ASSERT_EQ(scanner.NextToken(), lang::scanner::Token(lang::scanner::TokenType::TILDE, 23, 0, ""));
-	ASSERT_EQ(scanner.NextToken(), lang::scanner::Token(lang::scanner::TokenType::COMMA, 24, 0, ""));
+	//ASSERT_EQ(scanner.NextToken(), lang::scanner::Token(lang::scanner::TokenType::HASH, 19, 0, ""));
+	ASSERT_EQ(scanner.NextToken(), lang::scanner::Token(lang::scanner::TokenType::CARET, 19, 0, ""));
+	ASSERT_EQ(scanner.NextToken(), lang::scanner::Token(lang::scanner::TokenType::PIPE, 20, 0, ""));
+	ASSERT_EQ(scanner.NextToken(), lang::scanner::Token(lang::scanner::TokenType::TILDE, 22, 0, ""));
+	ASSERT_EQ(scanner.NextToken(), lang::scanner::Token(lang::scanner::TokenType::COMMA, 23, 0, ""));
 }
 
 TEST(Scanner, CompoundPunctuation) {
@@ -206,4 +206,18 @@ rString"#### r"")");
 	source = std::istringstream("r##Error!\"##");
 	scanner = lang::scanner::Scanner(&source);
 	ASSERT_EQ(scanner.NextToken().type, lang::scanner::TokenType::ERROR);
+}
+
+TEST(Scanner, Comments) {
+	auto source = std::istringstream(R"(var_name # inline comment
+/*
+Multi
+* /* *\/
+line comment
+291019G.<3
+*/)");
+	auto scanner = lang::scanner::Scanner(&source);
+	ASSERT_EQ(scanner.NextToken(), lang::scanner::Token(lang::scanner::TokenType::WORD, 0, 0, "var_name"));
+	ASSERT_EQ(scanner.NextToken(), lang::scanner::Token(lang::scanner::TokenType::INLINE_COMMENT, 9, 0, "inline comment"));
+	ASSERT_EQ(scanner.NextToken(), lang::scanner::Token(lang::scanner::TokenType::COMMENT, 0, 1, "Multi\n* /* *\\/\nline comment\n291019G.<3\n"));
 }

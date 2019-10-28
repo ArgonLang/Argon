@@ -33,6 +33,8 @@ namespace lang::scanner {
 
 		bool ParseHexToByte(unsigned char& byte);
 
+		std::string ParseComment(bool inline_comment);
+
 		Token Emit(TokenType type, const std::string& value);
 
 		Token Emit(TokenType type, unsigned lineno, const std::string& value);

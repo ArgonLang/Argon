@@ -342,6 +342,31 @@ Token Scanner::ParseWord() {
 	return Token(TokenType::WORD, colno, this->lineno_, word);
 }
 
+std::string Scanner::ParseComment(bool inline_coment) {
+	std::string comment;
+
+	// Skip newline/whitespace at comment start
+	for (int skip = this->source_->peek(); 
+		IsSpace(skip) || (!inline_coment && skip == '\n'); 
+		this->GetCh(), skip = this->source_->peek());
+
+	while (this->source_->good()) {
+		if (this->source_->peek() == '\n' && inline_coment)
+			break;
+
+		if (this->source_->peek() == '*') {
+			this->GetCh();
+			if (this->source_->peek() == '/')
+				break;
+			comment += '*';
+			continue;
+		}
+		comment += this->GetCh();
+	}
+	this->GetCh();
+	return comment;
+}
+
 int Scanner::GetCh() {
 	int value = this->source_->get();
 	this->colno_++;
@@ -389,7 +414,7 @@ Token Scanner::NextToken() {
 			return this->ParseString(TokenType::STRING, false);
 		case '#':
 			this->GetCh();
-			return Token(TokenType::HASH, colno, lineno, "");
+			return Token(TokenType::INLINE_COMMENT, colno, lineno, this->ParseComment(true));
 		case '%':
 			this->GetCh();
 			return Token(TokenType::PERCENT, colno, lineno, "");
@@ -458,6 +483,10 @@ Token Scanner::NextToken() {
 			if (this->source_->peek() == '=') {
 				this->GetCh();
 				return Token(TokenType::SLASH_EQ, colno, lineno, "");
+			}
+			if (this->source_->peek() == '*') {
+				this->GetCh();
+				return Token(TokenType::COMMENT, colno, lineno, this->ParseComment(false));
 			}
 			return Token(TokenType::FRACTION_SLASH, colno, lineno, "");
 		case ':':
