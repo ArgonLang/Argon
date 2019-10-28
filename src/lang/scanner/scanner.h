@@ -35,10 +35,6 @@ namespace lang::scanner {
 
 		std::string ParseComment(bool inline_comment);
 
-		Token Emit(TokenType type, const std::string& value);
-
-		Token Emit(TokenType type, unsigned lineno, const std::string& value);
-
 		Token ParseBinary();
 
 		Token ParseOctal();
@@ -49,9 +45,9 @@ namespace lang::scanner {
 
 		Token ParseNumber();
 
-		Token ParseString(TokenType type, bool ignore_unicode_escape);
+		Token ParseString(int colno, bool byte_string);
 
-		Token ParseRawString();
+		Token ParseRawString(int colno,int lineno);
 
 		Token ParseWord();
 

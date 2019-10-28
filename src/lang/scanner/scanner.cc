@@ -6,14 +6,6 @@
 
 using namespace lang::scanner;
 
-inline Token Scanner::Emit(TokenType type, const std::string& value){
-	return this->Emit(type, this->lineno_, value);
-}
-
-inline Token Scanner::Emit(TokenType type, unsigned lineno, const std::string& value) {
-	return Token(type, this->colno_, lineno, value);
-}
-
 Token Scanner::ParseBinary() {
 	std::string number;
 	int colno = this->colno_;
@@ -249,10 +241,8 @@ bool Scanner::ParseHexToByte(unsigned char& byte) {
 	return true;
 }
 
-Token Scanner::ParseString(TokenType type, bool ignore_unicode_escape) {
+Token Scanner::ParseString(int colno, bool byte_string) {
 	std::string string;
-	int start = this->source_->tellg();
-	int colno = this->colno_;
 	int curr = this->GetCh();
 
 	while (curr != '"') {
@@ -260,12 +250,12 @@ Token Scanner::ParseString(TokenType type, bool ignore_unicode_escape) {
 			return Token(TokenType::ERROR, colno, this->lineno_, "unterminated string");
 
 		// Byte string accept byte in range (0x00 - 0x7F)
-		if(ignore_unicode_escape && curr > 0x7F)
+		if(byte_string && curr > 0x7F)
 			return Token(TokenType::ERROR, colno, this->lineno_, "byte string can only contain ASCII literal characters");
 
 		if (curr == '\\') {
 			if (this->source_->peek() != '\\') {
-				if (!this->ParseEscape('"', ignore_unicode_escape, string, string))
+				if (!this->ParseEscape('"', byte_string, string, string))
 					return Token(TokenType::ERROR, colno, this->lineno_, string);
 				curr = this->GetCh();
 				continue;
@@ -278,13 +268,13 @@ Token Scanner::ParseString(TokenType type, bool ignore_unicode_escape) {
 
 	curr = this->GetCh();
 
-	return Token(type, colno, this->lineno_, string);
+	if(byte_string)
+		return Token(TokenType::BYTE_STRING, colno, this->lineno_, string);
+	return Token(TokenType::STRING, colno, this->lineno_, string);
 }
 
-Token Scanner::ParseRawString() {
+Token Scanner::ParseRawString(int colno, int lineno) {
 	std::string raw;
-	int colno = this->colno_ - 1;
-	int lineno = this->lineno_;
 	int hashes = 0;
 	int count = 0;
 
@@ -321,13 +311,13 @@ Token Scanner::ParseWord() {
 	if (value == 'b') {
 		if (this->source_->peek() == '"') {
 			this->GetCh();
-			return this->ParseString(TokenType::BYTE_STRING, true);
+			return this->ParseString(colno, true);
 		}
 	}
 
 	if (value == 'r') {
 		if (this->source_->peek() == '#' || this->source_->peek() == '"')
-			return this->ParseRawString();
+			return this->ParseRawString(colno, this->lineno_);
 	}
 
 	word += value;
@@ -411,7 +401,7 @@ Token Scanner::NextToken() {
 			return Token(TokenType::EXCLAMATION, colno, lineno, "");
 		case '"':
 			this->GetCh();
-			return this->ParseString(TokenType::STRING, false);
+			return this->ParseString(colno,false);
 		case '#':
 			this->GetCh();
 			return Token(TokenType::INLINE_COMMENT, colno, lineno, this->ParseComment(true));
@@ -552,5 +542,5 @@ Token Scanner::NextToken() {
 		}
 	}
 
-	return this->Emit(TokenType::END_OF_FILE, "");
+	return Token(TokenType::END_OF_FILE, this->colno_, this->lineno_, "");
 }
