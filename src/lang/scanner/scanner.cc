@@ -266,8 +266,6 @@ Token Scanner::ParseString(int colno, bool byte_string) {
 		curr = this->GetCh();
 	}
 
-	curr = this->GetCh();
-
 	if(byte_string)
 		return Token(TokenType::BYTE_STRING, colno, this->lineno_, string);
 	return Token(TokenType::STRING, colno, this->lineno_, string);
@@ -368,7 +366,7 @@ int Scanner::GetCh() {
 }
 
 Token Scanner::NextToken() {
-	int value;
+	int value = this->source_->peek();
 	unsigned colno = 0;
 	unsigned lineno = 0;
 
@@ -378,8 +376,8 @@ Token Scanner::NextToken() {
 		lineno = this->lineno_;
 
 		if (IsSpace(value)) {
-			for (; IsSpace(this->source_->peek()); this->GetCh())
-				continue;
+			for (; IsSpace(this->source_->peek()); this->GetCh());
+			continue;
 		} // Skip spaces
 
 		if (IsAlpha(value))
@@ -539,6 +537,8 @@ Token Scanner::NextToken() {
 		case '~':
 			this->GetCh();
 			return Token(TokenType::TILDE, colno, lineno, "");
+		default:
+			return Token(TokenType::ERROR, colno, lineno, "invalid token");
 		}
 	}
 
