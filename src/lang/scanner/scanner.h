@@ -19,9 +19,12 @@ namespace lang::scanner {
 
 	class Scanner {
 	private:
+		Token peeked_token_;
 		std::istream* source_;
+		bool peeked_ = false;
 		unsigned colno_ = 0;
 		unsigned lineno_ = 0;
+
 
 		bool ParseEscape(int stopChr, bool ignore_unicode_escape, std::string& dest, std::string& error);
 
@@ -51,12 +54,16 @@ namespace lang::scanner {
 
 		Token ParseWord();
 
+		Token NextToken();
+
 		int GetCh();
 
 	public:
 		explicit Scanner(std::istream* source) : source_(source) {};
 
-		lang::scanner::Token NextToken();
+		Token Peek();
+
+		Token Next();
 	};
 }  // namespace lang::scanner
 

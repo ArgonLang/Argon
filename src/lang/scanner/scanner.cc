@@ -355,23 +355,13 @@ std::string Scanner::ParseComment(bool inline_coment) {
 	return comment;
 }
 
-int Scanner::GetCh() {
-	int value = this->source_->get();
-	this->colno_++;
-	if (value == '\n') {
-		this->colno_ = 0;
-		this->lineno_++;
-	}
-	return value;
-}
-
 Token Scanner::NextToken() {
 	int value = this->source_->peek();
 	unsigned colno = 0;
 	unsigned lineno = 0;
 
 	while (this->source_->good()) {
-		value= this->source_->peek();
+		value = this->source_->peek();
 		colno = this->colno_;
 		lineno = this->lineno_;
 
@@ -399,7 +389,7 @@ Token Scanner::NextToken() {
 			return Token(TokenType::EXCLAMATION, colno, lineno, "");
 		case '"':
 			this->GetCh();
-			return this->ParseString(colno,false);
+			return this->ParseString(colno, false);
 		case '#':
 			this->GetCh();
 			return Token(TokenType::INLINE_COMMENT, colno, lineno, this->ParseComment(true));
@@ -543,4 +533,33 @@ Token Scanner::NextToken() {
 	}
 
 	return Token(TokenType::END_OF_FILE, this->colno_, this->lineno_, "");
+}
+
+int Scanner::GetCh() {
+	int value = this->source_->get();
+	this->colno_++;
+	if (value == '\n') {
+		this->colno_ = 0;
+		this->lineno_++;
+	}
+	return value;
+}
+
+Token Scanner::Peek() {
+	if (!this->peeked_) {
+		this->peeked_token_ = this->NextToken();
+		this->peeked_ = true;
+		return this->peeked_token_;
+	}
+
+	return this->peeked_token_;
+}
+
+Token Scanner::Next() {
+	if (this->peeked_) {
+		this->peeked_ = false;
+		return this->peeked_token_;
+	}
+
+	return this->NextToken();
 }

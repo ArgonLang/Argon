@@ -133,6 +133,8 @@ namespace lang::scanner {
 
 		Token(Token&&) = default;
 
+		Token(Token&) = default;
+
 		Token() = default;
 
 		Token(TokenType type, unsigned colno, unsigned lineno, const std::string& value) {
