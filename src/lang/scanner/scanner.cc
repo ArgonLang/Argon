@@ -324,7 +324,13 @@ Token Scanner::ParseWord() {
         value = this->source_->peek();
     }
 
-    return Token(TokenType::WORD, colno, this->lineno_, word);
+    // keywords are longer than one letter
+    if (word.size() > 1) {
+        if (Keywords.find(word) != Keywords.end())
+            return Token(Keywords.at(word), colno, this->lineno_, "");
+    }
+
+    return Token(TokenType::IDENTIFIER, colno, this->lineno_, word);
 }
 
 std::string Scanner::ParseComment(bool inline_coment) {
@@ -466,6 +472,10 @@ Token Scanner::NextToken() {
                 return Token(TokenType::FRACTION_SLASH, colno, lineno, "");
             case ':':
                 this->GetCh();
+                if (this->source_->peek() == ':') {
+                    this->GetCh();
+                    return Token(TokenType::SCOPE, colno, lineno, "");
+                }
                 return Token(TokenType::COLON, colno, lineno, "");
             case ';':
                 this->GetCh();

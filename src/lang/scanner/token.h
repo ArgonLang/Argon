@@ -16,16 +16,20 @@ namespace lang::scanner {
         END_OF_LINE,
         EXCLAMATION,
         NOT_EQUAL,
+
+        STRING_BEGIN,
         STRING,
         BYTE_STRING,
         RAW_STRING,
+        STRING_END,
+
         INLINE_COMMENT,
         COMMENT,
         PERCENT,
         AMPERSAND,
         AND,
         // SINGLE QUOTE
-        LEFT_ROUND,
+                LEFT_ROUND,
         RIGHT_ROUND,
         ASTERISK,
         ASTERISK_EQ,
@@ -40,12 +44,17 @@ namespace lang::scanner {
         ELLIPSIS,
         FRACTION_SLASH,
         SLASH_EQ,
+
+        NUMBER_BEGIN,
+        NUMBER,
         NUMBER_BIN,
         NUMBER_OCT,
         NUMBER_HEX,
-        NUMBER,
         DECIMAL,
+        NUMBER_END,
+
         COLON,
+        SCOPE,
         SEMICOLON,
         LESS,
         SHL,
@@ -55,7 +64,7 @@ namespace lang::scanner {
         GREATER,
         SHR,
         GREATER_EQ,
-        WORD,
+        IDENTIFIER,
         LEFT_SQUARE,
         RIGHT_SQUARE,
         CARET,
@@ -65,6 +74,25 @@ namespace lang::scanner {
         OR,
         RIGHT_BRACES,
         TILDE,
+
+        KEYWORD_BEGIN,
+        BREAK,
+        CONTINUE,
+        GOTO,
+        FALLTHROUGH,
+        FOR,
+        LOOP,
+        IF,
+        ELIF,
+        ELSE,
+        SWITCH,
+        CASE,
+        DEFAULT,
+        FALSE,
+        TRUE,
+        NIL,
+        KEYWORD_END,
+
         ERROR
     };
 
@@ -112,7 +140,7 @@ namespace lang::scanner {
             {TokenType::GREATER,        "GREATER"},
             {TokenType::SHR,            "SHR"},
             {TokenType::GREATER_EQ,     "GREATER_EQ"},
-            {TokenType::WORD,           "WORD"},
+            {TokenType::IDENTIFIER,     "WORD"},
             {TokenType::LEFT_SQUARE,    "LEFT_SQUARE"},
             {TokenType::RIGHT_SQUARE,   "RIGHT_SQUARE"},
             {TokenType::CARET,          "CARET"},
@@ -122,7 +150,15 @@ namespace lang::scanner {
             {TokenType::OR,             "OR"},
             {TokenType::RIGHT_BRACES,   "RIGHT_BRACES"},
             {TokenType::TILDE,          "TILDE"},
+            {TokenType::FALSE,          "FALSE"},
+            {TokenType::TRUE,           "TRUE"},
             {TokenType::ERROR,          "ERROR"}
+    };
+
+    static const std::map<std::string, TokenType> Keywords = {
+            {"false", TokenType::FALSE},
+            {"true",  TokenType::TRUE},
+            {"nil",   TokenType::NIL}
     };
 
     struct Token {
@@ -159,7 +195,7 @@ namespace lang::scanner {
                    && this->value == token.value;
         }
 
-        std::string String() const {
+        [[nodiscard]] std::string String() const {
             char tmp[100];
             sprintf(tmp, "<L:%d, C:%d, %s>\t\t%s", this->lineno, this->colno, TokenStringValue.at(this->type),
                     this->value.substr(0, 62).c_str());

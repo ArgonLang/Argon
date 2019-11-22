@@ -64,12 +64,12 @@ TEST(Scanner, Number) {
 TEST(Scanner, Word) {
 	auto source = std::istringstream("var v4r v_48_ __private_var__ byte b");
 	lang::scanner::Scanner scanner(&source);
-	ASSERT_EQ(scanner.Next(), lang::scanner::Token(lang::scanner::TokenType::WORD, 0, 0, "var"));
-	ASSERT_EQ(scanner.Next(), lang::scanner::Token(lang::scanner::TokenType::WORD, 4, 0, "v4r"));
-	ASSERT_EQ(scanner.Next(), lang::scanner::Token(lang::scanner::TokenType::WORD, 8, 0, "v_48_"));
-	ASSERT_EQ(scanner.Next(), lang::scanner::Token(lang::scanner::TokenType::WORD, 14, 0, "__private_var__"));
-	ASSERT_EQ(scanner.Next(), lang::scanner::Token(lang::scanner::TokenType::WORD, 30, 0, "byte"));
-	ASSERT_EQ(scanner.Next(), lang::scanner::Token(lang::scanner::TokenType::WORD, 35, 0, "b"));
+    ASSERT_EQ(scanner.Next(), lang::scanner::Token(lang::scanner::TokenType::IDENTIFIER, 0, 0, "var"));
+    ASSERT_EQ(scanner.Next(), lang::scanner::Token(lang::scanner::TokenType::IDENTIFIER, 4, 0, "v4r"));
+    ASSERT_EQ(scanner.Next(), lang::scanner::Token(lang::scanner::TokenType::IDENTIFIER, 8, 0, "v_48_"));
+    ASSERT_EQ(scanner.Next(), lang::scanner::Token(lang::scanner::TokenType::IDENTIFIER, 14, 0, "__private_var__"));
+    ASSERT_EQ(scanner.Next(), lang::scanner::Token(lang::scanner::TokenType::IDENTIFIER, 30, 0, "byte"));
+    ASSERT_EQ(scanner.Next(), lang::scanner::Token(lang::scanner::TokenType::IDENTIFIER, 35, 0, "b"));
 }
 
 TEST(Scanner, Delimiters) {
@@ -171,7 +171,7 @@ TEST(Scanner, UnterminatedString) {
 }
 
 TEST(Scanner, bString) {
-	auto source = std::istringstream(R"(b"ByteString" b"Ignore\u2342Unico\U00002312de" b"é")");
+	auto source = std::istringstream(R"(b"ByteString" b"Ignore\u2342Unico\U00002312de" b"ï¿½")");
 	auto scanner = lang::scanner::Scanner(&source);
 	ASSERT_EQ(scanner.Next(), lang::scanner::Token(lang::scanner::TokenType::BYTE_STRING, 0, 0, "ByteString"));
 	ASSERT_EQ(scanner.Next(), lang::scanner::Token(lang::scanner::TokenType::BYTE_STRING, 14, 0, "Ignore\\u2342Unico\\U00002312de"));
@@ -217,7 +217,7 @@ line comment
 291019G.<3
 */)");
 	auto scanner = lang::scanner::Scanner(&source);
-	ASSERT_EQ(scanner.Next(), lang::scanner::Token(lang::scanner::TokenType::WORD, 0, 0, "var_name"));
+    ASSERT_EQ(scanner.Next(), lang::scanner::Token(lang::scanner::TokenType::IDENTIFIER, 0, 0, "var_name"));
 	ASSERT_EQ(scanner.Next(), lang::scanner::Token(lang::scanner::TokenType::INLINE_COMMENT, 9, 0, "inline comment"));
 	ASSERT_EQ(scanner.Next(), lang::scanner::Token(lang::scanner::TokenType::COMMENT, 0, 1, "Multi\n* /* *\\/\nline comment\n291019G.<3\n"));
 }

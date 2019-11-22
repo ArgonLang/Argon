@@ -5,9 +5,43 @@
 #ifndef ARGON_LANG_PARSER_H_
 #define ARGON_LANG_PARSER_H_
 
-namespace lang {
-    class parser {
+#include <lang/scanner/scanner.h>
+#include <lang/ast/ast.h>
 
+namespace lang {
+    class Parser {
+        std::unique_ptr<scanner::Scanner> scanner_;
+        scanner::Token currTk_;
+
+        void Eat();
+
+        ast::NodeUptr ParseAtom();
+
+        ast::NodeUptr ParseNumber();
+
+        ast::NodeUptr ParseString();
+
+        ast::NodeUptr ParseScope();
+
+        bool TokenInRange(scanner::TokenType begin, scanner::TokenType end) {
+            return this->currTk_.type > begin && this->currTk_.type < end;
+        }
+
+        bool Match(scanner::TokenType type) {
+            return this->currTk_.type == type;
+        }
+
+        template<typename ...TokenTypes>
+        bool Match(scanner::TokenType type, TokenTypes... types) {
+            if (!this->Match(type))
+                return this->Match(types...);
+            return true;
+        }
+
+    public:
+        Parser(std::istream *src) : Parser("", src) {}
+
+        Parser(std::string filename, std::istream *source);
     };
 }  // namespace lang
 
