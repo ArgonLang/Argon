@@ -15,6 +15,12 @@ namespace lang {
 
         void Eat();
 
+        ast::NodeUptr AtomExpr();
+
+        bool Trailer(ast::NodeUptr &left);
+
+        ast::NodeUptr MemberAccess(ast::NodeUptr left);
+
         ast::NodeUptr ParseAtom();
 
         ast::NodeUptr ParseNumber();

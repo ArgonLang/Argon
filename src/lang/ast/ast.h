@@ -11,6 +11,11 @@
 
 namespace lang::ast {
     enum class NodeType {
+        MEMBER,
+        MEMBER_SAFE,
+        MEMBER_ASSERT,
+        POSTFIX_INC,
+        POSTFIX_DEC,
         SCOPE,
         LITERAL,
         SYNTAX_ERROR
@@ -38,6 +43,25 @@ namespace lang::ast {
     // **********************************************
     // NODES
     // **********************************************
+
+    struct Binary : Node {
+        NodeUptr left;
+        NodeUptr right;
+
+        explicit Binary(NodeType type, NodeUptr left, NodeUptr right, unsigned colno, unsigned lineno)
+                : Node(type, colno, lineno) {
+            this->left = std::move(left);
+            this->right = std::move(right);
+        }
+    };
+
+    struct Unary : Node {
+        NodeUptr expr;
+
+        explicit Unary(NodeType type, NodeUptr expr, unsigned colno, unsigned lineno) : Node(type, colno, lineno) {
+            this->expr = std::move(expr);
+        }
+    };
 
     struct Scope : Node {
         std::list<const std::string> segments;

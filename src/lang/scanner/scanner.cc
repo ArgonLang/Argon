@@ -389,6 +389,10 @@ Token Scanner::NextToken() {
                     this->GetCh();
                     return Token(TokenType::NOT_EQUAL, colno, lineno, "");
                 }
+                if (this->source_->peek() == '.') {
+                    this->GetCh();
+                    return Token(TokenType::EXCLAMATION_DOT, colno, lineno, "");
+                }
                 return Token(TokenType::EXCLAMATION, colno, lineno, "");
             case '"':
                 this->GetCh();
@@ -509,6 +513,13 @@ Token Scanner::NextToken() {
                     return Token(TokenType::SHR, colno, lineno, "");
                 }
                 return Token(TokenType::GREATER, colno, lineno, "");
+            case '?':
+                this->GetCh();
+                if (this->source_->peek() == '.') {
+                    this->GetCh();
+                    return Token(TokenType::QUESTION_DOT, colno, lineno, "");
+                }
+                return Token(TokenType::QUESTION, colno, lineno, "");
             case '[':
                 this->GetCh();
                 return Token(TokenType::LEFT_SQUARE, colno, lineno, "");

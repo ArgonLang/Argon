@@ -11,10 +11,72 @@ using namespace lang::scanner;
 Parser::Parser(std::string filename, std::istream *source) {
     this->scanner_ = std::make_unique<Scanner>(source);
     this->currTk_ = this->scanner_->Next();
+
+    auto a = this->AtomExpr();
 }
 
 void Parser::Eat() {
     this->currTk_ = this->scanner_->Next();
+}
+
+ast::NodeUptr Parser::AtomExpr() {
+    auto left = this->ParseAtom();
+
+    if (left->type == NodeType::SYNTAX_ERROR)
+        return left;
+
+    while (this->Trailer(left));
+
+    return left;
+}
+
+bool Parser::Trailer(NodeUptr &left) {
+    switch (this->currTk_.type) {
+        case TokenType::LEFT_ROUND:
+            // TODO: arguments
+        case TokenType::LEFT_SQUARE:
+            // TODO: slice
+        case TokenType::DOT:
+        case TokenType::QUESTION_DOT:
+        case TokenType::EXCLAMATION_DOT:
+            left = this->MemberAccess(std::move(left));
+            return true;
+        case TokenType::PLUS_PLUS:
+            this->Eat();
+            left = std::make_unique<Unary>(NodeType::POSTFIX_INC, std::move(left), this->currTk_.colno,
+                                           this->currTk_.lineno);
+            return true;
+        case TokenType::MINUS_MINUS:
+            this->Eat();
+            left = std::make_unique<Unary>(NodeType::POSTFIX_DEC, std::move(left), this->currTk_.colno,
+                                           this->currTk_.lineno);
+            return true;
+        default:
+            return false;
+    }
+}
+
+ast::NodeUptr Parser::MemberAccess(ast::NodeUptr left) {
+    switch (this->currTk_.type) {
+        case TokenType::DOT:
+            this->Eat();
+            return std::make_unique<Binary>(NodeType::MEMBER,
+                                            std::move(left),
+                                            this->ParseScope(),
+                                            this->currTk_.colno, this->currTk_.lineno);
+        case TokenType::QUESTION_DOT:
+            this->Eat();
+            return std::make_unique<Binary>(NodeType::MEMBER_SAFE,
+                                            std::move(left),
+                                            this->ParseScope(),
+                                            this->currTk_.colno, this->currTk_.lineno);
+        default:
+            this->Eat();
+            return std::make_unique<Binary>(NodeType::MEMBER_ASSERT,
+                                            std::move(left),
+                                            this->ParseScope(),
+                                            this->currTk_.colno, this->currTk_.lineno);
+    }
 }
 
 ast::NodeUptr Parser::ParseAtom() {
@@ -78,3 +140,5 @@ ast::NodeUptr Parser::ParseScope() {
 
     return tmp;
 }
+
+
