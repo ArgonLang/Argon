@@ -15,6 +15,12 @@ namespace lang {
 
         void Eat();
 
+        ast::NodeUptr ArithExpr();
+
+        ast::NodeUptr MulExpr();
+
+        ast::NodeUptr UnaryExpr();
+
         ast::NodeUptr AtomExpr();
 
         bool Trailer(ast::NodeUptr &left);

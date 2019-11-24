@@ -11,12 +11,79 @@ using namespace lang::scanner;
 Parser::Parser(std::string filename, std::istream *source) {
     this->scanner_ = std::make_unique<Scanner>(source);
     this->currTk_ = this->scanner_->Next();
-
-    auto a = this->AtomExpr();
 }
 
 void Parser::Eat() {
     this->currTk_ = this->scanner_->Next();
+}
+
+ast::NodeUptr Parser::ArithExpr() {
+    NodeUptr left = this->MulExpr();
+    unsigned colno = this->currTk_.colno;
+    unsigned lineno = this->currTk_.lineno;
+
+    if (this->currTk_.type == TokenType::PLUS) {
+        this->Eat();
+        return std::make_unique<Binary>(NodeType::SUM, std::move(left), this->ArithExpr(), colno, lineno);
+    }
+
+    if (this->currTk_.type == TokenType::MINUS) {
+        this->Eat();
+        return std::make_unique<Binary>(NodeType::SUB, std::move(left), this->ArithExpr(), colno, lineno);
+    }
+
+    return left;
+}
+
+ast::NodeUptr Parser::MulExpr() {
+    NodeUptr left = this->UnaryExpr();
+    unsigned colno = this->currTk_.colno;
+    unsigned lineno = this->currTk_.lineno;
+
+    switch (this->currTk_.type) {
+        case TokenType::ASTERISK:
+            this->Eat();
+            return std::make_unique<Binary>(NodeType::MUL, std::move(left), this->MulExpr(), colno, lineno);
+        case TokenType::SLASH:
+            this->Eat();
+            return std::make_unique<Binary>(NodeType::DIV, std::move(left), this->MulExpr(), colno, lineno);
+        case TokenType::SLASH_SLASH:
+            this->Eat();
+            return std::make_unique<Binary>(NodeType::INTEGER_DIV, std::move(left), this->MulExpr(), colno, lineno);
+        case TokenType::PERCENT:
+            this->Eat();
+            return std::make_unique<Binary>(NodeType::REMINDER, std::move(left), this->MulExpr(), colno, lineno);
+        default:
+            return left;
+    }
+}
+
+ast::NodeUptr Parser::UnaryExpr() {
+    unsigned colno = this->currTk_.colno;
+    unsigned lineno = this->currTk_.lineno;
+
+    switch (this->currTk_.type) {
+        case TokenType::EXCLAMATION:
+            this->Eat();
+            return std::make_unique<Unary>(NodeType::NOT, this->UnaryExpr(), colno, lineno);
+        case TokenType::TILDE:
+            this->Eat();
+            return std::make_unique<Unary>(NodeType::BITWISE_NOT, this->UnaryExpr(), colno, lineno);
+        case TokenType::PLUS:
+            this->Eat();
+            return std::make_unique<Unary>(NodeType::PLUS, this->UnaryExpr(), colno, lineno);
+        case TokenType::MINUS:
+            this->Eat();
+            return std::make_unique<Unary>(NodeType::MINUS, this->UnaryExpr(), colno, lineno);
+        case TokenType::PLUS_PLUS:
+            this->Eat();
+            return std::make_unique<Unary>(NodeType::PREFIX_INC, this->UnaryExpr(), colno, lineno);
+        case TokenType::MINUS_MINUS:
+            this->Eat();
+            return std::make_unique<Unary>(NodeType::PREFIX_DEC, this->UnaryExpr(), colno, lineno);
+        default:
+            return this->AtomExpr();
+    }
 }
 
 ast::NodeUptr Parser::AtomExpr() {
@@ -140,5 +207,3 @@ ast::NodeUptr Parser::ParseScope() {
 
     return tmp;
 }
-
-

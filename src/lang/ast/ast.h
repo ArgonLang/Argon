@@ -11,6 +11,18 @@
 
 namespace lang::ast {
     enum class NodeType {
+        SUM,
+        SUB,
+        MUL,
+        DIV,
+        INTEGER_DIV,
+        REMINDER,
+        NOT,
+        BITWISE_NOT,
+        PLUS,
+        MINUS,
+        PREFIX_INC,
+        PREFIX_DEC,
         MEMBER,
         MEMBER_SAFE,
         MEMBER_ASSERT,

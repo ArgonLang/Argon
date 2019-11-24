@@ -465,6 +465,10 @@ Token Scanner::NextToken() {
                 return Token(TokenType::DOT, colno, lineno, "");
             case '/':
                 this->GetCh();
+                if (this->source_->peek() == '/') {
+                    this->GetCh();
+                    return Token(TokenType::SLASH_SLASH, colno, lineno, "");
+                }
                 if (this->source_->peek() == '=') {
                     this->GetCh();
                     return Token(TokenType::SLASH_EQ, colno, lineno, "");
@@ -473,7 +477,7 @@ Token Scanner::NextToken() {
                     this->GetCh();
                     return Token(TokenType::COMMENT, colno, lineno, this->ParseComment(false));
                 }
-                return Token(TokenType::FRACTION_SLASH, colno, lineno, "");
+                return Token(TokenType::SLASH, colno, lineno, "");
             case ':':
                 this->GetCh();
                 if (this->source_->peek() == ':') {

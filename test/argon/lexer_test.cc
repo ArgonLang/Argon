@@ -93,7 +93,7 @@ TEST(Scanner, Punctuation) {
 	ASSERT_EQ(scanner.Next(), lang::scanner::Token(lang::scanner::TokenType::AMPERSAND, 5, 0, ""));
 	ASSERT_EQ(scanner.Next(), lang::scanner::Token(lang::scanner::TokenType::ASTERISK, 8, 0, ""));
 	ASSERT_EQ(scanner.Next(), lang::scanner::Token(lang::scanner::TokenType::DOT, 9, 0, ""));
-	ASSERT_EQ(scanner.Next(), lang::scanner::Token(lang::scanner::TokenType::FRACTION_SLASH, 10, 0, ""));
+    ASSERT_EQ(scanner.Next(), lang::scanner::Token(lang::scanner::TokenType::SLASH, 10, 0, ""));
 	ASSERT_EQ(scanner.Next(), lang::scanner::Token(lang::scanner::TokenType::COLON, 11, 0, ""));
 	ASSERT_EQ(scanner.Next(), lang::scanner::Token(lang::scanner::TokenType::SEMICOLON, 12, 0, ""));
 	ASSERT_EQ(scanner.Next(), lang::scanner::Token(lang::scanner::TokenType::LESS, 13, 0, ""));
