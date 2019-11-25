@@ -76,7 +76,7 @@ namespace lang::ast {
     };
 
     struct Scope : Node {
-        std::list<const std::string> segments;
+        std::list<std::string> segments;
 
         explicit Scope(const lang::scanner::Token &token) : Node(NodeType::SCOPE, token.colno, token.lineno) {}
 
