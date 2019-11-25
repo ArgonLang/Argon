@@ -15,6 +15,18 @@ namespace lang {
 
         void Eat();
 
+        ast::NodeUptr OrExpr();
+
+        ast::NodeUptr XorExpr();
+
+        ast::NodeUptr AndExpr();
+
+        ast::NodeUptr EqualityExpr();
+
+        ast::NodeUptr RelationalExpr();
+
+        ast::NodeUptr ShiftExpr();
+
         ast::NodeUptr ArithExpr();
 
         ast::NodeUptr MulExpr();

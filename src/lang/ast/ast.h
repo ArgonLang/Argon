@@ -11,6 +11,13 @@
 
 namespace lang::ast {
     enum class NodeType {
+        LOGICAL_OR,
+        LOGICAL_XOR,
+        LOGICAL_AND,
+        EQUALITY,
+        RELATIONAL,
+        SHL,
+        SHR,
         SUM,
         SUB,
         MUL,
@@ -59,11 +66,13 @@ namespace lang::ast {
     struct Binary : Node {
         NodeUptr left;
         NodeUptr right;
+        lang::scanner::TokenType kind;
 
-        explicit Binary(NodeType type, NodeUptr left, NodeUptr right, unsigned colno, unsigned lineno)
-                : Node(type, colno, lineno) {
+        explicit Binary(NodeType type, lang::scanner::TokenType kind, NodeUptr left, NodeUptr right, unsigned colno,
+                        unsigned lineno) : Node(type, colno, lineno) {
             this->left = std::move(left);
             this->right = std::move(right);
+            this->kind = kind;
         }
     };
 

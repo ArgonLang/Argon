@@ -17,6 +17,113 @@ void Parser::Eat() {
     this->currTk_ = this->scanner_->Next();
 }
 
+ast::NodeUptr Parser::OrExpr() {
+    NodeUptr left = this->XorExpr();
+    unsigned colno = this->currTk_.colno;
+    unsigned lineno = this->currTk_.lineno;
+
+    if (this->Match(TokenType::PIPE)) {
+        this->Eat();
+        return std::make_unique<Binary>(NodeType::LOGICAL_OR,
+                                        TokenType::TK_NULL,
+                                        std::move(left),
+                                        this->OrExpr(),
+                                        colno, lineno);
+    }
+
+    return left;
+}
+
+ast::NodeUptr Parser::XorExpr() {
+    NodeUptr left = this->AndExpr();
+    unsigned colno = this->currTk_.colno;
+    unsigned lineno = this->currTk_.lineno;
+
+    if (this->Match(TokenType::CARET)) {
+        this->Eat();
+        return std::make_unique<Binary>(NodeType::LOGICAL_XOR,
+                                        TokenType::TK_NULL,
+                                        std::move(left),
+                                        this->XorExpr(),
+                                        colno, lineno);
+    }
+
+    return left;
+}
+
+ast::NodeUptr Parser::AndExpr() {
+    NodeUptr left = this->EqualityExpr();
+    unsigned colno = this->currTk_.colno;
+    unsigned lineno = this->currTk_.lineno;
+
+    if (this->Match(TokenType::AMPERSAND)) {
+        this->Eat();
+        return std::make_unique<Binary>(NodeType::LOGICAL_AND,
+                                        TokenType::TK_NULL,
+                                        std::move(left),
+                                        this->AndExpr(),
+                                        colno, lineno);
+    }
+
+    return left;
+}
+
+ast::NodeUptr Parser::EqualityExpr() {
+    NodeUptr left = this->RelationalExpr();
+    TokenType kind = this->currTk_.type;
+    unsigned colno = this->currTk_.colno;
+    unsigned lineno = this->currTk_.lineno;
+
+    if (this->Match(TokenType::EQUAL, TokenType::NOT_EQUAL)) {
+        this->Eat();
+        return std::make_unique<Binary>(NodeType::EQUALITY,
+                                        kind,
+                                        std::move(left),
+                                        this->RelationalExpr(),
+                                        colno, lineno);
+    }
+
+    return left;
+}
+
+ast::NodeUptr Parser::RelationalExpr() {
+    NodeUptr left = this->ShiftExpr();
+    TokenType kind = this->currTk_.type;
+    unsigned colno = this->currTk_.colno;
+    unsigned lineno = this->currTk_.lineno;
+
+    if (this->TokenInRange(TokenType::RELATIONAL_BEGIN, TokenType::RELATIONAL_END)) {
+        this->Eat();
+        return std::make_unique<Binary>(NodeType::RELATIONAL,
+                                        kind,
+                                        std::move(left),
+                                        this->ShiftExpr(),
+                                        colno, lineno);
+    }
+
+    return left;
+}
+
+ast::NodeUptr Parser::ShiftExpr() {
+    NodeUptr left = this->ArithExpr();
+    unsigned colno = this->currTk_.colno;
+    unsigned lineno = this->currTk_.lineno;
+
+    if (this->currTk_.type == TokenType::SHL) {
+        this->Eat();
+        return std::make_unique<Binary>(NodeType::SUM, TokenType::TK_NULL, std::move(left), this->ShiftExpr(), colno,
+                                        lineno);
+    }
+
+    if (this->currTk_.type == TokenType::SHR) {
+        this->Eat();
+        return std::make_unique<Binary>(NodeType::SUB, TokenType::TK_NULL, std::move(left), this->ShiftExpr(), colno,
+                                        lineno);
+    }
+
+    return left;
+}
+
 ast::NodeUptr Parser::ArithExpr() {
     NodeUptr left = this->MulExpr();
     unsigned colno = this->currTk_.colno;
@@ -24,12 +131,14 @@ ast::NodeUptr Parser::ArithExpr() {
 
     if (this->currTk_.type == TokenType::PLUS) {
         this->Eat();
-        return std::make_unique<Binary>(NodeType::SUM, std::move(left), this->ArithExpr(), colno, lineno);
+        return std::make_unique<Binary>(NodeType::SUM, TokenType::TK_NULL, std::move(left), this->ArithExpr(), colno,
+                                        lineno);
     }
 
     if (this->currTk_.type == TokenType::MINUS) {
         this->Eat();
-        return std::make_unique<Binary>(NodeType::SUB, std::move(left), this->ArithExpr(), colno, lineno);
+        return std::make_unique<Binary>(NodeType::SUB, TokenType::TK_NULL, std::move(left), this->ArithExpr(), colno,
+                                        lineno);
     }
 
     return left;
@@ -43,16 +152,20 @@ ast::NodeUptr Parser::MulExpr() {
     switch (this->currTk_.type) {
         case TokenType::ASTERISK:
             this->Eat();
-            return std::make_unique<Binary>(NodeType::MUL, std::move(left), this->MulExpr(), colno, lineno);
+            return std::make_unique<Binary>(NodeType::MUL, TokenType::TK_NULL, std::move(left), this->MulExpr(), colno,
+                                            lineno);
         case TokenType::SLASH:
             this->Eat();
-            return std::make_unique<Binary>(NodeType::DIV, std::move(left), this->MulExpr(), colno, lineno);
+            return std::make_unique<Binary>(NodeType::DIV, TokenType::TK_NULL, std::move(left), this->MulExpr(), colno,
+                                            lineno);
         case TokenType::SLASH_SLASH:
             this->Eat();
-            return std::make_unique<Binary>(NodeType::INTEGER_DIV, std::move(left), this->MulExpr(), colno, lineno);
+            return std::make_unique<Binary>(NodeType::INTEGER_DIV, TokenType::TK_NULL, std::move(left), this->MulExpr(),
+                                            colno, lineno);
         case TokenType::PERCENT:
             this->Eat();
-            return std::make_unique<Binary>(NodeType::REMINDER, std::move(left), this->MulExpr(), colno, lineno);
+            return std::make_unique<Binary>(NodeType::REMINDER, TokenType::TK_NULL, std::move(left), this->MulExpr(),
+                                            colno, lineno);
         default:
             return left;
     }
@@ -128,18 +241,21 @@ ast::NodeUptr Parser::MemberAccess(ast::NodeUptr left) {
         case TokenType::DOT:
             this->Eat();
             return std::make_unique<Binary>(NodeType::MEMBER,
+                                            TokenType::TK_NULL,
                                             std::move(left),
                                             this->ParseScope(),
                                             this->currTk_.colno, this->currTk_.lineno);
         case TokenType::QUESTION_DOT:
             this->Eat();
             return std::make_unique<Binary>(NodeType::MEMBER_SAFE,
+                                            TokenType::TK_NULL,
                                             std::move(left),
                                             this->ParseScope(),
                                             this->currTk_.colno, this->currTk_.lineno);
         default:
             this->Eat();
             return std::make_unique<Binary>(NodeType::MEMBER_ASSERT,
+                                            TokenType::TK_NULL,
                                             std::move(left),
                                             this->ParseScope(),
                                             this->currTk_.colno, this->currTk_.lineno);
