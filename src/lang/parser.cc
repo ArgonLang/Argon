@@ -111,13 +111,13 @@ ast::NodeUptr Parser::ShiftExpr() {
 
     if (this->currTk_.type == TokenType::SHL) {
         this->Eat();
-        return std::make_unique<Binary>(NodeType::SUM, TokenType::TK_NULL, std::move(left), this->ShiftExpr(), colno,
+        return std::make_unique<Binary>(NodeType::SHL, TokenType::TK_NULL, std::move(left), this->ShiftExpr(), colno,
                                         lineno);
     }
 
     if (this->currTk_.type == TokenType::SHR) {
         this->Eat();
-        return std::make_unique<Binary>(NodeType::SUB, TokenType::TK_NULL, std::move(left), this->ShiftExpr(), colno,
+        return std::make_unique<Binary>(NodeType::SHR, TokenType::TK_NULL, std::move(left), this->ShiftExpr(), colno,
                                         lineno);
     }
 
