@@ -11,6 +11,7 @@
 
 namespace lang::ast {
     enum class NodeType {
+        ASSIGN,
         TUPLE,
         ELVIS,
         OR_TEST,

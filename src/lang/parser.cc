@@ -17,6 +17,23 @@ void Parser::Eat() {
     this->currTk_ = this->scanner_->Next();
 }
 
+ast::NodeUptr Parser::Expression() {
+    unsigned colno = this->currTk_.colno;
+    unsigned lineno = this->currTk_.lineno;
+    NodeUptr left = this->TestList();
+
+    if (this->Match(TokenType::EQUAL)) {
+        this->Eat();
+        return std::make_unique<Binary>(NodeType::ASSIGN,
+                                        TokenType::TK_NULL,
+                                        std::move(left),
+                                        this->TestList(),
+                                        colno, lineno);
+    }
+
+    return left;
+}
+
 ast::NodeUptr Parser::TestList() {
     unsigned colno = this->currTk_.colno;
     unsigned lineno = this->currTk_.lineno;
@@ -146,7 +163,7 @@ ast::NodeUptr Parser::EqualityExpr() {
     unsigned colno = this->currTk_.colno;
     unsigned lineno = this->currTk_.lineno;
 
-    if (this->Match(TokenType::EQUAL, TokenType::NOT_EQUAL)) {
+    if (this->Match(TokenType::EQUAL_EQUAL, TokenType::NOT_EQUAL)) {
         this->Eat();
         return std::make_unique<Binary>(NodeType::EQUALITY,
                                         kind,

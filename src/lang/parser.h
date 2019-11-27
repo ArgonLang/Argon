@@ -15,6 +15,8 @@ namespace lang {
 
         void Eat();
 
+        ast::NodeUptr Expression();
+
         ast::NodeUptr TestList();
 
         ast::NodeUptr Test();
