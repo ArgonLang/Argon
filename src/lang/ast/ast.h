@@ -11,6 +11,10 @@
 
 namespace lang::ast {
     enum class NodeType {
+        TUPLE,
+        ELVIS,
+        OR_TEST,
+        AND_TEST,
         LOGICAL_OR,
         LOGICAL_XOR,
         LOGICAL_AND,
@@ -62,6 +66,16 @@ namespace lang::ast {
     // **********************************************
     // NODES
     // **********************************************
+
+    struct List : Node {
+        std::list<NodeUptr> expressions;
+
+        explicit List(NodeType type, unsigned colno, unsigned lineno) : Node(type, colno, lineno) {}
+
+        void AddExpression(NodeUptr expr) {
+            this->expressions.push_front(std::move(expr));
+        }
+    };
 
     struct Binary : Node {
         NodeUptr left;

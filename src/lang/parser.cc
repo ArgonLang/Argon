@@ -17,6 +17,78 @@ void Parser::Eat() {
     this->currTk_ = this->scanner_->Next();
 }
 
+ast::NodeUptr Parser::TestList() {
+    unsigned colno = this->currTk_.colno;
+    unsigned lineno = this->currTk_.lineno;
+    NodeUptr left = this->Test();
+
+    while (this->Match(TokenType::COMMA)) {
+        this->Eat();
+        if (left->type != NodeType::TUPLE) {
+            auto tuple = std::make_unique<List>(NodeType::TUPLE, colno, lineno);
+            tuple->AddExpression(std::move(left));
+            left = std::move(tuple);
+        }
+        CastNode<List>(left)->AddExpression(this->Test());
+    }
+
+    return left;
+}
+
+ast::NodeUptr Parser::Test() {
+    NodeUptr left = this->OrTest();
+    unsigned colno = this->currTk_.colno;
+    unsigned lineno = this->currTk_.lineno;
+
+    if (this->Match(TokenType::ELVIS)) {
+        this->Eat();
+        return std::make_unique<Binary>(NodeType::ELVIS,
+                                        TokenType::TK_NULL,
+                                        std::move(left),
+                                        this->TestList(),
+                                        colno, lineno);
+    } else if (this->Match(TokenType::QUESTION)) {
+        this->Eat();
+        // TODO after IF Node
+    }
+
+    return left;
+}
+
+ast::NodeUptr Parser::OrTest() {
+    NodeUptr left = this->AndTest();
+    unsigned colno = this->currTk_.colno;
+    unsigned lineno = this->currTk_.lineno;
+
+    if (this->Match(TokenType::OR)) {
+        this->Eat();
+        return std::make_unique<Binary>(NodeType::OR_TEST,
+                                        TokenType::TK_NULL,
+                                        std::move(left),
+                                        this->OrTest(),
+                                        colno, lineno);
+    }
+
+    return left;
+}
+
+ast::NodeUptr Parser::AndTest() {
+    NodeUptr left = this->OrExpr();
+    unsigned colno = this->currTk_.colno;
+    unsigned lineno = this->currTk_.lineno;
+
+    if (this->Match(TokenType::AND)) {
+        this->Eat();
+        return std::make_unique<Binary>(NodeType::AND_TEST,
+                                        TokenType::TK_NULL,
+                                        std::move(left),
+                                        this->AndExpr(),
+                                        colno, lineno);
+    }
+
+    return left;
+}
+
 ast::NodeUptr Parser::OrExpr() {
     NodeUptr left = this->XorExpr();
     unsigned colno = this->currTk_.colno;

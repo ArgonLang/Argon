@@ -519,6 +519,10 @@ Token Scanner::NextToken() {
                 return Token(TokenType::GREATER, colno, lineno, "");
             case '?':
                 this->GetCh();
+                if (this->source_->peek() == ':') {
+                    this->GetCh();
+                    return Token(TokenType::ELVIS, colno, lineno, "");
+                }
                 if (this->source_->peek() == '.') {
                     this->GetCh();
                     return Token(TokenType::QUESTION_DOT, colno, lineno, "");

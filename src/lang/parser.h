@@ -15,6 +15,14 @@ namespace lang {
 
         void Eat();
 
+        ast::NodeUptr TestList();
+
+        ast::NodeUptr Test();
+
+        ast::NodeUptr OrTest();
+
+        ast::NodeUptr AndTest();
+
         ast::NodeUptr OrExpr();
 
         ast::NodeUptr XorExpr();
