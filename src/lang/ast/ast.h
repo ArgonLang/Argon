@@ -89,6 +89,10 @@ namespace lang::ast {
             this->right = std::move(right);
             this->kind = kind;
         }
+
+        explicit Binary(NodeType type, NodeUptr left, NodeUptr right, unsigned colno,
+                        unsigned lineno) : Binary(type, scanner::TokenType::TK_NULL, std::move(left), std::move(right),
+                                                  colno, lineno) {}
     };
 
     struct Unary : Node {
