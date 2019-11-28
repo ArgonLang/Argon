@@ -2,7 +2,9 @@
 //
 // Licensed under the Apache License v2.0
 
+#include <lang/ast/ast.h>
 #include "parser.h"
+#include "syntax_exception.h"
 
 using namespace lang;
 using namespace lang::ast;
@@ -11,13 +13,15 @@ using namespace lang::scanner;
 Parser::Parser(std::string filename, std::istream *source) {
     this->scanner_ = std::make_unique<Scanner>(source);
     this->currTk_ = this->scanner_->Next();
-
-    auto a = this->Expression();
-
-    a.reset();
 }
 
 void Parser::Eat() {
+    this->currTk_ = this->scanner_->Next();
+}
+
+void Parser::Eat(TokenType type, std::string errmsg) {
+    if (!this->Match(type))
+        throw SyntaxException(std::move(errmsg), this->currTk_);
     this->currTk_ = this->scanner_->Next();
 }
 
@@ -92,7 +96,7 @@ ast::NodeUptr Parser::AndTest() {
 
     if (this->Match(TokenType::AND)) {
         this->Eat();
-        return std::make_unique<Binary>(NodeType::AND_TEST, std::move(left), this->AndExpr(), colno, lineno);
+        return std::make_unique<Binary>(NodeType::AND_TEST, std::move(left), this->AndTest(), colno, lineno);
     }
 
     return left;
@@ -145,11 +149,8 @@ ast::NodeUptr Parser::EqualityExpr() {
 
     if (this->Match(TokenType::EQUAL_EQUAL, TokenType::NOT_EQUAL)) {
         this->Eat();
-        return std::make_unique<Binary>(NodeType::EQUALITY,
-                                        kind,
-                                        std::move(left),
-                                        this->RelationalExpr(),
-                                        colno, lineno);
+        return std::make_unique<Binary>(NodeType::EQUALITY, kind, std::move(left), this->RelationalExpr(), colno,
+                                        lineno);
     }
 
     return left;
@@ -163,11 +164,7 @@ ast::NodeUptr Parser::RelationalExpr() {
 
     if (this->TokenInRange(TokenType::RELATIONAL_BEGIN, TokenType::RELATIONAL_END)) {
         this->Eat();
-        return std::make_unique<Binary>(NodeType::RELATIONAL,
-                                        kind,
-                                        std::move(left),
-                                        this->ShiftExpr(),
-                                        colno, lineno);
+        return std::make_unique<Binary>(NodeType::RELATIONAL, kind, std::move(left), this->ShiftExpr(), colno, lineno);
     }
 
     return left;
@@ -263,9 +260,6 @@ ast::NodeUptr Parser::UnaryExpr() {
 ast::NodeUptr Parser::AtomExpr() {
     auto left = this->ParseAtom();
 
-    if (left->type == NodeType::SYNTAX_ERROR)
-        return left;
-
     while (this->Trailer(left));
 
     return left;
@@ -315,26 +309,94 @@ ast::NodeUptr Parser::MemberAccess(ast::NodeUptr left) {
 }
 
 ast::NodeUptr Parser::ParseAtom() {
-    // TODO: <list> | <maporset> | <arrow>
+    // TODO: <arrow>
     NodeUptr tmp;
 
-    if (this->Match(TokenType::FALSE, TokenType::TRUE))
-        return std::make_unique<ast::Literal>(this->currTk_);
+    switch (this->currTk_.type) {
+        case TokenType::FALSE:
+        case TokenType::TRUE:
+        case TokenType::NIL:
+            return std::make_unique<ast::Literal>(this->currTk_);
+        case TokenType::LEFT_ROUND:
+            this->Eat();
+            tmp = this->TestList();
+            this->Eat(TokenType::RIGHT_ROUND, "expected ) after parenthesized expression");
+            return tmp;
+        case TokenType::LEFT_SQUARE:
+            return this->ParseList();
+        case TokenType::LEFT_BRACES:
+            return this->ParseMapOrSet();
+        default:
+            if ((tmp = this->ParseNumber()))
+                return tmp;
 
-    if (this->currTk_.type == TokenType::NIL)
-        return std::make_unique<ast::Literal>(this->currTk_);
+            if ((tmp = this->ParseString()))
+                return tmp;
+    }
 
-    if ((tmp = this->ParseNumber()))
-        return tmp;
+    return this->ParseScope();
+    //throw SyntaxException("invalid syntax", this->currTk_);
+}
 
-    if ((tmp = this->ParseString()))
-        return tmp;
+ast::NodeUptr Parser::ParseList() {
+    NodeUptr list = std::make_unique<List>(NodeType::LIST, this->currTk_.colno, this->currTk_.lineno);
 
-    if ((tmp = this->ParseScope()))
-        return tmp;
+    this->Eat();
 
-    return std::make_unique<SyntaxError>("unexpected: " + this->currTk_.value, this->currTk_.colno,
-                                         this->currTk_.lineno);
+    if (!this->Match(TokenType::RIGHT_SQUARE))
+        CastNode<List>(list)->AddExpression(this->Test());
+
+    while (this->Match(TokenType::COMMA)) {
+        this->Eat();
+        CastNode<List>(list)->AddExpression(this->Test());
+    }
+
+    this->Eat(TokenType::RIGHT_SQUARE, "expected ] after list definition");
+
+    return list;
+}
+
+ast::NodeUptr Parser::ParseMapOrSet() {
+    NodeUptr ms = std::make_unique<List>(NodeType::MAP, this->currTk_.colno, this->currTk_.lineno);
+
+    this->Eat();
+
+    if (this->Match(TokenType::RIGHT_BRACES)) {
+        this->Eat();
+        return ms;
+    }
+
+    CastNode<List>(ms)->AddExpression(this->Test());
+
+    if (this->Match(TokenType::COLON))
+        this->ParseMap(ms);
+    else if (this->Match(TokenType::COMMA)) {
+        ((Node *) ms.get())->type = NodeType::SET;
+        do {
+            this->Eat();
+            CastNode<List>(ms)->AddExpression(this->Test());
+        } while (this->Match(TokenType::COMMA));
+    }
+
+    if (CastNode<List>(ms)->expressions.size() == 1)
+        ((Node *) ms.get())->type = NodeType::SET;
+
+    this->Eat(TokenType::RIGHT_BRACES, "expected } after map/set definition");
+    return ms;
+}
+
+void Parser::ParseMap(ast::NodeUptr &node) {
+    bool mustContinue;
+    do {
+        mustContinue = false;
+        this->Eat(TokenType::COLON, "missing :value after key in the map definition");
+        CastNode<List>(node)->AddExpression(this->Test());
+        if (!this->Match(TokenType::COMMA))
+            break;
+        this->Eat();
+        CastNode<List>(node)->AddExpression(this->Test());
+        mustContinue = true;
+    } while (mustContinue);
 }
 
 ast::NodeUptr Parser::ParseNumber() {
@@ -356,22 +418,32 @@ ast::NodeUptr Parser::ParseString() {
 }
 
 ast::NodeUptr Parser::ParseScope() {
-    NodeUptr tmp;
+    NodeUptr scope;
+    unsigned colno = this->currTk_.colno;
+    unsigned lineno = this->currTk_.lineno;
 
     if (this->Match(TokenType::IDENTIFIER)) {
-        tmp = std::make_unique<Scope>(this->currTk_);
+        scope = std::make_unique<Literal>(this->currTk_);
         this->Eat();
+
+        if (this->Match(TokenType::SCOPE)) {
+            auto tmp = std::make_unique<Scope>(colno, lineno);
+            tmp->AddSegment(CastNode<Literal>(scope)->value);
+            do {
+                this->Eat();
+                if (!this->Match(TokenType::IDENTIFIER))
+                    throw SyntaxException("expected identifier after ::(scope resolution)", this->currTk_);
+                tmp->AddSegment(this->currTk_.value);
+                this->Eat();
+            } while (this->Match(TokenType::SCOPE));
+            scope = std::move(tmp);
+        }
+        return scope;
     }
 
-    while (this->Match(TokenType::SCOPE)) {
-        this->Eat();
-        if (!this->Match(TokenType::IDENTIFIER))
-            return std::make_unique<SyntaxError>("expected identifier after ::",
-                                                 this->currTk_.colno,
-                                                 this->currTk_.lineno);
-        CastNode<Scope>(tmp)->AddSegment(this->currTk_.value);
-        this->Eat();
-    }
+    throw SyntaxException("expected identifier or expression", this->currTk_);
+}
 
-    return tmp;
+ast::NodeUptr Parser::Parse() {
+    return this->Expression();
 }

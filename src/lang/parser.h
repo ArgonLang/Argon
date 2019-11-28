@@ -15,6 +15,8 @@ namespace lang {
 
         void Eat();
 
+        void Eat(scanner::TokenType type, std::string errmsg);
+
         ast::NodeUptr Expression();
 
         ast::NodeUptr TestList();
@@ -51,6 +53,12 @@ namespace lang {
 
         ast::NodeUptr ParseAtom();
 
+        ast::NodeUptr ParseList();
+
+        ast::NodeUptr ParseMapOrSet();
+
+        void ParseMap(ast::NodeUptr &node);
+
         ast::NodeUptr ParseNumber();
 
         ast::NodeUptr ParseString();
@@ -76,6 +84,8 @@ namespace lang {
         Parser(std::istream *src) : Parser("", src) {}
 
         Parser(std::string filename, std::istream *source);
+
+        ast::NodeUptr Parse();
     };
 }  // namespace lang
 

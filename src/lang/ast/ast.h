@@ -40,9 +40,11 @@ namespace lang::ast {
         MEMBER_ASSERT,
         POSTFIX_INC,
         POSTFIX_DEC,
+        LIST,
+        SET,
+        MAP,
         SCOPE,
-        LITERAL,
-        SYNTAX_ERROR
+        LITERAL
     };
 
     struct Node {
@@ -106,7 +108,7 @@ namespace lang::ast {
     struct Scope : Node {
         std::list<std::string> segments;
 
-        explicit Scope(const lang::scanner::Token &token) : Node(NodeType::SCOPE, token.colno, token.lineno) {}
+        explicit Scope(unsigned colno, unsigned lineno) : Node(NodeType::SCOPE, colno, lineno) {}
 
         void AddSegment(const std::string &segment) {
             this->segments.push_front(segment);
@@ -122,16 +124,6 @@ namespace lang::ast {
             this->value = token.value;
         }
     };
-
-    struct SyntaxError : Node {
-        std::string what;
-
-        explicit SyntaxError(const std::string &what, unsigned colno, unsigned lineno) : Node(NodeType::SYNTAX_ERROR,
-                                                                                              colno, lineno) {
-            this->what = what;
-        }
-    };
-
 } // namespace lang::ast
 
 #endif // !ARGON_LANG_AST_AST_H_
