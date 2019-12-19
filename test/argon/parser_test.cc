@@ -14,34 +14,34 @@ TEST(Parser, Relational) {
     auto source = std::istringstream("struct.item * 0 >= 0");
     Parser parser(&source);
     auto ast = parser.Parse();
-    ASSERT_EQ(ast->type, NodeType::RELATIONAL);
-    ASSERT_EQ(CastNode<Binary>(ast)->kind, lang::scanner::TokenType::GREATER_EQ);
+    ASSERT_EQ(ast->stmts.front()->type, NodeType::RELATIONAL);
+    ASSERT_EQ(CastNode<Binary>(ast->stmts.front())->kind, lang::scanner::TokenType::GREATER_EQ);
 }
 
 TEST(Parser, MulExpr) {
     auto source = std::istringstream("struct.item * 24");
     Parser parser(&source);
-    ASSERT_EQ(parser.Parse()->type, NodeType::MUL);
+    ASSERT_EQ(parser.Parse()->stmts.front()->type, NodeType::MUL);
 }
 
 TEST(Parser, Unary) {
     auto source = std::istringstream("-struct.item");
     Parser parser(&source);
-    ASSERT_EQ(parser.Parse()->type, NodeType::MINUS);
+    ASSERT_EQ(parser.Parse()->stmts.front()->type, NodeType::MINUS);
 }
 
 TEST(Parser, MemberAccess) {
     auto source = std::istringstream("struct.item");
     Parser parser(&source);
-    ASSERT_EQ(parser.Parse()->type, NodeType::MEMBER);
+    ASSERT_EQ(parser.Parse()->stmts.front()->type, NodeType::MEMBER);
 
     source = std::istringstream("struct?.item");
     parser = Parser(&source);
-    ASSERT_EQ(parser.Parse()->type, NodeType::MEMBER_SAFE);
+    ASSERT_EQ(parser.Parse()->stmts.front()->type, NodeType::MEMBER_SAFE);
 
     source = std::istringstream("struct!.item");
     parser = Parser(&source);
-    ASSERT_EQ(parser.Parse()->type, NodeType::MEMBER_ASSERT);
+    ASSERT_EQ(parser.Parse()->stmts.front()->type, NodeType::MEMBER_ASSERT);
 
     source = std::istringstream("struct?.");
     parser = Parser(&source);
@@ -51,17 +51,17 @@ TEST(Parser, MemberAccess) {
 TEST(Parser, List) {
     auto source = std::istringstream("[1,2]");
     Parser parser(&source);
-    ASSERT_EQ(parser.Parse()->type, NodeType::LIST);
+    ASSERT_EQ(parser.Parse()->stmts.front()->type, NodeType::LIST);
 }
 
 TEST(Parser, Map) {
     auto source = std::istringstream("{}");
     Parser parser(&source);
-    ASSERT_EQ(parser.Parse()->type, NodeType::MAP);
+    ASSERT_EQ(parser.Parse()->stmts.front()->type, NodeType::MAP);
 
     source = std::istringstream(R"({"key":"value"})");
     parser = Parser(&source);
-    ASSERT_EQ(parser.Parse()->type, NodeType::MAP);
+    ASSERT_EQ(parser.Parse()->stmts.front()->type, NodeType::MAP);
 
     source = std::istringstream(R"({"key":})");
     parser = Parser(&source);
@@ -71,11 +71,11 @@ TEST(Parser, Map) {
 TEST(Parser, Set) {
     auto source = std::istringstream(R"({"value"})");
     Parser parser(&source);
-    ASSERT_EQ(parser.Parse()->type, NodeType::SET);
+    ASSERT_EQ(parser.Parse()->stmts.front()->type, NodeType::SET);
 
     source = std::istringstream(R"({"value", "value1", 23, []})");
     parser = Parser(&source);
-    ASSERT_EQ(parser.Parse()->type, NodeType::SET);
+    ASSERT_EQ(parser.Parse()->stmts.front()->type, NodeType::SET);
 
     source = std::istringstream(R"({"key",})");
     parser = Parser(&source);
@@ -85,11 +85,11 @@ TEST(Parser, Set) {
 TEST(Parser, IdentifierAndScope) {
     auto source = std::istringstream("identifier");
     Parser parser(&source);
-    ASSERT_EQ(parser.Parse()->type, NodeType::LITERAL);
+    ASSERT_EQ(parser.Parse()->stmts.front()->type, NodeType::LITERAL);
 
     source = std::istringstream("identifier::identifier1::id2");
     parser = Parser(&source);
-    ASSERT_EQ(parser.Parse()->type, NodeType::SCOPE);
+    ASSERT_EQ(parser.Parse()->stmts.front()->type, NodeType::SCOPE);
 
     source = std::istringstream("identifier::");
     parser = Parser(&source);

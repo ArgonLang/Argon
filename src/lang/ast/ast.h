@@ -11,6 +11,7 @@
 
 namespace lang::ast {
     enum class NodeType {
+        BLOCK,
         ASSIGN,
         TUPLE,
         ELVIS,
@@ -69,6 +70,16 @@ namespace lang::ast {
     // **********************************************
     // NODES
     // **********************************************
+
+    struct Block : Node {
+        std::list<NodeUptr> stmts;
+
+        Block(unsigned colno, unsigned lineno) : Node(NodeType::BLOCK, colno, lineno) {}
+
+        void AddStmtOrExpr(NodeUptr stmt) {
+            this->stmts.push_front(std::move(stmt));
+        }
+    };
 
     struct List : Node {
         std::list<NodeUptr> expressions;

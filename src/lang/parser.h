@@ -17,6 +17,16 @@ namespace lang {
 
         void Eat(scanner::TokenType type, std::string errmsg);
 
+        // *** DECLARATIONS ***
+
+        ast::NodeUptr Declaration();
+
+        // *** STATEMENTS ***
+
+        ast::NodeUptr Statement();
+
+        // *** EXPRESSIONS ***
+
         ast::NodeUptr Expression();
 
         ast::NodeUptr TestList();
@@ -85,7 +95,7 @@ namespace lang {
 
         Parser(std::string filename, std::istream *source);
 
-        ast::NodeUptr Parse();
+        std::unique_ptr<ast::Block> Parse();
     };
 }  // namespace lang
 

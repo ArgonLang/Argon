@@ -89,19 +89,23 @@ namespace lang::scanner {
         KEYWORD_BEGIN,
         BREAK,
         CONTINUE,
+        DEFER,
         GOTO,
         FALLTHROUGH,
+        IMPORT,
         FOR,
         LOOP,
         IF,
         ELIF,
         ELSE,
+        SPAWN,
         SWITCH,
         CASE,
         DEFAULT,
         FALSE,
         TRUE,
         NIL,
+        RETURN,
         KEYWORD_END,
 
         ERROR
@@ -172,9 +176,13 @@ namespace lang::scanner {
     };
 
     static const std::map<std::string, TokenType> Keywords = {
+            {"defer", TokenType::DEFER},
             {"false", TokenType::FALSE},
-            {"true",  TokenType::TRUE},
-            {"nil",   TokenType::NIL}
+            {"import", TokenType::IMPORT},
+            {"true", TokenType::TRUE},
+            {"nil", TokenType::NIL},
+            {"return", TokenType::RETURN},
+            {"spawn", TokenType::SPAWN}
     };
 
     struct Token {

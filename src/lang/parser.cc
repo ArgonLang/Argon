@@ -26,6 +26,41 @@ void Parser::Eat(TokenType type, std::string errmsg) {
     this->currTk_ = this->scanner_->Next();
 }
 
+std::unique_ptr<ast::Block> Parser::Parse() {
+    auto program = std::make_unique<ast::Block>(this->currTk_.colno, this->currTk_.colno);
+
+    while (!this->Match(TokenType::END_OF_FILE))
+        program->AddStmtOrExpr(this->Declaration());
+
+    return program;
+}
+
+// *** DECLARATIONS ***
+
+ast::NodeUptr Parser::Declaration() {
+    return this->Statement();
+}
+
+// *** STATEMENTS ***
+
+ast::NodeUptr Parser::Statement() {
+    if (!this->TokenInRange(TokenType::KEYWORD_BEGIN, TokenType::KEYWORD_END))
+        return this->Expression();
+
+    switch (this->currTk_.type) {
+        case TokenType::DEFER:
+        case TokenType::SPAWN:
+        case TokenType::RETURN:
+        case TokenType::IMPORT:
+            break;
+        case TokenType::IF:
+        default:
+            break; // ??
+    }
+}
+
+// *** EXPRESSIONS ***
+
 ast::NodeUptr Parser::Expression() {
     unsigned colno = this->currTk_.colno;
     unsigned lineno = this->currTk_.lineno;
@@ -443,8 +478,4 @@ ast::NodeUptr Parser::ParseScope() {
     }
 
     throw SyntaxException("expected identifier or expression", this->currTk_);
-}
-
-ast::NodeUptr Parser::Parse() {
-    return this->Expression();
 }
