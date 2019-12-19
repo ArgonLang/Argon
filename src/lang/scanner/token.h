@@ -111,6 +111,7 @@ namespace lang::scanner {
         DEFAULT,
         FALSE,
         TRUE,
+        TRAIT,
         NIL,
         RETURN,
         WEAK,
@@ -194,12 +195,13 @@ namespace lang::scanner {
             {"import", TokenType::IMPORT},
             {"let",    TokenType::LET},
             {"pub",    TokenType::PUB},
+            {"trait",  TokenType::TRAIT},
             {"true",   TokenType::TRUE},
             {"nil",    TokenType::NIL},
             {"return", TokenType::RETURN},
             {"spawn",  TokenType::SPAWN},
-            {"var", TokenType::VAR},
-            {"weak", TokenType::WEAK}
+            {"var",    TokenType::VAR},
+            {"weak",   TokenType::WEAK}
     };
 
     struct Token {

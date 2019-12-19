@@ -135,6 +135,7 @@ ast::NodeUptr Parser::TraitBlock() {
                 CastNode<Block>(block)->AddStmtOrExpr(this->ConstDecl());
                 break;
             case TokenType::FUNC:
+                // TODO: impl function
             default:
                 throw SyntaxException("expected constant or function declaration", this->currTk_);
         }
@@ -144,6 +145,19 @@ ast::NodeUptr Parser::TraitBlock() {
 
     this->Eat();
     return block;
+}
+
+ast::NodeUptr Parser::TraitList() {
+    NodeUptr impls = std::make_unique<List>(NodeType::TRAIT_LIST, this->currTk_.colno, this->currTk_.lineno);
+
+    CastNode<List>(impls)->AddExpression(this->ParseScope());
+
+    while (this->Match(TokenType::COMMA)) {
+        this->Eat();
+        CastNode<List>(impls)->AddExpression(this->ParseScope());
+    }
+
+    return impls;
 }
 
 ast::NodeUptr Parser::ImplDecl() {

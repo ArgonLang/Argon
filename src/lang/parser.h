@@ -31,6 +31,8 @@ namespace lang {
 
         ast::NodeUptr TraitBlock();
 
+        ast::NodeUptr TraitList();
+
         ast::NodeUptr ImplDecl();
 
         // *** STATEMENTS ***

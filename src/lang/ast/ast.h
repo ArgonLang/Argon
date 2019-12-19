@@ -16,6 +16,7 @@ namespace lang::ast {
         VARIABLE,
         CONSTANT,
         TRAIT_BLOCK,
+        TRAIT_LIST,
         IMPL,
         ASSIGN,
         TUPLE,
