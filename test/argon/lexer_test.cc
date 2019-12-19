@@ -62,9 +62,9 @@ TEST(Scanner, Number) {
 }
 
 TEST(Scanner, Word) {
-	auto source = std::istringstream("var v4r v_48_ __private_var__ byte b");
+    auto source = std::istringstream("vax v4r v_48_ __private_var__ byte b");
 	lang::scanner::Scanner scanner(&source);
-    ASSERT_EQ(scanner.Next(), lang::scanner::Token(lang::scanner::TokenType::IDENTIFIER, 0, 0, "var"));
+    ASSERT_EQ(scanner.Next(), lang::scanner::Token(lang::scanner::TokenType::IDENTIFIER, 0, 0, "vax"));
     ASSERT_EQ(scanner.Next(), lang::scanner::Token(lang::scanner::TokenType::IDENTIFIER, 4, 0, "v4r"));
     ASSERT_EQ(scanner.Next(), lang::scanner::Token(lang::scanner::TokenType::IDENTIFIER, 8, 0, "v_48_"));
     ASSERT_EQ(scanner.Next(), lang::scanner::Token(lang::scanner::TokenType::IDENTIFIER, 14, 0, "__private_var__"));

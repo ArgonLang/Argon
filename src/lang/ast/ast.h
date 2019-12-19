@@ -11,7 +11,11 @@
 
 namespace lang::ast {
     enum class NodeType {
-        BLOCK,
+        PROGRAM,
+        VARIABLE,
+        CONSTANT,
+        TRAIT_BLOCK,
+        IMPL,
         ASSIGN,
         TUPLE,
         ELVIS,
@@ -74,10 +78,40 @@ namespace lang::ast {
     struct Block : Node {
         std::list<NodeUptr> stmts;
 
-        Block(unsigned colno, unsigned lineno) : Node(NodeType::BLOCK, colno, lineno) {}
+        Block(NodeType type, unsigned colno, unsigned lineno) : Node(type, colno, lineno) {}
 
         void AddStmtOrExpr(NodeUptr stmt) {
             this->stmts.push_front(std::move(stmt));
+        }
+    };
+
+    struct Var : Node {
+        bool atomic = false;
+        bool weak = false;
+        bool pub = false;
+        std::string name;
+        NodeUptr value;
+        NodeUptr annotation;
+
+        explicit Var(std::string &name, NodeUptr value, bool constant, unsigned colno, unsigned lineno) : Node(
+                NodeType::VARIABLE, colno, lineno) {
+            if (constant)
+                this->type = NodeType::CONSTANT;
+            this->name = name;
+            this->value = std::move(value);
+        }
+    };
+
+    struct Impl : Node {
+        NodeUptr name;
+        NodeUptr target;
+        NodeUptr block;
+
+        explicit Impl(NodeUptr implName, NodeUptr implTarget, NodeUptr block, unsigned colno, unsigned lineno) : Node(
+                NodeType::IMPL, colno, lineno) {
+            this->name = std::move(implName);
+            this->target = std::move(implTarget);
+            this->block = std::move(block);
         }
     };
 

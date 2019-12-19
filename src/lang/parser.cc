@@ -27,7 +27,7 @@ void Parser::Eat(TokenType type, std::string errmsg) {
 }
 
 std::unique_ptr<ast::Block> Parser::Parse() {
-    auto program = std::make_unique<ast::Block>(this->currTk_.colno, this->currTk_.colno);
+    auto program = std::make_unique<ast::Block>(NodeType::PROGRAM, this->currTk_.colno, this->currTk_.colno);
 
     while (!this->Match(TokenType::END_OF_FILE))
         program->AddStmtOrExpr(this->Declaration());
@@ -38,7 +38,116 @@ std::unique_ptr<ast::Block> Parser::Parse() {
 // *** DECLARATIONS ***
 
 ast::NodeUptr Parser::Declaration() {
+    if (this->Match(TokenType::IMPL))
+        return this->ImplDecl();
+
     return this->Statement();
+}
+
+ast::NodeUptr Parser::VarDecl() {
+    NodeUptr variable;
+    unsigned colno = this->currTk_.colno;
+    unsigned lineno = this->currTk_.lineno;
+    bool atomic = false;
+    bool weak = false;
+
+    if (this->Match(TokenType::ATOMIC)) {
+        this->Eat();
+        atomic = true;
+    }
+
+    if (this->Match(TokenType::WEAK)) {
+        this->Eat();
+        weak = true;
+    }
+
+    if (!this->Match(TokenType::LET)) {
+        if (atomic || weak)
+            throw SyntaxException("expected variable declaration", this->currTk_);
+        return nullptr;
+    }
+
+    this->Eat();
+    variable = std::make_unique<Var>(this->currTk_.value, nullptr, false, colno, lineno);
+    this->Eat(TokenType::IDENTIFIER, "expected identifier after var declaration");
+    CastNode<Var>(variable)->annotation = this->VarAnnotation();
+    if (this->Match(TokenType::EQUAL)) {
+        this->Eat();
+        CastNode<Var>(variable)->value = this->TestList();
+    }
+
+    CastNode<Var>(variable)->atomic = atomic;
+    CastNode<Var>(variable)->weak = weak;
+
+    return variable;
+}
+
+ast::NodeUptr Parser::ConstDecl() {
+    unsigned colno = this->currTk_.colno;
+    unsigned lineno = this->currTk_.lineno;
+    std::string name;
+
+    this->Eat(); // eat 'let' keyword
+    name = this->currTk_.value;
+    this->Eat(TokenType::IDENTIFIER, "expected identifier after let declaration");
+    this->Eat(TokenType::EQUAL, "expected = after identifier in let declaration");
+    return std::make_unique<Var>(name, this->TestList(), true, colno, lineno);
+}
+
+ast::NodeUptr Parser::VarAnnotation() {
+    if (this->Match(TokenType::COLON)) {
+        this->Eat();
+        return this->ParseScope();
+    }
+    return nullptr;
+}
+
+ast::NodeUptr Parser::TraitBlock() {
+    NodeUptr block;
+
+    block = std::make_unique<ast::Block>(NodeType::TRAIT_BLOCK, this->currTk_.colno, this->currTk_.colno);
+
+    this->Eat(TokenType::LEFT_BRACES, "expected { after impl declaration");
+
+    while (!this->Match(TokenType::RIGHT_BRACES)) {
+        bool pub = false;
+
+        if (this->Match(TokenType::PUB)) {
+            pub = true;
+            this->Eat();
+        }
+
+        switch (this->currTk_.type) {
+            case TokenType::LET:
+                CastNode<Block>(block)->AddStmtOrExpr(this->ConstDecl());
+                break;
+            case TokenType::FUNC:
+            default:
+                throw SyntaxException("expected constant or function declaration", this->currTk_);
+        }
+
+        CastNode<Var>(CastNode<Block>(block)->stmts.front())->pub = pub;
+    }
+
+    this->Eat();
+    return block;
+}
+
+ast::NodeUptr Parser::ImplDecl() {
+    unsigned colno = this->currTk_.colno;
+    unsigned lineno = this->currTk_.lineno;
+    NodeUptr implName;
+    NodeUptr implTarget;
+
+    this->Eat(); // eat 'impl' keyword
+    implName = this->ParseScope();
+
+    if (this->Match(TokenType::FOR)) {
+        this->Eat();
+        implTarget = this->ParseScope();
+    }
+
+    return std::make_unique<Impl>(std::move(implName), std::move(implTarget), this->TraitBlock(), colno, lineno);
 }
 
 // *** STATEMENTS ***

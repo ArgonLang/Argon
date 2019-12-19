@@ -10,6 +10,17 @@
 using namespace lang;
 using namespace lang::ast;
 
+TEST(Parser, ImplDecl) {
+    auto source = std::istringstream("impl core::test for xyz {}");
+    Parser parser(&source);
+
+    ASSERT_EQ(parser.Parse()->stmts.front()->type, NodeType::IMPL);
+
+    source = std::istringstream("impl core::test for xyz [ }");
+    parser = Parser(&source);
+    EXPECT_THROW(parser.Parse(), SyntaxException);
+}
+
 TEST(Parser, Relational) {
     auto source = std::istringstream("struct.item * 0 >= 0");
     Parser parser(&source);

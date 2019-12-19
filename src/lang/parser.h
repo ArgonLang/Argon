@@ -21,6 +21,16 @@ namespace lang {
 
         ast::NodeUptr Declaration();
 
+        ast::NodeUptr VarDecl();
+
+        ast::NodeUptr ConstDecl();
+
+        ast::NodeUptr VarAnnotation();
+
+        ast::NodeUptr TraitBlock();
+
+        ast::NodeUptr ImplDecl();
+
         // *** STATEMENTS ***
 
         ast::NodeUptr Statement();
