@@ -88,6 +88,7 @@ namespace lang::scanner {
 
         KEYWORD_BEGIN,
         ATOMIC,
+        AS,
         LET,
         VAR,
         PUB,
@@ -183,19 +184,20 @@ namespace lang::scanner {
     };
 
     static const std::map<std::string, TokenType> Keywords = {
+            {"as",     TokenType::AS},
             {"atomic", TokenType::ATOMIC},
-            {"defer", TokenType::DEFER},
-            {"false", TokenType::FALSE},
-            {"for", TokenType::FOR},
-            {"func", TokenType::FUNC},
-            {"impl", TokenType::IMPL},
+            {"defer",  TokenType::DEFER},
+            {"false",  TokenType::FALSE},
+            {"for",    TokenType::FOR},
+            {"func",   TokenType::FUNC},
+            {"impl",   TokenType::IMPL},
             {"import", TokenType::IMPORT},
-            {"let", TokenType::LET},
-            {"pub", TokenType::PUB},
-            {"true", TokenType::TRUE},
-            {"nil", TokenType::NIL},
+            {"let",    TokenType::LET},
+            {"pub",    TokenType::PUB},
+            {"true",   TokenType::TRUE},
+            {"nil",    TokenType::NIL},
             {"return", TokenType::RETURN},
-            {"spawn", TokenType::SPAWN},
+            {"spawn",  TokenType::SPAWN},
             {"var", TokenType::VAR},
             {"weak", TokenType::WEAK}
     };

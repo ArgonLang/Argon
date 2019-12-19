@@ -21,6 +21,8 @@ namespace lang {
 
         ast::NodeUptr Declaration();
 
+        ast::NodeUptr AliasDecl();
+
         ast::NodeUptr VarDecl();
 
         ast::NodeUptr ConstDecl();

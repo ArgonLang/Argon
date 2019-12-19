@@ -44,6 +44,19 @@ ast::NodeUptr Parser::Declaration() {
     return this->Statement();
 }
 
+ast::NodeUptr Parser::AliasDecl() {
+    unsigned colno = this->currTk_.colno;
+    unsigned lineno = this->currTk_.lineno;
+    std::string name;
+
+    this->Eat(); // eat 'using' keyword
+    name = this->currTk_.value;
+    this->Eat(TokenType::IDENTIFIER, "expected identifier after alias keyword");
+    this->Eat(TokenType::AS, "expected as after identifier in alias declaration");
+
+    return std::make_unique<Alias>(name, this->ParseScope(), colno, lineno);
+}
+
 ast::NodeUptr Parser::VarDecl() {
     NodeUptr variable;
     unsigned colno = this->currTk_.colno;

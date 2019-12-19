@@ -12,6 +12,7 @@
 namespace lang::ast {
     enum class NodeType {
         PROGRAM,
+        ALIAS,
         VARIABLE,
         CONSTANT,
         TRAIT_BLOCK,
@@ -82,6 +83,17 @@ namespace lang::ast {
 
         void AddStmtOrExpr(NodeUptr stmt) {
             this->stmts.push_front(std::move(stmt));
+        }
+    };
+
+    struct Alias : Node {
+        std::string name;
+        NodeUptr object;
+
+        explicit Alias(std::string &name, NodeUptr object, unsigned colno, unsigned lineno) : Node(NodeType::ALIAS,
+                                                                                                   colno, lineno) {
+            this->name = name;
+            this->object = std::move(object);
         }
     };
 
