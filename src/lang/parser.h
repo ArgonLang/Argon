@@ -8,6 +8,8 @@
 #include <lang/scanner/scanner.h>
 #include <lang/ast/ast.h>
 
+#include <list>
+
 namespace lang {
     class Parser {
         std::unique_ptr<scanner::Scanner> scanner_;
@@ -28,6 +30,12 @@ namespace lang {
         ast::NodeUptr ConstDecl();
 
         ast::NodeUptr VarAnnotation();
+
+        ast::NodeUptr FuncDecl();
+
+        std::list<lang::ast::NodeUptr> Param();
+
+        ast::NodeUptr Variadic();
 
         ast::NodeUptr StructDecl();
 

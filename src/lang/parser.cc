@@ -115,6 +115,64 @@ ast::NodeUptr Parser::VarAnnotation() {
     return nullptr;
 }
 
+ast::NodeUptr Parser::FuncDecl() {
+    unsigned colno = this->currTk_.colno;
+    unsigned lineno = this->currTk_.lineno;
+    std::string name;
+    std::list<NodeUptr> params;
+
+    this->Eat(TokenType::FUNC, "expected func keyword");
+    name = this->currTk_.value;
+    this->Eat(TokenType::IDENTIFIER, "expected identifier after func keyword");
+    if (this->Match(TokenType::LEFT_ROUND)) {
+        this->Eat();
+        params = this->Param();
+        this->Eat(TokenType::RIGHT_ROUND, "expected ) after params declaration");
+    }
+
+    return nullptr; // TODO: Block definition
+}
+
+std::list<NodeUptr> Parser::Param() {
+    std::list<NodeUptr> params;
+    NodeUptr tmp = this->Variadic();
+
+    if (tmp != nullptr) {
+        params.push_front(std::move(tmp));
+        return params;
+    }
+
+    while (this->Match(TokenType::IDENTIFIER)) {
+        tmp = this->ParseScope();
+        if (tmp->type == NodeType::LITERAL)
+            params.push_front(std::move(tmp));
+        else
+            throw SyntaxException("expected parameter name", this->currTk_);
+        if (this->Match(TokenType::COMMA)) {
+            this->Eat();
+            if ((tmp = this->Variadic()) != nullptr) {
+                params.push_front(std::move(tmp));
+                break;
+            }
+        }
+    }
+
+    return params;
+}
+
+ast::NodeUptr Parser::Variadic() {
+    if (this->Match(TokenType::ELLIPSIS)) {
+        this->Eat();
+        auto param = this->ParseScope();
+        if (param->type == NodeType::LITERAL) {
+            ((Node *) param.get())->type = NodeType::VARIADIC;
+            return param;
+        }
+        throw SyntaxException("expected parameter name", this->currTk_);
+    }
+    return nullptr;
+}
+
 ast::NodeUptr Parser::StructDecl() {
     unsigned colno = this->currTk_.colno;
     unsigned lineno = this->currTk_.lineno;

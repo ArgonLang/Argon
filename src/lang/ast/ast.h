@@ -12,6 +12,7 @@
 namespace lang::ast {
     enum class NodeType {
         PROGRAM,
+        VARIADIC,
         ALIAS,
         VARIABLE,
         CONSTANT,
