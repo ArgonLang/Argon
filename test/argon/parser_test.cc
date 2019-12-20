@@ -22,7 +22,7 @@ TEST(Parser, ImplDecl) {
 }
 
 TEST(Parser, Relational) {
-    auto source = std::istringstream("struct.item * 0 >= 0");
+    auto source = std::istringstream("mystruct.item * 0 >= 0");
     Parser parser(&source);
     auto ast = parser.Parse();
     ASSERT_EQ(ast->stmts.front()->type, NodeType::RELATIONAL);
@@ -30,31 +30,31 @@ TEST(Parser, Relational) {
 }
 
 TEST(Parser, MulExpr) {
-    auto source = std::istringstream("struct.item * 24");
+    auto source = std::istringstream("mystruct.item * 24");
     Parser parser(&source);
     ASSERT_EQ(parser.Parse()->stmts.front()->type, NodeType::MUL);
 }
 
 TEST(Parser, Unary) {
-    auto source = std::istringstream("-struct.item");
+    auto source = std::istringstream("-mystruct.item");
     Parser parser(&source);
     ASSERT_EQ(parser.Parse()->stmts.front()->type, NodeType::MINUS);
 }
 
 TEST(Parser, MemberAccess) {
-    auto source = std::istringstream("struct.item");
+    auto source = std::istringstream("mymstruct.item");
     Parser parser(&source);
     ASSERT_EQ(parser.Parse()->stmts.front()->type, NodeType::MEMBER);
 
-    source = std::istringstream("struct?.item");
+    source = std::istringstream("mystruct?.item");
     parser = Parser(&source);
     ASSERT_EQ(parser.Parse()->stmts.front()->type, NodeType::MEMBER_SAFE);
 
-    source = std::istringstream("struct!.item");
+    source = std::istringstream("mystruct!.item");
     parser = Parser(&source);
     ASSERT_EQ(parser.Parse()->stmts.front()->type, NodeType::MEMBER_ASSERT);
 
-    source = std::istringstream("struct?.");
+    source = std::istringstream("mystruct?.");
     parser = Parser(&source);
     EXPECT_THROW(parser.Parse(), SyntaxException);
 }

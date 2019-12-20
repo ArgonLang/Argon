@@ -15,6 +15,8 @@ namespace lang::ast {
         ALIAS,
         VARIABLE,
         CONSTANT,
+        STRUCT,
+        STRUCT_BLOCK,
         TRAIT,
         TRAIT_BLOCK,
         TRAIT_LIST,

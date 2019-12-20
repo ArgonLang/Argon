@@ -29,6 +29,10 @@ namespace lang {
 
         ast::NodeUptr VarAnnotation();
 
+        ast::NodeUptr StructDecl();
+
+        ast::NodeUptr StructBlock();
+
         ast::NodeUptr TraitDecl();
 
         ast::NodeUptr TraitBlock();

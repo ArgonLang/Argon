@@ -115,6 +115,57 @@ ast::NodeUptr Parser::VarAnnotation() {
     return nullptr;
 }
 
+ast::NodeUptr Parser::StructDecl() {
+    unsigned colno = this->currTk_.colno;
+    unsigned lineno = this->currTk_.lineno;
+    std::string name;
+    NodeUptr impl;
+
+    this->Eat(TokenType::STRUCT, "expected struct");
+    name = this->currTk_.value;
+    this->Eat(TokenType::IDENTIFIER, "expected identifier after struct keyword");
+
+    if (this->Match(TokenType::IMPL)) {
+        this->Eat();
+        impl = this->TraitList();
+    }
+
+    return std::make_unique<Construct>(NodeType::STRUCT, name, std::move(impl), this->StructBlock(), colno, lineno);
+}
+
+ast::NodeUptr Parser::StructBlock() {
+    NodeUptr block = std::make_unique<ast::Block>(NodeType::STRUCT_BLOCK, this->currTk_.colno, this->currTk_.colno);
+
+    this->Eat(TokenType::LEFT_BRACES, "expected { after struct declaration");
+
+    while (!this->Match(TokenType::RIGHT_BRACES)) {
+        bool pub = false;
+
+        if (this->Match(TokenType::PUB)) {
+            pub = true;
+            this->Eat();
+        }
+
+        switch (this->currTk_.type) {
+            case TokenType::LET:
+                CastNode<Block>(block)->AddStmtOrExpr(this->ConstDecl());
+                break;
+            case TokenType::VAR:
+                CastNode<Block>(block)->AddStmtOrExpr(this->VarDecl());
+                break;
+            case TokenType::FUNC:
+                // TODO: impl function
+            default:
+                throw SyntaxException("expected variable, constant or function declaration", this->currTk_);
+        }
+
+        CastNode<Variable>(CastNode<Block>(block)->stmts.front())->pub = pub;
+    }
+
+    this->Eat();
+    return block;
+}
+
 ast::NodeUptr Parser::TraitDecl() {
     unsigned colno = this->currTk_.colno;
     unsigned lineno = this->currTk_.lineno;
