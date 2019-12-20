@@ -87,18 +87,25 @@ namespace lang::ast {
         }
     };
 
-    struct Alias : Node {
+    struct Construct : Node {
         std::string name;
-        NodeUptr object;
+        NodeUptr auxiliary;
+        NodeUptr body;
+        bool pub = false;
 
-        explicit Alias(std::string &name, NodeUptr object, unsigned colno, unsigned lineno) : Node(NodeType::ALIAS,
-                                                                                                   colno, lineno) {
+        explicit Construct(NodeType type, std::string &name, NodeUptr body, unsigned colno, unsigned lineno)
+                : Construct(type, name, colno, lineno) {
+            this->body = std::move(body);
+        }
+
+        explicit Construct(NodeType type, std::string &name, unsigned colno, unsigned lineno) : Node(type,
+                                                                                                     colno,
+                                                                                                     lineno) {
             this->name = name;
-            this->object = std::move(object);
         }
     };
 
-    struct Var : Node {
+    struct Variable : Node {
         bool atomic = false;
         bool weak = false;
         bool pub = false;
@@ -106,7 +113,7 @@ namespace lang::ast {
         NodeUptr value;
         NodeUptr annotation;
 
-        explicit Var(std::string &name, NodeUptr value, bool constant, unsigned colno, unsigned lineno) : Node(
+        explicit Variable(std::string &name, NodeUptr value, bool constant, unsigned colno, unsigned lineno) : Node(
                 NodeType::VARIABLE, colno, lineno) {
             if (constant)
                 this->type = NodeType::CONSTANT;
@@ -120,10 +127,10 @@ namespace lang::ast {
         NodeUptr target;
         NodeUptr block;
 
-        explicit Impl(NodeUptr implName, NodeUptr implTarget, NodeUptr block, unsigned colno, unsigned lineno) : Node(
+        explicit Impl(NodeUptr name, NodeUptr target, NodeUptr block, unsigned colno, unsigned lineno) : Node(
                 NodeType::IMPL, colno, lineno) {
-            this->name = std::move(implName);
-            this->target = std::move(implTarget);
+            this->name = std::move(name);
+            this->target = std::move(target);
             this->block = std::move(block);
         }
     };
