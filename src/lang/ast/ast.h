@@ -15,6 +15,7 @@ namespace lang::ast {
         ALIAS,
         VARIABLE,
         CONSTANT,
+        TRAIT,
         TRAIT_BLOCK,
         TRAIT_LIST,
         IMPL,
@@ -93,8 +94,10 @@ namespace lang::ast {
         NodeUptr body;
         bool pub = false;
 
-        explicit Construct(NodeType type, std::string &name, NodeUptr body, unsigned colno, unsigned lineno)
+        explicit Construct(NodeType type, std::string &name, NodeUptr auxiliary, NodeUptr body, unsigned colno,
+                           unsigned lineno)
                 : Construct(type, name, colno, lineno) {
+            this->auxiliary = std::move(auxiliary);
             this->body = std::move(body);
         }
 

@@ -54,7 +54,7 @@ ast::NodeUptr Parser::AliasDecl() {
     this->Eat(TokenType::IDENTIFIER, "expected identifier after alias keyword");
     this->Eat(TokenType::AS, "expected as after identifier in alias declaration");
 
-    return std::make_unique<Construct>(NodeType::ALIAS, name, this->ParseScope(), colno, lineno);
+    return std::make_unique<Construct>(NodeType::ALIAS, name, nullptr, this->ParseScope(), colno, lineno);
 }
 
 ast::NodeUptr Parser::VarDecl() {
@@ -113,6 +113,24 @@ ast::NodeUptr Parser::VarAnnotation() {
         return this->ParseScope();
     }
     return nullptr;
+}
+
+ast::NodeUptr Parser::TraitDecl() {
+    unsigned colno = this->currTk_.colno;
+    unsigned lineno = this->currTk_.lineno;
+    std::string name;
+    NodeUptr impl;
+
+    this->Eat(TokenType::TRAIT, "expected trait");
+    name = this->currTk_.value;
+    this->Eat(TokenType::IDENTIFIER, "expected identifier after trait keyword");
+
+    if (this->Match(TokenType::COLON)) {
+        this->Eat();
+        impl = this->TraitList();
+    }
+
+    return std::make_unique<Construct>(NodeType::TRAIT, name, std::move(impl), this->TraitBlock(), colno, lineno);
 }
 
 ast::NodeUptr Parser::TraitBlock() {
