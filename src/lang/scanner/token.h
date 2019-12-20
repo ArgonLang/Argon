@@ -30,8 +30,7 @@ namespace lang::scanner {
         PERCENT,
         AMPERSAND,
         AND,
-        // SINGLE QUOTE
-                LEFT_ROUND,
+        LEFT_ROUND,
         RIGHT_ROUND,
         ASTERISK,
         ASTERISK_EQ,
@@ -67,7 +66,6 @@ namespace lang::scanner {
         GREATER_EQ,
         RELATIONAL_END,
 
-
         SHL,
         EQUAL,
         EQUAL_EQUAL,
@@ -79,48 +77,47 @@ namespace lang::scanner {
         LEFT_SQUARE,
         RIGHT_SQUARE,
         CARET,
-        // `
-                LEFT_BRACES,
+        LEFT_BRACES,
         PIPE,
         OR,
         RIGHT_BRACES,
         TILDE,
 
         KEYWORD_BEGIN,
-        ATOMIC,
         AS,
-        LET,
-        VAR,
-        PUB,
-        FUNC,
+        ATOMIC,
         BREAK,
+        CASE,
         CONTINUE,
+        DEFAULT,
         DEFER,
-        GOTO,
-        FALLTHROUGH,
-        IMPL,
-        IMPORT,
-        FOR,
-        LOOP,
-        IF,
         ELIF,
         ELSE,
+        FALLTHROUGH,
+        FALSE,
+        FOR,
+        FUNC,
+        GOTO,
+        IF,
+        IMPL,
+        IMPORT,
+        LET,
+        LOOP,
+        NIL,
+        PUB,
+        RETURN,
         SPAWN,
         SWITCH,
-        CASE,
-        DEFAULT,
-        FALSE,
-        TRUE,
         TRAIT,
-        NIL,
-        RETURN,
+        TRUE,
+        USING,
+        VAR,
         WEAK,
         KEYWORD_END,
-
         ERROR
     };
 
-    static const std::map<TokenType, const char *> TokenStringValue = {
+    static const std::map<TokenType, std::string> TokenStringValue = {
             {TokenType::END_OF_FILE,     "EOF"},
             {TokenType::END_OF_LINE,     "EOL"},
             {TokenType::EXCLAMATION,     "EXCLAMATION"},
@@ -157,6 +154,7 @@ namespace lang::scanner {
             {TokenType::NUMBER,          "NUMBER"},
             {TokenType::DECIMAL,         "DECIMAL"},
             {TokenType::COLON,           "COLON"},
+            {TokenType::SCOPE,           "SCOPE"},
             {TokenType::SEMICOLON,       "SEMICOLON"},
             {TokenType::LESS,            "LESS"},
             {TokenType::SHL,             "SHL"},
@@ -169,7 +167,7 @@ namespace lang::scanner {
             {TokenType::QUESTION,        "QUESTION"},
             {TokenType::QUESTION_DOT,    "QUESTION_DOT"},
             {TokenType::ELVIS,           "ELVIS"},
-            {TokenType::IDENTIFIER,      "WORD"},
+            {TokenType::IDENTIFIER,      "IDENTIFIER"},
             {TokenType::LEFT_SQUARE,     "LEFT_SQUARE"},
             {TokenType::RIGHT_SQUARE,    "RIGHT_SQUARE"},
             {TokenType::CARET,           "CARET"},
@@ -185,23 +183,35 @@ namespace lang::scanner {
     };
 
     static const std::map<std::string, TokenType> Keywords = {
-            {"as",     TokenType::AS},
-            {"atomic", TokenType::ATOMIC},
-            {"defer",  TokenType::DEFER},
-            {"false",  TokenType::FALSE},
-            {"for",    TokenType::FOR},
-            {"func",   TokenType::FUNC},
-            {"impl",   TokenType::IMPL},
-            {"import", TokenType::IMPORT},
-            {"let",    TokenType::LET},
-            {"pub",    TokenType::PUB},
-            {"trait",  TokenType::TRAIT},
-            {"true",   TokenType::TRUE},
-            {"nil",    TokenType::NIL},
-            {"return", TokenType::RETURN},
-            {"spawn",  TokenType::SPAWN},
-            {"var",    TokenType::VAR},
-            {"weak",   TokenType::WEAK}
+            {"as",          TokenType::AS},
+            {"atomic",      TokenType::ATOMIC},
+            {"break",       TokenType::BREAK},
+            {"case",        TokenType::CASE},
+            {"continue",    TokenType::CONTINUE},
+            {"default",     TokenType::DEFAULT},
+            {"defer",       TokenType::DEFER},
+            {"elif",        TokenType::ELIF},
+            {"else",        TokenType::ELSE},
+            {"fallthrough", TokenType::FALLTHROUGH},
+            {"false",       TokenType::FALSE},
+            {"for",         TokenType::FOR},
+            {"func",        TokenType::FUNC},
+            {"goto",        TokenType::GOTO},
+            {"if",          TokenType::IF},
+            {"impl",        TokenType::IMPL},
+            {"import",      TokenType::IMPORT},
+            {"let",         TokenType::LET},
+            {"loop",        TokenType::LOOP},
+            {"nil",         TokenType::NIL},
+            {"pub",         TokenType::PUB},
+            {"return",      TokenType::RETURN},
+            {"spawn",       TokenType::SPAWN},
+            {"switch",      TokenType::SWITCH},
+            {"trait",       TokenType::TRAIT},
+            {"true",        TokenType::TRUE},
+            {"using",       TokenType::USING},
+            {"var",         TokenType::VAR},
+            {"weak",        TokenType::WEAK}
     };
 
     struct Token {
@@ -239,8 +249,15 @@ namespace lang::scanner {
         }
 
         [[nodiscard]] std::string String() const {
-            char tmp[100];
-            sprintf(tmp, "<L:%d, C:%d, %s>\t\t%s", this->lineno, this->colno, TokenStringValue.at(this->type),
+            char tmp[142];
+            std::string tkType;
+
+            if (this->type > TokenType::KEYWORD_BEGIN && this->type < TokenType::KEYWORD_END)
+                tkType = "KEYWORD";
+            else
+                tkType = TokenStringValue.at(this->type);
+
+            sprintf(tmp, "<L:%d, C:%d, %s>\t\t%s", this->lineno, this->colno, tkType.c_str(),
                     this->value.substr(0, 62).c_str());
             return tmp;
         }

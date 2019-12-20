@@ -12,7 +12,7 @@ Token Scanner::ParseBinary() {
     int value = this->source_->peek();
 
     while (value >= '0' && value <= '1') {
-        number += value;
+        number += (char) value;
         this->GetCh();
         value = this->source_->peek();
     }
@@ -327,22 +327,22 @@ Token Scanner::ParseWord() {
     // keywords are longer than one letter
     if (word.size() > 1) {
         if (Keywords.find(word) != Keywords.end())
-            return Token(Keywords.at(word), colno, this->lineno_, "");
+            return Token(Keywords.at(word), colno, this->lineno_, word);
     }
 
     return Token(TokenType::IDENTIFIER, colno, this->lineno_, word);
 }
 
-std::string Scanner::ParseComment(bool inline_coment) {
+std::string Scanner::ParseComment(bool inline_comment) {
     std::string comment;
 
     // Skip newline/whitespace at comment start
     for (int skip = this->source_->peek();
-         IsSpace(skip) || (!inline_coment && skip == '\n');
+         IsSpace(skip) || (!inline_comment && skip == '\n');
          this->GetCh(), skip = this->source_->peek());
 
     while (this->source_->good()) {
-        if (this->source_->peek() == '\n' && inline_coment)
+        if (this->source_->peek() == '\n' && inline_comment)
             break;
 
         if (this->source_->peek() == '*') {
@@ -359,9 +359,11 @@ std::string Scanner::ParseComment(bool inline_coment) {
 }
 
 Token Scanner::NextToken() {
-    int value = this->source_->peek();
+    int value;
     int colno = 0;
     int lineno = 0;
+
+    this->source_->peek(); // INIT
 
     while (this->source_->good()) {
         value = this->source_->peek();
