@@ -57,6 +57,10 @@ namespace lang {
 
         ast::NodeUptr Statement();
 
+        ast::NodeUptr Block();
+
+        ast::NodeUptr BlockBody();
+
         // *** EXPRESSIONS ***
 
         ast::NodeUptr Expression();

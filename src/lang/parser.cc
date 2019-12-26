@@ -45,6 +45,7 @@ ast::NodeUptr Parser::Declaration() {
 }
 
 ast::NodeUptr Parser::AccessModifier() {
+    NodeUptr expr;
     bool pub = false;
 
     if (this->Match(TokenType::PUB)) {
@@ -57,7 +58,14 @@ ast::NodeUptr Parser::AccessModifier() {
     else if (this->Match(TokenType::TRAIT))
         return this->TraitDecl(pub);
 
-    return this->SmallDecl(pub);
+    expr = this->SmallDecl(pub);
+    if (expr == nullptr) {
+        if (pub)
+            throw SyntaxException("expected declaration after pub keyword, found statement", this->currTk_);
+        expr = this->Statement();
+    }
+
+    return expr;
 }
 
 ast::NodeUptr Parser::SmallDecl(bool pub) {
@@ -71,9 +79,7 @@ ast::NodeUptr Parser::SmallDecl(bool pub) {
         case TokenType::STRUCT:
             return this->StructDecl(pub);
         default:
-            if (pub)
-                throw SyntaxException("expected declaration after pub keyword, found statement", this->currTk_);
-            return this->Statement();
+            return nullptr;
     }
 }
 
@@ -172,7 +178,7 @@ ast::NodeUptr Parser::FuncDecl(bool pub) {
         this->Eat(TokenType::RIGHT_ROUND, "expected ) after params declaration");
     }
 
-    return nullptr; // TODO: Block definition
+    return std::make_unique<Function>(name, std::move(params), this->Block(), pub, colno, lineno);
 }
 
 std::list<NodeUptr> Parser::Param() {
@@ -251,13 +257,14 @@ ast::NodeUptr Parser::StructBlock() {
 
         switch (this->currTk_.type) {
             case TokenType::LET:
-                CastNode<Block>(block)->AddStmtOrExpr(this->ConstDecl(pub));
+                CastNode<ast::Block>(block)->AddStmtOrExpr(this->ConstDecl(pub));
                 break;
             case TokenType::VAR:
-                CastNode<Block>(block)->AddStmtOrExpr(this->VarDecl(pub));
+                CastNode<ast::Block>(block)->AddStmtOrExpr(this->VarDecl(pub));
                 break;
             case TokenType::FUNC:
-                // TODO: impl function
+                CastNode<ast::Block>(block)->AddStmtOrExpr(this->FuncDecl(pub));
+                break;
             default:
                 throw SyntaxException("expected variable, constant or function declaration", this->currTk_);
         }
@@ -303,10 +310,11 @@ ast::NodeUptr Parser::TraitBlock() {
 
         switch (this->currTk_.type) {
             case TokenType::LET:
-                CastNode<Block>(block)->AddStmtOrExpr(this->ConstDecl(pub));
+                CastNode<ast::Block>(block)->AddStmtOrExpr(this->ConstDecl(pub));
                 break;
             case TokenType::FUNC:
-                // TODO: impl function
+                CastNode<ast::Block>(block)->AddStmtOrExpr(this->FuncDecl(pub));
+                break;
             default:
                 throw SyntaxException("expected constant or function declaration", this->currTk_);
         }
@@ -362,6 +370,28 @@ ast::NodeUptr Parser::Statement() {
         default:
             break; // ??
     }
+}
+
+ast::NodeUptr Parser::Block() {
+    NodeUptr body = std::make_unique<ast::Block>(NodeType::BLOCK, this->currTk_.colno, this->currTk_.lineno);
+
+    this->Eat(TokenType::LEFT_BRACES, "expected {");
+
+    while (!this->Match(TokenType::RIGHT_BRACES))
+        CastNode<ast::Block>(body)->AddStmtOrExpr(this->BlockBody());
+
+    this->Eat();
+
+    return body;
+}
+
+ast::NodeUptr Parser::BlockBody() {
+    NodeUptr expr;
+
+    if ((expr = this->SmallDecl(false)) != nullptr)
+        return expr;
+
+    return this->Statement();
 }
 
 // *** EXPRESSIONS ***

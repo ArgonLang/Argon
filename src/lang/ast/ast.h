@@ -16,12 +16,14 @@ namespace lang::ast {
         ALIAS,
         VARIABLE,
         CONSTANT,
+        FUNC,
         STRUCT,
         STRUCT_BLOCK,
         TRAIT,
         TRAIT_BLOCK,
         TRAIT_LIST,
         IMPL,
+        BLOCK,
         ASSIGN,
         TUPLE,
         ELVIS,
@@ -88,6 +90,21 @@ namespace lang::ast {
 
         void AddStmtOrExpr(NodeUptr stmt) {
             this->stmts.push_front(std::move(stmt));
+        }
+    };
+
+    struct Function : Node {
+        std::string name;
+        std::list<NodeUptr> params;
+        NodeUptr body;
+        bool pub;
+
+        Function(std::string &name, std::list<NodeUptr> params, NodeUptr body, bool pub, unsigned colno,
+                 unsigned lineno) : Node(NodeType::FUNC, colno, lineno) {
+            this->name = name;
+            this->params = std::move(params);
+            this->body = std::move(body);
+            this->pub = pub;
         }
     };
 
