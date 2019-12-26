@@ -41,12 +41,46 @@ ast::NodeUptr Parser::Declaration() {
     if (this->Match(TokenType::IMPL))
         return this->ImplDecl();
 
-    return this->Statement();
+    return this->AccessModifier();
 }
 
-ast::NodeUptr Parser::AliasDecl() {
+ast::NodeUptr Parser::AccessModifier() {
+    bool pub = false;
+
+    if (this->Match(TokenType::PUB)) {
+        this->Eat();
+        pub = true;
+    }
+
+    if (this->Match(TokenType::LET))
+        return this->ConstDecl(pub);
+    else if (this->Match(TokenType::TRAIT))
+        return this->TraitDecl(pub);
+
+    return this->SmallDecl(pub);
+}
+
+ast::NodeUptr Parser::SmallDecl(bool pub) {
+    switch (this->currTk_.type) {
+        case TokenType::VAR:
+            return this->VarDecl(pub);
+        case TokenType::USING:
+            return this->AliasDecl(pub);
+        case TokenType::FUNC:
+            return this->FuncDecl(pub);
+        case TokenType::STRUCT:
+            return this->StructDecl(pub);
+        default:
+            if (pub)
+                throw SyntaxException("expected declaration after pub keyword, found statement", this->currTk_);
+            return this->Statement();
+    }
+}
+
+ast::NodeUptr Parser::AliasDecl(bool pub) {
     unsigned colno = this->currTk_.colno;
     unsigned lineno = this->currTk_.lineno;
+    NodeUptr node;
     std::string name;
 
     this->Eat(TokenType::USING, "expected using");
@@ -54,10 +88,13 @@ ast::NodeUptr Parser::AliasDecl() {
     this->Eat(TokenType::IDENTIFIER, "expected identifier after alias keyword");
     this->Eat(TokenType::AS, "expected as after identifier in alias declaration");
 
-    return std::make_unique<Construct>(NodeType::ALIAS, name, nullptr, this->ParseScope(), colno, lineno);
+    node = std::make_unique<Construct>(NodeType::ALIAS, name, nullptr, this->ParseScope(), colno, lineno);
+    CastNode<Construct>(node)->pub = pub;
+
+    return node;
 }
 
-ast::NodeUptr Parser::VarDecl() {
+ast::NodeUptr Parser::VarDecl(bool pub) {
     unsigned colno = this->currTk_.colno;
     unsigned lineno = this->currTk_.lineno;
     NodeUptr variable;
@@ -91,20 +128,25 @@ ast::NodeUptr Parser::VarDecl() {
 
     CastNode<Variable>(variable)->atomic = atomic;
     CastNode<Variable>(variable)->weak = weak;
+    CastNode<Variable>(variable)->pub = pub;
 
     return variable;
 }
 
-ast::NodeUptr Parser::ConstDecl() {
+ast::NodeUptr Parser::ConstDecl(bool pub) {
     unsigned colno = this->currTk_.colno;
     unsigned lineno = this->currTk_.lineno;
     std::string name;
+    NodeUptr node;
 
     this->Eat(); // eat 'let' keyword
     name = this->currTk_.value;
     this->Eat(TokenType::IDENTIFIER, "expected identifier after let declaration");
     this->Eat(TokenType::EQUAL, "expected = after identifier in let declaration");
-    return std::make_unique<Variable>(name, this->TestList(), true, colno, lineno);
+    node = std::make_unique<Variable>(name, this->TestList(), true, colno, lineno);
+    CastNode<Variable>(node)->pub = pub;
+
+    return node;
 }
 
 ast::NodeUptr Parser::VarAnnotation() {
@@ -115,7 +157,7 @@ ast::NodeUptr Parser::VarAnnotation() {
     return nullptr;
 }
 
-ast::NodeUptr Parser::FuncDecl() {
+ast::NodeUptr Parser::FuncDecl(bool pub) {
     unsigned colno = this->currTk_.colno;
     unsigned lineno = this->currTk_.lineno;
     std::string name;
@@ -173,7 +215,7 @@ ast::NodeUptr Parser::Variadic() {
     return nullptr;
 }
 
-ast::NodeUptr Parser::StructDecl() {
+ast::NodeUptr Parser::StructDecl(bool pub) {
     unsigned colno = this->currTk_.colno;
     unsigned lineno = this->currTk_.lineno;
     std::string name;
@@ -188,7 +230,10 @@ ast::NodeUptr Parser::StructDecl() {
         impl = this->TraitList();
     }
 
-    return std::make_unique<Construct>(NodeType::STRUCT, name, std::move(impl), this->StructBlock(), colno, lineno);
+    impl = std::make_unique<Construct>(NodeType::STRUCT, name, std::move(impl), this->StructBlock(), colno, lineno);
+    CastNode<Construct>(impl)->pub = pub;
+
+    return impl;
 }
 
 ast::NodeUptr Parser::StructBlock() {
@@ -206,25 +251,23 @@ ast::NodeUptr Parser::StructBlock() {
 
         switch (this->currTk_.type) {
             case TokenType::LET:
-                CastNode<Block>(block)->AddStmtOrExpr(this->ConstDecl());
+                CastNode<Block>(block)->AddStmtOrExpr(this->ConstDecl(pub));
                 break;
             case TokenType::VAR:
-                CastNode<Block>(block)->AddStmtOrExpr(this->VarDecl());
+                CastNode<Block>(block)->AddStmtOrExpr(this->VarDecl(pub));
                 break;
             case TokenType::FUNC:
                 // TODO: impl function
             default:
                 throw SyntaxException("expected variable, constant or function declaration", this->currTk_);
         }
-
-        CastNode<Variable>(CastNode<Block>(block)->stmts.front())->pub = pub;
     }
 
     this->Eat();
     return block;
 }
 
-ast::NodeUptr Parser::TraitDecl() {
+ast::NodeUptr Parser::TraitDecl(bool pub) {
     unsigned colno = this->currTk_.colno;
     unsigned lineno = this->currTk_.lineno;
     std::string name;
@@ -239,7 +282,10 @@ ast::NodeUptr Parser::TraitDecl() {
         impl = this->TraitList();
     }
 
-    return std::make_unique<Construct>(NodeType::TRAIT, name, std::move(impl), this->TraitBlock(), colno, lineno);
+    impl = std::make_unique<Construct>(NodeType::TRAIT, name, std::move(impl), this->TraitBlock(), colno, lineno);
+    CastNode<Construct>(impl)->pub = pub;
+
+    return impl;
 }
 
 ast::NodeUptr Parser::TraitBlock() {
@@ -257,15 +303,13 @@ ast::NodeUptr Parser::TraitBlock() {
 
         switch (this->currTk_.type) {
             case TokenType::LET:
-                CastNode<Block>(block)->AddStmtOrExpr(this->ConstDecl());
+                CastNode<Block>(block)->AddStmtOrExpr(this->ConstDecl(pub));
                 break;
             case TokenType::FUNC:
                 // TODO: impl function
             default:
                 throw SyntaxException("expected constant or function declaration", this->currTk_);
         }
-
-        CastNode<Variable>(CastNode<Block>(block)->stmts.front())->pub = pub;
     }
 
     this->Eat();

@@ -23,25 +23,29 @@ namespace lang {
 
         ast::NodeUptr Declaration();
 
-        ast::NodeUptr AliasDecl();
+        ast::NodeUptr AccessModifier();
 
-        ast::NodeUptr VarDecl();
+        ast::NodeUptr SmallDecl(bool pub);
 
-        ast::NodeUptr ConstDecl();
+        ast::NodeUptr AliasDecl(bool pub);
+
+        ast::NodeUptr VarDecl(bool pub);
+
+        ast::NodeUptr ConstDecl(bool pub);
 
         ast::NodeUptr VarAnnotation();
 
-        ast::NodeUptr FuncDecl();
+        ast::NodeUptr FuncDecl(bool pub);
 
         std::list<lang::ast::NodeUptr> Param();
 
         ast::NodeUptr Variadic();
 
-        ast::NodeUptr StructDecl();
+        ast::NodeUptr StructDecl(bool pub);
 
         ast::NodeUptr StructBlock();
 
-        ast::NodeUptr TraitDecl();
+        ast::NodeUptr TraitDecl(bool pub);
 
         ast::NodeUptr TraitBlock();
 
