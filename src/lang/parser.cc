@@ -117,7 +117,7 @@ ast::NodeUptr Parser::VarDecl(bool pub) {
         weak = true;
     }
 
-    if (!this->Match(TokenType::LET)) {
+    if (this->Match(TokenType::LET)) {
         if (atomic || weak)
             throw SyntaxException("expected variable declaration", this->currTk_);
         return nullptr;
@@ -377,6 +377,10 @@ ast::NodeUptr Parser::Statement() {
             return this->ImportStmt();
         case TokenType::FROM:
             return this->FromImportStmt();
+        case TokenType::FOR:
+            return this->ForStmt();
+        case TokenType::LOOP:
+            return this->LoopStmt();
         case TokenType::IF:
             return this->IfStmt(true);
         default:
@@ -462,6 +466,59 @@ std::string Parser::DottedName() {
     }
 
     return dotted;
+}
+
+ast::NodeUptr Parser::ForStmt() {
+    unsigned colno = this->currTk_.colno;
+    unsigned lineno = this->currTk_.lineno;
+    NodeUptr init;
+    NodeUptr test;
+    NodeUptr inc;
+    NodeUptr body;
+
+    this->Eat(TokenType::FOR, "expected for keyword");
+
+    if (!this->Match(TokenType::SEMICOLON)) {
+        if ((init = this->VarDecl(false)) == nullptr) {
+            init = this->Expression();
+        }
+    }
+
+    if (this->Match(TokenType::IN)) {
+        if (init->type != NodeType::LITERAL || CastNode<Literal>(init)->kind != TokenType::IDENTIFIER)
+            throw SyntaxException("expected identifier or tuple of identifier", this->currTk_);
+
+        if (init->type == NodeType::TUPLE) {
+            for (auto &item : CastNode<List>(init)->expressions) {
+                if (item->type != NodeType::LITERAL || CastNode<Literal>(item)->kind != TokenType::IDENTIFIER)
+                    throw SyntaxException("expected identifier or tuple of identifier", this->currTk_);
+            }
+        }
+        this->Eat();
+        return std::make_unique<For>(std::move(init), this->Expression(), this->Block(), colno, lineno);
+    }
+
+    this->Eat(TokenType::SEMICOLON, "expected ; after init");
+
+    test = this->Test();
+
+    this->Eat(TokenType::SEMICOLON, "expected ; after test condition");
+
+    inc = this->Expression();
+
+    return std::make_unique<For>(std::move(init), std::move(test), std::move(inc), this->Block(), colno, lineno);
+}
+
+ast::NodeUptr Parser::LoopStmt() {
+    unsigned colno = this->currTk_.colno;
+    unsigned lineno = this->currTk_.lineno;
+
+    this->Eat(TokenType::LOOP, "expected loop keyword");
+
+    if (this->Match(TokenType::LEFT_BRACES))
+        return std::make_unique<Loop>(nullptr, this->Block(), colno, lineno);
+
+    return std::make_unique<Loop>(this->Test(), this->Block(), colno, lineno);
 }
 
 ast::NodeUptr Parser::IfStmt(bool eatIf) {

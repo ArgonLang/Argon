@@ -14,6 +14,9 @@ namespace lang::ast {
         PROGRAM,
         VARIADIC,
         ALIAS,
+        FOR,
+        FOR_IN,
+        LOOP,
         IF,
         IMPORT,
         IMPORT_ALIAS,
@@ -96,6 +99,40 @@ namespace lang::ast {
 
         void AddStmtOrExpr(NodeUptr stmt) {
             this->stmts.push_front(std::move(stmt));
+        }
+    };
+
+    struct For : Node {
+        NodeUptr init;
+        NodeUptr test;
+        NodeUptr inc;
+        NodeUptr body;
+
+        explicit For(NodeUptr iter, NodeUptr iterexpr, NodeUptr body, unsigned colno, unsigned lineno) : Node(
+                NodeType::FOR_IN, colno, lineno) {
+            this->init = std::move(iter);
+            this->test = std::move(iterexpr);
+            this->inc = nullptr;
+            this->body = std::move(body);
+        }
+
+        explicit For(NodeUptr inti, NodeUptr test, NodeUptr inc, NodeUptr body, unsigned colno, unsigned lineno) : Node(
+                NodeType::FOR, colno, lineno) {
+            this->init = std::move(init);
+            this->test = std::move(test);
+            this->inc = std::move(inc);
+            this->body = std::move(body);
+        }
+    };
+
+    struct Loop : Node {
+        NodeUptr test;
+        NodeUptr body;
+
+        explicit Loop(NodeUptr test, NodeUptr body, unsigned colno, unsigned lineno) : Node(NodeType::LOOP, colno,
+                                                                                            lineno) {
+            this->test = std::move(test);
+            this->body = std::move(body);
         }
     };
 
