@@ -14,6 +14,7 @@ namespace lang::ast {
         PROGRAM,
         VARIADIC,
         ALIAS,
+        IF,
         IMPORT,
         IMPORT_ALIAS,
         VARIABLE,
@@ -95,6 +96,17 @@ namespace lang::ast {
 
         void AddStmtOrExpr(NodeUptr stmt) {
             this->stmts.push_front(std::move(stmt));
+        }
+    };
+
+    struct If : Node {
+        NodeUptr test;
+        NodeUptr body;
+        NodeUptr orelse;
+
+        explicit If(NodeUptr test, NodeUptr body, unsigned colno, unsigned lineno) : Node(NodeType::IF, colno, lineno) {
+            this->test = std::move(test);
+            this->body = std::move(body);
         }
     };
 

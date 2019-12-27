@@ -67,6 +67,8 @@ namespace lang {
 
         std::string DottedName();
 
+        ast::NodeUptr IfStmt(bool eatIf);
+
         ast::NodeUptr Block();
 
         ast::NodeUptr BlockBody();

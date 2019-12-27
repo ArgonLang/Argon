@@ -378,6 +378,7 @@ ast::NodeUptr Parser::Statement() {
         case TokenType::FROM:
             return this->FromImportStmt();
         case TokenType::IF:
+            return this->IfStmt(true);
         default:
             break; // ??
     }
@@ -461,6 +462,25 @@ std::string Parser::DottedName() {
     }
 
     return dotted;
+}
+
+ast::NodeUptr Parser::IfStmt(bool eatIf) {
+    NodeUptr ifstmt;
+
+    if (eatIf)
+        this->Eat(TokenType::IF, "expected if keyword");
+
+    ifstmt = std::make_unique<If>(this->Test(), this->Block(), this->currTk_.colno, this->currTk_.lineno);
+
+    if (this->Match(TokenType::ELIF)) {
+        this->Eat();
+        CastNode<If>(ifstmt)->orelse = this->IfStmt(false);
+    } else if (this->Match(TokenType::ELSE)) {
+        this->Eat();
+        CastNode<If>(ifstmt)->orelse = this->Block();
+    }
+
+    return ifstmt;
 }
 
 ast::NodeUptr Parser::Block() {
@@ -905,4 +925,6 @@ ast::NodeUptr Parser::ParseScope() {
 
     throw SyntaxException("expected identifier or expression", this->currTk_);
 }
+
+
 
