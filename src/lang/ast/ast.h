@@ -14,9 +14,14 @@ namespace lang::ast {
         PROGRAM,
         VARIADIC,
         ALIAS,
+        IMPORT,
+        IMPORT_ALIAS,
         VARIABLE,
         CONSTANT,
         FUNC,
+        RETURN,
+        DEFER,
+        SPAWN,
         STRUCT,
         STRUCT_BLOCK,
         TRAIT,
@@ -90,6 +95,28 @@ namespace lang::ast {
 
         void AddStmtOrExpr(NodeUptr stmt) {
             this->stmts.push_front(std::move(stmt));
+        }
+    };
+
+    struct Import : Node {
+        std::string module;
+        std::list<NodeUptr> names;
+
+        explicit Import(unsigned colno, unsigned lineno) : Node(NodeType::IMPORT, colno, lineno) {}
+
+        void AddName(NodeUptr name) {
+            this->names.push_front(std::move(name));
+        }
+    };
+
+    struct ImportAlias : Node {
+        std::string path;
+        std::string alias;
+
+        explicit ImportAlias(std::string &path, std::string &alias, unsigned colno, unsigned lineno) : Node(
+                NodeType::IMPORT_ALIAS, colno, lineno) {
+            this->path = path;
+            this->alias = alias;
         }
     };
 

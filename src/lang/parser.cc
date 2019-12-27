@@ -357,19 +357,110 @@ ast::NodeUptr Parser::ImplDecl() {
 // *** STATEMENTS ***
 
 ast::NodeUptr Parser::Statement() {
+    unsigned colno = this->currTk_.colno;
+    unsigned lineno = this->currTk_.lineno;
+
     if (!this->TokenInRange(TokenType::KEYWORD_BEGIN, TokenType::KEYWORD_END))
         return this->Expression();
 
     switch (this->currTk_.type) {
         case TokenType::DEFER:
+            this->Eat();
+            return std::make_unique<Unary>(NodeType::DEFER, this->AtomExpr(), colno, lineno);
         case TokenType::SPAWN:
+            this->Eat();
+            return std::make_unique<Unary>(NodeType::SPAWN, this->AtomExpr(), colno, lineno);
         case TokenType::RETURN:
+            this->Eat();
+            return std::make_unique<Unary>(NodeType::RETURN, this->TestList(), colno, lineno);
         case TokenType::IMPORT:
-            break;
+            return this->ImportStmt();
+        case TokenType::FROM:
+            return this->FromImportStmt();
         case TokenType::IF:
         default:
             break; // ??
     }
+}
+
+ast::NodeUptr Parser::ImportStmt() {
+    NodeUptr import = std::make_unique<Import>(this->currTk_.colno, this->currTk_.lineno);
+
+    this->Eat(TokenType::IMPORT, "expected import keyword");
+
+    CastNode<Import>(import)->AddName(this->DottedAsName());
+
+    while (this->Match(TokenType::COMMA)) {
+        this->Eat();
+        CastNode<Import>(import)->AddName(this->DottedAsName());
+    }
+
+    return import;
+}
+
+ast::NodeUptr Parser::FromImportStmt() {
+    NodeUptr import = std::make_unique<Import>(this->currTk_.colno, this->currTk_.lineno);
+
+    this->Eat(TokenType::FROM, "expected from keyword");
+
+    CastNode<Import>(import)->module = this->DottedName();
+
+    this->Eat(TokenType::IMPORT, "expected import keyword");
+
+    CastNode<Import>(import)->AddName(this->ImportAsName());
+    while (this->Match(TokenType::COMMA)) {
+        this->Eat();
+        CastNode<Import>(import)->AddName(this->DottedAsName());
+    }
+
+    return import;
+}
+
+ast::NodeUptr Parser::ImportAsName() {
+    unsigned colno = this->currTk_.colno;
+    unsigned lineno = this->currTk_.lineno;
+    std::string name = this->currTk_.value;
+    std::string alias;
+
+    this->Eat(TokenType::IDENTIFIER, "expected name");
+
+    if (this->Match(TokenType::AS)) {
+        this->Eat();
+        alias = this->currTk_.value;
+        this->Eat(TokenType::IDENTIFIER, "expected alias name");
+    }
+
+    return std::make_unique<ImportAlias>(name, alias, colno, lineno);
+}
+
+ast::NodeUptr Parser::DottedAsName() {
+    unsigned colno = this->currTk_.colno;
+    unsigned lineno = this->currTk_.lineno;
+    std::string dotted;
+    std::string alias;
+
+    dotted = this->DottedName();
+
+    if (this->Match(TokenType::AS)) {
+        this->Eat();
+        alias = this->currTk_.value;
+        this->Eat(TokenType::IDENTIFIER, "expected alias name");
+    }
+
+    return std::make_unique<ImportAlias>(dotted, alias, colno, lineno);
+}
+
+std::string Parser::DottedName() {
+    std::string dotted = this->currTk_.value;
+
+    this->Eat(TokenType::IDENTIFIER, "expected name");
+
+    while (this->Match(TokenType::DOT)) {
+        this->Eat();
+        dotted += "." + this->currTk_.value;
+    }
+
+    return dotted;
 }
 
 ast::NodeUptr Parser::Block() {
@@ -814,3 +905,4 @@ ast::NodeUptr Parser::ParseScope() {
 
     throw SyntaxException("expected identifier or expression", this->currTk_);
 }
+

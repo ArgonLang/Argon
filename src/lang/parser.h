@@ -57,6 +57,16 @@ namespace lang {
 
         ast::NodeUptr Statement();
 
+        ast::NodeUptr ImportStmt();
+
+        ast::NodeUptr FromImportStmt();
+
+        ast::NodeUptr ImportAsName();
+
+        ast::NodeUptr DottedAsName();
+
+        std::string DottedName();
+
         ast::NodeUptr Block();
 
         ast::NodeUptr BlockBody();
