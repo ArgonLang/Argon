@@ -695,16 +695,21 @@ ast::NodeUptr Parser::TestList() {
 }
 
 ast::NodeUptr Parser::Test() {
-    NodeUptr left = this->OrTest();
     unsigned colno = this->currTk_.colno;
     unsigned lineno = this->currTk_.lineno;
+    NodeUptr left = this->OrTest();
+    NodeUptr ltest;
+    NodeUptr rtest;
 
     if (this->Match(TokenType::ELVIS)) {
         this->Eat();
         return std::make_unique<Binary>(NodeType::ELVIS, std::move(left), this->TestList(), colno, lineno);
     } else if (this->Match(TokenType::QUESTION)) {
         this->Eat();
-        // TODO after IF Node
+        ltest = this->TestList();
+        this->Eat(TokenType::COLON, "expected : in ternary operator");
+        rtest = this->TestList();
+        return std::make_unique<If>(std::move(left), std::move(ltest), std::move(rtest), colno, lineno);
     }
 
     return left;

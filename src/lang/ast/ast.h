@@ -171,6 +171,11 @@ namespace lang::ast {
         NodeUptr body;
         NodeUptr orelse;
 
+        explicit If(NodeUptr test, NodeUptr body, NodeUptr orelse, unsigned colno, unsigned lineno) : If(
+                std::move(test), std::move(body), colno, lineno) {
+            this->orelse = std::move(orelse);
+        }
+
         explicit If(NodeUptr test, NodeUptr body, unsigned colno, unsigned lineno) : Node(NodeType::IF, colno, lineno) {
             this->test = std::move(test);
             this->body = std::move(body);
