@@ -16,7 +16,13 @@ namespace lang::ast {
         ALIAS,
         FOR,
         FOR_IN,
+        FALLTHROUGH,
+        BREAK,
+        CONTINUE,
+        GOTO,
         LOOP,
+        SWITCH,
+        CASE,
         IF,
         IMPORT,
         IMPORT_ALIAS,
@@ -133,6 +139,30 @@ namespace lang::ast {
                                                                                             lineno) {
             this->test = std::move(test);
             this->body = std::move(body);
+        }
+    };
+
+    struct Switch : Node {
+        NodeUptr test;
+        std::list<NodeUptr> cases;
+
+        explicit Switch(NodeUptr test, unsigned colno, unsigned lineno) : Node(NodeType::SWITCH, colno, lineno) {
+            this->test = std::move(test);
+        }
+
+        void AddCase(NodeUptr swcase) {
+            this->cases.push_front(std::move(swcase));
+        }
+    };
+
+    struct Case : Node {
+        std::list<NodeUptr> tests;
+        NodeUptr body;
+
+        explicit Case(unsigned colno, unsigned lineno) : Node(NodeType::CASE, colno, lineno) {}
+
+        void AddCondition(NodeUptr condition) {
+            this->tests.push_front(std::move(condition));
         }
     };
 

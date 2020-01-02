@@ -73,6 +73,12 @@ namespace lang {
 
         ast::NodeUptr IfStmt(bool eatIf);
 
+        ast::NodeUptr SwitchStmt();
+
+        ast::NodeUptr SwitchCase();
+
+        ast::NodeUptr JmpStmt();
+
         ast::NodeUptr Block();
 
         ast::NodeUptr BlockBody();
