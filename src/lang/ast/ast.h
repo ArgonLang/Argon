@@ -13,7 +13,9 @@ namespace lang::ast {
     enum class NodeType {
         PROGRAM,
         VARIADIC,
+        ELLIPSIS,
         ALIAS,
+        CALL,
         FOR,
         FOR_IN,
         FALLTHROUGH,
@@ -201,6 +203,19 @@ namespace lang::ast {
                 NodeType::IMPORT_ALIAS, colno, lineno) {
             this->path = path;
             this->alias = alias;
+        }
+    };
+
+    struct Call : Node {
+        NodeUptr func;
+        std::list<NodeUptr> args;
+
+        Call(NodeUptr func, unsigned colno, unsigned lineno) : Node(NodeType::CALL, colno, lineno) {
+            this->func = std::move(func);
+        }
+
+        void AddArgument(NodeUptr argument) {
+            this->args.push_back(std::move(argument));
         }
     };
 

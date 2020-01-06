@@ -907,7 +907,8 @@ ast::NodeUptr Parser::AtomExpr() {
 bool Parser::Trailer(NodeUptr &left) {
     switch (this->currTk_.type) {
         case TokenType::LEFT_ROUND:
-            // TODO: arguments
+            left = this->ParseArguments(std::move(left));
+            return true;
         case TokenType::LEFT_SQUARE:
             // TODO: slice
         case TokenType::DOT:
@@ -928,6 +929,43 @@ bool Parser::Trailer(NodeUptr &left) {
         default:
             return false;
     }
+}
+
+ast::NodeUptr Parser::ParseArguments(NodeUptr left) {
+    unsigned colno = this->currTk_.colno;
+    unsigned lineno = this->currTk_.lineno;
+    bool comma = false;
+    NodeUptr call;
+    NodeUptr tmp;
+
+    this->Eat(TokenType::LEFT_ROUND, "expected (");
+
+    call = std::make_unique<Call>(std::move(left), colno, lineno);
+
+    if (this->Match(TokenType::RIGHT_ROUND)) {
+        this->Eat();
+        return call;
+    }
+
+    do {
+        if (comma)
+            this->Eat();
+        colno = this->currTk_.colno;
+        lineno = this->currTk_.lineno;
+        tmp = this->Test();
+        if (this->Match(TokenType::ELLIPSIS)) {
+            this->Eat();
+            tmp = std::make_unique<Unary>(NodeType::ELLIPSIS, std::move(tmp), colno, lineno);
+            CastNode<Call>(call)->AddArgument(std::move(tmp));
+            break;
+        }
+        CastNode<Call>(call)->AddArgument(std::move(tmp));
+        comma = true;
+    } while (this->Match(TokenType::COMMA));
+
+    this->Eat(TokenType::RIGHT_ROUND, "expected ) after function call");
+
+    return call;
 }
 
 ast::NodeUptr Parser::MemberAccess(ast::NodeUptr left) {
@@ -1137,4 +1175,6 @@ ast::NodeUptr Parser::ParseScope() {
 
     throw SyntaxException("expected identifier or expression", this->currTk_);
 }
+
+
 

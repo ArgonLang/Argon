@@ -117,6 +117,8 @@ namespace lang {
 
         bool Trailer(ast::NodeUptr &left);
 
+        ast::NodeUptr ParseArguments(ast::NodeUptr left);
+
         ast::NodeUptr MemberAccess(ast::NodeUptr left);
 
         ast::NodeUptr ParseAtom();
