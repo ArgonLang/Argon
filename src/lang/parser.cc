@@ -948,7 +948,6 @@ ast::NodeUptr Parser::MemberAccess(ast::NodeUptr left) {
 }
 
 ast::NodeUptr Parser::ParseAtom() {
-    // TODO: <arrow>
     NodeUptr tmp;
 
     switch (this->currTk_.type) {
@@ -957,10 +956,7 @@ ast::NodeUptr Parser::ParseAtom() {
         case TokenType::NIL:
             return std::make_unique<ast::Literal>(this->currTk_);
         case TokenType::LEFT_ROUND:
-            this->Eat();
-            tmp = this->TestList();
-            this->Eat(TokenType::RIGHT_ROUND, "expected ) after parenthesized expression");
-            return tmp;
+            return this->ParseArrowOrTuple();
         case TokenType::LEFT_SQUARE:
             return this->ParseList();
         case TokenType::LEFT_BRACES:
@@ -974,7 +970,66 @@ ast::NodeUptr Parser::ParseAtom() {
     }
 
     return this->ParseScope();
-    //throw SyntaxException("invalid syntax", this->currTk_);
+}
+
+ast::NodeUptr Parser::ParseArrowOrTuple() {
+    unsigned colno = this->currTk_.colno;
+    unsigned lineno = this->currTk_.lineno;
+    bool mustFn = false;
+    std::list<NodeUptr> params;
+    NodeUptr tmp = std::make_unique<List>(NodeType::TUPLE, colno, lineno);
+
+    this->Eat(TokenType::LEFT_ROUND, "expected (");
+
+    if (!this->Match(TokenType::RIGHT_ROUND)) {
+        params = this->ParseParexprAparams();
+        for (auto &item : params) {
+            if (item->type == NodeType::VARIADIC) {
+                mustFn = true;
+                break;
+            }
+            if (item->type != NodeType::LITERAL || CastNode<Literal>(item)->kind != TokenType::IDENTIFIER) {
+                this->Eat(TokenType::RIGHT_ROUND, "expected ) after parenthesized expression");
+                CastNode<List>(tmp)->expressions = std::move(params);
+                return tmp;
+            }
+        }
+    }
+
+    this->Eat(TokenType::RIGHT_ROUND, "expected ) after parenthesized expression or arrow declaration");
+    if (this->Match(TokenType::ARROW)) {
+        this->Eat();
+        return std::make_unique<Function>(std::move(params), this->Block(), false, colno, lineno);
+    }
+
+    if (mustFn)
+        this->Eat(TokenType::ARROW, "expected arrow function declaration");
+
+    // it's definitely a parenthesized expression
+    CastNode<List>(tmp)->expressions = std::move(params);
+    return tmp;
+}
+
+std::list<ast::NodeUptr> Parser::ParseParexprAparams() {
+    std::list<ast::NodeUptr> params;
+    NodeUptr tmp = this->Variadic();
+
+    if (tmp != nullptr) {
+        params.push_back(std::move(tmp));
+        return params;
+    }
+
+    params.push_back(this->Test());
+    while (this->Match(TokenType::COMMA)) {
+        this->Eat();
+        if ((tmp = this->Variadic()) != nullptr) {
+            params.push_back(std::move(tmp));
+            break;
+        }
+        params.push_back(this->Test());
+    }
+
+    return params;
 }
 
 ast::NodeUptr Parser::ParseList() {
@@ -1082,6 +1137,4 @@ ast::NodeUptr Parser::ParseScope() {
 
     throw SyntaxException("expected identifier or expression", this->currTk_);
 }
-
-
 

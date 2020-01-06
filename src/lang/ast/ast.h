@@ -217,6 +217,14 @@ namespace lang::ast {
             this->body = std::move(body);
             this->pub = pub;
         }
+
+        Function(std::list<NodeUptr> params, NodeUptr body, bool pub, unsigned colno, unsigned lineno) : Node(
+                NodeType::FUNC, colno, lineno) {
+            this->name = "";
+            this->params = std::move(params);
+            this->body = std::move(body);
+            this->pub = pub;
+        }
     };
 
     struct Construct : Node {

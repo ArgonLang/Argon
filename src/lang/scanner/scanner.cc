@@ -507,6 +507,10 @@ Token Scanner::NextToken() {
                     this->GetCh();
                     return Token(TokenType::EQUAL_EQUAL, colno, lineno, "");
                 }
+                if (this->source_->peek() == '>') {
+                    this->GetCh();
+                    return Token(TokenType::ARROW, colno, lineno, "");
+                }
                 return Token(TokenType::EQUAL, colno, lineno, "");
             case '>':
                 this->GetCh();

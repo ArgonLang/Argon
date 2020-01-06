@@ -121,6 +121,10 @@ namespace lang {
 
         ast::NodeUptr ParseAtom();
 
+        ast::NodeUptr ParseArrowOrTuple();
+
+        std::list<ast::NodeUptr> ParseParexprAparams();
+
         ast::NodeUptr ParseList();
 
         ast::NodeUptr ParseMapOrSet();

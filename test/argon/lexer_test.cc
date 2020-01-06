@@ -85,7 +85,7 @@ TEST(Scanner, Delimiters) {
 }
 
 TEST(Scanner, Punctuation) {
-	auto source = std::istringstream("+ -% &  *./:;< =>  ^| ~,");
+    auto source = std::istringstream("+ -% &  *./:;< = >  ^| ~,");
 	lang::scanner::Scanner scanner(&source);
 	ASSERT_EQ(scanner.Next(), lang::scanner::Token(lang::scanner::TokenType::PLUS, 0, 0, ""));
 	ASSERT_EQ(scanner.Next(), lang::scanner::Token(lang::scanner::TokenType::MINUS, 2, 0, ""));
@@ -98,12 +98,12 @@ TEST(Scanner, Punctuation) {
 	ASSERT_EQ(scanner.Next(), lang::scanner::Token(lang::scanner::TokenType::SEMICOLON, 12, 0, ""));
 	ASSERT_EQ(scanner.Next(), lang::scanner::Token(lang::scanner::TokenType::LESS, 13, 0, ""));
 	ASSERT_EQ(scanner.Next(), lang::scanner::Token(lang::scanner::TokenType::EQUAL, 15, 0, ""));
-	ASSERT_EQ(scanner.Next(), lang::scanner::Token(lang::scanner::TokenType::GREATER, 16, 0, ""));
+    ASSERT_EQ(scanner.Next(), lang::scanner::Token(lang::scanner::TokenType::GREATER, 17, 0, ""));
 	//ASSERT_EQ(scanner.Next(), lang::scanner::Token(lang::scanner::TokenType::HASH, 19, 0, ""));
-	ASSERT_EQ(scanner.Next(), lang::scanner::Token(lang::scanner::TokenType::CARET, 19, 0, ""));
-	ASSERT_EQ(scanner.Next(), lang::scanner::Token(lang::scanner::TokenType::PIPE, 20, 0, ""));
-	ASSERT_EQ(scanner.Next(), lang::scanner::Token(lang::scanner::TokenType::TILDE, 22, 0, ""));
-	ASSERT_EQ(scanner.Next(), lang::scanner::Token(lang::scanner::TokenType::COMMA, 23, 0, ""));
+    ASSERT_EQ(scanner.Next(), lang::scanner::Token(lang::scanner::TokenType::CARET, 20, 0, ""));
+    ASSERT_EQ(scanner.Next(), lang::scanner::Token(lang::scanner::TokenType::PIPE, 21, 0, ""));
+    ASSERT_EQ(scanner.Next(), lang::scanner::Token(lang::scanner::TokenType::TILDE, 23, 0, ""));
+    ASSERT_EQ(scanner.Next(), lang::scanner::Token(lang::scanner::TokenType::COMMA, 24, 0, ""));
 }
 
 TEST(Scanner, CompoundPunctuation) {
