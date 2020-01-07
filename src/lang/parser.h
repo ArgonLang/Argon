@@ -119,6 +119,8 @@ namespace lang {
 
         ast::NodeUptr ParseArguments(ast::NodeUptr left);
 
+        ast::NodeUptr ParseSubscript();
+
         ast::NodeUptr MemberAccess(ast::NodeUptr left);
 
         ast::NodeUptr ParseAtom();

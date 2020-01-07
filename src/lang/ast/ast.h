@@ -15,6 +15,9 @@ namespace lang::ast {
         VARIADIC,
         ELLIPSIS,
         ALIAS,
+        SUBSCRIPT,
+        INDEX,
+        SLICE,
         CALL,
         FOR,
         FOR_IN,
@@ -299,6 +302,23 @@ namespace lang::ast {
 
         void AddExpression(NodeUptr expr) {
             this->expressions.push_front(std::move(expr));
+        }
+    };
+
+    struct Slice : Node {
+        NodeUptr low;
+        NodeUptr high;
+        NodeUptr step;
+
+        explicit Slice(NodeUptr low, NodeUptr high, NodeUptr step, unsigned colno, unsigned lineno) : Node(
+                NodeType::INDEX, colno, lineno) {
+            this->low = std::move(low);
+            if (high != nullptr) {
+                this->high = std::move(high);
+                this->type = NodeType::SLICE;
+                if (step != nullptr)
+                    this->step = std::move(step);
+            }
         }
     };
 

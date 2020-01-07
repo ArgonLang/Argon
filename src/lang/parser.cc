@@ -905,12 +905,17 @@ ast::NodeUptr Parser::AtomExpr() {
 }
 
 bool Parser::Trailer(NodeUptr &left) {
+    unsigned colno = this->currTk_.colno;
+    unsigned lineno = this->currTk_.lineno;
+
     switch (this->currTk_.type) {
         case TokenType::LEFT_ROUND:
             left = this->ParseArguments(std::move(left));
             return true;
         case TokenType::LEFT_SQUARE:
-            // TODO: slice
+            left = std::make_unique<Binary>(NodeType::SUBSCRIPT, std::move(left), this->ParseSubscript(), colno,
+                                            lineno);
+            return true;
         case TokenType::DOT:
         case TokenType::QUESTION_DOT:
         case TokenType::EXCLAMATION_DOT:
@@ -966,6 +971,31 @@ ast::NodeUptr Parser::ParseArguments(NodeUptr left) {
     this->Eat(TokenType::RIGHT_ROUND, "expected ) after function call");
 
     return call;
+}
+
+ast::NodeUptr Parser::ParseSubscript() {
+    unsigned colno = this->currTk_.colno;
+    unsigned lineno = this->currTk_.lineno;
+    NodeUptr low;
+    NodeUptr high;
+    NodeUptr step;
+
+    this->Eat(TokenType::LEFT_SQUARE, "expected [");
+
+    low = this->Test();
+
+    if (this->Match(TokenType::COLON)) {
+        this->Eat();
+        high = this->Test();
+        if (this->Match(TokenType::COLON)) {
+            this->Eat();
+            step = this->Test();
+        }
+    }
+
+    this->Eat(TokenType::RIGHT_SQUARE, "expected ]");
+
+    return std::make_unique<Slice>(std::move(low), std::move(high), std::move(step), colno, lineno);
 }
 
 ast::NodeUptr Parser::MemberAccess(ast::NodeUptr left) {
