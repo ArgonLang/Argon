@@ -422,7 +422,7 @@ ast::NodeUptr Parser::FromImportStmt() {
     CastNode<Import>(import)->AddName(this->ImportAsName());
     while (this->Match(TokenType::COMMA)) {
         this->Eat();
-        CastNode<Import>(import)->AddName(this->DottedAsName());
+        CastNode<Import>(import)->AddName(this->ImportAsName());
     }
 
     return import;
