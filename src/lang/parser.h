@@ -29,6 +29,8 @@ namespace lang {
 
         ast::NodeUptr AliasDecl(bool pub);
 
+        ast::NodeUptr VarModifier(bool pub);
+
         ast::NodeUptr VarDecl(bool pub);
 
         ast::NodeUptr ConstDecl(bool pub);

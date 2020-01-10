@@ -70,8 +70,10 @@ ast::NodeUptr Parser::AccessModifier() {
 
 ast::NodeUptr Parser::SmallDecl(bool pub) {
     switch (this->currTk_.type) {
+        case TokenType::ATOMIC:
+        case TokenType::WEAK:
         case TokenType::VAR:
-            return this->VarDecl(pub);
+            return this->VarModifier(pub);
         case TokenType::USING:
             return this->AliasDecl(pub);
         case TokenType::FUNC:
@@ -100,9 +102,7 @@ ast::NodeUptr Parser::AliasDecl(bool pub) {
     return node;
 }
 
-ast::NodeUptr Parser::VarDecl(bool pub) {
-    unsigned colno = this->currTk_.colno;
-    unsigned lineno = this->currTk_.lineno;
+ast::NodeUptr Parser::VarModifier(bool pub) {
     NodeUptr variable;
     bool atomic = false;
     bool weak = false;
@@ -117,23 +117,34 @@ ast::NodeUptr Parser::VarDecl(bool pub) {
         weak = true;
     }
 
-    if (this->Match(TokenType::LET)) {
-        if (atomic || weak)
-            throw SyntaxException("expected variable declaration", this->currTk_);
-        return nullptr;
-    }
+    if (this->Match(TokenType::LET))
+        throw SyntaxException("expected variable declaration", this->currTk_);
 
-    this->Eat();
+    variable = this->VarDecl(pub);
+
+    CastNode<Variable>(variable)->atomic = atomic;
+    CastNode<Variable>(variable)->weak = weak;
+
+    return variable;
+}
+
+ast::NodeUptr Parser::VarDecl(bool pub) {
+    unsigned colno = this->currTk_.colno;
+    unsigned lineno = this->currTk_.lineno;
+    NodeUptr variable;
+
+    this->Eat(TokenType::VAR, "expected var keyword");
+
     variable = std::make_unique<Variable>(this->currTk_.value, nullptr, false, colno, lineno);
+
     this->Eat(TokenType::IDENTIFIER, "expected identifier after var declaration");
     CastNode<Variable>(variable)->annotation = this->VarAnnotation();
+
     if (this->Match(TokenType::EQUAL)) {
         this->Eat();
         CastNode<Variable>(variable)->value = this->TestList();
     }
 
-    CastNode<Variable>(variable)->atomic = atomic;
-    CastNode<Variable>(variable)->weak = weak;
     CastNode<Variable>(variable)->pub = pub;
 
     return variable;
@@ -260,7 +271,7 @@ ast::NodeUptr Parser::StructBlock() {
                 CastNode<ast::Block>(block)->AddStmtOrExpr(this->ConstDecl(pub));
                 break;
             case TokenType::VAR:
-                CastNode<ast::Block>(block)->AddStmtOrExpr(this->VarDecl(pub));
+                CastNode<ast::Block>(block)->AddStmtOrExpr(this->VarModifier(pub));
                 break;
             case TokenType::FUNC:
                 CastNode<ast::Block>(block)->AddStmtOrExpr(this->FuncDecl(pub));
