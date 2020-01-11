@@ -23,14 +23,35 @@ void Parser::Eat() {
 void Parser::Eat(TokenType type, std::string errmsg) {
     if (!this->Match(type))
         throw SyntaxException(std::move(errmsg), this->currTk_);
-    this->currTk_ = this->scanner_->Next();
+    this->Eat();
+}
+
+void Parser::EatTerm(bool must_eat) {
+    this->EatTerm(must_eat, TokenType::END_OF_FILE);
+}
+
+void Parser::EatTerm(bool must_eat, TokenType stop_token) {
+    if (this->Match(stop_token))
+        return;
+
+    while (this->Match(TokenType::END_OF_LINE, TokenType::SEMICOLON)) {
+        this->Eat();
+        must_eat = false;
+    }
+
+    if (must_eat)
+        throw SyntaxException("expected EOL or SEMICOLON", this->currTk_);
 }
 
 std::unique_ptr<ast::Block> Parser::Parse() {
     auto program = std::make_unique<ast::Block>(NodeType::PROGRAM, this->currTk_.colno, this->currTk_.colno);
 
-    while (!this->Match(TokenType::END_OF_FILE))
+    this->EatTerm(false);
+
+    while (!this->Match(TokenType::END_OF_FILE)) {
         program->AddStmtOrExpr(this->Declaration());
+        this->EatTerm(true);
+    }
 
     return program;
 }
@@ -258,6 +279,8 @@ ast::NodeUptr Parser::StructBlock() {
 
     this->Eat(TokenType::LEFT_BRACES, "expected { after struct declaration");
 
+    this->EatTerm(false);
+
     while (!this->Match(TokenType::RIGHT_BRACES)) {
         bool pub = false;
 
@@ -270,6 +293,8 @@ ast::NodeUptr Parser::StructBlock() {
             case TokenType::LET:
                 CastNode<ast::Block>(block)->AddStmtOrExpr(this->ConstDecl(pub));
                 break;
+            case TokenType::ATOMIC:
+            case TokenType::WEAK:
             case TokenType::VAR:
                 CastNode<ast::Block>(block)->AddStmtOrExpr(this->VarModifier(pub));
                 break;
@@ -279,6 +304,8 @@ ast::NodeUptr Parser::StructBlock() {
             default:
                 throw SyntaxException("expected variable, constant or function declaration", this->currTk_);
         }
+
+        this->EatTerm(true, TokenType::RIGHT_BRACES);
     }
 
     this->Eat();
@@ -311,6 +338,8 @@ ast::NodeUptr Parser::TraitBlock() {
 
     this->Eat(TokenType::LEFT_BRACES, "expected { after impl declaration");
 
+    this->EatTerm(false);
+
     while (!this->Match(TokenType::RIGHT_BRACES)) {
         bool pub = false;
 
@@ -329,6 +358,8 @@ ast::NodeUptr Parser::TraitBlock() {
             default:
                 throw SyntaxException("expected constant or function declaration", this->currTk_);
         }
+
+        this->EatTerm(true, TokenType::RIGHT_BRACES);
     }
 
     this->Eat();
@@ -497,9 +528,10 @@ ast::NodeUptr Parser::ForStmt() {
     this->Eat(TokenType::FOR, "expected for keyword");
 
     if (!this->Match(TokenType::SEMICOLON)) {
-        if ((init = this->VarDecl(false)) == nullptr) {
+        if (this->Match(TokenType::VAR))
+            init = this->VarDecl(false);
+        else
             init = this->Expression();
-        }
     }
 
     if (this->Match(TokenType::IN)) {
@@ -651,8 +683,12 @@ ast::NodeUptr Parser::Block() {
 
     this->Eat(TokenType::LEFT_BRACES, "expected {");
 
-    while (!this->Match(TokenType::RIGHT_BRACES))
+    this->EatTerm(false);
+
+    while (!this->Match(TokenType::RIGHT_BRACES)) {
         CastNode<ast::Block>(body)->AddStmtOrExpr(this->BlockBody());
+        this->EatTerm(true, TokenType::RIGHT_BRACES);
+    }
 
     this->Eat();
 

@@ -19,6 +19,10 @@ namespace lang {
 
         void Eat(scanner::TokenType type, std::string errmsg);
 
+        void EatTerm(bool must_eat);
+
+        void EatTerm(bool must_eat, scanner::TokenType stop_token);
+
         // *** DECLARATIONS ***
 
         ast::NodeUptr Declaration();
