@@ -73,15 +73,14 @@ TEST(Scanner, Word) {
 }
 
 TEST(Scanner, Delimiters) {
-	auto source = std::istringstream("() ][ {}");
-	lang::scanner::Scanner scanner(&source);
-	ASSERT_EQ(scanner.Next(), lang::scanner::Token(lang::scanner::TokenType::LEFT_ROUND, 0, 0, ""));
-	ASSERT_EQ(scanner.Next(), lang::scanner::Token(lang::scanner::TokenType::RIGHT_ROUND, 1, 0, ""));
-	ASSERT_EQ(scanner.Next(), lang::scanner::Token(lang::scanner::TokenType::RIGHT_SQUARE, 3, 0, ""));
-	ASSERT_EQ(scanner.Next(), lang::scanner::Token(lang::scanner::TokenType::LEFT_SQUARE, 4, 0, ""));
-	ASSERT_EQ(scanner.Next(), lang::scanner::Token(lang::scanner::TokenType::LEFT_BRACES, 6, 0, ""));
-	ASSERT_EQ(scanner.Next(), lang::scanner::Token(lang::scanner::TokenType::RIGHT_BRACES, 7, 0, ""));
-	
+    auto source = std::istringstream("() ][ {}");
+    lang::scanner::Scanner scanner(&source);
+    ASSERT_EQ(scanner.Next(), lang::scanner::Token(lang::scanner::TokenType::LEFT_ROUND, 1, 2, ""));
+    ASSERT_EQ(scanner.Next(), lang::scanner::Token(lang::scanner::TokenType::RIGHT_ROUND, 2, 3, ""));
+    ASSERT_EQ(scanner.Next(), lang::scanner::Token(lang::scanner::TokenType::RIGHT_SQUARE, 4, 5, ""));
+    ASSERT_EQ(scanner.Next(), lang::scanner::Token(lang::scanner::TokenType::LEFT_SQUARE, 5, 6, ""));
+    ASSERT_EQ(scanner.Next(), lang::scanner::Token(lang::scanner::TokenType::LEFT_BRACES, 7, 8, ""));
+    ASSERT_EQ(scanner.Next(), lang::scanner::Token(lang::scanner::TokenType::RIGHT_BRACES, 8, 9, ""));
 }
 
 TEST(Scanner, Punctuation) {
