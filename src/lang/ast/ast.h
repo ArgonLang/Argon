@@ -361,7 +361,7 @@ namespace lang::ast {
         lang::scanner::TokenType kind;
         std::string value;
 
-        explicit Literal(const lang::scanner::Token &token) : Node(NodeType::LITERAL, token.colno, token.lineno) {
+        explicit Literal(const lang::scanner::Token &token) : Node(NodeType::LITERAL, token.start, token.end) {
             this->kind = token.type;
             this->value = token.value;
         }

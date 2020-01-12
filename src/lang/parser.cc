@@ -44,7 +44,7 @@ void Parser::EatTerm(bool must_eat, TokenType stop_token) {
 }
 
 std::unique_ptr<ast::Block> Parser::Parse() {
-    auto program = std::make_unique<ast::Block>(NodeType::PROGRAM, this->currTk_.colno, this->currTk_.colno);
+    auto program = std::make_unique<ast::Block>(NodeType::PROGRAM, this->currTk_.start, this->currTk_.start);
 
     this->EatTerm(false);
 
@@ -107,8 +107,8 @@ ast::NodeUptr Parser::SmallDecl(bool pub) {
 }
 
 ast::NodeUptr Parser::AliasDecl(bool pub) {
-    unsigned colno = this->currTk_.colno;
-    unsigned lineno = this->currTk_.lineno;
+    unsigned colno = this->currTk_.start;
+    unsigned lineno = this->currTk_.end;
     NodeUptr node;
     std::string name;
 
@@ -150,8 +150,8 @@ ast::NodeUptr Parser::VarModifier(bool pub) {
 }
 
 ast::NodeUptr Parser::VarDecl(bool pub) {
-    unsigned colno = this->currTk_.colno;
-    unsigned lineno = this->currTk_.lineno;
+    unsigned colno = this->currTk_.start;
+    unsigned lineno = this->currTk_.end;
     NodeUptr variable;
 
     this->Eat(TokenType::VAR, "expected var keyword");
@@ -172,8 +172,8 @@ ast::NodeUptr Parser::VarDecl(bool pub) {
 }
 
 ast::NodeUptr Parser::ConstDecl(bool pub) {
-    unsigned colno = this->currTk_.colno;
-    unsigned lineno = this->currTk_.lineno;
+    unsigned colno = this->currTk_.start;
+    unsigned lineno = this->currTk_.end;
     std::string name;
     NodeUptr node;
 
@@ -196,8 +196,8 @@ ast::NodeUptr Parser::VarAnnotation() {
 }
 
 ast::NodeUptr Parser::FuncDecl(bool pub) {
-    unsigned colno = this->currTk_.colno;
-    unsigned lineno = this->currTk_.lineno;
+    unsigned colno = this->currTk_.start;
+    unsigned lineno = this->currTk_.end;
     std::string name;
     std::list<NodeUptr> params;
 
@@ -254,8 +254,8 @@ ast::NodeUptr Parser::Variadic() {
 }
 
 ast::NodeUptr Parser::StructDecl(bool pub) {
-    unsigned colno = this->currTk_.colno;
-    unsigned lineno = this->currTk_.lineno;
+    unsigned colno = this->currTk_.start;
+    unsigned lineno = this->currTk_.end;
     std::string name;
     NodeUptr impl;
 
@@ -275,7 +275,7 @@ ast::NodeUptr Parser::StructDecl(bool pub) {
 }
 
 ast::NodeUptr Parser::StructBlock() {
-    NodeUptr block = std::make_unique<ast::Block>(NodeType::STRUCT_BLOCK, this->currTk_.colno, this->currTk_.colno);
+    NodeUptr block = std::make_unique<ast::Block>(NodeType::STRUCT_BLOCK, this->currTk_.start, this->currTk_.start);
 
     this->Eat(TokenType::LEFT_BRACES, "expected { after struct declaration");
 
@@ -313,8 +313,8 @@ ast::NodeUptr Parser::StructBlock() {
 }
 
 ast::NodeUptr Parser::TraitDecl(bool pub) {
-    unsigned colno = this->currTk_.colno;
-    unsigned lineno = this->currTk_.lineno;
+    unsigned colno = this->currTk_.start;
+    unsigned lineno = this->currTk_.end;
     std::string name;
     NodeUptr impl;
 
@@ -334,7 +334,7 @@ ast::NodeUptr Parser::TraitDecl(bool pub) {
 }
 
 ast::NodeUptr Parser::TraitBlock() {
-    NodeUptr block = std::make_unique<ast::Block>(NodeType::TRAIT_BLOCK, this->currTk_.colno, this->currTk_.colno);
+    NodeUptr block = std::make_unique<ast::Block>(NodeType::TRAIT_BLOCK, this->currTk_.start, this->currTk_.start);
 
     this->Eat(TokenType::LEFT_BRACES, "expected { after impl declaration");
 
@@ -367,7 +367,7 @@ ast::NodeUptr Parser::TraitBlock() {
 }
 
 ast::NodeUptr Parser::TraitList() {
-    NodeUptr impls = std::make_unique<List>(NodeType::TRAIT_LIST, this->currTk_.colno, this->currTk_.lineno);
+    NodeUptr impls = std::make_unique<List>(NodeType::TRAIT_LIST, this->currTk_.start, this->currTk_.end);
 
     CastNode<List>(impls)->AddExpression(this->ParseScope());
 
@@ -380,8 +380,8 @@ ast::NodeUptr Parser::TraitList() {
 }
 
 ast::NodeUptr Parser::ImplDecl() {
-    unsigned colno = this->currTk_.colno;
-    unsigned lineno = this->currTk_.lineno;
+    unsigned colno = this->currTk_.start;
+    unsigned lineno = this->currTk_.end;
     NodeUptr implName;
     NodeUptr implTarget;
 
@@ -399,8 +399,8 @@ ast::NodeUptr Parser::ImplDecl() {
 // *** STATEMENTS ***
 
 ast::NodeUptr Parser::Statement() {
-    unsigned colno = this->currTk_.colno;
-    unsigned lineno = this->currTk_.lineno;
+    unsigned colno = this->currTk_.start;
+    unsigned lineno = this->currTk_.end;
 
     if (!this->TokenInRange(TokenType::KEYWORD_BEGIN, TokenType::KEYWORD_END))
         return this->Expression();
@@ -438,7 +438,7 @@ ast::NodeUptr Parser::Statement() {
 }
 
 ast::NodeUptr Parser::ImportStmt() {
-    NodeUptr import = std::make_unique<Import>(this->currTk_.colno, this->currTk_.lineno);
+    NodeUptr import = std::make_unique<Import>(this->currTk_.start, this->currTk_.end);
 
     this->Eat(TokenType::IMPORT, "expected import keyword");
 
@@ -453,7 +453,7 @@ ast::NodeUptr Parser::ImportStmt() {
 }
 
 ast::NodeUptr Parser::FromImportStmt() {
-    NodeUptr import = std::make_unique<Import>(this->currTk_.colno, this->currTk_.lineno);
+    NodeUptr import = std::make_unique<Import>(this->currTk_.start, this->currTk_.end);
 
     this->Eat(TokenType::FROM, "expected from keyword");
 
@@ -471,8 +471,8 @@ ast::NodeUptr Parser::FromImportStmt() {
 }
 
 ast::NodeUptr Parser::ImportAsName() {
-    unsigned colno = this->currTk_.colno;
-    unsigned lineno = this->currTk_.lineno;
+    unsigned colno = this->currTk_.start;
+    unsigned lineno = this->currTk_.end;
     std::string name = this->currTk_.value;
     std::string alias;
 
@@ -488,8 +488,8 @@ ast::NodeUptr Parser::ImportAsName() {
 }
 
 ast::NodeUptr Parser::DottedAsName() {
-    unsigned colno = this->currTk_.colno;
-    unsigned lineno = this->currTk_.lineno;
+    unsigned colno = this->currTk_.start;
+    unsigned lineno = this->currTk_.end;
     std::string dotted;
     std::string alias;
 
@@ -518,8 +518,8 @@ std::string Parser::DottedName() {
 }
 
 ast::NodeUptr Parser::ForStmt() {
-    unsigned colno = this->currTk_.colno;
-    unsigned lineno = this->currTk_.lineno;
+    unsigned colno = this->currTk_.start;
+    unsigned lineno = this->currTk_.end;
     NodeUptr init;
     NodeUptr test;
     NodeUptr inc;
@@ -560,8 +560,8 @@ ast::NodeUptr Parser::ForStmt() {
 }
 
 ast::NodeUptr Parser::LoopStmt() {
-    unsigned colno = this->currTk_.colno;
-    unsigned lineno = this->currTk_.lineno;
+    unsigned colno = this->currTk_.start;
+    unsigned lineno = this->currTk_.end;
 
     this->Eat(TokenType::LOOP, "expected loop keyword");
 
@@ -577,7 +577,7 @@ ast::NodeUptr Parser::IfStmt(bool eatIf) {
     if (eatIf)
         this->Eat(TokenType::IF, "expected if keyword");
 
-    ifstmt = std::make_unique<If>(this->Test(), this->Block(), this->currTk_.colno, this->currTk_.lineno);
+    ifstmt = std::make_unique<If>(this->Test(), this->Block(), this->currTk_.start, this->currTk_.end);
 
     if (this->Match(TokenType::ELIF)) {
         this->Eat();
@@ -591,8 +591,8 @@ ast::NodeUptr Parser::IfStmt(bool eatIf) {
 }
 
 ast::NodeUptr Parser::SwitchStmt() {
-    unsigned colno = this->currTk_.colno;
-    unsigned lineno = this->currTk_.lineno;
+    unsigned colno = this->currTk_.start;
+    unsigned lineno = this->currTk_.end;
     NodeUptr sw;
     NodeUptr test;
 
@@ -614,7 +614,7 @@ ast::NodeUptr Parser::SwitchStmt() {
 }
 
 ast::NodeUptr Parser::SwitchCase() {
-    NodeUptr swcase = std::make_unique<Case>(this->currTk_.colno, this->currTk_.lineno);
+    NodeUptr swcase = std::make_unique<Case>(this->currTk_.start, this->currTk_.end);
 
     if (this->Match(TokenType::DEFAULT)) {
         this->Eat();
@@ -629,7 +629,7 @@ ast::NodeUptr Parser::SwitchCase() {
 
     this->Eat(TokenType::COLON, "expected : after default/case label");
 
-    NodeUptr body = std::make_unique<ast::Block>(NodeType::BLOCK, this->currTk_.colno, this->currTk_.lineno);
+    NodeUptr body = std::make_unique<ast::Block>(NodeType::BLOCK, this->currTk_.start, this->currTk_.end);
 
     while (!this->Match(TokenType::CASE, TokenType::DEFAULT, TokenType::RIGHT_BRACES))
         CastNode<ast::Block>(body)->AddStmtOrExpr(this->BlockBody());
@@ -640,8 +640,8 @@ ast::NodeUptr Parser::SwitchCase() {
 }
 
 ast::NodeUptr Parser::JmpStmt() {
-    unsigned colno = this->currTk_.colno;
-    unsigned lineno = this->currTk_.lineno;
+    unsigned colno = this->currTk_.start;
+    unsigned lineno = this->currTk_.end;
     NodeUptr label;
 
     if (this->Match(TokenType::FALLTHROUGH)) {
@@ -679,7 +679,7 @@ ast::NodeUptr Parser::JmpStmt() {
 }
 
 ast::NodeUptr Parser::Block() {
-    NodeUptr body = std::make_unique<ast::Block>(NodeType::BLOCK, this->currTk_.colno, this->currTk_.lineno);
+    NodeUptr body = std::make_unique<ast::Block>(NodeType::BLOCK, this->currTk_.start, this->currTk_.end);
 
     this->Eat(TokenType::LEFT_BRACES, "expected {");
 
@@ -707,8 +707,8 @@ ast::NodeUptr Parser::BlockBody() {
 // *** EXPRESSIONS ***
 
 ast::NodeUptr Parser::Expression() {
-    unsigned colno = this->currTk_.colno;
-    unsigned lineno = this->currTk_.lineno;
+    unsigned colno = this->currTk_.start;
+    unsigned lineno = this->currTk_.end;
     NodeUptr left = this->TestList();
 
     if (this->Match(TokenType::EQUAL)) {
@@ -724,8 +724,8 @@ ast::NodeUptr Parser::Expression() {
 }
 
 ast::NodeUptr Parser::TestList() {
-    unsigned colno = this->currTk_.colno;
-    unsigned lineno = this->currTk_.lineno;
+    unsigned colno = this->currTk_.start;
+    unsigned lineno = this->currTk_.end;
     NodeUptr left = this->Test();
 
     while (this->Match(TokenType::COMMA)) {
@@ -742,8 +742,8 @@ ast::NodeUptr Parser::TestList() {
 }
 
 ast::NodeUptr Parser::Test() {
-    unsigned colno = this->currTk_.colno;
-    unsigned lineno = this->currTk_.lineno;
+    unsigned colno = this->currTk_.start;
+    unsigned lineno = this->currTk_.end;
     NodeUptr left = this->OrTest();
     NodeUptr ltest;
     NodeUptr rtest;
@@ -764,8 +764,8 @@ ast::NodeUptr Parser::Test() {
 
 ast::NodeUptr Parser::OrTest() {
     NodeUptr left = this->AndTest();
-    unsigned colno = this->currTk_.colno;
-    unsigned lineno = this->currTk_.lineno;
+    unsigned colno = this->currTk_.start;
+    unsigned lineno = this->currTk_.end;
 
     if (this->Match(TokenType::OR)) {
         this->Eat();
@@ -777,8 +777,8 @@ ast::NodeUptr Parser::OrTest() {
 
 ast::NodeUptr Parser::AndTest() {
     NodeUptr left = this->OrExpr();
-    unsigned colno = this->currTk_.colno;
-    unsigned lineno = this->currTk_.lineno;
+    unsigned colno = this->currTk_.start;
+    unsigned lineno = this->currTk_.end;
 
     if (this->Match(TokenType::AND)) {
         this->Eat();
@@ -790,8 +790,8 @@ ast::NodeUptr Parser::AndTest() {
 
 ast::NodeUptr Parser::OrExpr() {
     NodeUptr left = this->XorExpr();
-    unsigned colno = this->currTk_.colno;
-    unsigned lineno = this->currTk_.lineno;
+    unsigned colno = this->currTk_.start;
+    unsigned lineno = this->currTk_.end;
 
     if (this->Match(TokenType::PIPE)) {
         this->Eat();
@@ -803,8 +803,8 @@ ast::NodeUptr Parser::OrExpr() {
 
 ast::NodeUptr Parser::XorExpr() {
     NodeUptr left = this->AndExpr();
-    unsigned colno = this->currTk_.colno;
-    unsigned lineno = this->currTk_.lineno;
+    unsigned colno = this->currTk_.start;
+    unsigned lineno = this->currTk_.end;
 
     if (this->Match(TokenType::CARET)) {
         this->Eat();
@@ -816,8 +816,8 @@ ast::NodeUptr Parser::XorExpr() {
 
 ast::NodeUptr Parser::AndExpr() {
     NodeUptr left = this->EqualityExpr();
-    unsigned colno = this->currTk_.colno;
-    unsigned lineno = this->currTk_.lineno;
+    unsigned colno = this->currTk_.start;
+    unsigned lineno = this->currTk_.end;
 
     if (this->Match(TokenType::AMPERSAND)) {
         this->Eat();
@@ -830,8 +830,8 @@ ast::NodeUptr Parser::AndExpr() {
 ast::NodeUptr Parser::EqualityExpr() {
     NodeUptr left = this->RelationalExpr();
     TokenType kind = this->currTk_.type;
-    unsigned colno = this->currTk_.colno;
-    unsigned lineno = this->currTk_.lineno;
+    unsigned colno = this->currTk_.start;
+    unsigned lineno = this->currTk_.end;
 
     if (this->Match(TokenType::EQUAL_EQUAL, TokenType::NOT_EQUAL)) {
         this->Eat();
@@ -845,8 +845,8 @@ ast::NodeUptr Parser::EqualityExpr() {
 ast::NodeUptr Parser::RelationalExpr() {
     NodeUptr left = this->ShiftExpr();
     TokenType kind = this->currTk_.type;
-    unsigned colno = this->currTk_.colno;
-    unsigned lineno = this->currTk_.lineno;
+    unsigned colno = this->currTk_.start;
+    unsigned lineno = this->currTk_.end;
 
     if (this->TokenInRange(TokenType::RELATIONAL_BEGIN, TokenType::RELATIONAL_END)) {
         this->Eat();
@@ -858,8 +858,8 @@ ast::NodeUptr Parser::RelationalExpr() {
 
 ast::NodeUptr Parser::ShiftExpr() {
     NodeUptr left = this->ArithExpr();
-    unsigned colno = this->currTk_.colno;
-    unsigned lineno = this->currTk_.lineno;
+    unsigned colno = this->currTk_.start;
+    unsigned lineno = this->currTk_.end;
 
     if (this->currTk_.type == TokenType::SHL) {
         this->Eat();
@@ -876,8 +876,8 @@ ast::NodeUptr Parser::ShiftExpr() {
 
 ast::NodeUptr Parser::ArithExpr() {
     NodeUptr left = this->MulExpr();
-    unsigned colno = this->currTk_.colno;
-    unsigned lineno = this->currTk_.lineno;
+    unsigned colno = this->currTk_.start;
+    unsigned lineno = this->currTk_.end;
 
     if (this->currTk_.type == TokenType::PLUS) {
         this->Eat();
@@ -894,8 +894,8 @@ ast::NodeUptr Parser::ArithExpr() {
 
 ast::NodeUptr Parser::MulExpr() {
     NodeUptr left = this->UnaryExpr();
-    unsigned colno = this->currTk_.colno;
-    unsigned lineno = this->currTk_.lineno;
+    unsigned colno = this->currTk_.start;
+    unsigned lineno = this->currTk_.end;
 
     switch (this->currTk_.type) {
         case TokenType::ASTERISK:
@@ -916,8 +916,8 @@ ast::NodeUptr Parser::MulExpr() {
 }
 
 ast::NodeUptr Parser::UnaryExpr() {
-    unsigned colno = this->currTk_.colno;
-    unsigned lineno = this->currTk_.lineno;
+    unsigned colno = this->currTk_.start;
+    unsigned lineno = this->currTk_.end;
 
     switch (this->currTk_.type) {
         case TokenType::EXCLAMATION:
@@ -952,8 +952,8 @@ ast::NodeUptr Parser::AtomExpr() {
 }
 
 bool Parser::Trailer(NodeUptr &left) {
-    unsigned colno = this->currTk_.colno;
-    unsigned lineno = this->currTk_.lineno;
+    unsigned colno = this->currTk_.start;
+    unsigned lineno = this->currTk_.end;
 
     switch (this->currTk_.type) {
         case TokenType::LEFT_ROUND:
@@ -970,13 +970,13 @@ bool Parser::Trailer(NodeUptr &left) {
             return true;
         case TokenType::PLUS_PLUS:
             this->Eat();
-            left = std::make_unique<Unary>(NodeType::POSTFIX_INC, std::move(left), this->currTk_.colno,
-                                           this->currTk_.lineno);
+            left = std::make_unique<Unary>(NodeType::POSTFIX_INC, std::move(left), this->currTk_.start,
+                                           this->currTk_.end);
             return true;
         case TokenType::MINUS_MINUS:
             this->Eat();
-            left = std::make_unique<Unary>(NodeType::POSTFIX_DEC, std::move(left), this->currTk_.colno,
-                                           this->currTk_.lineno);
+            left = std::make_unique<Unary>(NodeType::POSTFIX_DEC, std::move(left), this->currTk_.start,
+                                           this->currTk_.end);
             return true;
         default:
             return false;
@@ -984,8 +984,8 @@ bool Parser::Trailer(NodeUptr &left) {
 }
 
 ast::NodeUptr Parser::ParseArguments(NodeUptr left) {
-    unsigned colno = this->currTk_.colno;
-    unsigned lineno = this->currTk_.lineno;
+    unsigned colno = this->currTk_.start;
+    unsigned lineno = this->currTk_.end;
     bool comma = false;
     NodeUptr call;
     NodeUptr tmp;
@@ -1002,8 +1002,8 @@ ast::NodeUptr Parser::ParseArguments(NodeUptr left) {
     do {
         if (comma)
             this->Eat();
-        colno = this->currTk_.colno;
-        lineno = this->currTk_.lineno;
+        colno = this->currTk_.start;
+        lineno = this->currTk_.end;
         tmp = this->Test();
         if (this->Match(TokenType::ELLIPSIS)) {
             this->Eat();
@@ -1021,8 +1021,8 @@ ast::NodeUptr Parser::ParseArguments(NodeUptr left) {
 }
 
 ast::NodeUptr Parser::ParseSubscript() {
-    unsigned colno = this->currTk_.colno;
-    unsigned lineno = this->currTk_.lineno;
+    unsigned colno = this->currTk_.start;
+    unsigned lineno = this->currTk_.end;
     NodeUptr low;
     NodeUptr high;
     NodeUptr step;
@@ -1050,15 +1050,15 @@ ast::NodeUptr Parser::MemberAccess(ast::NodeUptr left) {
         case TokenType::DOT:
             this->Eat();
             return std::make_unique<Binary>(NodeType::MEMBER, std::move(left), this->ParseScope(),
-                                            this->currTk_.colno, this->currTk_.lineno);
+                                            this->currTk_.start, this->currTk_.end);
         case TokenType::QUESTION_DOT:
             this->Eat();
             return std::make_unique<Binary>(NodeType::MEMBER_SAFE, std::move(left), this->ParseScope(),
-                                            this->currTk_.colno, this->currTk_.lineno);
+                                            this->currTk_.start, this->currTk_.end);
         default:
             this->Eat();
             return std::make_unique<Binary>(NodeType::MEMBER_ASSERT, std::move(left), this->ParseScope(),
-                                            this->currTk_.colno, this->currTk_.lineno);
+                                            this->currTk_.start, this->currTk_.end);
     }
 }
 
@@ -1088,8 +1088,8 @@ ast::NodeUptr Parser::ParseAtom() {
 }
 
 ast::NodeUptr Parser::ParseArrowOrTuple() {
-    unsigned colno = this->currTk_.colno;
-    unsigned lineno = this->currTk_.lineno;
+    unsigned colno = this->currTk_.start;
+    unsigned lineno = this->currTk_.end;
     bool mustFn = false;
     std::list<NodeUptr> params;
     NodeUptr tmp = std::make_unique<List>(NodeType::TUPLE, colno, lineno);
@@ -1148,7 +1148,7 @@ std::list<ast::NodeUptr> Parser::ParseParexprAparams() {
 }
 
 ast::NodeUptr Parser::ParseList() {
-    NodeUptr list = std::make_unique<List>(NodeType::LIST, this->currTk_.colno, this->currTk_.lineno);
+    NodeUptr list = std::make_unique<List>(NodeType::LIST, this->currTk_.start, this->currTk_.end);
 
     this->Eat();
 
@@ -1166,7 +1166,7 @@ ast::NodeUptr Parser::ParseList() {
 }
 
 ast::NodeUptr Parser::ParseMapOrSet() {
-    NodeUptr ms = std::make_unique<List>(NodeType::MAP, this->currTk_.colno, this->currTk_.lineno);
+    NodeUptr ms = std::make_unique<List>(NodeType::MAP, this->currTk_.start, this->currTk_.end);
 
     this->Eat();
 
@@ -1228,8 +1228,8 @@ ast::NodeUptr Parser::ParseString() {
 
 ast::NodeUptr Parser::ParseScope() {
     NodeUptr scope;
-    unsigned colno = this->currTk_.colno;
-    unsigned lineno = this->currTk_.lineno;
+    unsigned colno = this->currTk_.start;
+    unsigned lineno = this->currTk_.end;
 
     if (this->Match(TokenType::IDENTIFIER)) {
         scope = std::make_unique<Literal>(this->currTk_);

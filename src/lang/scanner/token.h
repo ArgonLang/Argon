@@ -222,37 +222,39 @@ namespace lang::scanner {
             {"weak",        TokenType::WEAK}
     };
 
+    using Pos = unsigned int;
+
     struct Token {
         TokenType type = TokenType::TK_NULL;
-        unsigned colno = 0;
-        unsigned lineno = 0;
+        Pos start = 0;
+        Pos end = 0;
         std::string value;
-
-        Token(Token &&) = default;
-
-        Token(Token &) = default;
 
         Token() = default;
 
-        Token(TokenType type, unsigned colno, unsigned lineno, const std::string &value) {
+        Token(Token &) = default;
+
+        Token(Token &&) = default;
+
+        Token(TokenType type, unsigned start, unsigned end, const std::string &value) {
             this->type = type;
-            this->colno = colno;
-            this->lineno = lineno;
+            this->start = start;
+            this->end = end;
             this->value = value;
         }
 
         Token &operator=(Token &&token) noexcept {
             this->type = token.type;
-            this->colno = token.colno;
-            this->lineno = token.lineno;
+            this->start = token.start;
+            this->end = token.end;
             this->value = token.value;
             return *this;
         }
 
         bool operator==(const Token &token) const {
             return this->type == token.type
-                   && this->colno == token.colno
-                   && this->lineno == token.lineno
+                   && this->start == token.start
+                   && this->end == token.end
                    && this->value == token.value;
         }
 
@@ -265,7 +267,7 @@ namespace lang::scanner {
             else
                 tkType = TokenStringValue.at(this->type);
 
-            sprintf(tmp, "<L:%d, C:%d, %s>\t\t%s", this->lineno, this->colno, tkType.c_str(),
+            sprintf(tmp, "<L:%d, C:%d, %s>\t\t%s", this->end, this->start, tkType.c_str(),
                     this->value.substr(0, 62).c_str());
             return tmp;
         }
