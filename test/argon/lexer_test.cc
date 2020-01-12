@@ -63,13 +63,13 @@ TEST(Scanner, Number) {
 
 TEST(Scanner, Word) {
     auto source = std::istringstream("vax v4r v_48_ __private_var__ byte b");
-	lang::scanner::Scanner scanner(&source);
-    ASSERT_EQ(scanner.Next(), lang::scanner::Token(lang::scanner::TokenType::IDENTIFIER, 0, 0, "vax"));
-    ASSERT_EQ(scanner.Next(), lang::scanner::Token(lang::scanner::TokenType::IDENTIFIER, 4, 0, "v4r"));
-    ASSERT_EQ(scanner.Next(), lang::scanner::Token(lang::scanner::TokenType::IDENTIFIER, 8, 0, "v_48_"));
-    ASSERT_EQ(scanner.Next(), lang::scanner::Token(lang::scanner::TokenType::IDENTIFIER, 14, 0, "__private_var__"));
-    ASSERT_EQ(scanner.Next(), lang::scanner::Token(lang::scanner::TokenType::IDENTIFIER, 30, 0, "byte"));
-    ASSERT_EQ(scanner.Next(), lang::scanner::Token(lang::scanner::TokenType::IDENTIFIER, 35, 0, "b"));
+    lang::scanner::Scanner scanner(&source);
+    ASSERT_EQ(scanner.Next(), lang::scanner::Token(lang::scanner::TokenType::IDENTIFIER, 1, 4, "vax"));
+    ASSERT_EQ(scanner.Next(), lang::scanner::Token(lang::scanner::TokenType::IDENTIFIER, 5, 8, "v4r"));
+    ASSERT_EQ(scanner.Next(), lang::scanner::Token(lang::scanner::TokenType::IDENTIFIER, 9, 14, "v_48_"));
+    ASSERT_EQ(scanner.Next(), lang::scanner::Token(lang::scanner::TokenType::IDENTIFIER, 15, 30, "__private_var__"));
+    ASSERT_EQ(scanner.Next(), lang::scanner::Token(lang::scanner::TokenType::IDENTIFIER, 31, 35, "byte"));
+    ASSERT_EQ(scanner.Next(), lang::scanner::Token(lang::scanner::TokenType::IDENTIFIER, 36, 37, "b"));
 }
 
 TEST(Scanner, Delimiters) {
@@ -130,34 +130,37 @@ TEST(Scanner, CompoundPunctuation) {
 }
 
 TEST(Scanner, String) {
-	auto source = std::istringstream(R"("" "simple string" "\\" "Hello\"escaped\"")");
-	lang::scanner::Scanner scanner(&source);
-	ASSERT_EQ(scanner.Next(), lang::scanner::Token(lang::scanner::TokenType::STRING, 0, 0, ""));
-	ASSERT_EQ(scanner.Next(), lang::scanner::Token(lang::scanner::TokenType::STRING, 3, 0, "simple string"));
-	ASSERT_EQ(scanner.Next(), lang::scanner::Token(lang::scanner::TokenType::STRING, 19, 0, "\\"));
-	ASSERT_EQ(scanner.Next(), lang::scanner::Token(lang::scanner::TokenType::STRING, 24, 0, "Hello\"escaped\""));
+    auto source = std::istringstream(R"("" "simple string" "\\" "Hello\"escaped\"")");
+    lang::scanner::Scanner scanner(&source);
+    ASSERT_EQ(scanner.Next(), lang::scanner::Token(lang::scanner::TokenType::STRING, 1, 3, ""));
+    ASSERT_EQ(scanner.Next(), lang::scanner::Token(lang::scanner::TokenType::STRING, 4, 19, "simple string"));
+    ASSERT_EQ(scanner.Next(), lang::scanner::Token(lang::scanner::TokenType::STRING, 20, 24, "\\"));
+    ASSERT_EQ(scanner.Next(), lang::scanner::Token(lang::scanner::TokenType::STRING, 25, 43, "Hello\"escaped\""));
 }
 
 TEST(Scanner, StringEscape) {
-	auto source = std::istringstream(R"("bell\a" "\x7b" "\0" "\1" "\41" "\234" "\u0024" "\u03a3" "\u0939" "\U00010348" "Ignore\\"")");
-	std::wstring_convert<std::codecvt_utf8<wchar_t>> converter;
-	lang::scanner::Scanner scanner(&source);
+    auto source = std::istringstream(
+            R"("bell\a" "\x7b" "\0" "\1" "\41" "\234" "\u0024" "\u03a3" "\u0939" "\U00010348" "Ignore\\"")");
+    std::wstring_convert<std::codecvt_utf8<wchar_t>> converter;
+    lang::scanner::Scanner scanner(&source);
 
-	ASSERT_EQ(scanner.Next(), lang::scanner::Token(lang::scanner::TokenType::STRING, 0, 0, "bell\a"));
-	ASSERT_EQ(scanner.Next(), lang::scanner::Token(lang::scanner::TokenType::STRING, 9, 0, "{"));
-	ASSERT_EQ(scanner.Next().value[0], 0x00);
-	ASSERT_EQ(scanner.Next(), lang::scanner::Token(lang::scanner::TokenType::STRING, 21, 0, "\1"));
-	ASSERT_EQ(scanner.Next(), lang::scanner::Token(lang::scanner::TokenType::STRING, 26, 0, "\41"));
-	ASSERT_EQ(scanner.Next(), lang::scanner::Token(lang::scanner::TokenType::STRING, 32, 0, "\234"));
-	
-	// Unicode UTF-8
-	ASSERT_EQ(scanner.Next() , lang::scanner::Token(lang::scanner::TokenType::STRING, 39, 0, "\x24"));
-	ASSERT_EQ(scanner.Next(), lang::scanner::Token(lang::scanner::TokenType::STRING, 48, 0, converter.to_bytes(L"\u03a3")));
-	ASSERT_EQ(scanner.Next(), lang::scanner::Token(lang::scanner::TokenType::STRING, 57, 0, converter.to_bytes(L"\u0939")));
-	ASSERT_EQ(scanner.Next(), lang::scanner::Token(lang::scanner::TokenType::STRING, 66, 0, "\xF0\x90\x8D\x88"));
+    ASSERT_EQ(scanner.Next(), lang::scanner::Token(lang::scanner::TokenType::STRING, 1, 9, "bell\a"));
+    ASSERT_EQ(scanner.Next(), lang::scanner::Token(lang::scanner::TokenType::STRING, 10, 16, "{"));
+    ASSERT_EQ(scanner.Next().value[0], 0x00);
+    ASSERT_EQ(scanner.Next(), lang::scanner::Token(lang::scanner::TokenType::STRING, 22, 26, "\1"));
+    ASSERT_EQ(scanner.Next(), lang::scanner::Token(lang::scanner::TokenType::STRING, 27, 32, "\41"));
+    ASSERT_EQ(scanner.Next(), lang::scanner::Token(lang::scanner::TokenType::STRING, 33, 39, "\234"));
 
-	// Ignore Escape
-	ASSERT_EQ(scanner.Next(), lang::scanner::Token(lang::scanner::TokenType::STRING, 79, 0, "Ignore\\"));
+    // Unicode UTF-8
+    ASSERT_EQ(scanner.Next(), lang::scanner::Token(lang::scanner::TokenType::STRING, 40, 48, "\x24"));
+    ASSERT_EQ(scanner.Next(),
+              lang::scanner::Token(lang::scanner::TokenType::STRING, 49, 57, converter.to_bytes(L"\u03a3")));
+    ASSERT_EQ(scanner.Next(),
+              lang::scanner::Token(lang::scanner::TokenType::STRING, 58, 66, converter.to_bytes(L"\u0939")));
+    ASSERT_EQ(scanner.Next(), lang::scanner::Token(lang::scanner::TokenType::STRING, 67, 79, "\xF0\x90\x8D\x88"));
+
+    // Ignore Escape
+    ASSERT_EQ(scanner.Next(), lang::scanner::Token(lang::scanner::TokenType::STRING, 80, 90, "Ignore\\"));
 }
 
 TEST(Scanner, UnterminatedString) {
@@ -171,35 +174,38 @@ TEST(Scanner, UnterminatedString) {
 }
 
 TEST(Scanner, bString) {
-	auto source = std::istringstream(R"(b"ByteString" b"Ignore\u2342Unico\U00002312de" b"�")");
-	auto scanner = lang::scanner::Scanner(&source);
-	ASSERT_EQ(scanner.Next(), lang::scanner::Token(lang::scanner::TokenType::BYTE_STRING, 0, 0, "ByteString"));
-	ASSERT_EQ(scanner.Next(), lang::scanner::Token(lang::scanner::TokenType::BYTE_STRING, 14, 0, "Ignore\\u2342Unico\\U00002312de"));
-	ASSERT_EQ(scanner.Next().type, lang::scanner::TokenType::ERROR); // Extended ASCII not allowed here!
+    auto source = std::istringstream(R"(b"ByteString" b"Ignore\u2342Unico\U00002312de" b"�")");
+    auto scanner = lang::scanner::Scanner(&source);
+    ASSERT_EQ(scanner.Next(), lang::scanner::Token(lang::scanner::TokenType::BYTE_STRING, 1, 14, "ByteString"));
+    ASSERT_EQ(scanner.Next(),
+              lang::scanner::Token(lang::scanner::TokenType::BYTE_STRING, 15, 47, "Ignore\\u2342Unico\\U00002312de"));
+    ASSERT_EQ(scanner.Next().type, lang::scanner::TokenType::ERROR); // Extended ASCII not allowed here!
 }
 
 TEST(Scanner, rString) {
-	auto source = std::istringstream(R"(r"plain" r#"plain hash"# r###"multiple hash"### r##"internal " h"#sh#"## r####"New "###
+    auto source = std::istringstream(R"(r"plain" r#"plain hash"# r###"multiple hash"### r##"internal " h"#sh#"## r####"New "###
 Line!
 
 rString"#### r"")");
-	auto scanner = lang::scanner::Scanner(&source);
-	ASSERT_EQ(scanner.Next(), lang::scanner::Token(lang::scanner::TokenType::RAW_STRING, 0, 0, "plain"));
-	ASSERT_EQ(scanner.Next(), lang::scanner::Token(lang::scanner::TokenType::RAW_STRING, 9, 0, "plain hash"));
-	ASSERT_EQ(scanner.Next(), lang::scanner::Token(lang::scanner::TokenType::RAW_STRING, 25, 0, "multiple hash"));
-	ASSERT_EQ(scanner.Next(), lang::scanner::Token(lang::scanner::TokenType::RAW_STRING, 48, 0, "internal \" h\"#sh#"));
-	ASSERT_EQ(scanner.Next(), lang::scanner::Token(lang::scanner::TokenType::RAW_STRING, 73, 0, "New \"###\nLine!\n\nrString"));
-	ASSERT_EQ(scanner.Next(), lang::scanner::Token(lang::scanner::TokenType::RAW_STRING, 13, 3, ""));
+    auto scanner = lang::scanner::Scanner(&source);
+    ASSERT_EQ(scanner.Next(), lang::scanner::Token(lang::scanner::TokenType::RAW_STRING, 1, 9, "plain"));
+    ASSERT_EQ(scanner.Next(), lang::scanner::Token(lang::scanner::TokenType::RAW_STRING, 10, 25, "plain hash"));
+    ASSERT_EQ(scanner.Next(), lang::scanner::Token(lang::scanner::TokenType::RAW_STRING, 26, 48, "multiple hash"));
+    ASSERT_EQ(scanner.Next(),
+              lang::scanner::Token(lang::scanner::TokenType::RAW_STRING, 49, 73, "internal \" h\"#sh#"));
+    ASSERT_EQ(scanner.Next(),
+              lang::scanner::Token(lang::scanner::TokenType::RAW_STRING, 74, 108, "New \"###\nLine!\n\nrString"));
+    ASSERT_EQ(scanner.Next(), lang::scanner::Token(lang::scanner::TokenType::RAW_STRING, 109, 112, ""));
 
-	source = std::istringstream("r\"Error!");
-	scanner = lang::scanner::Scanner(&source);
-	ASSERT_EQ(scanner.Next().type, lang::scanner::TokenType::ERROR);
+    source = std::istringstream("r\"Error!");
+    scanner = lang::scanner::Scanner(&source);
+    ASSERT_EQ(scanner.Next().type, lang::scanner::TokenType::ERROR);
 
-	source = std::istringstream("r#\"Error!\"");
-	scanner = lang::scanner::Scanner(&source);
-	ASSERT_EQ(scanner.Next().type, lang::scanner::TokenType::ERROR);
+    source = std::istringstream("r#\"Error!\"");
+    scanner = lang::scanner::Scanner(&source);
+    ASSERT_EQ(scanner.Next().type, lang::scanner::TokenType::ERROR);
 
-	source = std::istringstream("r##\"Error!##");
+    source = std::istringstream("r##\"Error!##");
 	scanner = lang::scanner::Scanner(&source);
 	ASSERT_EQ(scanner.Next().type, lang::scanner::TokenType::ERROR);
 

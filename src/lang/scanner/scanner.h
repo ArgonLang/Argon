@@ -57,9 +57,9 @@ namespace lang::scanner {
 
         Token ParseNumber();
 
-        Token ParseString(int colno, bool byte_string);
+        Token ParseString(Pos start, bool byte_string);
 
-        Token ParseRawString(int colno, int lineno);
+        Token ParseRawString(Pos start);
 
         Token ParseWord();
 

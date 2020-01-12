@@ -224,23 +224,22 @@ bool Scanner::ParseHexToByte(unsigned char &byte) {
     return true;
 }
 
-Token Scanner::ParseString(int colno, bool byte_string) {
-    std::string string;
+Token Scanner::ParseString(Pos start, bool byte_string) {
     int curr = this->GetCh();
+    std::string string;
 
     while (curr != '"') {
         if (!this->source_->good() || curr == '\n')
-            return Token(TokenType::ERROR, colno, this->lineno_, "unterminated string");
+            return Token(TokenType::ERROR, start, this->pos_, "unterminated string");
 
         // Byte string accept byte in range (0x00 - 0x7F)
         if (byte_string && curr > 0x7F)
-            return Token(TokenType::ERROR, colno, this->lineno_,
-                         "byte string can only contain ASCII literal characters");
+            return Token(TokenType::ERROR, start, this->pos_, "byte string can only contain ASCII literal characters");
 
         if (curr == '\\') {
             if (this->source_->peek() != '\\') {
                 if (!this->ParseEscape('"', byte_string, string, string))
-                    return Token(TokenType::ERROR, colno, this->lineno_, string);
+                    return Token(TokenType::ERROR, start, this->pos_, string);
                 curr = this->GetCh();
                 continue;
             }
@@ -251,11 +250,11 @@ Token Scanner::ParseString(int colno, bool byte_string) {
     }
 
     if (byte_string)
-        return Token(TokenType::BYTE_STRING, colno, this->lineno_, string);
-    return Token(TokenType::STRING, colno, this->lineno_, string);
+        return Token(TokenType::BYTE_STRING, start, this->pos_, string);
+    return Token(TokenType::STRING, start, this->pos_, string);
 }
 
-Token Scanner::ParseRawString(int colno, int lineno) {
+Token Scanner::ParseRawString(Pos start) {
     std::string raw;
     int hashes = 0;
     int count = 0;
@@ -263,7 +262,7 @@ Token Scanner::ParseRawString(int colno, int lineno) {
     for (; this->source_->peek() == '#'; this->GetCh(), hashes++);
 
     if (this->GetCh() != '"')
-        return Token(TokenType::ERROR, colno, lineno, "invalid raw string prologue");
+        return Token(TokenType::ERROR, start, this->pos_, "invalid raw string prologue");
 
     while (this->source_->good()) {
         if (this->source_->peek() == '"') {
@@ -277,29 +276,29 @@ Token Scanner::ParseRawString(int colno, int lineno) {
                 }
                 continue;
             }
-            return Token(TokenType::RAW_STRING, colno, lineno, raw);
+            return Token(TokenType::RAW_STRING, start, this->pos_, raw);
         }
         raw += (char) this->GetCh();
     }
 
-    return Token(TokenType::ERROR, colno, lineno, "unterminated raw string");
+    return Token(TokenType::ERROR, start, this->pos_, "unterminated raw string");
 }
 
 Token Scanner::ParseWord() {
-    std::string word;
-    int colno = this->colno_;
+    Pos start = this->pos_;
     int value = this->GetCh();
+    std::string word;
 
     if (value == 'b') {
         if (this->source_->peek() == '"') {
             this->GetCh();
-            return this->ParseString(colno, true);
+            return this->ParseString(start, true);
         }
     }
 
     if (value == 'r') {
         if (this->source_->peek() == '#' || this->source_->peek() == '"')
-            return this->ParseRawString(colno, this->lineno_);
+            return this->ParseRawString(start);
     }
 
     word += (char) value;
@@ -314,10 +313,10 @@ Token Scanner::ParseWord() {
     // keywords are longer than one letter
     if (word.size() > 1) {
         if (Keywords.find(word) != Keywords.end())
-            return Token(Keywords.at(word), colno, this->lineno_, word);
+            return Token(Keywords.at(word), start, this->pos_, word);
     }
 
-    return Token(TokenType::IDENTIFIER, colno, this->lineno_, word);
+    return Token(TokenType::IDENTIFIER, start, this->pos_, word);
 }
 
 std::string Scanner::ParseComment(bool inline_comment) {
@@ -350,7 +349,6 @@ Token Scanner::NextToken() {
     int value;
 
     this->source_->peek(); // INIT
-
 
     while (this->source_->good()) {
         value = this->source_->peek();
