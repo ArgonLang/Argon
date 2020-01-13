@@ -136,25 +136,25 @@ namespace lang::scanner {
             {TokenType::AMPERSAND,       "AMPERSAND"},
             {TokenType::AND,             "AND"},
             // SINGLE QUOTE
-            {TokenType::LEFT_ROUND,      "LEFT_ROUND"},
-            {TokenType::RIGHT_ROUND,     "RIGHT_ROUND"},
-            {TokenType::ASTERISK,        "ASTERISK"},
-            {TokenType::ASTERISK_EQ,     "ASTERISK_EQ"},
-            {TokenType::PLUS,            "PLUS"},
-            {TokenType::PLUS_PLUS,       "PLUS_PLUS"},
-            {TokenType::PLUS_EQ,         "PLUS_EQ"},
-            {TokenType::COMMA,           "COMMA"},
-            {TokenType::MINUS,           "MINUS"},
-            {TokenType::MINUS_MINUS,     "MINUS_MINUS"},
-            {TokenType::MINUS_EQ,        "MINUS_EQ"},
-            {TokenType::DOT,             "DOT"},
-            {TokenType::ELLIPSIS,        "ELLIPSIS"},
-            {TokenType::SLASH,           "SLASH"},
-            {TokenType::SLASH_SLASH,     "SLASH_SLASH"},
-            {TokenType::SLASH_EQ,        "SLASH_EQ"},
-            {TokenType::NUMBER_BIN,      "NUMBER_BIN"},
-            {TokenType::NUMBER_OCT,      "NUMBER_OCT"},
-            {TokenType::NUMBER_HEX,      "NUMBER_HEX"},
+            {TokenType::LEFT_ROUND,   "LEFT_ROUND"},
+            {TokenType::RIGHT_ROUND,  "RIGHT_ROUND"},
+            {TokenType::ASTERISK,     "ASTERISK"},
+            {TokenType::ASTERISK_EQ,  "ASTERISK_EQ"},
+            {TokenType::PLUS,         "PLUS"},
+            {TokenType::PLUS_PLUS,    "PLUS_PLUS"},
+            {TokenType::PLUS_EQ,      "PLUS_EQ"},
+            {TokenType::COMMA,        "COMMA"},
+            {TokenType::MINUS,        "MINUS"},
+            {TokenType::MINUS_MINUS,  "MINUS_MINUS"},
+            {TokenType::MINUS_EQ,     "MINUS_EQ"},
+            {TokenType::DOT,          "DOT"},
+            {TokenType::ELLIPSIS,     "ELLIPSIS"},
+            {TokenType::SLASH,        "SLASH"},
+            {TokenType::SLASH_SLASH,  "SLASH_SLASH"},
+            {TokenType::SLASH_EQ,     "SLASH_EQ"},
+            {TokenType::NUMBER_BIN,   "NUMBER_BIN"},
+            {TokenType::NUMBER_OCT,   "NUMBER_OCT"},
+            {TokenType::NUMBER_HEX,   "NUMBER_HEX"},
             {TokenType::NUMBER,       "NUMBER"},
             {TokenType::DECIMAL,      "DECIMAL"},
             {TokenType::COLON,        "COLON"},
@@ -175,16 +175,16 @@ namespace lang::scanner {
             {TokenType::IDENTIFIER,   "IDENTIFIER"},
             {TokenType::LEFT_SQUARE,  "LEFT_SQUARE"},
             {TokenType::RIGHT_SQUARE, "RIGHT_SQUARE"},
-            {TokenType::CARET,           "CARET"},
+            {TokenType::CARET,        "CARET"},
             // `
-            {TokenType::LEFT_BRACES,     "LEFT_BRACES"},
-            {TokenType::PIPE,            "PIPE"},
-            {TokenType::OR,              "OR"},
-            {TokenType::RIGHT_BRACES,    "RIGHT_BRACES"},
-            {TokenType::TILDE,           "TILDE"},
-            {TokenType::FALSE,           "FALSE"},
-            {TokenType::TRUE,            "TRUE"},
-            {TokenType::ERROR,           "ERROR"}
+            {TokenType::LEFT_BRACES,  "LEFT_BRACES"},
+            {TokenType::PIPE,         "PIPE"},
+            {TokenType::OR,           "OR"},
+            {TokenType::RIGHT_BRACES, "RIGHT_BRACES"},
+            {TokenType::TILDE,        "TILDE"},
+            {TokenType::FALSE,        "FALSE"},
+            {TokenType::TRUE,         "TRUE"},
+            {TokenType::ERROR,        "ERROR"}
     };
 
     static const std::map<std::string, TokenType> Keywords = {
@@ -226,9 +226,9 @@ namespace lang::scanner {
 
     struct Token {
         TokenType type = TokenType::TK_NULL;
+        std::string value;
         Pos start = 0;
         Pos end = 0;
-        std::string value;
 
         Token() = default;
 
@@ -236,7 +236,7 @@ namespace lang::scanner {
 
         Token(Token &&) = default;
 
-        Token(TokenType type, unsigned start, unsigned end, const std::string &value) {
+        Token(TokenType type, Pos start, Pos end, const std::string &value) {
             this->type = type;
             this->start = start;
             this->end = end;
@@ -259,21 +259,21 @@ namespace lang::scanner {
         }
 
         [[nodiscard]] std::string String() const {
-            char tmp[142];
-            std::string tkType;
+            std::string str;
+            std::string tk_value;
 
             if (this->type > TokenType::KEYWORD_BEGIN && this->type < TokenType::KEYWORD_END)
-                tkType = "KEYWORD";
+                tk_value = "KEYWORD";
             else
-                tkType = TokenStringValue.at(this->type);
+                tk_value = TokenStringValue.at(this->type);
 
-            sprintf(tmp, "<L:%d, C:%d, %s>\t\t%s", this->end, this->start, tkType.c_str(),
-                    this->value.substr(0, 62).c_str());
-            return tmp;
+            str = "<S:" + std::to_string(this->start);
+            str += ", E:" + std::to_string(this->end);
+            str += ", " + tk_value + ">\t" + this->value.substr(0, 62);
+
+            return str;
         }
     };
-
-    using TokenUptr = std::unique_ptr<Token>;
 
 }  // namespace lang::scanner
 

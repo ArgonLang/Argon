@@ -189,7 +189,7 @@ bool Scanner::ParseOctEscape(std::string &dest, std::string &error, int value) {
         sequence[i] = HexDigitToNumber(this->GetCh());
 
     for (int i = 0, mul = 0; i < 3; i++) {
-        byte |= sequence[i] << (unsigned char)(mul * 3);
+        byte |= sequence[i] << (unsigned char) (mul * 3);
         if (sequence[i] != 0)
             mul++;
     }
@@ -554,7 +554,7 @@ Token Scanner::NextToken() {
 int Scanner::GetCh() {
     int value = this->source_->get();
     if (!this->source_->eof()) {
-        this->pos_ = this->source_->tellg();
+        this->pos_ = (Pos) this->source_->tellg();
         this->pos_++;
     }
     return value;

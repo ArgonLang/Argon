@@ -28,8 +28,8 @@ namespace lang::scanner {
 
     class Scanner {
     private:
-        Token peeked_token_;
         std::istream *source_;
+        Token peeked_token_;
         bool peeked_ = false;
         Pos pos_ = 1;
 
