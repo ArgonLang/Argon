@@ -31,8 +31,6 @@ namespace lang::scanner {
         Token peeked_token_;
         std::istream *source_;
         bool peeked_ = false;
-        int colno_ = 0;
-        int lineno_ = 0;
         Pos pos_ = 1;
 
         bool ParseEscape(int stopChr, bool ignore_unicode_escape, std::string &dest, std::string &error);

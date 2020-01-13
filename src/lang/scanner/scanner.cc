@@ -189,7 +189,7 @@ bool Scanner::ParseOctEscape(std::string &dest, std::string &error, int value) {
         sequence[i] = HexDigitToNumber(this->GetCh());
 
     for (int i = 0, mul = 0; i < 3; i++) {
-        byte |= sequence[i] << (mul * 3);
+        byte |= sequence[i] << (unsigned char)(mul * 3);
         if (sequence[i] != 0)
             mul++;
     }
@@ -219,7 +219,7 @@ bool Scanner::ParseHexToByte(unsigned char &byte) {
     for (int i = 1; i >= 0; i--) {
         if (!IsHexDigit(curr = this->GetCh()))
             return false;
-        byte |= HexDigitToNumber(curr) << (i * 4);
+        byte |= HexDigitToNumber(curr) << (unsigned char) (i * 4);
     }
     return true;
 }
@@ -446,6 +446,7 @@ Token Scanner::NextToken() {
                         return Token(TokenType::ELLIPSIS, start, this->pos_, "");
                     }
                     this->source_->seekg(this->source_->tellg().operator-(1));
+                    this->pos_--;
                 }
                 return Token(TokenType::DOT, start, this->pos_, "");
             case '/':
@@ -555,12 +556,6 @@ int Scanner::GetCh() {
     if (!this->source_->eof()) {
         this->pos_ = this->source_->tellg();
         this->pos_++;
-    }
-
-    this->colno_++;
-    if (value == '\n') {
-        this->colno_ = 0;
-        this->lineno_++;
     }
     return value;
 }
