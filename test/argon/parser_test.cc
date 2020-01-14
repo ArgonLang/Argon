@@ -95,6 +95,38 @@ TEST(Parser, Set) {
 }
  */
 
+TEST(Parser, List) {
+    auto source = std::istringstream("[]");
+    Parser parser(&source);
+    ASSERT_EQ(parser.Parse()->body.front()->type, NodeType::LIST);
+
+    source = std::istringstream("[1,2,3]");
+    parser = Parser(&source);
+    ASSERT_EQ(parser.Parse()->body.front()->type, NodeType::LIST);
+
+    source = std::istringstream("[1,]");
+    parser = Parser(&source);
+    EXPECT_THROW(parser.Parse(), SyntaxException);
+
+    source = std::istringstream("[1");
+    parser = Parser(&source);
+    EXPECT_THROW(parser.Parse(), SyntaxException);
+}
+
+TEST(Parser, Literals) {
+    auto source = std::istringstream("2");
+    Parser parser(&source);
+    ASSERT_EQ(parser.Parse()->body.front()->type, NodeType::LITERAL);
+
+    source = std::istringstream("24.06");
+    parser = Parser(&source);
+    ASSERT_EQ(parser.Parse()->body.front()->type, NodeType::LITERAL);
+
+    source = std::istringstream("r##\"raw string\"##");
+    parser = Parser(&source);
+    ASSERT_EQ(parser.Parse()->body.front()->type, NodeType::LITERAL);
+}
+
 TEST(Parser, IdentifierAndScope) {
     auto source = std::istringstream("identifier");
     Parser parser(&source);

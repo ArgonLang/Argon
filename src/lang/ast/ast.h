@@ -311,16 +311,6 @@ namespace lang::ast {
         }
     };
 
-    struct List : Node {
-        std::list<NodeUptr> expressions;
-
-        explicit List(NodeType type, unsigned colno, unsigned lineno) : Node(type, colno, lineno) {}
-
-        void AddExpression(NodeUptr expr) {
-            this->expressions.push_front(std::move(expr));
-        }
-    };
-
     struct Slice : Node {
         NodeUptr low;
         NodeUptr high;
@@ -363,11 +353,21 @@ namespace lang::ast {
         }
     };
 
+    struct List : Node {
+        std::list<NodeUptr> expressions;
+
+        explicit List(NodeType type, scanner::Pos start) : Node(type, start, 0) {}
+
+        void AddExpression(NodeUptr expr) {
+            this->expressions.push_back(std::move(expr));
+        }
+    };
+
     struct Literal : Node {
-        lang::scanner::TokenType kind;
+        scanner::TokenType kind;
         std::string value;
 
-        explicit Literal(const lang::scanner::Token &token) : Node(NodeType::LITERAL, token.start, token.end) {
+        explicit Literal(const scanner::Token &token) : Node(NodeType::LITERAL, token.start, token.end) {
             this->kind = token.type;
             this->value = token.value;
         }

@@ -141,10 +141,6 @@ namespace lang {
 
         void ParseMap(ast::NodeUptr &node);
 
-        ast::NodeUptr ParseNumber();
-
-        ast::NodeUptr ParseString();
-
         ast::NodeUptr ParseScope();
 
         bool TokenInRange(scanner::TokenType begin, scanner::TokenType end) {

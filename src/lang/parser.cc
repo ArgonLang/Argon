@@ -369,7 +369,7 @@ ast::NodeUptr Parser::TraitBlock() {
 }
 
 ast::NodeUptr Parser::TraitList() {
-    NodeUptr impls = std::make_unique<List>(NodeType::TRAIT_LIST, this->currTk_.start, this->currTk_.end);
+    NodeUptr impls = std::make_unique<List>(NodeType::TRAIT_LIST, this->currTk_.start);
 
     CastNode<List>(impls)->AddExpression(this->ParseScope());
 
@@ -733,7 +733,7 @@ ast::NodeUptr Parser::TestList() {
     while (this->Match(TokenType::COMMA)) {
         this->Eat();
         if (left->type != NodeType::TUPLE) {
-            auto tuple = std::make_unique<List>(NodeType::TUPLE, colno, lineno);
+            auto tuple = std::make_unique<List>(NodeType::TUPLE, colno);
             tuple->AddExpression(std::move(left));
             left = std::move(tuple);
         }
@@ -1067,6 +1067,20 @@ ast::NodeUptr Parser::MemberAccess(ast::NodeUptr left) {
 ast::NodeUptr Parser::ParseAtom() {
     NodeUptr tmp;
 
+    // Parse number
+    if (this->TokenInRange(TokenType::NUMBER_BEGIN, TokenType::NUMBER_END)) {
+        tmp = std::make_unique<ast::Literal>(this->currTk_);
+        this->Eat();
+        return tmp;
+    }
+
+    // Parse string
+    if (this->TokenInRange(TokenType::STRING_BEGIN, TokenType::STRING_END)) {
+        tmp = std::make_unique<ast::Literal>(this->currTk_);
+        this->Eat();
+        return tmp;
+    }
+
     switch (this->currTk_.type) {
         case TokenType::FALSE:
         case TokenType::TRUE:
@@ -1079,14 +1093,8 @@ ast::NodeUptr Parser::ParseAtom() {
         case TokenType::LEFT_BRACES:
             return this->ParseMapOrSet();
         default:
-            if ((tmp = this->ParseNumber()))
-                return tmp;
-
-            if ((tmp = this->ParseString()))
-                return tmp;
+            return this->ParseScope();
     }
-
-    return this->ParseScope();
 }
 
 ast::NodeUptr Parser::ParseArrowOrTuple() {
@@ -1094,7 +1102,7 @@ ast::NodeUptr Parser::ParseArrowOrTuple() {
     unsigned lineno = this->currTk_.end;
     bool mustFn = false;
     std::list<NodeUptr> params;
-    NodeUptr tmp = std::make_unique<List>(NodeType::TUPLE, colno, lineno);
+    NodeUptr tmp = std::make_unique<List>(NodeType::TUPLE, colno);
 
     this->Eat(TokenType::LEFT_ROUND, "expected (");
 
@@ -1150,25 +1158,31 @@ std::list<ast::NodeUptr> Parser::ParseParexprAparams() {
 }
 
 ast::NodeUptr Parser::ParseList() {
-    NodeUptr list = std::make_unique<List>(NodeType::LIST, this->currTk_.start, this->currTk_.end);
+    auto list = std::make_unique<List>(NodeType::LIST, this->currTk_.start);
 
     this->Eat();
 
-    if (!this->Match(TokenType::RIGHT_SQUARE))
-        CastNode<List>(list)->AddExpression(this->Test());
+    if (this->Match(TokenType::RIGHT_SQUARE)) {
+        list->end = this->currTk_.end;
+        this->Eat();
+        return list;
+    }
+
+    list->AddExpression(this->Test());
 
     while (this->Match(TokenType::COMMA)) {
         this->Eat();
-        CastNode<List>(list)->AddExpression(this->Test());
+        list->AddExpression(this->Test());
     }
 
+    list->end = this->currTk_.end;
     this->Eat(TokenType::RIGHT_SQUARE, "expected ] after list definition");
 
     return list;
 }
 
 ast::NodeUptr Parser::ParseMapOrSet() {
-    NodeUptr ms = std::make_unique<List>(NodeType::MAP, this->currTk_.start, this->currTk_.end);
+    NodeUptr ms = std::make_unique<List>(NodeType::MAP, this->currTk_.start);
 
     this->Eat();
 
@@ -1208,24 +1222,6 @@ void Parser::ParseMap(ast::NodeUptr &node) {
         CastNode<List>(node)->AddExpression(this->Test());
         mustContinue = true;
     } while (mustContinue);
-}
-
-ast::NodeUptr Parser::ParseNumber() {
-    NodeUptr tmp;
-    if (this->TokenInRange(TokenType::NUMBER_BEGIN, TokenType::NUMBER_END)) {
-        tmp = std::make_unique<ast::Literal>(this->currTk_);
-        this->Eat();
-    }
-    return tmp;
-}
-
-ast::NodeUptr Parser::ParseString() {
-    NodeUptr tmp;
-    if (this->TokenInRange(TokenType::STRING_BEGIN, TokenType::STRING_END)) {
-        tmp = std::make_unique<ast::Literal>(this->currTk_);
-        this->Eat();
-    }
-    return tmp;
 }
 
 ast::NodeUptr Parser::ParseScope() {
