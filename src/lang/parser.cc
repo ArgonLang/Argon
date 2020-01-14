@@ -198,12 +198,11 @@ ast::NodeUptr Parser::VarAnnotation() {
 }
 
 ast::NodeUptr Parser::FuncDecl(bool pub) {
-    unsigned colno = this->currTk_.start;
-    unsigned lineno = this->currTk_.end;
+    Pos start = this->currTk_.start;
     std::string name;
     std::list<NodeUptr> params;
 
-    this->Eat(TokenType::FUNC, "expected func keyword");
+    this->Eat();
     name = this->currTk_.value;
     this->Eat(TokenType::IDENTIFIER, "expected identifier after func keyword");
     if (this->Match(TokenType::LEFT_ROUND)) {
@@ -212,7 +211,9 @@ ast::NodeUptr Parser::FuncDecl(bool pub) {
         this->Eat(TokenType::RIGHT_ROUND, "expected ) after params declaration");
     }
 
-    return std::make_unique<Function>(name, std::move(params), this->Block(), pub, colno, lineno);
+    auto fn = std::make_unique<Function>(name, std::move(params), this->Block(), start);
+    fn->pub = pub;
+    return fn;
 }
 
 std::list<NodeUptr> Parser::Param() {
@@ -243,16 +244,20 @@ std::list<NodeUptr> Parser::Param() {
 }
 
 ast::NodeUptr Parser::Variadic() {
+    Pos start = this->currTk_.start;
+    std::unique_ptr<Identifier> id;
+
     if (this->Match(TokenType::ELLIPSIS)) {
         this->Eat();
-        auto param = this->ParseScope();
-        if (param->type == NodeType::LITERAL) {
-            ((Node *) param.get())->type = NodeType::VARIADIC;
-            return param;
-        }
-        throw SyntaxException("expected parameter name", this->currTk_);
+        if (!this->Match(TokenType::IDENTIFIER))
+            throw SyntaxException("expected identifier after ...(ellipsis) operator", this->currTk_);
+        id = std::make_unique<Identifier>(this->currTk_);
+        id->start = start;
+        id->rest_element = true;
+        this->Eat();
     }
-    return nullptr;
+
+    return id;
 }
 
 ast::NodeUptr Parser::StructDecl(bool pub) {
@@ -1098,44 +1103,47 @@ ast::NodeUptr Parser::ParseAtom() {
 }
 
 ast::NodeUptr Parser::ParseArrowOrTuple() {
-    unsigned colno = this->currTk_.start;
-    unsigned lineno = this->currTk_.end;
-    bool mustFn = false;
+    Pos start = this->currTk_.start;
+    auto tuple = std::make_unique<List>(NodeType::TUPLE, start);
     std::list<NodeUptr> params;
-    NodeUptr tmp = std::make_unique<List>(NodeType::TUPLE, colno);
+    bool mustFn = false;
 
-    this->Eat(TokenType::LEFT_ROUND, "expected (");
+    this->Eat();
 
     if (!this->Match(TokenType::RIGHT_ROUND)) {
-        params = this->ParseParexprAparams();
+        params = this->ParsePeap();
         for (auto &item : params) {
-            if (item->type == NodeType::VARIADIC) {
-                mustFn = true;
-                break;
+            if (item->type == NodeType::IDENTIFIER) {
+                if (CastNode<Identifier>(item)->rest_element) {
+                    mustFn = true;
+                    break;
+                }
+                continue;
             }
-            if (item->type != NodeType::LITERAL || CastNode<Literal>(item)->kind != TokenType::IDENTIFIER) {
-                this->Eat(TokenType::RIGHT_ROUND, "expected ) after parenthesized expression");
-                CastNode<List>(tmp)->expressions = std::move(params);
-                return tmp;
-            }
+            tuple->end = this->currTk_.end;
+            this->Eat(TokenType::RIGHT_ROUND, "expected ) after parenthesized expression");
+            tuple->expressions = std::move(params);
+            return tuple;
         }
     }
 
-    this->Eat(TokenType::RIGHT_ROUND, "expected ) after parenthesized expression or arrow declaration");
+    tuple->end = this->currTk_.end;
+    this->Eat(TokenType::RIGHT_ROUND, "expected )");
+
     if (this->Match(TokenType::ARROW)) {
         this->Eat();
-        return std::make_unique<Function>(std::move(params), this->Block(), false, colno, lineno);
+        return std::make_unique<Function>(std::move(params), this->Block(), start);
     }
 
     if (mustFn)
         this->Eat(TokenType::ARROW, "expected arrow function declaration");
 
     // it's definitely a parenthesized expression
-    CastNode<List>(tmp)->expressions = std::move(params);
-    return tmp;
+    tuple->expressions = std::move(params);
+    return tuple;
 }
 
-std::list<ast::NodeUptr> Parser::ParseParexprAparams() {
+std::list<ast::NodeUptr> Parser::ParsePeap() {
     std::list<ast::NodeUptr> params;
     NodeUptr tmp = this->Variadic();
 

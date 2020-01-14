@@ -12,7 +12,6 @@
 namespace lang::ast {
     enum class NodeType {
         PROGRAM,
-        VARIADIC,
         ELLIPSIS,
         ALIAS,
         SUBSCRIPT,
@@ -239,25 +238,23 @@ namespace lang::ast {
     };
 
     struct Function : Node {
-        std::string name;
+        std::string id;
         std::list<NodeUptr> params;
         NodeUptr body;
         bool pub;
 
-        Function(std::string &name, std::list<NodeUptr> params, NodeUptr body, bool pub, unsigned colno,
-                 unsigned lineno) : Node(NodeType::FUNC, colno, lineno) {
-            this->name = name;
+        Function(std::string &id, std::list<NodeUptr> params, NodeUptr body, scanner::Pos start) : Node(NodeType::FUNC,
+                                                                                                        start, 0) {
+            this->id = id;
             this->params = std::move(params);
             this->body = std::move(body);
-            this->pub = pub;
+            this->end = this->body->end;
         }
 
-        Function(std::list<NodeUptr> params, NodeUptr body, bool pub, unsigned colno, unsigned lineno) : Node(
-                NodeType::FUNC, colno, lineno) {
-            this->name = "";
+        Function(std::list<NodeUptr> params, NodeUptr body, scanner::Pos start) : Node(NodeType::FUNC, start, 0) {
             this->params = std::move(params);
             this->body = std::move(body);
-            this->pub = pub;
+            this->end = this->body->end;
         }
     };
 
@@ -385,6 +382,7 @@ namespace lang::ast {
 
     struct Identifier : Node {
         std::string value;
+        bool rest_element = false;
 
         explicit Identifier(const scanner::Token &token) : Node(NodeType::IDENTIFIER, token.start, token.end) {
             this->value = token.value;

@@ -60,6 +60,58 @@ TEST(Parser, MemberAccess) {
     EXPECT_THROW(parser.Parse(), SyntaxException);
 }*/
 
+TEST(Parser, ArrowFn) {
+    auto source = std::istringstream("()=>{}");
+    Parser parser(&source);
+    ASSERT_EQ(parser.Parse()->body.front()->type, NodeType::FUNC);
+
+    source = std::istringstream("(a,b,c)=>{}");
+    parser = Parser(&source);
+    ASSERT_EQ(parser.Parse()->body.front()->type, NodeType::FUNC);
+
+    source = std::istringstream("(a,b,c,...d)=>{}");
+    parser = Parser(&source);
+    ASSERT_EQ(parser.Parse()->body.front()->type, NodeType::FUNC);
+
+    source = std::istringstream("(...a)=>{}");
+    parser = Parser(&source);
+    ASSERT_EQ(parser.Parse()->body.front()->type, NodeType::FUNC);
+
+    source = std::istringstream("(a,b,2)=>{}");
+    parser = Parser(&source);
+    EXPECT_THROW(parser.Parse(), SyntaxException);
+
+    source = std::istringstream("(a,b,...c,d)=>{}");
+    parser = Parser(&source);
+    EXPECT_THROW(parser.Parse(), SyntaxException);
+
+    source = std::istringstream("(...c,d)=>{}");
+    parser = Parser(&source);
+    EXPECT_THROW(parser.Parse(), SyntaxException);
+}
+
+TEST(Parser, Tuple) {
+    auto source = std::istringstream("()");
+    Parser parser(&source);
+    ASSERT_EQ(parser.Parse()->body.front()->type, NodeType::TUPLE);
+
+    source = std::istringstream("(a,b)");
+    parser = Parser(&source);
+    ASSERT_EQ(parser.Parse()->body.front()->type, NodeType::TUPLE);
+
+    source = std::istringstream("(a,b+2,3)");
+    parser = Parser(&source);
+    ASSERT_EQ(parser.Parse()->body.front()->type, NodeType::TUPLE);
+
+    source = std::istringstream("(a,)");
+    parser = Parser(&source);
+    EXPECT_THROW(parser.Parse(), SyntaxException);
+
+    source = std::istringstream("(a,...b)");
+    parser = Parser(&source);
+    EXPECT_THROW(parser.Parse(), SyntaxException);
+}
+
 TEST(Parser, MapSet) {
     auto source = std::istringstream("{}");
     Parser parser(&source);
