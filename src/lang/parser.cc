@@ -1182,46 +1182,44 @@ ast::NodeUptr Parser::ParseList() {
 }
 
 ast::NodeUptr Parser::ParseMapOrSet() {
-    NodeUptr ms = std::make_unique<List>(NodeType::MAP, this->currTk_.start);
+    auto ms = std::make_unique<List>(NodeType::MAP, this->currTk_.start);
 
     this->Eat();
 
     if (this->Match(TokenType::RIGHT_BRACES)) {
+        ms->end = this->currTk_.end;
         this->Eat();
         return ms;
     }
 
-    CastNode<List>(ms)->AddExpression(this->Test());
+    ms->AddExpression(this->Test());
 
     if (this->Match(TokenType::COLON))
         this->ParseMap(ms);
     else if (this->Match(TokenType::COMMA)) {
-        ((Node *) ms.get())->type = NodeType::SET;
+        ms->type = NodeType::SET;
         do {
             this->Eat();
-            CastNode<List>(ms)->AddExpression(this->Test());
+            ms->AddExpression(this->Test());
         } while (this->Match(TokenType::COMMA));
-    }
+    } else
+        ms->type = NodeType::SET;
 
-    if (CastNode<List>(ms)->expressions.size() == 1)
-        ((Node *) ms.get())->type = NodeType::SET;
-
+    ms->end = this->currTk_.end;
     this->Eat(TokenType::RIGHT_BRACES, "expected } after map/set definition");
+
     return ms;
 }
 
-void Parser::ParseMap(ast::NodeUptr &node) {
-    bool mustContinue;
+void Parser::ParseMap(std::unique_ptr<ast::List> &map) {
     do {
-        mustContinue = false;
-        this->Eat(TokenType::COLON, "missing :value after key in the map definition");
-        CastNode<List>(node)->AddExpression(this->Test());
+        this->Eat(TokenType::COLON, "missing value after key in map definition");
+        map->AddExpression(this->Test());
         if (!this->Match(TokenType::COMMA))
             break;
         this->Eat();
-        CastNode<List>(node)->AddExpression(this->Test());
-        mustContinue = true;
-    } while (mustContinue);
+        map->AddExpression(this->Test());
+    } while (true);
 }
 
 ast::NodeUptr Parser::ParseScope() {

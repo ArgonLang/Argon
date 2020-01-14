@@ -58,42 +58,41 @@ TEST(Parser, MemberAccess) {
     source = std::istringstream("mystruct?.");
     parser = Parser(&source);
     EXPECT_THROW(parser.Parse(), SyntaxException);
-}
+}*/
 
-TEST(Parser, List) {
-    auto source = std::istringstream("[1,2]");
-    Parser parser(&source);
-    ASSERT_EQ(parser.Parse()->stmts.front()->type, NodeType::LIST);
-}
-
-TEST(Parser, Map) {
+TEST(Parser, MapSet) {
     auto source = std::istringstream("{}");
     Parser parser(&source);
-    ASSERT_EQ(parser.Parse()->stmts.front()->type, NodeType::MAP);
+    ASSERT_EQ(parser.Parse()->body.front()->type, NodeType::MAP);
 
-    source = std::istringstream(R"({"key":"value"})");
+    source = std::istringstream("{key:01}");
     parser = Parser(&source);
-    ASSERT_EQ(parser.Parse()->stmts.front()->type, NodeType::MAP);
+    ASSERT_EQ(parser.Parse()->body.front()->type, NodeType::MAP);
 
-    source = std::istringstream(R"({"key":})");
+    source = std::istringstream("{key:24, keyb:06}");
+    parser = Parser(&source);
+    ASSERT_EQ(parser.Parse()->body.front()->type, NodeType::MAP);
+
+    source = std::istringstream("{22}");
+    parser = Parser(&source);
+    ASSERT_EQ(parser.Parse()->body.front()->type, NodeType::SET);
+
+    source = std::istringstream("{01,24,06,94}");
+    parser = Parser(&source);
+    ASSERT_EQ(parser.Parse()->body.front()->type, NodeType::SET);
+
+    source = std::istringstream("{1");
+    parser = Parser(&source);
+    EXPECT_THROW(parser.Parse(), SyntaxException);
+
+    source = std::istringstream("{keya:}");
+    parser = Parser(&source);
+    EXPECT_THROW(parser.Parse(), SyntaxException);
+
+    source = std::istringstream("{keya:keyb,keyc}");
     parser = Parser(&source);
     EXPECT_THROW(parser.Parse(), SyntaxException);
 }
-
-TEST(Parser, Set) {
-    auto source = std::istringstream(R"({"value"})");
-    Parser parser(&source);
-    ASSERT_EQ(parser.Parse()->stmts.front()->type, NodeType::SET);
-
-    source = std::istringstream(R"({"value", "value1", 23, []})");
-    parser = Parser(&source);
-    ASSERT_EQ(parser.Parse()->stmts.front()->type, NodeType::SET);
-
-    source = std::istringstream(R"({"key",})");
-    parser = Parser(&source);
-    EXPECT_THROW(parser.Parse(), SyntaxException);
-}
- */
 
 TEST(Parser, List) {
     auto source = std::istringstream("[]");

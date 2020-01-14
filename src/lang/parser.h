@@ -139,7 +139,7 @@ namespace lang {
 
         ast::NodeUptr ParseMapOrSet();
 
-        void ParseMap(ast::NodeUptr &node);
+        void ParseMap(std::unique_ptr<ast::List> &map);
 
         ast::NodeUptr ParseScope();
 
