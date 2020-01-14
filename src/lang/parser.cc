@@ -43,15 +43,17 @@ void Parser::EatTerm(bool must_eat, TokenType stop_token) {
         throw SyntaxException("expected EOL or SEMICOLON", this->currTk_);
 }
 
-std::unique_ptr<ast::Block> Parser::Parse() {
-    auto program = std::make_unique<ast::Block>(NodeType::PROGRAM, this->currTk_.start, this->currTk_.start);
+std::unique_ptr<Program> Parser::Parse() {
+    auto program = std::make_unique<Program>(this->currTk_.start);
 
     this->EatTerm(false);
 
     while (!this->Match(TokenType::END_OF_FILE)) {
-        program->AddStmtOrExpr(this->Declaration());
+        program->AddStatement(this->Declaration());
         this->EatTerm(true);
     }
+
+    program->SetEndPos(this->currTk_.end);
 
     return program;
 }
@@ -1228,23 +1230,24 @@ ast::NodeUptr Parser::ParseString() {
 
 ast::NodeUptr Parser::ParseScope() {
     NodeUptr scope;
-    unsigned colno = this->currTk_.start;
-    unsigned lineno = this->currTk_.end;
+    Pos end;
 
     if (this->Match(TokenType::IDENTIFIER)) {
-        scope = std::make_unique<Literal>(this->currTk_);
+        scope = std::make_unique<Identifier>(this->currTk_);
         this->Eat();
 
         if (this->Match(TokenType::SCOPE)) {
-            auto tmp = std::make_unique<Scope>(colno, lineno);
-            tmp->AddSegment(CastNode<Literal>(scope)->value);
+            auto tmp = std::make_unique<Scope>(scope->start);
+            tmp->AddSegment(CastNode<Identifier>(scope)->value);
             do {
                 this->Eat();
                 if (!this->Match(TokenType::IDENTIFIER))
                     throw SyntaxException("expected identifier after ::(scope resolution)", this->currTk_);
                 tmp->AddSegment(this->currTk_.value);
+                end = this->currTk_.end;
                 this->Eat();
             } while (this->Match(TokenType::SCOPE));
+            tmp->end = end;
             scope = std::move(tmp);
         }
         return scope;

@@ -30,6 +30,7 @@ namespace lang::ast {
         CASE,
         IF,
         IMPORT,
+        IDENTIFIER,
         IMPORT_ALIAS,
         VARIABLE,
         CONSTANT,
@@ -82,10 +83,10 @@ namespace lang::ast {
 
     struct Node {
         NodeType type;
-        unsigned colno = 0;
-        unsigned lineno = 0;
+        scanner::Pos start = 0;
+        scanner::Pos end = 0;
 
-        explicit Node(NodeType type, unsigned colno, unsigned lineno) : type(type), colno(colno), lineno(lineno) {}
+        explicit Node(NodeType type, scanner::Pos start, scanner::Pos end) : type(type), start(start), end(end) {}
 
         virtual ~Node() = default;
 
@@ -102,6 +103,21 @@ namespace lang::ast {
     // **********************************************
     // NODES
     // **********************************************
+
+    struct Program : Node {
+        std::list<NodeUptr> body;
+        std::string filename;
+
+        explicit Program(scanner::Pos start) : Node(NodeType::PROGRAM, start, 0) {}
+
+        void AddStatement(NodeUptr statement) {
+            this->body.push_back(std::move(statement));
+        }
+
+        void SetEndPos(scanner::Pos end) {
+            this->end = end;
+        }
+    };
 
     struct Block : Node {
         std::list<NodeUptr> stmts;
@@ -347,16 +363,6 @@ namespace lang::ast {
         }
     };
 
-    struct Scope : Node {
-        std::list<std::string> segments;
-
-        explicit Scope(unsigned colno, unsigned lineno) : Node(NodeType::SCOPE, colno, lineno) {}
-
-        void AddSegment(const std::string &segment) {
-            this->segments.push_front(segment);
-        }
-    };
-
     struct Literal : Node {
         lang::scanner::TokenType kind;
         std::string value;
@@ -366,6 +372,25 @@ namespace lang::ast {
             this->value = token.value;
         }
     };
+
+    struct Scope : Node {
+        std::list<std::string> segments;
+
+        explicit Scope(scanner::Pos start) : Node(NodeType::SCOPE, start, 0) {}
+
+        void AddSegment(const std::string &segment) {
+            this->segments.push_back(segment);
+        }
+    };
+
+    struct Identifier : Node {
+        std::string value;
+
+        explicit Identifier(const scanner::Token &token) : Node(NodeType::IDENTIFIER, token.start, token.end) {
+            this->value = token.value;
+        }
+    };
+
 } // namespace lang::ast
 
 #endif // !ARGON_LANG_AST_AST_H_

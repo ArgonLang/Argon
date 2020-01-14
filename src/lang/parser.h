@@ -167,7 +167,7 @@ namespace lang {
 
         Parser(std::string filename, std::istream *source);
 
-        std::unique_ptr<ast::Block> Parse();
+        std::unique_ptr<ast::Program> Parse();
     };
 }  // namespace lang
 
