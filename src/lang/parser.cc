@@ -204,7 +204,7 @@ ast::NodeUptr Parser::FuncDecl(bool pub) {
 
     this->Eat();
     name = this->currTk_.value;
-    this->Eat(TokenType::IDENTIFIER, "expected identifier after func keyword");
+    this->Eat(TokenType::IDENTIFIER, "expected identifier after callee keyword");
     if (this->Match(TokenType::LEFT_ROUND)) {
         this->Eat();
         params = this->Param();
@@ -415,13 +415,13 @@ ast::NodeUptr Parser::Statement() {
     switch (this->currTk_.type) {
         case TokenType::DEFER:
             this->Eat();
-            return std::make_unique<Unary>(NodeType::DEFER, this->AtomExpr(), colno, lineno);
+            return std::make_unique<Unary>(NodeType::DEFER, this->AtomExpr(), lineno);
         case TokenType::SPAWN:
             this->Eat();
-            return std::make_unique<Unary>(NodeType::SPAWN, this->AtomExpr(), colno, lineno);
+            return std::make_unique<Unary>(NodeType::SPAWN, this->AtomExpr(), lineno);
         case TokenType::RETURN:
             this->Eat();
-            return std::make_unique<Unary>(NodeType::RETURN, this->TestList(), colno, lineno);
+            return std::make_unique<Unary>(NodeType::RETURN, this->TestList(), lineno);
         case TokenType::IMPORT:
             return this->ImportStmt();
         case TokenType::FROM:
@@ -653,21 +653,21 @@ ast::NodeUptr Parser::JmpStmt() {
 
     if (this->Match(TokenType::FALLTHROUGH)) {
         this->Eat();
-        return std::make_unique<Unary>(NodeType::FALLTHROUGH, nullptr, colno, lineno);
+        return std::make_unique<Unary>(NodeType::FALLTHROUGH, nullptr, lineno);
     }
 
     switch (this->currTk_.type) {
         case TokenType::BREAK:
             this->Eat();
-            label = std::make_unique<Unary>(NodeType::BREAK, nullptr, colno, lineno);
+            label = std::make_unique<Unary>(NodeType::BREAK, nullptr, lineno);
             break;
         case TokenType::CONTINUE:
             this->Eat();
-            label = std::make_unique<Unary>(NodeType::CONTINUE, nullptr, colno, lineno);
+            label = std::make_unique<Unary>(NodeType::CONTINUE, nullptr, lineno);
             break;
         case TokenType::GOTO:
             this->Eat();
-            label = std::make_unique<Unary>(NodeType::GOTO, nullptr, colno, lineno);
+            label = std::make_unique<Unary>(NodeType::GOTO, nullptr, lineno);
             break;
         default:
             // should never get here!
@@ -723,8 +723,7 @@ ast::NodeUptr Parser::Expression() {
         return std::make_unique<Binary>(NodeType::ASSIGN,
                                         TokenType::TK_NULL,
                                         std::move(left),
-                                        this->TestList(),
-                                        colno, lineno);
+                                        this->TestList());
     }
 
     return left;
@@ -757,7 +756,7 @@ ast::NodeUptr Parser::Test() {
 
     if (this->Match(TokenType::ELVIS)) {
         this->Eat();
-        return std::make_unique<Binary>(NodeType::ELVIS, std::move(left), this->TestList(), colno, lineno);
+        return std::make_unique<Binary>(NodeType::ELVIS, std::move(left), this->TestList());
     } else if (this->Match(TokenType::QUESTION)) {
         this->Eat();
         ltest = this->TestList();
@@ -776,7 +775,7 @@ ast::NodeUptr Parser::OrTest() {
 
     if (this->Match(TokenType::OR)) {
         this->Eat();
-        return std::make_unique<Binary>(NodeType::OR_TEST, std::move(left), this->OrTest(), colno, lineno);
+        return std::make_unique<Binary>(NodeType::OR_TEST, std::move(left), this->OrTest());
     }
 
     return left;
@@ -789,7 +788,7 @@ ast::NodeUptr Parser::AndTest() {
 
     if (this->Match(TokenType::AND)) {
         this->Eat();
-        return std::make_unique<Binary>(NodeType::AND_TEST, std::move(left), this->AndTest(), colno, lineno);
+        return std::make_unique<Binary>(NodeType::AND_TEST, std::move(left), this->AndTest());
     }
 
     return left;
@@ -802,7 +801,7 @@ ast::NodeUptr Parser::OrExpr() {
 
     if (this->Match(TokenType::PIPE)) {
         this->Eat();
-        return std::make_unique<Binary>(NodeType::LOGICAL_OR, std::move(left), this->OrExpr(), colno, lineno);
+        return std::make_unique<Binary>(NodeType::LOGICAL_OR, std::move(left), this->OrExpr());
     }
 
     return left;
@@ -815,7 +814,7 @@ ast::NodeUptr Parser::XorExpr() {
 
     if (this->Match(TokenType::CARET)) {
         this->Eat();
-        return std::make_unique<Binary>(NodeType::LOGICAL_XOR, std::move(left), this->XorExpr(), colno, lineno);
+        return std::make_unique<Binary>(NodeType::LOGICAL_XOR, std::move(left), this->XorExpr());
     }
 
     return left;
@@ -828,7 +827,7 @@ ast::NodeUptr Parser::AndExpr() {
 
     if (this->Match(TokenType::AMPERSAND)) {
         this->Eat();
-        return std::make_unique<Binary>(NodeType::LOGICAL_AND, std::move(left), this->AndExpr(), colno, lineno);
+        return std::make_unique<Binary>(NodeType::LOGICAL_AND, std::move(left), this->AndExpr());
     }
 
     return left;
@@ -842,8 +841,7 @@ ast::NodeUptr Parser::EqualityExpr() {
 
     if (this->Match(TokenType::EQUAL_EQUAL, TokenType::NOT_EQUAL)) {
         this->Eat();
-        return std::make_unique<Binary>(NodeType::EQUALITY, kind, std::move(left), this->RelationalExpr(), colno,
-                                        lineno);
+        return std::make_unique<Binary>(NodeType::EQUALITY, kind, std::move(left), this->RelationalExpr());
     }
 
     return left;
@@ -857,7 +855,7 @@ ast::NodeUptr Parser::RelationalExpr() {
 
     if (this->TokenInRange(TokenType::RELATIONAL_BEGIN, TokenType::RELATIONAL_END)) {
         this->Eat();
-        return std::make_unique<Binary>(NodeType::RELATIONAL, kind, std::move(left), this->ShiftExpr(), colno, lineno);
+        return std::make_unique<Binary>(NodeType::RELATIONAL, kind, std::move(left), this->ShiftExpr());
     }
 
     return left;
@@ -870,12 +868,12 @@ ast::NodeUptr Parser::ShiftExpr() {
 
     if (this->currTk_.type == TokenType::SHL) {
         this->Eat();
-        return std::make_unique<Binary>(NodeType::SHL, std::move(left), this->ShiftExpr(), colno, lineno);
+        return std::make_unique<Binary>(NodeType::SHL, std::move(left), this->ShiftExpr());
     }
 
     if (this->currTk_.type == TokenType::SHR) {
         this->Eat();
-        return std::make_unique<Binary>(NodeType::SHR, std::move(left), this->ShiftExpr(), colno, lineno);
+        return std::make_unique<Binary>(NodeType::SHR, std::move(left), this->ShiftExpr());
     }
 
     return left;
@@ -888,12 +886,12 @@ ast::NodeUptr Parser::ArithExpr() {
 
     if (this->currTk_.type == TokenType::PLUS) {
         this->Eat();
-        return std::make_unique<Binary>(NodeType::SUM, std::move(left), this->ArithExpr(), colno, lineno);
+        return std::make_unique<Binary>(NodeType::SUM, std::move(left), this->ArithExpr());
     }
 
     if (this->currTk_.type == TokenType::MINUS) {
         this->Eat();
-        return std::make_unique<Binary>(NodeType::SUB, std::move(left), this->ArithExpr(), colno, lineno);
+        return std::make_unique<Binary>(NodeType::SUB, std::move(left), this->ArithExpr());
     }
 
     return left;
@@ -907,16 +905,16 @@ ast::NodeUptr Parser::MulExpr() {
     switch (this->currTk_.type) {
         case TokenType::ASTERISK:
             this->Eat();
-            return std::make_unique<Binary>(NodeType::MUL, std::move(left), this->MulExpr(), colno, lineno);
+            return std::make_unique<Binary>(NodeType::MUL, std::move(left), this->MulExpr());
         case TokenType::SLASH:
             this->Eat();
-            return std::make_unique<Binary>(NodeType::DIV, std::move(left), this->MulExpr(), colno, lineno);
+            return std::make_unique<Binary>(NodeType::DIV, std::move(left), this->MulExpr());
         case TokenType::SLASH_SLASH:
             this->Eat();
-            return std::make_unique<Binary>(NodeType::INTEGER_DIV, std::move(left), this->MulExpr(), colno, lineno);
+            return std::make_unique<Binary>(NodeType::INTEGER_DIV, std::move(left), this->MulExpr());
         case TokenType::PERCENT:
             this->Eat();
-            return std::make_unique<Binary>(NodeType::REMINDER, std::move(left), this->MulExpr(), colno, lineno);
+            return std::make_unique<Binary>(NodeType::REMINDER, std::move(left), this->MulExpr());
         default:
             return left;
     }
@@ -929,22 +927,22 @@ ast::NodeUptr Parser::UnaryExpr() {
     switch (this->currTk_.type) {
         case TokenType::EXCLAMATION:
             this->Eat();
-            return std::make_unique<Unary>(NodeType::NOT, this->UnaryExpr(), colno, lineno);
+            return std::make_unique<Unary>(NodeType::NOT, this->UnaryExpr(), lineno);
         case TokenType::TILDE:
             this->Eat();
-            return std::make_unique<Unary>(NodeType::BITWISE_NOT, this->UnaryExpr(), colno, lineno);
+            return std::make_unique<Unary>(NodeType::BITWISE_NOT, this->UnaryExpr(), lineno);
         case TokenType::PLUS:
             this->Eat();
-            return std::make_unique<Unary>(NodeType::PLUS, this->UnaryExpr(), colno, lineno);
+            return std::make_unique<Unary>(NodeType::PLUS, this->UnaryExpr(), lineno);
         case TokenType::MINUS:
             this->Eat();
-            return std::make_unique<Unary>(NodeType::MINUS, this->UnaryExpr(), colno, lineno);
+            return std::make_unique<Unary>(NodeType::MINUS, this->UnaryExpr(), lineno);
         case TokenType::PLUS_PLUS:
             this->Eat();
-            return std::make_unique<Unary>(NodeType::PREFIX_INC, this->UnaryExpr(), colno, lineno);
+            return std::make_unique<Unary>(NodeType::PREFIX_INC, this->UnaryExpr(), lineno);
         case TokenType::MINUS_MINUS:
             this->Eat();
-            return std::make_unique<Unary>(NodeType::PREFIX_DEC, this->UnaryExpr(), colno, lineno);
+            return std::make_unique<Unary>(NodeType::PREFIX_DEC, this->UnaryExpr(), lineno);
         default:
             return this->AtomExpr();
     }
@@ -952,89 +950,77 @@ ast::NodeUptr Parser::UnaryExpr() {
 
 ast::NodeUptr Parser::AtomExpr() {
     auto left = this->ParseAtom();
+    Pos end = left->end;
 
-    while (this->Trailer(left));
-
+    while (end > 0) {
+        end = left->end;
+        switch (this->currTk_.type) {
+            case TokenType::LEFT_ROUND:
+                left = this->ParseArguments(std::move(left));
+                break;
+            case TokenType::LEFT_SQUARE:
+                left = std::make_unique<Binary>(NodeType::SUBSCRIPT, std::move(left), this->ParseSubscript());
+                break;
+            case TokenType::DOT:
+            case TokenType::QUESTION_DOT:
+            case TokenType::EXCLAMATION_DOT:
+                left = this->MemberAccess(std::move(left));
+                break;
+            case TokenType::PLUS_PLUS:
+            case TokenType::MINUS_MINUS:
+                left = std::make_unique<Update>(std::move(left), this->currTk_.type, true, end);
+                this->Eat();
+                break;
+            default:
+                end = 0;
+        }
+    }
     return left;
 }
 
-bool Parser::Trailer(NodeUptr &left) {
-    unsigned colno = this->currTk_.start;
-    unsigned lineno = this->currTk_.end;
-
-    switch (this->currTk_.type) {
-        case TokenType::LEFT_ROUND:
-            left = this->ParseArguments(std::move(left));
-            return true;
-        case TokenType::LEFT_SQUARE:
-            left = std::make_unique<Binary>(NodeType::SUBSCRIPT, std::move(left), this->ParseSubscript(), colno,
-                                            lineno);
-            return true;
-        case TokenType::DOT:
-        case TokenType::QUESTION_DOT:
-        case TokenType::EXCLAMATION_DOT:
-            left = this->MemberAccess(std::move(left));
-            return true;
-        case TokenType::PLUS_PLUS:
-            this->Eat();
-            left = std::make_unique<Unary>(NodeType::POSTFIX_INC, std::move(left), this->currTk_.start,
-                                           this->currTk_.end);
-            return true;
-        case TokenType::MINUS_MINUS:
-            this->Eat();
-            left = std::make_unique<Unary>(NodeType::POSTFIX_DEC, std::move(left), this->currTk_.start,
-                                           this->currTk_.end);
-            return true;
-        default:
-            return false;
-    }
-}
-
 ast::NodeUptr Parser::ParseArguments(NodeUptr left) {
-    unsigned colno = this->currTk_.start;
-    unsigned lineno = this->currTk_.end;
-    bool comma = false;
-    NodeUptr call;
+    auto call = std::make_unique<Call>(std::move(left));
     NodeUptr tmp;
 
-    this->Eat(TokenType::LEFT_ROUND, "expected (");
-
-    call = std::make_unique<Call>(std::move(left), colno, lineno);
+    this->Eat();
 
     if (this->Match(TokenType::RIGHT_ROUND)) {
+        call->end = this->currTk_.end;
         this->Eat();
         return call;
     }
 
-    do {
-        if (comma)
+    tmp = this->Test();
+    if (this->Match(TokenType::ELLIPSIS)) {
+        tmp = std::make_unique<Unary>(NodeType::ELLIPSIS, std::move(tmp), this->currTk_.end);
+        this->Eat();
+        call->AddArgument(std::move(tmp));
+    } else {
+        while (this->Match(TokenType::COMMA)) {
             this->Eat();
-        colno = this->currTk_.start;
-        lineno = this->currTk_.end;
-        tmp = this->Test();
-        if (this->Match(TokenType::ELLIPSIS)) {
-            this->Eat();
-            tmp = std::make_unique<Unary>(NodeType::ELLIPSIS, std::move(tmp), colno, lineno);
-            CastNode<Call>(call)->AddArgument(std::move(tmp));
-            break;
+            tmp = this->Test();
+            if (this->Match(TokenType::ELLIPSIS)) {
+                tmp = std::make_unique<Unary>(NodeType::ELLIPSIS, std::move(tmp), this->currTk_.end);
+                this->Eat();
+                call->AddArgument(std::move(tmp));
+                break;
+            }
+            call->AddArgument(std::move(tmp));
         }
-        CastNode<Call>(call)->AddArgument(std::move(tmp));
-        comma = true;
-    } while (this->Match(TokenType::COMMA));
+    }
 
+    call->end = this->currTk_.end;
     this->Eat(TokenType::RIGHT_ROUND, "expected ) after function call");
 
     return call;
 }
 
 ast::NodeUptr Parser::ParseSubscript() {
-    unsigned colno = this->currTk_.start;
-    unsigned lineno = this->currTk_.end;
     NodeUptr low;
     NodeUptr high;
     NodeUptr step;
 
-    this->Eat(TokenType::LEFT_SQUARE, "expected [");
+    this->Eat();
 
     low = this->Test();
 
@@ -1047,25 +1033,26 @@ ast::NodeUptr Parser::ParseSubscript() {
         }
     }
 
-    this->Eat(TokenType::RIGHT_SQUARE, "expected ]");
+    auto slice = std::make_unique<Slice>(std::move(low), std::move(high), std::move(step));
+    slice->end = this->currTk_.end;
 
-    return std::make_unique<Slice>(std::move(low), std::move(high), std::move(step), colno, lineno);
+    this->Eat(TokenType::RIGHT_SQUARE, "expected ]");
+    return slice;
 }
 
 ast::NodeUptr Parser::MemberAccess(ast::NodeUptr left) {
     switch (this->currTk_.type) {
         case TokenType::DOT:
             this->Eat();
-            return std::make_unique<Binary>(NodeType::MEMBER, std::move(left), this->ParseScope(),
-                                            this->currTk_.start, this->currTk_.end);
+            return std::make_unique<Binary>(NodeType::MEMBER, std::move(left), this->ParseScope());
         case TokenType::QUESTION_DOT:
             this->Eat();
-            return std::make_unique<Binary>(NodeType::MEMBER_SAFE, std::move(left), this->ParseScope(),
-                                            this->currTk_.start, this->currTk_.end);
-        default:
+            return std::make_unique<Binary>(NodeType::MEMBER_SAFE, std::move(left), this->ParseScope());
+        case TokenType::EXCLAMATION_DOT:
             this->Eat();
-            return std::make_unique<Binary>(NodeType::MEMBER_ASSERT, std::move(left), this->ParseScope(),
-                                            this->currTk_.start, this->currTk_.end);
+            return std::make_unique<Binary>(NodeType::MEMBER_ASSERT, std::move(left), this->ParseScope());
+        default:
+            throw SyntaxException("expected . or ?. or !. operator", this->currTk_);
     }
 }
 

@@ -41,24 +41,105 @@ TEST(Parser, Unary) {
     Parser parser(&source);
     ASSERT_EQ(parser.Parse()->stmts.front()->type, NodeType::MINUS);
 }
+*/
+
+TEST(Parser, PostfixUpdate) {
+    auto source = std::istringstream("mymstruct.item++");
+    Parser parser(&source);
+    auto tmp = std::move(parser.Parse()->body);
+    ASSERT_EQ(tmp.front()->type, NodeType::UPDATE);
+    ASSERT_EQ(CastNode<Update>(tmp.front())->kind, scanner::TokenType::PLUS_PLUS);
+    ASSERT_TRUE(CastNode<Update>(tmp.front())->prefix);
+
+    source = std::istringstream("mystruct?.item--");
+    parser = Parser(&source);
+    tmp = std::move(parser.Parse()->body);
+    ASSERT_EQ(tmp.front()->type, NodeType::UPDATE);
+    ASSERT_EQ(CastNode<Update>(tmp.front())->kind, scanner::TokenType::MINUS_MINUS);
+    ASSERT_TRUE(CastNode<Update>(tmp.front())->prefix);
+}
 
 TEST(Parser, MemberAccess) {
     auto source = std::istringstream("mymstruct.item");
     Parser parser(&source);
-    ASSERT_EQ(parser.Parse()->stmts.front()->type, NodeType::MEMBER);
+    ASSERT_EQ(parser.Parse()->body.front()->type, NodeType::MEMBER);
 
     source = std::istringstream("mystruct?.item");
     parser = Parser(&source);
-    ASSERT_EQ(parser.Parse()->stmts.front()->type, NodeType::MEMBER_SAFE);
+    ASSERT_EQ(parser.Parse()->body.front()->type, NodeType::MEMBER_SAFE);
 
     source = std::istringstream("mystruct!.item");
     parser = Parser(&source);
-    ASSERT_EQ(parser.Parse()->stmts.front()->type, NodeType::MEMBER_ASSERT);
+    ASSERT_EQ(parser.Parse()->body.front()->type, NodeType::MEMBER_ASSERT);
+
+    source = std::istringstream("mystruct!.item.subitem");
+    parser = Parser(&source);
+    ASSERT_EQ(parser.Parse()->body.front()->type, NodeType::MEMBER);
 
     source = std::istringstream("mystruct?.");
     parser = Parser(&source);
     EXPECT_THROW(parser.Parse(), SyntaxException);
-}*/
+}
+
+TEST(Parser, Subscript) {
+    auto source = std::istringstream("[[0,1,2],2,3][0][1]");
+    Parser parser(&source);
+    ASSERT_EQ(parser.Parse()->body.front()->type, NodeType::SUBSCRIPT);
+
+    source = std::istringstream("[1,2,3][a:b]");
+    parser = Parser(&source);
+    ASSERT_EQ(parser.Parse()->body.front()->type, NodeType::SUBSCRIPT);
+
+    source = std::istringstream("[1,2,3][a:b+1:2]");
+    parser = Parser(&source);
+    ASSERT_EQ(parser.Parse()->body.front()->type, NodeType::SUBSCRIPT);
+
+    source = std::istringstream("[1,2,3][1:]");
+    parser = Parser(&source);
+    EXPECT_THROW(parser.Parse(), SyntaxException);
+
+    source = std::istringstream("[1,2,3][1:2:]");
+    parser = Parser(&source);
+    EXPECT_THROW(parser.Parse(), SyntaxException);
+
+    source = std::istringstream("[1,2,3][1::]");
+    parser = Parser(&source);
+    EXPECT_THROW(parser.Parse(), SyntaxException);
+}
+
+TEST(Parser, FnCall) {
+    auto source = std::istringstream("call()");
+    Parser parser(&source);
+    ASSERT_EQ(parser.Parse()->body.front()->type, NodeType::CALL);
+
+    source = std::istringstream("call(1,2,3)");
+    parser = Parser(&source);
+    ASSERT_EQ(parser.Parse()->body.front()->type, NodeType::CALL);
+
+    source = std::istringstream("call(a...)");
+    parser = Parser(&source);
+    ASSERT_EQ(parser.Parse()->body.front()->type, NodeType::CALL);
+
+    source = std::istringstream("call(a+b,c...)");
+    parser = Parser(&source);
+    ASSERT_EQ(parser.Parse()->body.front()->type, NodeType::CALL);
+
+    source = std::istringstream("[(a,b,c)=>{}][0](1,2,3)");
+    parser = Parser(&source);
+    ASSERT_EQ(parser.Parse()->body.front()->type, NodeType::CALL);
+
+    source = std::istringstream("call(a,b,c...,d)");
+    parser = Parser(&source);
+    EXPECT_THROW(parser.Parse(), SyntaxException);
+
+    source = std::istringstream("call(a...,b)");
+    parser = Parser(&source);
+    EXPECT_THROW(parser.Parse(), SyntaxException);
+
+    source = std::istringstream("call(a,)");
+    parser = Parser(&source);
+    EXPECT_THROW(parser.Parse(), SyntaxException);
+}
 
 TEST(Parser, ArrowFn) {
     auto source = std::istringstream("()=>{}");

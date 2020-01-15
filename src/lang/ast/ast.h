@@ -71,8 +71,7 @@ namespace lang::ast {
         MEMBER,
         MEMBER_SAFE,
         MEMBER_ASSERT,
-        POSTFIX_INC,
-        POSTFIX_DEC,
+        UPDATE,
         LIST,
         SET,
         MAP,
@@ -225,11 +224,12 @@ namespace lang::ast {
     };
 
     struct Call : Node {
-        NodeUptr func;
+        NodeUptr callee;
         std::list<NodeUptr> args;
 
-        Call(NodeUptr func, unsigned colno, unsigned lineno) : Node(NodeType::CALL, colno, lineno) {
-            this->func = std::move(func);
+        explicit Call(NodeUptr callee) : Node(NodeType::CALL, 0, 0) {
+            this->callee = std::move(callee);
+            this->start = this->callee->start;
         }
 
         void AddArgument(NodeUptr argument) {
@@ -313,14 +313,17 @@ namespace lang::ast {
         NodeUptr high;
         NodeUptr step;
 
-        explicit Slice(NodeUptr low, NodeUptr high, NodeUptr step, unsigned colno, unsigned lineno) : Node(
-                NodeType::INDEX, colno, lineno) {
+        explicit Slice(NodeUptr low, NodeUptr high, NodeUptr step) : Node(NodeType::INDEX, 0, 0) {
             this->low = std::move(low);
+            this->start = this->low->start;
             if (high != nullptr) {
                 this->high = std::move(high);
                 this->type = NodeType::SLICE;
-                if (step != nullptr)
+                this->end = this->high->end;
+                if (step != nullptr) {
                     this->step = std::move(step);
+                    this->end = this->step->end;
+                }
             }
         }
     };
@@ -330,23 +333,25 @@ namespace lang::ast {
         NodeUptr right;
         lang::scanner::TokenType kind;
 
-        explicit Binary(NodeType type, lang::scanner::TokenType kind, NodeUptr left, NodeUptr right, unsigned colno,
-                        unsigned lineno) : Node(type, colno, lineno) {
+        explicit Binary(NodeType type, lang::scanner::TokenType kind, NodeUptr left, NodeUptr right) : Node(type, 0,
+                                                                                                            0) {
             this->left = std::move(left);
             this->right = std::move(right);
             this->kind = kind;
+            this->start = this->left->start;
+            this->end = this->right->end;
         }
 
-        explicit Binary(NodeType type, NodeUptr left, NodeUptr right, unsigned colno,
-                        unsigned lineno) : Binary(type, scanner::TokenType::TK_NULL, std::move(left), std::move(right),
-                                                  colno, lineno) {}
+        explicit Binary(NodeType type, NodeUptr left, NodeUptr right) : Binary(type, scanner::TokenType::TK_NULL,
+                                                                               std::move(left), std::move(right)) {}
     };
 
     struct Unary : Node {
         NodeUptr expr;
 
-        explicit Unary(NodeType type, NodeUptr expr, unsigned colno, unsigned lineno) : Node(type, colno, lineno) {
+        explicit Unary(NodeType type, NodeUptr expr, scanner::Pos end) : Node(type, 0, end) {
             this->expr = std::move(expr);
+            this->start = this->expr->start;
         }
     };
 
@@ -357,6 +362,20 @@ namespace lang::ast {
 
         void AddExpression(NodeUptr expr) {
             this->expressions.push_back(std::move(expr));
+        }
+    };
+
+    struct Update : Node {
+        NodeUptr expr;
+        scanner::TokenType kind;
+        bool prefix;
+
+        explicit Update(NodeUptr expr, scanner::TokenType kind, bool prefix, scanner::Pos end) : Node(NodeType::UPDATE,
+                                                                                                      0, 0) {
+            this->expr = std::move(expr);
+            this->start = this->expr->start;
+            this->kind = kind;
+            this->prefix = prefix;
         }
     };
 
