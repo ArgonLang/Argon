@@ -29,13 +29,34 @@ TEST(Parser, Relational) {
     ASSERT_EQ(ast->stmts.front()->type, NodeType::RELATIONAL);
     ASSERT_EQ(CastNode<Binary>(ast->stmts.front())->kind, lang::scanner::TokenType::GREATER_EQ);
 }
-
-TEST(Parser, MulExpr) {
-    auto source = std::istringstream("mystruct.item * 24");
-    Parser parser(&source);
-    ASSERT_EQ(parser.Parse()->stmts.front()->type, NodeType::MUL);
-}
  */
+
+
+TEST(Parser, MulSumExpr) {
+    auto source = std::istringstream("a+b");
+    Parser parser(&source);
+    auto tmp = std::move(parser.Parse()->body);
+    ASSERT_EQ(tmp.front()->type, NodeType::BINARY_OP);
+    ASSERT_EQ(CastNode<Binary>(tmp.front())->kind, scanner::TokenType::PLUS);
+    ASSERT_EQ(tmp.front()->start, 1);
+    ASSERT_EQ(tmp.front()->end, 4);
+
+    source = std::istringstream("a.x*22");
+    parser = Parser(&source);
+    tmp = std::move(parser.Parse()->body);
+    ASSERT_EQ(tmp.front()->type, NodeType::BINARY_OP);
+    ASSERT_EQ(CastNode<Binary>(tmp.front())->kind, scanner::TokenType::ASTERISK);
+    ASSERT_EQ(tmp.front()->start, 1);
+    ASSERT_EQ(tmp.front()->end, 7);
+
+    source = std::istringstream("a.x*22//44");
+    parser = Parser(&source);
+    tmp = std::move(parser.Parse()->body);
+    ASSERT_EQ(tmp.front()->type, NodeType::BINARY_OP);
+    ASSERT_EQ(CastNode<Binary>(tmp.front())->kind, scanner::TokenType::ASTERISK);
+    ASSERT_EQ(tmp.front()->start, 1);
+    ASSERT_EQ(tmp.front()->end, 11);
+}
 
 TEST(Parser, Unary) {
     auto source = std::istringstream("++a");
