@@ -121,8 +121,6 @@ namespace lang {
 
         ast::NodeUptr AtomExpr();
 
-        bool Trailer(ast::NodeUptr &left);
-
         ast::NodeUptr ParseArguments(ast::NodeUptr left);
 
         ast::NodeUptr ParseSubscript();

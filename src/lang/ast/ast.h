@@ -47,15 +47,10 @@ namespace lang::ast {
         ASSIGN,
         TUPLE,
         ELVIS,
-        OR_TEST,
-        AND_TEST,
-        LOGICAL_OR,
-        LOGICAL_XOR,
-        LOGICAL_AND,
+        TEST,
+        LOGICAL,
         EQUALITY,
         RELATIONAL,
-        SHL,
-        SHR,
         NOT,
         BINARY_OP,
         UNARY_OP,
@@ -181,12 +176,13 @@ namespace lang::ast {
         NodeUptr body;
         NodeUptr orelse;
 
-        explicit If(NodeUptr test, NodeUptr body, NodeUptr orelse, unsigned colno, unsigned lineno) : If(
-                std::move(test), std::move(body), colno, lineno) {
+        explicit If(NodeUptr test, NodeUptr body, NodeUptr orelse, scanner::Pos start, scanner::Pos end) : If(
+                std::move(test), std::move(body), start, end) {
             this->orelse = std::move(orelse);
         }
 
-        explicit If(NodeUptr test, NodeUptr body, unsigned colno, unsigned lineno) : Node(NodeType::IF, colno, lineno) {
+        explicit If(NodeUptr test, NodeUptr body, scanner::Pos start, scanner::Pos end) : Node(NodeType::IF, start,
+                                                                                               end) {
             this->test = std::move(test);
             this->body = std::move(body);
         }
@@ -359,6 +355,7 @@ namespace lang::ast {
         explicit List(NodeType type, scanner::Pos start) : Node(type, start, 0) {}
 
         void AddExpression(NodeUptr expr) {
+            this->end = expr->end;
             this->expressions.push_back(std::move(expr));
         }
     };

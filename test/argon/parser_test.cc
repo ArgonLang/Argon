@@ -31,6 +31,156 @@ TEST(Parser, Relational) {
 }
  */
 
+TEST(Parser, Assign) {
+    auto source = std::istringstream("var1=a+b");
+    Parser parser(&source);
+    auto tmp = std::move(parser.Parse()->body);
+    ASSERT_EQ(tmp.front()->type, NodeType::ASSIGN);
+    ASSERT_EQ(tmp.front()->start, 1);
+    ASSERT_EQ(tmp.front()->end, 9);
+
+    source = std::istringstream("var1 = a?.test ?: 24");
+    parser = Parser(&source);
+    tmp = std::move(parser.Parse()->body);
+    ASSERT_EQ(tmp.front()->type, NodeType::ASSIGN);
+    ASSERT_EQ(tmp.front()->start, 1);
+    ASSERT_EQ(tmp.front()->end, 21);
+}
+
+TEST(Parser, TestList) {
+    auto source = std::istringstream("(alfa.beta ?: ab-2, 2), out");
+    Parser parser(&source);
+    auto tmp = std::move(parser.Parse()->body);
+    ASSERT_EQ(tmp.front()->type, NodeType::TUPLE);
+    ASSERT_EQ(tmp.front()->start, 1);
+    ASSERT_EQ(tmp.front()->end, 28);
+
+    source = std::istringstream("a?c,");
+    parser = Parser(&source);
+    EXPECT_THROW(parser.Parse(), SyntaxException);
+}
+
+TEST(Parser, ElvisTernaryTest) {
+    auto source = std::istringstream("alfa.beta ?: ab-2");
+    Parser parser(&source);
+    auto tmp = std::move(parser.Parse()->body);
+    ASSERT_EQ(tmp.front()->type, NodeType::ELVIS);
+    ASSERT_EQ(tmp.front()->start, 1);
+    ASSERT_EQ(tmp.front()->end, 18);
+
+    source = std::istringstream("a>2||c?val1:val2");
+    parser = Parser(&source);
+    tmp = std::move(parser.Parse()->body);
+    ASSERT_EQ(tmp.front()->type, NodeType::IF);
+    ASSERT_EQ(tmp.front()->start, 1);
+    ASSERT_EQ(tmp.front()->end, 17);
+
+    source = std::istringstream("a?c");
+    parser = Parser(&source);
+    EXPECT_THROW(parser.Parse(), SyntaxException);
+
+    source = std::istringstream("a?c:");
+    parser = Parser(&source);
+    EXPECT_THROW(parser.Parse(), SyntaxException);
+}
+
+TEST(Parser, AndOrTest) {
+    auto source = std::istringstream("a&b^c&&a");
+    Parser parser(&source);
+    auto tmp = std::move(parser.Parse()->body);
+    ASSERT_EQ(tmp.front()->type, NodeType::TEST);
+    ASSERT_EQ(CastNode<Binary>(tmp.front())->kind, scanner::TokenType::AND);
+    ASSERT_EQ(tmp.front()->start, 1);
+    ASSERT_EQ(tmp.front()->end, 9);
+
+    source = std::istringstream("b&&c||true");
+    parser = Parser(&source);
+    tmp = std::move(parser.Parse()->body);
+    ASSERT_EQ(tmp.front()->type, NodeType::TEST);
+    ASSERT_EQ(CastNode<Binary>(tmp.front())->kind, scanner::TokenType::OR);
+    ASSERT_EQ(tmp.front()->start, 1);
+    ASSERT_EQ(tmp.front()->end, 11);
+}
+
+TEST(Parser, AndOrXorExpr) {
+    auto source = std::istringstream("a&b^c");
+    Parser parser(&source);
+    auto tmp = std::move(parser.Parse()->body);
+    ASSERT_EQ(tmp.front()->type, NodeType::LOGICAL);
+    ASSERT_EQ(CastNode<Binary>(tmp.front())->kind, scanner::TokenType::CARET);
+    ASSERT_EQ(tmp.front()->start, 1);
+    ASSERT_EQ(tmp.front()->end, 6);
+
+    source = std::istringstream("a&b&c");
+    parser = Parser(&source);
+    tmp = std::move(parser.Parse()->body);
+    ASSERT_EQ(tmp.front()->type, NodeType::LOGICAL);
+    ASSERT_EQ(CastNode<Binary>(tmp.front())->kind, scanner::TokenType::AMPERSAND);
+    ASSERT_EQ(tmp.front()->start, 1);
+    ASSERT_EQ(tmp.front()->end, 6);
+
+    source = std::istringstream("c^a&b^c|a");
+    parser = Parser(&source);
+    tmp = std::move(parser.Parse()->body);
+    ASSERT_EQ(tmp.front()->type, NodeType::LOGICAL);
+    ASSERT_EQ(CastNode<Binary>(tmp.front())->kind, scanner::TokenType::PIPE);
+    ASSERT_EQ(tmp.front()->start, 1);
+    ASSERT_EQ(tmp.front()->end, 10);
+}
+
+TEST(Parser, Equality) {
+    auto source = std::istringstream("a+b>4==true");
+    Parser parser(&source);
+    auto tmp = std::move(parser.Parse()->body);
+    ASSERT_EQ(tmp.front()->type, NodeType::EQUALITY);
+    ASSERT_EQ(CastNode<Binary>(tmp.front())->kind, scanner::TokenType::EQUAL_EQUAL);
+    ASSERT_EQ(tmp.front()->start, 1);
+    ASSERT_EQ(tmp.front()->end, 12);
+
+    source = std::istringstream("a+b!=4>6");
+    parser = Parser(&source);
+    tmp = std::move(parser.Parse()->body);
+    ASSERT_EQ(tmp.front()->type, NodeType::EQUALITY);
+    ASSERT_EQ(CastNode<Binary>(tmp.front())->kind, scanner::TokenType::NOT_EQUAL);
+    ASSERT_EQ(tmp.front()->start, 1);
+    ASSERT_EQ(tmp.front()->end, 9);
+}
+
+TEST(Parser, Relational) {
+    auto source = std::istringstream("a+b>4");
+    Parser parser(&source);
+    auto tmp = std::move(parser.Parse()->body);
+    ASSERT_EQ(tmp.front()->type, NodeType::RELATIONAL);
+    ASSERT_EQ(CastNode<Binary>(tmp.front())->kind, scanner::TokenType::GREATER);
+    ASSERT_EQ(tmp.front()->start, 1);
+    ASSERT_EQ(tmp.front()->end, 6);
+
+    source = std::istringstream("a<=b+2");
+    parser = Parser(&source);
+    tmp = std::move(parser.Parse()->body);
+    ASSERT_EQ(tmp.front()->type, NodeType::RELATIONAL);
+    ASSERT_EQ(CastNode<Binary>(tmp.front())->kind, scanner::TokenType::LESS_EQ);
+    ASSERT_EQ(tmp.front()->start, 1);
+    ASSERT_EQ(tmp.front()->end, 7);
+}
+
+TEST(Parser, ShiftExpr) {
+    auto source = std::istringstream("a>>b");
+    Parser parser(&source);
+    auto tmp = std::move(parser.Parse()->body);
+    ASSERT_EQ(tmp.front()->type, NodeType::BINARY_OP);
+    ASSERT_EQ(CastNode<Binary>(tmp.front())->kind, scanner::TokenType::SHR);
+    ASSERT_EQ(tmp.front()->start, 1);
+    ASSERT_EQ(tmp.front()->end, 5);
+
+    source = std::istringstream("a<<b");
+    parser = Parser(&source);
+    tmp = std::move(parser.Parse()->body);
+    ASSERT_EQ(tmp.front()->type, NodeType::BINARY_OP);
+    ASSERT_EQ(CastNode<Binary>(tmp.front())->kind, scanner::TokenType::SHL);
+    ASSERT_EQ(tmp.front()->start, 1);
+    ASSERT_EQ(tmp.front()->end, 5);
+}
 
 TEST(Parser, MulSumExpr) {
     auto source = std::istringstream("a+b");
