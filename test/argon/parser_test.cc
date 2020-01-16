@@ -35,13 +35,35 @@ TEST(Parser, MulExpr) {
     Parser parser(&source);
     ASSERT_EQ(parser.Parse()->stmts.front()->type, NodeType::MUL);
 }
+ */
 
 TEST(Parser, Unary) {
-    auto source = std::istringstream("-mystruct.item");
+    auto source = std::istringstream("++a");
     Parser parser(&source);
-    ASSERT_EQ(parser.Parse()->stmts.front()->type, NodeType::MINUS);
+    auto tmp = std::move(parser.Parse()->body);
+    ASSERT_EQ(tmp.front()->type, NodeType::UPDATE);
+    ASSERT_EQ(CastNode<Update>(tmp.front())->kind, scanner::TokenType::PLUS_PLUS);
+    ASSERT_TRUE(CastNode<Update>(tmp.front())->prefix);
+    ASSERT_EQ(tmp.front()->start, 1);
+    ASSERT_EQ(tmp.front()->end, 4);
+
+    source = std::istringstream("--mystruct?.item");
+    parser = Parser(&source);
+    tmp = std::move(parser.Parse()->body);
+    ASSERT_EQ(tmp.front()->type, NodeType::UPDATE);
+    ASSERT_EQ(CastNode<Update>(tmp.front())->kind, scanner::TokenType::MINUS_MINUS);
+    ASSERT_TRUE(CastNode<Update>(tmp.front())->prefix);
+    ASSERT_EQ(tmp.front()->start, 1);
+    ASSERT_EQ(tmp.front()->end, 17);
+
+    source = std::istringstream("~mystruct?.item");
+    parser = Parser(&source);
+    tmp = std::move(parser.Parse()->body);
+    ASSERT_EQ(tmp.front()->type, NodeType::UNARY_OP);
+    ASSERT_EQ(CastNode<Unary>(tmp.front())->kind, scanner::TokenType::TILDE);
+    ASSERT_EQ(tmp.front()->start, 1);
+    ASSERT_EQ(tmp.front()->end, 16);
 }
-*/
 
 TEST(Parser, PostfixUpdate) {
     auto source = std::istringstream("mymstruct.item++");
@@ -49,14 +71,14 @@ TEST(Parser, PostfixUpdate) {
     auto tmp = std::move(parser.Parse()->body);
     ASSERT_EQ(tmp.front()->type, NodeType::UPDATE);
     ASSERT_EQ(CastNode<Update>(tmp.front())->kind, scanner::TokenType::PLUS_PLUS);
-    ASSERT_TRUE(CastNode<Update>(tmp.front())->prefix);
+    ASSERT_FALSE(CastNode<Update>(tmp.front())->prefix);
 
     source = std::istringstream("mystruct?.item--");
     parser = Parser(&source);
     tmp = std::move(parser.Parse()->body);
     ASSERT_EQ(tmp.front()->type, NodeType::UPDATE);
     ASSERT_EQ(CastNode<Update>(tmp.front())->kind, scanner::TokenType::MINUS_MINUS);
-    ASSERT_TRUE(CastNode<Update>(tmp.front())->prefix);
+    ASSERT_FALSE(CastNode<Update>(tmp.front())->prefix);
 }
 
 TEST(Parser, MemberAccess) {

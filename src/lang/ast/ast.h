@@ -63,11 +63,7 @@ namespace lang::ast {
         INTEGER_DIV,
         REMINDER,
         NOT,
-        BITWISE_NOT,
-        PLUS,
-        MINUS,
-        PREFIX_INC,
-        PREFIX_DEC,
+        UNARY_OP,
         MEMBER,
         MEMBER_SAFE,
         MEMBER_ASSERT,
@@ -348,9 +344,16 @@ namespace lang::ast {
 
     struct Unary : Node {
         NodeUptr expr;
+        lang::scanner::TokenType kind;
 
-        explicit Unary(NodeType type, NodeUptr expr, scanner::Pos end) : Node(type, 0, end) {
+        explicit Unary(NodeType type, lang::scanner::TokenType kind, NodeUptr expr, scanner::Pos start,
+                       scanner::Pos end) : Node(type, start, end) {
             this->expr = std::move(expr);
+            this->kind = kind;
+        }
+
+        explicit Unary(NodeType type, NodeUptr expr, scanner::Pos end) : Unary(type, scanner::TokenType::TK_NULL,
+                                                                               std::move(expr), 0, end) {
             this->start = this->expr->start;
         }
     };
@@ -370,12 +373,17 @@ namespace lang::ast {
         scanner::TokenType kind;
         bool prefix;
 
-        explicit Update(NodeUptr expr, scanner::TokenType kind, bool prefix, scanner::Pos end) : Node(NodeType::UPDATE,
-                                                                                                      0, 0) {
+        explicit Update(NodeUptr expr, scanner::TokenType kind, bool prefix, scanner::Pos start, scanner::Pos end)
+                : Node(NodeType::UPDATE, start, end) {
             this->expr = std::move(expr);
-            this->start = this->expr->start;
             this->kind = kind;
             this->prefix = prefix;
+        }
+
+        explicit Update(NodeUptr expr, scanner::TokenType kind, bool prefix, scanner::Pos end) : Update(std::move(expr),
+                                                                                                        kind, prefix, 0,
+                                                                                                        end) {
+            this->start = this->expr->start;
         }
     };
 

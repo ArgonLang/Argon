@@ -921,28 +921,26 @@ ast::NodeUptr Parser::MulExpr() {
 }
 
 ast::NodeUptr Parser::UnaryExpr() {
-    unsigned colno = this->currTk_.start;
-    unsigned lineno = this->currTk_.end;
+    Pos start = this->currTk_.start;
+    TokenType type = this->currTk_.type;
+    Pos end;
+    NodeUptr expr;
 
     switch (this->currTk_.type) {
         case TokenType::EXCLAMATION:
-            this->Eat();
-            return std::make_unique<Unary>(NodeType::NOT, this->UnaryExpr(), lineno);
         case TokenType::TILDE:
-            this->Eat();
-            return std::make_unique<Unary>(NodeType::BITWISE_NOT, this->UnaryExpr(), lineno);
         case TokenType::PLUS:
-            this->Eat();
-            return std::make_unique<Unary>(NodeType::PLUS, this->UnaryExpr(), lineno);
         case TokenType::MINUS:
             this->Eat();
-            return std::make_unique<Unary>(NodeType::MINUS, this->UnaryExpr(), lineno);
+            expr = this->UnaryExpr();
+            end = expr->end;
+            return std::make_unique<Unary>(NodeType::UNARY_OP, type, std::move(expr), start, end);
         case TokenType::PLUS_PLUS:
-            this->Eat();
-            return std::make_unique<Unary>(NodeType::PREFIX_INC, this->UnaryExpr(), lineno);
         case TokenType::MINUS_MINUS:
             this->Eat();
-            return std::make_unique<Unary>(NodeType::PREFIX_DEC, this->UnaryExpr(), lineno);
+            expr = this->UnaryExpr();
+            end = expr->end;
+            return std::make_unique<Update>(std::move(expr), type, true, start, end);
         default:
             return this->AtomExpr();
     }
@@ -968,7 +966,7 @@ ast::NodeUptr Parser::AtomExpr() {
                 break;
             case TokenType::PLUS_PLUS:
             case TokenType::MINUS_MINUS:
-                left = std::make_unique<Update>(std::move(left), this->currTk_.type, true, end);
+                left = std::make_unique<Update>(std::move(left), this->currTk_.type, false, end);
                 this->Eat();
                 break;
             default:
