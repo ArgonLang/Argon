@@ -201,7 +201,7 @@ namespace lang::scanner {
             {"false",       TokenType::FALSE},
             {"for",         TokenType::FOR},
             {"from",        TokenType::FROM},
-            {"callee",      TokenType::FUNC},
+            {"func",        TokenType::FUNC},
             {"goto",        TokenType::GOTO},
             {"if",          TokenType::IF},
             {"in",          TokenType::IN},

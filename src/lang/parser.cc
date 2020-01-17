@@ -68,7 +68,9 @@ ast::NodeUptr Parser::Declaration() {
 }
 
 ast::NodeUptr Parser::AccessModifier() {
+    Pos start = this->currTk_.start;
     bool pub = false;
+    NodeUptr expr;
 
     if (this->Match(TokenType::PUB)) {
         this->Eat();
@@ -76,11 +78,16 @@ ast::NodeUptr Parser::AccessModifier() {
     }
 
     if (this->Match(TokenType::LET))
-        return this->ConstDecl(pub);
+        expr = this->ConstDecl(pub);
     else if (this->Match(TokenType::TRAIT))
-        return this->TraitDecl(pub);
+        expr = this->TraitDecl(pub);
+    else
+        expr = this->SmallDecl(pub);
 
-    return this->SmallDecl(pub);
+    if (pub)
+        CastNode<Node>(expr)->start = start;
+
+    return expr;
 }
 
 ast::NodeUptr Parser::SmallDecl(bool pub) {
@@ -103,26 +110,21 @@ ast::NodeUptr Parser::SmallDecl(bool pub) {
 }
 
 ast::NodeUptr Parser::AliasDecl(bool pub) {
-    unsigned colno = this->currTk_.start;
-    unsigned lineno = this->currTk_.end;
-    NodeUptr node;
+    Pos start = this->currTk_.start;
     std::string name;
 
-    this->Eat(TokenType::USING, "expected using");
+    this->Eat();
     name = this->currTk_.value;
     this->Eat(TokenType::IDENTIFIER, "expected identifier after alias keyword");
     this->Eat(TokenType::AS, "expected as after identifier in alias declaration");
-
-    node = std::make_unique<Construct>(NodeType::ALIAS, name, nullptr, this->ParseScope(), colno, lineno);
-    CastNode<Construct>(node)->pub = pub;
-
-    return node;
+    return std::make_unique<Alias>(name, this->ParseScope(), pub, start);
 }
 
 ast::NodeUptr Parser::VarModifier(bool pub) {
-    NodeUptr variable;
     bool atomic = false;
     bool weak = false;
+    Pos start = this->currTk_.start;
+    NodeUptr variable;
 
     if (this->Match(TokenType::ATOMIC)) {
         this->Eat();
@@ -135,10 +137,11 @@ ast::NodeUptr Parser::VarModifier(bool pub) {
     }
 
     if (this->Match(TokenType::LET))
-        throw SyntaxException("expected variable declaration", this->currTk_);
+        throw SyntaxException("expected var keyword", this->currTk_);
 
     variable = this->VarDecl(pub);
 
+    CastNode<Variable>(variable)->start = start;
     CastNode<Variable>(variable)->atomic = atomic;
     CastNode<Variable>(variable)->weak = weak;
 
@@ -146,49 +149,45 @@ ast::NodeUptr Parser::VarModifier(bool pub) {
 }
 
 ast::NodeUptr Parser::VarDecl(bool pub) {
-    unsigned colno = this->currTk_.start;
-    unsigned lineno = this->currTk_.end;
-    NodeUptr variable;
+    Pos start = this->currTk_.start;
+    NodeUptr value;
+    std::unique_ptr<Variable> variable;
 
-    this->Eat(TokenType::VAR, "expected var keyword");
+    this->Eat();
+    variable = std::make_unique<Variable>(this->currTk_.value, pub, false);
+    variable->start = start;
+    variable->end = this->currTk_.end;
 
-    variable = std::make_unique<Variable>(this->currTk_.value, nullptr, false, colno, lineno);
+    this->Eat(TokenType::IDENTIFIER, "expected identifier after var keyword");
 
-    this->Eat(TokenType::IDENTIFIER, "expected identifier after var declaration");
-    CastNode<Variable>(variable)->annotation = this->VarAnnotation();
+    if (this->Match(TokenType::COLON)) {
+        this->Eat();
+        variable->annotation = this->ParseScope();
+        variable->end = variable->annotation->end;
+    }
 
     if (this->Match(TokenType::EQUAL)) {
         this->Eat();
-        CastNode<Variable>(variable)->value = this->TestList();
+        value = this->TestList();
+        variable->end = value->end;
+        variable->value = std::move(value);
     }
-
-    CastNode<Variable>(variable)->pub = pub;
-
     return variable;
 }
 
 ast::NodeUptr Parser::ConstDecl(bool pub) {
-    unsigned colno = this->currTk_.start;
-    unsigned lineno = this->currTk_.end;
+    Pos start = this->currTk_.start;
     std::string name;
-    NodeUptr node;
+    std::unique_ptr<Variable> constant;
 
-    this->Eat(); // eat 'let' keyword
+    this->Eat();
     name = this->currTk_.value;
-    this->Eat(TokenType::IDENTIFIER, "expected identifier after let declaration");
+    this->Eat(TokenType::IDENTIFIER, "expected identifier after let keyword");
     this->Eat(TokenType::EQUAL, "expected = after identifier in let declaration");
-    node = std::make_unique<Variable>(name, this->TestList(), true, colno, lineno);
-    CastNode<Variable>(node)->pub = pub;
+    constant = std::make_unique<Variable>(name, this->TestList(), pub, true);
+    constant->start = start;
 
-    return node;
-}
-
-ast::NodeUptr Parser::VarAnnotation() {
-    if (this->Match(TokenType::COLON)) {
-        this->Eat();
-        return this->ParseScope();
-    }
-    return nullptr;
+    return constant;
 }
 
 ast::NodeUptr Parser::FuncDecl(bool pub) {
@@ -198,16 +197,14 @@ ast::NodeUptr Parser::FuncDecl(bool pub) {
 
     this->Eat();
     name = this->currTk_.value;
-    this->Eat(TokenType::IDENTIFIER, "expected identifier after callee keyword");
+    this->Eat(TokenType::IDENTIFIER, "expected identifier after func keyword");
     if (this->Match(TokenType::LEFT_ROUND)) {
         this->Eat();
         params = this->Param();
-        this->Eat(TokenType::RIGHT_ROUND, "expected ) after params declaration");
+        this->Eat(TokenType::RIGHT_ROUND, "expected ) after function params");
     }
 
-    auto fn = std::make_unique<Function>(name, std::move(params), this->Block(), start);
-    fn->pub = pub;
-    return fn;
+    return std::make_unique<Function>(name, std::move(params), this->Block(), pub, start);
 }
 
 std::list<NodeUptr> Parser::Param() {
@@ -215,20 +212,20 @@ std::list<NodeUptr> Parser::Param() {
     NodeUptr tmp = this->Variadic();
 
     if (tmp != nullptr) {
-        params.push_front(std::move(tmp));
+        params.push_back(std::move(tmp));
         return params;
     }
 
     while (this->Match(TokenType::IDENTIFIER)) {
         tmp = this->ParseScope();
-        if (tmp->type == NodeType::LITERAL)
-            params.push_front(std::move(tmp));
+        if (tmp->type == NodeType::IDENTIFIER)
+            params.push_back(std::move(tmp));
         else
             throw SyntaxException("expected parameter name", this->currTk_);
         if (this->Match(TokenType::COMMA)) {
             this->Eat();
             if ((tmp = this->Variadic()) != nullptr) {
-                params.push_front(std::move(tmp));
+                params.push_back(std::move(tmp));
                 break;
             }
         }

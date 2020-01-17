@@ -31,6 +31,158 @@ TEST(Parser, Relational) {
 }
  */
 
+TEST(Parser, Alias) {
+    auto source = std::istringstream("using id as identifier");
+    Parser parser(&source);
+    auto tmp = std::move(parser.Parse()->body);
+    ASSERT_EQ(tmp.front()->type, NodeType::ALIAS);
+    ASSERT_FALSE(CastNode<Alias>(tmp.front())->pub);
+    ASSERT_EQ(tmp.front()->start, 1);
+    ASSERT_EQ(tmp.front()->end, 23);
+
+    source = std::istringstream("pub using id as identifier");
+    parser = Parser(&source);
+    tmp = std::move(parser.Parse()->body);
+    ASSERT_EQ(tmp.front()->type, NodeType::ALIAS);
+    ASSERT_TRUE(CastNode<Alias>(tmp.front())->pub);
+    ASSERT_EQ(tmp.front()->start, 1);
+    ASSERT_EQ(tmp.front()->end, 27);
+
+    source = std::istringstream("pub using id as id::e::nt");
+    parser = Parser(&source);
+    tmp = std::move(parser.Parse()->body);
+    ASSERT_EQ(tmp.front()->type, NodeType::ALIAS);
+    ASSERT_TRUE(CastNode<Alias>(tmp.front())->pub);
+    ASSERT_EQ(tmp.front()->start, 1);
+    ASSERT_EQ(tmp.front()->end, 26);
+
+    source = std::istringstream("using ident");
+    parser = Parser(&source);
+    EXPECT_THROW(parser.Parse(), SyntaxException);
+
+    source = std::istringstream("using ident as ");
+    parser = Parser(&source);
+    EXPECT_THROW(parser.Parse(), SyntaxException);
+}
+
+TEST(Parser, Variable) {
+    auto source = std::istringstream("var x");
+    Parser parser(&source);
+    auto tmp = std::move(parser.Parse()->body);
+    ASSERT_EQ(tmp.front()->type, NodeType::VARIABLE);
+    ASSERT_FALSE(CastNode<Variable>(tmp.front())->weak);
+    ASSERT_FALSE(CastNode<Variable>(tmp.front())->atomic);
+    ASSERT_FALSE(CastNode<Variable>(tmp.front())->pub);
+    ASSERT_EQ(tmp.front()->start, 1);
+    ASSERT_EQ(tmp.front()->end, 6);
+
+    source = std::istringstream("var x: scope1::scope2");
+    parser = Parser(&source);
+    tmp = std::move(parser.Parse()->body);
+    ASSERT_EQ(tmp.front()->type, NodeType::VARIABLE);
+    ASSERT_EQ(tmp.front()->start, 1);
+    ASSERT_EQ(tmp.front()->end, 22);
+
+    source = std::istringstream("var x: scope = a+b");
+    parser = Parser(&source);
+    tmp = std::move(parser.Parse()->body);
+    ASSERT_EQ(tmp.front()->type, NodeType::VARIABLE);
+    ASSERT_EQ(tmp.front()->start, 1);
+    ASSERT_EQ(tmp.front()->end, 19);
+
+    source = std::istringstream("var x = a+b");
+    parser = Parser(&source);
+    tmp = std::move(parser.Parse()->body);
+    ASSERT_EQ(tmp.front()->type, NodeType::VARIABLE);
+    ASSERT_EQ(tmp.front()->start, 1);
+    ASSERT_EQ(tmp.front()->end, 12);
+
+    source = std::istringstream("pub atomic weak var paw= obj");
+    parser = Parser(&source);
+    tmp = std::move(parser.Parse()->body);
+    ASSERT_EQ(tmp.front()->type, NodeType::VARIABLE);
+    ASSERT_TRUE(CastNode<Variable>(tmp.front())->weak);
+    ASSERT_TRUE(CastNode<Variable>(tmp.front())->atomic);
+    ASSERT_TRUE(CastNode<Variable>(tmp.front())->pub);
+    ASSERT_EQ(tmp.front()->start, 1);
+    ASSERT_EQ(tmp.front()->end, 29);
+
+    source = std::istringstream("weak var paw= obj");
+    parser = Parser(&source);
+    tmp = std::move(parser.Parse()->body);
+    ASSERT_EQ(tmp.front()->type, NodeType::VARIABLE);
+    ASSERT_TRUE(CastNode<Variable>(tmp.front())->weak);
+    ASSERT_FALSE(CastNode<Variable>(tmp.front())->atomic);
+    ASSERT_FALSE(CastNode<Variable>(tmp.front())->pub);
+    ASSERT_EQ(tmp.front()->start, 1);
+    ASSERT_EQ(tmp.front()->end, 18);
+}
+
+TEST(Parser, Constant) {
+    auto source = std::istringstream("let x = obj");
+    Parser parser(&source);
+    auto tmp = std::move(parser.Parse()->body);
+    ASSERT_EQ(tmp.front()->type, NodeType::CONSTANT);
+    ASSERT_FALSE(CastNode<Variable>(tmp.front())->weak);
+    ASSERT_FALSE(CastNode<Variable>(tmp.front())->atomic);
+    ASSERT_FALSE(CastNode<Variable>(tmp.front())->pub);
+    ASSERT_EQ(tmp.front()->start, 1);
+    ASSERT_EQ(tmp.front()->end, 12);
+
+    source = std::istringstream("pub let x=abc");
+    parser = Parser(&source);
+    tmp = std::move(parser.Parse()->body);
+    ASSERT_EQ(tmp.front()->type, NodeType::CONSTANT);
+    ASSERT_EQ(tmp.front()->start, 1);
+    ASSERT_EQ(tmp.front()->end, 14);
+
+    source = std::istringstream("pub weak let x = obj");
+    parser = Parser(&source);
+    EXPECT_THROW(parser.Parse(), SyntaxException);
+
+    source = std::istringstream("let wrong");
+    parser = Parser(&source);
+    EXPECT_THROW(parser.Parse(), SyntaxException);
+
+    source = std::istringstream("let wrong =");
+    parser = Parser(&source);
+    EXPECT_THROW(parser.Parse(), SyntaxException);
+}
+
+TEST(Parser, Function) {
+    auto source = std::istringstream("func function{}");
+    Parser parser(&source);
+    auto tmp = std::move(parser.Parse()->body);
+    ASSERT_EQ(tmp.front()->type, NodeType::FUNC);
+    ASSERT_FALSE(CastNode<Function>(tmp.front())->pub);
+    ASSERT_EQ(tmp.front()->start, 1);
+    ASSERT_EQ(tmp.front()->end, 16);
+
+    source = std::istringstream("func function() {}");
+    parser = Parser(&source);
+    tmp = std::move(parser.Parse()->body);
+    ASSERT_EQ(tmp.front()->type, NodeType::FUNC);
+    ASSERT_FALSE(CastNode<Function>(tmp.front())->pub);
+    ASSERT_EQ(tmp.front()->start, 1);
+    ASSERT_EQ(tmp.front()->end, 19);
+
+    source = std::istringstream("func function(param1, param2, ...params) {}");
+    parser = Parser(&source);
+    tmp = std::move(parser.Parse()->body);
+    ASSERT_EQ(tmp.front()->type, NodeType::FUNC);
+    ASSERT_FALSE(CastNode<Function>(tmp.front())->pub);
+    ASSERT_EQ(tmp.front()->start, 1);
+    ASSERT_EQ(tmp.front()->end, 44);
+
+    source = std::istringstream("pub func function(a) {}");
+    parser = Parser(&source);
+    tmp = std::move(parser.Parse()->body);
+    ASSERT_EQ(tmp.front()->type, NodeType::FUNC);
+    ASSERT_TRUE(CastNode<Function>(tmp.front())->pub);
+    ASSERT_EQ(tmp.front()->start, 1);
+    ASSERT_EQ(tmp.front()->end, 24);
+}
+
 TEST(Parser, Assign) {
     auto source = std::istringstream("var1=a+b");
     Parser parser(&source);

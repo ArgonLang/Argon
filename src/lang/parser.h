@@ -39,8 +39,6 @@ namespace lang {
 
         ast::NodeUptr ConstDecl(bool pub);
 
-        ast::NodeUptr VarAnnotation();
-
         ast::NodeUptr FuncDecl(bool pub);
 
         std::list<lang::ast::NodeUptr> Param();

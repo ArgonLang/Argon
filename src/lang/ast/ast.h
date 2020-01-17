@@ -232,17 +232,19 @@ namespace lang::ast {
         std::string id;
         std::list<NodeUptr> params;
         NodeUptr body;
-        bool pub;
+        bool pub = false;
 
-        Function(std::string &id, std::list<NodeUptr> params, NodeUptr body, scanner::Pos start) : Node(NodeType::FUNC,
-                                                                                                        start, 0) {
+        explicit Function(std::string &id, std::list<NodeUptr> params, NodeUptr body, bool pub, scanner::Pos start)
+                : Node(NodeType::FUNC, start, 0) {
             this->id = id;
             this->params = std::move(params);
             this->body = std::move(body);
+            this->pub = pub;
             this->end = this->body->end;
         }
 
-        Function(std::list<NodeUptr> params, NodeUptr body, scanner::Pos start) : Node(NodeType::FUNC, start, 0) {
+        explicit Function(std::list<NodeUptr> params, NodeUptr body, scanner::Pos start) : Node(NodeType::FUNC, start,
+                                                                                                0) {
             this->params = std::move(params);
             this->body = std::move(body);
             this->end = this->body->end;
@@ -269,20 +271,39 @@ namespace lang::ast {
         }
     };
 
+    struct Alias : Node {
+        std::string name;
+        NodeUptr value;
+        bool pub;
+
+        explicit Alias(std::string &name, NodeUptr value, bool pub, scanner::Pos start) : Node(NodeType::ALIAS, start,
+                                                                                               0) {
+            this->name = name;
+            this->value = std::move(value);
+            this->end = this->value->end;
+            this->pub = pub;
+        }
+    };
+
     struct Variable : Node {
         bool atomic = false;
         bool weak = false;
-        bool pub = false;
+        bool pub;
         std::string name;
         NodeUptr value;
         NodeUptr annotation;
 
-        explicit Variable(std::string &name, NodeUptr value, bool constant, unsigned colno, unsigned lineno) : Node(
-                NodeType::VARIABLE, colno, lineno) {
+        explicit Variable(std::string &name, bool pub, bool constant) : Variable(name, nullptr, pub, constant) {}
+
+        explicit Variable(std::string &name, NodeUptr value, bool pub, bool constant) : Node(NodeType::VARIABLE, 0, 0) {
+            this->pub = pub;
+            this->name = name;
             if (constant)
                 this->type = NodeType::CONSTANT;
-            this->name = name;
-            this->value = std::move(value);
+            if (value != nullptr) {
+                this->value = std::move(value);
+                this->end = this->value->end;
+            }
         }
     };
 
