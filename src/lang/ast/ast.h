@@ -106,10 +106,14 @@ namespace lang::ast {
     struct Block : Node {
         std::list<NodeUptr> stmts;
 
-        Block(NodeType type, unsigned colno, unsigned lineno) : Node(type, colno, lineno) {}
+        Block(NodeType type, scanner::Pos start) : Node(type, start, 0) {}
 
         void AddStmtOrExpr(NodeUptr stmt) {
-            this->stmts.push_front(std::move(stmt));
+            this->stmts.push_back(std::move(stmt));
+        }
+
+        void SetEndPos(scanner::Pos end) {
+            this->end = end;
         }
     };
 

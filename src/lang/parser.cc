@@ -68,7 +68,6 @@ ast::NodeUptr Parser::Declaration() {
 }
 
 ast::NodeUptr Parser::AccessModifier() {
-    NodeUptr expr;
     bool pub = false;
 
     if (this->Match(TokenType::PUB)) {
@@ -81,14 +80,7 @@ ast::NodeUptr Parser::AccessModifier() {
     else if (this->Match(TokenType::TRAIT))
         return this->TraitDecl(pub);
 
-    expr = this->SmallDecl(pub);
-    if (expr == nullptr) {
-        if (pub)
-            throw SyntaxException("expected declaration after pub keyword, found statement", this->currTk_);
-        expr = this->Statement();
-    }
-
-    return expr;
+    return this->SmallDecl(pub);
 }
 
 ast::NodeUptr Parser::SmallDecl(bool pub) {
@@ -104,7 +96,9 @@ ast::NodeUptr Parser::SmallDecl(bool pub) {
         case TokenType::STRUCT:
             return this->StructDecl(pub);
         default:
-            return nullptr;
+            if (pub)
+                throw SyntaxException("expected declaration after pub keyword, found statement", this->currTk_);
+            return this->Statement();
     }
 }
 
@@ -282,7 +276,7 @@ ast::NodeUptr Parser::StructDecl(bool pub) {
 }
 
 ast::NodeUptr Parser::StructBlock() {
-    NodeUptr block = std::make_unique<ast::Block>(NodeType::STRUCT_BLOCK, this->currTk_.start, this->currTk_.start);
+    NodeUptr block = std::make_unique<ast::Block>(NodeType::STRUCT_BLOCK, this->currTk_.start);
 
     this->Eat(TokenType::LEFT_BRACES, "expected { after struct declaration");
 
@@ -341,7 +335,7 @@ ast::NodeUptr Parser::TraitDecl(bool pub) {
 }
 
 ast::NodeUptr Parser::TraitBlock() {
-    NodeUptr block = std::make_unique<ast::Block>(NodeType::TRAIT_BLOCK, this->currTk_.start, this->currTk_.start);
+    NodeUptr block = std::make_unique<ast::Block>(NodeType::TRAIT_BLOCK, this->currTk_.start);
 
     this->Eat(TokenType::LEFT_BRACES, "expected { after impl declaration");
 
@@ -636,10 +630,10 @@ ast::NodeUptr Parser::SwitchCase() {
 
     this->Eat(TokenType::COLON, "expected : after default/case label");
 
-    NodeUptr body = std::make_unique<ast::Block>(NodeType::BLOCK, this->currTk_.start, this->currTk_.end);
+    NodeUptr body = std::make_unique<ast::Block>(NodeType::BLOCK, this->currTk_.start);
 
     while (!this->Match(TokenType::CASE, TokenType::DEFAULT, TokenType::RIGHT_BRACES))
-        CastNode<ast::Block>(body)->AddStmtOrExpr(this->BlockBody());
+        CastNode<ast::Block>(body)->AddStmtOrExpr(this->SmallDecl(false));
 
     CastNode<Case>(swcase)->body = std::move(body);
 
@@ -686,29 +680,21 @@ ast::NodeUptr Parser::JmpStmt() {
 }
 
 ast::NodeUptr Parser::Block() {
-    NodeUptr body = std::make_unique<ast::Block>(NodeType::BLOCK, this->currTk_.start, this->currTk_.end);
+    auto body = std::make_unique<ast::Block>(NodeType::BLOCK, this->currTk_.start);
 
     this->Eat(TokenType::LEFT_BRACES, "expected {");
 
     this->EatTerm(false);
 
     while (!this->Match(TokenType::RIGHT_BRACES)) {
-        CastNode<ast::Block>(body)->AddStmtOrExpr(this->BlockBody());
+        body->AddStmtOrExpr(this->SmallDecl(false));
         this->EatTerm(true, TokenType::RIGHT_BRACES);
     }
 
+    body->SetEndPos(this->currTk_.end);
     this->Eat();
 
     return body;
-}
-
-ast::NodeUptr Parser::BlockBody() {
-    NodeUptr expr;
-
-    if ((expr = this->SmallDecl(false)) != nullptr)
-        return expr;
-
-    return this->Statement();
 }
 
 // *** EXPRESSIONS ***
