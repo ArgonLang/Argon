@@ -252,34 +252,32 @@ ast::NodeUptr Parser::Variadic() {
 }
 
 ast::NodeUptr Parser::StructDecl(bool pub) {
-    unsigned colno = this->currTk_.start;
-    unsigned lineno = this->currTk_.end;
+    Pos start = this->currTk_.start;
     std::string name;
-    NodeUptr impl;
+    std::list<NodeUptr> impls;
 
-    this->Eat(TokenType::STRUCT, "expected struct");
+    this->Eat();
     name = this->currTk_.value;
     this->Eat(TokenType::IDENTIFIER, "expected identifier after struct keyword");
 
     if (this->Match(TokenType::IMPL)) {
         this->Eat();
-        impl = this->TraitList();
+        impls = this->TraitList();
     }
 
-    impl = std::make_unique<Construct>(NodeType::STRUCT, name, std::move(impl), this->StructBlock(), colno, lineno);
-    CastNode<Construct>(impl)->pub = pub;
-
-    return impl;
+    return std::make_unique<Construct>(NodeType::STRUCT, name, impls, this->StructBlock(), pub, start);
 }
 
 ast::NodeUptr Parser::StructBlock() {
-    NodeUptr block = std::make_unique<ast::Block>(NodeType::STRUCT_BLOCK, this->currTk_.start);
+    auto block = std::make_unique<ast::Block>(NodeType::STRUCT_BLOCK, this->currTk_.start);
+    NodeUptr stmt;
 
     this->Eat(TokenType::LEFT_BRACES, "expected { after struct declaration");
 
     this->EatTerm(false);
 
     while (!this->Match(TokenType::RIGHT_BRACES)) {
+        Pos start = this->currTk_.start;
         bool pub = false;
 
         if (this->Match(TokenType::PUB)) {
@@ -289,56 +287,57 @@ ast::NodeUptr Parser::StructBlock() {
 
         switch (this->currTk_.type) {
             case TokenType::LET:
-                CastNode<ast::Block>(block)->AddStmtOrExpr(this->ConstDecl(pub));
+                stmt = this->ConstDecl(pub);
                 break;
             case TokenType::ATOMIC:
             case TokenType::WEAK:
             case TokenType::VAR:
-                CastNode<ast::Block>(block)->AddStmtOrExpr(this->VarModifier(pub));
+                stmt = this->VarModifier(pub);
                 break;
             case TokenType::FUNC:
-                CastNode<ast::Block>(block)->AddStmtOrExpr(this->FuncDecl(pub));
+                stmt = this->FuncDecl(pub);
                 break;
             default:
                 throw SyntaxException("expected variable, constant or function declaration", this->currTk_);
         }
 
+        CastNode<Node>(stmt)->start = start;
+        block->AddStmtOrExpr(std::move(stmt));
         this->EatTerm(true, TokenType::RIGHT_BRACES);
     }
 
+    block->SetEndPos(this->currTk_.end);
     this->Eat();
     return block;
 }
 
 ast::NodeUptr Parser::TraitDecl(bool pub) {
-    unsigned colno = this->currTk_.start;
-    unsigned lineno = this->currTk_.end;
+    Pos start = this->currTk_.start;
     std::string name;
-    NodeUptr impl;
+    std::list<NodeUptr> impls;
 
-    this->Eat(TokenType::TRAIT, "expected trait");
+    this->Eat();
     name = this->currTk_.value;
     this->Eat(TokenType::IDENTIFIER, "expected identifier after trait keyword");
 
     if (this->Match(TokenType::COLON)) {
         this->Eat();
-        impl = this->TraitList();
+        impls = this->TraitList();
     }
 
-    impl = std::make_unique<Construct>(NodeType::TRAIT, name, std::move(impl), this->TraitBlock(), colno, lineno);
-    CastNode<Construct>(impl)->pub = pub;
-
-    return impl;
+    return std::make_unique<Construct>(NodeType::TRAIT, name, impls, this->TraitBlock(), pub, start);
 }
 
 ast::NodeUptr Parser::TraitBlock() {
-    NodeUptr block = std::make_unique<ast::Block>(NodeType::TRAIT_BLOCK, this->currTk_.start);
+    auto block = std::make_unique<ast::Block>(NodeType::TRAIT_BLOCK, this->currTk_.start);
+    NodeUptr stmt;
 
     this->Eat(TokenType::LEFT_BRACES, "expected { after impl declaration");
 
     this->EatTerm(false);
 
     while (!this->Match(TokenType::RIGHT_BRACES)) {
+        Pos start = this->currTk_.start;
         bool pub = false;
 
         if (this->Match(TokenType::PUB)) {
@@ -348,42 +347,44 @@ ast::NodeUptr Parser::TraitBlock() {
 
         switch (this->currTk_.type) {
             case TokenType::LET:
-                CastNode<ast::Block>(block)->AddStmtOrExpr(this->ConstDecl(pub));
+                stmt = this->ConstDecl(pub);
                 break;
             case TokenType::FUNC:
-                CastNode<ast::Block>(block)->AddStmtOrExpr(this->FuncDecl(pub));
+                stmt = this->FuncDecl(pub);
                 break;
             default:
                 throw SyntaxException("expected constant or function declaration", this->currTk_);
         }
 
+        CastNode<Node>(stmt)->start = start;
+        block->AddStmtOrExpr(std::move(stmt));
         this->EatTerm(true, TokenType::RIGHT_BRACES);
     }
 
+    block->SetEndPos(this->currTk_.end);
     this->Eat();
     return block;
 }
 
-ast::NodeUptr Parser::TraitList() {
-    NodeUptr impls = std::make_unique<List>(NodeType::TRAIT_LIST, this->currTk_.start);
+std::list<NodeUptr> Parser::TraitList() {
+    std::list<NodeUptr> impls;
 
-    CastNode<List>(impls)->AddExpression(this->ParseScope());
+    impls.push_back(this->ParseScope());
 
     while (this->Match(TokenType::COMMA)) {
         this->Eat();
-        CastNode<List>(impls)->AddExpression(this->ParseScope());
+        impls.push_back(this->ParseScope());
     }
 
     return impls;
 }
 
 ast::NodeUptr Parser::ImplDecl() {
-    unsigned colno = this->currTk_.start;
-    unsigned lineno = this->currTk_.end;
+    Pos start = this->currTk_.start;
     NodeUptr implName;
     NodeUptr implTarget;
 
-    this->Eat(TokenType::IMPL, "expected impl");
+    this->Eat();
     implName = this->ParseScope();
 
     if (this->Match(TokenType::FOR)) {
@@ -391,7 +392,10 @@ ast::NodeUptr Parser::ImplDecl() {
         implTarget = this->ParseScope();
     }
 
-    return std::make_unique<Impl>(std::move(implName), std::move(implTarget), this->TraitBlock(), colno, lineno);
+    if (implTarget != nullptr)
+        return std::make_unique<Impl>(std::move(implTarget), std::move(implName), this->TraitBlock(), start);
+
+    return std::make_unique<Impl>(std::move(implName), this->TraitBlock(), start);
 }
 
 // *** STATEMENTS ***

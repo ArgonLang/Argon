@@ -53,7 +53,7 @@ namespace lang {
 
         ast::NodeUptr TraitBlock();
 
-        ast::NodeUptr TraitList();
+        std::list<ast::NodeUptr> TraitList();
 
         ast::NodeUptr ImplDecl();
 

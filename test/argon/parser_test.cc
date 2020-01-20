@@ -10,27 +10,6 @@
 using namespace lang;
 using namespace lang::ast;
 
-/*
-TEST(Parser, ImplDecl) {
-    auto source = std::istringstream("impl core::test for xyz {}");
-    Parser parser(&source);
-
-    ASSERT_EQ(parser.Parse()->stmts.front()->type, NodeType::IMPL);
-
-    source = std::istringstream("impl core::test for xyz [ }");
-    parser = Parser(&source);
-    EXPECT_THROW(parser.Parse(), SyntaxException);
-}
-
-TEST(Parser, Relational) {
-    auto source = std::istringstream("mystruct.item * 0 >= 0");
-    Parser parser(&source);
-    auto ast = parser.Parse();
-    ASSERT_EQ(ast->stmts.front()->type, NodeType::RELATIONAL);
-    ASSERT_EQ(CastNode<Binary>(ast->stmts.front())->kind, lang::scanner::TokenType::GREATER_EQ);
-}
- */
-
 TEST(Parser, Alias) {
     auto source = std::istringstream("using id as identifier");
     Parser parser(&source);
@@ -181,6 +160,100 @@ TEST(Parser, Function) {
     ASSERT_TRUE(CastNode<Function>(tmp.front())->pub);
     ASSERT_EQ(tmp.front()->start, 1);
     ASSERT_EQ(tmp.front()->end, 24);
+}
+
+TEST(Parser, Struct) {
+    auto source = std::istringstream(R"(struct Test {})");
+    Parser parser(&source);
+    auto tmp = std::move(parser.Parse()->body);
+    ASSERT_EQ(tmp.front()->type, NodeType::STRUCT);
+    ASSERT_FALSE(CastNode<Construct>(tmp.front())->pub);
+    ASSERT_EQ(tmp.front()->start, 1);
+    ASSERT_EQ(tmp.front()->end, 15);
+
+    source = std::istringstream(R"(pub struct Test impl a,b,c::d {
+})");
+    parser = Parser(&source);
+    tmp = std::move(parser.Parse()->body);
+    ASSERT_EQ(tmp.front()->type, NodeType::STRUCT);
+    ASSERT_TRUE(CastNode<Construct>(tmp.front())->pub);
+    ASSERT_EQ(tmp.front()->start, 1);
+    ASSERT_EQ(tmp.front()->end, 34);
+
+    source = std::istringstream(R"(pub struct Test {
+var v1
+func String{}
+})");
+    parser = Parser(&source);
+    tmp = std::move(parser.Parse()->body);
+    ASSERT_EQ(tmp.front()->type, NodeType::STRUCT);
+    ASSERT_TRUE(CastNode<Construct>(tmp.front())->pub);
+    ASSERT_EQ(tmp.front()->start, 1);
+    ASSERT_EQ(tmp.front()->end, 41);
+
+    source = std::istringstream("struct Test {");
+    parser = Parser(&source);
+    EXPECT_THROW(parser.Parse(), SyntaxException);
+
+    source = std::istringstream("struct Test { let v1 }");
+    parser = Parser(&source);
+    EXPECT_THROW(parser.Parse(), SyntaxException);
+}
+
+TEST(Parser, Trait) {
+    auto source = std::istringstream(R"(trait Test {})");
+    Parser parser(&source);
+    auto tmp = std::move(parser.Parse()->body);
+    ASSERT_EQ(tmp.front()->type, NodeType::TRAIT);
+    ASSERT_FALSE(CastNode<Construct>(tmp.front())->pub);
+    ASSERT_EQ(tmp.front()->start, 1);
+    ASSERT_EQ(tmp.front()->end, 14);
+
+    source = std::istringstream(R"(pub trait Test : t1,t2 {})");
+    parser = Parser(&source);
+    tmp = std::move(parser.Parse()->body);
+    ASSERT_EQ(tmp.front()->type, NodeType::TRAIT);
+    ASSERT_TRUE(CastNode<Construct>(tmp.front())->pub);
+    ASSERT_EQ(tmp.front()->start, 1);
+    ASSERT_EQ(tmp.front()->end, 26);
+
+    source = std::istringstream(R"(pub trait Test {
+func String{}
+})");
+    parser = Parser(&source);
+    tmp = std::move(parser.Parse()->body);
+    ASSERT_EQ(tmp.front()->type, NodeType::TRAIT);
+    ASSERT_TRUE(CastNode<Construct>(tmp.front())->pub);
+    ASSERT_EQ(tmp.front()->start, 1);
+    ASSERT_EQ(tmp.front()->end, 33);
+
+    source = std::istringstream("trait Test {");
+    parser = Parser(&source);
+    EXPECT_THROW(parser.Parse(), SyntaxException);
+
+    source = std::istringstream("trait Test { var v1 }");
+    parser = Parser(&source);
+    EXPECT_THROW(parser.Parse(), SyntaxException);
+}
+
+TEST(Parser, Impl) {
+    auto source = std::istringstream(R"(impl Test {})");
+    Parser parser(&source);
+    auto tmp = std::move(parser.Parse()->body);
+    ASSERT_EQ(tmp.front()->type, NodeType::IMPL);
+    ASSERT_EQ(tmp.front()->start, 1);
+    ASSERT_EQ(tmp.front()->end, 13);
+
+    source = std::istringstream(R"(impl string::Stringer for Test {})");
+    parser = Parser(&source);
+    tmp = std::move(parser.Parse()->body);
+    ASSERT_EQ(tmp.front()->type, NodeType::IMPL);
+    ASSERT_EQ(tmp.front()->start, 1);
+    ASSERT_EQ(tmp.front()->end, 34);
+
+    source = std::istringstream("impl Test { var error }");
+    parser = Parser(&source);
+    EXPECT_THROW(parser.Parse(), SyntaxException);
 }
 
 TEST(Parser, Assign) {

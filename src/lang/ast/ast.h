@@ -41,7 +41,6 @@ namespace lang::ast {
         STRUCT_BLOCK,
         TRAIT,
         TRAIT_BLOCK,
-        TRAIT_LIST,
         IMPL,
         BLOCK,
         ASSIGN,
@@ -253,21 +252,17 @@ namespace lang::ast {
 
     struct Construct : Node {
         std::string name;
-        NodeUptr auxiliary;
+        std::list<NodeUptr> impls;
         NodeUptr body;
         bool pub = false;
 
-        explicit Construct(NodeType type, std::string &name, NodeUptr auxiliary, NodeUptr body, unsigned colno,
-                           unsigned lineno)
-                : Construct(type, name, colno, lineno) {
-            this->auxiliary = std::move(auxiliary);
-            this->body = std::move(body);
-        }
-
-        explicit Construct(NodeType type, std::string &name, unsigned colno, unsigned lineno) : Node(type,
-                                                                                                     colno,
-                                                                                                     lineno) {
+        explicit Construct(NodeType type, std::string &name, std::list<NodeUptr> &impls, NodeUptr body, bool pub,
+                           scanner::Pos start) : Node(type, start, 0) {
             this->name = name;
+            this->impls = std::move(impls);
+            this->body = std::move(body);
+            this->pub = pub;
+            this->end = this->body->end;
         }
     };
 
@@ -308,16 +303,20 @@ namespace lang::ast {
     };
 
     struct Impl : Node {
-        NodeUptr name;
         NodeUptr target;
+        NodeUptr trait;
         NodeUptr block;
 
-        explicit Impl(NodeUptr name, NodeUptr target, NodeUptr block, unsigned colno, unsigned lineno) : Node(
-                NodeType::IMPL, colno, lineno) {
-            this->name = std::move(name);
+        explicit Impl(NodeUptr target, NodeUptr trait, NodeUptr block, scanner::Pos start) : Node(NodeType::IMPL, start,
+                                                                                                  0) {
             this->target = std::move(target);
+            this->trait = std::move(trait);
             this->block = std::move(block);
+            this->end = this->block->end;
         }
+
+        explicit Impl(NodeUptr target, NodeUptr block, scanner::Pos start) : Impl(std::move(target), nullptr,
+                                                                                  std::move(block), start) {}
     };
 
     struct Slice : Node {
