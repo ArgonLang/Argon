@@ -401,8 +401,8 @@ ast::NodeUptr Parser::ImplDecl() {
 // *** STATEMENTS ***
 
 ast::NodeUptr Parser::Statement() {
-    unsigned colno = this->currTk_.start;
-    unsigned lineno = this->currTk_.end;
+    Pos start = this->currTk_.start;
+    NodeUptr tmp;
 
     if (!this->TokenInRange(TokenType::KEYWORD_BEGIN, TokenType::KEYWORD_END))
         return this->Expression();
@@ -410,13 +410,13 @@ ast::NodeUptr Parser::Statement() {
     switch (this->currTk_.type) {
         case TokenType::DEFER:
             this->Eat();
-            return std::make_unique<Unary>(NodeType::DEFER, this->AtomExpr(), lineno);
+            return std::make_unique<Unary>(NodeType::DEFER, this->AtomExpr(), start);
         case TokenType::SPAWN:
             this->Eat();
-            return std::make_unique<Unary>(NodeType::SPAWN, this->AtomExpr(), lineno);
+            return std::make_unique<Unary>(NodeType::SPAWN, this->AtomExpr(), start);
         case TokenType::RETURN:
             this->Eat();
-            return std::make_unique<Unary>(NodeType::RETURN, this->TestList(), lineno);
+            return std::make_unique<Unary>(NodeType::RETURN, this->TestList(), start);
         case TokenType::IMPORT:
             return this->ImportStmt();
         case TokenType::FROM:
@@ -593,76 +593,96 @@ ast::NodeUptr Parser::IfStmt(bool eatIf) {
 }
 
 ast::NodeUptr Parser::SwitchStmt() {
-    unsigned colno = this->currTk_.start;
-    unsigned lineno = this->currTk_.end;
-    NodeUptr sw;
+    Pos start = this->currTk_.start;
+    bool def = false;
     NodeUptr test;
 
-    this->Eat(TokenType::SWITCH, "expected switch keyword");
+    this->Eat();
 
     if (!this->Match(TokenType::LEFT_BRACES))
         test = this->Test();
 
-    sw = std::make_unique<Switch>(std::move(test), colno, lineno);
+    auto sw = std::make_unique<Switch>(std::move(test), start);
 
     this->Eat(TokenType::LEFT_BRACES, "expected { after switch declaration");
 
-    while (!this->Match(TokenType::RIGHT_BRACES)) {
-        CastNode<Switch>(sw)->AddCase(this->SwitchCase());
+    this->EatTerm(false);
+
+    while (this->Match(TokenType::CASE, TokenType::DEFAULT)) {
+        if (this->currTk_.type == TokenType::DEFAULT) {
+            if (def)
+                throw SyntaxException("default case already defined", this->currTk_);
+            def = true;
+        }
+        sw->AddCase(this->SwitchCase());
+        this->EatTerm(false);
     }
 
-    this->Eat();
+    sw->end = this->currTk_.end;
+    this->Eat(TokenType::RIGHT_BRACES, "expected } after switch declaration");
+
     return sw;
 }
 
 ast::NodeUptr Parser::SwitchCase() {
-    NodeUptr swcase = std::make_unique<Case>(this->currTk_.start, this->currTk_.end);
+    auto swc = std::make_unique<Case>(this->currTk_.start);
+    std::unique_ptr<ast::Block> body;
+    NodeUptr tmp;
 
     if (this->Match(TokenType::DEFAULT)) {
         this->Eat();
     } else if (this->Match(TokenType::CASE)) {
+        this->Eat();
         this->Test();
         while (this->Match(TokenType::PIPE)) {
             this->Eat();
-            CastNode<Case>(swcase)->AddCondition(this->Test());
+            swc->AddCondition(this->Test());
         }
     } else
         throw SyntaxException("expected case or default label", this->currTk_);
 
     this->Eat(TokenType::COLON, "expected : after default/case label");
 
-    NodeUptr body = std::make_unique<ast::Block>(NodeType::BLOCK, this->currTk_.start);
+    this->EatTerm(false);
 
-    while (!this->Match(TokenType::CASE, TokenType::DEFAULT, TokenType::RIGHT_BRACES))
-        CastNode<ast::Block>(body)->AddStmtOrExpr(this->SmallDecl(false));
+    body = std::make_unique<ast::Block>(NodeType::BLOCK, this->currTk_.start);
 
-    CastNode<Case>(swcase)->body = std::move(body);
+    while (!this->Match(TokenType::CASE, TokenType::DEFAULT, TokenType::RIGHT_BRACES)) {
+        tmp = this->SmallDecl(false);
+        body->SetEndPos(tmp->end);
+        body->AddStmtOrExpr(std::move(tmp));
+        if (!this->Match(TokenType::CASE, TokenType::DEFAULT))
+            this->EatTerm(true, TokenType::RIGHT_BRACES);
+    }
 
-    return swcase;
+    swc->body = std::move(body);
+
+    return swc;
 }
 
 ast::NodeUptr Parser::JmpStmt() {
-    unsigned colno = this->currTk_.start;
-    unsigned lineno = this->currTk_.end;
+    Pos start = this->currTk_.start;
     NodeUptr label;
 
     if (this->Match(TokenType::FALLTHROUGH)) {
+        label = std::make_unique<Unary>(NodeType::FALLTHROUGH, nullptr, start);
+        CastNode<Node>(label)->end = this->currTk_.end;
         this->Eat();
-        return std::make_unique<Unary>(NodeType::FALLTHROUGH, nullptr, lineno);
+        return label;
     }
 
     switch (this->currTk_.type) {
         case TokenType::BREAK:
             this->Eat();
-            label = std::make_unique<Unary>(NodeType::BREAK, nullptr, lineno);
+            label = std::make_unique<Unary>(NodeType::BREAK, nullptr, start);
             break;
         case TokenType::CONTINUE:
             this->Eat();
-            label = std::make_unique<Unary>(NodeType::CONTINUE, nullptr, lineno);
+            label = std::make_unique<Unary>(NodeType::CONTINUE, nullptr, start);
             break;
         case TokenType::GOTO:
             this->Eat();
-            label = std::make_unique<Unary>(NodeType::GOTO, nullptr, lineno);
+            label = std::make_unique<Unary>(NodeType::GOTO, nullptr, start);
             break;
         default:
             // should never get here!
@@ -671,9 +691,10 @@ ast::NodeUptr Parser::JmpStmt() {
 
     if (this->Match(TokenType::IDENTIFIER)) {
         NodeUptr tmp = this->ParseScope();
-        if (tmp->type == NodeType::LITERAL)
+        if (tmp->type == NodeType::IDENTIFIER) {
+            CastNode<Unary>(label)->end = tmp->end;
             CastNode<Unary>(label)->expr = std::move(tmp);
-        else
+        } else
             throw SyntaxException("expected label name", this->currTk_);
     }
 
@@ -913,6 +934,7 @@ ast::NodeUptr Parser::AtomExpr() {
 
 ast::NodeUptr Parser::ParseArguments(NodeUptr left) {
     auto call = std::make_unique<Call>(std::move(left));
+    Pos start;
     NodeUptr tmp;
 
     this->Eat();
@@ -924,16 +946,20 @@ ast::NodeUptr Parser::ParseArguments(NodeUptr left) {
     }
 
     tmp = this->Test();
+    start = tmp->start;
     if (this->Match(TokenType::ELLIPSIS)) {
-        tmp = std::make_unique<Unary>(NodeType::ELLIPSIS, std::move(tmp), this->currTk_.end);
+        tmp = std::make_unique<Unary>(NodeType::ELLIPSIS, std::move(tmp), start);
+        CastNode<Node>(tmp)->end = this->currTk_.end;
         this->Eat();
         call->AddArgument(std::move(tmp));
     } else {
         while (this->Match(TokenType::COMMA)) {
             this->Eat();
             tmp = this->Test();
+            start = tmp->start;
             if (this->Match(TokenType::ELLIPSIS)) {
-                tmp = std::make_unique<Unary>(NodeType::ELLIPSIS, std::move(tmp), this->currTk_.end);
+                tmp = std::make_unique<Unary>(NodeType::ELLIPSIS, std::move(tmp), start);
+                CastNode<Node>(tmp)->end = this->currTk_.end;
                 this->Eat();
                 call->AddArgument(std::move(tmp));
                 break;
@@ -1179,6 +1205,3 @@ ast::NodeUptr Parser::ParseScope() {
 
     throw SyntaxException("expected identifier or expression", this->currTk_);
 }
-
-
-

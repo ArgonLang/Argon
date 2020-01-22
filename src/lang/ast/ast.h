@@ -154,12 +154,12 @@ namespace lang::ast {
         NodeUptr test;
         std::list<NodeUptr> cases;
 
-        explicit Switch(NodeUptr test, unsigned colno, unsigned lineno) : Node(NodeType::SWITCH, colno, lineno) {
+        explicit Switch(NodeUptr test, scanner::Pos start) : Node(NodeType::SWITCH, start, 0) {
             this->test = std::move(test);
         }
 
         void AddCase(NodeUptr swcase) {
-            this->cases.push_front(std::move(swcase));
+            this->cases.push_back(std::move(swcase));
         }
     };
 
@@ -167,10 +167,10 @@ namespace lang::ast {
         std::list<NodeUptr> tests;
         NodeUptr body;
 
-        explicit Case(unsigned colno, unsigned lineno) : Node(NodeType::CASE, colno, lineno) {}
+        explicit Case(scanner::Pos start) : Node(NodeType::CASE, start, 0) {}
 
         void AddCondition(NodeUptr condition) {
-            this->tests.push_front(std::move(condition));
+            this->tests.push_back(std::move(condition));
         }
     };
 
@@ -367,9 +367,11 @@ namespace lang::ast {
             this->kind = kind;
         }
 
-        explicit Unary(NodeType type, NodeUptr expr, scanner::Pos end) : Unary(type, scanner::TokenType::TK_NULL,
-                                                                               std::move(expr), 0, end) {
-            this->start = this->expr->start;
+        explicit Unary(NodeType type, NodeUptr expr, scanner::Pos start) : Node(type, start, 0) {
+            this->expr = std::move(expr);
+            if (this->expr)
+                this->end = this->expr->end;
+            this->kind = scanner::TokenType::TK_NULL;
         }
     };
 

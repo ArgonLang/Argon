@@ -256,6 +256,38 @@ TEST(Parser, Impl) {
     EXPECT_THROW(parser.Parse(), SyntaxException);
 }
 
+TEST(Parser, Switch) {
+    auto source = std::istringstream(R"(switch test {case a: case b: b-- })");
+    Parser parser(&source);
+    auto tmp = std::move(parser.Parse()->body);
+    ASSERT_EQ(tmp.front()->type, NodeType::SWITCH);
+    ASSERT_EQ(tmp.front()->start, 1);
+    ASSERT_EQ(tmp.front()->end, 35);
+
+    source = std::istringstream(R"(switch {
+case a: x+y})");
+    parser = Parser(&source);
+    tmp = std::move(parser.Parse()->body);
+    ASSERT_EQ(tmp.front()->type, NodeType::SWITCH);
+    ASSERT_EQ(tmp.front()->start, 1);
+    ASSERT_EQ(tmp.front()->end, 22);
+
+    source = std::istringstream(R"(switch {case a | b | c+3: return f case z: return a+b})");
+    parser = Parser(&source);
+    tmp = std::move(parser.Parse()->body);
+    ASSERT_EQ(tmp.front()->type, NodeType::SWITCH);
+    ASSERT_EQ(tmp.front()->start, 1);
+    ASSERT_EQ(tmp.front()->end, 55);
+
+    source = std::istringstream(R"(switch {
+default: x+y
+case a:
+default:
+})");
+    parser = Parser(&source);
+    EXPECT_THROW(parser.Parse(), SyntaxException);
+}
+
 TEST(Parser, Assign) {
     auto source = std::istringstream("var1=a+b");
     Parser parser(&source);
