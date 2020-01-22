@@ -75,7 +75,7 @@ namespace lang {
 
         ast::NodeUptr LoopStmt();
 
-        ast::NodeUptr IfStmt(bool eatIf);
+        ast::NodeUptr IfStmt();
 
         ast::NodeUptr SwitchStmt();
 

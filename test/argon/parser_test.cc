@@ -256,6 +256,36 @@ TEST(Parser, Impl) {
     EXPECT_THROW(parser.Parse(), SyntaxException);
 }
 
+TEST(Parser, IfStmt) {
+    auto source = std::istringstream(R"(if x {return a})");
+    Parser parser(&source);
+    auto tmp = std::move(parser.Parse()->body);
+    ASSERT_EQ(tmp.front()->type, NodeType::IF);
+    ASSERT_EQ(tmp.front()->start, 1);
+    ASSERT_EQ(tmp.front()->end, 16);
+
+    source = std::istringstream(R"(if x {return a} else {return b})");
+    parser = Parser(&source);
+    tmp = std::move(parser.Parse()->body);
+    ASSERT_EQ(tmp.front()->type, NodeType::IF);
+    ASSERT_EQ(tmp.front()->start, 1);
+    ASSERT_EQ(tmp.front()->end, 32);
+
+    source = std::istringstream(R"(if a>b {return a} elif a<b {return b} elif a==b {return a+b})");
+    parser = Parser(&source);
+    tmp = std::move(parser.Parse()->body);
+    ASSERT_EQ(tmp.front()->type, NodeType::IF);
+    ASSERT_EQ(tmp.front()->start, 1);
+    ASSERT_EQ(tmp.front()->end, 61);
+
+    source = std::istringstream(R"(if a>b {return a} elif a<b {return b} elif a==b {return a+b} else {return 0})");
+    parser = Parser(&source);
+    tmp = std::move(parser.Parse()->body);
+    ASSERT_EQ(tmp.front()->type, NodeType::IF);
+    ASSERT_EQ(tmp.front()->start, 1);
+    ASSERT_EQ(tmp.front()->end, 77);
+}
+
 TEST(Parser, Switch) {
     auto source = std::istringstream(R"(switch test {case a: case b: b-- })");
     Parser parser(&source);

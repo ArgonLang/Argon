@@ -426,7 +426,7 @@ ast::NodeUptr Parser::Statement() {
         case TokenType::LOOP:
             return this->LoopStmt();
         case TokenType::IF:
-            return this->IfStmt(true);
+            return this->IfStmt();
         case TokenType::SWITCH:
             return this->SwitchStmt();
         case TokenType::BREAK:
@@ -573,23 +573,26 @@ ast::NodeUptr Parser::LoopStmt() {
     return std::make_unique<Loop>(this->Test(), this->Block(), colno, lineno);
 }
 
-ast::NodeUptr Parser::IfStmt(bool eatIf) {
-    NodeUptr ifstmt;
+ast::NodeUptr Parser::IfStmt() {
+    Pos start = this->currTk_.start;
+    std::unique_ptr<If> ifs;
+    NodeUptr test;
 
-    if (eatIf)
-        this->Eat(TokenType::IF, "expected if keyword");
+    this->Eat();
 
-    ifstmt = std::make_unique<If>(this->Test(), this->Block(), this->currTk_.start, this->currTk_.end);
+    test = this->Test();
+    ifs = std::make_unique<If>(std::move(test), this->Block(), start);
 
     if (this->Match(TokenType::ELIF)) {
-        this->Eat();
-        CastNode<If>(ifstmt)->orelse = this->IfStmt(false);
+        ifs->orelse = this->IfStmt();
+        ifs->end = ifs->orelse->end;
     } else if (this->Match(TokenType::ELSE)) {
         this->Eat();
-        CastNode<If>(ifstmt)->orelse = this->Block();
+        ifs->orelse = this->Block();
+        ifs->end = ifs->orelse->end;
     }
 
-    return ifstmt;
+    return ifs;
 }
 
 ast::NodeUptr Parser::SwitchStmt() {

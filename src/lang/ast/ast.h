@@ -180,14 +180,15 @@ namespace lang::ast {
         NodeUptr orelse;
 
         explicit If(NodeUptr test, NodeUptr body, NodeUptr orelse, scanner::Pos start, scanner::Pos end) : If(
-                std::move(test), std::move(body), start, end) {
+                std::move(test), std::move(body), start) {
             this->orelse = std::move(orelse);
+            this->end = end;
         }
 
-        explicit If(NodeUptr test, NodeUptr body, scanner::Pos start, scanner::Pos end) : Node(NodeType::IF, start,
-                                                                                               end) {
+        explicit If(NodeUptr test, NodeUptr body, scanner::Pos start) : Node(NodeType::IF, start, 0) {
             this->test = std::move(test);
             this->body = std::move(body);
+            this->end = this->body->end;
         }
     };
 
