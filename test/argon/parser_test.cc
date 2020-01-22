@@ -256,6 +256,23 @@ TEST(Parser, Impl) {
     EXPECT_THROW(parser.Parse(), SyntaxException);
 }
 
+TEST(Parser, LoopStmt) {
+    auto source = std::istringstream(R"(loop{
+counter ++})");
+    Parser parser(&source);
+    auto tmp = std::move(parser.Parse()->body);
+    ASSERT_EQ(tmp.front()->type, NodeType::LOOP);
+    ASSERT_EQ(tmp.front()->start, 1);
+    ASSERT_EQ(tmp.front()->end, 18);
+
+    source = std::istringstream(R"(loop counter <= 100 { counter++ })");
+    parser = Parser(&source);
+    tmp = std::move(parser.Parse()->body);
+    ASSERT_EQ(tmp.front()->type, NodeType::LOOP);
+    ASSERT_EQ(tmp.front()->start, 1);
+    ASSERT_EQ(tmp.front()->end, 34);
+}
+
 TEST(Parser, IfStmt) {
     auto source = std::istringstream(R"(if x {return a})");
     Parser parser(&source);

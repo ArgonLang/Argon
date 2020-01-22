@@ -31,16 +31,15 @@ void Parser::EatTerm(bool must_eat) {
 }
 
 void Parser::EatTerm(bool must_eat, TokenType stop_token) {
-    if (this->Match(stop_token))
-        return;
+    if (!this->Match(stop_token)) {
+        while (this->Match(TokenType::END_OF_LINE, TokenType::SEMICOLON)) {
+            this->Eat();
+            must_eat = false;
+        }
 
-    while (this->Match(TokenType::END_OF_LINE, TokenType::SEMICOLON)) {
-        this->Eat();
-        must_eat = false;
+        if (must_eat)
+            throw SyntaxException("expected EOL or SEMICOLON", this->currTk_);
     }
-
-    if (must_eat)
-        throw SyntaxException("expected EOL or SEMICOLON", this->currTk_);
 }
 
 std::unique_ptr<Program> Parser::Parse() {
@@ -562,15 +561,16 @@ ast::NodeUptr Parser::ForStmt() {
 }
 
 ast::NodeUptr Parser::LoopStmt() {
-    unsigned colno = this->currTk_.start;
-    unsigned lineno = this->currTk_.end;
+    Pos start = this->currTk_.start;
+    NodeUptr test;
 
-    this->Eat(TokenType::LOOP, "expected loop keyword");
+    this->Eat();
 
     if (this->Match(TokenType::LEFT_BRACES))
-        return std::make_unique<Loop>(nullptr, this->Block(), colno, lineno);
+        return std::make_unique<Loop>(this->Block(), start);
 
-    return std::make_unique<Loop>(this->Test(), this->Block(), colno, lineno);
+    test = this->Test();
+    return std::make_unique<Loop>(std::move(test), this->Block(), start);
 }
 
 ast::NodeUptr Parser::IfStmt() {

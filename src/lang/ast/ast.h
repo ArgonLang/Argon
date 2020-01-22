@@ -143,10 +143,12 @@ namespace lang::ast {
         NodeUptr test;
         NodeUptr body;
 
-        explicit Loop(NodeUptr test, NodeUptr body, unsigned colno, unsigned lineno) : Node(NodeType::LOOP, colno,
-                                                                                            lineno) {
+        explicit Loop(NodeUptr body, scanner::Pos start) : Loop(nullptr, std::move(body), start) {}
+
+        explicit Loop(NodeUptr test, NodeUptr body, scanner::Pos start) : Node(NodeType::LOOP, start, 0) {
             this->test = std::move(test);
             this->body = std::move(body);
+            this->end = this->body->end;
         }
     };
 
