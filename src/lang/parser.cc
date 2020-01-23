@@ -519,14 +519,13 @@ std::string Parser::DottedName() {
 }
 
 ast::NodeUptr Parser::ForStmt() {
-    unsigned colno = this->currTk_.start;
-    unsigned lineno = this->currTk_.end;
+    Pos start = this->currTk_.start;
+    NodeType type = NodeType::FOR;
     NodeUptr init;
     NodeUptr test;
     NodeUptr inc;
-    NodeUptr body;
 
-    this->Eat(TokenType::FOR, "expected for keyword");
+    this->Eat();
 
     if (!this->Match(TokenType::SEMICOLON)) {
         if (this->Match(TokenType::VAR))
@@ -536,28 +535,28 @@ ast::NodeUptr Parser::ForStmt() {
     }
 
     if (this->Match(TokenType::IN)) {
-        if (init->type != NodeType::LITERAL || CastNode<Literal>(init)->kind != TokenType::IDENTIFIER)
-            throw SyntaxException("expected identifier or tuple of identifier", this->currTk_);
+        if (init->type != NodeType::IDENTIFIER && init->type != NodeType::TUPLE)
+            throw SyntaxException("expected identifier or tuple", this->currTk_);
 
         if (init->type == NodeType::TUPLE) {
             for (auto &item : CastNode<List>(init)->expressions) {
-                if (item->type != NodeType::LITERAL || CastNode<Literal>(item)->kind != TokenType::IDENTIFIER)
-                    throw SyntaxException("expected identifier or tuple of identifier", this->currTk_);
+                if (item->type != NodeType::IDENTIFIER)
+                    throw SyntaxException("expected identifiers list", this->currTk_);
             }
         }
         this->Eat();
-        return std::make_unique<For>(std::move(init), this->Expression(), this->Block(), colno, lineno);
+        type = NodeType::FOR_IN;
     }
 
-    this->Eat(TokenType::SEMICOLON, "expected ; after init");
+    if (type == NodeType::FOR) {
+        this->Eat(TokenType::SEMICOLON, "expected ; after init");
+        test = this->Test();
+        this->Eat(TokenType::SEMICOLON, "expected ; after test condition");
+        inc = this->Expression();
+    } else
+        test = this->Expression();
 
-    test = this->Test();
-
-    this->Eat(TokenType::SEMICOLON, "expected ; after test condition");
-
-    inc = this->Expression();
-
-    return std::make_unique<For>(std::move(init), std::move(test), std::move(inc), this->Block(), colno, lineno);
+    return std::make_unique<For>(type, std::move(init), std::move(test), std::move(inc), this->Block(), start);
 }
 
 ast::NodeUptr Parser::LoopStmt() {

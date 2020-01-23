@@ -122,20 +122,13 @@ namespace lang::ast {
         NodeUptr inc;
         NodeUptr body;
 
-        explicit For(NodeUptr iter, NodeUptr iterexpr, NodeUptr body, unsigned colno, unsigned lineno) : Node(
-                NodeType::FOR_IN, colno, lineno) {
+        explicit For(NodeType type, NodeUptr iter, NodeUptr expr, NodeUptr inc, NodeUptr body, scanner::Pos start)
+                : Node(type, start, 0) {
             this->init = std::move(iter);
-            this->test = std::move(iterexpr);
-            this->inc = nullptr;
-            this->body = std::move(body);
-        }
-
-        explicit For(NodeUptr inti, NodeUptr test, NodeUptr inc, NodeUptr body, unsigned colno, unsigned lineno) : Node(
-                NodeType::FOR, colno, lineno) {
-            this->init = std::move(init);
-            this->test = std::move(test);
+            this->test = std::move(expr);
             this->inc = std::move(inc);
             this->body = std::move(body);
+            this->end = this->body->end;
         }
     };
 

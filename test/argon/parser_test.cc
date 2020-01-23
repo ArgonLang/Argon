@@ -256,6 +256,45 @@ TEST(Parser, Impl) {
     EXPECT_THROW(parser.Parse(), SyntaxException);
 }
 
+TEST(Parser, ForStmt) {
+    auto source = std::istringstream(R"(for ;i<10;i++{})");
+    Parser parser(&source);
+    auto tmp = std::move(parser.Parse()->body);
+    ASSERT_EQ(tmp.front()->type, NodeType::FOR);
+    ASSERT_EQ(tmp.front()->start, 1);
+    ASSERT_EQ(tmp.front()->end, 16);
+
+    source = std::istringstream(R"(for var i=0;i<5;i++ { j=j*i })");
+    parser = Parser(&source);
+    tmp = std::move(parser.Parse()->body);
+    ASSERT_EQ(tmp.front()->type, NodeType::FOR);
+    ASSERT_EQ(tmp.front()->start, 1);
+    ASSERT_EQ(tmp.front()->end, 30);
+
+    source = std::istringstream(R"(for i in "string" {
+print(i)})");
+    parser = Parser(&source);
+    tmp = std::move(parser.Parse()->body);
+    ASSERT_EQ(tmp.front()->type, NodeType::FOR_IN);
+    ASSERT_EQ(tmp.front()->start, 1);
+    ASSERT_EQ(tmp.front()->end, 30);
+
+    source = std::istringstream(R"(for k,v in mydict {print(k,v)})");
+    parser = Parser(&source);
+    tmp = std::move(parser.Parse()->body);
+    ASSERT_EQ(tmp.front()->type, NodeType::FOR_IN);
+    ASSERT_EQ(tmp.front()->start, 1);
+    ASSERT_EQ(tmp.front()->end, 31);
+
+    source = std::istringstream(R"(for ;i<10; {})");
+    parser = Parser(&source);
+    EXPECT_THROW(parser.Parse(), SyntaxException);
+
+    source = std::istringstream(R"(for a,b,a+2 in object {})");
+    parser = Parser(&source);
+    EXPECT_THROW(parser.Parse(), SyntaxException);
+}
+
 TEST(Parser, LoopStmt) {
     auto source = std::istringstream(R"(loop{
 counter ++})");
