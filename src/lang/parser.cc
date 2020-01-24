@@ -110,13 +110,20 @@ ast::NodeUptr Parser::SmallDecl(bool pub) {
 
 ast::NodeUptr Parser::AliasDecl(bool pub) {
     Pos start = this->currTk_.start;
-    std::string name;
+    Pos end;
+    NodeUptr name;
+    NodeUptr target;
 
     this->Eat();
-    name = this->currTk_.value;
+
+    name = std::make_unique<Identifier>(this->currTk_);
     this->Eat(TokenType::IDENTIFIER, "expected identifier after alias keyword");
     this->Eat(TokenType::AS, "expected as after identifier in alias declaration");
-    return std::make_unique<Alias>(name, this->ParseScope(), pub, start);
+
+    target = this->ParseScope();
+    end = target->end;
+
+    return std::make_unique<Alias>(std::move(name), std::move(name), pub, start, end);
 }
 
 ast::NodeUptr Parser::VarModifier(bool pub) {
@@ -439,83 +446,59 @@ ast::NodeUptr Parser::Statement() {
 }
 
 ast::NodeUptr Parser::ImportStmt() {
-    NodeUptr import = std::make_unique<Import>(this->currTk_.start, this->currTk_.end);
+    auto import = std::make_unique<Import>(this->currTk_.start);
 
     this->Eat(TokenType::IMPORT, "expected import keyword");
 
-    CastNode<Import>(import)->AddName(this->DottedAsName());
+    import->AddName(this->ScopeAsName(false));
 
     while (this->Match(TokenType::COMMA)) {
         this->Eat();
-        CastNode<Import>(import)->AddName(this->DottedAsName());
+        import->AddName(this->ScopeAsName(false));
     }
 
     return import;
 }
 
 ast::NodeUptr Parser::FromImportStmt() {
-    NodeUptr import = std::make_unique<Import>(this->currTk_.start, this->currTk_.end);
+    Pos start = this->currTk_.start;
+    std::unique_ptr<Import> import;
 
     this->Eat(TokenType::FROM, "expected from keyword");
 
-    CastNode<Import>(import)->module = this->DottedName();
+    import = std::make_unique<Import>(this->ScopeAsName(false), start);
 
     this->Eat(TokenType::IMPORT, "expected import keyword");
 
-    CastNode<Import>(import)->AddName(this->ImportAsName());
+    import->AddName(this->ScopeAsName(true));
     while (this->Match(TokenType::COMMA)) {
         this->Eat();
-        CastNode<Import>(import)->AddName(this->ImportAsName());
+        import->AddName(this->ScopeAsName(true));
     }
 
     return import;
 }
 
-ast::NodeUptr Parser::ImportAsName() {
-    unsigned colno = this->currTk_.start;
-    unsigned lineno = this->currTk_.end;
-    std::string name = this->currTk_.value;
-    std::string alias;
+ast::NodeUptr Parser::ScopeAsName(bool id_only) {
+    Pos start = this->currTk_.start;
+    Pos end;
+    NodeUptr path;
+    NodeUptr alias;
 
-    this->Eat(TokenType::IDENTIFIER, "expected name");
+    path = this->ParseScope();
+    end = path->end;
 
-    if (this->Match(TokenType::AS)) {
-        this->Eat();
-        alias = this->currTk_.value;
-        this->Eat(TokenType::IDENTIFIER, "expected alias name");
-    }
-
-    return std::make_unique<ImportAlias>(name, alias, colno, lineno);
-}
-
-ast::NodeUptr Parser::DottedAsName() {
-    unsigned colno = this->currTk_.start;
-    unsigned lineno = this->currTk_.end;
-    std::string dotted;
-    std::string alias;
-
-    dotted = this->DottedName();
+    if (id_only && path->type != NodeType::IDENTIFIER)
+        throw SyntaxException("expected name", this->currTk_);
 
     if (this->Match(TokenType::AS)) {
         this->Eat();
-        alias = this->currTk_.value;
+        alias = std::make_unique<Identifier>(this->currTk_);
+        end = alias->end;
         this->Eat(TokenType::IDENTIFIER, "expected alias name");
     }
 
-    return std::make_unique<ImportAlias>(dotted, alias, colno, lineno);
-}
-
-std::string Parser::DottedName() {
-    std::string dotted = this->currTk_.value;
-
-    this->Eat(TokenType::IDENTIFIER, "expected name");
-
-    while (this->Match(TokenType::DOT)) {
-        this->Eat();
-        dotted += "." + this->currTk_.value;
-    }
-
-    return dotted;
+    return std::make_unique<Alias>(std::move(alias), std::move(path), start, end);
 }
 
 ast::NodeUptr Parser::ForStmt() {

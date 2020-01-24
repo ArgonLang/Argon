@@ -30,7 +30,6 @@ namespace lang::ast {
         IF,
         IMPORT,
         IDENTIFIER,
-        IMPORT_ALIAS,
         VARIABLE,
         CONSTANT,
         FUNC,
@@ -188,24 +187,18 @@ namespace lang::ast {
     };
 
     struct Import : Node {
-        std::string module;
+        NodeUptr module;
         std::list<NodeUptr> names;
 
-        explicit Import(unsigned colno, unsigned lineno) : Node(NodeType::IMPORT, colno, lineno) {}
+        explicit Import(scanner::Pos start) : Import(nullptr, start) {}
+
+        explicit Import(NodeUptr module, scanner::Pos start) : Node(NodeType::IMPORT, start, 0) {
+            this->module = std::move(module);
+        }
 
         void AddName(NodeUptr name) {
-            this->names.push_front(std::move(name));
-        }
-    };
-
-    struct ImportAlias : Node {
-        std::string path;
-        std::string alias;
-
-        explicit ImportAlias(std::string &path, std::string &alias, unsigned colno, unsigned lineno) : Node(
-                NodeType::IMPORT_ALIAS, colno, lineno) {
-            this->path = path;
-            this->alias = alias;
+            this->end = name->end;
+            this->names.push_back(std::move(name));
         }
     };
 
@@ -263,15 +256,19 @@ namespace lang::ast {
     };
 
     struct Alias : Node {
-        std::string name;
+        NodeUptr name;
         NodeUptr value;
         bool pub;
 
-        explicit Alias(std::string &name, NodeUptr value, bool pub, scanner::Pos start) : Node(NodeType::ALIAS, start,
-                                                                                               0) {
-            this->name = name;
+        explicit Alias(NodeUptr name, NodeUptr value, scanner::Pos start, scanner::Pos end) : Alias(std::move(name),
+                                                                                                    std::move(value),
+                                                                                                    false, start,
+                                                                                                    end) {}
+
+        explicit Alias(NodeUptr name, NodeUptr value, bool pub, scanner::Pos start, scanner::Pos end) : Node(
+                NodeType::ALIAS, start, end) {
+            this->name = std::move(name);
             this->value = std::move(value);
-            this->end = this->value->end;
             this->pub = pub;
         }
     };

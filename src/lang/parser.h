@@ -65,11 +65,7 @@ namespace lang {
 
         ast::NodeUptr FromImportStmt();
 
-        ast::NodeUptr ImportAsName();
-
-        ast::NodeUptr DottedAsName();
-
-        std::string DottedName();
+        ast::NodeUptr ScopeAsName(bool id_only);
 
         ast::NodeUptr ForStmt();
 
