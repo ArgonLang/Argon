@@ -889,7 +889,12 @@ ast::NodeUptr Parser::UnaryExpr() {
 
 ast::NodeUptr Parser::AtomExpr() {
     auto left = this->ParseAtom();
-    Pos end = left->end;
+    Pos end;
+
+    if (this->Match(TokenType::EXCLAMATION_LBRACES))
+        left = this->Initializer(std::move(left));
+
+    end = left->end;
 
     while (end > 0) {
         end = left->end;
@@ -915,6 +920,33 @@ ast::NodeUptr Parser::AtomExpr() {
         }
     }
     return left;
+}
+
+ast::NodeUptr Parser::Initializer(NodeUptr left) {
+    auto init = std::make_unique<StructInit>(std::move(left));
+    NodeUptr key;
+
+    this->Eat();
+
+    if (!this->MatchEatNL(TokenType::RIGHT_BRACES)) {
+        key = this->Test();
+        if (this->MatchEatNL(TokenType::COMMA)) {
+            init->AddArgument(std::move(key));
+            while (this->MatchEat(TokenType::COMMA, true))
+                init->AddArgument(this->Test());
+        } else {
+            do {
+                if (!key) key = this->Test();
+                this->Eat(TokenType::COLON, "missing value after key in struct initialization");
+                init->AddKeyValue(std::move(key), this->Test());
+            } while (this->MatchEat(TokenType::COMMA, true));
+        }
+    }
+
+    init->end = this->currTk_.end;
+    this->Eat(TokenType::RIGHT_BRACES, "expected } after struct initialization");
+
+    return init;
 }
 
 ast::NodeUptr Parser::ParseArguments(NodeUptr left) {

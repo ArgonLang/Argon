@@ -17,6 +17,7 @@ namespace lang::scanner {
         END_OF_LINE,
         EXCLAMATION,
         EXCLAMATION_DOT,
+        EXCLAMATION_LBRACES,
         NOT_EQUAL,
 
         STRING_BEGIN,

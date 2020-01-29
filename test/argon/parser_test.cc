@@ -627,6 +627,48 @@ TEST(Parser, PostfixUpdate) {
     ASSERT_FALSE(CastNode<Update>(tmp.front())->prefix);
 }
 
+TEST(Parser, StructInit) {
+    auto source = std::istringstream("alfa::beta!{}");
+    Parser parser(&source);
+    auto tmp = std::move(parser.Parse()->body);
+    ASSERT_EQ(tmp.front()->type, NodeType::STRUCT_INIT);
+    ASSERT_EQ(tmp.front()->start, 1);
+    ASSERT_EQ(tmp.front()->end, 14);
+
+    source = std::istringstream("test!{one: value1, two: 2+2}");
+    parser = Parser(&source);
+    tmp = std::move(parser.Parse()->body);
+    ASSERT_EQ(tmp.front()->type, NodeType::STRUCT_INIT);
+    ASSERT_EQ(tmp.front()->start, 1);
+    ASSERT_EQ(tmp.front()->end, 29);
+
+    source = std::istringstream("test!{one: value1"
+                                ",two: 2+2}");
+    parser = Parser(&source);
+    tmp = std::move(parser.Parse()->body);
+    ASSERT_EQ(tmp.front()->type, NodeType::STRUCT_INIT);
+    ASSERT_EQ(tmp.front()->start, 1);
+    ASSERT_EQ(tmp.front()->end, 28);
+
+    source = std::istringstream("test!{1,2,3,element+2}");
+    parser = Parser(&source);
+    tmp = std::move(parser.Parse()->body);
+    ASSERT_EQ(tmp.front()->type, NodeType::STRUCT_INIT);
+    ASSERT_EQ(tmp.front()->start, 1);
+    ASSERT_EQ(tmp.front()->end, 23);
+
+    source = std::istringstream(R"(test !{
+1,
+2
+,3
+,element+2})");
+    parser = Parser(&source);
+    tmp = std::move(parser.Parse()->body);
+    ASSERT_EQ(tmp.front()->type, NodeType::STRUCT_INIT);
+    ASSERT_EQ(tmp.front()->start, 1);
+    ASSERT_EQ(tmp.front()->end, 28);
+}
+
 TEST(Parser, MemberAccess) {
     auto source = std::istringstream("mymstruct.item");
     Parser parser(&source);

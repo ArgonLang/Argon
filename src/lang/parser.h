@@ -113,6 +113,8 @@ namespace lang {
 
         ast::NodeUptr AtomExpr();
 
+        ast::NodeUptr Initializer(ast::NodeUptr left);
+
         ast::NodeUptr ParseArguments(ast::NodeUptr left);
 
         ast::NodeUptr ParseSubscript();
@@ -145,6 +147,25 @@ namespace lang {
         bool Match(scanner::TokenType type, TokenTypes... types) {
             if (!this->Match(type))
                 return this->Match(types...);
+            return true;
+        }
+
+        bool MatchEatNL(scanner::TokenType type) {
+            this->EatTerm(false, scanner::TokenType::SEMICOLON);
+            return this->Match(type);
+        }
+
+        bool MatchEat(scanner::TokenType type, bool eat_nl) {
+            if (eat_nl)
+                this->EatTerm(false, scanner::TokenType::SEMICOLON);
+
+            if (this->currTk_.type != type)
+                return false;
+
+            this->Eat();
+            if (eat_nl)
+                this->EatTerm(false, scanner::TokenType::SEMICOLON);
+
             return true;
         }
 

@@ -37,6 +37,7 @@ namespace lang::ast {
         DEFER,
         SPAWN,
         STRUCT,
+        STRUCT_INIT,
         STRUCT_BLOCK,
         TRAIT,
         TRAIT_BLOCK,
@@ -395,6 +396,27 @@ namespace lang::ast {
                                                                                                         kind, prefix, 0,
                                                                                                         end) {
             this->start = this->expr->start;
+        }
+    };
+
+    struct StructInit : Node {
+        NodeUptr left;
+        std::list<NodeUptr> args;
+        bool keys = false;
+
+        explicit StructInit(NodeUptr left) : Node(NodeType::STRUCT_INIT, 0, 0) {
+            this->left = std::move(left);
+            this->start = this->left->start;
+        }
+
+        void AddArgument(NodeUptr arg) {
+            this->args.push_back(std::move(arg));
+        }
+
+        void AddKeyValue(NodeUptr key, NodeUptr value) {
+            this->args.push_back(std::move(key));
+            this->args.push_back(std::move(value));
+            this->keys = true;
         }
     };
 

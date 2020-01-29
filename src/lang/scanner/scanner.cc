@@ -379,6 +379,10 @@ Token Scanner::NextToken() {
                     this->GetCh();
                     return Token(TokenType::EXCLAMATION_DOT, start, this->pos_, "");
                 }
+                if (this->source_->peek() == '{') {
+                    this->GetCh();
+                    return Token(TokenType::EXCLAMATION_LBRACES, start, this->pos_, "");
+                }
                 return Token(TokenType::EXCLAMATION, start, this->pos_, "");
             case '"':
                 this->GetCh();
