@@ -1137,17 +1137,11 @@ ast::NodeUptr Parser::ParseList() {
 
     this->Eat();
 
-    if (this->Match(TokenType::RIGHT_SQUARE)) {
-        list->end = this->currTk_.end;
-        this->Eat();
-        return list;
-    }
-
-    list->AddExpression(this->Test());
-
-    while (this->Match(TokenType::COMMA)) {
-        this->Eat();
+    if (!this->MatchEatNL(TokenType::RIGHT_SQUARE)) {
         list->AddExpression(this->Test());
+
+        while (this->MatchEat(TokenType::COMMA, true))
+            list->AddExpression(this->Test());
     }
 
     list->end = this->currTk_.end;

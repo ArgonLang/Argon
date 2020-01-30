@@ -880,7 +880,11 @@ TEST(Parser, List) {
     Parser parser(&source);
     ASSERT_EQ(parser.Parse()->body.front()->type, NodeType::LIST);
 
-    source = std::istringstream("[1,2,3]");
+    source = std::istringstream(R"([
+1
+,
+2,
+3])");
     parser = Parser(&source);
     ASSERT_EQ(parser.Parse()->body.front()->type, NodeType::LIST);
 
