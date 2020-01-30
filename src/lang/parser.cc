@@ -1077,7 +1077,7 @@ ast::NodeUptr Parser::ParseArrowOrTuple() {
 
     this->Eat();
 
-    if (!this->Match(TokenType::RIGHT_ROUND)) {
+    if (!this->MatchEatNL(TokenType::RIGHT_ROUND)) {
         params = this->ParsePeap();
         for (auto &item : params) {
             if (item->type == NodeType::IDENTIFIER) {
@@ -1114,20 +1114,17 @@ std::list<ast::NodeUptr> Parser::ParsePeap() {
     std::list<ast::NodeUptr> params;
     NodeUptr tmp = this->Variadic();
 
-    if (tmp != nullptr) {
-        params.push_back(std::move(tmp));
-        return params;
-    }
-
-    params.push_back(this->Test());
-    while (this->Match(TokenType::COMMA)) {
-        this->Eat();
-        if ((tmp = this->Variadic()) != nullptr) {
-            params.push_back(std::move(tmp));
-            break;
-        }
+    if (!tmp) {
         params.push_back(this->Test());
-    }
+        while (this->MatchEat(TokenType::COMMA, true)) {
+            if ((tmp = this->Variadic()) != nullptr) {
+                params.push_back(std::move(tmp));
+                break;
+            }
+            params.push_back(this->Test());
+        }
+    } else
+        params.push_back(std::move(tmp));
 
     return params;
 }

@@ -430,6 +430,16 @@ TEST(Parser, TestList) {
     ASSERT_EQ(tmp.front()->start, 1);
     ASSERT_EQ(tmp.front()->end, 28);
 
+    source = std::istringstream(R"((alfa+2,
+beta
+,
+gamma))");
+    parser = Parser(&source);
+    tmp = std::move(parser.Parse()->body);
+    ASSERT_EQ(tmp.front()->type, NodeType::TUPLE);
+    ASSERT_EQ(tmp.front()->start, 1);
+    ASSERT_EQ(tmp.front()->end, 23);
+
     source = std::istringstream("a?c,");
     parser = Parser(&source);
     EXPECT_THROW(parser.Parse(), SyntaxException);
@@ -776,6 +786,15 @@ TEST(Parser, ArrowFn) {
     ASSERT_EQ(parser.Parse()->body.front()->type, NodeType::FUNC);
 
     source = std::istringstream("(a,b,c)=>{}");
+    parser = Parser(&source);
+    ASSERT_EQ(parser.Parse()->body.front()->type, NodeType::FUNC);
+
+    source = std::istringstream(R"((
+a
+,
+b,
+c
+)=>{})");
     parser = Parser(&source);
     ASSERT_EQ(parser.Parse()->body.front()->type, NodeType::FUNC);
 
