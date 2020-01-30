@@ -934,10 +934,12 @@ ast::NodeUptr Parser::Initializer(NodeUptr left) {
             init->AddArgument(std::move(key));
             while (this->MatchEat(TokenType::COMMA, true))
                 init->AddArgument(this->Test());
-        } else {
+        } else if (this->MatchEatNL(TokenType::COLON)) {
             do {
                 if (!key) key = this->Test();
+                this->EatTerm(false, TokenType::SEMICOLON);
                 this->Eat(TokenType::COLON, "missing value after key in struct initialization");
+                this->EatTerm(false, TokenType::SEMICOLON);
                 init->AddKeyValue(std::move(key), this->Test());
             } while (this->MatchEat(TokenType::COMMA, true));
         }
@@ -1156,43 +1158,33 @@ ast::NodeUptr Parser::ParseList() {
 
 ast::NodeUptr Parser::ParseMapOrSet() {
     auto ms = std::make_unique<List>(NodeType::MAP, this->currTk_.start);
+    NodeUptr key;
 
     this->Eat();
 
-    if (this->Match(TokenType::RIGHT_BRACES)) {
-        ms->end = this->currTk_.end;
-        this->Eat();
-        return ms;
+    if (!this->MatchEatNL(TokenType::RIGHT_BRACES)) {
+        ms->type = NodeType::SET;
+        key = this->Test();
+        if (this->MatchEatNL(TokenType::COMMA)) {
+            ms->AddExpression(std::move(key));
+            while (this->MatchEat(TokenType::COMMA, true))
+                ms->AddExpression(this->Test());
+        } else if (this->MatchEatNL(TokenType::COLON)) {
+            ms->type = NodeType::MAP;
+            do {
+                if (!key) key = this->Test();
+                ms->AddExpression(std::move(key));
+                this->EatTerm(false, TokenType::SEMICOLON);
+                this->Eat(TokenType::COLON, "missing value after key in map definition");
+                this->EatTerm(false, TokenType::SEMICOLON);
+                ms->AddExpression(this->Test());
+            } while (this->MatchEat(TokenType::COMMA, true));
+        }
     }
-
-    ms->AddExpression(this->Test());
-
-    if (this->Match(TokenType::COLON))
-        this->ParseMap(ms);
-    else if (this->Match(TokenType::COMMA)) {
-        ms->type = NodeType::SET;
-        do {
-            this->Eat();
-            ms->AddExpression(this->Test());
-        } while (this->Match(TokenType::COMMA));
-    } else
-        ms->type = NodeType::SET;
 
     ms->end = this->currTk_.end;
     this->Eat(TokenType::RIGHT_BRACES, "expected } after map/set definition");
-
     return ms;
-}
-
-void Parser::ParseMap(std::unique_ptr<ast::List> &map) {
-    do {
-        this->Eat(TokenType::COLON, "missing value after key in map definition");
-        map->AddExpression(this->Test());
-        if (!this->Match(TokenType::COMMA))
-            break;
-        this->Eat();
-        map->AddExpression(this->Test());
-    } while (true);
 }
 
 ast::NodeUptr Parser::ParseScope() {

@@ -635,12 +635,31 @@ TEST(Parser, StructInit) {
     ASSERT_EQ(tmp.front()->start, 1);
     ASSERT_EQ(tmp.front()->end, 14);
 
+    source = std::istringstream("test!{22}");
+    parser = Parser(&source);
+    tmp = std::move(parser.Parse()->body);
+    ASSERT_EQ(tmp.front()->type, NodeType::STRUCT_INIT);
+    ASSERT_EQ(tmp.front()->start, 1);
+    ASSERT_EQ(tmp.front()->end, 10);
+
     source = std::istringstream("test!{one: value1, two: 2+2}");
     parser = Parser(&source);
     tmp = std::move(parser.Parse()->body);
     ASSERT_EQ(tmp.front()->type, NodeType::STRUCT_INIT);
     ASSERT_EQ(tmp.front()->start, 1);
     ASSERT_EQ(tmp.front()->end, 29);
+
+    source = std::istringstream(R"(test!{one:
+value1
+,
+two
+:
+2+2})");
+    parser = Parser(&source);
+    tmp = std::move(parser.Parse()->body);
+    ASSERT_EQ(tmp.front()->type, NodeType::STRUCT_INIT);
+    ASSERT_EQ(tmp.front()->start, 1);
+    ASSERT_EQ(tmp.front()->end, 31);
 
     source = std::istringstream("test!{one: value1"
                                 ",two: 2+2}");
@@ -816,11 +835,30 @@ TEST(Parser, MapSet) {
     parser = Parser(&source);
     ASSERT_EQ(parser.Parse()->body.front()->type, NodeType::MAP);
 
+    source = std::istringstream(R"({
+key
+:
+24
+,
+keyb:06
+})");
+    parser = Parser(&source);
+    ASSERT_EQ(parser.Parse()->body.front()->type, NodeType::MAP);
+
     source = std::istringstream("{22}");
     parser = Parser(&source);
     ASSERT_EQ(parser.Parse()->body.front()->type, NodeType::SET);
 
     source = std::istringstream("{01,24,06,94}");
+    parser = Parser(&source);
+    ASSERT_EQ(parser.Parse()->body.front()->type, NodeType::SET);
+
+    source = std::istringstream(R"({
+01
+,
+24,
+06, 94
+})");
     parser = Parser(&source);
     ASSERT_EQ(parser.Parse()->body.front()->type, NodeType::SET);
 

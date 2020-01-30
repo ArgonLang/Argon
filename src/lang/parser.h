@@ -131,8 +131,6 @@ namespace lang {
 
         ast::NodeUptr ParseMapOrSet();
 
-        void ParseMap(std::unique_ptr<ast::List> &map);
-
         ast::NodeUptr ParseScope();
 
         bool TokenInRange(scanner::TokenType begin, scanner::TokenType end) {
