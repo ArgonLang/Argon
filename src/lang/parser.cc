@@ -275,7 +275,7 @@ ast::NodeUptr Parser::StructDecl(bool pub) {
 }
 
 ast::NodeUptr Parser::StructBlock() {
-    auto block = std::make_unique<ast::Block>(NodeType::STRUCT_BLOCK, this->currTk_.start);
+    auto block = std::make_unique<ast::Block>(NodeType::BLOCK, this->currTk_.start);
     NodeUptr stmt;
 
     this->Eat(TokenType::LEFT_BRACES, "expected { after struct declaration");
@@ -335,7 +335,7 @@ ast::NodeUptr Parser::TraitDecl(bool pub) {
 }
 
 ast::NodeUptr Parser::TraitBlock() {
-    auto block = std::make_unique<ast::Block>(NodeType::TRAIT_BLOCK, this->currTk_.start);
+    auto block = std::make_unique<ast::Block>(NodeType::BLOCK, this->currTk_.start);
     NodeUptr stmt;
 
     this->Eat(TokenType::LEFT_BRACES, "expected { after impl declaration");
