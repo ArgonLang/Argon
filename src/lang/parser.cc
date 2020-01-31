@@ -408,41 +408,63 @@ ast::NodeUptr Parser::ImplDecl() {
 
 ast::NodeUptr Parser::Statement() {
     Pos start = this->currTk_.start;
+    NodeUptr label;
     NodeUptr tmp;
 
-    if (!this->TokenInRange(TokenType::KEYWORD_BEGIN, TokenType::KEYWORD_END))
-        return this->Expression();
-
-    switch (this->currTk_.type) {
-        case TokenType::DEFER:
-            this->Eat();
-            return std::make_unique<Unary>(NodeType::DEFER, this->AtomExpr(), start);
-        case TokenType::SPAWN:
-            this->Eat();
-            return std::make_unique<Unary>(NodeType::SPAWN, this->AtomExpr(), start);
-        case TokenType::RETURN:
-            this->Eat();
-            return std::make_unique<Unary>(NodeType::RETURN, this->TestList(), start);
-        case TokenType::IMPORT:
-            return this->ImportStmt();
-        case TokenType::FROM:
-            return this->FromImportStmt();
-        case TokenType::FOR:
-            return this->ForStmt();
-        case TokenType::LOOP:
-            return this->LoopStmt();
-        case TokenType::IF:
-            return this->IfStmt();
-        case TokenType::SWITCH:
-            return this->SwitchStmt();
-        case TokenType::BREAK:
-        case TokenType::CONTINUE:
-        case TokenType::FALLTHROUGH:
-        case TokenType::GOTO:
-            return this->JmpStmt();
-        default:
-            throw SyntaxException("expected statement", this->currTk_);
+    if (this->Match(TokenType::IDENTIFIER) && this->scanner_->Peek().type == TokenType::COLON) {
+        label = std::make_unique<Identifier>(this->currTk_);
+        this->Eat();
+        this->MatchEat(TokenType::COLON, true);
     }
+
+    if (this->TokenInRange(TokenType::KEYWORD_BEGIN, TokenType::KEYWORD_END)) {
+        switch (this->currTk_.type) {
+            case TokenType::DEFER:
+                this->Eat();
+                tmp = std::make_unique<Unary>(NodeType::DEFER, this->AtomExpr(), start);
+                break;
+            case TokenType::SPAWN:
+                this->Eat();
+                tmp = std::make_unique<Unary>(NodeType::SPAWN, this->AtomExpr(), start);
+                break;
+            case TokenType::RETURN:
+                this->Eat();
+                tmp = std::make_unique<Unary>(NodeType::RETURN, this->TestList(), start);
+                break;
+            case TokenType::IMPORT:
+                tmp = this->ImportStmt();
+                break;
+            case TokenType::FROM:
+                tmp = this->FromImportStmt();
+                break;
+            case TokenType::FOR:
+                tmp = this->ForStmt();
+                break;
+            case TokenType::LOOP:
+                tmp = this->LoopStmt();
+                break;
+            case TokenType::IF:
+                tmp = this->IfStmt();
+                break;
+            case TokenType::SWITCH:
+                tmp = this->SwitchStmt();
+                break;
+            case TokenType::BREAK:
+            case TokenType::CONTINUE:
+            case TokenType::FALLTHROUGH:
+            case TokenType::GOTO:
+                tmp = this->JmpStmt();
+                break;
+            default:
+                throw SyntaxException("expected statement", this->currTk_);
+        }
+    } else
+        tmp = this->Expression();
+
+    if (label)
+        return std::make_unique<Binary>(NodeType::LABEL, std::move(label), std::move(tmp));
+
+    return tmp;
 }
 
 ast::NodeUptr Parser::ImportStmt() {

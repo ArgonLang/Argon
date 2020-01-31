@@ -256,6 +256,23 @@ TEST(Parser, Impl) {
     EXPECT_THROW(parser.Parse(), SyntaxException);
 }
 
+TEST(Parser, JmpLabel) {
+    auto source = std::istringstream(R"(label:
+if a+b < 5 {
+a++
+goto label
+})");
+    Parser parser(&source);
+    auto tmp = std::move(parser.Parse()->body);
+    ASSERT_EQ(tmp.front()->type, NodeType::LABEL);
+    ASSERT_EQ(tmp.front()->start, 1);
+    ASSERT_EQ(tmp.front()->end, 37);
+
+    source = std::istringstream("label:");
+    parser = Parser(&source);
+    EXPECT_THROW(parser.Parse(), SyntaxException);
+}
+
 TEST(Parser, Import) {
     auto source = std::istringstream("import regex as re, system as sys");
     Parser parser(&source);

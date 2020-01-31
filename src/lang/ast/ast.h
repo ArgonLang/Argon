@@ -14,6 +14,7 @@ namespace lang::ast {
         PROGRAM,
         ELLIPSIS,
         ALIAS,
+        LABEL,
         SUBSCRIPT,
         INDEX,
         SLICE,
