@@ -14,6 +14,7 @@ namespace lang {
     class Parser {
         std::unique_ptr<scanner::Scanner> scanner_;
         scanner::Token currTk_;
+        std::string filename;
 
         void Eat();
 
@@ -39,8 +40,6 @@ namespace lang {
 
         ast::NodeUptr ConstDecl(bool pub);
 
-        ast::NodeUptr VarAnnotation();
-
         ast::NodeUptr FuncDecl(bool pub);
 
         std::list<lang::ast::NodeUptr> Param();
@@ -55,7 +54,7 @@ namespace lang {
 
         ast::NodeUptr TraitBlock();
 
-        ast::NodeUptr TraitList();
+        std::list<ast::NodeUptr> TraitList();
 
         ast::NodeUptr ImplDecl();
 
@@ -67,17 +66,13 @@ namespace lang {
 
         ast::NodeUptr FromImportStmt();
 
-        ast::NodeUptr ImportAsName();
-
-        ast::NodeUptr DottedAsName();
-
-        std::string DottedName();
+        ast::NodeUptr ScopeAsName(bool id_only);
 
         ast::NodeUptr ForStmt();
 
         ast::NodeUptr LoopStmt();
 
-        ast::NodeUptr IfStmt(bool eatIf);
+        ast::NodeUptr IfStmt();
 
         ast::NodeUptr SwitchStmt();
 
@@ -86,8 +81,6 @@ namespace lang {
         ast::NodeUptr JmpStmt();
 
         ast::NodeUptr Block();
-
-        ast::NodeUptr BlockBody();
 
         // *** EXPRESSIONS ***
 
@@ -121,7 +114,7 @@ namespace lang {
 
         ast::NodeUptr AtomExpr();
 
-        bool Trailer(ast::NodeUptr &left);
+        ast::NodeUptr Initializer(ast::NodeUptr left);
 
         ast::NodeUptr ParseArguments(ast::NodeUptr left);
 
@@ -133,17 +126,11 @@ namespace lang {
 
         ast::NodeUptr ParseArrowOrTuple();
 
-        std::list<ast::NodeUptr> ParseParexprAparams();
+        std::list<ast::NodeUptr> ParsePeap();
 
         ast::NodeUptr ParseList();
 
         ast::NodeUptr ParseMapOrSet();
-
-        void ParseMap(ast::NodeUptr &node);
-
-        ast::NodeUptr ParseNumber();
-
-        ast::NodeUptr ParseString();
 
         ast::NodeUptr ParseScope();
 
@@ -162,12 +149,31 @@ namespace lang {
             return true;
         }
 
+        bool MatchEatNL(scanner::TokenType type) {
+            this->EatTerm(false, scanner::TokenType::SEMICOLON);
+            return this->Match(type);
+        }
+
+        bool MatchEat(scanner::TokenType type, bool eat_nl) {
+            if (eat_nl)
+                this->EatTerm(false, scanner::TokenType::SEMICOLON);
+
+            if (this->currTk_.type != type)
+                return false;
+
+            this->Eat();
+            if (eat_nl)
+                this->EatTerm(false, scanner::TokenType::SEMICOLON);
+
+            return true;
+        }
+
     public:
-        Parser(std::istream *src) : Parser("", src) {}
+        explicit Parser(std::istream *src) : Parser("", src) {}
 
         Parser(std::string filename, std::istream *source);
 
-        std::unique_ptr<ast::Block> Parse();
+        std::unique_ptr<ast::Program> Parse();
     };
 }  // namespace lang
 

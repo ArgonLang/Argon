@@ -17,6 +17,7 @@ namespace lang::scanner {
         END_OF_LINE,
         EXCLAMATION,
         EXCLAMATION_DOT,
+        EXCLAMATION_LBRACES,
         NOT_EQUAL,
 
         STRING_BEGIN,
@@ -33,19 +34,24 @@ namespace lang::scanner {
         LEFT_ROUND,
         RIGHT_ROUND,
         ASTERISK,
-        ASTERISK_EQ,
         PLUS,
         PLUS_PLUS,
-        PLUS_EQ,
         COMMA,
         MINUS,
         MINUS_MINUS,
-        MINUS_EQ,
         DOT,
         ELLIPSIS,
         SLASH,
         SLASH_SLASH,
+
+
+        ASSIGNMENT_BEGIN,
+        EQUAL,
+        PLUS_EQ,
+        MINUS_EQ,
+        ASTERISK_EQ,
         SLASH_EQ,
+        ASSIGNMENT_END,
 
         NUMBER_BEGIN,
         NUMBER,
@@ -67,7 +73,6 @@ namespace lang::scanner {
         RELATIONAL_END,
 
         SHL,
-        EQUAL,
         EQUAL_EQUAL,
         ARROW,
         SHR,
@@ -109,6 +114,7 @@ namespace lang::scanner {
         NIL,
         PUB,
         RETURN,
+        SELF,
         SPAWN,
         STRUCT,
         SWITCH,
@@ -155,26 +161,26 @@ namespace lang::scanner {
             {TokenType::NUMBER_BIN,      "NUMBER_BIN"},
             {TokenType::NUMBER_OCT,      "NUMBER_OCT"},
             {TokenType::NUMBER_HEX,      "NUMBER_HEX"},
-            {TokenType::NUMBER,       "NUMBER"},
-            {TokenType::DECIMAL,      "DECIMAL"},
-            {TokenType::COLON,        "COLON"},
-            {TokenType::SCOPE,        "SCOPE"},
-            {TokenType::SEMICOLON,    "SEMICOLON"},
-            {TokenType::LESS,         "LESS"},
-            {TokenType::SHL,          "SHL"},
-            {TokenType::LESS_EQ,      "LESS_EQ"},
-            {TokenType::EQUAL,        "EQUAL"},
-            {TokenType::EQUAL_EQUAL,  "EQUAL_EQUAL"},
-            {TokenType::ARROW,        "ARROW"},
-            {TokenType::GREATER,      "GREATER"},
-            {TokenType::SHR,          "SHR"},
-            {TokenType::GREATER_EQ,   "GREATER_EQ"},
-            {TokenType::QUESTION,     "QUESTION"},
-            {TokenType::QUESTION_DOT, "QUESTION_DOT"},
-            {TokenType::ELVIS,        "ELVIS"},
-            {TokenType::IDENTIFIER,   "IDENTIFIER"},
-            {TokenType::LEFT_SQUARE,  "LEFT_SQUARE"},
-            {TokenType::RIGHT_SQUARE, "RIGHT_SQUARE"},
+            {TokenType::NUMBER,          "NUMBER"},
+            {TokenType::DECIMAL,         "DECIMAL"},
+            {TokenType::COLON,           "COLON"},
+            {TokenType::SCOPE,           "SCOPE"},
+            {TokenType::SEMICOLON,       "SEMICOLON"},
+            {TokenType::LESS,            "LESS"},
+            {TokenType::SHL,             "SHL"},
+            {TokenType::LESS_EQ,         "LESS_EQ"},
+            {TokenType::EQUAL,           "EQUAL"},
+            {TokenType::EQUAL_EQUAL,     "EQUAL_EQUAL"},
+            {TokenType::ARROW,           "ARROW"},
+            {TokenType::GREATER,         "GREATER"},
+            {TokenType::SHR,             "SHR"},
+            {TokenType::GREATER_EQ,      "GREATER_EQ"},
+            {TokenType::QUESTION,        "QUESTION"},
+            {TokenType::QUESTION_DOT,    "QUESTION_DOT"},
+            {TokenType::ELVIS,           "ELVIS"},
+            {TokenType::IDENTIFIER,      "IDENTIFIER"},
+            {TokenType::LEFT_SQUARE,     "LEFT_SQUARE"},
+            {TokenType::RIGHT_SQUARE,    "RIGHT_SQUARE"},
             {TokenType::CARET,           "CARET"},
             // `
             {TokenType::LEFT_BRACES,     "LEFT_BRACES"},
@@ -212,6 +218,7 @@ namespace lang::scanner {
             {"nil",         TokenType::NIL},
             {"pub",         TokenType::PUB},
             {"return",      TokenType::RETURN},
+            {"self",        TokenType::SELF},
             {"spawn",       TokenType::SPAWN},
             {"struct",      TokenType::STRUCT},
             {"switch",      TokenType::SWITCH},
@@ -222,56 +229,58 @@ namespace lang::scanner {
             {"weak",        TokenType::WEAK}
     };
 
+    using Pos = unsigned int;
+
     struct Token {
         TokenType type = TokenType::TK_NULL;
-        unsigned colno = 0;
-        unsigned lineno = 0;
         std::string value;
-
-        Token(Token &&) = default;
-
-        Token(Token &) = default;
+        Pos start = 0;
+        Pos end = 0;
 
         Token() = default;
 
-        Token(TokenType type, unsigned colno, unsigned lineno, const std::string &value) {
+        Token(Token &) = default;
+
+        Token(Token &&) = default;
+
+        Token(TokenType type, Pos start, Pos end, const std::string &value) {
             this->type = type;
-            this->colno = colno;
-            this->lineno = lineno;
+            this->start = start;
+            this->end = end;
             this->value = value;
         }
 
         Token &operator=(Token &&token) noexcept {
             this->type = token.type;
-            this->colno = token.colno;
-            this->lineno = token.lineno;
+            this->start = token.start;
+            this->end = token.end;
             this->value = token.value;
             return *this;
         }
 
         bool operator==(const Token &token) const {
             return this->type == token.type
-                   && this->colno == token.colno
-                   && this->lineno == token.lineno
+                   && this->start == token.start
+                   && this->end == token.end
                    && this->value == token.value;
         }
 
         [[nodiscard]] std::string String() const {
-            char tmp[142];
-            std::string tkType;
+            std::string str;
+            std::string tk_value;
 
             if (this->type > TokenType::KEYWORD_BEGIN && this->type < TokenType::KEYWORD_END)
-                tkType = "KEYWORD";
+                tk_value = "KEYWORD";
             else
-                tkType = TokenStringValue.at(this->type);
+                tk_value = TokenStringValue.at(this->type);
 
-            sprintf(tmp, "<L:%d, C:%d, %s>\t\t%s", this->lineno, this->colno, tkType.c_str(),
-                    this->value.substr(0, 62).c_str());
-            return tmp;
+            str = "<S:" + std::to_string(this->start);
+            str += ", E:" + std::to_string(this->end);
+            str += ", " + tk_value + ">\t" + this->value.substr(0, 62);
+
+            return str;
         }
     };
-
-    using TokenUptr = std::unique_ptr<Token>;
 
 }  // namespace lang::scanner
 
