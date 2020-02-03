@@ -731,11 +731,14 @@ ast::NodeUptr Parser::Block() {
 
 ast::NodeUptr Parser::Expression() {
     NodeUptr left = this->TestList();
+    TokenType kind = this->currTk_.type;
 
-    if (!this->Match(TokenType::EQUAL)) return left;
+    if (this->TokenInRange(TokenType::ASSIGNMENT_BEGIN, TokenType::ASSIGNMENT_END)) {
+        this->Eat();
+        return std::make_unique<Assignment>(kind, std::move(left), this->TestList());
+    }
 
-    this->Eat();
-    return std::make_unique<Binary>(NodeType::ASSIGN, std::move(left), this->TestList());
+    return left;
 }
 
 ast::NodeUptr Parser::TestList() {

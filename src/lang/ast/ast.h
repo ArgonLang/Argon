@@ -104,6 +104,20 @@ namespace lang::ast {
         }
     };
 
+    struct Assignment : Node {
+        NodeUptr assignee;
+        NodeUptr right;
+        scanner::TokenType kind;
+
+        explicit Assignment(scanner::TokenType kind, NodeUptr assignee, NodeUptr right) : Node(NodeType::ASSIGN, 0, 0) {
+            this->kind = kind;
+            this->assignee = std::move(assignee);
+            this->right = std::move(right);
+            this->start = this->assignee->start;
+            this->end = this->right->end;
+        }
+    };
+
     struct Binary : Node {
         NodeUptr left;
         NodeUptr right;

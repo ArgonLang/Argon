@@ -428,6 +428,7 @@ TEST(Parser, Assign) {
     Parser parser(&source);
     auto tmp = std::move(parser.Parse()->body);
     ASSERT_EQ(tmp.front()->type, NodeType::ASSIGN);
+    ASSERT_EQ(CastNode<Assignment>(tmp.front())->kind, scanner::TokenType::EQUAL);
     ASSERT_EQ(tmp.front()->start, 1);
     ASSERT_EQ(tmp.front()->end, 9);
 
@@ -435,8 +436,17 @@ TEST(Parser, Assign) {
     parser = Parser(&source);
     tmp = std::move(parser.Parse()->body);
     ASSERT_EQ(tmp.front()->type, NodeType::ASSIGN);
+    ASSERT_EQ(CastNode<Assignment>(tmp.front())->kind, scanner::TokenType::EQUAL);
     ASSERT_EQ(tmp.front()->start, 1);
     ASSERT_EQ(tmp.front()->end, 21);
+
+    source = std::istringstream("var1 += a?.test ?: 24");
+    parser = Parser(&source);
+    tmp = std::move(parser.Parse()->body);
+    ASSERT_EQ(tmp.front()->type, NodeType::ASSIGN);
+    ASSERT_EQ(CastNode<Assignment>(tmp.front())->kind, scanner::TokenType::PLUS_EQ);
+    ASSERT_EQ(tmp.front()->start, 1);
+    ASSERT_EQ(tmp.front()->end, 22);
 }
 
 TEST(Parser, TestList) {
