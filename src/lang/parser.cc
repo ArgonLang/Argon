@@ -1077,6 +1077,7 @@ ast::NodeUptr Parser::ParseAtom() {
 
     switch (this->currTk_.type) {
         case TokenType::FALSE:
+        case TokenType::SELF:
         case TokenType::TRUE:
         case TokenType::NIL:
             tmp = std::make_unique<ast::Literal>(this->currTk_);
