@@ -14,6 +14,7 @@ namespace lang {
     class Parser {
         std::unique_ptr<scanner::Scanner> scanner_;
         scanner::Token currTk_;
+        std::string filename;
 
         void Eat();
 
@@ -168,7 +169,7 @@ namespace lang {
         }
 
     public:
-        Parser(std::istream *src) : Parser("", src) {}
+        explicit Parser(std::istream *src) : Parser("", src) {}
 
         Parser(std::string filename, std::istream *source);
 

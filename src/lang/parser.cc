@@ -14,6 +14,7 @@ using namespace lang::scanner;
 Parser::Parser(std::string filename, std::istream *source) {
     this->scanner_ = std::make_unique<Scanner>(source);
     this->currTk_ = this->scanner_->Next();
+    this->filename = std::move(filename);
 }
 
 void Parser::Eat() {
@@ -43,7 +44,7 @@ void Parser::EatTerm(bool must_eat, TokenType stop_token) {
 }
 
 std::unique_ptr<Program> Parser::Parse() {
-    auto program = std::make_unique<Program>(this->currTk_.start);
+    auto program = std::make_unique<Program>(this->filename, this->currTk_.start);
 
     this->EatTerm(false);
 

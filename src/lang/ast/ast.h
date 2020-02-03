@@ -11,56 +11,56 @@
 
 namespace lang::ast {
     enum class NodeType {
-        PROGRAM,
-        ELLIPSIS,
         ALIAS,
-        LABEL,
-        SUBSCRIPT,
-        INDEX,
-        SLICE,
+        ASSIGN,
+        BINARY_OP,
+        BLOCK,
+        BREAK,
         CALL,
+        CASE,
+        CONSTANT,
+        CONTINUE,
+        DEFER,
+        ELLIPSIS,
+        ELVIS,
+        EQUALITY,
+        FALLTHROUGH,
         FOR,
         FOR_IN,
-        FALLTHROUGH,
-        BREAK,
-        CONTINUE,
-        GOTO,
-        LOOP,
-        SWITCH,
-        CASE,
-        IF,
-        IMPORT,
-        IDENTIFIER,
-        VARIABLE,
-        CONSTANT,
         FUNC,
+        GOTO,
+        IDENTIFIER,
+        IF,
+        IMPL,
+        IMPORT,
+        INDEX,
+        LABEL,
+        LIST,
+        LITERAL,
+        LOGICAL,
+        LOOP,
+        MAP,
+        MEMBER,
+        MEMBER_ASSERT,
+        MEMBER_SAFE,
+        NOT,
+        PROGRAM,
+        RELATIONAL,
         RETURN,
-        DEFER,
+        SCOPE,
+        SET,
+        SLICE,
         SPAWN,
         STRUCT,
         STRUCT_INIT,
-        TRAIT,
-        IMPL,
-        BLOCK,
-        ASSIGN,
-        TUPLE,
-        ELVIS,
+        SUBSCRIPT,
+        SWITCH,
         TEST,
-        LOGICAL,
-        EQUALITY,
-        RELATIONAL,
-        NOT,
-        BINARY_OP,
+        TRAIT,
+        TUPLE,
         UNARY_OP,
-        MEMBER,
-        MEMBER_SAFE,
-        MEMBER_ASSERT,
         UPDATE,
-        LIST,
-        SET,
-        MAP,
-        SCOPE,
-        LITERAL
+        VARIABLE,
     };
 
     struct Node {
@@ -86,19 +86,40 @@ namespace lang::ast {
     // NODES
     // **********************************************
 
-    struct Program : Node {
-        std::list<NodeUptr> body;
-        std::string filename;
+    struct Alias : Node {
+        NodeUptr name;
+        NodeUptr value;
+        bool pub;
 
-        explicit Program(scanner::Pos start) : Node(NodeType::PROGRAM, start, 0) {}
+        explicit Alias(NodeUptr name, NodeUptr value, scanner::Pos start, scanner::Pos end) : Alias(std::move(name),
+                                                                                                    std::move(value),
+                                                                                                    false, start,
+                                                                                                    end) {}
 
-        void AddStatement(NodeUptr statement) {
-            this->body.push_back(std::move(statement));
+        explicit Alias(NodeUptr name, NodeUptr value, bool pub, scanner::Pos start, scanner::Pos end) : Node(
+                NodeType::ALIAS, start, end) {
+            this->name = std::move(name);
+            this->value = std::move(value);
+            this->pub = pub;
+        }
+    };
+
+    struct Binary : Node {
+        NodeUptr left;
+        NodeUptr right;
+        lang::scanner::TokenType kind;
+
+        explicit Binary(NodeType type, lang::scanner::TokenType kind, NodeUptr left, NodeUptr right) : Node(type, 0,
+                                                                                                            0) {
+            this->left = std::move(left);
+            this->right = std::move(right);
+            this->kind = kind;
+            this->start = this->left->start;
+            this->end = this->right->end;
         }
 
-        void SetEndPos(scanner::Pos end) {
-            this->end = end;
-        }
+        explicit Binary(NodeType type, NodeUptr left, NodeUptr right) : Binary(type, scanner::TokenType::TK_NULL,
+                                                                               std::move(left), std::move(right)) {}
     };
 
     struct Block : Node {
@@ -115,45 +136,17 @@ namespace lang::ast {
         }
     };
 
-    struct For : Node {
-        NodeUptr init;
-        NodeUptr test;
-        NodeUptr inc;
-        NodeUptr body;
+    struct Call : Node {
+        NodeUptr callee;
+        std::list<NodeUptr> args;
 
-        explicit For(NodeType type, NodeUptr iter, NodeUptr expr, NodeUptr inc, NodeUptr body, scanner::Pos start)
-                : Node(type, start, 0) {
-            this->init = std::move(iter);
-            this->test = std::move(expr);
-            this->inc = std::move(inc);
-            this->body = std::move(body);
-            this->end = this->body->end;
-        }
-    };
-
-    struct Loop : Node {
-        NodeUptr test;
-        NodeUptr body;
-
-        explicit Loop(NodeUptr body, scanner::Pos start) : Loop(nullptr, std::move(body), start) {}
-
-        explicit Loop(NodeUptr test, NodeUptr body, scanner::Pos start) : Node(NodeType::LOOP, start, 0) {
-            this->test = std::move(test);
-            this->body = std::move(body);
-            this->end = this->body->end;
-        }
-    };
-
-    struct Switch : Node {
-        NodeUptr test;
-        std::list<NodeUptr> cases;
-
-        explicit Switch(NodeUptr test, scanner::Pos start) : Node(NodeType::SWITCH, start, 0) {
-            this->test = std::move(test);
+        explicit Call(NodeUptr callee) : Node(NodeType::CALL, 0, 0) {
+            this->callee = std::move(callee);
+            this->start = this->callee->start;
         }
 
-        void AddCase(NodeUptr swcase) {
-            this->cases.push_back(std::move(swcase));
+        void AddArgument(NodeUptr argument) {
+            this->args.push_back(std::move(argument));
         }
     };
 
@@ -168,51 +161,35 @@ namespace lang::ast {
         }
     };
 
-    struct If : Node {
-        NodeUptr test;
+    struct Construct : Node {
+        std::string name;
+        std::list<NodeUptr> impls;
         NodeUptr body;
-        NodeUptr orelse;
+        bool pub = false;
 
-        explicit If(NodeUptr test, NodeUptr body, NodeUptr orelse, scanner::Pos start, scanner::Pos end) : If(
-                std::move(test), std::move(body), start) {
-            this->orelse = std::move(orelse);
-            this->end = end;
-        }
-
-        explicit If(NodeUptr test, NodeUptr body, scanner::Pos start) : Node(NodeType::IF, start, 0) {
-            this->test = std::move(test);
+        explicit Construct(NodeType type, std::string &name, std::list<NodeUptr> &impls, NodeUptr body, bool pub,
+                           scanner::Pos start) : Node(type, start, 0) {
+            this->name = name;
+            this->impls = std::move(impls);
             this->body = std::move(body);
+            this->pub = pub;
             this->end = this->body->end;
         }
     };
 
-    struct Import : Node {
-        NodeUptr module;
-        std::list<NodeUptr> names;
+    struct For : Node {
+        NodeUptr init;
+        NodeUptr test;
+        NodeUptr inc;
+        NodeUptr body;
 
-        explicit Import(scanner::Pos start) : Import(nullptr, start) {}
-
-        explicit Import(NodeUptr module, scanner::Pos start) : Node(NodeType::IMPORT, start, 0) {
-            this->module = std::move(module);
-        }
-
-        void AddName(NodeUptr name) {
-            this->end = name->end;
-            this->names.push_back(std::move(name));
-        }
-    };
-
-    struct Call : Node {
-        NodeUptr callee;
-        std::list<NodeUptr> args;
-
-        explicit Call(NodeUptr callee) : Node(NodeType::CALL, 0, 0) {
-            this->callee = std::move(callee);
-            this->start = this->callee->start;
-        }
-
-        void AddArgument(NodeUptr argument) {
-            this->args.push_back(std::move(argument));
+        explicit For(NodeType type, NodeUptr iter, NodeUptr expr, NodeUptr inc, NodeUptr body, scanner::Pos start)
+                : Node(type, start, 0) {
+            this->init = std::move(iter);
+            this->test = std::move(expr);
+            this->inc = std::move(inc);
+            this->body = std::move(body);
+            this->end = this->body->end;
         }
     };
 
@@ -239,59 +216,30 @@ namespace lang::ast {
         }
     };
 
-    struct Construct : Node {
-        std::string name;
-        std::list<NodeUptr> impls;
+    struct Identifier : Node {
+        std::string value;
+        bool rest_element = false;
+
+        explicit Identifier(const scanner::Token &token) : Node(NodeType::IDENTIFIER, token.start, token.end) {
+            this->value = token.value;
+        }
+    };
+
+    struct If : Node {
+        NodeUptr test;
         NodeUptr body;
-        bool pub = false;
+        NodeUptr orelse;
 
-        explicit Construct(NodeType type, std::string &name, std::list<NodeUptr> &impls, NodeUptr body, bool pub,
-                           scanner::Pos start) : Node(type, start, 0) {
-            this->name = name;
-            this->impls = std::move(impls);
+        explicit If(NodeUptr test, NodeUptr body, NodeUptr orelse, scanner::Pos start, scanner::Pos end) : If(
+                std::move(test), std::move(body), start) {
+            this->orelse = std::move(orelse);
+            this->end = end;
+        }
+
+        explicit If(NodeUptr test, NodeUptr body, scanner::Pos start) : Node(NodeType::IF, start, 0) {
+            this->test = std::move(test);
             this->body = std::move(body);
-            this->pub = pub;
             this->end = this->body->end;
-        }
-    };
-
-    struct Alias : Node {
-        NodeUptr name;
-        NodeUptr value;
-        bool pub;
-
-        explicit Alias(NodeUptr name, NodeUptr value, scanner::Pos start, scanner::Pos end) : Alias(std::move(name),
-                                                                                                    std::move(value),
-                                                                                                    false, start,
-                                                                                                    end) {}
-
-        explicit Alias(NodeUptr name, NodeUptr value, bool pub, scanner::Pos start, scanner::Pos end) : Node(
-                NodeType::ALIAS, start, end) {
-            this->name = std::move(name);
-            this->value = std::move(value);
-            this->pub = pub;
-        }
-    };
-
-    struct Variable : Node {
-        bool atomic = false;
-        bool weak = false;
-        bool pub;
-        std::string name;
-        NodeUptr value;
-        NodeUptr annotation;
-
-        explicit Variable(std::string &name, bool pub, bool constant) : Variable(name, nullptr, pub, constant) {}
-
-        explicit Variable(std::string &name, NodeUptr value, bool pub, bool constant) : Node(NodeType::VARIABLE, 0, 0) {
-            this->pub = pub;
-            this->name = name;
-            if (constant)
-                this->type = NodeType::CONSTANT;
-            if (value != nullptr) {
-                this->value = std::move(value);
-                this->end = this->value->end;
-            }
         }
     };
 
@@ -312,6 +260,83 @@ namespace lang::ast {
                                                                                   std::move(block), start) {}
     };
 
+    struct Import : Node {
+        NodeUptr module;
+        std::list<NodeUptr> names;
+
+        explicit Import(scanner::Pos start) : Import(nullptr, start) {}
+
+        explicit Import(NodeUptr module, scanner::Pos start) : Node(NodeType::IMPORT, start, 0) {
+            this->module = std::move(module);
+        }
+
+        void AddName(NodeUptr name) {
+            this->end = name->end;
+            this->names.push_back(std::move(name));
+        }
+    };
+
+    struct List : Node {
+        std::list<NodeUptr> expressions;
+
+        explicit List(NodeType type, scanner::Pos start) : Node(type, start, 0) {}
+
+        void AddExpression(NodeUptr expr) {
+            this->end = expr->end;
+            this->expressions.push_back(std::move(expr));
+        }
+    };
+
+    struct Literal : Node {
+        scanner::TokenType kind;
+        std::string value;
+
+        explicit Literal(const scanner::Token &token) : Node(NodeType::LITERAL, token.start, token.end) {
+            this->kind = token.type;
+            this->value = token.value;
+        }
+    };
+
+    struct Loop : Node {
+        NodeUptr test;
+        NodeUptr body;
+
+        explicit Loop(NodeUptr body, scanner::Pos start) : Loop(nullptr, std::move(body), start) {}
+
+        explicit Loop(NodeUptr test, NodeUptr body, scanner::Pos start) : Node(NodeType::LOOP, start, 0) {
+            this->test = std::move(test);
+            this->body = std::move(body);
+            this->end = this->body->end;
+        }
+    };
+
+    struct Program : Node {
+        std::list<NodeUptr> body;
+        std::string filename;
+
+        explicit Program(std::string &filename, scanner::Pos start) : Node(NodeType::PROGRAM, start, 0) {
+            this->filename = filename;
+        }
+
+        void AddStatement(NodeUptr statement) {
+            this->body.push_back(std::move(statement));
+        }
+
+        void SetEndPos(scanner::Pos end) {
+            this->end = end;
+        }
+    };
+
+    struct Scope : Node {
+        std::list<std::string> segments;
+
+        explicit Scope(scanner::Pos start) : Node(NodeType::SCOPE, start, 0) {}
+
+        void AddSegment(const std::string &segment) {
+            this->segments.push_back(segment);
+        }
+    };
+
     struct Slice : Node {
         NodeUptr low;
         NodeUptr high;
@@ -329,72 +354,6 @@ namespace lang::ast {
                     this->end = this->step->end;
                 }
             }
-        }
-    };
-
-    struct Binary : Node {
-        NodeUptr left;
-        NodeUptr right;
-        lang::scanner::TokenType kind;
-
-        explicit Binary(NodeType type, lang::scanner::TokenType kind, NodeUptr left, NodeUptr right) : Node(type, 0,
-                                                                                                            0) {
-            this->left = std::move(left);
-            this->right = std::move(right);
-            this->kind = kind;
-            this->start = this->left->start;
-            this->end = this->right->end;
-        }
-
-        explicit Binary(NodeType type, NodeUptr left, NodeUptr right) : Binary(type, scanner::TokenType::TK_NULL,
-                                                                               std::move(left), std::move(right)) {}
-    };
-
-    struct Unary : Node {
-        NodeUptr expr;
-        lang::scanner::TokenType kind;
-
-        explicit Unary(NodeType type, lang::scanner::TokenType kind, NodeUptr expr, scanner::Pos start,
-                       scanner::Pos end) : Node(type, start, end) {
-            this->expr = std::move(expr);
-            this->kind = kind;
-        }
-
-        explicit Unary(NodeType type, NodeUptr expr, scanner::Pos start) : Node(type, start, 0) {
-            this->expr = std::move(expr);
-            if (this->expr)
-                this->end = this->expr->end;
-            this->kind = scanner::TokenType::TK_NULL;
-        }
-    };
-
-    struct List : Node {
-        std::list<NodeUptr> expressions;
-
-        explicit List(NodeType type, scanner::Pos start) : Node(type, start, 0) {}
-
-        void AddExpression(NodeUptr expr) {
-            this->end = expr->end;
-            this->expressions.push_back(std::move(expr));
-        }
-    };
-
-    struct Update : Node {
-        NodeUptr expr;
-        scanner::TokenType kind;
-        bool prefix;
-
-        explicit Update(NodeUptr expr, scanner::TokenType kind, bool prefix, scanner::Pos start, scanner::Pos end)
-                : Node(NodeType::UPDATE, start, end) {
-            this->expr = std::move(expr);
-            this->kind = kind;
-            this->prefix = prefix;
-        }
-
-        explicit Update(NodeUptr expr, scanner::TokenType kind, bool prefix, scanner::Pos end) : Update(std::move(expr),
-                                                                                                        kind, prefix, 0,
-                                                                                                        end) {
-            this->start = this->expr->start;
         }
     };
 
@@ -419,32 +378,75 @@ namespace lang::ast {
         }
     };
 
-    struct Literal : Node {
+    struct Switch : Node {
+        NodeUptr test;
+        std::list<NodeUptr> cases;
+
+        explicit Switch(NodeUptr test, scanner::Pos start) : Node(NodeType::SWITCH, start, 0) {
+            this->test = std::move(test);
+        }
+
+        void AddCase(NodeUptr swcase) {
+            this->cases.push_back(std::move(swcase));
+        }
+    };
+
+    struct Unary : Node {
+        NodeUptr expr;
+        lang::scanner::TokenType kind;
+
+        explicit Unary(NodeType type, lang::scanner::TokenType kind, NodeUptr expr, scanner::Pos start,
+                       scanner::Pos end) : Node(type, start, end) {
+            this->expr = std::move(expr);
+            this->kind = kind;
+        }
+
+        explicit Unary(NodeType type, NodeUptr expr, scanner::Pos start) : Node(type, start, 0) {
+            this->expr = std::move(expr);
+            if (this->expr)
+                this->end = this->expr->end;
+            this->kind = scanner::TokenType::TK_NULL;
+        }
+    };
+
+    struct Update : Node {
+        NodeUptr expr;
         scanner::TokenType kind;
-        std::string value;
+        bool prefix;
 
-        explicit Literal(const scanner::Token &token) : Node(NodeType::LITERAL, token.start, token.end) {
-            this->kind = token.type;
-            this->value = token.value;
+        explicit Update(NodeUptr expr, scanner::TokenType kind, bool prefix, scanner::Pos start, scanner::Pos end)
+                : Node(NodeType::UPDATE, start, end) {
+            this->expr = std::move(expr);
+            this->kind = kind;
+            this->prefix = prefix;
+        }
+
+        explicit Update(NodeUptr expr, scanner::TokenType kind, bool prefix, scanner::Pos end) : Update(std::move(expr),
+                                                                                                        kind, prefix, 0,
+                                                                                                        end) {
+            this->start = this->expr->start;
         }
     };
 
-    struct Scope : Node {
-        std::list<std::string> segments;
+    struct Variable : Node {
+        bool atomic = false;
+        bool weak = false;
+        bool pub;
+        std::string name;
+        NodeUptr value;
+        NodeUptr annotation;
 
-        explicit Scope(scanner::Pos start) : Node(NodeType::SCOPE, start, 0) {}
+        explicit Variable(std::string &name, bool pub, bool constant) : Variable(name, nullptr, pub, constant) {}
 
-        void AddSegment(const std::string &segment) {
-            this->segments.push_back(segment);
-        }
-    };
-
-    struct Identifier : Node {
-        std::string value;
-        bool rest_element = false;
-
-        explicit Identifier(const scanner::Token &token) : Node(NodeType::IDENTIFIER, token.start, token.end) {
-            this->value = token.value;
+        explicit Variable(std::string &name, NodeUptr value, bool pub, bool constant) : Node(NodeType::VARIABLE, 0, 0) {
+            this->pub = pub;
+            this->name = name;
+            if (constant)
+                this->type = NodeType::CONSTANT;
+            if (value != nullptr) {
+                this->value = std::move(value);
+                this->end = this->value->end;
+            }
         }
     };
 
