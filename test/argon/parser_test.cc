@@ -713,6 +713,14 @@ two
     ASSERT_EQ(tmp.front()->type, NodeType::STRUCT_INIT);
     ASSERT_EQ(tmp.front()->start, 1);
     ASSERT_EQ(tmp.front()->end, 28);
+
+    source = std::istringstream("test!{2+2:x}");
+    parser = Parser(&source);
+    EXPECT_THROW(parser.Parse(), SyntaxException);
+
+    source = std::istringstream("test!{a:b,c:d,a[2]:x}");
+    parser = Parser(&source);
+    EXPECT_THROW(parser.Parse(), SyntaxException);
 }
 
 TEST(Parser, MemberAccess) {

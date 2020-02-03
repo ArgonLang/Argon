@@ -959,6 +959,8 @@ ast::NodeUptr Parser::Initializer(NodeUptr left) {
         } else if (this->MatchEatNL(TokenType::COLON)) {
             do {
                 if (!key) key = this->Test();
+                if (key->type != NodeType::IDENTIFIER)
+                    throw SyntaxException("expected identifier as key", this->currTk_);
                 this->EatTerm(false, TokenType::SEMICOLON);
                 this->Eat(TokenType::COLON, "missing value after key in struct initialization");
                 this->EatTerm(false, TokenType::SEMICOLON);
