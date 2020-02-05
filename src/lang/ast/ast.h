@@ -43,7 +43,6 @@ namespace lang::ast {
         MEMBER,
         MEMBER_ASSERT,
         MEMBER_SAFE,
-        NOT,
         PROGRAM,
         RELATIONAL,
         RETURN,
