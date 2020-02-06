@@ -245,10 +245,14 @@ namespace lang::ast {
 
     struct Identifier : Node {
         std::string value;
-        bool rest_element = false;
+        bool rest_element;
 
-        explicit Identifier(const scanner::Token &token) : Node(NodeType::IDENTIFIER, token.start, token.end) {
+        explicit Identifier(const scanner::Token &token) : Identifier(token, false) {}
+
+        explicit Identifier(const scanner::Token &token, bool rest_element) : Node(NodeType::IDENTIFIER, token.start,
+                                                                                   token.end) {
             this->value = token.value;
+            this->rest_element = rest_element;
         }
     };
 

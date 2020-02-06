@@ -244,9 +244,8 @@ ast::NodeUptr Parser::Variadic() {
         this->Eat();
         if (!this->Match(TokenType::IDENTIFIER))
             throw SyntaxException("expected identifier after ...(ellipsis) operator", this->currTk_);
-        id = std::make_unique<Identifier>(this->currTk_);
+        id = std::make_unique<Identifier>(this->currTk_, true);
         id->start = start;
-        id->rest_element = true;
         this->Eat();
     }
 
