@@ -13,12 +13,18 @@ using namespace lang::scanner;
 
 Parser::Parser(std::string filename, std::istream *source) {
     this->scanner_ = std::make_unique<Scanner>(source);
-    this->currTk_ = this->scanner_->Next();
     this->filename = std::move(filename);
 }
 
 void Parser::Eat() {
     this->currTk_ = this->scanner_->Next();
+
+    while (this->Match(TokenType::INLINE_COMMENT, TokenType::COMMENT)) {
+        // Ignore inline comment, BUT KEEP multi-line comment, are very useful to produce documentation!
+        if (this->Match(TokenType::COMMENT))
+            this->comments.emplace_back(this->currTk_);
+        this->currTk_ = this->scanner_->Next();
+    }
 }
 
 void Parser::Eat(TokenType type, std::string errmsg) {
@@ -46,6 +52,8 @@ void Parser::EatTerm(bool must_eat, TokenType stop_token) {
 std::unique_ptr<Program> Parser::Parse() {
     auto program = std::make_unique<Program>(this->filename, this->currTk_.start);
 
+    this->Eat(); // Init parser
+
     this->EatTerm(false);
 
     while (!this->Match(TokenType::END_OF_FILE)) {
@@ -54,6 +62,7 @@ std::unique_ptr<Program> Parser::Parse() {
     }
 
     program->SetEndPos(this->currTk_.end);
+    program->docs = std::move(this->comments);
 
     return program;
 }
@@ -196,6 +205,7 @@ ast::NodeUptr Parser::FuncDecl(bool pub) {
     Pos start = this->currTk_.start;
     std::string name;
     std::list<NodeUptr> params;
+    auto dpos = this->BeginDocs();
 
     this->Eat();
     name = this->currTk_.value;
@@ -206,7 +216,9 @@ ast::NodeUptr Parser::FuncDecl(bool pub) {
         this->Eat(TokenType::RIGHT_ROUND, "expected ) after function params");
     }
 
-    return std::make_unique<Function>(name, std::move(params), this->Block(), pub, start);
+    auto fn = std::make_unique<Function>(name, std::move(params), this->Block(), pub, start);
+    fn->docs = this->GetDocs(dpos);
+    return fn;
 }
 
 std::list<NodeUptr> Parser::Param() {
@@ -256,6 +268,7 @@ ast::NodeUptr Parser::StructDecl(bool pub) {
     Pos start = this->currTk_.start;
     std::string name;
     std::list<NodeUptr> impls;
+    auto dpos = this->BeginDocs();
 
     this->Eat();
     name = this->currTk_.value;
@@ -266,7 +279,9 @@ ast::NodeUptr Parser::StructDecl(bool pub) {
         impls = this->TraitList();
     }
 
-    return std::make_unique<Construct>(NodeType::STRUCT, name, impls, this->StructBlock(), pub, start);
+    auto structure = std::make_unique<Construct>(NodeType::STRUCT, name, impls, this->StructBlock(), pub, start);
+    structure->docs = this->GetDocs(dpos);
+    return structure;
 }
 
 ast::NodeUptr Parser::StructBlock() {
@@ -316,6 +331,7 @@ ast::NodeUptr Parser::TraitDecl(bool pub) {
     Pos start = this->currTk_.start;
     std::string name;
     std::list<NodeUptr> impls;
+    auto dpos = this->BeginDocs();
 
     this->Eat();
     name = this->currTk_.value;
@@ -326,7 +342,9 @@ ast::NodeUptr Parser::TraitDecl(bool pub) {
         impls = this->TraitList();
     }
 
-    return std::make_unique<Construct>(NodeType::TRAIT, name, impls, this->TraitBlock(), pub, start);
+    auto trait = std::make_unique<Construct>(NodeType::TRAIT, name, impls, this->TraitBlock(), pub, start);
+    trait->docs = this->GetDocs(dpos);
+    return trait;
 }
 
 ast::NodeUptr Parser::TraitBlock() {
@@ -1125,7 +1143,10 @@ ast::NodeUptr Parser::ParseArrowOrTuple() {
 
     if (this->Match(TokenType::ARROW)) {
         this->Eat();
-        return std::make_unique<Function>(std::move(params), this->Block(), start);
+        auto dpos = this->BeginDocs();
+        auto fn = std::make_unique<Function>(std::move(params), this->Block(), start);
+        fn->docs = this->GetDocs(dpos);
+        return fn;
     }
 
     if (mustFn)
@@ -1230,4 +1251,21 @@ ast::NodeUptr Parser::ParseScope() {
     }
 
     throw SyntaxException("expected identifier or expression", this->currTk_);
+}
+
+std::list<Comment>::iterator Parser::BeginDocs() {
+    if (this->comments.empty())
+        return this->comments.end();
+    return --this->comments.end();
+}
+
+std::list<Comment> Parser::GetDocs(std::list<Comment>::iterator &pos) {
+    std::list<Comment> docs;
+
+    if (pos == this->comments.end())
+        docs.splice(docs.begin(), this->comments, this->comments.begin(), this->comments.end());
+    else
+        docs.splice(docs.begin(), this->comments, ++pos, this->comments.end());
+
+    return docs;
 }

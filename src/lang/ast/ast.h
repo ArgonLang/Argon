@@ -18,6 +18,7 @@ namespace lang::ast {
         BREAK,
         CALL,
         CASE,
+        COMMENT,
         CONSTANT,
         CONTINUE,
         DEFER,
@@ -72,6 +73,12 @@ namespace lang::ast {
         virtual ~Node() = default;
 
         virtual std::string String() { return ""; }
+    };
+
+    struct NodeDoc : Node {
+        std::list<struct Comment> docs;
+
+        explicit NodeDoc(NodeType type, scanner::Pos start, scanner::Pos end) : Node(type, start, end) {}
     };
 
     using NodeUptr = std::unique_ptr<const Node>;
@@ -174,6 +181,13 @@ namespace lang::ast {
         }
     };
 
+    struct Comment : Node {
+        const std::string comment;
+
+        explicit Comment(const scanner::Token &token) : Node(NodeType::COMMENT, token.start, token.end),
+                                                        comment(token.value) {}
+    };
+
     struct Constant : Node {
         bool pub;
         std::string name;
@@ -188,14 +202,14 @@ namespace lang::ast {
         }
     };
 
-    struct Construct : Node {
+    struct Construct : NodeDoc {
         std::string name;
         std::list<NodeUptr> impls;
         NodeUptr body;
         bool pub = false;
 
         explicit Construct(NodeType type, std::string &name, std::list<NodeUptr> &impls, NodeUptr body, bool pub,
-                           scanner::Pos start) : Node(type, start, 0) {
+                           scanner::Pos start) : NodeDoc(type, start, 0) {
             this->name = name;
             this->impls = std::move(impls);
             this->body = std::move(body);
@@ -220,14 +234,14 @@ namespace lang::ast {
         }
     };
 
-    struct Function : Node {
+    struct Function : NodeDoc {
         std::string id;
         std::list<NodeUptr> params;
         NodeUptr body;
         bool pub = false;
 
         explicit Function(std::string &id, std::list<NodeUptr> params, NodeUptr body, bool pub, scanner::Pos start)
-                : Node(NodeType::FUNC, start, 0) {
+                : NodeDoc(NodeType::FUNC, start, 0) {
             this->id = id;
             this->params = std::move(params);
             this->body = std::move(body);
@@ -235,8 +249,8 @@ namespace lang::ast {
             this->end = this->body->end;
         }
 
-        explicit Function(std::list<NodeUptr> params, NodeUptr body, scanner::Pos start) : Node(NodeType::FUNC, start,
-                                                                                                0) {
+        explicit Function(std::list<NodeUptr> params, NodeUptr body, scanner::Pos start) : NodeDoc(NodeType::FUNC,
+                                                                                                   start, 0) {
             this->params = std::move(params);
             this->body = std::move(body);
             this->end = this->body->end;
@@ -341,11 +355,11 @@ namespace lang::ast {
         }
     };
 
-    struct Program : Node {
+    struct Program : NodeDoc {
         std::list<NodeUptr> body;
         std::string filename;
 
-        explicit Program(std::string &filename, scanner::Pos start) : Node(NodeType::PROGRAM, start, 0) {
+        explicit Program(std::string &filename, scanner::Pos start) : NodeDoc(NodeType::PROGRAM, start, 0) {
             this->filename = filename;
         }
 

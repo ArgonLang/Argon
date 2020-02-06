@@ -13,6 +13,7 @@
 namespace lang {
     class Parser {
         std::unique_ptr<scanner::Scanner> scanner_;
+        std::list<ast::Comment> comments;
         scanner::Token currTk_;
         std::string filename;
 
@@ -23,6 +24,10 @@ namespace lang {
         void EatTerm(bool must_eat);
 
         void EatTerm(bool must_eat, scanner::TokenType stop_token);
+
+        std::list<ast::Comment>::iterator BeginDocs();
+
+        std::list<ast::Comment> GetDocs(std::list<ast::Comment>::iterator &pos);
 
         // *** DECLARATIONS ***
 
