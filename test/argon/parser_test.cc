@@ -102,9 +102,6 @@ TEST(Parser, Constant) {
     Parser parser(&source);
     auto tmp = std::move(parser.Parse()->body);
     ASSERT_EQ(tmp.front()->type, NodeType::CONSTANT);
-    ASSERT_FALSE(CastNode<Variable>(tmp.front())->weak);
-    ASSERT_FALSE(CastNode<Variable>(tmp.front())->atomic);
-    ASSERT_FALSE(CastNode<Variable>(tmp.front())->pub);
     ASSERT_EQ(tmp.front()->start, 1);
     ASSERT_EQ(tmp.front()->end, 12);
 

@@ -174,6 +174,20 @@ namespace lang::ast {
         }
     };
 
+    struct Constant : Node {
+        bool pub;
+        std::string name;
+        NodeUptr value;
+
+        explicit Constant(std::string &name, NodeUptr value, bool pub, scanner::Pos start) : Node(NodeType::CONSTANT,
+                                                                                                  start, 0) {
+            this->pub = pub;
+            this->name = name;
+            this->value = std::move(value);
+            this->end = this->value->end;
+        }
+    };
+
     struct Construct : Node {
         std::string name;
         std::list<NodeUptr> impls;
@@ -449,17 +463,9 @@ namespace lang::ast {
         NodeUptr value;
         NodeUptr annotation;
 
-        explicit Variable(std::string &name, bool pub, bool constant) : Variable(name, nullptr, pub, constant) {}
-
-        explicit Variable(std::string &name, NodeUptr value, bool pub, bool constant) : Node(NodeType::VARIABLE, 0, 0) {
+        explicit Variable(std::string &name, bool pub, scanner::Pos start) : Node(NodeType::VARIABLE, start, 0) {
             this->pub = pub;
             this->name = name;
-            if (constant)
-                this->type = NodeType::CONSTANT;
-            if (value != nullptr) {
-                this->value = std::move(value);
-                this->end = this->value->end;
-            }
         }
     };
 

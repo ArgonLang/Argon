@@ -161,8 +161,7 @@ ast::NodeUptr Parser::VarDecl(bool pub) {
     std::unique_ptr<Variable> variable;
 
     this->Eat();
-    variable = std::make_unique<Variable>(this->currTk_.value, pub, false);
-    variable->start = start;
+    variable = std::make_unique<Variable>(this->currTk_.value, pub, start);
     variable->end = this->currTk_.end;
 
     this->Eat(TokenType::IDENTIFIER, "expected identifier after var keyword");
@@ -185,16 +184,12 @@ ast::NodeUptr Parser::VarDecl(bool pub) {
 ast::NodeUptr Parser::ConstDecl(bool pub) {
     Pos start = this->currTk_.start;
     std::string name;
-    std::unique_ptr<Variable> constant;
 
     this->Eat();
     name = this->currTk_.value;
     this->Eat(TokenType::IDENTIFIER, "expected identifier after let keyword");
     this->Eat(TokenType::EQUAL, "expected = after identifier in let declaration");
-    constant = std::make_unique<Variable>(name, this->TestList(), pub, true);
-    constant->start = start;
-
-    return constant;
+    return std::make_unique<Constant>(name, this->TestList(), pub, start);
 }
 
 ast::NodeUptr Parser::FuncDecl(bool pub) {
