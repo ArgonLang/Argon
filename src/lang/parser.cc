@@ -13,44 +13,11 @@ using namespace lang::scanner;
 
 Parser::Parser(std::string filename, std::istream *source) {
     this->scanner_ = std::make_unique<Scanner>(source);
-    this->filename = std::move(filename);
-}
-
-void Parser::Eat() {
-    this->currTk_ = this->scanner_->Next();
-
-    while (this->Match(TokenType::INLINE_COMMENT, TokenType::COMMENT)) {
-        // Ignore inline comment, BUT KEEP multi-line comment, are very useful to produce documentation!
-        if (this->Match(TokenType::COMMENT))
-            this->comments.emplace_back(this->currTk_);
-        this->currTk_ = this->scanner_->Next();
-    }
-}
-
-void Parser::Eat(TokenType type, std::string errmsg) {
-    if (!this->Match(type))
-        throw SyntaxException(std::move(errmsg), this->currTk_);
-    this->Eat();
-}
-
-void Parser::EatTerm(bool must_eat) {
-    this->EatTerm(must_eat, TokenType::END_OF_FILE);
-}
-
-void Parser::EatTerm(bool must_eat, TokenType stop_token) {
-    if (!this->Match(stop_token)) {
-        while (this->Match(TokenType::END_OF_LINE, TokenType::SEMICOLON)) {
-            this->Eat();
-            must_eat = false;
-        }
-
-        if (must_eat)
-            throw SyntaxException("expected EOL or SEMICOLON", this->currTk_);
-    }
+    this->filename_ = std::move(filename);
 }
 
 std::unique_ptr<Program> Parser::Parse() {
-    auto program = std::make_unique<Program>(this->filename, this->currTk_.start);
+    auto program = std::make_unique<Program>(this->filename_, this->currTk_.start);
 
     this->Eat(); // Init parser
 
@@ -62,7 +29,7 @@ std::unique_ptr<Program> Parser::Parse() {
     }
 
     program->SetEndPos(this->currTk_.end);
-    program->docs = std::move(this->comments);
+    program->docs = std::move(this->comments_);
 
     return program;
 }
@@ -1254,18 +1221,73 @@ ast::NodeUptr Parser::ParseScope() {
 }
 
 std::list<Comment>::iterator Parser::BeginDocs() {
-    if (this->comments.empty())
-        return this->comments.end();
-    return --this->comments.end();
+    if (this->comments_.empty())
+        return this->comments_.end();
+    return --this->comments_.end();
 }
 
 std::list<Comment> Parser::GetDocs(std::list<Comment>::iterator &pos) {
     std::list<Comment> docs;
 
-    if (pos == this->comments.end())
-        docs.splice(docs.begin(), this->comments, this->comments.begin(), this->comments.end());
+    if (pos == this->comments_.end())
+        docs.splice(docs.begin(), this->comments_, this->comments_.begin(), this->comments_.end());
     else
-        docs.splice(docs.begin(), this->comments, ++pos, this->comments.end());
+        docs.splice(docs.begin(), this->comments_, ++pos, this->comments_.end());
 
     return docs;
+}
+
+bool Parser::MatchEat(scanner::TokenType type, bool eat_nl) {
+    if (eat_nl)
+        this->EatTerm(false, scanner::TokenType::SEMICOLON);
+
+    if (this->currTk_.type == type) {
+        this->Eat();
+        if (eat_nl)
+            this->EatTerm(false, scanner::TokenType::SEMICOLON);
+        return true;
+    }
+
+    return false;
+}
+
+inline bool Parser::MatchEatNL(scanner::TokenType type) {
+    this->EatTerm(false, scanner::TokenType::SEMICOLON);
+    return this->Match(type);
+}
+
+inline bool Parser::TokenInRange(scanner::TokenType begin, scanner::TokenType end) {
+    return this->currTk_.type > begin && this->currTk_.type < end;
+}
+
+void Parser::Eat() {
+    this->currTk_ = this->scanner_->Next();
+
+    while (this->Match(TokenType::INLINE_COMMENT, TokenType::COMMENT)) {
+        // Ignore inline comment, BUT KEEP multi-line comment, are very useful to produce documentation!
+        if (this->Match(TokenType::COMMENT))
+            this->comments_.emplace_back(this->currTk_);
+        this->currTk_ = this->scanner_->Next();
+    }
+}
+
+inline void Parser::Eat(TokenType type, std::string errmsg) {
+    if (!this->Match(type)) throw SyntaxException(std::move(errmsg), this->currTk_);
+    this->Eat();
+}
+
+inline void Parser::EatTerm(bool must_eat) {
+    this->EatTerm(must_eat, TokenType::END_OF_FILE);
+}
+
+void Parser::EatTerm(bool must_eat, TokenType stop_token) {
+    if (!this->Match(stop_token)) {
+        while (this->Match(TokenType::END_OF_LINE, TokenType::SEMICOLON)) {
+            this->Eat();
+            must_eat = false;
+        }
+
+        if (must_eat)
+            throw SyntaxException("expected EOL or SEMICOLON", this->currTk_);
+    }
 }

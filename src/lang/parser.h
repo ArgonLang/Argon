@@ -13,17 +13,9 @@
 namespace lang {
     class Parser {
         std::unique_ptr<scanner::Scanner> scanner_;
-        std::list<ast::Comment> comments;
+        std::list<ast::Comment> comments_;
         scanner::Token currTk_;
-        std::string filename;
-
-        void Eat();
-
-        void Eat(scanner::TokenType type, std::string errmsg);
-
-        void EatTerm(bool must_eat);
-
-        void EatTerm(bool must_eat, scanner::TokenType stop_token);
+        std::string filename_;
 
         std::list<ast::Comment>::iterator BeginDocs();
 
@@ -139,10 +131,6 @@ namespace lang {
 
         ast::NodeUptr ParseScope();
 
-        bool TokenInRange(scanner::TokenType begin, scanner::TokenType end) {
-            return this->currTk_.type > begin && this->currTk_.type < end;
-        }
-
         bool Match(scanner::TokenType type) {
             return this->currTk_.type == type;
         }
@@ -154,24 +142,19 @@ namespace lang {
             return true;
         }
 
-        bool MatchEatNL(scanner::TokenType type) {
-            this->EatTerm(false, scanner::TokenType::SEMICOLON);
-            return this->Match(type);
-        }
+        bool MatchEat(scanner::TokenType type, bool eat_nl);
 
-        bool MatchEat(scanner::TokenType type, bool eat_nl) {
-            if (eat_nl)
-                this->EatTerm(false, scanner::TokenType::SEMICOLON);
+        bool MatchEatNL(scanner::TokenType type);
 
-            if (this->currTk_.type != type)
-                return false;
+        bool TokenInRange(scanner::TokenType begin, scanner::TokenType end);
 
-            this->Eat();
-            if (eat_nl)
-                this->EatTerm(false, scanner::TokenType::SEMICOLON);
+        void Eat();
 
-            return true;
-        }
+        void Eat(scanner::TokenType type, std::string errmsg);
+
+        void EatTerm(bool must_eat);
+
+        void EatTerm(bool must_eat, scanner::TokenType stop_token);
 
     public:
         explicit Parser(std::istream *src) : Parser("", src) {}
