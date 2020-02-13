@@ -6,24 +6,22 @@
 
 using namespace lang::scanner;
 
-Token Scanner::ParseBinary() {
-    std::string number;
-    int colno = this->colno_;
+Token Scanner::ParseBinary(Pos start) {
     int value = this->source_->peek();
+    std::string number;
 
     while (value >= '0' && value <= '1') {
-        number += value;
+        number += (char) value;
         this->GetCh();
         value = this->source_->peek();
     }
 
-    return Token(TokenType::NUMBER_BIN, colno, this->lineno_, number);
+    return Token(TokenType::NUMBER_BIN, start, this->pos_, number);
 }
 
-Token Scanner::ParseOctal() {
-    std::string number;
-    int colno = this->colno_;
+Token Scanner::ParseOctal(Pos start) {
     int value = this->source_->peek();
+    std::string number;
 
     while (value >= '0' && value <= '7') {
         number += (char) value;
@@ -31,13 +29,12 @@ Token Scanner::ParseOctal() {
         value = this->source_->peek();
     }
 
-    return Token(TokenType::NUMBER_OCT, colno, this->lineno_, number);
+    return Token(TokenType::NUMBER_OCT, start, this->pos_, number);
 }
 
-Token Scanner::ParseHex() {
-    std::string number;
-    int colno = this->colno_;
+Token Scanner::ParseHex(Pos start) {
     int value = this->source_->peek();
+    std::string number;
 
     while (IsHexDigit(value)) {
         number += (char) value;
@@ -45,13 +42,12 @@ Token Scanner::ParseHex() {
         value = this->source_->peek();
     }
 
-    return Token(TokenType::NUMBER_HEX, colno, this->lineno_, number);
+    return Token(TokenType::NUMBER_HEX, start, this->pos_, number);
 }
 
-Token Scanner::ParseDecimal() {
+Token Scanner::ParseDecimal(Pos start) {
     TokenType type = TokenType::NUMBER;
     std::string number;
-    int colno = this->colno_;
 
     for (; IsDigit(this->source_->peek()); number += (char) this->GetCh());
 
@@ -62,12 +58,11 @@ Token Scanner::ParseDecimal() {
         type = TokenType::DECIMAL;
     }
 
-    return Token(type, colno, this->lineno_, number);
+    return Token(type, start, this->pos_, number);
 }
 
 Token Scanner::ParseNumber() {
-    unsigned colno = this->colno_;
-    unsigned lineno = this->lineno_;
+    Pos start = this->pos_;
     Token tk;
 
     if (this->source_->peek() == '0') {
@@ -75,28 +70,20 @@ Token Scanner::ParseNumber() {
         switch (tolower(this->source_->peek())) {
             case 'b':
                 this->GetCh();
-                tk = this->ParseBinary();
-                tk.colno = colno;
-                return tk;
+                return this->ParseBinary(start);
             case 'o':
                 this->GetCh();
-                tk = this->ParseOctal();
-                tk.colno = colno;
-                return tk;
+                return this->ParseOctal(start);
             case 'x':
                 this->GetCh();
-                tk = this->ParseHex();
-                tk.colno = colno;
-                return tk;
+                return this->ParseHex(start);
         }
 
         if (!IsDigit(this->source_->peek()))
-            return Token(TokenType::NUMBER, colno, lineno, "0");
+            return Token(TokenType::NUMBER, start, this->pos_, "0");
     }
 
-    tk = this->ParseDecimal();
-    tk.colno = colno;
-    return tk;
+    return this->ParseDecimal(start);
 }
 
 bool Scanner::ParseEscape(int stopChr, bool ignore_unicode_escape, std::string &dest, std::string &error) {
@@ -202,7 +189,7 @@ bool Scanner::ParseOctEscape(std::string &dest, std::string &error, int value) {
         sequence[i] = HexDigitToNumber(this->GetCh());
 
     for (int i = 0, mul = 0; i < 3; i++) {
-        byte |= sequence[i] << (mul * 3);
+        byte |= sequence[i] << (unsigned char) (mul * 3);
         if (sequence[i] != 0)
             mul++;
     }
@@ -232,28 +219,27 @@ bool Scanner::ParseHexToByte(unsigned char &byte) {
     for (int i = 1; i >= 0; i--) {
         if (!IsHexDigit(curr = this->GetCh()))
             return false;
-        byte |= HexDigitToNumber(curr) << (i * 4);
+        byte |= HexDigitToNumber(curr) << (unsigned char) (i * 4);
     }
     return true;
 }
 
-Token Scanner::ParseString(int colno, bool byte_string) {
-    std::string string;
+Token Scanner::ParseString(Pos start, bool byte_string) {
     int curr = this->GetCh();
+    std::string string;
 
     while (curr != '"') {
         if (!this->source_->good() || curr == '\n')
-            return Token(TokenType::ERROR, colno, this->lineno_, "unterminated string");
+            return Token(TokenType::ERROR, start, this->pos_, "unterminated string");
 
         // Byte string accept byte in range (0x00 - 0x7F)
         if (byte_string && curr > 0x7F)
-            return Token(TokenType::ERROR, colno, this->lineno_,
-                         "byte string can only contain ASCII literal characters");
+            return Token(TokenType::ERROR, start, this->pos_, "byte string can only contain ASCII literal characters");
 
         if (curr == '\\') {
             if (this->source_->peek() != '\\') {
                 if (!this->ParseEscape('"', byte_string, string, string))
-                    return Token(TokenType::ERROR, colno, this->lineno_, string);
+                    return Token(TokenType::ERROR, start, this->pos_, string);
                 curr = this->GetCh();
                 continue;
             }
@@ -264,11 +250,11 @@ Token Scanner::ParseString(int colno, bool byte_string) {
     }
 
     if (byte_string)
-        return Token(TokenType::BYTE_STRING, colno, this->lineno_, string);
-    return Token(TokenType::STRING, colno, this->lineno_, string);
+        return Token(TokenType::BYTE_STRING, start, this->pos_, string);
+    return Token(TokenType::STRING, start, this->pos_, string);
 }
 
-Token Scanner::ParseRawString(int colno, int lineno) {
+Token Scanner::ParseRawString(Pos start) {
     std::string raw;
     int hashes = 0;
     int count = 0;
@@ -276,7 +262,7 @@ Token Scanner::ParseRawString(int colno, int lineno) {
     for (; this->source_->peek() == '#'; this->GetCh(), hashes++);
 
     if (this->GetCh() != '"')
-        return Token(TokenType::ERROR, colno, lineno, "invalid raw string prologue");
+        return Token(TokenType::ERROR, start, this->pos_, "invalid raw string prologue");
 
     while (this->source_->good()) {
         if (this->source_->peek() == '"') {
@@ -290,29 +276,29 @@ Token Scanner::ParseRawString(int colno, int lineno) {
                 }
                 continue;
             }
-            return Token(TokenType::RAW_STRING, colno, lineno, raw);
+            return Token(TokenType::RAW_STRING, start, this->pos_, raw);
         }
         raw += (char) this->GetCh();
     }
 
-    return Token(TokenType::ERROR, colno, lineno, "unterminated raw string");
+    return Token(TokenType::ERROR, start, this->pos_, "unterminated raw string");
 }
 
 Token Scanner::ParseWord() {
-    std::string word;
-    int colno = this->colno_;
+    Pos start = this->pos_;
     int value = this->GetCh();
+    std::string word;
 
     if (value == 'b') {
         if (this->source_->peek() == '"') {
             this->GetCh();
-            return this->ParseString(colno, true);
+            return this->ParseString(start, true);
         }
     }
 
     if (value == 'r') {
         if (this->source_->peek() == '#' || this->source_->peek() == '"')
-            return this->ParseRawString(colno, this->lineno_);
+            return this->ParseRawString(start);
     }
 
     word += (char) value;
@@ -324,19 +310,25 @@ Token Scanner::ParseWord() {
         value = this->source_->peek();
     }
 
-    return Token(TokenType::WORD, colno, this->lineno_, word);
+    // keywords are longer than one letter
+    if (word.size() > 1) {
+        if (Keywords.find(word) != Keywords.end())
+            return Token(Keywords.at(word), start, this->pos_, word);
+    }
+
+    return Token(TokenType::IDENTIFIER, start, this->pos_, word);
 }
 
-std::string Scanner::ParseComment(bool inline_coment) {
+std::string Scanner::ParseComment(bool inline_comment) {
     std::string comment;
 
     // Skip newline/whitespace at comment start
     for (int skip = this->source_->peek();
-         IsSpace(skip) || (!inline_coment && skip == '\n');
+         IsSpace(skip) || (!inline_comment && skip == '\n');
          this->GetCh(), skip = this->source_->peek());
 
     while (this->source_->good()) {
-        if (this->source_->peek() == '\n' && inline_coment)
+        if (this->source_->peek() == '\n' && inline_comment)
             break;
 
         if (this->source_->peek() == '*') {
@@ -353,14 +345,14 @@ std::string Scanner::ParseComment(bool inline_coment) {
 }
 
 Token Scanner::NextToken() {
-    int value = this->source_->peek();
-    int colno = 0;
-    int lineno = 0;
+    Pos start;
+    int value;
+
+    this->source_->peek(); // INIT
 
     while (this->source_->good()) {
         value = this->source_->peek();
-        colno = this->colno_;
-        lineno = this->lineno_;
+        start = this->pos_;
 
         if (IsSpace(value)) {
             for (; IsSpace(this->source_->peek()); this->GetCh());
@@ -376,168 +368,198 @@ Token Scanner::NextToken() {
         switch (value) {
             case 0x0A: // NewLine
                 for (; this->source_->peek() == '\n'; this->GetCh());
-                return Token(TokenType::END_OF_LINE, colno, lineno, "");
+                return Token(TokenType::END_OF_LINE, start, this->pos_, "");
             case '!':
                 this->GetCh();
                 if (this->source_->peek() == '=') {
                     this->GetCh();
-                    return Token(TokenType::NOT_EQUAL, colno, lineno, "");
+                    return Token(TokenType::NOT_EQUAL, start, this->pos_, "");
                 }
-                return Token(TokenType::EXCLAMATION, colno, lineno, "");
+                if (this->source_->peek() == '.') {
+                    this->GetCh();
+                    return Token(TokenType::EXCLAMATION_DOT, start, this->pos_, "");
+                }
+                if (this->source_->peek() == '{') {
+                    this->GetCh();
+                    return Token(TokenType::EXCLAMATION_LBRACES, start, this->pos_, "");
+                }
+                return Token(TokenType::EXCLAMATION, start, this->pos_, "");
             case '"':
                 this->GetCh();
-                return this->ParseString(colno, false);
+                return this->ParseString(start, false);
             case '#':
                 this->GetCh();
-                return Token(TokenType::INLINE_COMMENT, colno, lineno, this->ParseComment(true));
+                return Token(TokenType::INLINE_COMMENT, start, this->pos_, this->ParseComment(true));
             case '%':
                 this->GetCh();
-                return Token(TokenType::PERCENT, colno, lineno, "");
+                return Token(TokenType::PERCENT, start, this->pos_, "");
             case '&':
                 this->GetCh();
                 if (this->source_->peek() == '&') {
                     this->GetCh();
-                    return Token(TokenType::AND, colno, lineno, "");
+                    return Token(TokenType::AND, start, this->pos_, "");
                 }
-                return Token(TokenType::AMPERSAND, colno, lineno, "");
+                return Token(TokenType::AMPERSAND, start, this->pos_, "");
             case '\'':
                 this->GetCh();
                 break;
             case '(':
                 this->GetCh();
-                return Token(TokenType::LEFT_ROUND, colno, lineno, "");
+                return Token(TokenType::LEFT_ROUND, start, this->pos_, "");
             case ')':
                 this->GetCh();
-                return Token(TokenType::RIGHT_ROUND, colno, lineno, "");
+                return Token(TokenType::RIGHT_ROUND, start, this->pos_, "");
             case '*':
                 this->GetCh();
                 if (this->source_->peek() == '=') {
                     this->GetCh();
-                    return Token(TokenType::ASTERISK_EQ, colno, lineno, "");
+                    return Token(TokenType::ASTERISK_EQ, start, this->pos_, "");
                 }
-                return Token(TokenType::ASTERISK, colno, lineno, "");
+                return Token(TokenType::ASTERISK, start, this->pos_, "");
             case '+':
                 this->GetCh();
                 if (this->source_->peek() == '=') {
                     this->GetCh();
-                    return Token(TokenType::PLUS_EQ, colno, lineno, "");
+                    return Token(TokenType::PLUS_EQ, start, this->pos_, "");
                 }
                 if (this->source_->peek() == '+') {
                     this->GetCh();
-                    return Token(TokenType::PLUS_PLUS, colno, lineno, "");
+                    return Token(TokenType::PLUS_PLUS, start, this->pos_, "");
                 }
-                return Token(TokenType::PLUS, colno, lineno, "");
+                return Token(TokenType::PLUS, start, this->pos_, "");
             case ',':
                 this->GetCh();
-                return Token(TokenType::COMMA, colno, lineno, "");
+                return Token(TokenType::COMMA, start, this->pos_, "");
             case '-':
                 this->GetCh();
                 if (this->source_->peek() == '=') {
                     this->GetCh();
-                    return Token(TokenType::MINUS_EQ, colno, lineno, "");
+                    return Token(TokenType::MINUS_EQ, start, this->pos_, "");
                 }
                 if (this->source_->peek() == '-') {
                     this->GetCh();
-                    return Token(TokenType::MINUS_MINUS, colno, lineno, "");
+                    return Token(TokenType::MINUS_MINUS, start, this->pos_, "");
                 }
-                return Token(TokenType::MINUS, colno, lineno, "");
+                return Token(TokenType::MINUS, start, this->pos_, "");
             case '.':
                 this->GetCh();
                 if (this->source_->peek() == '.') {
                     this->GetCh();
                     if (this->source_->peek() == '.') {
                         this->GetCh();
-                        return Token(TokenType::ELLIPSIS, colno, lineno, "");
+                        return Token(TokenType::ELLIPSIS, start, this->pos_, "");
                     }
                     this->source_->seekg(this->source_->tellg().operator-(1));
-                    this->colno_--;
+                    this->pos_--;
                 }
-                return Token(TokenType::DOT, colno, lineno, "");
+                return Token(TokenType::DOT, start, this->pos_, "");
             case '/':
                 this->GetCh();
+                if (this->source_->peek() == '/') {
+                    this->GetCh();
+                    return Token(TokenType::SLASH_SLASH, start, this->pos_, "");
+                }
                 if (this->source_->peek() == '=') {
                     this->GetCh();
-                    return Token(TokenType::SLASH_EQ, colno, lineno, "");
+                    return Token(TokenType::SLASH_EQ, start, this->pos_, "");
                 }
                 if (this->source_->peek() == '*') {
                     this->GetCh();
-                    return Token(TokenType::COMMENT, colno, lineno, this->ParseComment(false));
+                    return Token(TokenType::COMMENT, start, this->pos_, this->ParseComment(false));
                 }
-                return Token(TokenType::FRACTION_SLASH, colno, lineno, "");
+                return Token(TokenType::SLASH, start, this->pos_, "");
             case ':':
                 this->GetCh();
-                return Token(TokenType::COLON, colno, lineno, "");
+                if (this->source_->peek() == ':') {
+                    this->GetCh();
+                    return Token(TokenType::SCOPE, start, this->pos_, "");
+                }
+                return Token(TokenType::COLON, start, this->pos_, "");
             case ';':
                 this->GetCh();
-                return Token(TokenType::SEMICOLON, colno, lineno, "");
+                return Token(TokenType::SEMICOLON, start, this->pos_, "");
             case '<':
                 this->GetCh();
                 if (this->source_->peek() == '=') {
                     this->GetCh();
-                    return Token(TokenType::LESS_EQ, colno, lineno, "");
+                    return Token(TokenType::LESS_EQ, start, this->pos_, "");
                 }
                 if (this->source_->peek() == '<') {
                     this->GetCh();
-                    return Token(TokenType::SHL, colno, lineno, "");
+                    return Token(TokenType::SHL, start, this->pos_, "");
                 }
-                return Token(TokenType::LESS, colno, lineno, "");
+                return Token(TokenType::LESS, start, this->pos_, "");
             case '=':
                 this->GetCh();
                 if (this->source_->peek() == '=') {
                     this->GetCh();
-                    return Token(TokenType::EQUAL_EQUAL, colno, lineno, "");
+                    return Token(TokenType::EQUAL_EQUAL, start, this->pos_, "");
                 }
-                return Token(TokenType::EQUAL, colno, lineno, "");
+                if (this->source_->peek() == '>') {
+                    this->GetCh();
+                    return Token(TokenType::ARROW, start, this->pos_, "");
+                }
+                return Token(TokenType::EQUAL, start, this->pos_, "");
             case '>':
                 this->GetCh();
                 if (this->source_->peek() == '=') {
                     this->GetCh();
-                    return Token(TokenType::GREATER_EQ, colno, lineno, "");
+                    return Token(TokenType::GREATER_EQ, start, this->pos_, "");
                 }
                 if (this->source_->peek() == '>') {
                     this->GetCh();
-                    return Token(TokenType::SHR, colno, lineno, "");
+                    return Token(TokenType::SHR, start, this->pos_, "");
                 }
-                return Token(TokenType::GREATER, colno, lineno, "");
+                return Token(TokenType::GREATER, start, this->pos_, "");
+            case '?':
+                this->GetCh();
+                if (this->source_->peek() == ':') {
+                    this->GetCh();
+                    return Token(TokenType::ELVIS, start, this->pos_, "");
+                }
+                if (this->source_->peek() == '.') {
+                    this->GetCh();
+                    return Token(TokenType::QUESTION_DOT, start, this->pos_, "");
+                }
+                return Token(TokenType::QUESTION, start, this->pos_, "");
             case '[':
                 this->GetCh();
-                return Token(TokenType::LEFT_SQUARE, colno, lineno, "");
+                return Token(TokenType::LEFT_SQUARE, start, this->pos_, "");
             case ']':
                 this->GetCh();
-                return Token(TokenType::RIGHT_SQUARE, colno, lineno, "");
+                return Token(TokenType::RIGHT_SQUARE, start, this->pos_, "");
             case '^':
                 this->GetCh();
-                return Token(TokenType::CARET, colno, lineno, "");
+                return Token(TokenType::CARET, start, this->pos_, "");
             case '{':
                 this->GetCh();
-                return Token(TokenType::LEFT_BRACES, colno, lineno, "");
+                return Token(TokenType::LEFT_BRACES, start, this->pos_, "");
             case '|':
                 this->GetCh();
                 if (this->source_->peek() == '|') {
                     this->GetCh();
-                    return Token(TokenType::OR, colno, lineno, "");
+                    return Token(TokenType::OR, start, this->pos_, "");
                 }
-                return Token(TokenType::PIPE, colno, lineno, "");
+                return Token(TokenType::PIPE, start, this->pos_, "");
             case '}':
                 this->GetCh();
-                return Token(TokenType::RIGHT_BRACES, colno, lineno, "");
+                return Token(TokenType::RIGHT_BRACES, start, this->pos_, "");
             case '~':
                 this->GetCh();
-                return Token(TokenType::TILDE, colno, lineno, "");
+                return Token(TokenType::TILDE, start, this->pos_, "");
             default:
-                return Token(TokenType::ERROR, colno, lineno, "invalid token");
+                return Token(TokenType::ERROR, start, this->pos_, "invalid token");
         }
     }
 
-    return Token(TokenType::END_OF_FILE, this->colno_, this->lineno_, "");
+    return Token(TokenType::END_OF_FILE, this->pos_, this->pos_, "");
 }
 
 int Scanner::GetCh() {
     int value = this->source_->get();
-    this->colno_++;
-    if (value == '\n') {
-        this->colno_ = 0;
-        this->lineno_++;
+    if (!this->source_->eof()) {
+        this->pos_ = (Pos) this->source_->tellg();
+        this->pos_++;
     }
     return value;
 }

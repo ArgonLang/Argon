@@ -28,12 +28,10 @@ namespace lang::scanner {
 
     class Scanner {
     private:
-        Token peeked_token_;
         std::istream *source_;
+        Token peeked_token_;
         bool peeked_ = false;
-        int colno_ = 0;
-        int lineno_ = 0;
-
+        Pos pos_ = 1;
 
         bool ParseEscape(int stopChr, bool ignore_unicode_escape, std::string &dest, std::string &error);
 
@@ -47,19 +45,19 @@ namespace lang::scanner {
 
         std::string ParseComment(bool inline_comment);
 
-        Token ParseBinary();
+        Token ParseBinary(Pos start);
 
-        Token ParseOctal();
+        Token ParseOctal(Pos start);
 
-        Token ParseHex();
+        Token ParseHex(Pos start);
 
-        Token ParseDecimal();
+        Token ParseDecimal(Pos start);
 
         Token ParseNumber();
 
-        Token ParseString(int colno, bool byte_string);
+        Token ParseString(Pos start, bool byte_string);
 
-        Token ParseRawString(int colno, int lineno);
+        Token ParseRawString(Pos start);
 
         Token ParseWord();
 
