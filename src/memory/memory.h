@@ -6,7 +6,7 @@
 #define ARGON_MEMORY_MEMORY_H_
 
 namespace argon::memory {
-
+    void *Alloc(size_t size);
 } // namespace argon::memory
 
 #endif // !ARGON_MEMORY_MEMORY_H_
