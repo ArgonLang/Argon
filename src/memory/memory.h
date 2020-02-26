@@ -12,6 +12,10 @@ namespace argon::memory {
     void *Alloc(size_t size);
 
     void Free(void *ptr);
+
+    void InitializeMemory();
+
+    void FinalizeMemory();
 } // namespace argon::memory
 
 #endif // !ARGON_MEMORY_MEMORY_H_

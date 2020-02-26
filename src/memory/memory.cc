@@ -161,3 +161,17 @@ void argon::memory::Free(void *ptr) {
     TryReleaseMemory(pool, clazz);
     pools[clazz].lock.unlock();
 }
+
+void argon::memory::InitializeMemory() {
+    for (int i = 0; i < ARGON_MEMORY_MINIMUM_POOL; arenas.Append(AllocArena()), i++);
+}
+
+void argon::memory::FinalizeMemory() {
+    Arena *arena = nullptr;
+    Arena *next = nullptr;
+
+    for (arena = arenas.head; arena != nullptr; arena = next) {
+        next = arena->next;
+        FreeArena(arena);
+    }
+}
