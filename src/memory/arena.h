@@ -15,6 +15,27 @@
 #define ARGON_MEMORY_BLOCK_MAX_SIZE     512
 #define ARGON_MEMORY_CLASSES            (ARGON_MEMORY_BLOCK_MAX_SIZE / ARGON_MEMORY_QUANTUM)
 
+/*
+ * Argon memory layout:
+ *                                 +--+
+ * +-------------------------------+  |
+ * | POOL  | POOL  | POOL  | POOL  |  |
+ * | HEADER| HEADER| HEADER| HEADER|  |
+ * +-------+-------+-------+-------|  |
+ * | BLOCK |       | BLOCK |       |  |
+ * |       | BLOCK +-------+   B   |  |
+ * +-------+       | BLOCK |   I   |  | A
+ * | BLOCK +-------+-------+   G   |  | R
+ * |       |       | BLOCK |       |  | E . . .
+ * +-------+ BLOCK +-------+   B   |  | N
+ * | BLOCK |       | BLOCK |   L   |  | A
+ * |       +-------+-------+   O   |  |
+ * +-------+       | BLOCK |   C   |  |
+ * +-------+ BLOCK +-------+   K   |  |
+ * | ARENA |       | BLOCK |       |  |
+ * +-------------------------------+  |
+ *                                 +--+
+ */
 namespace argon::memory {
     using Uintptr = uintptr_t;
 
@@ -27,7 +48,8 @@ namespace argon::memory {
     }
 
     inline size_t SizeToPoolClass(size_t size) {
-        return (((size + ARGON_MEMORY_QUANTUM) & ~((size_t) ARGON_MEMORY_QUANTUM - 1)) / ARGON_MEMORY_QUANTUM) - 1;
+        return (((size + (ARGON_MEMORY_QUANTUM - 1)) & ~((size_t) ARGON_MEMORY_QUANTUM - 1)) / ARGON_MEMORY_QUANTUM) -
+               1;
     }
 
     inline size_t ClassToSize(size_t clazz) {
@@ -80,14 +102,25 @@ namespace argon::memory {
                 obj->next->prev = obj;
             else
                 tail = obj;
+
+            this->count++;
         }
 
     public:
         std::mutex lock;
         T *head = nullptr;
         T *tail = nullptr;
+        unsigned int count = 0;
+
+        T *FindFree() {
+            T *obj = nullptr;
+            for (obj = this->head; obj != nullptr && obj->free == 0; obj = obj->next);
+            return obj;
+        }
 
         void Append(T *obj) {
+            this->count++;
+
             if (this->head == nullptr) {
                 head = obj;
                 tail = obj;
@@ -109,12 +142,14 @@ namespace argon::memory {
                 obj->next->prev = obj->prev;
             else
                 tail = obj->prev;
+
+            this->count--;
         }
 
         void Sort(T *obj) {
             T *cand = obj;
 
-            for (T *cur = obj; cur != nullptr && obj.free >= cur.free; cand = cur, cur = cur->next);
+            for (T *cur = obj; cur != nullptr && obj->free >= cur->free; cand = cur, cur = cur->next);
 
             if (cand != obj) {
                 Remove(obj);

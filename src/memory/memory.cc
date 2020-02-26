@@ -6,7 +6,6 @@
 #include "arena.h"
 #include "osmemory.h"
 
-#include <mutex>
 #include <cassert>
 
 using namespace argon::memory;
@@ -55,13 +54,25 @@ Pool *AllocPool(Arena *arena, size_t clazz) {
     if (pool == AlignDown(arena, ARGON_MEMORY_PAGE_SIZE))
         bytes -= sizeof(Arena);
 
-    pool->blocksz = ClassToSize(clazz);
-    pool->blocks = bytes / pool->blocksz;
+    pool->blocksz = (unsigned short) ClassToSize(clazz);
+    pool->blocks = (unsigned short) bytes / pool->blocksz;
     pool->free = pool->blocks;
     pool->block = ((unsigned char *) pool) + sizeof(Pool);
     *((Uintptr *) pool->block) = 0x0;
 
     return pool;
+}
+
+void FreeArena(Arena *arena) {
+    void *mem = AlignDown(arena, ARGON_MEMORY_PAGE_SIZE);
+    argon::memory::os::Free(mem, ARGON_MEMORY_ARENA_SIZE);
+}
+
+void FreePool(Pool *pool) {
+    Arena *arena = pool->arena;
+    pool->next = arena->pool;
+    arena->pool = pool;
+    arena->free++;
 }
 
 void *AllocBlock(Pool *pool) {
@@ -79,23 +90,26 @@ void *AllocBlock(Pool *pool) {
     return block;
 }
 
+void FreeBlock(Pool *pool, void *block) {
+    *((Uintptr *) block) = (Uintptr) pool->block;
+    pool->block = block;
+    pool->free++;
+}
+
 Arena *FindOrCreateArena() {
-    Arena *arena = nullptr;
+    Arena *arena = arenas.FindFree();
 
-    if (arenas.head != nullptr)
-        for (arena = arenas.head; arena != nullptr && arena->free == 0; arena = arena->next);
-
-    arena = AllocArena();
-    arenas.Append(arena);
+    if (arena == nullptr) {
+        arena = AllocArena();
+        arenas.Append(arena);
+    }
 
     return arena;
 }
 
 Pool *GetPool(size_t clazz) {
     Arena *arena = nullptr;
-    Pool *pool = nullptr;
-
-    for (pool = pools[clazz].head; pool != nullptr && pool->free == 0; pool = pool->next);
+    Pool *pool = pools[clazz].FindFree();
 
     if (pool == nullptr) {
         arenas.lock.lock();
@@ -106,6 +120,23 @@ Pool *GetPool(size_t clazz) {
     }
 
     return pool;
+}
+
+void TryReleaseMemory(Pool *pool, size_t clazz) {
+    Arena *arena = pool->arena;
+
+    if (pool->free == pool->blocks) {
+        arenas.lock.lock();
+        FreePool(pool);
+        if (pool->arena->free != pool->arena->pools)
+            arenas.Sort(pool->arena);
+        else if (arenas.count > ARGON_MEMORY_MINIMUM_POOL) {
+            arenas.Remove(arena);
+            FreeArena(arena);
+        }
+        arenas.lock.unlock();
+    } else
+        pools[clazz].Sort(pool);
 }
 
 void *argon::memory::Alloc(size_t size) {
@@ -119,4 +150,14 @@ void *argon::memory::Alloc(size_t size) {
     pools[clazz].lock.unlock();
 
     return mem;
+}
+
+void argon::memory::Free(void *ptr) {
+    Pool *pool = (Pool *) AlignDown(ptr, ARGON_MEMORY_PAGE_SIZE);
+    size_t clazz = SizeToPoolClass(pool->blocksz);
+
+    pools[clazz].lock.lock();
+    FreeBlock(pool, ptr);
+    TryReleaseMemory(pool, clazz);
+    pools[clazz].lock.unlock();
 }
