@@ -16,7 +16,7 @@ Arena *argon::memory::AllocArena() {
     // Arena was located in the last bytes of the first Pool
     arena = new(((unsigned char *) mem) + (ARGON_MEMORY_PAGE_SIZE - sizeof(Arena))) Arena();
 
-    arena->pools = ARGON_MEMORY_ARENA_SIZE / ARGON_MEMORY_PAGE_SIZE;
+    arena->pools = ARGON_MEMORY_POOLS_AVAILABLE;
     arena->free = arena->pools;
 
     // Setup first Pool at the beginning of the allocated memory
@@ -26,22 +26,24 @@ Arena *argon::memory::AllocArena() {
     return arena;
 }
 
+void argon::memory::FreeArena(Arena *arena) {
+    void *mem = AlignDown(arena, ARGON_MEMORY_PAGE_SIZE);
+    argon::memory::os::Free(mem, ARGON_MEMORY_ARENA_SIZE);
+}
+
 Pool *argon::memory::AllocPool(Arena *arena, size_t clazz) {
     size_t bytes = ARGON_MEMORY_PAGE_SIZE - sizeof(Pool);
     Pool *pool = arena->pool;
 
     assert(pool != nullptr);
 
-    arena->pool = pool->next;
-    if (arena->pool == nullptr) {
-        void *nxtpool = AlignUp(pool, ARGON_MEMORY_PAGE_SIZE);
-        if (nxtpool < ((unsigned char *) AlignDown(arena, ARGON_MEMORY_PAGE_SIZE)) + ARGON_MEMORY_ARENA_SIZE) {
-            arena->pool = new(nxtpool)Pool();
-            arena->pool->arena = arena;
-        }
-    }
-
     arena->free--;
+
+    arena->pool = pool->next;
+    if (arena->pool == nullptr && arena->free > 0) {
+        arena->pool = new(AlignUp(pool, ARGON_MEMORY_PAGE_SIZE))Pool();
+        arena->pool->arena = arena;
+    }
 
     if (pool == AlignDown(arena, ARGON_MEMORY_PAGE_SIZE))
         bytes -= sizeof(Arena);
@@ -53,11 +55,6 @@ Pool *argon::memory::AllocPool(Arena *arena, size_t clazz) {
     *((Uintptr *) pool->block) = 0x0;
 
     return pool;
-}
-
-void argon::memory::FreeArena(Arena *arena) {
-    void *mem = AlignDown(arena, ARGON_MEMORY_PAGE_SIZE);
-    argon::memory::os::Free(mem, ARGON_MEMORY_ARENA_SIZE);
 }
 
 void argon::memory::FreePool(Pool *pool) {

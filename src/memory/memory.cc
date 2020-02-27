@@ -64,10 +64,12 @@ void *argon::memory::Alloc(size_t size) {
     Pool *pool = nullptr;
     void *mem = nullptr;
 
-    pools[clazz].lock.lock();
-    pool = GetPool(clazz);
-    mem = AllocBlock(pool);
-    pools[clazz].lock.unlock();
+    if (size <= ARGON_MEMORY_BLOCK_MAX_SIZE) {
+        pools[clazz].lock.lock();
+        pool = GetPool(clazz);
+        mem = AllocBlock(pool);
+        pools[clazz].lock.unlock();
+    } else mem = operator new(size);
 
     return mem;
 }
@@ -76,10 +78,12 @@ void argon::memory::Free(void *ptr) {
     Pool *pool = (Pool *) AlignDown(ptr, ARGON_MEMORY_PAGE_SIZE);
     size_t clazz = SizeToPoolClass(pool->blocksz);
 
-    pools[clazz].lock.lock();
-    FreeBlock(pool, ptr);
-    TryReleaseMemory(pool, clazz);
-    pools[clazz].lock.unlock();
+    if (AddressInArenas(ptr)) {
+        pools[clazz].lock.lock();
+        FreeBlock(pool, ptr);
+        TryReleaseMemory(pool, clazz);
+        pools[clazz].lock.unlock();
+    } else ::operator delete(ptr);
 }
 
 void argon::memory::InitializeMemory() {
