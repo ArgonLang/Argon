@@ -11,7 +11,16 @@
 namespace argon::memory {
     void *Alloc(size_t size);
 
+    template<typename T, typename ...Args>
+    inline T *AllocObject(Args ...args) { return new(Alloc(sizeof(T))) T(args...); }
+
     void Free(void *ptr);
+
+    template<typename T>
+    inline void FreeObject(T *obj) {
+        obj->~T();
+        Free(obj);
+    }
 
     void InitializeMemory();
 
