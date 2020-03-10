@@ -5,6 +5,8 @@
 #ifndef ARGON_MEMORY_OSMEMORY_H_
 #define ARGON_MEMORY_OSMEMORY_H_
 
+#include <cstddef>
+
 namespace argon::memory::os {
     void *Alloc(size_t size);
 

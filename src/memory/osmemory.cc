@@ -19,10 +19,11 @@ void argon::memory::os::Free(void *ptr, size_t size) { VirtualFree(ptr, 0, MEM_R
 #elif defined(__gnu_linux__) || (defined(__APPLE__) && defined(__MACH__))
 
 #include <sys/mman.h>
+#include <cstdint>
 
 void *argon::memory::os::Alloc(size_t size) {
     void *mem = mmap(nullptr, size, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
-    if (mem < -1) return nullptr;
+    if ((uintptr_t) mem == -1) return nullptr;
     return mem;
 }
 

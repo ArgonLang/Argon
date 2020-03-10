@@ -5,6 +5,7 @@
 #ifndef ARGON_MEMORY_ARENA_H_
 #define ARGON_MEMORY_ARENA_H_
 
+#include <cstddef>
 #include <cstdint>
 
 #define ARGON_MEMORY_PAGE_SIZE          4096                                        // Assume page size of 4096 bytes

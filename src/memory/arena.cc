@@ -5,7 +5,9 @@
 #include "arena.h"
 #include "osmemory.h"
 
+#include <cstddef>
 #include <cassert>
+#include <new>
 
 using namespace argon::memory;
 

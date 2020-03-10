@@ -6,6 +6,8 @@
 #ifndef ARGON_MEMORY_MEMORY_H_
 #define ARGON_MEMORY_MEMORY_H_
 
+#include <cstddef>
+
 #define ARGON_MEMORY_MINIMUM_POOL  16 // Minimum number of arenas, Argon WILL NEVER release this memory to the OS.
 
 namespace argon::memory {
