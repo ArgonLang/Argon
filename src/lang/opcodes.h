@@ -11,6 +11,9 @@ namespace lang {
 
     enum class OpCodes : unsigned char {
         MK_TUPLE,
+        MK_LIST,
+        MK_SET,
+        MK_MAP,
         JMP,    // JUMP
         JF,     // JUMP_FALSE
         JTOP,   // JUMP_TRUE_OR_POP

@@ -80,11 +80,6 @@ void Compiler::CompileCode(const ast::NodeUptr &node) {
             for (auto &stmt : CastNode<Block>(node)->stmts)
                 this->CompileCode(stmt);
             break;
-        case NodeType::TUPLE:
-            for (auto &expr : CastNode<List>(node)->expressions)
-                this->CompileCode(expr);
-            this->EmitOp(OpCodes::MK_TUPLE, CastNode<List>(node)->expressions.size());
-            break;
         case NodeType::IF:
             this->CompileBranch(CastNode<If>(node));
             break;
@@ -137,6 +132,12 @@ void Compiler::CompileCode(const ast::NodeUptr &node) {
             this->CompileCode(CastNode<Unary>(node)->expr);
             this->CompileUnaryExpr(CastNode<Unary>(node));
             break;
+        case NodeType::TUPLE:
+        case NodeType::LIST:
+        case NodeType::SET:
+        case NodeType::MAP:
+            this->CompileCompound(CastNode<List>(node));
+            break;
         case NodeType::IDENTIFIER:
             break;
         case NodeType::SCOPE:
@@ -144,6 +145,28 @@ void Compiler::CompileCode(const ast::NodeUptr &node) {
         case NodeType::LITERAL:
             this->CompileLiteral(CastNode<Literal>(node));
             break;
+        default:
+            assert(false);
+    }
+}
+
+void Compiler::CompileCompound(const ast::List *list) {
+    for (auto &expr : list->expressions)
+        this->CompileCode(expr);
+
+    switch (list->type) {
+        case NodeType::TUPLE:
+            this->EmitOp(OpCodes::MK_TUPLE, list->expressions.size());
+            return;
+        case NodeType::LIST:
+            this->EmitOp(OpCodes::MK_LIST, list->expressions.size());
+            return;
+        case NodeType::SET:
+            this->EmitOp(OpCodes::MK_SET, list->expressions.size());
+            return;
+        case NodeType::MAP:
+            this->EmitOp(OpCodes::MK_MAP, list->expressions.size() / 2);
+            return;
         default:
             assert(false);
     }

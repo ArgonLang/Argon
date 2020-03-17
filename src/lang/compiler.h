@@ -25,6 +25,8 @@ namespace lang {
 
         void CompileCode(const ast::NodeUptr &node);
 
+        void CompileCompound(const ast::List *list);
+
         void CompileLiteral(const ast::Literal *literal);
 
         void CompileTest(const ast::Binary *test);
