@@ -10,6 +10,7 @@ namespace lang {
     using InstrSz = unsigned int;
 
     enum class OpCodes : unsigned char {
+        MK_TUPLE,
         JMP,    // JUMP
         JF,     // JUMP_FALSE
         JTOP,   // JUMP_TRUE_OR_POP

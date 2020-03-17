@@ -80,6 +80,11 @@ void Compiler::CompileCode(const ast::NodeUptr &node) {
             for (auto &stmt : CastNode<Block>(node)->stmts)
                 this->CompileCode(stmt);
             break;
+        case NodeType::TUPLE:
+            for (auto &expr : CastNode<List>(node)->expressions)
+                this->CompileCode(expr);
+            this->EmitOp(OpCodes::MK_TUPLE, CastNode<List>(node)->expressions.size());
+            break;
         case NodeType::IF:
             this->CompileBranch(CastNode<If>(node));
             break;
