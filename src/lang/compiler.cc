@@ -132,6 +132,13 @@ void Compiler::CompileCode(const ast::NodeUptr &node) {
             this->CompileCode(CastNode<Unary>(node)->expr);
             this->CompileUnaryExpr(CastNode<Unary>(node));
             break;
+        case NodeType::UPDATE:
+            this->CompileCode(CastNode<Update>(node)->expr);
+            if (CastNode<Update>(node)->kind == scanner::TokenType::PLUS_PLUS)
+                this->EmitOp(CastNode<Update>(node)->prefix ? OpCodes::PREI : OpCodes::PSTI, 0);
+            else // TokenType::MINUS_MINUS
+                this->EmitOp(CastNode<Update>(node)->prefix ? OpCodes::PRED : OpCodes::PSTD, 0);
+            break;
         case NodeType::TUPLE:
         case NodeType::LIST:
         case NodeType::SET:
@@ -203,22 +210,16 @@ void Compiler::CompileTest(const ast::Binary *test) {
 void Compiler::CompileUnaryExpr(const ast::Unary *unary) {
     switch (unary->kind) {
         case scanner::TokenType::EXCLAMATION:
-            this->EmitOp(OpCodes::UNARY_NOT, 0);
+            this->EmitOp(OpCodes::NOT, 0);
             return;
         case scanner::TokenType::TILDE:
-            this->EmitOp(OpCodes::UNARY_INV, 0);
+            this->EmitOp(OpCodes::INV, 0);
             return;
         case scanner::TokenType::PLUS:
-            this->EmitOp(OpCodes::UNARY_POS, 0);
+            this->EmitOp(OpCodes::POS, 0);
             return;
         case scanner::TokenType::MINUS:
-            this->EmitOp(OpCodes::UNARY_NEG, 0);
-            return;
-        case scanner::TokenType::PLUS_PLUS:
-            this->EmitOp(OpCodes::PREFX_INC, 0);
-            return;
-        case scanner::TokenType::MINUS_MINUS:
-            this->EmitOp(OpCodes::PREFX_DEC, 0);
+            this->EmitOp(OpCodes::NEG, 0);
             return;
         default:
             assert(false);

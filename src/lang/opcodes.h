@@ -30,12 +30,14 @@ namespace lang {
         DIV,
         IDIV,
         MOD,
-        UNARY_NOT,
-        UNARY_INV,
-        UNARY_POS,
-        UNARY_NEG,
-        PREFX_INC,
-        PREFX_DEC
+        NOT,
+        INV,
+        POS,
+        NEG,
+        PREI,
+        PRED,
+        PSTI,
+        PSTD
     };
 
     enum class CompareMode : unsigned char {
