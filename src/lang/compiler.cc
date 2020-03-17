@@ -2,7 +2,7 @@
 //
 // Licensed under the Apache License v2.0
 
-#include <memory>
+#include <cassert>
 
 #include "compiler.h"
 #include "parser.h"
@@ -10,14 +10,66 @@
 using namespace lang;
 using namespace lang::ast;
 
-void Compiler::Compile(std::istream *source) {
-    Parser parser(source);
-    std::unique_ptr<ast::Program> program = parser.Parse();
+void Compiler::EmitOp(OpCodes code, unsigned char arg) {
+    //if(arg > 0x00FFFFFF)
+    //    throw
+    // TODO: bad arg, argument too long!
+    // TODO: emit bytecode!
+    this->bb_curr_->AddInstr(((InstrSz) code << (unsigned char) 24) | arg);
+}
 
-    this->NewNextBlock();
+void Compiler::CompileBinaryExpr(const ast::Binary *binary) {
+    switch (binary->kind) {
+        case scanner::TokenType::SHL:
+            this->EmitOp(OpCodes::SHL, 0);
+            return;
+        case scanner::TokenType::SHR:
+            this->EmitOp(OpCodes::SHR, 0);
+            return;
+        case scanner::TokenType::PLUS:
+            this->EmitOp(OpCodes::ADD, 0);
+            return;
+        case scanner::TokenType::MINUS:
+            this->EmitOp(OpCodes::SUB, 0);
+            return;
+        case scanner::TokenType::ASTERISK:
+            this->EmitOp(OpCodes::MUL, 0);
+            return;
+        case scanner::TokenType::SLASH:
+            this->EmitOp(OpCodes::DIV, 0);
+            return;
+        case scanner::TokenType::SLASH_SLASH:
+            this->EmitOp(OpCodes::IDIV, 0);
+            return;
+        case scanner::TokenType::PERCENT:
+            this->EmitOp(OpCodes::MOD, 0);
+            return;
+        default:
+            assert(false);
+    }
+}
 
-    for (auto &stmt : program->body)
-        this->CompileCode(stmt);
+void Compiler::CompileBranch(const ast::If *stmt) {
+    BasicBlock *test_block;
+    BasicBlock *true_block;
+
+    this->CompileCode(stmt->test);
+    this->EmitOp(OpCodes::JF, 0);
+
+    test_block = this->NewNextBlock();
+
+    this->CompileCode(stmt->body);
+    if (stmt->orelse != nullptr)
+        this->EmitOp(OpCodes::JMP, 0);
+    true_block = this->NewNextBlock();
+
+    test_block->flow_else = this->bb_curr_;
+    if (stmt->orelse != nullptr) {
+        this->CompileCode(stmt->orelse);
+        this->NewNextBlock();
+        true_block->flow_next = nullptr;
+        true_block->flow_else = this->bb_curr_;
+    }
 }
 
 void Compiler::CompileCode(const ast::NodeUptr &node) {
@@ -41,6 +93,15 @@ void Compiler::CompileCode(const ast::NodeUptr &node) {
             break;
         case NodeType::TEST:
             this->CompileTest(CastNode<Binary>(node));
+            break;
+        case NodeType::LOGICAL:
+            this->CompileCode(CastNode<Binary>(node)->left);
+            this->CompileCode(CastNode<Binary>(node)->right);
+            if (CastNode<Binary>(node)->kind == scanner::TokenType::PIPE)
+                this->EmitOp(OpCodes::LOR, 0);
+            else if (CastNode<Binary>(node)->kind == scanner::TokenType::CARET)
+                this->EmitOp(OpCodes::LXOR, 0);
+            else this->EmitOp(OpCodes::LAND, 0);
             break;
         case NodeType::EQUALITY:
             this->CompileCode(CastNode<Binary>(node)->left);
@@ -78,6 +139,8 @@ void Compiler::CompileCode(const ast::NodeUptr &node) {
         case NodeType::LITERAL:
             this->CompileLiteral(CastNode<Literal>(node));
             break;
+        default:
+            assert(false);
     }
 }
 
@@ -85,12 +148,28 @@ void Compiler::CompileLiteral(const ast::Literal *literal) {
     // TODO: impl literal
 }
 
-void Compiler::EmitOp(OpCodes code, unsigned char arg) {
-    //if(arg > 0x00FFFFFF)
-    //    throw
-    // TODO: bad arg, argument too long!
-    // TODO: emit bytecode!
-    this->bb_curr_->AddInstr(((InstrSz) code << (unsigned char) 24) | arg);
+void Compiler::CompileTest(const ast::Binary *test) {
+    BasicBlock *last = this->NewBlock();
+    BasicBlock *left;
+
+    while (true) {
+        this->CompileCode(test->left);
+        if (test->kind == scanner::TokenType::AND)
+            this->EmitOp(OpCodes::JFOP, 0);
+        else
+            this->EmitOp(OpCodes::JTOP, 0);
+
+        left = this->NewNextBlock();
+        left->flow_else = last;
+
+        if (test->right->type != NodeType::TEST)
+            break;
+
+        test = CastNode<Binary>(test->right);
+    }
+
+    this->CompileCode(test->right);
+    this->UseAsNextBlock(last);
 }
 
 void Compiler::CompileUnaryExpr(const ast::Unary *unary) {
@@ -114,49 +193,7 @@ void Compiler::CompileUnaryExpr(const ast::Unary *unary) {
             this->EmitOp(OpCodes::PREFX_DEC, 0);
             return;
         default:
-            return;
-    }
-}
-
-void Compiler::CompileBinaryExpr(const ast::Binary *binary) {
-    switch (binary->kind) {
-        case scanner::TokenType::SHL:
-            this->EmitOp(OpCodes::SHL, 0);
-            return;
-        case scanner::TokenType::SHR:
-            this->EmitOp(OpCodes::SHR, 0);
-            return;
-        case scanner::TokenType::PLUS:
-            this->EmitOp(OpCodes::ADD, 0);
-            return;
-        case scanner::TokenType::MINUS:
-            this->EmitOp(OpCodes::SUB, 0);
-            return;
-        case scanner::TokenType::ASTERISK:
-            this->EmitOp(OpCodes::MUL, 0);
-            return;
-        case scanner::TokenType::SLASH:
-            this->EmitOp(OpCodes::DIV, 0);
-            return;
-        case scanner::TokenType::SLASH_SLASH:
-            this->EmitOp(OpCodes::IDIV, 0);
-            return;
-        case scanner::TokenType::PERCENT:
-            this->EmitOp(OpCodes::MOD, 0);
-            return;
-        case scanner::TokenType::AMPERSAND:
-            this->EmitOp(OpCodes::LAND, 0);
-            return;
-        case scanner::TokenType::CARET:
-            this->EmitOp(OpCodes::LXOR, 0);
-            return;
-        case scanner::TokenType::PIPE:
-            this->EmitOp(OpCodes::LOR, 0);
-            return;
-        default:
-            // TODO: && || test
-            // Should never get here!
-            break;
+            assert(false);
     }
 }
 
@@ -185,49 +222,12 @@ BasicBlock *Compiler::NewNextBlock() {
     return prev;
 }
 
-void Compiler::CompileBranch(const ast::If *stmt) {
-    BasicBlock *test_block;
-    BasicBlock *true_block;
+void Compiler::Compile(std::istream *source) {
+    Parser parser(source);
+    std::unique_ptr<ast::Program> program = parser.Parse();
 
-    this->CompileCode(stmt->test);
-    this->EmitOp(OpCodes::JF, 0);
+    this->NewNextBlock();
 
-    test_block = this->NewNextBlock();
-
-    this->CompileCode(stmt->body);
-    if (stmt->orelse != nullptr)
-        this->EmitOp(OpCodes::JMP, 0);
-    true_block = this->NewNextBlock();
-
-    test_block->flow_else = this->bb_curr_;
-    if (stmt->orelse != nullptr) {
-        this->CompileCode(stmt->orelse);
-        this->NewNextBlock();
-        true_block->flow_next = nullptr;
-        true_block->flow_else = this->bb_curr_;
-    }
-}
-
-void Compiler::CompileTest(const ast::Binary *test) {
-    BasicBlock *last = this->NewBlock();
-    BasicBlock *left;
-
-    while (true) {
-        this->CompileCode(test->left);
-        if (test->kind == scanner::TokenType::AND)
-            this->EmitOp(OpCodes::JFOP, 0);
-        else
-            this->EmitOp(OpCodes::JTOP, 0);
-
-        left = this->NewNextBlock();
-        left->flow_else = last;
-
-        if (test->right->type != NodeType::TEST)
-            break;
-
-        test = CastNode<Binary>(test->right);
-    }
-
-    this->CompileCode(test->right);
-    this->UseAsNextBlock(last);
+    for (auto &stmt : program->body)
+        this->CompileCode(stmt);
 }

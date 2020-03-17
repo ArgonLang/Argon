@@ -17,19 +17,19 @@ namespace lang {
         BasicBlock *bb_list = nullptr;
         BasicBlock *bb_curr_ = nullptr;
 
-        void CompileLiteral(const ast::Literal *literal);
-
-        void CompileCode(const ast::NodeUptr &node);
+        void EmitOp(OpCodes code, unsigned char arg);
 
         void CompileBinaryExpr(const ast::Binary *binary);
 
         void CompileBranch(const ast::If *stmt);
 
+        void CompileCode(const ast::NodeUptr &node);
+
+        void CompileLiteral(const ast::Literal *literal);
+
         void CompileTest(const ast::Binary *test);
 
         void CompileUnaryExpr(const ast::Unary *unary);
-
-        void EmitOp(OpCodes code, unsigned char arg);
 
         void UseAsNextBlock(BasicBlock *block);
 
