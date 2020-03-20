@@ -15,7 +15,15 @@ void Compiler::EmitOp(OpCodes code, unsigned char arg) {
     //    throw
     // TODO: bad arg, argument too long!
     // TODO: emit bytecode!
-    this->bb_curr_->AddInstr(((InstrSz) code << (unsigned char) 24) | arg);
+    this->cu_curr_->bb_curr->AddInstr(((InstrSz) code << (unsigned char) 24) | arg);
+}
+
+void Compiler::EnterScope() {
+    // TODO: fix this! it's only a template for dirty experiments
+    CompileUnit *cu = &this->cu_list_.emplace_back();
+    cu->symt = std::make_unique<SymbolTable>("", SymTScope::MODULE);
+    cu->prev = this->cu_curr_;
+    this->cu_curr_ = cu;
 }
 
 void Compiler::CompileBinaryExpr(const ast::Binary *binary) {
@@ -63,12 +71,12 @@ void Compiler::CompileBranch(const ast::If *stmt) {
         this->EmitOp(OpCodes::JMP, 0);
     true_block = this->NewNextBlock();
 
-    test_block->flow_else = this->bb_curr_;
+    test_block->flow_else = this->cu_curr_->bb_curr;
     if (stmt->orelse != nullptr) {
         this->CompileCode(stmt->orelse);
         this->NewNextBlock();
         true_block->flow_next = nullptr;
-        true_block->flow_else = this->bb_curr_;
+        true_block->flow_else = this->cu_curr_->bb_curr;
     }
 }
 
@@ -76,6 +84,9 @@ void Compiler::CompileCode(const ast::NodeUptr &node) {
     BasicBlock *tmp;
 
     switch (node->type) {
+        case NodeType::VARIABLE:
+            this->CompileVariable(CastNode<Variable>(node));
+            break;
         case NodeType::BLOCK:
             for (auto &stmt : CastNode<Block>(node)->stmts)
                 this->CompileCode(stmt);
@@ -89,7 +100,7 @@ void Compiler::CompileCode(const ast::NodeUptr &node) {
             tmp = this->NewNextBlock();
             this->CompileCode(CastNode<Binary>(node)->right);
             this->NewNextBlock();
-            tmp->flow_else = this->bb_curr_;
+            tmp->flow_else = this->cu_curr_->bb_curr;
             break;
         case NodeType::TEST:
             this->CompileTest(CastNode<Binary>(node));
@@ -146,6 +157,7 @@ void Compiler::CompileCode(const ast::NodeUptr &node) {
             this->CompileCompound(CastNode<List>(node));
             break;
         case NodeType::IDENTIFIER:
+            this->CompileIdentifier(CastNode<Identifier>(node));
             break;
         case NodeType::SCOPE:
             break;
@@ -177,6 +189,51 @@ void Compiler::CompileCompound(const ast::List *list) {
         default:
             assert(false);
     }
+}
+
+void Compiler::CompileVariable(const ast::Variable *variable) {
+    Symbol *sym = this->cu_curr_->symt->Insert(variable->name);
+    bool unbound = true;
+
+    if (sym == nullptr) {
+        sym = this->cu_curr_->symt->Lookup(variable->name);
+        if (sym->declared)
+            return; // TODO exception!
+        unbound = false;
+    }
+    sym->declared = true;
+
+    if (this->cu_curr_->symt->type != SymTScope::MODULE) {
+        sym->id = this->cu_curr_->locals.size();
+        this->cu_curr_->locals.push_back(variable->name);
+        this->EmitOp(OpCodes::STLC, sym->id);
+        return;
+    }
+
+    if (unbound) {
+        sym->id = this->cu_curr_->names.size();
+        this->cu_curr_->names.push_back(variable->name);
+    }
+    this->EmitOp(OpCodes::STGBL, sym->id);
+}
+
+void Compiler::CompileIdentifier(const ast::Identifier *identifier) {
+    Symbol *sym = this->cu_curr_->symt->Lookup(identifier->value);
+
+    if (sym == nullptr) {
+        sym = this->cu_curr_->symt->Insert(identifier->value);
+        sym->id = this->cu_curr_->names.size();
+        this->cu_curr_->names.push_back(identifier->value);
+        this->EmitOp(OpCodes::LDGBL, sym->id);
+        return;
+    }
+
+    if (this->cu_curr_->symt->level == sym->table->level && this->cu_curr_->symt->type == SymTScope::FUNCTION) {
+        this->EmitOp(OpCodes::LDLC, sym->id);
+        return;
+    }
+
+    this->EmitOp(OpCodes::LDGBL, sym->id);
 }
 
 void Compiler::CompileLiteral(const ast::Literal *literal) {
@@ -227,26 +284,26 @@ void Compiler::CompileUnaryExpr(const ast::Unary *unary) {
 }
 
 void Compiler::UseAsNextBlock(BasicBlock *block) {
-    this->bb_curr_->flow_next = block;
-    this->bb_curr_ = block;
+    this->cu_curr_->bb_curr->flow_next = block;
+    this->cu_curr_->bb_curr = block;
 }
 
 BasicBlock *Compiler::NewBlock() {
     auto bb = new BasicBlock();
-    bb->link_next = this->bb_list;
-    this->bb_list = bb;
-    if (this->bb_start_ == nullptr)
-        this->bb_start_ = bb;
+    bb->link_next = this->cu_curr_->bb_list;
+    this->cu_curr_->bb_list = bb;
+    if (this->cu_curr_->bb_start == nullptr)
+        this->cu_curr_->bb_start = bb;
     return bb;
 }
 
 BasicBlock *Compiler::NewNextBlock() {
     BasicBlock *next = this->NewBlock();
-    BasicBlock *prev = this->bb_curr_;
+    BasicBlock *prev = this->cu_curr_->bb_curr;
 
-    if (this->bb_curr_ != nullptr)
-        this->bb_curr_->flow_next = next;
-    this->bb_curr_ = next;
+    if (this->cu_curr_->bb_curr != nullptr)
+        this->cu_curr_->bb_curr->flow_next = next;
+    this->cu_curr_->bb_curr = next;
 
     return prev;
 }
@@ -254,6 +311,8 @@ BasicBlock *Compiler::NewNextBlock() {
 void Compiler::Compile(std::istream *source) {
     Parser parser(source);
     std::unique_ptr<ast::Program> program = parser.Parse();
+
+    this->EnterScope();
 
     this->NewNextBlock();
 

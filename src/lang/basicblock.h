@@ -22,8 +22,6 @@ namespace lang {
 
         BasicBlock();
 
-        ~BasicBlock();
-
         void AddInstr(InstrSz instr);
     };
 } // namespace lang

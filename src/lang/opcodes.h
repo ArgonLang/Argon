@@ -10,6 +10,10 @@ namespace lang {
     using InstrSz = unsigned int;
 
     enum class OpCodes : unsigned char {
+        STGBL,
+        STLC,
+        LDGBL,
+        LDLC,
         MK_TUPLE,
         MK_LIST,
         MK_SET,

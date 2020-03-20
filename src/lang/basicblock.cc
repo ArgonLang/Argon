@@ -13,7 +13,3 @@ lang::BasicBlock::BasicBlock() {
 void lang::BasicBlock::AddInstr(InstrSz instr) {
     this->instrs.push_back(instr);
 }
-
-BasicBlock::~BasicBlock() {
-    delete this->link_next;
-}

@@ -10,14 +10,36 @@
 #include "basicblock.h"
 #include "opcodes.h"
 #include "ast/ast.h"
+#include "symbol_table.h"
 
 namespace lang {
-    class Compiler {
-        BasicBlock *bb_start_ = nullptr;
+    struct CompileUnit {
+        SymTUptr symt;
+
+        std::vector<std::string> names;
+        std::vector<std::string> locals;
+
+        BasicBlock *bb_start = nullptr;
         BasicBlock *bb_list = nullptr;
-        BasicBlock *bb_curr_ = nullptr;
+        BasicBlock *bb_curr = nullptr;
+
+        CompileUnit *prev = nullptr;
+
+        ~CompileUnit() {
+            for (BasicBlock *cursor = this->bb_list, *nxt; cursor != nullptr; cursor = nxt) {
+                nxt = cursor->link_next;
+                delete (cursor);
+            }
+        }
+    };
+
+    class Compiler {
+        std::list<CompileUnit> cu_list_;
+        CompileUnit *cu_curr_ = nullptr;
 
         void EmitOp(OpCodes code, unsigned char arg);
+
+        void EnterScope();
 
         void CompileBinaryExpr(const ast::Binary *binary);
 
@@ -25,7 +47,11 @@ namespace lang {
 
         void CompileCode(const ast::NodeUptr &node);
 
+        void CompileVariable(const ast::Variable *variable);
+
         void CompileCompound(const ast::List *list);
+
+        void CompileIdentifier(const ast::Identifier *identifier);
 
         void CompileLiteral(const ast::Literal *literal);
 
