@@ -435,6 +435,11 @@ ast::NodeUptr Parser::Statement() {
             case TokenType::GOTO:
                 tmp = this->JmpStmt();
                 break;
+            case TokenType::FALSE:
+            case TokenType::NIL:
+            case TokenType::TRUE:
+                tmp = this->Expression();
+                break;
             default:
                 throw SyntaxException("expected statement", this->currTk_);
         }
