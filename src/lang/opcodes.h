@@ -41,7 +41,8 @@ namespace lang {
         PREI,
         PRED,
         PSTI,
-        PSTD
+        PSTD,
+        LSTATIC
     };
 
     enum class CompareMode : unsigned char {

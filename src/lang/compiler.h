@@ -6,6 +6,7 @@
 #define ARGON_LANG_COMPILER_H_
 
 #include <istream>
+#include <object/object.h>
 
 #include "basicblock.h"
 #include "opcodes.h"
@@ -16,6 +17,7 @@ namespace lang {
     struct CompileUnit {
         SymTUptr symt;
 
+        std::vector<argon::object::ObjectContainer> constant;
         std::vector<std::string> names;
         std::vector<std::string> locals;
 

@@ -3,12 +3,18 @@
 // Licensed under the Apache License v2.0
 
 #include <cassert>
+#include <object/string.h>
+#include <object/integer.h>
+#include <object/decimal.h>
+#include <object/nil.h>
+#include <object/bool.h>
 
 #include "compiler.h"
 #include "parser.h"
 
 using namespace lang;
 using namespace lang::ast;
+using namespace argon::object;
 
 void Compiler::EmitOp(OpCodes code, unsigned char arg) {
     //if(arg > 0x00FFFFFF)
@@ -237,7 +243,40 @@ void Compiler::CompileIdentifier(const ast::Identifier *identifier) {
 }
 
 void Compiler::CompileLiteral(const ast::Literal *literal) {
-    // TODO: impl literal
+    // TODO: implement flyweight
+    switch (literal->kind) {
+        case scanner::TokenType::NIL:
+            this->cu_curr_->constant.emplace_back(Nil::NilValue());
+            break;
+        case scanner::TokenType::FALSE:
+            this->cu_curr_->constant.emplace_back(Bool::False());
+            break;
+        case scanner::TokenType::TRUE:
+            this->cu_curr_->constant.emplace_back(Bool::True());
+            break;
+        case scanner::TokenType::STRING:
+            this->cu_curr_->constant.emplace_back(MakeOwner<String>(literal->value));
+            break;
+        case scanner::TokenType::NUMBER_BIN:
+            this->cu_curr_->constant.emplace_back(MakeOwner<Integer>(literal->value, 2));
+            break;
+        case scanner::TokenType::NUMBER_OCT:
+            this->cu_curr_->constant.emplace_back(MakeOwner<Integer>(literal->value, 8));
+            break;
+        case scanner::TokenType::NUMBER:
+            this->cu_curr_->constant.emplace_back(MakeOwner<Integer>(literal->value, 10));
+            break;
+        case scanner::TokenType::NUMBER_HEX:
+            this->cu_curr_->constant.emplace_back(MakeOwner<Integer>(literal->value, 16));
+            break;
+        case scanner::TokenType::DECIMAL:
+            this->cu_curr_->constant.emplace_back(MakeOwner<Decimal>(literal->value));
+            break;
+        default:
+            assert(false);
+    }
+
+    this->EmitOp(OpCodes::LSTATIC, this->cu_curr_->constant.size() - 1);
 }
 
 void Compiler::CompileTest(const ast::Binary *test) {
