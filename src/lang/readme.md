@@ -34,7 +34,7 @@
 | \<if_stmt\>          | 'if' \<test\> \<block\> [('elif' \<test\> \<block\>)* 'else' \<block\>] |
 | \<switch_stmt\>      | 'switch' [\<test\>] '{' \<switch_case\>* '}'                 |
 | \<switch_case\>      | \<switch_label\> \<block_body\>*                             |
-| \<switch_label\>     | 'case' \<test\> ('\|' \<test\>)* ':' \| 'default' ':'        |
+| \<switch_label\>     | 'case' \<test\> (';' \<test\>)* ':' \| 'default' ':'        |
 | \<block\>            | '{' \<block_body\>* '}'                                      |
 | \<block_body\>       | \<small_decl\> \| \<statement\>                              |
 |                      |                                                              |

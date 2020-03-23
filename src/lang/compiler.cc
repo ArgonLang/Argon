@@ -100,6 +100,12 @@ void Compiler::CompileCode(const ast::NodeUptr &node) {
         case NodeType::LOOP:
             this->CompileLoop(CastNode<Loop>(node));
             break;
+        case NodeType::SWITCH:
+            this->CompileSwitch(CastNode<Switch>(node));
+            break;
+        case NodeType::FALLTHROUGH:
+            //  Managed by CompileSwitch* method
+            break;
         case NodeType::IF:
             this->CompileBranch(CastNode<If>(node));
             break;
@@ -216,6 +222,60 @@ void Compiler::CompileCompound(const ast::List *list) {
         default:
             assert(false);
     }
+}
+
+void Compiler::CompileSwitch(const ast::Switch *stmt) {
+    BasicBlock *last = this->NewBlock();
+    BasicBlock *bcur = nullptr;
+    BasicBlock *cond = nullptr;
+    unsigned short index = 1;
+    bool have_default = false;
+
+    this->CompileCode(stmt->test);
+
+    for (auto &swcase : stmt->cases) {
+        bcur = this->cu_curr_->bb_curr;
+        this->cu_curr_->bb_curr = this->NewBlock();
+        this->CompileCode(CastNode<Case>(swcase)->body);
+
+        if (index < stmt->cases.size()) {
+            if (CastNode<Block>(CastNode<Case>(swcase)->body)->stmts.back()->type != NodeType::FALLTHROUGH) {
+                this->EmitOp(OpCodes::JMP, 0);
+                this->cu_curr_->bb_curr->flow_else = last;
+            }
+        }
+
+        if (cond != nullptr)
+            cond->flow_next = this->cu_curr_->bb_curr;
+
+        cond = this->cu_curr_->bb_curr;
+
+        this->cu_curr_->bb_curr = bcur;
+        if (!CastNode<Case>(swcase)->tests.empty()) {
+            for (auto &test : CastNode<Case>(swcase)->tests) {
+                this->CompileCode(test);
+                this->EmitOp(OpCodes::TEST, 0);
+                this->cu_curr_->bb_curr->flow_else = cond;
+                this->NewNextBlock();
+            }
+        } else {
+            // Default branch:
+            this->EmitOp(OpCodes::JMP, 0);
+            this->cu_curr_->bb_curr->flow_else = cond;
+            have_default = true;
+        }
+
+        index++;
+    }
+
+    if (!have_default) {
+        this->EmitOp(OpCodes::JMP, 0);
+        this->cu_curr_->bb_curr->flow_else = last;
+    }
+
+    this->cu_curr_->bb_curr = cond;
+
+    this->UseAsNextBlock(last);
 }
 
 void Compiler::CompileVariable(const ast::Variable *variable) {

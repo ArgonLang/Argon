@@ -25,6 +25,7 @@ namespace lang {
         LOR,
         LXOR,
         LAND,
+        TEST,
         CMP,
         SHL,
         SHR,

@@ -51,6 +51,8 @@ namespace lang {
 
         void CompileLoop(const ast::Loop *loop);
 
+        void CompileSwitch(const ast::Switch *stmt);
+
         void CompileVariable(const ast::Variable *variable);
 
         void CompileCompound(const ast::List *list);

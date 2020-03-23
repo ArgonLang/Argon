@@ -620,13 +620,15 @@ ast::NodeUptr Parser::SwitchCase() {
     auto swc = std::make_unique<Case>(this->currTk_.start);
     std::unique_ptr<ast::Block> body;
     NodeUptr tmp;
+    int last_fallthrough = -1;
+
 
     if (this->Match(TokenType::DEFAULT)) {
         this->Eat();
     } else if (this->Match(TokenType::CASE)) {
         this->Eat();
-        this->Test();
-        while (this->Match(TokenType::PIPE)) {
+        swc->AddCondition(this->Test());
+        while (this->Match(TokenType::SEMICOLON)) {
             this->Eat();
             swc->AddCondition(this->Test());
         }
@@ -642,10 +644,16 @@ ast::NodeUptr Parser::SwitchCase() {
     while (!this->Match(TokenType::CASE, TokenType::DEFAULT, TokenType::RIGHT_BRACES)) {
         tmp = this->SmallDecl(false);
         body->SetEndPos(tmp->end);
+        if (tmp->type == NodeType::FALLTHROUGH && last_fallthrough == -1)
+            last_fallthrough = body->stmts.size();
         body->AddStmtOrExpr(std::move(tmp));
         if (!this->Match(TokenType::CASE, TokenType::DEFAULT))
             this->EatTerm(true, TokenType::RIGHT_BRACES);
     }
+
+    // Check fallthrough
+    if (last_fallthrough != -1 && last_fallthrough != body->stmts.size() - 1)
+        throw SyntaxException("fallthrough statement out of place", this->currTk_);
 
     swc->body = std::move(body);
 
