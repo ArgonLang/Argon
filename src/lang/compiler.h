@@ -49,6 +49,8 @@ namespace lang {
 
         void CompileCode(const ast::NodeUptr &node);
 
+        void CompileLoop(const ast::Loop *loop);
+
         void CompileVariable(const ast::Variable *variable);
 
         void CompileCompound(const ast::List *list);

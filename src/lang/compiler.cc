@@ -97,6 +97,9 @@ void Compiler::CompileCode(const ast::NodeUptr &node) {
             for (auto &stmt : CastNode<Block>(node)->stmts)
                 this->CompileCode(stmt);
             break;
+        case NodeType::LOOP:
+            this->CompileLoop(CastNode<Loop>(node));
+            break;
         case NodeType::IF:
             this->CompileBranch(CastNode<If>(node));
             break;
@@ -173,6 +176,24 @@ void Compiler::CompileCode(const ast::NodeUptr &node) {
         default:
             assert(false);
     }
+}
+
+void Compiler::CompileLoop(const ast::Loop *loop) {
+    BasicBlock *next = this->NewBlock();
+    BasicBlock *test = nullptr;
+
+    this->NewNextBlock();
+    if (loop->test != nullptr) {
+        this->CompileCode(loop->test);
+        this->EmitOp(OpCodes::JF, 0);
+        test = this->NewNextBlock();
+        test->flow_else = next;
+        this->cu_curr_->bb_curr->flow_else = test;
+    } else this->cu_curr_->bb_curr->flow_else = this->cu_curr_->bb_curr;
+    this->CompileCode(loop->body);
+    this->EmitOp(OpCodes::JMP, 0);
+
+    this->UseAsNextBlock(next);
 }
 
 void Compiler::CompileCompound(const ast::List *list) {
