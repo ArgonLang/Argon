@@ -53,6 +53,8 @@ namespace lang {
 
         void CompileSwitch(const ast::Switch *stmt);
 
+        void CompileSwitchAsIf(const ast::Switch *stmt);
+
         void CompileVariable(const ast::Variable *variable);
 
         void CompileCompound(const ast::List *list);

@@ -101,7 +101,10 @@ void Compiler::CompileCode(const ast::NodeUptr &node) {
             this->CompileLoop(CastNode<Loop>(node));
             break;
         case NodeType::SWITCH:
-            this->CompileSwitch(CastNode<Switch>(node));
+            if (CastNode<Switch>(node)->test != nullptr)
+                this->CompileSwitch(CastNode<Switch>(node));
+            else
+                this->CompileSwitchAsIf(CastNode<Switch>(node));
             break;
         case NodeType::FALLTHROUGH:
             //  Managed by CompileSwitch* method
@@ -268,6 +271,8 @@ void Compiler::CompileSwitch(const ast::Switch *stmt) {
         index++;
     }
 
+    // TODO: add pop top! OPCODE::TEST Consume only TOS
+
     if (!have_default) {
         this->EmitOp(OpCodes::JMP, 0);
         this->cu_curr_->bb_curr->flow_else = last;
@@ -276,6 +281,64 @@ void Compiler::CompileSwitch(const ast::Switch *stmt) {
     this->cu_curr_->bb_curr = cond;
 
     this->UseAsNextBlock(last);
+}
+
+/*
+ * CompileSwitchAsIf:
+ *
+ * TEST 1
+ * JT BODY1
+ * TEST 1.2
+ * JT BODY1
+ * TEST 1.3
+ * JF TEST 2
+ * BODY1:
+ * ...
+ * TEST 2
+ * JF EXIT
+ * BODY2
+ * ...
+ * EXIT:
+ * ...
+ * ...
+ */
+
+void Compiler::CompileSwitchAsIf(const ast::Switch *stmt) {
+    BasicBlock *last = this->NewBlock();
+    BasicBlock *ltest = nullptr;
+    BasicBlock *body = nullptr;
+    unsigned short cases_idx = 1;
+
+    for (auto &swcase : stmt->cases) {
+        body = this->NewBlock();
+        unsigned short tests_idx = 1;
+        if (!CastNode<Case>(swcase)->tests.empty()) {
+            for (auto &test : CastNode<Case>(swcase)->tests) {
+                this->CompileCode(test);
+                if (tests_idx < CastNode<Case>(swcase)->tests.size()) {
+                    this->EmitOp(OpCodes::JT, 0);
+                    this->cu_curr_->bb_curr->flow_else = body;
+                    this->NewNextBlock();
+                } else this->EmitOp(OpCodes::JF, 0);
+                tests_idx++;
+                ltest = this->cu_curr_->bb_curr;
+            }
+            this->UseAsNextBlock(body);
+        }
+
+        this->CompileCode(CastNode<Case>(swcase)->body);
+
+        if (cases_idx < stmt->cases.size()) {
+            if (CastNode<Block>(CastNode<Case>(swcase)->body)->stmts.back()->type != NodeType::FALLTHROUGH) {
+                this->EmitOp(OpCodes::JMP, 0);
+                this->cu_curr_->bb_curr->flow_else = last;
+            }
+            this->NewNextBlock();
+        } else
+            this->UseAsNextBlock(last);
+        ltest->flow_else = this->cu_curr_->bb_curr;
+        cases_idx++;
+    }
 }
 
 void Compiler::CompileVariable(const ast::Variable *variable) {

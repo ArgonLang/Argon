@@ -20,6 +20,7 @@ namespace lang {
         MK_MAP,
         JMP,    // JUMP
         JF,     // JUMP_FALSE
+        JT,     // JUMP_TRUE
         JTOP,   // JUMP_TRUE_OR_POP
         JFOP,   // JUMP_FALSE_OR_POP
         LOR,
