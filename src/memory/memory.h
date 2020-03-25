@@ -24,6 +24,10 @@ namespace argon::memory {
         Free(obj);
     }
 
+    void *MemoryCopy(void *dest, const void *src, size_t size);
+
+    void *Realloc(void *ptr, size_t size);
+
     void InitializeMemory();
 
     void FinalizeMemory();

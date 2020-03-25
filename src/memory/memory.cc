@@ -6,9 +6,16 @@
 #include "memobj.h"
 #include "arena.h"
 
-#include <cassert>
-
 using namespace argon::memory;
+
+inline void *GetRealMemoryPtr(void *ptr) { return ((unsigned char *) ptr) - sizeof(size_t); }
+
+inline size_t GetEmbeddedSize(void *ptr) { return *((size_t *) (((unsigned char *) ptr) - sizeof(size_t))); }
+
+inline void *SetEmbeddedSize(void *ptr, size_t size) {
+    *((size_t *) ptr) = size;
+    return ((unsigned char *) ptr) + sizeof(size_t);
+}
 
 /* Arena Linked-List */
 MemoryObject<Arena> arenas;
@@ -70,21 +77,56 @@ void *argon::memory::Alloc(size_t size) {
         pool = GetPool(clazz);
         mem = AllocBlock(pool);
         pools[clazz].lock.unlock();
-    } else mem = operator new(size);
+    } else {
+        mem = operator new(size + sizeof(size_t));
+        mem = SetEmbeddedSize(mem, size);
+    }
 
     return mem;
 }
 
 void argon::memory::Free(void *ptr) {
     Pool *pool = (Pool *) AlignDown(ptr, ARGON_MEMORY_PAGE_SIZE);
-    size_t clazz = SizeToPoolClass(pool->blocksz);
 
     if (AddressInArenas(ptr)) {
+        size_t clazz = SizeToPoolClass(pool->blocksz);
         pools[clazz].lock.lock();
         FreeBlock(pool, ptr);
         TryReleaseMemory(pool, clazz);
         pools[clazz].lock.unlock();
-    } else ::operator delete(ptr);
+    } else ::operator delete(GetRealMemoryPtr(ptr));
+}
+
+void *argon::memory::MemoryCopy(void *dest, const void *src, size_t size) {
+    auto d = (unsigned char *) dest;
+    auto s = (const unsigned char *) src;
+
+    while (size--)
+        *d++ = *s++;
+
+    return dest;
+}
+
+void *argon::memory::Realloc(void *ptr, size_t size) {
+    Pool *pool = (Pool *) AlignDown(ptr, ARGON_MEMORY_PAGE_SIZE);
+    bool in_arenas = AddressInArenas(ptr);
+    size_t src_sz = 0;
+    void *tmp = nullptr;
+
+    if (in_arenas) {
+        if (SizeToPoolClass(pool->blocksz) >= SizeToPoolClass(size)) return ptr;
+        src_sz = pool->blocksz;
+    } else {
+        src_sz = GetEmbeddedSize(ptr);
+        if (src_sz >= size) return ptr;
+    }
+
+    if ((tmp = Alloc(size)) == nullptr)
+        return nullptr;
+
+    MemoryCopy(tmp, ptr, src_sz);
+    Free(ptr);
+    return tmp;
 }
 
 void argon::memory::InitializeMemory() {
