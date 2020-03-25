@@ -47,6 +47,7 @@ void TryReleaseMemory(Pool *pool, size_t clazz) {
 
     if (pool->free == pool->blocks) {
         arenas.lock.lock();
+        pools[clazz].Remove(pool);
         FreePool(pool);
         if (arena->free != arena->pools)
             arenas.Sort(arena);
