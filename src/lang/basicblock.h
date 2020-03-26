@@ -20,9 +20,13 @@ namespace lang {
         BasicBlock *link_next = nullptr;
         BasicBlock *flow_next = nullptr;
         BasicBlock *flow_else = nullptr;
+
         unsigned char *instrs = nullptr;
 
+        size_t start = 0;
         size_t instr_sz = 0;
+
+        bool visited = false;
 
         BasicBlock();
 

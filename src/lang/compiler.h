@@ -22,11 +22,14 @@ namespace lang {
         std::vector<std::string> names;
         std::vector<std::string> locals;
 
+        std::vector<BasicBlock *> bb_splist;
         BasicBlock *bb_start = nullptr;
         BasicBlock *bb_list = nullptr;
         BasicBlock *bb_curr = nullptr;
 
         CompileUnit *prev = nullptr;
+
+        size_t instr_sz = 0;
 
         ~CompileUnit() {
             for (BasicBlock *cursor = this->bb_list, *nxt; cursor != nullptr; cursor = nxt) {
@@ -39,6 +42,8 @@ namespace lang {
     class Compiler {
         std::list<CompileUnit> cu_list_;
         CompileUnit *cu_curr_ = nullptr;
+
+        void Assemble();
 
         void EmitOp(OpCodes code);
 
@@ -71,6 +76,8 @@ namespace lang {
         void CompileTest(const ast::Binary *test);
 
         void CompileUnaryExpr(const ast::Unary *unary);
+
+        void Dfs(CompileUnit *unit, BasicBlock *start);
 
         void UseAsNextBlock(BasicBlock *block);
 

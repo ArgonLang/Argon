@@ -8,6 +8,7 @@
 #include <object/decimal.h>
 #include <object/nil.h>
 #include <object/bool.h>
+#include <object/code.h>
 
 #include "compiler.h"
 #include "parser.h"
@@ -508,4 +509,38 @@ void Compiler::Compile(std::istream *source) {
 
     for (auto &stmt : program->body)
         this->CompileCode(stmt);
+
+    this->Dfs(this->cu_curr_, this->cu_curr_->bb_start); // TODO stub DFS
+    this->Assemble();
+}
+
+void Compiler::Dfs(CompileUnit *unit, BasicBlock *start) {
+    for (BasicBlock *base = start; base != nullptr && !base->visited; base = base->flow_next) {
+        base->visited = true;
+        base->start = unit->instr_sz;
+        unit->instr_sz += base->instr_sz;
+        unit->bb_splist.push_back(base);
+    }
+
+    if (start->flow_else != nullptr)
+        this->Dfs(unit, start->flow_else);
+}
+
+void Compiler::Assemble() {
+    auto code = argon::memory::AllocObject<argon::object::Code>(this->cu_curr_->instr_sz);
+    size_t offset = 0;
+
+    for (auto &bb : this->cu_curr_->bb_splist) {
+        // Calculate JMP offset
+        if (bb->flow_else != nullptr) {
+            auto j_off = (OpCodes) (*((Instr32 *) (bb->instrs + (bb->instr_sz - sizeof(Instr32)))) & (Instr8) 0xFF);
+            auto jmp = (Instr32) bb->flow_else->start << (unsigned char) 8 | (Instr8) j_off;
+            *((Instr32 *) (bb->instrs + (bb->instr_sz - sizeof(Instr32)))) = jmp;
+        }
+        // Copy instrs to destination CodeObject
+        argon::memory::MemoryCopy(code->instr + offset, bb->instrs, bb->instr_sz);
+        offset += bb->instr_sz;
+    }
+
+    argon::memory::FreeObject(code); // TODO: stub (test only)
 }
