@@ -5,24 +5,34 @@
 #ifndef ARGON_LANG_BASICBLOCK_H_
 #define ARGON_LANG_BASICBLOCK_H_
 
-#define ARGON_LANG_BASICBLOCK_STARTSZ     16
-
-#include <vector>
+#define ARGON_LANG_BASICBLOCK_STARTSZ   16
+#define ARGON_LANG_BASICBLOCK_INCSZ     8
 
 #include "opcodes.h"
 
 namespace lang {
     class BasicBlock {
+        size_t allocated_ = 0;
+
+        void CheckSize(size_t size);
+
     public:
         BasicBlock *link_next = nullptr;
         BasicBlock *flow_next = nullptr;
         BasicBlock *flow_else = nullptr;
+        unsigned char *instrs = nullptr;
 
-        std::vector<InstrSz> instrs;
+        size_t instr_sz = 0;
 
         BasicBlock();
 
-        void AddInstr(InstrSz instr);
+        ~BasicBlock();
+
+        void AddInstr(Instr8 instr);
+
+        void AddInstr(Instr16 instr);
+
+        void AddInstr(Instr32 instr);
     };
 } // namespace lang
 

@@ -7,7 +7,9 @@
 
 namespace lang {
 
-    using InstrSz = unsigned int;
+    using Instr32 = unsigned int;
+    using Instr16 = unsigned short;
+    using Instr8 = unsigned char;
 
     enum class OpCodes : unsigned char {
         STGBL,

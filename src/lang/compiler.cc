@@ -16,12 +16,19 @@ using namespace lang;
 using namespace lang::ast;
 using namespace argon::object;
 
-void Compiler::EmitOp(OpCodes code, unsigned char arg) {
+void Compiler::EmitOp(OpCodes code) {
+    this->cu_curr_->bb_curr->AddInstr((Instr8) code);
+}
+
+void Compiler::EmitOp2(OpCodes code, unsigned char arg) {
+    this->cu_curr_->bb_curr->AddInstr((Instr16) ((unsigned short) (arg << (unsigned char) 8) | (Instr8) code));
+}
+
+void Compiler::EmitOp4(OpCodes code, unsigned int arg) {
     //if(arg > 0x00FFFFFF)
     //    throw
     // TODO: bad arg, argument too long!
-    // TODO: emit bytecode!
-    this->cu_curr_->bb_curr->AddInstr(((InstrSz) code << (unsigned char) 24) | arg);
+    this->cu_curr_->bb_curr->AddInstr((Instr32) (arg << (unsigned char) 8) | (Instr8) code);
 }
 
 void Compiler::EnterScope() {
@@ -35,28 +42,28 @@ void Compiler::EnterScope() {
 void Compiler::CompileBinaryExpr(const ast::Binary *binary) {
     switch (binary->kind) {
         case scanner::TokenType::SHL:
-            this->EmitOp(OpCodes::SHL, 0);
+            this->EmitOp(OpCodes::SHL);
             return;
         case scanner::TokenType::SHR:
-            this->EmitOp(OpCodes::SHR, 0);
+            this->EmitOp(OpCodes::SHR);
             return;
         case scanner::TokenType::PLUS:
-            this->EmitOp(OpCodes::ADD, 0);
+            this->EmitOp(OpCodes::ADD);
             return;
         case scanner::TokenType::MINUS:
-            this->EmitOp(OpCodes::SUB, 0);
+            this->EmitOp(OpCodes::SUB);
             return;
         case scanner::TokenType::ASTERISK:
-            this->EmitOp(OpCodes::MUL, 0);
+            this->EmitOp(OpCodes::MUL);
             return;
         case scanner::TokenType::SLASH:
-            this->EmitOp(OpCodes::DIV, 0);
+            this->EmitOp(OpCodes::DIV);
             return;
         case scanner::TokenType::SLASH_SLASH:
-            this->EmitOp(OpCodes::IDIV, 0);
+            this->EmitOp(OpCodes::IDIV);
             return;
         case scanner::TokenType::PERCENT:
-            this->EmitOp(OpCodes::MOD, 0);
+            this->EmitOp(OpCodes::MOD);
             return;
         default:
             assert(false);
@@ -68,13 +75,13 @@ void Compiler::CompileBranch(const ast::If *stmt) {
     BasicBlock *true_block;
 
     this->CompileCode(stmt->test);
-    this->EmitOp(OpCodes::JF, 0);
+    this->EmitOp4(OpCodes::JF, 0);
 
     test_block = this->NewNextBlock();
 
     this->CompileCode(stmt->body);
     if (stmt->orelse != nullptr)
-        this->EmitOp(OpCodes::JMP, 0);
+        this->EmitOp4(OpCodes::JMP, 0);
     true_block = this->NewNextBlock();
 
     test_block->flow_else = this->cu_curr_->bb_curr;
@@ -114,7 +121,7 @@ void Compiler::CompileCode(const ast::NodeUptr &node) {
             break;
         case NodeType::ELVIS:
             this->CompileCode(CastNode<Binary>(node)->left);
-            this->EmitOp(OpCodes::JTOP, 0);
+            this->EmitOp4(OpCodes::JTOP, 0);
             tmp = this->NewNextBlock();
             this->CompileCode(CastNode<Binary>(node)->right);
             this->NewNextBlock();
@@ -127,30 +134,30 @@ void Compiler::CompileCode(const ast::NodeUptr &node) {
             this->CompileCode(CastNode<Binary>(node)->left);
             this->CompileCode(CastNode<Binary>(node)->right);
             if (CastNode<Binary>(node)->kind == scanner::TokenType::PIPE)
-                this->EmitOp(OpCodes::LOR, 0);
+                this->EmitOp(OpCodes::LOR);
             else if (CastNode<Binary>(node)->kind == scanner::TokenType::CARET)
-                this->EmitOp(OpCodes::LXOR, 0);
-            else this->EmitOp(OpCodes::LAND, 0);
+                this->EmitOp(OpCodes::LXOR);
+            else this->EmitOp(OpCodes::LAND);
             break;
         case NodeType::EQUALITY:
             this->CompileCode(CastNode<Binary>(node)->left);
             this->CompileCode(CastNode<Binary>(node)->right);
             if (CastNode<Binary>(node)->kind == scanner::TokenType::EQUAL_EQUAL)
-                this->EmitOp(OpCodes::CMP, (unsigned char) CompareMode::EQ);
+                this->EmitOp2(OpCodes::CMP, (unsigned char) CompareMode::EQ);
             else if (CastNode<Binary>(node)->kind == scanner::TokenType::NOT_EQUAL)
-                this->EmitOp(OpCodes::CMP, (unsigned char) CompareMode::NE);
+                this->EmitOp2(OpCodes::CMP, (unsigned char) CompareMode::NE);
             break;
         case NodeType::RELATIONAL:
             this->CompileCode(CastNode<Binary>(node)->left);
             this->CompileCode(CastNode<Binary>(node)->right);
             if (CastNode<Binary>(node)->kind == scanner::TokenType::GREATER)
-                this->EmitOp(OpCodes::CMP, (unsigned char) CompareMode::GE);
+                this->EmitOp2(OpCodes::CMP, (unsigned char) CompareMode::GE);
             else if (CastNode<Binary>(node)->kind == scanner::TokenType::GREATER_EQ)
-                this->EmitOp(OpCodes::CMP, (unsigned char) CompareMode::GEQ);
+                this->EmitOp2(OpCodes::CMP, (unsigned char) CompareMode::GEQ);
             else if (CastNode<Binary>(node)->kind == scanner::TokenType::LESS)
-                this->EmitOp(OpCodes::CMP, (unsigned char) CompareMode::LE);
+                this->EmitOp2(OpCodes::CMP, (unsigned char) CompareMode::LE);
             else if (CastNode<Binary>(node)->kind == scanner::TokenType::LESS_EQ)
-                this->EmitOp(OpCodes::CMP, (unsigned char) CompareMode::LEQ);
+                this->EmitOp2(OpCodes::CMP, (unsigned char) CompareMode::LEQ);
             break;
         case NodeType::BINARY_OP:
             this->CompileCode(CastNode<Binary>(node)->left);
@@ -164,9 +171,9 @@ void Compiler::CompileCode(const ast::NodeUptr &node) {
         case NodeType::UPDATE:
             this->CompileCode(CastNode<Update>(node)->expr);
             if (CastNode<Update>(node)->kind == scanner::TokenType::PLUS_PLUS)
-                this->EmitOp(CastNode<Update>(node)->prefix ? OpCodes::PREI : OpCodes::PSTI, 0);
+                this->EmitOp(CastNode<Update>(node)->prefix ? OpCodes::PREI : OpCodes::PSTI);
             else // TokenType::MINUS_MINUS
-                this->EmitOp(CastNode<Update>(node)->prefix ? OpCodes::PRED : OpCodes::PSTD, 0);
+                this->EmitOp(CastNode<Update>(node)->prefix ? OpCodes::PRED : OpCodes::PSTD);
             break;
         case NodeType::TUPLE:
         case NodeType::LIST:
@@ -194,13 +201,13 @@ void Compiler::CompileLoop(const ast::Loop *loop) {
     this->NewNextBlock();
     if (loop->test != nullptr) {
         this->CompileCode(loop->test);
-        this->EmitOp(OpCodes::JF, 0);
+        this->EmitOp4(OpCodes::JF, 0);
         test = this->NewNextBlock();
         test->flow_else = next;
         this->cu_curr_->bb_curr->flow_else = test;
     } else this->cu_curr_->bb_curr->flow_else = this->cu_curr_->bb_curr;
     this->CompileCode(loop->body);
-    this->EmitOp(OpCodes::JMP, 0);
+    this->EmitOp4(OpCodes::JMP, 0);
 
     this->UseAsNextBlock(next);
 }
@@ -211,16 +218,16 @@ void Compiler::CompileCompound(const ast::List *list) {
 
     switch (list->type) {
         case NodeType::TUPLE:
-            this->EmitOp(OpCodes::MK_TUPLE, list->expressions.size());
+            this->EmitOp4(OpCodes::MK_TUPLE, list->expressions.size());
             return;
         case NodeType::LIST:
-            this->EmitOp(OpCodes::MK_LIST, list->expressions.size());
+            this->EmitOp4(OpCodes::MK_LIST, list->expressions.size());
             return;
         case NodeType::SET:
-            this->EmitOp(OpCodes::MK_SET, list->expressions.size());
+            this->EmitOp4(OpCodes::MK_SET, list->expressions.size());
             return;
         case NodeType::MAP:
-            this->EmitOp(OpCodes::MK_MAP, list->expressions.size() / 2);
+            this->EmitOp4(OpCodes::MK_MAP, list->expressions.size() / 2);
             return;
         default:
             assert(false);
@@ -243,7 +250,7 @@ void Compiler::CompileSwitch(const ast::Switch *stmt) {
 
         if (index < stmt->cases.size()) {
             if (CastNode<Block>(CastNode<Case>(swcase)->body)->stmts.back()->type != NodeType::FALLTHROUGH) {
-                this->EmitOp(OpCodes::JMP, 0);
+                this->EmitOp4(OpCodes::JMP, 0);
                 this->cu_curr_->bb_curr->flow_else = last;
             }
         }
@@ -257,13 +264,13 @@ void Compiler::CompileSwitch(const ast::Switch *stmt) {
         if (!CastNode<Case>(swcase)->tests.empty()) {
             for (auto &test : CastNode<Case>(swcase)->tests) {
                 this->CompileCode(test);
-                this->EmitOp(OpCodes::TEST, 0);
+                this->EmitOp(OpCodes::TEST);
                 this->cu_curr_->bb_curr->flow_else = cond;
                 this->NewNextBlock();
             }
         } else {
             // Default branch:
-            this->EmitOp(OpCodes::JMP, 0);
+            this->EmitOp4(OpCodes::JMP, 0);
             this->cu_curr_->bb_curr->flow_else = cond;
             have_default = true;
         }
@@ -274,7 +281,7 @@ void Compiler::CompileSwitch(const ast::Switch *stmt) {
     // TODO: add pop top! OPCODE::TEST Consume only TOS
 
     if (!have_default) {
-        this->EmitOp(OpCodes::JMP, 0);
+        this->EmitOp4(OpCodes::JMP, 0);
         this->cu_curr_->bb_curr->flow_else = last;
     }
 
@@ -316,10 +323,10 @@ void Compiler::CompileSwitchAsIf(const ast::Switch *stmt) {
             for (auto &test : CastNode<Case>(swcase)->tests) {
                 this->CompileCode(test);
                 if (tests_idx < CastNode<Case>(swcase)->tests.size()) {
-                    this->EmitOp(OpCodes::JT, 0);
+                    this->EmitOp4(OpCodes::JT, 0);
                     this->cu_curr_->bb_curr->flow_else = body;
                     this->NewNextBlock();
-                } else this->EmitOp(OpCodes::JF, 0);
+                } else this->EmitOp4(OpCodes::JF, 0);
                 tests_idx++;
                 ltest = this->cu_curr_->bb_curr;
             }
@@ -330,7 +337,7 @@ void Compiler::CompileSwitchAsIf(const ast::Switch *stmt) {
 
         if (cases_idx < stmt->cases.size()) {
             if (CastNode<Block>(CastNode<Case>(swcase)->body)->stmts.back()->type != NodeType::FALLTHROUGH) {
-                this->EmitOp(OpCodes::JMP, 0);
+                this->EmitOp4(OpCodes::JMP, 0);
                 this->cu_curr_->bb_curr->flow_else = last;
             }
             this->NewNextBlock();
@@ -356,7 +363,7 @@ void Compiler::CompileVariable(const ast::Variable *variable) {
     if (this->cu_curr_->symt->type != SymTScope::MODULE) {
         sym->id = this->cu_curr_->locals.size();
         this->cu_curr_->locals.push_back(variable->name);
-        this->EmitOp(OpCodes::STLC, sym->id);
+        this->EmitOp2(OpCodes::STLC, sym->id);
         return;
     }
 
@@ -364,7 +371,7 @@ void Compiler::CompileVariable(const ast::Variable *variable) {
         sym->id = this->cu_curr_->names.size();
         this->cu_curr_->names.push_back(variable->name);
     }
-    this->EmitOp(OpCodes::STGBL, sym->id);
+    this->EmitOp2(OpCodes::STGBL, sym->id);
 }
 
 void Compiler::CompileIdentifier(const ast::Identifier *identifier) {
@@ -374,16 +381,16 @@ void Compiler::CompileIdentifier(const ast::Identifier *identifier) {
         sym = this->cu_curr_->symt->Insert(identifier->value);
         sym->id = this->cu_curr_->names.size();
         this->cu_curr_->names.push_back(identifier->value);
-        this->EmitOp(OpCodes::LDGBL, sym->id);
+        this->EmitOp2(OpCodes::LDGBL, sym->id);
         return;
     }
 
     if (this->cu_curr_->symt->level == sym->table->level && this->cu_curr_->symt->type == SymTScope::FUNCTION) {
-        this->EmitOp(OpCodes::LDLC, sym->id);
+        this->EmitOp2(OpCodes::LDLC, sym->id);
         return;
     }
 
-    this->EmitOp(OpCodes::LDGBL, sym->id);
+    this->EmitOp2(OpCodes::LDGBL, sym->id);
 }
 
 void Compiler::CompileLiteral(const ast::Literal *literal) {
@@ -420,7 +427,7 @@ void Compiler::CompileLiteral(const ast::Literal *literal) {
             assert(false);
     }
 
-    this->EmitOp(OpCodes::LSTATIC, this->cu_curr_->constant.size() - 1);
+    this->EmitOp2(OpCodes::LSTATIC, this->cu_curr_->constant.size() - 1);
 }
 
 void Compiler::CompileTest(const ast::Binary *test) {
@@ -430,9 +437,9 @@ void Compiler::CompileTest(const ast::Binary *test) {
     while (true) {
         this->CompileCode(test->left);
         if (test->kind == scanner::TokenType::AND)
-            this->EmitOp(OpCodes::JFOP, 0);
+            this->EmitOp4(OpCodes::JFOP, 0);
         else
-            this->EmitOp(OpCodes::JTOP, 0);
+            this->EmitOp4(OpCodes::JTOP, 0);
 
         left = this->NewNextBlock();
         left->flow_else = last;
@@ -450,16 +457,16 @@ void Compiler::CompileTest(const ast::Binary *test) {
 void Compiler::CompileUnaryExpr(const ast::Unary *unary) {
     switch (unary->kind) {
         case scanner::TokenType::EXCLAMATION:
-            this->EmitOp(OpCodes::NOT, 0);
+            this->EmitOp(OpCodes::NOT);
             return;
         case scanner::TokenType::TILDE:
-            this->EmitOp(OpCodes::INV, 0);
+            this->EmitOp(OpCodes::INV);
             return;
         case scanner::TokenType::PLUS:
-            this->EmitOp(OpCodes::POS, 0);
+            this->EmitOp(OpCodes::POS);
             return;
         case scanner::TokenType::MINUS:
-            this->EmitOp(OpCodes::NEG, 0);
+            this->EmitOp(OpCodes::NEG);
             return;
         default:
             assert(false);

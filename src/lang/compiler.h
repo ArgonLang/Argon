@@ -6,6 +6,7 @@
 #define ARGON_LANG_COMPILER_H_
 
 #include <istream>
+#include <vector>
 #include <object/object.h>
 
 #include "basicblock.h"
@@ -39,7 +40,11 @@ namespace lang {
         std::list<CompileUnit> cu_list_;
         CompileUnit *cu_curr_ = nullptr;
 
-        void EmitOp(OpCodes code, unsigned char arg);
+        void EmitOp(OpCodes code);
+
+        void EmitOp2(OpCodes code, unsigned char arg);
+
+        void EmitOp4(OpCodes code, unsigned int arg);
 
         void EnterScope();
 
