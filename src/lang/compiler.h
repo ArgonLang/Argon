@@ -7,7 +7,7 @@
 
 #include <istream>
 #include <vector>
-#include <object/object.h>
+#include <object/list.h>
 
 #include "basicblock.h"
 #include "opcodes.h"
@@ -18,7 +18,7 @@ namespace lang {
     struct CompileUnit {
         SymTUptr symt;
 
-        std::vector<argon::object::ObjectContainer> constant;
+        argon::object::List *constants;
         std::vector<std::string> names;
         std::vector<std::string> locals;
 
@@ -31,11 +31,14 @@ namespace lang {
 
         size_t instr_sz = 0;
 
+        CompileUnit() : constants(argon::object::NewObject<argon::object::List>()) {}
+
         ~CompileUnit() {
             for (BasicBlock *cursor = this->bb_list, *nxt; cursor != nullptr; cursor = nxt) {
                 nxt = cursor->link_next;
                 delete (cursor);
             }
+            argon::object::ReleaseObject(this->constants);
         }
     };
 

@@ -180,7 +180,7 @@ void Compiler::CompileCode(const ast::NodeUptr &node) {
         case NodeType::LIST:
         case NodeType::SET:
         case NodeType::MAP:
-            this->CompileCompound(CastNode<List>(node));
+            this->CompileCompound(CastNode<ast::List>(node));
             break;
         case NodeType::IDENTIFIER:
             this->CompileIdentifier(CastNode<Identifier>(node));
@@ -398,37 +398,37 @@ void Compiler::CompileLiteral(const ast::Literal *literal) {
     // TODO: implement flyweight
     switch (literal->kind) {
         case scanner::TokenType::NIL:
-            this->cu_curr_->constant.emplace_back(Nil::NilValue());
+            this->cu_curr_->constants->Append(Nil::NilValue());
             break;
         case scanner::TokenType::FALSE:
-            this->cu_curr_->constant.emplace_back(Bool::False());
+            this->cu_curr_->constants->Append(Bool::False());
             break;
         case scanner::TokenType::TRUE:
-            this->cu_curr_->constant.emplace_back(Bool::True());
+            this->cu_curr_->constants->Append(Bool::True());
             break;
         case scanner::TokenType::STRING:
-            this->cu_curr_->constant.emplace_back(MakeOwner<String>(literal->value));
+            this->cu_curr_->constants->Append(NewObject<String>(literal->value));
             break;
         case scanner::TokenType::NUMBER_BIN:
-            this->cu_curr_->constant.emplace_back(MakeOwner<Integer>(literal->value, 2));
+            this->cu_curr_->constants->Append(NewObject<Integer>(literal->value, 2));
             break;
         case scanner::TokenType::NUMBER_OCT:
-            this->cu_curr_->constant.emplace_back(MakeOwner<Integer>(literal->value, 8));
+            this->cu_curr_->constants->Append(NewObject<Integer>(literal->value, 8));
             break;
         case scanner::TokenType::NUMBER:
-            this->cu_curr_->constant.emplace_back(MakeOwner<Integer>(literal->value, 10));
+            this->cu_curr_->constants->Append(NewObject<Integer>(literal->value, 10));
             break;
         case scanner::TokenType::NUMBER_HEX:
-            this->cu_curr_->constant.emplace_back(MakeOwner<Integer>(literal->value, 16));
+            this->cu_curr_->constants->Append(NewObject<Integer>(literal->value, 16));
             break;
         case scanner::TokenType::DECIMAL:
-            this->cu_curr_->constant.emplace_back(MakeOwner<Decimal>(literal->value));
+            this->cu_curr_->constants->Append(NewObject<Decimal>(literal->value));
             break;
         default:
             assert(false);
     }
 
-    this->EmitOp2(OpCodes::LSTATIC, this->cu_curr_->constant.size() - 1);
+    this->EmitOp2(OpCodes::LSTATIC, this->cu_curr_->constants->Count() - 1);
 }
 
 void Compiler::CompileTest(const ast::Binary *test) {
