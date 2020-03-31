@@ -6,7 +6,9 @@
 
 using namespace argon::object;
 
-Decimal::Decimal(const std::string &number) {
+Decimal::Decimal(long double number) : Number(&type_decimal_), decimal_(number) {}
+
+Decimal::Decimal(const std::string &number) : Number(&type_decimal_) {
     std::size_t idx;
     this->decimal_ = std::stold(number, &idx);
 }

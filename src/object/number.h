@@ -9,6 +9,16 @@
 
 namespace argon::object {
     class Number : public Object {
+    protected:
+        explicit Number(const TypeInfo *type) : Object(type) {}
+
+    public:
+        bool EqualTo(const Object *other) override {
+            // TODO: EqualTo
+            return false;
+        }
+
+        size_t Hash() override { return 0; }
     };
 } // namespace argon::object
 

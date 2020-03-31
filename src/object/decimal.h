@@ -13,10 +13,16 @@ namespace argon::object {
     class Decimal : public Number {
         long double decimal_;
     public:
-        explicit Decimal(long double number) : decimal_(number) {}
+        explicit Decimal(long double number);
 
         explicit Decimal(const std::string &number);
     };
+
+    inline const TypeInfo type_decimal_ = {
+            .name=(const unsigned char *) "decimal",
+            .size=sizeof(Decimal)
+    };
+
 } // namespace argon::object
 
 #endif // !ARGON_OBJECT_DECIMAL_H_

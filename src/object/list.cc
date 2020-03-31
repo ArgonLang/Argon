@@ -12,7 +12,7 @@ using namespace argon::memory;
 
 List::List() : List(ARGON_OBJECT_LIST_INITIAL_CAP) {}
 
-List::List(size_t capacity) : cap_(capacity) {
+List::List(size_t capacity) : Object(&type_list_), cap_(capacity) {
     this->objects_ = (Object **) Alloc(capacity * sizeof(Object *));
     this->len_ = 0;
 }
@@ -55,4 +55,12 @@ Object *List::At(size_t index) {
 
 size_t List::Count() {
     return this->len_;
+}
+
+bool List::EqualTo(const Object *other) {
+    return false;
+}
+
+size_t List::Hash() {
+    return 0;
 }

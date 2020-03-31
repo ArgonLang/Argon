@@ -14,7 +14,11 @@ namespace argon::object {
     class Bool : public Object {
         bool value_;
 
-        explicit Bool(bool value) : value_(value) { IncStrongRef(this); }
+        bool EqualTo(const Object *other) override;
+
+        size_t Hash() override;
+
+        explicit Bool(bool value);
 
     public:
         static Bool *False() {
@@ -28,6 +32,11 @@ namespace argon::object {
             IncStrongRef(&true_);
             return &true_;
         }
+    };
+
+    inline const TypeInfo type_bool_ = {
+            .name=(const unsigned char *) "bool",
+            .size=sizeof(Bool)
     };
 
 } // namespace argon::object

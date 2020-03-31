@@ -24,6 +24,10 @@ namespace argon::object {
 
         explicit List(size_t capacity);
 
+        bool EqualTo(const Object *other) override;
+
+        size_t Hash() override;
+
         void Append(Object *item);
 
         Object *At(size_t index);
@@ -31,6 +35,11 @@ namespace argon::object {
         void Clear();
 
         size_t Count();
+    };
+
+    inline const TypeInfo type_list_ = {
+            .name=(const unsigned char *) "list",
+            .size=sizeof(List)
     };
 
 } // namespace argon::object

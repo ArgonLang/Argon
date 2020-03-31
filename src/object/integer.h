@@ -13,10 +13,16 @@ namespace argon::object {
     class Integer : public Number {
         long integer_;
     public:
-        explicit Integer(long number) : integer_(number) {}
+        explicit Integer(long number);
 
         explicit Integer(const std::string &number, int base);
     };
+
+    inline const TypeInfo type_integer_ = {
+            .name=(const unsigned char *) "integer",
+            .size=sizeof(Integer)
+    };
+
 } // namespace argon::object
 
 #endif // !ARGON_OBJECT_INTEGER_H_
