@@ -16,6 +16,10 @@ namespace argon::object {
         explicit Integer(long number);
 
         explicit Integer(const std::string &number, int base);
+
+        bool EqualTo(const Object *other) override;
+
+        size_t Hash() override;
     };
 
     inline const TypeInfo type_integer_ = {

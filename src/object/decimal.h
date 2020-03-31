@@ -16,6 +16,10 @@ namespace argon::object {
         explicit Decimal(long double number);
 
         explicit Decimal(const std::string &number);
+
+        bool EqualTo(const Object *other) override;
+
+        size_t Hash() override;
     };
 
     inline const TypeInfo type_decimal_ = {
