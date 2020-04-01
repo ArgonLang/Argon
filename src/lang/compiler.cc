@@ -369,8 +369,8 @@ void Compiler::CompileVariable(const ast::Variable *variable) {
     }
 
     if (unbound) {
-        sym->id = this->cu_curr_->names.size();
-        this->cu_curr_->names.push_back(variable->name);
+        sym->id = this->cu_curr_->names->Count();
+        this->cu_curr_->names->Append(NewObject<String>(variable->name));
     }
     this->EmitOp2(OpCodes::STGBL, sym->id);
 }
@@ -380,8 +380,8 @@ void Compiler::CompileIdentifier(const ast::Identifier *identifier) {
 
     if (sym == nullptr) {
         sym = this->cu_curr_->symt->Insert(identifier->value);
-        sym->id = this->cu_curr_->names.size();
-        this->cu_curr_->names.push_back(identifier->value);
+        sym->id = this->cu_curr_->names->Count();
+        this->cu_curr_->names->Append(NewObject<String>(identifier->value));
         this->EmitOp2(OpCodes::LDGBL, sym->id);
         return;
     }
@@ -550,7 +550,7 @@ void Compiler::Dfs(CompileUnit *unit, BasicBlock *start) {
 }
 
 void Compiler::Assemble() {
-    auto code = argon::memory::AllocObject<argon::object::Code>(this->cu_curr_->instr_sz);
+    auto code = argon::object::NewObject<argon::object::Code>(this->cu_curr_->instr_sz);
     size_t offset = 0;
 
     for (auto &bb : this->cu_curr_->bb_splist) {
@@ -564,6 +564,12 @@ void Compiler::Assemble() {
         argon::memory::MemoryCopy(code->instr + offset, bb->instrs, bb->instr_sz);
         offset += bb->instr_sz;
     }
+
+    code->statics = this->cu_curr_->statics;
+    IncStrongRef(code->statics);
+
+    code->names = this->cu_curr_->names;
+    IncStrongRef(code->names);
 
     argon::memory::FreeObject(code); // TODO: stub (test only)
 }

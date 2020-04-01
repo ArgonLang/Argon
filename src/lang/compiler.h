@@ -21,7 +21,7 @@ namespace lang {
         argon::object::Map statics_map;
 
         argon::object::List *statics;
-        std::vector<std::string> names;
+        argon::object::List *names;
         std::vector<std::string> locals;
 
         std::vector<BasicBlock *> bb_splist;
@@ -34,7 +34,10 @@ namespace lang {
 
         size_t instr_sz = 0;
 
-        CompileUnit() : statics(argon::object::NewObject<argon::object::List>()) {}
+        CompileUnit() {
+            this->statics = argon::object::NewObject<argon::object::List>();
+            this->names = argon::object::NewObject<argon::object::List>();
+        }
 
         ~CompileUnit() {
             for (BasicBlock *cursor = this->bb_list, *nxt; cursor != nullptr; cursor = nxt) {
@@ -42,6 +45,7 @@ namespace lang {
                 delete (cursor);
             }
             argon::object::ReleaseObject(this->statics);
+            argon::object::ReleaseObject(this->names);
         }
     };
 

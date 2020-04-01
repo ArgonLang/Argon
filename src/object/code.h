@@ -6,13 +6,18 @@
 #define ARGON_OBJECT_CODE_H_
 
 #include "object.h"
+#include "list.h"
 
 namespace argon::object {
     class Code : public Object {
         size_t hash_ = 0;
     public:
+        argon::object::List *statics = nullptr;
+        argon::object::List *names = nullptr;
+
+        unsigned char *instr = nullptr;
+
         size_t instr_sz;
-        unsigned char *instr;
 
         bool EqualTo(const Object *other) override;
 

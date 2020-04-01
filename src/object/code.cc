@@ -13,7 +13,11 @@ Code::Code(size_t instr_sz) : Object(&type_code_), instr_sz(instr_sz) {
     this->instr = (unsigned char *) argon::memory::Alloc(instr_sz);
 }
 
-Code::~Code() { argon::memory::Free(this->instr); }
+Code::~Code() {
+    argon::memory::Free(this->instr);
+    ReleaseObject(this->statics);
+    ReleaseObject(this->names);
+}
 
 bool Code::EqualTo(const Object *other) {
     if (this != other) {
