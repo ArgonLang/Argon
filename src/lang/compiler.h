@@ -8,6 +8,7 @@
 #include <istream>
 #include <vector>
 #include <object/list.h>
+#include <object/map.h>
 
 #include "basicblock.h"
 #include "opcodes.h"
@@ -17,12 +18,14 @@
 namespace lang {
     struct CompileUnit {
         SymTUptr symt;
+        argon::object::Map statics_map;
 
-        argon::object::List *constants;
+        argon::object::List *statics;
         std::vector<std::string> names;
         std::vector<std::string> locals;
 
         std::vector<BasicBlock *> bb_splist;
+
         BasicBlock *bb_start = nullptr;
         BasicBlock *bb_list = nullptr;
         BasicBlock *bb_curr = nullptr;
@@ -31,18 +34,20 @@ namespace lang {
 
         size_t instr_sz = 0;
 
-        CompileUnit() : constants(argon::object::NewObject<argon::object::List>()) {}
+        CompileUnit() : statics(argon::object::NewObject<argon::object::List>()) {}
 
         ~CompileUnit() {
             for (BasicBlock *cursor = this->bb_list, *nxt; cursor != nullptr; cursor = nxt) {
                 nxt = cursor->link_next;
                 delete (cursor);
             }
-            argon::object::ReleaseObject(this->constants);
+            argon::object::ReleaseObject(this->statics);
         }
     };
 
     class Compiler {
+        argon::object::Map statics_global;
+
         std::list<CompileUnit> cu_list_;
         CompileUnit *cu_curr_ = nullptr;
 

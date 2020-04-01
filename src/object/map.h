@@ -54,6 +54,10 @@ namespace argon::object {
 
         void Remove(Object *key);
 
+        bool Contains(Object *key);
+
+        void Clear();
+
         Object *GetItem(Object *key);
     };
 

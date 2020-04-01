@@ -12,7 +12,11 @@
 namespace argon::object {
     class Integer : public Number {
         long integer_;
+
+        friend long ToCInt(Integer *integer);
+
     public:
+
         explicit Integer(long number);
 
         explicit Integer(const std::string &number, int base);
@@ -26,6 +30,8 @@ namespace argon::object {
             .name=(const unsigned char *) "integer",
             .size=sizeof(Integer)
     };
+
+    inline long ToCInt(Integer *integer) { return integer->integer_; }
 
 } // namespace argon::object
 

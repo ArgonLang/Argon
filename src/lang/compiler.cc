@@ -395,40 +395,63 @@ void Compiler::CompileIdentifier(const ast::Identifier *identifier) {
 }
 
 void Compiler::CompileLiteral(const ast::Literal *literal) {
-    // TODO: implement flyweight
+    Object *obj;
+    Object *tmp;
+    unsigned short idx;
+
     switch (literal->kind) {
         case scanner::TokenType::NIL:
-            this->cu_curr_->constants->Append(Nil::NilValue());
+            obj = Nil::NilValue();
+            IncStrongRef(obj);
             break;
         case scanner::TokenType::FALSE:
-            this->cu_curr_->constants->Append(Bool::False());
+            obj = Bool::False();
+            IncStrongRef(obj);
             break;
         case scanner::TokenType::TRUE:
-            this->cu_curr_->constants->Append(Bool::True());
+            obj = Bool::True();
+            IncStrongRef(obj);
             break;
         case scanner::TokenType::STRING:
-            this->cu_curr_->constants->Append(NewObject<String>(literal->value));
+            obj = NewObject<String>(literal->value);
             break;
         case scanner::TokenType::NUMBER_BIN:
-            this->cu_curr_->constants->Append(NewObject<Integer>(literal->value, 2));
+            obj = NewObject<Integer>(literal->value, 2);
             break;
         case scanner::TokenType::NUMBER_OCT:
-            this->cu_curr_->constants->Append(NewObject<Integer>(literal->value, 8));
+            obj = NewObject<Integer>(literal->value, 8);
             break;
         case scanner::TokenType::NUMBER:
-            this->cu_curr_->constants->Append(NewObject<Integer>(literal->value, 10));
+            obj = NewObject<Integer>(literal->value, 10);
             break;
         case scanner::TokenType::NUMBER_HEX:
-            this->cu_curr_->constants->Append(NewObject<Integer>(literal->value, 16));
+            obj = NewObject<Integer>(literal->value, 16);
             break;
         case scanner::TokenType::DECIMAL:
-            this->cu_curr_->constants->Append(NewObject<Decimal>(literal->value));
+            obj = NewObject<Decimal>(literal->value);
             break;
         default:
             assert(false);
     }
 
-    this->EmitOp2(OpCodes::LSTATIC, this->cu_curr_->constants->Count() - 1);
+    tmp = this->cu_curr_->statics_map.GetItem(obj);
+    if (IsNil(tmp)) {
+        tmp = this->statics_global.GetItem(obj);
+        if (!IsNil(tmp)) {
+            ReleaseObject(obj);
+            obj = tmp;
+            IncStrongRef(obj);
+        } else
+            this->cu_curr_->statics->Append(obj);
+
+        idx = this->cu_curr_->statics->Count() - 1;
+        this->cu_curr_->statics_map.Insert(obj, NewObject<Integer>(idx));
+        this->statics_global.Insert(obj, obj);
+
+    } else idx = ToCInt(((Integer *) tmp));
+
+    this->EmitOp2(OpCodes::LSTATIC, idx);
+    ReleaseObject(obj);
 }
 
 void Compiler::CompileTest(const ast::Binary *test) {

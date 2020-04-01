@@ -190,3 +190,23 @@ Object *Map::GetItem(Object *key) {
 
     return Nil::NilValue();
 }
+
+void Map::Clear() {
+    for (MapEntry *cur = this->iter_begin; cur != nullptr; cur = cur->iter_next) {
+        ReleaseObject(cur->key);
+        ReleaseObject(cur->value);
+        this->RemoveIterItem(cur);
+        this->MoveToFreeNode(cur);
+    }
+    this->len_ = 0;
+}
+
+bool Map::Contains(Object *key) {
+    size_t index = key->Hash() % this->cap_;
+
+    for (MapEntry *cur = this->map_[index]; cur != nullptr; cur = cur->next)
+        if (key->EqualTo(cur->key))
+            return true;
+
+    return false;
+}

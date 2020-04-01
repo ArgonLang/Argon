@@ -29,6 +29,8 @@ namespace argon::object {
             .name=(const unsigned char *) "nil",
             .size=sizeof(Nil)
     };
+
+    inline bool IsNil(Object *obj) { return obj->type == &type_nil_; }
 } // namespace argon::object
 
 #endif // !ARGON_OBJECT_NIL_H_
