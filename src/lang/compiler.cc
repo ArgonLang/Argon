@@ -72,26 +72,24 @@ void Compiler::CompileBinaryExpr(const ast::Binary *binary) {
 }
 
 void Compiler::CompileBranch(const ast::If *stmt) {
-    BasicBlock *test_block;
-    BasicBlock *true_block;
+    BasicBlock *test = this->cu_curr_->bb_curr;
+    BasicBlock *last = this->NewBlock();
 
     this->CompileCode(stmt->test);
     this->EmitOp4(OpCodes::JF, 0);
+    test->flow_else = last;
 
-    test_block = this->NewNextBlock();
-
+    this->NewNextBlock();
     this->CompileCode(stmt->body);
-    if (stmt->orelse != nullptr)
-        this->EmitOp4(OpCodes::JMP, 0);
-    true_block = this->NewNextBlock();
-
-    test_block->flow_else = this->cu_curr_->bb_curr;
     if (stmt->orelse != nullptr) {
-        this->CompileCode(stmt->orelse);
+        this->cu_curr_->bb_curr->flow_else = last;
+        this->EmitOp4(OpCodes::JMP, 0);
         this->NewNextBlock();
-        true_block->flow_next = nullptr;
-        true_block->flow_else = this->cu_curr_->bb_curr;
+        test->flow_else = this->cu_curr_->bb_curr;
+        this->CompileCode(stmt->orelse);
     }
+
+    this->UseAsNextBlock(last);
 }
 
 void Compiler::CompileCode(const ast::NodeUptr &node) {
@@ -196,21 +194,21 @@ void Compiler::CompileCode(const ast::NodeUptr &node) {
 }
 
 void Compiler::CompileLoop(const ast::Loop *loop) {
-    BasicBlock *next = this->NewBlock();
-    BasicBlock *test = nullptr;
+    BasicBlock *last = this->NewBlock();
+    BasicBlock *head = nullptr;
 
     this->NewNextBlock();
+    head = this->cu_curr_->bb_curr;
     if (loop->test != nullptr) {
         this->CompileCode(loop->test);
         this->EmitOp4(OpCodes::JF, 0);
-        test = this->NewNextBlock();
-        test->flow_else = next;
-        this->cu_curr_->bb_curr->flow_else = test;
-    } else this->cu_curr_->bb_curr->flow_else = this->cu_curr_->bb_curr;
+        this->cu_curr_->bb_curr->flow_else = last;
+        this->NewNextBlock();
+    }
     this->CompileCode(loop->body);
     this->EmitOp4(OpCodes::JMP, 0);
-
-    this->UseAsNextBlock(next);
+    this->cu_curr_->bb_curr->flow_else = head;
+    this->UseAsNextBlock(last);
 }
 
 void Compiler::CompileCompound(const ast::List *list) {
@@ -341,9 +339,11 @@ void Compiler::CompileSwitchAsIf(const ast::Switch *stmt) {
                 this->cu_curr_->bb_curr->flow_else = last;
             }
             this->NewNextBlock();
-        } else
+            ltest->flow_else = this->cu_curr_->bb_curr;
+        } else {
+            ltest->flow_else = this->cu_curr_->bb_curr;
             this->UseAsNextBlock(last);
-        ltest->flow_else = this->cu_curr_->bb_curr;
+        }
         cases_idx++;
     }
 }
