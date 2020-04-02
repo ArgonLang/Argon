@@ -266,6 +266,7 @@ void Compiler::CompileSwitch(const ast::Switch *stmt) {
             for (auto &test : CastNode<Case>(swcase)->tests) {
                 this->CompileCode(test);
                 this->EmitOp(OpCodes::TEST);
+                this->EmitOp4(OpCodes::JTAP, 0);
                 this->cu_curr_->bb_curr->flow_else = cond;
                 this->NewNextBlock();
             }
@@ -278,8 +279,6 @@ void Compiler::CompileSwitch(const ast::Switch *stmt) {
 
         index++;
     }
-
-    // TODO: add pop top! OPCODE::TEST Consume only TOS
 
     if (!have_default) {
         this->EmitOp4(OpCodes::JMP, 0);

@@ -11,6 +11,10 @@ namespace lang {
     using Instr16 = unsigned short;
     using Instr8 = unsigned char;
 
+    inline unsigned char I16Arg(const unsigned char *instr) { return *((Instr16 *) instr) >> (unsigned char) 8; }
+
+    inline unsigned int I32Arg(const unsigned char *instr) { return *((Instr32 *) instr) >> (unsigned char) 8; }
+
     enum class OpCodes : unsigned char {
         STGBL,
         STLC,
@@ -23,6 +27,7 @@ namespace lang {
         JMP,    // JUMP
         JF,     // JUMP_FALSE
         JT,     // JUMP_TRUE
+        JTAP,   // JUMP_TRUE_AND_POP
         JTOP,   // JUMP_TRUE_OR_POP
         JFOP,   // JUMP_FALSE_OR_POP
         LOR,
@@ -57,6 +62,7 @@ namespace lang {
         LE,
         LEQ
     };
+
 } // namespace lang
 
 #endif // !ARGON_LANG_OPCODES_H_
