@@ -235,56 +235,66 @@ void Compiler::CompileCompound(const ast::List *list) {
 
 void Compiler::CompileSwitch(const ast::Switch *stmt) {
     BasicBlock *last = this->NewBlock();
-    BasicBlock *bcur = nullptr;
-    BasicBlock *cond = nullptr;
+    BasicBlock *cond = this->cu_curr_->bb_curr;
+    BasicBlock *fbody = this->NewBlock();
+    BasicBlock *body = fbody;
+    BasicBlock *def = nullptr;
     unsigned short index = 1;
-    bool have_default = false;
 
     this->CompileCode(stmt->test);
 
     for (auto &swcase : stmt->cases) {
-        bcur = this->cu_curr_->bb_curr;
-        this->cu_curr_->bb_curr = this->NewBlock();
+        if (index != 1) {
+            body->flow_next = this->NewBlock();
+            body = body->flow_next;
+        }
+
+        if (!CastNode<Case>(swcase)->tests.empty()) {
+            // Case
+            bool compound_cond = false;
+            for (auto &test : CastNode<Case>(swcase)->tests) {
+                if (compound_cond || cond->flow_else != nullptr) {
+                    this->NewNextBlock();
+                    cond = this->cu_curr_->bb_curr;
+                }
+                compound_cond = true;
+                this->CompileCode(test);
+                this->EmitOp(OpCodes::TEST);
+                this->EmitOp4(OpCodes::JTAP, 0);
+                cond->flow_else = body;
+            }
+        } else {
+            // Default
+            def = this->NewBlock();
+            this->cu_curr_->bb_curr = def;
+            this->EmitOp4(OpCodes::JMP, 0);
+            this->cu_curr_->bb_curr->flow_else = body;
+        }
+
+        this->cu_curr_->bb_curr = body; // Use bb pointed by body
         this->CompileCode(CastNode<Case>(swcase)->body);
+        body = this->cu_curr_->bb_curr; // Update body after CompileCode, body may be changed (Eg: if)
 
         if (index < stmt->cases.size()) {
             if (CastNode<Block>(CastNode<Case>(swcase)->body)->stmts.back()->type != NodeType::FALLTHROUGH) {
                 this->EmitOp4(OpCodes::JMP, 0);
-                this->cu_curr_->bb_curr->flow_else = last;
+                body->flow_else = last;
             }
         }
 
-        if (cond != nullptr)
-            cond->flow_next = this->cu_curr_->bb_curr;
-
-        cond = this->cu_curr_->bb_curr;
-
-        this->cu_curr_->bb_curr = bcur;
-        if (!CastNode<Case>(swcase)->tests.empty()) {
-            for (auto &test : CastNode<Case>(swcase)->tests) {
-                this->CompileCode(test);
-                this->EmitOp(OpCodes::TEST);
-                this->EmitOp4(OpCodes::JTAP, 0);
-                this->cu_curr_->bb_curr->flow_else = cond;
-                this->NewNextBlock();
-            }
-        } else {
-            // Default branch:
-            this->EmitOp4(OpCodes::JMP, 0);
-            this->cu_curr_->bb_curr->flow_else = cond;
-            have_default = true;
-        }
-
+        this->cu_curr_->bb_curr = cond;
         index++;
     }
 
-    if (!have_default) {
+    if (def == nullptr) {
+        this->NewNextBlock();
         this->EmitOp4(OpCodes::JMP, 0);
         this->cu_curr_->bb_curr->flow_else = last;
-    }
+    } else this->UseAsNextBlock(def);
 
-    this->cu_curr_->bb_curr = cond;
+    this->cu_curr_->bb_curr->flow_next = fbody;
 
+    this->cu_curr_->bb_curr = body;
     this->UseAsNextBlock(last);
 }
 
@@ -537,14 +547,15 @@ void Compiler::Compile(std::istream *source) {
 }
 
 void Compiler::Dfs(CompileUnit *unit, BasicBlock *start) {
-    for (BasicBlock *base = start; base != nullptr && !base->visited; base = base->flow_next) {
-        base->visited = true;
-        base->start = unit->instr_sz;
-        unit->instr_sz += base->instr_sz;
-        unit->bb_splist.push_back(base);
-    }
+    start->visited = true;
+    start->start = unit->instr_sz;
+    unit->instr_sz += start->instr_sz;
+    unit->bb_splist.push_back(start);
 
-    if (start->flow_else != nullptr)
+    if (start->flow_next != nullptr && !start->flow_next->visited)
+        this->Dfs(unit, start->flow_next);
+
+    if (start->flow_else != nullptr && !start->flow_else->visited)
         this->Dfs(unit, start->flow_else);
 }
 
