@@ -107,10 +107,7 @@ void Compiler::CompileCode(const ast::NodeUptr &node) {
             this->CompileLoop(CastNode<Loop>(node));
             break;
         case NodeType::SWITCH:
-            if (CastNode<Switch>(node)->test != nullptr)
-                this->CompileSwitch(CastNode<Switch>(node));
-            else
-                this->CompileSwitchAsIf(CastNode<Switch>(node));
+            this->CompileSwitch(CastNode<Switch>(node), CastNode<Switch>(node)->test == nullptr);
             break;
         case NodeType::FALLTHROUGH:
             //  Managed by CompileSwitch* method
@@ -233,7 +230,7 @@ void Compiler::CompileCompound(const ast::List *list) {
     }
 }
 
-void Compiler::CompileSwitch(const ast::Switch *stmt) {
+void Compiler::CompileSwitch(const ast::Switch *stmt, bool as_if) {
     BasicBlock *last = this->NewBlock();
     BasicBlock *cond = this->cu_curr_->bb_curr;
     BasicBlock *fbody = this->NewBlock();
@@ -241,7 +238,8 @@ void Compiler::CompileSwitch(const ast::Switch *stmt) {
     BasicBlock *def = nullptr;
     unsigned short index = 1;
 
-    this->CompileCode(stmt->test);
+    if (!as_if)
+        this->CompileCode(stmt->test);
 
     for (auto &swcase : stmt->cases) {
         if (index != 1) {
@@ -259,8 +257,11 @@ void Compiler::CompileSwitch(const ast::Switch *stmt) {
                 }
                 compound_cond = true;
                 this->CompileCode(test);
-                this->EmitOp(OpCodes::TEST);
-                this->EmitOp4(OpCodes::JTAP, 0);
+                if (!as_if) {
+                    this->EmitOp(OpCodes::TEST);
+                    this->EmitOp4(OpCodes::JTAP, 0);
+                } else
+                    this->EmitOp4(OpCodes::JT, 0);
                 cond->flow_else = body;
             }
         } else {
@@ -296,66 +297,6 @@ void Compiler::CompileSwitch(const ast::Switch *stmt) {
 
     this->cu_curr_->bb_curr = body;
     this->UseAsNextBlock(last);
-}
-
-/*
- * CompileSwitchAsIf:
- *
- * TEST 1
- * JT BODY1
- * TEST 1.2
- * JT BODY1
- * TEST 1.3
- * JF TEST 2
- * BODY1:
- * ...
- * TEST 2
- * JF EXIT
- * BODY2
- * ...
- * EXIT:
- * ...
- * ...
- */
-
-void Compiler::CompileSwitchAsIf(const ast::Switch *stmt) {
-    BasicBlock *last = this->NewBlock();
-    BasicBlock *ltest = nullptr;
-    BasicBlock *body = nullptr;
-    unsigned short cases_idx = 1;
-
-    for (auto &swcase : stmt->cases) {
-        body = this->NewBlock();
-        unsigned short tests_idx = 1;
-        if (!CastNode<Case>(swcase)->tests.empty()) {
-            for (auto &test : CastNode<Case>(swcase)->tests) {
-                this->CompileCode(test);
-                if (tests_idx < CastNode<Case>(swcase)->tests.size()) {
-                    this->EmitOp4(OpCodes::JT, 0);
-                    this->cu_curr_->bb_curr->flow_else = body;
-                    this->NewNextBlock();
-                } else this->EmitOp4(OpCodes::JF, 0);
-                tests_idx++;
-                ltest = this->cu_curr_->bb_curr;
-            }
-            this->UseAsNextBlock(body);
-        }
-
-        this->CompileCode(CastNode<Case>(swcase)->body);
-
-        if (cases_idx < stmt->cases.size()) {
-            if (CastNode<Block>(CastNode<Case>(swcase)->body)->stmts.back()->type != NodeType::FALLTHROUGH) {
-                this->EmitOp4(OpCodes::JMP, 0);
-                this->cu_curr_->bb_curr->flow_else = last;
-            }
-            this->NewNextBlock();
-            ltest->flow_else = this->cu_curr_->bb_curr;
-        } else {
-            ltest->flow_else = this->cu_curr_->bb_curr;
-            this->UseAsNextBlock(last);
-        }
-        cases_idx++;
-    }
 }
 
 void Compiler::CompileVariable(const ast::Variable *variable) {

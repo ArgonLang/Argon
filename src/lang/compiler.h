@@ -73,9 +73,7 @@ namespace lang {
 
         void CompileLoop(const ast::Loop *loop);
 
-        void CompileSwitch(const ast::Switch *stmt);
-
-        void CompileSwitchAsIf(const ast::Switch *stmt);
+        void CompileSwitch(const ast::Switch *stmt, bool as_if);
 
         void CompileVariable(const ast::Variable *variable);
 
