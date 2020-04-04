@@ -22,7 +22,7 @@ namespace lang {
 
         argon::object::List *statics;
         argon::object::List *names;
-        std::vector<std::string> locals;
+        argon::object::List *locals;
 
         std::vector<BasicBlock *> bb_splist;
 
@@ -37,6 +37,7 @@ namespace lang {
         CompileUnit() {
             this->statics = argon::object::NewObject<argon::object::List>();
             this->names = argon::object::NewObject<argon::object::List>();
+            this->locals = argon::object::NewObject<argon::object::List>();
         }
 
         ~CompileUnit() {
@@ -46,6 +47,7 @@ namespace lang {
             }
             argon::object::ReleaseObject(this->statics);
             argon::object::ReleaseObject(this->names);
+            argon::object::ReleaseObject(this->locals);
         }
     };
 
@@ -76,6 +78,8 @@ namespace lang {
         void CompileSwitch(const ast::Switch *stmt, bool as_if);
 
         void CompileVariable(const ast::Variable *variable);
+
+        void CompileAssignment(const ast::Assignment *assign);
 
         void CompileCompound(const ast::List *list);
 

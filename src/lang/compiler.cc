@@ -112,6 +112,22 @@ void Compiler::CompileCode(const ast::NodeUptr &node) {
         case NodeType::FALLTHROUGH:
             //  Managed by CompileSwitch* method
             break;
+        case NodeType::ASSIGN:
+            if (CastNode<Assignment>(node)->kind == scanner::TokenType::EQUAL) {
+                this->CompileAssignment(CastNode<Assignment>(node));
+                break;
+            }
+            this->CompileCode(CastNode<Assignment>(node)->assignee);
+            this->CompileCode(CastNode<Assignment>(node)->right);
+            if (CastNode<Assignment>(node)->kind == scanner::TokenType::PLUS_EQ)
+                this->EmitOp(OpCodes::IPADD);
+            else if (CastNode<Assignment>(node)->kind == scanner::TokenType::MINUS_EQ)
+                this->EmitOp(OpCodes::IPSUB);
+            else if (CastNode<Assignment>(node)->kind == scanner::TokenType::ASTERISK_EQ)
+                this->EmitOp(OpCodes::IPMUL);
+            else // TokenType::SLASH_EQ
+                this->EmitOp(OpCodes::IPDIV);
+            break;
         case NodeType::IF:
             this->CompileBranch(CastNode<If>(node));
             break;
@@ -301,28 +317,34 @@ void Compiler::CompileSwitch(const ast::Switch *stmt, bool as_if) {
 
 void Compiler::CompileVariable(const ast::Variable *variable) {
     Symbol *sym = this->cu_curr_->symt->Insert(variable->name);
-    bool unbound = true;
+    bool known = false;
 
     if (sym == nullptr) {
         sym = this->cu_curr_->symt->Lookup(variable->name);
-        if (sym->declared)
-            return; // TODO exception!
-        unbound = false;
+        if (sym->declared) {
+            assert(sym == nullptr); // TODO exception variable already exists
+            return;
+        }
+        sym->declared = true;
+        known = true;
     }
-    sym->declared = true;
 
-    if (this->cu_curr_->symt->type != SymTScope::MODULE) {
-        sym->id = this->cu_curr_->locals.size();
-        this->cu_curr_->locals.push_back(variable->name);
-        this->EmitOp2(OpCodes::STLC, sym->id);
+    this->CompileCode(variable->value);
+
+    if (this->cu_curr_->symt->type == SymTScope::MODULE) {
+        if (!known) {
+            sym->id = this->cu_curr_->names->Count();
+            this->cu_curr_->names->Append(NewObject<String>(variable->name));
+        }
+        this->EmitOp2(OpCodes::NGV, sym->id);
         return;
     }
 
-    if (unbound) {
-        sym->id = this->cu_curr_->names->Count();
-        this->cu_curr_->names->Append(NewObject<String>(variable->name));
+    if (!known) {
+        sym->id = this->cu_curr_->locals->Count();
+        this->cu_curr_->locals->Append(NewObject<String>(variable->name));
     }
-    this->EmitOp2(OpCodes::STGBL, sym->id);
+    this->EmitOp2(OpCodes::STLC, sym->id);
 }
 
 void Compiler::CompileIdentifier(const ast::Identifier *identifier) {
@@ -342,6 +364,32 @@ void Compiler::CompileIdentifier(const ast::Identifier *identifier) {
     }
 
     this->EmitOp2(OpCodes::LDGBL, sym->id);
+}
+
+void Compiler::CompileAssignment(const ast::Assignment *assign) {
+    // TODO: STUB
+    if (assign->assignee->type == NodeType::IDENTIFIER) {
+        this->CompileCode(assign->right);
+        auto identifier = CastNode<Identifier>(assign->assignee);
+        Symbol *sym = this->cu_curr_->symt->Lookup(identifier->value);
+
+        if (sym == nullptr) {
+            sym = this->cu_curr_->symt->Insert(identifier->value);
+            sym->id = this->cu_curr_->names->Count();
+            this->cu_curr_->names->Append(NewObject<String>(identifier->value));
+            this->EmitOp2(OpCodes::STGBL, sym->id);
+            return;
+        }
+
+        if (this->cu_curr_->symt->level == sym->table->level && this->cu_curr_->symt->type == SymTScope::FUNCTION) {
+            this->EmitOp2(OpCodes::STLC, sym->id);
+            return;
+        }
+
+        this->EmitOp2(OpCodes::STGBL, sym->id);
+    } else {
+        assert(false);
+    }
 }
 
 void Compiler::CompileLiteral(const ast::Literal *literal) {
@@ -521,6 +569,9 @@ void Compiler::Assemble() {
 
     code->names = this->cu_curr_->names;
     IncStrongRef(code->names);
+
+    code->locals = this->cu_curr_->locals;
+    IncStrongRef(code->locals);
 
     argon::memory::FreeObject(code); // TODO: stub (test only)
 }

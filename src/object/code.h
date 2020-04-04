@@ -14,6 +14,7 @@ namespace argon::object {
     public:
         argon::object::List *statics = nullptr;
         argon::object::List *names = nullptr;
+        argon::object::List *locals = nullptr;
 
         unsigned char *instr = nullptr;
 

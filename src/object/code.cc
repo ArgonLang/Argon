@@ -17,6 +17,7 @@ Code::~Code() {
     argon::memory::Free(this->instr);
     ReleaseObject(this->statics);
     ReleaseObject(this->names);
+    ReleaseObject(this->locals);
 }
 
 bool Code::EqualTo(const Object *other) {

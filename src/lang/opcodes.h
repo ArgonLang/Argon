@@ -16,6 +16,8 @@ namespace lang {
     inline unsigned int I32Arg(const unsigned char *instr) { return *((Instr32 *) instr) >> (unsigned char) 8; }
 
     enum class OpCodes : unsigned char {
+        NGV,    // NEW_GLOBAL_VARIABLE
+        NLV,    // NEW_LOCAL_VARIABLE
         STGBL,
         STLC,
         LDGBL,
@@ -38,9 +40,13 @@ namespace lang {
         SHL,
         SHR,
         ADD,
+        IPADD,
         SUB,
+        IPSUB,
         MUL,
+        IPMUL,
         DIV,
+        IPDIV,
         IDIV,
         MOD,
         NOT,
