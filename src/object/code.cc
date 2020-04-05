@@ -9,12 +9,21 @@
 
 using namespace argon::object;
 
-Code::Code(size_t instr_sz) : Object(&type_code_), instr_sz(instr_sz) {
-    this->instr = (unsigned char *) argon::memory::Alloc(instr_sz);
+Code::Code(const unsigned char *instr, unsigned int instr_sz, unsigned int stack_sz, argon::object::List *statics,
+           argon::object::List *names, argon::object::List *locals) : Object(&type_code_),
+                                                                      instr(instr),
+                                                                      instr_sz(instr_sz),
+                                                                      stack_sz(stack_sz),
+                                                                      statics(statics),
+                                                                      names(names),
+                                                                      locals(locals) {
+    IncStrongRef(statics);
+    IncStrongRef(names);
+    IncStrongRef(locals);
 }
 
 Code::~Code() {
-    argon::memory::Free(this->instr);
+    argon::memory::Free((unsigned char *) this->instr);
     ReleaseObject(this->statics);
     ReleaseObject(this->names);
     ReleaseObject(this->locals);

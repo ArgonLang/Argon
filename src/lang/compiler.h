@@ -32,7 +32,9 @@ namespace lang {
 
         CompileUnit *prev = nullptr;
 
-        size_t instr_sz = 0;
+        unsigned int instr_sz = 0;
+        unsigned int stack_sz = 0;
+        unsigned int stack_cu_sz = 0;
 
         CompileUnit() {
             this->statics = argon::object::NewObject<argon::object::List>();
@@ -94,6 +96,10 @@ namespace lang {
         void Dfs(CompileUnit *unit, BasicBlock *start);
 
         void UseAsNextBlock(BasicBlock *block);
+
+        void IncEvalStack();
+
+        void DecEvalStack();
 
         BasicBlock *NewBlock();
 

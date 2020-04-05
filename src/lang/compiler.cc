@@ -98,6 +98,7 @@ void Compiler::CompileCode(const ast::NodeUptr &node) {
     switch (node->type) {
         case NodeType::VARIABLE:
             this->CompileVariable(CastNode<Variable>(node));
+            this->DecEvalStack();
             break;
         case NodeType::BLOCK:
             for (auto &stmt : CastNode<Block>(node)->stmts)
@@ -115,6 +116,7 @@ void Compiler::CompileCode(const ast::NodeUptr &node) {
         case NodeType::ASSIGN:
             if (CastNode<Assignment>(node)->kind == scanner::TokenType::EQUAL) {
                 this->CompileAssignment(CastNode<Assignment>(node));
+                this->DecEvalStack(); // TODO: stub
                 break;
             }
             this->CompileCode(CastNode<Assignment>(node)->assignee);
@@ -127,6 +129,7 @@ void Compiler::CompileCode(const ast::NodeUptr &node) {
                 this->EmitOp(OpCodes::IPMUL);
             else // TokenType::SLASH_EQ
                 this->EmitOp(OpCodes::IPDIV);
+            this->DecEvalStack();
             break;
         case NodeType::IF:
             this->CompileBranch(CastNode<If>(node));
@@ -150,6 +153,7 @@ void Compiler::CompileCode(const ast::NodeUptr &node) {
             else if (CastNode<Binary>(node)->kind == scanner::TokenType::CARET)
                 this->EmitOp(OpCodes::LXOR);
             else this->EmitOp(OpCodes::LAND);
+            this->DecEvalStack();
             break;
         case NodeType::EQUALITY:
             this->CompileCode(CastNode<Binary>(node)->left);
@@ -158,6 +162,7 @@ void Compiler::CompileCode(const ast::NodeUptr &node) {
                 this->EmitOp2(OpCodes::CMP, (unsigned char) CompareMode::EQ);
             else if (CastNode<Binary>(node)->kind == scanner::TokenType::NOT_EQUAL)
                 this->EmitOp2(OpCodes::CMP, (unsigned char) CompareMode::NE);
+            this->DecEvalStack();
             break;
         case NodeType::RELATIONAL:
             this->CompileCode(CastNode<Binary>(node)->left);
@@ -170,11 +175,13 @@ void Compiler::CompileCode(const ast::NodeUptr &node) {
                 this->EmitOp2(OpCodes::CMP, (unsigned char) CompareMode::LE);
             else if (CastNode<Binary>(node)->kind == scanner::TokenType::LESS_EQ)
                 this->EmitOp2(OpCodes::CMP, (unsigned char) CompareMode::LEQ);
+            this->DecEvalStack();
             break;
         case NodeType::BINARY_OP:
             this->CompileCode(CastNode<Binary>(node)->left);
             this->CompileCode(CastNode<Binary>(node)->right);
             this->CompileBinaryExpr(CastNode<Binary>(node));
+            this->DecEvalStack();
             break;
         case NodeType::UNARY_OP:
             this->CompileCode(CastNode<Unary>(node)->expr);
@@ -186,6 +193,7 @@ void Compiler::CompileCode(const ast::NodeUptr &node) {
                 this->EmitOp(CastNode<Update>(node)->prefix ? OpCodes::PREI : OpCodes::PSTI);
             else // TokenType::MINUS_MINUS
                 this->EmitOp(CastNode<Update>(node)->prefix ? OpCodes::PRED : OpCodes::PSTD);
+            this->DecEvalStack();
             break;
         case NodeType::TUPLE:
         case NodeType::LIST:
@@ -195,11 +203,13 @@ void Compiler::CompileCode(const ast::NodeUptr &node) {
             break;
         case NodeType::IDENTIFIER:
             this->CompileIdentifier(CastNode<Identifier>(node));
+            this->IncEvalStack();
             break;
         case NodeType::SCOPE:
             break;
         case NodeType::LITERAL:
             this->CompileLiteral(CastNode<Literal>(node));
+            this->IncEvalStack();
             break;
         default:
             assert(false);
@@ -549,8 +559,10 @@ void Compiler::Dfs(CompileUnit *unit, BasicBlock *start) {
 }
 
 void Compiler::Assemble() {
-    auto code = argon::object::NewObject<argon::object::Code>(this->cu_curr_->instr_sz);
+    auto buffer = (unsigned char *) argon::memory::Alloc(this->cu_curr_->instr_sz);
     size_t offset = 0;
+
+    assert(buffer != nullptr);
 
     for (auto &bb : this->cu_curr_->bb_splist) {
         // Calculate JMP offset
@@ -560,18 +572,27 @@ void Compiler::Assemble() {
             *((Instr32 *) (bb->instrs + (bb->instr_sz - sizeof(Instr32)))) = jmp;
         }
         // Copy instrs to destination CodeObject
-        argon::memory::MemoryCopy(code->instr + offset, bb->instrs, bb->instr_sz);
+        argon::memory::MemoryCopy(buffer + offset, bb->instrs, bb->instr_sz);
         offset += bb->instr_sz;
     }
 
-    code->statics = this->cu_curr_->statics;
-    IncStrongRef(code->statics);
-
-    code->names = this->cu_curr_->names;
-    IncStrongRef(code->names);
-
-    code->locals = this->cu_curr_->locals;
-    IncStrongRef(code->locals);
+    auto code = argon::object::NewObject<argon::object::Code>(buffer,
+                                                              this->cu_curr_->instr_sz,
+                                                              this->cu_curr_->stack_sz,
+                                                              this->cu_curr_->statics,
+                                                              this->cu_curr_->names,
+                                                              this->cu_curr_->locals);
 
     argon::memory::FreeObject(code); // TODO: stub (test only)
+}
+
+void Compiler::IncEvalStack() {
+    this->cu_curr_->stack_cu_sz++;
+    if (this->cu_curr_->stack_cu_sz > this->cu_curr_->stack_sz)
+        this->cu_curr_->stack_sz = this->cu_curr_->stack_cu_sz;
+}
+
+void Compiler::DecEvalStack() {
+    this->cu_curr_->stack_cu_sz--;
+    assert(this->cu_curr_->stack_cu_sz < 0x00FFFFFF);
 }

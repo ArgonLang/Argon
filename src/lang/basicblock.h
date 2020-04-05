@@ -23,8 +23,8 @@ namespace lang {
 
         unsigned char *instrs = nullptr;
 
-        size_t start = 0;
-        size_t instr_sz = 0;
+        unsigned int start = 0;
+        unsigned int instr_sz = 0;
 
         bool visited = false;
 

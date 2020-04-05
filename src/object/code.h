@@ -16,15 +16,17 @@ namespace argon::object {
         argon::object::List *names = nullptr;
         argon::object::List *locals = nullptr;
 
-        unsigned char *instr = nullptr;
+        const unsigned char *instr = nullptr;
 
-        size_t instr_sz;
+        const unsigned int instr_sz;
+        const unsigned int stack_sz;
 
         bool EqualTo(const Object *other) override;
 
         size_t Hash() override;
 
-        explicit Code(size_t instr_sz);
+        explicit Code(const unsigned char *instr, unsigned int instr_sz, unsigned int stack_sz,
+                      argon::object::List *statics, argon::object::List *names, argon::object::List *locals);
 
         ~Code() override;
     };
