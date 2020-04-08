@@ -424,16 +424,16 @@ void Compiler::CompileLiteral(const ast::Literal *literal) {
             obj = NewObject<String>(literal->value);
             break;
         case scanner::TokenType::NUMBER_BIN:
-            obj = NewObject<Integer>(literal->value, 2);
+            //obj = NewObject<Integer>(literal->value, 2);
             break;
         case scanner::TokenType::NUMBER_OCT:
-            obj = NewObject<Integer>(literal->value, 8);
+            //obj = NewObject<Integer>(literal->value, 8);
             break;
         case scanner::TokenType::NUMBER:
-            obj = NewObject<Integer>(literal->value, 10);
+            //obj = NewObject<Integer>(literal->value, 10);
             break;
         case scanner::TokenType::NUMBER_HEX:
-            obj = NewObject<Integer>(literal->value, 16);
+            //obj = NewObject<Integer>(literal->value, 16);
             break;
         case scanner::TokenType::DECIMAL:
             //obj = NewObject<Decimal>(literal->value);
@@ -453,10 +453,11 @@ void Compiler::CompileLiteral(const ast::Literal *literal) {
             this->cu_curr_->statics->Append(obj);
 
         idx = this->cu_curr_->statics->len - 1;
-        this->cu_curr_->statics_map.Insert(obj, NewObject<Integer>(idx));
+//        this->cu_curr_->statics_map.Insert(obj, NewObject<Integer>(idx));
         this->statics_global.Insert(obj, obj);
 
-    } else idx = ToCInt(((Integer *) tmp));
+    } else {//idx = ToCInt(((Integer *) tmp));
+    }
 
     this->EmitOp2(OpCodes::LSTATIC, idx);
     ReleaseObject(obj);

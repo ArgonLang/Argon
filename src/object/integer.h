@@ -7,31 +7,16 @@
 
 #include <string>
 
-#include "number.h"
+#include "object.h"
 
 namespace argon::object {
-    class Integer : public Number {
-        long integer_;
-
-        friend long ToCInt(Integer *integer);
-
-    public:
-
-        explicit Integer(long number);
-
-        explicit Integer(const std::string &number, int base);
-
-        bool EqualTo(const Object *other) override;
-
-        size_t Hash() override;
+    struct Integer : ArObject {
+        long integer;
     };
 
-    inline const TypeInfo type_integer_ = {
-            .name=(const unsigned char *) "integer",
-            .size=sizeof(Integer)
-    };
+    Integer *IntegerNew(long number);
 
-    inline long ToCInt(Integer *integer) { return integer->integer_; }
+    Integer *IntegerNewFromString(const std::string &string, int base);
 
 } // namespace argon::object
 

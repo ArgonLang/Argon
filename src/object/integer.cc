@@ -2,26 +2,55 @@
 //
 // Licensed under the Apache License v2.0
 
+#include <cassert>
 #include "integer.h"
 
 using namespace argon::object;
 
-Integer::Integer(long number) : Number(&type_integer_), integer_(number) {}
-
-Integer::Integer(const std::string &number, int base) : Number(&type_integer_) {
-    this->integer_ = std::strtol(number.c_str(), nullptr, base);
-}
-
-bool Integer::EqualTo(const Object *other) {
-    if (this != other) {
-        if (this->type == other->type)
-            return this->integer_ == ((Integer *) other)->integer_;
+bool integer_equal(ArObject *self, ArObject *other) {
+    if (self != other) {
+        if (self->type == other->type)
+            return ((Integer *) self)->integer == ((Integer *) other)->integer;
         return false;
     }
-
     return true;
 }
 
-size_t Integer::Hash() {
-    return this->integer_;
+size_t integer_hash(ArObject *obj) {
+    return ((Integer *) obj)->integer;
+}
+
+const NumberActions integer_actions{
+        nullptr,
+        nullptr,
+        nullptr,
+        nullptr,
+        nullptr,
+        nullptr
+};
+
+const TypeInfo type_integer_ = {
+        (const unsigned char *) "integer",
+        sizeof(Integer),
+        &integer_actions,
+        nullptr,
+        nullptr,
+        integer_equal,
+        integer_hash
+};
+
+Integer *argon::object::IntegerNew(long number) {
+    auto integer = (Integer *) argon::memory::Alloc(sizeof(Integer));
+    assert(integer != nullptr);
+    integer->type = &type_integer_;
+    integer->integer = number;
+    return integer;
+}
+
+Integer *argon::object::IntegerNewFromString(const std::string &string, int base) {
+    auto integer = (Integer *) argon::memory::Alloc(sizeof(Integer));
+    assert(integer != nullptr);
+    integer->type = &type_integer_;
+    integer->integer = std::strtol(string.c_str(), nullptr, base);
+    return integer;
 }
