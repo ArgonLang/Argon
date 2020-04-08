@@ -13,13 +13,10 @@ Code::Code(const unsigned char *instr, unsigned int instr_sz, unsigned int stack
            argon::object::List *names, argon::object::List *locals) : Object(&type_code_),
                                                                       instr(instr),
                                                                       instr_sz(instr_sz),
-                                                                      stack_sz(stack_sz),
-                                                                      statics(statics),
-                                                                      names(names),
-                                                                      locals(locals) {
-    IncStrongRef(statics);
-    IncStrongRef(names);
-    IncStrongRef(locals);
+                                                                      stack_sz(stack_sz) {
+    this->statics = NewObject<Tuple>(statics);
+    this->names = NewObject<Tuple>(names);
+    this->locals = NewObject<Tuple>(locals);
 }
 
 Code::~Code() {

@@ -7,14 +7,15 @@
 
 #include "object.h"
 #include "list.h"
+#include "tuple.h"
 
 namespace argon::object {
     class Code : public Object {
         size_t hash_ = 0;
     public:
-        argon::object::List *statics = nullptr;
-        argon::object::List *names = nullptr;
-        argon::object::List *locals = nullptr;
+        argon::object::Tuple *statics = nullptr;
+        argon::object::Tuple *names = nullptr;
+        argon::object::Tuple *locals = nullptr;
 
         const unsigned char *instr = nullptr;
 
