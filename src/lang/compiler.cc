@@ -409,16 +409,16 @@ void Compiler::CompileLiteral(const ast::Literal *literal) {
 
     switch (literal->kind) {
         case scanner::TokenType::NIL:
-            obj = Nil::NilValue();
-            IncStrongRef(obj);
+            //        obj = Nil::NilValue();
+            //      IncStrongRef(obj);
             break;
         case scanner::TokenType::FALSE:
-            obj = Bool::False();
-            IncStrongRef(obj);
+//            obj = Bool::False();
+            //          IncStrongRef(obj);
             break;
         case scanner::TokenType::TRUE:
-            obj = Bool::True();
-            IncStrongRef(obj);
+            //         obj = Bool::True();
+            //       IncStrongRef(obj);
             break;
         case scanner::TokenType::STRING:
             obj = NewObject<String>(literal->value);

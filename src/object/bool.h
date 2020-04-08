@@ -11,33 +11,12 @@
 #include "object.h"
 
 namespace argon::object {
-    class Bool : public Object {
-        bool value_;
-
-        bool EqualTo(const Object *other) override;
-
-        size_t Hash() override;
-
-        explicit Bool(bool value);
-
-    public:
-        static Bool *False() {
-            static Bool false_(false);
-            IncStrongRef(&false_);
-            return &false_;
-        }
-
-        static Bool *True() {
-            static Bool true_(true);
-            IncStrongRef(&true_);
-            return &true_;
-        }
+    struct Bool : public ArObject {
+        bool value;
     };
 
-    inline const TypeInfo type_bool_ = {
-            .name=(const unsigned char *) "bool",
-            .size=sizeof(Bool)
-    };
+    extern Bool *True;
+    extern Bool *False;
 
 } // namespace argon::object
 
