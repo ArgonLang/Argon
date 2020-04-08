@@ -530,7 +530,7 @@ BasicBlock *Compiler::NewNextBlock() {
     return prev;
 }
 
-void Compiler::Compile(std::istream *source) {
+Code *Compiler::Compile(std::istream *source) {
     Parser parser(source);
     std::unique_ptr<ast::Program> program = parser.Parse();
 
@@ -542,7 +542,7 @@ void Compiler::Compile(std::istream *source) {
         this->CompileCode(stmt);
 
     this->Dfs(this->cu_curr_, this->cu_curr_->bb_start); // TODO stub DFS
-    this->Assemble();
+    return this->Assemble();
 }
 
 void Compiler::Dfs(CompileUnit *unit, BasicBlock *start) {
@@ -558,7 +558,7 @@ void Compiler::Dfs(CompileUnit *unit, BasicBlock *start) {
         this->Dfs(unit, start->flow_else);
 }
 
-void Compiler::Assemble() {
+Code *Compiler::Assemble() {
     auto buffer = (unsigned char *) argon::memory::Alloc(this->cu_curr_->instr_sz);
     size_t offset = 0;
 
@@ -576,14 +576,13 @@ void Compiler::Assemble() {
         offset += bb->instr_sz;
     }
 
-    auto code = argon::object::NewObject<argon::object::Code>(buffer,
-                                                              this->cu_curr_->instr_sz,
-                                                              this->cu_curr_->stack_sz,
-                                                              this->cu_curr_->statics,
-                                                              this->cu_curr_->names,
-                                                              this->cu_curr_->locals);
+    return argon::object::NewObject<argon::object::Code>(buffer,
+                                                         this->cu_curr_->instr_sz,
+                                                         this->cu_curr_->stack_sz,
+                                                         this->cu_curr_->statics,
+                                                         this->cu_curr_->names,
+                                                         this->cu_curr_->locals);
 
-    argon::memory::FreeObject(code); // TODO: stub (test only)
 }
 
 void Compiler::IncEvalStack() {

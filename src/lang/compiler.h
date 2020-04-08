@@ -9,6 +9,7 @@
 #include <vector>
 #include <object/list.h>
 #include <object/map.h>
+#include <object/code.h>
 
 #include "basicblock.h"
 #include "opcodes.h"
@@ -59,7 +60,7 @@ namespace lang {
         std::list<CompileUnit> cu_list_;
         CompileUnit *cu_curr_ = nullptr;
 
-        void Assemble();
+        argon::object::Code *Assemble();
 
         void EmitOp(OpCodes code);
 
@@ -106,7 +107,7 @@ namespace lang {
         BasicBlock *NewNextBlock();
 
     public:
-        void Compile(std::istream *source);
+        argon::object::Code *Compile(std::istream *source);
     };
 
 } // namespace lang
