@@ -22,7 +22,8 @@ const TypeInfo type_nil_ = {
         nullptr,
         nullptr,
         nil_equal,
-        nil_hash
+        nil_hash,
+        nullptr
 };
 
 Nil *NilNew() noexcept {

@@ -89,7 +89,8 @@ const TypeInfo type_decimal_ = {
         nullptr,
         nullptr,
         decimal_equal,
-        decimal_hash
+        decimal_hash,
+        nullptr
 };
 
 Decimal *argon::object::DecimalNew(long double number) {

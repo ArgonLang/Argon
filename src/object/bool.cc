@@ -22,7 +22,8 @@ const TypeInfo type_bool_ = {
         nullptr,
         nullptr,
         bool_equal,
-        bool_hash
+        bool_hash,
+        nullptr
 };
 
 Bool *BoolNew(bool value) noexcept {

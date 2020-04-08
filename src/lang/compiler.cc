@@ -344,7 +344,7 @@ void Compiler::CompileVariable(const ast::Variable *variable) {
     if (this->cu_curr_->symt->type == SymTScope::MODULE) {
         if (!known) {
             sym->id = this->cu_curr_->names->len;
-            this->cu_curr_->names->Append(NewObject<String>(variable->name));
+//TODO            this->cu_curr_->names->Append(NewObject<String>(variable->name));
         }
         this->EmitOp2(OpCodes::NGV, sym->id);
         return;
@@ -352,7 +352,7 @@ void Compiler::CompileVariable(const ast::Variable *variable) {
 
     if (!known) {
         sym->id = this->cu_curr_->locals->len;
-        this->cu_curr_->locals->Append(NewObject<String>(variable->name));
+//TODO        this->cu_curr_->locals->Append(NewObject<String>(variable->name));
     }
     this->EmitOp2(OpCodes::STLC, sym->id);
 }
@@ -363,7 +363,7 @@ void Compiler::CompileIdentifier(const ast::Identifier *identifier) {
     if (sym == nullptr) {
         sym = this->cu_curr_->symt->Insert(identifier->value);
         sym->id = this->cu_curr_->names->len;
-        this->cu_curr_->names->Append(NewObject<String>(identifier->value));
+//TODO        this->cu_curr_->names->Append(NewObject<String>(identifier->value));
         this->EmitOp2(OpCodes::LDGBL, sym->id);
         return;
     }
@@ -386,7 +386,7 @@ void Compiler::CompileAssignment(const ast::Assignment *assign) {
         if (sym == nullptr) {
             sym = this->cu_curr_->symt->Insert(identifier->value);
             sym->id = this->cu_curr_->names->len;
-            this->cu_curr_->names->Append(NewObject<String>(identifier->value));
+//TODO            this->cu_curr_->names->Append(NewObject<String>(identifier->value));
             this->EmitOp2(OpCodes::STGBL, sym->id);
             return;
         }
@@ -421,7 +421,7 @@ void Compiler::CompileLiteral(const ast::Literal *literal) {
             //       IncStrongRef(obj);
             break;
         case scanner::TokenType::STRING:
-            obj = NewObject<String>(literal->value);
+//            obj = NewObject<String>(literal->value);
             break;
         case scanner::TokenType::NUMBER_BIN:
             //obj = NewObject<Integer>(literal->value, 2);

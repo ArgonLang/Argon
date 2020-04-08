@@ -16,6 +16,8 @@ namespace argon::object {
     using SizeTHashOp = size_t (*)(struct ArObject *);
     using BoolBinOp = bool (*)(struct ArObject *, struct ArObject *);
 
+    using Dtor = void (*)(struct ArObject *obj);
+
     struct NumberActions {
         BinaryOp add;
         BinaryOp sub;
@@ -44,6 +46,7 @@ namespace argon::object {
 
         BoolBinOp equal;
         SizeTHashOp hash;
+        Dtor cleanup;
     };
 
 

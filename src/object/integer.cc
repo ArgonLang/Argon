@@ -36,7 +36,8 @@ const TypeInfo type_integer_ = {
         nullptr,
         nullptr,
         integer_equal,
-        integer_hash
+        integer_hash,
+        nullptr
 };
 
 Integer *argon::object::IntegerNew(long number) {
