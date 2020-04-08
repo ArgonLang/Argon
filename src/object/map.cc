@@ -188,7 +188,8 @@ Object *Map::GetItem(Object *key) {
             return cur->value;
     }
 
-    return Nil::NilValue();
+    //TODO: return Nil::NilValue();
+    return nullptr;
 }
 
 void Map::Clear() {

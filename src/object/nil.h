@@ -5,32 +5,13 @@
 #ifndef ARGON_OBJECT_NIL_H_
 #define ARGON_OBJECT_NIL_H_
 
-#include <memory/memory.h>
-
 #include "object.h"
 
 namespace argon::object {
-    class Nil : public Object {
-        Nil();
-
-        bool EqualTo(const Object *other) override;
-
-        size_t Hash() override;
-
-    public:
-        static Nil *NilValue() {
-            static Nil nil;
-            IncStrongRef(&nil);
-            return &nil;
-        }
+    struct Nil : public ArObject {
     };
 
-    inline const TypeInfo type_nil_ = {
-            .name=(const unsigned char *) "nil",
-            .size=sizeof(Nil)
-    };
-
-    inline bool IsNil(Object *obj) { return obj->type == &type_nil_; }
+    extern Nil *NilVal;
 } // namespace argon::object
 
 #endif // !ARGON_OBJECT_NIL_H_

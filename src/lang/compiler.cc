@@ -443,6 +443,7 @@ void Compiler::CompileLiteral(const ast::Literal *literal) {
     }
 
     tmp = this->cu_curr_->statics_map.GetItem(obj);
+    /*
     if (IsNil(tmp)) {
         tmp = this->statics_global.GetItem(obj);
         if (!IsNil(tmp)) {
@@ -461,6 +462,7 @@ void Compiler::CompileLiteral(const ast::Literal *literal) {
 
     this->EmitOp2(OpCodes::LSTATIC, idx);
     ReleaseObject(obj);
+     */
 }
 
 void Compiler::CompileTest(const ast::Binary *test) {
