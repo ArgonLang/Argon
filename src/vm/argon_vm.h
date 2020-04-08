@@ -5,9 +5,12 @@
 #ifndef ARGON_VM_ARGON_VM_H_
 #define ARGON_VM_ARGON_VM_H_
 
+#include "ar_routine.h"
+
 namespace argon::vm {
     class ArgonVM {
-
+    private:
+        void Eval(ArRoutine *routine);
     };
 } // namespace argon::vm
 
