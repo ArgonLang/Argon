@@ -10,10 +10,42 @@
 #include <memory/memory.h>
 
 namespace argon::object {
+    using UnaryOp = struct ArObject *(*)(struct ArObject *);
+    using BinaryOp = struct ArObject *(*)(struct ArObject *, struct ArObject *);
+
+    struct NumberActions {
+        BinaryOp add;
+        BinaryOp sub;
+        BinaryOp mul;
+        BinaryOp div;
+        BinaryOp idiv;
+        BinaryOp remainder;
+    };
+
+    struct SequenceActions {
+
+    };
+
+    struct MapActions {
+
+    };
+
     struct TypeInfo {
         const unsigned char *name;
         unsigned short size;
+
+        // Actions
+        const NumberActions *number_actions;
+        const SequenceActions *sequence_actions;
+        const MapActions *map_actions;
     };
+
+
+    struct ArObject {
+        std::atomic_uintptr_t strong_or_ref;
+        const TypeInfo *type;
+    };
+
 
     class Object {
     public:
