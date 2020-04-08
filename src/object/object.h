@@ -13,6 +13,9 @@ namespace argon::object {
     using UnaryOp = struct ArObject *(*)(struct ArObject *);
     using BinaryOp = struct ArObject *(*)(struct ArObject *, struct ArObject *);
 
+    using SizeTHashOp = size_t (*)(struct ArObject *);
+    using BoolBinOp = bool (*)(struct ArObject *, struct ArObject *);
+
     struct NumberActions {
         BinaryOp add;
         BinaryOp sub;
@@ -38,6 +41,9 @@ namespace argon::object {
         const NumberActions *number_actions;
         const SequenceActions *sequence_actions;
         const MapActions *map_actions;
+
+        BoolBinOp equal;
+        SizeTHashOp hash;
     };
 
 

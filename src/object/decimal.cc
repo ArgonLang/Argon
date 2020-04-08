@@ -3,27 +3,11 @@
 // Licensed under the Apache License v2.0
 
 #include <cmath>
+#include <cassert>
 #include "decimal.h"
 #include "hash_magic.h"
 
 using namespace argon::object;
-
-Decimal::Decimal(long double number) : Number(&type_decimal_), decimal_(number) {}
-
-Decimal::Decimal(const std::string &number) : Number(&type_decimal_) {
-    std::size_t idx;
-    this->decimal_ = std::stold(number, &idx);
-}
-
-bool Decimal::EqualTo(const Object *other) {
-    if (this != other) {
-        if (this->type == other->type)
-            return this->decimal_ == ((Decimal *) other)->decimal_;
-        return false;
-    }
-
-    return true;
-}
 
 // Hash of double number.
 //
@@ -31,18 +15,19 @@ bool Decimal::EqualTo(const Object *other) {
 // see: https://docs.python.org/3/library/stdtypes.html section: Hashing of numeric types
 // Source code: cpython/Python/pyhash.c
 
-size_t Decimal::Hash() {
+size_t decimal_hash(ArObject *obj) {
     long double float_part;
     int sign = 1;
     int exponent;
 
+    auto self = (Decimal *) obj;
 
-    if (std::isnan(this->decimal_))
+    if (std::isnan(self->decimal))
         return ARGON_OBJECT_HASH_NAN;
-    else if (std::isinf(this->decimal_))
+    else if (std::isinf(self->decimal))
         return ARGON_OBJECT_HASH_INF;
 
-    float_part = std::frexp(this->decimal_, &exponent); // decimal_ = float_part * pow(2,exponent)
+    float_part = std::frexp(self->decimal, &exponent); // decimal_ = float_part * pow(2,exponent)
 
     if (float_part < 0) {
         sign = -1;
@@ -77,4 +62,50 @@ size_t Decimal::Hash() {
         hash = -2;
 
     return hash;
+}
+
+bool decimal_equal(ArObject *self, ArObject *other) {
+    if (self != other) {
+        if (self->type == other->type)
+            return ((Decimal *) self)->decimal == ((Decimal *) other)->decimal;
+        return false;
+    }
+    return true;
+}
+
+const NumberActions decimal_actions{
+        nullptr,
+        nullptr,
+        nullptr,
+        nullptr,
+        nullptr,
+        nullptr
+};
+
+const TypeInfo type_decimal_ = {
+        (const unsigned char *) "decimal",
+        sizeof(Decimal),
+        &decimal_actions,
+        nullptr,
+        nullptr,
+        decimal_equal,
+        decimal_hash
+};
+
+Decimal *argon::object::DecimalNew(long double number) {
+    auto decimal = (Decimal *) argon::memory::Alloc(sizeof(Decimal));
+    assert(decimal != nullptr);
+    decimal->type = &type_decimal_;
+    decimal->decimal = number;
+    return decimal;
+}
+
+Decimal *argon::object::DecimalNewFromString(const std::string &string) {
+    auto decimal = (Decimal *) argon::memory::Alloc(sizeof(Decimal));
+    std::size_t idx;
+
+    assert(decimal != nullptr);
+    decimal->type = &type_decimal_;
+    decimal->decimal = std::stold(string, &idx);
+    return decimal;
 }

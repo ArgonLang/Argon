@@ -10,22 +10,13 @@
 #include "number.h"
 
 namespace argon::object {
-    class Decimal : public Number {
-        long double decimal_;
-    public:
-        explicit Decimal(long double number);
-
-        explicit Decimal(const std::string &number);
-
-        bool EqualTo(const Object *other) override;
-
-        size_t Hash() override;
+    struct Decimal : public ArObject {
+        long double decimal;
     };
 
-    inline const TypeInfo type_decimal_ = {
-            .name=(const unsigned char *) "decimal",
-            .size=sizeof(Decimal)
-    };
+    Decimal *DecimalNew(long double number);
+
+    Decimal *DecimalNewFromString(const std::string &string);
 
 } // namespace argon::object
 

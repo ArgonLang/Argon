@@ -436,7 +436,7 @@ void Compiler::CompileLiteral(const ast::Literal *literal) {
             obj = NewObject<Integer>(literal->value, 16);
             break;
         case scanner::TokenType::DECIMAL:
-            obj = NewObject<Decimal>(literal->value);
+            //obj = NewObject<Decimal>(literal->value);
             break;
         default:
             assert(false);
