@@ -10,10 +10,8 @@
 #define ARGON_OBJECT_LIST_INITIAL_CAP   4
 
 namespace argon::object {
-    class List : public Object {
-        Object **objects_;
+    class List : public Sequence {
         size_t cap_;
-        size_t len_;
 
         void CheckSize();
 
@@ -28,13 +26,11 @@ namespace argon::object {
 
         size_t Hash() override;
 
-        void Append(Object *item);
+        void Append(Object *obj) override;
 
-        Object *At(size_t index);
+        Object *GetItem(const Object *i) override;
 
         void Clear();
-
-        size_t Count();
     };
 
     inline const TypeInfo type_list_ = {

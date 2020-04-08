@@ -12,49 +12,38 @@ using namespace argon::memory;
 
 List::List() : List(ARGON_OBJECT_LIST_INITIAL_CAP) {}
 
-List::List(size_t capacity) : Object(&type_list_), cap_(capacity) {
-    this->objects_ = (Object **) Alloc(capacity * sizeof(Object *));
-    this->len_ = 0;
+List::List(size_t capacity) : Sequence(&type_list_), cap_(capacity) {
+    this->objects = (Object **) Alloc(capacity * sizeof(Object *));
+    this->len = 0;
 }
 
 List::~List() {
     this->Clear();
-    argon::memory::Free(this->objects_);
+    argon::memory::Free(this->objects);
 }
 
 void List::Append(Object *item) {
     this->CheckSize();
     IncStrongRef(item);
-    this->objects_[this->len_] = item;
-    this->len_++;
+    this->objects[this->len] = item;
+    this->len++;
 }
 
 void List::CheckSize() {
     Object **tmp = nullptr;
 
-    if (this->len_ + 1 >= this->cap_) {
-        tmp = (Object **) Realloc(this->objects_, (this->cap_ + (this->cap_ / 2)) * sizeof(Object *));
+    if (this->len + 1 >= this->cap_) {
+        tmp = (Object **) Realloc(this->objects, (this->cap_ + (this->cap_ / 2)) * sizeof(Object *));
         assert(tmp != nullptr); // TODO: NOMEM
-        this->objects_ = tmp;
+        this->objects = tmp;
         this->cap_ += this->cap_ / 2;
     }
 }
 
 void List::Clear() {
-    for (int i = 0; i < this->len_; i++)
-        ReleaseObject(this->objects_[i]);
-    this->len_ = 0;
-}
-
-Object *List::At(size_t index) {
-    //if(index>=this->len_)
-    //    throw //TODO: ArrayOutOfBound
-
-    return this->objects_[index];
-}
-
-size_t List::Count() {
-    return this->len_;
+    for (int i = 0; i < this->len; i++)
+        ReleaseObject(this->objects[i]);
+    this->len = 0;
 }
 
 bool List::EqualTo(const Object *other) {
@@ -63,4 +52,8 @@ bool List::EqualTo(const Object *other) {
 
 size_t List::Hash() {
     return 0;
+}
+
+Object *List::GetItem(const Object *i) {
+    return nullptr;
 }

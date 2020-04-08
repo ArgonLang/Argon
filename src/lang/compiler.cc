@@ -343,7 +343,7 @@ void Compiler::CompileVariable(const ast::Variable *variable) {
 
     if (this->cu_curr_->symt->type == SymTScope::MODULE) {
         if (!known) {
-            sym->id = this->cu_curr_->names->Count();
+            sym->id = this->cu_curr_->names->len;
             this->cu_curr_->names->Append(NewObject<String>(variable->name));
         }
         this->EmitOp2(OpCodes::NGV, sym->id);
@@ -351,7 +351,7 @@ void Compiler::CompileVariable(const ast::Variable *variable) {
     }
 
     if (!known) {
-        sym->id = this->cu_curr_->locals->Count();
+        sym->id = this->cu_curr_->locals->len;
         this->cu_curr_->locals->Append(NewObject<String>(variable->name));
     }
     this->EmitOp2(OpCodes::STLC, sym->id);
@@ -362,7 +362,7 @@ void Compiler::CompileIdentifier(const ast::Identifier *identifier) {
 
     if (sym == nullptr) {
         sym = this->cu_curr_->symt->Insert(identifier->value);
-        sym->id = this->cu_curr_->names->Count();
+        sym->id = this->cu_curr_->names->len;
         this->cu_curr_->names->Append(NewObject<String>(identifier->value));
         this->EmitOp2(OpCodes::LDGBL, sym->id);
         return;
@@ -385,7 +385,7 @@ void Compiler::CompileAssignment(const ast::Assignment *assign) {
 
         if (sym == nullptr) {
             sym = this->cu_curr_->symt->Insert(identifier->value);
-            sym->id = this->cu_curr_->names->Count();
+            sym->id = this->cu_curr_->names->len;
             this->cu_curr_->names->Append(NewObject<String>(identifier->value));
             this->EmitOp2(OpCodes::STGBL, sym->id);
             return;
@@ -452,7 +452,7 @@ void Compiler::CompileLiteral(const ast::Literal *literal) {
         } else
             this->cu_curr_->statics->Append(obj);
 
-        idx = this->cu_curr_->statics->Count() - 1;
+        idx = this->cu_curr_->statics->len - 1;
         this->cu_curr_->statics_map.Insert(obj, NewObject<Integer>(idx));
         this->statics_global.Insert(obj, obj);
 

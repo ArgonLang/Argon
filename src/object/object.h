@@ -29,6 +29,18 @@ namespace argon::object {
         virtual size_t Hash() = 0;
     };
 
+    class Sequence : public Object {
+    public:
+        Object **objects = nullptr;
+        size_t len = 0;
+
+        explicit Sequence(const TypeInfo *type) : Object(type) {}
+
+        virtual void Append(Object *obj) {};
+
+        virtual Object *GetItem(const Object *i) = 0;
+    };
+
 
     template<typename T, typename ...Args>
     inline T *NewObject(Args ...args) {
