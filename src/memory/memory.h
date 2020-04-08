@@ -12,7 +12,7 @@
 #define ARGON_MEMORY_MINIMUM_POOL  16 // Minimum number of arenas, Argon WILL NEVER release this memory to the OS.
 
 namespace argon::memory {
-    void *Alloc(size_t size);
+    void *Alloc(size_t size) noexcept;
 
     template<typename T, typename ...Args>
     inline T *AllocObject(Args ...args) { return new(Alloc(sizeof(T))) T(args...); }

@@ -67,7 +67,7 @@ void TryReleaseMemory(Pool *pool, size_t clazz) {
         pools[clazz].Sort(pool);
 }
 
-void *argon::memory::Alloc(size_t size) {
+void *argon::memory::Alloc(size_t size) noexcept {
     size_t clazz = SizeToPoolClass(size);
     Pool *pool = nullptr;
     void *mem = nullptr;
@@ -78,8 +78,12 @@ void *argon::memory::Alloc(size_t size) {
         mem = AllocBlock(pool);
         pools[clazz].lock.unlock();
     } else {
-        mem = operator new(size + sizeof(size_t));
-        mem = SetEmbeddedSize(mem, size);
+        try {
+            mem = operator new(size + sizeof(size_t));
+            mem = SetEmbeddedSize(mem, size);
+        } catch (std::bad_alloc &) {
+            return nullptr;
+        }
     }
 
     return mem;
