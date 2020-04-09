@@ -8,26 +8,12 @@
 #include "object.h"
 
 namespace argon::object {
-    class Tuple : public Sequence {
-
-    public:
-        explicit Tuple(const Object *seq);
-
-        ~Tuple() override;
-
-        bool EqualTo(const Object *other) override;
-
-        size_t Hash() override;
-
-        Object *GetItem(const Object *i) override;
-
-        Object *GetItem(size_t i);
+    struct Tuple : ArObject {
+        ArObject **objects;
+        size_t len;
     };
 
-    inline const TypeInfo type_tuple_ = {
-            .name=(const unsigned char *) "tuple",
-            .size=sizeof(Tuple)
-    };
+    Tuple *TupleNew(const ArObject *sequence);
 
 } // namespace argon::object
 

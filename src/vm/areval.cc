@@ -39,9 +39,9 @@ void ArgonVM::Eval(ArRoutine *routine) {
                 DISPATCH();
             }
             TARGET_OP(LSTATIC) {
-                object::Object *value = code->statics->GetItem(I16Arg(frame->instr_ptr));
-                object::IncStrongRef(value);
-                PUSH(value);
+//                object::Object *value = code->statics->GetItem(I16Arg(frame->instr_ptr));
+                //              object::IncStrongRef(value);
+                //            PUSH(value);
                 IP_NEXT2();
                 DISPATCH();
             }

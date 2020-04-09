@@ -7,7 +7,12 @@
 
 #include <lang/compiler.h>
 
+#include <object/bool.h>
+
 TEST(Compiler, SimpleExpr) {
+    auto a = argon::object::True;
+
+
     auto source = std::istringstream("1+1");
     lang::Compiler compiler;
     compiler.Compile(&source);

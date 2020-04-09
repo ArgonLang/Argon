@@ -38,9 +38,9 @@ namespace lang {
         unsigned int stack_cu_sz = 0;
 
         CompileUnit() {
-            this->statics = argon::object::NewObject<argon::object::List>();
-            this->names = argon::object::NewObject<argon::object::List>();
-            this->locals = argon::object::NewObject<argon::object::List>();
+            this->statics = argon::object::ListNew();
+            this->names = argon::object::ListNew();
+            this->locals = argon::object::ListNew();
         }
 
         ~CompileUnit() {
@@ -48,9 +48,9 @@ namespace lang {
                 nxt = cursor->link_next;
                 delete (cursor);
             }
-            argon::object::ReleaseObject(this->statics);
-            argon::object::ReleaseObject(this->names);
-            argon::object::ReleaseObject(this->locals);
+            argon::object::Release(this->statics);
+            argon::object::Release(this->names);
+            argon::object::Release(this->locals);
         }
     };
 

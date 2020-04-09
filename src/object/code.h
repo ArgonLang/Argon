@@ -10,33 +10,21 @@
 #include "tuple.h"
 
 namespace argon::object {
-    class Code : public Object {
-        size_t hash_ = 0;
-    public:
-        argon::object::Tuple *statics = nullptr;
-        argon::object::Tuple *names = nullptr;
-        argon::object::Tuple *locals = nullptr;
+    struct Code : ArObject {
+        argon::object::Tuple *statics;
+        argon::object::Tuple *names;
+        argon::object::Tuple *locals;
 
-        const unsigned char *instr = nullptr;
+        const unsigned char *instr;
 
-        const unsigned int instr_sz;
-        const unsigned int stack_sz;
+        unsigned int instr_sz;
+        unsigned int stack_sz;
 
-        bool EqualTo(const Object *other) override;
-
-        size_t Hash() override;
-
-        explicit Code(const unsigned char *instr, unsigned int instr_sz, unsigned int stack_sz,
-                      argon::object::List *statics, argon::object::List *names, argon::object::List *locals);
-
-        ~Code() override;
+        size_t hash;
     };
 
-    inline const TypeInfo type_code_ = {
-            .name=(const unsigned char *) "code",
-            .size=sizeof(Code)
-    };
-
+    Code *CodeNew(const unsigned char *instr, unsigned int instr_sz, unsigned int stack_sz,
+                  argon::object::List *statics, argon::object::List *names, argon::object::List *locals);
 } // namespace argon::object
 
 #endif // !ARGON_OBJECT_CODE_H_

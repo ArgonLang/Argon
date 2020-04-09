@@ -10,50 +10,85 @@
 using namespace argon::object;
 using namespace argon::memory;
 
-List::List() : List(ARGON_OBJECT_LIST_INITIAL_CAP) {}
-
-List::List(size_t capacity) : Sequence(&type_list_), cap_(capacity) {
-    this->objects = (Object **) Alloc(capacity * sizeof(Object *));
-    this->len = 0;
-}
-
-List::~List() {
-    this->Clear();
-    argon::memory::Free(this->objects);
-}
-
-void List::Append(Object *item) {
-    this->CheckSize();
-    IncStrongRef(item);
-    this->objects[this->len] = item;
-    this->len++;
-}
-
-void List::CheckSize() {
-    Object **tmp = nullptr;
-
-    if (this->len + 1 >= this->cap_) {
-        tmp = (Object **) Realloc(this->objects, (this->cap_ + (this->cap_ / 2)) * sizeof(Object *));
-        assert(tmp != nullptr); // TODO: NOMEM
-        this->objects = tmp;
-        this->cap_ += this->cap_ / 2;
-    }
-}
-
-void List::Clear() {
-    for (int i = 0; i < this->len; i++)
-        ReleaseObject(this->objects[i]);
-    this->len = 0;
-}
-
-bool List::EqualTo(const Object *other) {
+bool list_equal(ArObject *self, ArObject *other) {
     return false;
 }
 
-size_t List::Hash() {
+size_t list_hash(ArObject *obj) {
     return 0;
 }
 
-Object *List::GetItem(const Object *i) {
-    return nullptr;
+size_t list_len(ArObject *obj) {
+    return ((List *) obj)->len;
+}
+
+ArObject *list_get_item(ArObject *obj, size_t index) {
+    assert(false);
+}
+
+void list_cleanup(ArObject *obj) {
+    auto list = (List *) obj;
+    for (size_t i = 0; i < list->len; i++)
+        Release(list->objects[i]);
+}
+
+bool CheckSize(List *list) {
+    ArObject **tmp = nullptr;
+
+    if (list->len + 1 >= list->cap) {
+        tmp = (ArObject **) Realloc(list->objects, (list->cap + (list->cap / 2)) * sizeof(ArObject *));
+        if (tmp == nullptr)
+            return false;
+        list->objects = tmp;
+        list->cap += list->cap / 2;
+    }
+
+    return true;
+}
+
+bool argon::object::ListAppend(List *list, ArObject *obj) {
+    if (!CheckSize(list)) {
+        assert(false);
+        return false;
+    }
+    IncRef(obj);
+    list->objects[list->len] = obj;
+    list->len++;
+}
+
+const SequenceActions list_actions{
+        list_len,
+        list_get_item,
+};
+
+const TypeInfo argon::object::type_list_ = {
+        (const unsigned char *) "list",
+        sizeof(List),
+        nullptr,
+        &list_actions,
+        nullptr,
+        list_equal,
+        list_hash,
+        list_cleanup
+};
+
+List *argon::object::ListNew() {
+    return ListNew(ARGON_OBJECT_LIST_INITIAL_CAP);
+}
+
+List *argon::object::ListNew(size_t cap) {
+    assert(cap > 0);
+    auto list = (List *) Alloc(sizeof(List));
+    list->strong_or_ref = 1;
+    list->type = &type_list_;
+
+    list->objects = (ArObject **) Alloc(cap * sizeof(ArObject *));
+    assert(list->objects != nullptr);
+    list->len = 0;
+    list->cap = cap;
+    return list;
+}
+
+List *argon::object::ListNew(const ArObject *sequence) {
+    assert(false); // TODO: impl
 }

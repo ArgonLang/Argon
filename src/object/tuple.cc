@@ -11,48 +11,68 @@
 using namespace argon::object;
 using namespace argon::memory;
 
-Tuple::Tuple(const Object *seq) : Sequence(&type_tuple_) {
-    const Object **other_buf = nullptr;
-    Object *tmp = nullptr;
-
-    if (seq->type == &type_list_) {
-        auto list = ((Sequence *) seq);
-
-        if (list->len > 0) {
-            this->objects = (Object **) Alloc(list->len * sizeof(Object *));
-            this->len = list->len;
-
-            other_buf = (const Object **) list->objects;
-            for (size_t i = 0; i < list->len; i++) {
-                tmp = (Object *) other_buf[i];
-                IncStrongRef(tmp);
-                this->objects[i] = tmp;
-            }
-        }
-        return;
-    }
-
-    assert(false);
-}
-
-Tuple::~Tuple() {
-    for (int i = 0; i < this->len; i++)
-        ReleaseObject(this->objects[i]);
-    argon::memory::Free(this->objects);
-}
-
-bool Tuple::EqualTo(const Object *other) {
+bool tuple_equal(ArObject *self, ArObject *other) {
     return false;
 }
 
-size_t Tuple::Hash() {
+size_t tuple_hash(ArObject *obj) {
     return 0;
 }
 
-Object *Tuple::GetItem(const Object *i) {
-    return nullptr;
+void tuple_cleanup(ArObject *obj) {
+    auto tuple = (Tuple *) obj;
+    for (size_t i = 0; i < tuple->len; i++)
+        Release(tuple->objects[i]);
 }
 
-Object *Tuple::GetItem(size_t i) {
-    return this->objects[i];
+size_t tuple_len(ArObject *obj) {
+    return ((Tuple *) obj)->len;
+}
+
+const SequenceActions tuple_actions{
+        tuple_len,
+        nullptr
+};
+
+const TypeInfo type_tuple_ = {
+        (const unsigned char *) "tuple",
+        sizeof(Tuple),
+        nullptr,
+        &tuple_actions,
+        nullptr,
+        tuple_equal,
+        tuple_hash,
+        tuple_cleanup
+};
+
+Tuple *argon::object::TupleNew(const ArObject *sequence) {
+    auto tuple = (Tuple *) argon::memory::Alloc(sizeof(Tuple));
+    ArObject *tmp;
+
+    assert(tuple != nullptr);
+
+    tuple->strong_or_ref = 1;
+    tuple->type = &type_tuple_;
+
+    if (IsSequence(sequence)) {
+        if (sequence->type == &type_list_) {
+            // List FAST-PATH
+            auto list = (List *) sequence;
+            tuple->objects = (ArObject **) Alloc(list->len * sizeof(ArObject *));
+            assert(tuple->objects != nullptr);
+            tuple->len = list->len;
+
+            auto other_buf = (const Object **) list->objects;
+            for (size_t i = 0; i < list->len; i++) {
+                tmp = (ArObject *) other_buf[i];
+                IncRef(tmp);
+                tuple->objects[i] = tmp;
+            }
+
+            return tuple;
+        }
+
+        // TODO: implement generics
+        assert(false);
+    }
 }

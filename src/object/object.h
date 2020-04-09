@@ -10,13 +10,13 @@
 #include <memory/memory.h>
 
 namespace argon::object {
+    using VoidUnaryOp = void (*)(struct ArObject *obj);
     using UnaryOp = struct ArObject *(*)(struct ArObject *);
     using BinaryOp = struct ArObject *(*)(struct ArObject *, struct ArObject *);
+    using BinaryOpSizeT = struct ArObject *(*)(struct ArObject *, size_t);
 
-    using SizeTHashOp = size_t (*)(struct ArObject *);
+    using SizeTUnaryOp = size_t (*)(struct ArObject *);
     using BoolBinOp = bool (*)(struct ArObject *, struct ArObject *);
-
-    using Dtor = void (*)(struct ArObject *obj);
 
     struct NumberActions {
         BinaryOp add;
@@ -28,7 +28,8 @@ namespace argon::object {
     };
 
     struct SequenceActions {
-
+        SizeTUnaryOp length;
+        BinaryOpSizeT get_item;
     };
 
     struct MapActions {
@@ -45,8 +46,8 @@ namespace argon::object {
         const MapActions *map_actions;
 
         BoolBinOp equal;
-        SizeTHashOp hash;
-        Dtor cleanup;
+        SizeTUnaryOp hash;
+        VoidUnaryOp cleanup;
     };
 
 
@@ -55,6 +56,21 @@ namespace argon::object {
         const TypeInfo *type;
     };
 
+    inline bool IsNumber(const ArObject *obj) { return obj->type->number_actions != nullptr; }
+
+    inline bool IsSequence(const ArObject *obj) { return obj->type->sequence_actions != nullptr; }
+
+    inline bool IsMap(const ArObject *obj) { return obj->type->map_actions != nullptr; }
+
+    inline void IncRef(ArObject *obj) { obj->strong_or_ref++; };
+
+    inline void Release(ArObject *obj) {
+        if (obj->strong_or_ref.fetch_sub(1) == 1) {
+            if (obj->type->cleanup != nullptr)
+                obj->type->cleanup(obj);
+        }
+        argon::memory::Free(obj);
+    }
 
     class Object {
     public:

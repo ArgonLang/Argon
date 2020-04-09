@@ -14,7 +14,7 @@ Frame *argon::vm::FrameNew(Code *code) {
 
     assert(frame != nullptr); // TODO: NOMEM
 
-    IncStrongRef(code);
+//    IncStrongRef(code);
 
     frame->back = nullptr;
     frame->code = code;
@@ -26,6 +26,6 @@ Frame *argon::vm::FrameNew(Code *code) {
 }
 
 void argon::vm::FrameDel(Frame *frame) {
-    ReleaseObject(frame->code);
+//    ReleaseObject(frame->code);
     Free(frame);
 }

@@ -579,12 +579,8 @@ Code *Compiler::Assemble() {
         offset += bb->instr_sz;
     }
 
-    return argon::object::NewObject<argon::object::Code>(buffer,
-                                                         this->cu_curr_->instr_sz,
-                                                         this->cu_curr_->stack_sz,
-                                                         this->cu_curr_->statics,
-                                                         this->cu_curr_->names,
-                                                         this->cu_curr_->locals);
+    return argon::object::CodeNew(buffer, this->cu_curr_->instr_sz, this->cu_curr_->stack_sz, this->cu_curr_->statics,
+                                  this->cu_curr_->names, this->cu_curr_->locals);
 
 }
 

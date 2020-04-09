@@ -10,33 +10,21 @@
 #define ARGON_OBJECT_LIST_INITIAL_CAP   4
 
 namespace argon::object {
-    class List : public Sequence {
-        size_t cap_;
-
-        void CheckSize();
-
-    public:
-        List();
-
-        ~List() override;
-
-        explicit List(size_t capacity);
-
-        bool EqualTo(const Object *other) override;
-
-        size_t Hash() override;
-
-        void Append(Object *obj) override;
-
-        Object *GetItem(const Object *i) override;
-
-        void Clear();
+    struct List : ArObject {
+        ArObject **objects;
+        size_t cap;
+        size_t len;
     };
 
-    inline const TypeInfo type_list_ = {
-            .name=(const unsigned char *) "list",
-            .size=sizeof(List)
-    };
+    extern const TypeInfo type_list_;
+
+    List *ListNew();
+
+    List *ListNew(size_t cap);
+
+    List *ListNew(const ArObject *sequence);
+
+    bool ListAppend(List *list, ArObject *obj);
 
 } // namespace argon::object
 
