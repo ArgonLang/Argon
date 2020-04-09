@@ -5,55 +5,94 @@
 #include <gtest/gtest.h>
 
 #include <object/map.h>
-#include <object/nil.h>
 #include <object/string.h>
 
+using namespace argon::object;
+
 TEST(Map, AddItem) {
-    argon::object::ObjectContainer key;
-    argon::object::ObjectContainer value;
-    argon::object::Map map;
+    ArObject *key;
+    ArObject *value;
 
-    /*
-    key = argon::object::MakeOwner<argon::object::String>("h2o");
-    value = argon::object::MakeOwner<argon::object::String>("water");
-    map.Insert(key.Get(), value.Get());
+    argon::object::Map *map = MapNew();
 
-    key = argon::object::MakeOwner<argon::object::String>("ch4");
-    value = argon::object::MakeOwner<argon::object::String>("methane");
-    map.Insert(key.Get(), value.Get());
+    key = StringNew("h2o");
+    value = StringNew("water");
+    MapInsert(map, key, value);
+    Release(key);
+    Release(value);
 
-    key = argon::object::MakeOwner<argon::object::String>("ch3");
-    value = argon::object::MakeOwner<argon::object::String>("methyl");
-    map.Insert(key.Get(), value.Get());
 
-    ASSERT_TRUE(map.GetItem(key.Get())->EqualTo(value.Get()));
-    key = argon::object::MakeOwner<argon::object::String>("h2o");
-    value = argon::object::MakeOwner<argon::object::String>("water");
-    ASSERT_TRUE(map.GetItem(key.Get())->EqualTo(value.Get()));
-     */
+    key = StringNew("ch4");
+    value = StringNew("methane");
+    MapInsert(map, key, value);
+    Release(key);
+    Release(value);
+
+    key = StringNew("ch3");
+    value = StringNew("methyl");
+    MapInsert(map, key, value);
+
+    ArObject *tmp = MapGet(map, key);
+    ASSERT_TRUE(tmp->type->equal(tmp, value));
+    Release(key);
+    Release(value);
+
+    key = StringNew("h2o");
+    value = StringNew("water");
+    tmp = MapGet(map, key);
+    ASSERT_TRUE(tmp->type->equal(tmp, value));
+    Release(key);
+    Release(value);
+
+    key = StringNew("ch4");
+    value = StringNew("methane");
+    tmp = MapGet(map, key);
+    ASSERT_TRUE(tmp->type->equal(tmp, value));
+    Release(key);
+    Release(value);
+
+    Release(map);
 }
 
 TEST(Map, RmItem) {
-    /*
-    argon::object::ObjectContainer key;
-    argon::object::ObjectContainer value;
-    argon::object::Map map;
+    ArObject *key;
+    ArObject *value;
 
-    key = argon::object::MakeOwner<argon::object::String>("h2o");
-    value = argon::object::MakeOwner<argon::object::String>("water");
-    map.Insert(key.Get(), value.Get());
+    argon::object::Map *map = MapNew();
 
-    key = argon::object::MakeOwner<argon::object::String>("ch4");
-    value = argon::object::MakeOwner<argon::object::String>("methane");
-    map.Insert(key.Get(), value.Get());
+    key = StringNew("h2o");
+    value = StringNew("water");
+    MapInsert(map, key, value);
+    Release(key);
+    Release(value);
 
-    key = argon::object::MakeOwner<argon::object::String>("ch3");
-    value = argon::object::MakeOwner<argon::object::String>("methyl");
-    map.Insert(key.Get(), value.Get());
 
-    ASSERT_TRUE(map.GetItem(key.Get())->EqualTo(value.Get()));
-    key = argon::object::MakeOwner<argon::object::String>("ch4");
-    map.Remove(key.Get());
-     */
-//TODO:    ASSERT_TRUE(map.GetItem(key.Get())->EqualTo(argon::object::Nil::NilValue()));
+    key = StringNew("ch4");
+    value = StringNew("methane");
+    MapInsert(map, key, value);
+    Release(key);
+    Release(value);
+
+    key = StringNew("ch3");
+    value = StringNew("methyl");
+    MapInsert(map, key, value);
+
+    ArObject *tmp = MapGet(map, key);
+    ASSERT_TRUE(tmp->type->equal(tmp, value));
+    Release(key);
+    Release(value);
+
+    key = StringNew("h2o");
+    value = StringNew("water");
+    tmp = MapGet(map, key);
+    ASSERT_TRUE(tmp->type->equal(tmp, value));
+    Release(key);
+    Release(value);
+
+    key = StringNew("ch4");
+    MapRemove(map, key);
+    ASSERT_TRUE(MapGet(map, key) == nullptr);
+    Release(key);
+
+    Release(map);
 }

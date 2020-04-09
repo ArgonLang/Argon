@@ -6,8 +6,7 @@
 #define ARGON_OBJECT_DECIMAL_H_
 
 #include <string>
-
-#include "number.h"
+#include "object.h"
 
 namespace argon::object {
     struct Decimal : public ArObject {

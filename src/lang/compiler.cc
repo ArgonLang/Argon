@@ -344,7 +344,11 @@ void Compiler::CompileVariable(const ast::Variable *variable) {
     if (this->cu_curr_->symt->type == SymTScope::MODULE) {
         if (!known) {
             sym->id = this->cu_curr_->names->len;
-//TODO            this->cu_curr_->names->Append(NewObject<String>(variable->name));
+
+            auto id = StringNew(variable->name);
+            assert(id != nullptr);
+            ListAppend(this->cu_curr_->names, id);
+            Release(id);
         }
         this->EmitOp2(OpCodes::NGV, sym->id);
         return;
@@ -352,7 +356,11 @@ void Compiler::CompileVariable(const ast::Variable *variable) {
 
     if (!known) {
         sym->id = this->cu_curr_->locals->len;
-//TODO        this->cu_curr_->locals->Append(NewObject<String>(variable->name));
+
+        auto id = StringNew(variable->name);
+        assert(id != nullptr);
+        ListAppend(this->cu_curr_->locals, id);
+        Release(id);
     }
     this->EmitOp2(OpCodes::STLC, sym->id);
 }
@@ -363,7 +371,12 @@ void Compiler::CompileIdentifier(const ast::Identifier *identifier) {
     if (sym == nullptr) {
         sym = this->cu_curr_->symt->Insert(identifier->value);
         sym->id = this->cu_curr_->names->len;
-//TODO        this->cu_curr_->names->Append(NewObject<String>(identifier->value));
+
+        auto id = StringNew(identifier->value);
+        assert(id != nullptr);
+        ListAppend(this->cu_curr_->names, id);
+        Release(id);
+
         this->EmitOp2(OpCodes::LDGBL, sym->id);
         return;
     }
@@ -386,7 +399,12 @@ void Compiler::CompileAssignment(const ast::Assignment *assign) {
         if (sym == nullptr) {
             sym = this->cu_curr_->symt->Insert(identifier->value);
             sym->id = this->cu_curr_->names->len;
-//TODO            this->cu_curr_->names->Append(NewObject<String>(identifier->value));
+
+            auto id = StringNew(identifier->value);
+            assert(id != nullptr);
+            ListAppend(this->cu_curr_->names, id);
+            Release(id);
+
             this->EmitOp2(OpCodes::STGBL, sym->id);
             return;
         }
@@ -403,66 +421,71 @@ void Compiler::CompileAssignment(const ast::Assignment *assign) {
 }
 
 void Compiler::CompileLiteral(const ast::Literal *literal) {
-    Object *obj;
-    Object *tmp;
+    ArObject *obj;
+    ArObject *tmp;
     unsigned short idx;
 
     switch (literal->kind) {
         case scanner::TokenType::NIL:
-            //        obj = Nil::NilValue();
-            //      IncStrongRef(obj);
+            obj = NilVal;
+            IncRef(obj);
             break;
         case scanner::TokenType::FALSE:
-//            obj = Bool::False();
-            //          IncStrongRef(obj);
+            obj = False;
+            IncRef(obj);
             break;
         case scanner::TokenType::TRUE:
-            //         obj = Bool::True();
-            //       IncStrongRef(obj);
+            obj = True;
+            IncRef(obj);
             break;
         case scanner::TokenType::STRING:
-//            obj = NewObject<String>(literal->value);
+            obj = StringNew(literal->value);
             break;
         case scanner::TokenType::NUMBER_BIN:
-            //obj = NewObject<Integer>(literal->value, 2);
+            obj = IntegerNewFromString(literal->value, 2);
             break;
         case scanner::TokenType::NUMBER_OCT:
-            //obj = NewObject<Integer>(literal->value, 8);
+            obj = IntegerNewFromString(literal->value, 8);
             break;
         case scanner::TokenType::NUMBER:
-            //obj = NewObject<Integer>(literal->value, 10);
+            obj = IntegerNewFromString(literal->value, 10);
             break;
         case scanner::TokenType::NUMBER_HEX:
-            //obj = NewObject<Integer>(literal->value, 16);
+            obj = IntegerNewFromString(literal->value, 16);
             break;
         case scanner::TokenType::DECIMAL:
-            //obj = NewObject<Decimal>(literal->value);
+            obj = DecimalNewFromString(literal->value);
             break;
         default:
             assert(false);
     }
 
-    tmp = this->cu_curr_->statics_map.GetItem(obj);
-    /*
-    if (IsNil(tmp)) {
-        tmp = this->statics_global.GetItem(obj);
-        if (!IsNil(tmp)) {
-            ReleaseObject(obj);
+    // Check obj != nullptr
+    assert(obj != nullptr);
+
+    tmp = MapGet(this->cu_curr_->statics_map, obj);
+
+    if (tmp == nullptr) {
+        tmp = MapGet(this->statics_global, obj);
+        if (tmp != nullptr) {
+            Release(obj);
             obj = tmp;
-            IncStrongRef(obj);
+            IncRef(obj);
         } else
-            this->cu_curr_->statics->Append(obj);
-
+            ListAppend(this->cu_curr_->statics, obj);
         idx = this->cu_curr_->statics->len - 1;
-//        this->cu_curr_->statics_map.Insert(obj, NewObject<Integer>(idx));
-        this->statics_global.Insert(obj, obj);
 
-    } else {//idx = ToCInt(((Integer *) tmp));
-    }
+        auto inx_obj = IntegerNew(idx);
+        assert(inx_obj != nullptr);
+        MapInsert(this->cu_curr_->statics_map, obj, inx_obj);
+        Release(inx_obj);
+
+        MapInsert(this->statics_global, obj, obj);
+
+    } else idx = (((Integer *) tmp))->integer;
 
     this->EmitOp2(OpCodes::LSTATIC, idx);
-    ReleaseObject(obj);
-     */
+    Release(obj);
 }
 
 void Compiler::CompileTest(const ast::Binary *test) {
@@ -545,6 +568,7 @@ Code *Compiler::Compile(std::istream *source) {
         this->CompileCode(stmt);
 
     this->Dfs(this->cu_curr_, this->cu_curr_->bb_start); // TODO stub DFS
+
     return this->Assemble();
 }
 
@@ -581,7 +605,6 @@ Code *Compiler::Assemble() {
 
     return argon::object::CodeNew(buffer, this->cu_curr_->instr_sz, this->cu_curr_->stack_sz, this->cu_curr_->statics,
                                   this->cu_curr_->names, this->cu_curr_->locals);
-
 }
 
 void Compiler::IncEvalStack() {
@@ -593,4 +616,13 @@ void Compiler::IncEvalStack() {
 void Compiler::DecEvalStack() {
     this->cu_curr_->stack_cu_sz--;
     assert(this->cu_curr_->stack_cu_sz < 0x00FFFFFF);
+}
+
+Compiler::Compiler() {
+    this->statics_global = MapNew();
+    assert(this->statics_global != nullptr);
+}
+
+Compiler::~Compiler() {
+    Release(this->statics_global);
 }

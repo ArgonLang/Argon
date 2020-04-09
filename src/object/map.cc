@@ -6,127 +6,60 @@
 
 #include <memory/memory.h>
 #include "map.h"
-#include "nil.h"
 
 using namespace argon::object;
 using namespace argon::memory;
 
-Map::Map() : Object(&type_map_) {
-    this->map_ = (MapEntry **) Alloc(ARGON_OBJECT_MAP_INITIAL_SIZE * sizeof(MapEntry *));
-    assert(this->map_ != nullptr); // TODO: NOMEM
-
-    this->free_node_ = nullptr;
-    this->iter_begin = nullptr;
-    this->iter_end = nullptr;
-
-    this->cap_ = ARGON_OBJECT_MAP_INITIAL_SIZE;
-    this->len_ = 0;
-
-    for (size_t i = 0; i < this->cap_; i++)
-        this->map_[i] = nullptr;
+bool map_equal(ArObject *self, ArObject *other) {
+    return false;
 }
 
-void Map::Insert(Object *key, Object *value) {
-    MapEntry *entry;
-    size_t index;
-
-    this->CheckSize();
-
-    index = key->Hash() % this->cap_;
-    for (entry = this->map_[index]; entry != nullptr; entry = entry->next) {
-        if (key->EqualTo(entry->key)) {
-            ReleaseObject(entry->value); // release old value
-            break;
-        }
-    }
-
-    if (entry == nullptr) {
-        entry = this->FindOrAllocNode();
-        IncStrongRef(key);
-        entry->key = key;
-
-        entry->next = this->map_[index];
-        this->map_[index] = entry;
-
-        this->AppendIterItem(entry);
-
-        this->len_++;
-    }
-
-    IncStrongRef(value);
-    entry->value = value;
+size_t map_hash(ArObject *obj) {
+    return 0;
 }
 
-Map::~Map() {
+size_t map_len(ArObject *obj) {
+    return ((Map *) obj)->len;
+}
+
+void map_cleanup(ArObject *obj) {
+    auto map = (Map *) obj;
     MapEntry *tmp = nullptr;
 
-    for (MapEntry *cur = this->iter_begin; cur != nullptr; cur = tmp) {
-        ReleaseObject(cur->key);
-        ReleaseObject(cur->value);
+    for (MapEntry *cur = map->iter_begin; cur != nullptr; cur = tmp) {
+        Release(cur->key);
+        Release(cur->value);
         tmp = cur->iter_next;
         FreeObject<MapEntry>(cur);
     }
 
-    for (MapEntry *cur = this->free_node_; cur != nullptr; cur = tmp) {
+    for (MapEntry *cur = map->free_node; cur != nullptr; cur = tmp) {
         tmp = cur->next;
         FreeObject<MapEntry>(cur);
     }
 
-    Free(this->map_);
+    Free(map->map);
 }
 
-void Map::Remove(Object *key) {
-    size_t index = key->Hash() % this->cap_;
-
-    for (MapEntry *cur = this->map_[index]; cur != nullptr; cur = cur->next) {
-        if (key->EqualTo(cur->key)) {
-            ReleaseObject(cur->key);
-            ReleaseObject(cur->value);
-            this->RemoveIterItem(cur);
-            this->MoveToFreeNode(cur);
-            this->len_--;
-            break;
-        }
-    }
-}
-
-MapEntry *Map::FindOrAllocNode() {
-    MapEntry *entry;
-
-    if (this->free_node_ == nullptr) {
-        entry = AllocObject<MapEntry>();
-        assert(entry != nullptr); // TODO NOMEM
-        return entry;
-    }
-
-    entry = this->free_node_;
-    this->free_node_ = entry->next;
-    return entry;
-}
-
-void Map::MoveToFreeNode(MapEntry *entry) {
-    entry->next = this->free_node_;
-    this->free_node_ = entry;
-}
-
-void Map::CheckSize() {
+bool CheckSize(Map *map) {
     MapEntry **new_map = nullptr;
     size_t new_cap;
 
-    if (((float) this->len_ + 1) / this->cap_ < ARGON_OBJECT_MAP_LOAD_FACTOR)
-        return;
+    if (((float) map->len + 1) / map->cap < ARGON_OBJECT_MAP_LOAD_FACTOR)
+        return true;
 
-    new_cap = this->cap_ + (this->cap_ / ARGON_OBJECT_MAP_MUL_FACTOR);
+    new_cap = map->cap + (map->cap / ARGON_OBJECT_MAP_MUL_FACTOR);
 
-    new_map = (MapEntry **) Realloc(this->map_, new_cap * sizeof(MapEntry *));
-    assert(new_map != nullptr); //TODO: NOMEM
+    new_map = (MapEntry **) Realloc(map->map, new_cap * sizeof(MapEntry *));
+    if (new_map == nullptr)
+        return false;
 
-    for (size_t i = this->cap_; i < new_cap; i++)
+    for (size_t i = map->cap; i < new_cap; i++)
         new_map[i] = nullptr;
 
     for (size_t i = 0; i < new_cap; i++) {
         for (MapEntry *prev = nullptr, *cur = new_map[i], *next; cur != nullptr; cur = next) {
-            size_t hash = cur->key->Hash() % new_cap;
+            size_t hash = cur->key->type->hash(cur->key) % new_cap;
             next = cur->next;
 
             if (hash == i) {
@@ -143,55 +76,167 @@ void Map::CheckSize() {
         }
     }
 
-    this->map_ = new_map;
-    this->cap_ = new_cap;
+    map->map = new_map;
+    map->cap = new_cap;
+
+    return true;
 }
 
-bool Map::EqualTo(const Object *other) {
-    return false;
+MapEntry *FindOrAllocNode(Map *map) {
+    MapEntry *entry;
+
+    if (map->free_node == nullptr) {
+        entry = AllocObject<MapEntry>();
+        assert(entry != nullptr); // TODO NOMEM
+        return entry;
+    }
+
+    entry = map->free_node;
+    map->free_node = entry->next;
+    return entry;
 }
 
-size_t Map::Hash() {
-    return 0;
+inline void MoveToFreeNode(Map *map, MapEntry *entry) {
+    entry->next = map->free_node;
+    map->free_node = entry;
 }
 
-void Map::AppendIterItem(MapEntry *entry) {
-    if (this->iter_begin == nullptr) {
-        this->iter_begin = entry;
-        this->iter_end = entry;
+void AppendIterItem(Map *map, MapEntry *entry) {
+    if (map->iter_begin == nullptr) {
+        map->iter_begin = entry;
+        map->iter_end = entry;
         return;
     }
 
     entry->iter_next = nullptr;
-    entry->iter_prev = this->iter_end;
-    this->iter_end->iter_next = entry;
-    this->iter_end = entry;
+    entry->iter_prev = map->iter_end;
+    map->iter_end->iter_next = entry;
+    map->iter_end = entry;
 }
 
-void Map::RemoveIterItem(MapEntry *entry) {
+void RemoveIterItem(Map *map, MapEntry *entry) {
     if (entry->iter_prev != nullptr)
         entry->iter_prev->iter_next = entry->iter_next;
     else
-        this->iter_begin = entry->iter_next;
+        map->iter_begin = entry->iter_next;
 
     if (entry->iter_next != nullptr)
         entry->iter_next->iter_prev = entry->iter_prev;
     else
-        this->iter_end = entry->iter_prev;
+        map->iter_end = entry->iter_prev;
 }
 
-Object *Map::GetItem(Object *key) {
-    size_t index = key->Hash() % this->cap_;
+ArObject *argon::object::MapGet(Map *map, ArObject *key) {
+    size_t index = key->type->hash(key) % map->cap;
 
-    for (MapEntry *cur = this->map_[index]; cur != nullptr; cur = cur->next) {
-        if (key->EqualTo(cur->key))
+    for (MapEntry *cur = map->map[index]; cur != nullptr; cur = cur->next) {
+        if (key->type->equal(key, cur->key))
             return cur->value;
     }
 
-    //TODO: return Nil::NilValue();
     return nullptr;
 }
 
+bool argon::object::MapInsert(Map *map, ArObject *key, ArObject *value) {
+    MapEntry *entry;
+    size_t index;
+
+    if (!CheckSize(map)) {
+        assert(false); //TODO: NOMEM
+        return false;
+    }
+
+    index = key->type->hash(key) % map->cap;
+    for (entry = map->map[index]; entry != nullptr; entry = entry->next) {
+        if (key->type->equal(key, entry->key)) {
+            Release(entry->value); // release old value
+            break;
+        }
+    }
+
+    if (entry == nullptr) {
+        entry = FindOrAllocNode(map);
+        IncRef(key);
+        entry->key = key;
+
+        entry->next = map->map[index];
+        map->map[index] = entry;
+
+        AppendIterItem(map, entry);
+
+        map->len++;
+    }
+
+    IncRef(value);
+    entry->value = value;
+
+    return true;
+}
+
+void argon::object::MapRemove(Map *map, ArObject *key) {
+    size_t index = key->type->hash(key) % map->cap;
+
+    for (MapEntry *cur = map->map[index]; cur != nullptr; cur = cur->next) {
+        if (key->type->equal(key, cur->key)) {
+            Release(cur->key);
+            Release(cur->value);
+            RemoveIterItem(map, cur);
+            MoveToFreeNode(map, cur);
+            map->len--;
+            break;
+        }
+    }
+}
+
+bool argon::object::MapContains(Map *map, ArObject *key) {
+    size_t index = key->type->hash(key) % map->cap;
+
+    for (MapEntry *cur = map->map[index]; cur != nullptr; cur = cur->next)
+        if (key->type->equal(key, cur->key))
+            return true;
+
+    return false;
+}
+
+const MapActions map_actions{
+        map_len,
+        (BinaryOp) argon::object::MapGet
+};
+
+const TypeInfo type_map_ = {
+        (const unsigned char *) "map",
+        sizeof(Map),
+        nullptr,
+        nullptr,
+        &map_actions,
+        map_equal,
+        map_hash,
+        map_cleanup
+};
+
+Map *argon::object::MapNew() {
+    auto map = (Map *) Alloc(sizeof(Map));
+    assert(map != nullptr);
+    map->strong_or_ref = 1;
+    map->type = &type_map_;
+
+    map->map = (MapEntry **) Alloc(ARGON_OBJECT_MAP_INITIAL_SIZE * sizeof(MapEntry *));
+    assert(map->map != nullptr); // TODO: NOMEM
+
+    map->free_node = nullptr;
+    map->iter_begin = nullptr;
+    map->iter_end = nullptr;
+
+    map->cap = ARGON_OBJECT_MAP_INITIAL_SIZE;
+    map->len = 0;
+
+    for (size_t i = 0; i < map->cap; i++)
+        map->map[i] = nullptr;
+
+    return map;
+}
+
+/*
 void Map::Clear() {
     for (MapEntry *cur = this->iter_begin; cur != nullptr; cur = cur->iter_next) {
         ReleaseObject(cur->key);
@@ -200,14 +245,4 @@ void Map::Clear() {
         this->MoveToFreeNode(cur);
     }
     this->len_ = 0;
-}
-
-bool Map::Contains(Object *key) {
-    size_t index = key->Hash() % this->cap_;
-
-    for (MapEntry *cur = this->map_[index]; cur != nullptr; cur = cur->next)
-        if (key->EqualTo(cur->key))
-            return true;
-
-    return false;
-}
+}*/

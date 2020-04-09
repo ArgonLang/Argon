@@ -18,53 +18,29 @@ namespace argon::object {
         MapEntry *iter_next = nullptr;
         MapEntry *iter_prev = nullptr;
 
-        Object *key = nullptr;
-        Object *value = nullptr;
+        ArObject *key = nullptr;
+        ArObject *value = nullptr;
     };
 
-    class Map : Object {
-        MapEntry **map_;
-        MapEntry *free_node_;
+    struct Map : ArObject {
+        MapEntry **map;
+        MapEntry *free_node;
         MapEntry *iter_begin;
         MapEntry *iter_end;
 
-        size_t cap_;
-        size_t len_;
-
-        void CheckSize();
-
-        void AppendIterItem(MapEntry *entry);
-
-        void RemoveIterItem(MapEntry *entry);
-
-        MapEntry *FindOrAllocNode();
-
-        void MoveToFreeNode(MapEntry *entry);
-
-    public:
-        Map();
-
-        ~Map() override;
-
-        bool EqualTo(const Object *other) override;
-
-        size_t Hash() override;
-
-        void Insert(Object *key, Object *value);
-
-        void Remove(Object *key);
-
-        bool Contains(Object *key);
-
-        void Clear();
-
-        Object *GetItem(Object *key);
+        size_t cap;
+        size_t len;
     };
 
-    inline const TypeInfo type_map_ = {
-            .name=(const unsigned char *) "map",
-            .size=sizeof(Map)
-    };
+    Map *MapNew();
+
+    ArObject *MapGet(Map *map, ArObject *key);
+
+    bool MapInsert(Map *map, ArObject *key, ArObject *value);
+
+    void MapRemove(Map *map, ArObject *key);
+
+    bool MapContains(Map *map, ArObject *key);
 
 } // namespace argon::object
 

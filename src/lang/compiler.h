@@ -19,7 +19,7 @@
 namespace lang {
     struct CompileUnit {
         SymTUptr symt;
-        argon::object::Map statics_map;
+        argon::object::Map *statics_map;
 
         argon::object::List *statics;
         argon::object::List *names;
@@ -38,6 +38,7 @@ namespace lang {
         unsigned int stack_cu_sz = 0;
 
         CompileUnit() {
+            this->statics_map = argon::object::MapNew();
             this->statics = argon::object::ListNew();
             this->names = argon::object::ListNew();
             this->locals = argon::object::ListNew();
@@ -48,6 +49,7 @@ namespace lang {
                 nxt = cursor->link_next;
                 delete (cursor);
             }
+            argon::object::Release(this->statics_map);
             argon::object::Release(this->statics);
             argon::object::Release(this->names);
             argon::object::Release(this->locals);
@@ -55,7 +57,7 @@ namespace lang {
     };
 
     class Compiler {
-        argon::object::Map statics_global;
+        argon::object::Map *statics_global;
 
         std::list<CompileUnit> cu_list_;
         CompileUnit *cu_curr_ = nullptr;
@@ -107,6 +109,10 @@ namespace lang {
         BasicBlock *NewNextBlock();
 
     public:
+        Compiler();
+
+        ~Compiler();
+
         argon::object::Code *Compile(std::istream *source);
     };
 

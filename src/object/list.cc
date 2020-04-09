@@ -54,6 +54,7 @@ bool argon::object::ListAppend(List *list, ArObject *obj) {
     IncRef(obj);
     list->objects[list->len] = obj;
     list->len++;
+    return true;
 }
 
 const SequenceActions list_actions{
