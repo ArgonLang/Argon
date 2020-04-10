@@ -15,6 +15,8 @@ namespace argon::object {
 
     Tuple *TupleNew(const ArObject *sequence);
 
+    ArObject *TupleGetItem(Tuple *tuple, size_t i);
+
 } // namespace argon::object
 
 #endif // !ARGON_OBJECT_TUPLE_H_

@@ -29,9 +29,20 @@ size_t tuple_len(ArObject *obj) {
     return ((Tuple *) obj)->len;
 }
 
+ArObject *argon::object::TupleGetItem(Tuple *tuple, size_t i) {
+    ArObject *obj = nullptr;
+    if (i >= tuple->len) {
+        assert(i >= tuple->len);
+        return nullptr;
+    }
+    obj = tuple->objects[i];
+    IncRef(obj);
+    return obj;
+}
+
 const SequenceActions tuple_actions{
         tuple_len,
-        nullptr
+        (BinaryOpSizeT) argon::object::TupleGetItem
 };
 
 const TypeInfo type_tuple_ = {
