@@ -32,6 +32,10 @@ size_t code_hash(ArObject *obj) {
     return code->hash;
 }
 
+bool code_istrue(Code *self) {
+    return true;
+}
+
 void code_cleanup(ArObject *obj) {
     auto code = (Code *) obj;
     Free((void *) code->instr);
@@ -46,8 +50,16 @@ const TypeInfo type_code_ = {
         nullptr,
         nullptr,
         nullptr,
+        (BoolUnaryOp) code_istrue,
         code_equal,
         code_hash,
+        nullptr,
+        nullptr,
+        nullptr,
+        nullptr,
+        nullptr,
+        nullptr,
+        nullptr,
         code_cleanup
 };
 

@@ -15,14 +15,26 @@ size_t bool_hash(ArObject *obj) {
     return ((Bool *) obj)->value ? 1 : 0;
 }
 
+bool bool_istrue(Bool *self) {
+    return self->value;
+}
+
 const TypeInfo type_bool_ = {
         (const unsigned char *) "bool",
         sizeof(Bool),
         nullptr,
         nullptr,
         nullptr,
+        (BoolUnaryOp) bool_istrue,
         bool_equal,
         bool_hash,
+        nullptr,
+        nullptr,
+        nullptr,
+        nullptr,
+        nullptr,
+        nullptr,
+        nullptr,
         nullptr
 };
 

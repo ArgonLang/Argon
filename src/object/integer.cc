@@ -20,13 +20,12 @@ size_t integer_hash(ArObject *obj) {
     return ((Integer *) obj)->integer;
 }
 
+bool integer_istrue(Integer *self) {
+    return self->integer > 0;
+}
+
 const NumberActions integer_actions{
         nullptr,
-        nullptr,
-        nullptr,
-        nullptr,
-        nullptr,
-        nullptr
 };
 
 const TypeInfo type_integer_ = {
@@ -35,8 +34,16 @@ const TypeInfo type_integer_ = {
         &integer_actions,
         nullptr,
         nullptr,
+        (BoolUnaryOp) integer_istrue,
         integer_equal,
         integer_hash,
+        nullptr,
+        nullptr,
+        nullptr,
+        nullptr,
+        nullptr,
+        nullptr,
+        nullptr,
         nullptr
 };
 

@@ -15,14 +15,26 @@ size_t nil_hash(ArObject *obj) {
     return 0;
 }
 
+bool nil_istrue(Nil *self) {
+    return false;
+}
+
 const TypeInfo type_nil_ = {
         (const unsigned char *) "nil",
         sizeof(Nil),
         nullptr,
         nullptr,
         nullptr,
+        (BoolUnaryOp) nil_istrue,
         nil_equal,
         nil_hash,
+        nullptr,
+        nullptr,
+        nullptr,
+        nullptr,
+        nullptr,
+        nullptr,
+        nullptr,
         nullptr
 };
 

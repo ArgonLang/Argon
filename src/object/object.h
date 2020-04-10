@@ -11,6 +11,7 @@
 
 namespace argon::object {
     using VoidUnaryOp = void (*)(struct ArObject *obj);
+    using BoolUnaryOp = bool (*)(struct ArObject *obj);
     using UnaryOp = struct ArObject *(*)(struct ArObject *);
     using BinaryOp = struct ArObject *(*)(struct ArObject *, struct ArObject *);
     using BinaryOpSizeT = struct ArObject *(*)(struct ArObject *, size_t);
@@ -19,12 +20,7 @@ namespace argon::object {
     using BoolBinOp = bool (*)(struct ArObject *, struct ArObject *);
 
     struct NumberActions {
-        BinaryOp add;
-        BinaryOp sub;
-        BinaryOp mul;
-        BinaryOp div;
         BinaryOp idiv;
-        BinaryOp remainder;
     };
 
     struct SequenceActions {
@@ -46,8 +42,20 @@ namespace argon::object {
         const SequenceActions *sequence_actions;
         const MapActions *map_actions;
 
+        // Generic actions
+        BoolUnaryOp is_true;
         BoolBinOp equal;
         SizeTUnaryOp hash;
+
+
+        BinaryOp add;
+        BinaryOp sub;
+        BinaryOp mul;
+        BinaryOp module;
+        BinaryOp div;
+        BinaryOp lsh;
+        BinaryOp rsh;
+
         VoidUnaryOp cleanup;
     };
 
@@ -62,6 +70,16 @@ namespace argon::object {
     inline bool IsSequence(const ArObject *obj) { return obj->type->sequence_actions != nullptr; }
 
     inline bool IsMap(const ArObject *obj) { return obj->type->map_actions != nullptr; }
+
+    inline bool IsTrue(const ArObject *obj) {
+        if (IsSequence(obj) && obj->type->sequence_actions->length != nullptr)
+            return obj->type->sequence_actions->length((ArObject *) obj) > 0;
+        else if (IsMap(obj) && obj->type->map_actions->length != nullptr)
+            return obj->type->map_actions->length((ArObject *) obj) > 0;
+        if (obj->type->is_true != nullptr)
+            return obj->type->is_true((ArObject *) obj);
+        return false;
+    }
 
     inline void IncRef(ArObject *obj) { obj->strong_or_ref++; };
 

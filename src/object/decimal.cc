@@ -73,12 +73,11 @@ bool decimal_equal(ArObject *self, ArObject *other) {
     return true;
 }
 
+bool decimal_istrue(Decimal *self) {
+    return self->decimal > 0;
+}
+
 const NumberActions decimal_actions{
-        nullptr,
-        nullptr,
-        nullptr,
-        nullptr,
-        nullptr,
         nullptr
 };
 
@@ -88,8 +87,16 @@ const TypeInfo type_decimal_ = {
         &decimal_actions,
         nullptr,
         nullptr,
+        (BoolUnaryOp) decimal_istrue,
         decimal_equal,
         decimal_hash,
+        nullptr,
+        nullptr,
+        nullptr,
+        nullptr,
+        nullptr,
+        nullptr,
+        nullptr,
         nullptr
 };
 

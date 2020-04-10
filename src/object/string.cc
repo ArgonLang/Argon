@@ -35,6 +35,11 @@ size_t string_hash(ArObject *obj) {
     return self->hash;
 }
 
+bool string_istrue(String *self) {
+    return self->len > 0;
+}
+
+
 void string_cleanup(ArObject *obj) {
     argon::memory::Free(((String *) obj)->buffer);
 }
@@ -45,8 +50,16 @@ const TypeInfo type_string_ = {
         nullptr,
         nullptr,
         nullptr,
+        (BoolUnaryOp) string_istrue,
         string_equal,
         string_hash,
+        nullptr,
+        nullptr,
+        nullptr,
+        nullptr,
+        nullptr,
+        nullptr,
+        nullptr,
         string_cleanup
 };
 
