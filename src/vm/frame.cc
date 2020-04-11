@@ -10,22 +10,21 @@ using namespace argon::object;
 using namespace argon::memory;
 
 Frame *argon::vm::FrameNew(Code *code) {
-    auto frame = (Frame *) Alloc(sizeof(Frame) + (code->stack_sz * sizeof(object::Object *)) + code->locals->len);
+    auto frame = (Frame *) Alloc(sizeof(Frame) + (code->stack_sz * sizeof(object::ArObject *)) + code->locals->len);
 
     assert(frame != nullptr); // TODO: NOMEM
 
-//    IncStrongRef(code);
+    IncRef(code);
 
     frame->back = nullptr;
     frame->code = code;
     frame->instr_ptr = (unsigned char *) code->instr;
-    frame->eval_stack = (object::Object **) frame->extras_;
-    frame->eval_index = 0;
+    frame->eval_stack = (object::ArObject **) frame->stack_extra_base;
 
     return frame;
 }
 
 void argon::vm::FrameDel(Frame *frame) {
-//    ReleaseObject(frame->code);
+    Release(frame->code);
     Free(frame);
 }

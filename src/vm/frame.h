@@ -9,17 +9,20 @@
 
 namespace argon::vm {
     struct Frame {
+        /* Previous frame (caller) */
         Frame *back;
 
+        /* Code being executed in this frame */
         object::Code *code;
 
+        /* Pointer to the last executed instruction */
         unsigned char *instr_ptr;
 
-        object::Object **eval_stack;
+        /* Evaluation stack */
+        object::ArObject **eval_stack;
 
-        size_t eval_index;
-
-        unsigned char *extras_[];
+        /* At the end of each frame there is allocated space for(in this order): eval_stack + local_variables */
+        unsigned char *stack_extra_base[];
     };
 
     Frame *FrameNew(object::Code *code);
