@@ -4,6 +4,7 @@
 
 #include <cassert>
 #include "integer.h"
+#include "error.h"
 
 using namespace argon::object;
 
@@ -24,8 +25,51 @@ bool integer_istrue(Integer *self) {
     return self->integer > 0;
 }
 
+ArObject *integer_add(Integer *self, ArObject *other) {
+    if (self->type == other->type)
+        return IntegerNew(self->integer + ((Integer *) other)->integer);
+    return ReturnError(NotImpl);
+}
+
+ArObject *integer_sub(Integer *self, ArObject *other) {
+    if (self->type == other->type)
+        return IntegerNew(self->integer - ((Integer *) other)->integer);
+    return ReturnError(NotImpl);
+}
+
+ArObject *integer_mul(Integer *self, ArObject *other) {
+    if (self->type == other->type)
+        return IntegerNew(self->integer * ((Integer *) other)->integer);
+    return ReturnError(NotImpl);
+}
+
+ArObject *integer_div(Integer *self, ArObject *other) {
+    if (self->type == other->type)
+        return IntegerNew(self->integer / ((Integer *) other)->integer);
+    return ReturnError(NotImpl);
+}
+
+ArObject *integer_mod(Integer *self, ArObject *other) {
+    if (self->type == other->type)
+        return IntegerNew(self->integer % ((Integer *) other)->integer);
+
+    return ReturnError(NotImpl);
+}
+
+ArObject *integer_lsh(Integer *self, ArObject *other) {
+    if (self->type == other->type)
+        return IntegerNew(self->integer << ((Integer *) other)->integer);
+    return ReturnError(NotImpl);
+}
+
+ArObject *integer_rsh(Integer *self, ArObject *other) {
+    if (self->type == other->type)
+        return IntegerNew(self->integer >> ((Integer *) other)->integer);
+    return ReturnError(NotImpl);
+}
+
 const NumberActions integer_actions{
-        nullptr,
+        (BinaryOp) integer_div,
 };
 
 const TypeInfo type_integer_ = {
@@ -37,13 +81,13 @@ const TypeInfo type_integer_ = {
         (BoolUnaryOp) integer_istrue,
         integer_equal,
         integer_hash,
-        nullptr,
-        nullptr,
-        nullptr,
-        nullptr,
-        nullptr,
-        nullptr,
-        nullptr,
+        (BinaryOp) integer_add,
+        (BinaryOp) integer_sub,
+        (BinaryOp) integer_mul,
+        (BinaryOp) integer_div,
+        (BinaryOp) integer_mod,
+        (BinaryOp) integer_lsh,
+        (BinaryOp) integer_rsh,
         nullptr
 };
 

@@ -51,8 +51,8 @@ namespace argon::object {
         BinaryOp add;
         BinaryOp sub;
         BinaryOp mul;
-        BinaryOp module;
         BinaryOp div;
+        BinaryOp module;
         BinaryOp lsh;
         BinaryOp rsh;
 
