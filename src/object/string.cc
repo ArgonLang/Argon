@@ -52,6 +52,7 @@ const TypeInfo type_string_ = {
         nullptr,
         (BoolUnaryOp) string_istrue,
         string_equal,
+        nullptr,
         string_hash,
         nullptr,
         nullptr,

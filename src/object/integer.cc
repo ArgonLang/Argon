@@ -5,6 +5,7 @@
 #include <cassert>
 #include "integer.h"
 #include "error.h"
+#include "bool.h"
 
 using namespace argon::object;
 
@@ -15,6 +16,30 @@ bool integer_equal(ArObject *self, ArObject *other) {
         return false;
     }
     return true;
+}
+
+ArObject *integer_compare(ArObject *self, ArObject *other, CompareMode mode) {
+    long left;
+    long right;
+
+    if (self->type == &type_integer_ && other->type == &type_integer_) {
+        left = ((Integer *) self)->integer;
+        right = ((Integer *) other)->integer;
+        switch (mode) {
+            case CompareMode::GE:
+                return BoolToArBool(left > right);
+            case CompareMode::GEQ:
+                return BoolToArBool(left >= right);
+            case CompareMode::LE:
+                return BoolToArBool(left < right);
+            case CompareMode::LEQ:
+                return BoolToArBool(left <= right);
+            default:
+                assert(false); // Never get here!
+        }
+    }
+
+    return ReturnError(NotImpl);
 }
 
 size_t integer_hash(ArObject *obj) {
@@ -72,7 +97,7 @@ const NumberActions integer_actions{
         (BinaryOp) integer_div,
 };
 
-const TypeInfo type_integer_ = {
+const TypeInfo argon::object::type_integer_ = {
         (const unsigned char *) "integer",
         sizeof(Integer),
         &integer_actions,
@@ -80,6 +105,7 @@ const TypeInfo type_integer_ = {
         nullptr,
         (BoolUnaryOp) integer_istrue,
         integer_equal,
+        integer_compare,
         integer_hash,
         (BinaryOp) integer_add,
         (BinaryOp) integer_sub,

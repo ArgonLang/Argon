@@ -10,10 +10,20 @@
 #include <memory/memory.h>
 
 namespace argon::object {
+    enum class CompareMode : unsigned char {
+        EQ,
+        NE,
+        GE,
+        GEQ,
+        LE,
+        LEQ
+    };
+
     using VoidUnaryOp = void (*)(struct ArObject *obj);
     using BoolUnaryOp = bool (*)(struct ArObject *obj);
     using UnaryOp = struct ArObject *(*)(struct ArObject *);
     using BinaryOp = struct ArObject *(*)(struct ArObject *, struct ArObject *);
+    using CompareOp = struct ArObject *(*)(struct ArObject *, struct ArObject *, CompareMode);
     using BinaryOpSizeT = struct ArObject *(*)(struct ArObject *, size_t);
 
     using SizeTUnaryOp = size_t (*)(struct ArObject *);
@@ -45,8 +55,8 @@ namespace argon::object {
         // Generic actions
         BoolUnaryOp is_true;
         BoolBinOp equal;
+        CompareOp compare;
         SizeTUnaryOp hash;
-
 
         BinaryOp add;
         BinaryOp sub;

@@ -89,6 +89,7 @@ const TypeInfo type_decimal_ = {
         nullptr,
         (BoolUnaryOp) decimal_istrue,
         decimal_equal,
+        nullptr,
         decimal_hash,
         nullptr,
         nullptr,

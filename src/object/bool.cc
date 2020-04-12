@@ -27,6 +27,7 @@ const TypeInfo type_bool_ = {
         nullptr,
         (BoolUnaryOp) bool_istrue,
         bool_equal,
+        nullptr,
         bool_hash,
         nullptr,
         nullptr,

@@ -18,6 +18,15 @@ namespace argon::object {
     extern Bool *True;
     extern Bool *False;
 
+    inline ArObject *BoolToArBool(bool value) {
+        if (value) {
+            IncRef(True);
+            return True;
+        }
+        IncRef(False);
+        return False;
+    }
+
 } // namespace argon::object
 
 #endif // !ARGON_OBJECT_BOOL_H_

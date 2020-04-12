@@ -52,6 +52,7 @@ const TypeInfo type_code_ = {
         nullptr,
         (BoolUnaryOp) code_istrue,
         code_equal,
+        nullptr,
         code_hash,
         nullptr,
         nullptr,

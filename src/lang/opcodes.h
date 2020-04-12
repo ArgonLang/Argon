@@ -16,59 +16,49 @@ namespace lang {
     inline unsigned int I32Arg(const unsigned char *instr) { return *((Instr32 *) instr) >> (unsigned char) 8; }
 
     enum class OpCodes : unsigned char {
-        NGV,    // NEW_GLOBAL_VARIABLE
-        NLV,    // NEW_LOCAL_VARIABLE
-        STGBL,
-        STLC,
+        ADD,
+        CMP,
+        DIV,
+        IDIV,
+        INV,
+        IPADD,
+        IPDIV,
+        IPMUL,
+        IPSUB,
+        JF,     // JUMP_FALSE
+        JFOP,   // JUMP_FALSE_OR_POP
+        JMP,    // JUMP
+        JTAP,   // JUMP_TRUE_AND_POP
+        JT,     // JUMP_TRUE
+        JTOP,   // JUMP_TRUE_OR_POP
+        LAND,
         LDGBL,
         LDLC,
-        MK_TUPLE,
-        MK_LIST,
-        MK_SET,
-        MK_MAP,
-        JMP,    // JUMP
-        JF,     // JUMP_FALSE
-        JT,     // JUMP_TRUE
-        JTAP,   // JUMP_TRUE_AND_POP
-        JTOP,   // JUMP_TRUE_OR_POP
-        JFOP,   // JUMP_FALSE_OR_POP
         LOR,
+        LSTATIC,
         LXOR,
-        LAND,
-        TEST,
-        CMP,
+        MK_LIST,
+        MK_MAP,
+        MK_SET,
+        MK_TUPLE,
+        MOD,
+        MUL,
+        NEG,
+        NGV,    // NEW_GLOBAL_VARIABLE
+        NLV,    // NEW_LOCAL_VARIABLE
+        NOT,
+        POS,
+        PRED,
+        PREI,
+        PSTD,
+        PSTI,
         SHL,
         SHR,
-        ADD,
-        IPADD,
+        STGBL,
+        STLC,
         SUB,
-        IPSUB,
-        MUL,
-        IPMUL,
-        DIV,
-        IPDIV,
-        IDIV,
-        MOD,
-        NOT,
-        INV,
-        POS,
-        NEG,
-        PREI,
-        PRED,
-        PSTI,
-        PSTD,
-        LSTATIC
+        TEST
     };
-
-    enum class CompareMode : unsigned char {
-        EQ,
-        NE,
-        GE,
-        GEQ,
-        LE,
-        LEQ
-    };
-
 } // namespace lang
 
 #endif // !ARGON_LANG_OPCODES_H_

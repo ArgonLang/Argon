@@ -70,6 +70,7 @@ const TypeInfo argon::object::type_list_ = {
         nullptr,
         nullptr,
         list_equal,
+        nullptr,
         list_hash,
         nullptr,
         nullptr,

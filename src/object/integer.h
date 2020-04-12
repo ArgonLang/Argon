@@ -14,6 +14,8 @@ namespace argon::object {
         long integer;
     };
 
+    extern const TypeInfo type_integer_;
+
     Integer *IntegerNew(long number);
 
     Integer *IntegerNewFromString(const std::string &string, int base);

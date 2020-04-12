@@ -27,6 +27,7 @@ const TypeInfo type_nil_ = {
         nullptr,
         (BoolUnaryOp) nil_istrue,
         nil_equal,
+        nullptr,
         nil_hash,
         nullptr,
         nullptr,

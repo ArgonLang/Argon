@@ -6,6 +6,7 @@
 
 #include "argon_vm.h"
 #include <lang/opcodes.h>
+#include <object/bool.h>
 #include <object/error.h>
 
 using namespace lang;
@@ -82,13 +83,32 @@ void ArgonVM::Eval(ArRoutine *routine) {
 
     while (frame->instr_ptr < (code->instr + code->instr_sz)) {
         switch (*(lang::OpCodes *) frame->instr_ptr) {
+            TARGET_OP(CMP) {
+                auto mode = (CompareMode) I16Arg(frame->instr_ptr);
+                ArObject *left = PEEK1();
+                if (mode == CompareMode::EQ)
+                    ret = BoolToArBool(left->type->equal(left, TOP()));
+                else if (mode == CompareMode::NE)
+                    ret = BoolToArBool(!left->type->equal(left, TOP()));
+                else {
+                    if (left->type->compare != nullptr)
+                        ret = left->type->compare(left, TOP(), mode);
+                    else
+                        assert(false); // TODO: not impl error!
+                }
+                POP();
+                TOP_REPLACE(ret);
+                DISPATCH2();
+            }
             TARGET_OP(JMP) {
                 JUMPTO(I32Arg(frame->instr_ptr));
             }
             TARGET_OP(JF) {
                 if (!IsTrue(TOP())) {
+                    POP();
                     JUMPTO(I32Arg(frame->instr_ptr));
                 }
+                POP();
                 DISPATCH4();
             }
             TARGET_OP(JTOP) {

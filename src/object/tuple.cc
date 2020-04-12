@@ -53,6 +53,7 @@ const TypeInfo type_tuple_ = {
         nullptr,
         nullptr,
         tuple_equal,
+        nullptr,
         tuple_hash,
         nullptr,
         nullptr,
