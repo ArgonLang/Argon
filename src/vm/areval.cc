@@ -161,6 +161,18 @@ void ArgonVM::Eval(ArRoutine *routine) {
                 PUSH(TupleGetItem(code->statics, I16Arg(frame->instr_ptr)));
                 DISPATCH2();
             }
+            TARGET_OP(NOT) {
+                ret = True;
+                if (IsTrue(TOP()))
+                    ret = False;
+                IncRef(ret);
+                TOP_REPLACE(ret);
+                DISPATCH();
+            }
+            TARGET_OP(POP) {
+                POP();
+                DISPATCH();
+            }
             default:
                 assert(false);
         }

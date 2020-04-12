@@ -47,6 +47,7 @@ namespace lang {
         NGV,    // NEW_GLOBAL_VARIABLE
         NLV,    // NEW_LOCAL_VARIABLE
         NOT,
+        POP,
         POS,
         PRED,
         PREI,
