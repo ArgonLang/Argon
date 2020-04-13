@@ -96,6 +96,10 @@ void Compiler::CompileCode(const ast::NodeUptr &node) {
     BasicBlock *tmp;
 
     switch (node->type) {
+        case NodeType::EXPRESSION:
+            this->CompileCode(CastNode<Expression>(node)->expr);
+            this->EmitOp(OpCodes::POP);
+            break;
         case NodeType::VARIABLE:
             this->CompileVariable(CastNode<Variable>(node));
             this->DecEvalStack();

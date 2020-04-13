@@ -100,7 +100,7 @@ namespace lang::scanner {
         ELIF,
         ELSE,
         FALLTHROUGH,
-        FALSE,
+        //FALSE,
         FOR,
         FROM,
         FUNC,
@@ -111,7 +111,7 @@ namespace lang::scanner {
         IMPORT,
         LET,
         LOOP,
-        NIL,
+        //NIL,
         PUB,
         RETURN,
         SELF,
@@ -119,11 +119,16 @@ namespace lang::scanner {
         STRUCT,
         SWITCH,
         TRAIT,
-        TRUE,
+        //TRUE,
         USING,
         VAR,
         WEAK,
         KEYWORD_END,
+
+        FALSE,
+        NIL,
+        TRUE,
+
         ERROR
     };
 

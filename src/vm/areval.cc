@@ -111,6 +111,14 @@ void ArgonVM::Eval(ArRoutine *routine) {
                 POP();
                 DISPATCH4();
             }
+            TARGET_OP(JT) {
+                if (IsTrue(TOP())) {
+                    POP();
+                    JUMPTO(I32Arg(frame->instr_ptr));
+                }
+                POP();
+                DISPATCH4();
+            }
             TARGET_OP(JTOP) {
                 if (!IsTrue(TOP())) {
                     POP();
@@ -179,5 +187,6 @@ void ArgonVM::Eval(ArRoutine *routine) {
         error:
         assert(false);
     }
+    assert(((unsigned char **) frame->eval_stack) == frame->stack_extra_base);
 }
 

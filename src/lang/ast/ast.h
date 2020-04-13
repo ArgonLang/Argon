@@ -25,6 +25,7 @@ namespace lang::ast {
         ELLIPSIS,
         ELVIS,
         EQUALITY,
+        EXPRESSION,
         FALLTHROUGH,
         FOR,
         FOR_IN,
@@ -216,6 +217,13 @@ namespace lang::ast {
             this->pub = pub;
             this->end = this->body->end;
         }
+    };
+
+    struct Expression : Node {
+        NodeUptr expr;
+
+        explicit Expression(NodeUptr expr) : Node(NodeType::EXPRESSION, expr->start, expr->end),
+                                             expr(std::move(expr)) {}
     };
 
     struct For : Node {

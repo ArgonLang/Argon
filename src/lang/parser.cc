@@ -435,16 +435,18 @@ ast::NodeUptr Parser::Statement() {
             case TokenType::GOTO:
                 tmp = this->JmpStmt();
                 break;
+                /*
             case TokenType::FALSE:
             case TokenType::NIL:
             case TokenType::TRUE:
                 tmp = this->Expression();
                 break;
+                 */
             default:
                 throw SyntaxException("expected statement", this->currTk_);
         }
     } else
-        tmp = this->Expression();
+        tmp = std::make_unique<ast::Expression>(this->Expression());
 
     if (label)
         return std::make_unique<Binary>(NodeType::LABEL, std::move(label), std::move(tmp));
