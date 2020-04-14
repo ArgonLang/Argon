@@ -1097,44 +1097,58 @@ ast::NodeUptr Parser::ParseAtom() {
 
 ast::NodeUptr Parser::ParseArrowOrTuple() {
     Pos start = this->currTk_.start;
-    auto tuple = std::make_unique<List>(NodeType::TUPLE, start);
+    Pos end = 0;
     std::list<NodeUptr> params;
-    bool mustFn = false;
+    NodeUptr tmp;
+    bool must_fn = true;
+    bool last_is_comma = false;
 
     this->Eat();
 
     if (!this->MatchEatNL(TokenType::RIGHT_ROUND)) {
-        params = this->ParsePeap();
-        for (auto &item : params) {
-            if (item->type == NodeType::IDENTIFIER) {
-                if (CastNode<Identifier>(item)->rest_element) {
-                    mustFn = true;
+        if ((tmp = this->Variadic()) == nullptr) {
+            must_fn = false;
+            params.push_back(this->Test());
+            while (this->MatchEat(TokenType::COMMA, true)) {
+                if (this->MatchEatNL(TokenType::RIGHT_ROUND)) {
+                    last_is_comma = true;
                     break;
                 }
-                continue;
+                if ((tmp = this->Variadic()) != nullptr) {
+                    params.push_back(std::move(tmp));
+                    must_fn = true;
+                    break;
+                }
+                params.push_back(this->Test());
+                last_is_comma = false;
             }
-            tuple->end = this->currTk_.end;
-            this->Eat(TokenType::RIGHT_ROUND, "expected ) after parenthesized expression");
-            tuple->expressions = std::move(params);
-            return tuple;
         }
     }
 
-    tuple->end = this->currTk_.end;
+    end = this->currTk_.end;
     this->Eat(TokenType::RIGHT_ROUND, "expected )");
 
     if (this->Match(TokenType::ARROW)) {
         this->Eat();
+        // All items into params list must be IDENTIFIER
+        for (auto &item : params)
+            if (item->type != NodeType::IDENTIFIER)
+                throw SyntaxException("expected IDENTIFIER", this->currTk_); // TODO: fix
         auto dpos = this->BeginDocs();
         auto fn = std::make_unique<Function>(std::move(params), this->Block(), start);
         fn->docs = this->GetDocs(dpos);
         return fn;
     }
 
-    if (mustFn)
+    if (must_fn)
         this->Eat(TokenType::ARROW, "expected arrow function declaration");
 
-    // it's definitely a parenthesized expression
+    if (!last_is_comma && params.size() == 1)
+        return std::move(params.front()); // parenthesized expression
+
+    // it's definitely a tuple
+    auto tuple = std::make_unique<List>(NodeType::TUPLE, start);
+    tuple->end = end;
     tuple->expressions = std::move(params);
     return tuple;
 }
