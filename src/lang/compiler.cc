@@ -287,17 +287,17 @@ void Compiler::CompileSwitch(const ast::Switch *stmt, bool as_if) {
                 }
                 compound_cond = true;
                 this->CompileCode(test);
-                if (!as_if) {
+                if (!as_if)
                     this->EmitOp(OpCodes::TEST);
-                    this->EmitOp4(OpCodes::JTAP, 0);
-                } else
-                    this->EmitOp4(OpCodes::JT, 0);
+                this->EmitOp4(OpCodes::JT, 0);
                 cond->flow_else = body;
             }
         } else {
             // Default
             def = this->NewBlock();
             this->cu_curr_->bb_curr = def;
+            if (!as_if)
+                this->EmitOp(OpCodes::POP);
             this->EmitOp4(OpCodes::JMP, 0);
             this->cu_curr_->bb_curr->flow_else = body;
         }
@@ -319,6 +319,8 @@ void Compiler::CompileSwitch(const ast::Switch *stmt, bool as_if) {
 
     if (def == nullptr) {
         this->NewNextBlock();
+        if (!as_if)
+            this->EmitOp(OpCodes::POP);
         this->EmitOp4(OpCodes::JMP, 0);
         this->cu_curr_->bb_curr->flow_else = last;
     } else this->UseAsNextBlock(def);

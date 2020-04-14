@@ -181,12 +181,22 @@ void ArgonVM::Eval(ArRoutine *routine) {
                 POP();
                 DISPATCH();
             }
+            TARGET_OP(TEST) {
+                ArObject *left = PEEK1();
+                if (left->type->equal(left, TOP())) {
+                    POP();
+                    TOP_REPLACE(BoolToArBool(true));
+                    DISPATCH();
+                }
+                TOP_REPLACE(BoolToArBool(false));
+                DISPATCH();
+            }
             default:
                 assert(false);
         }
         error:
         assert(false);
     }
-    assert(((unsigned char **) frame->eval_stack) == frame->stack_extra_base);
+    assert(es_cur == 0);
 }
 

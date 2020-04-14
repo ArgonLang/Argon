@@ -28,7 +28,6 @@ namespace lang {
         JF,     // JUMP_FALSE
         JFOP,   // JUMP_FALSE_OR_POP
         JMP,    // JUMP
-        JTAP,   // JUMP_TRUE_AND_POP
         JT,     // JUMP_TRUE
         JTOP,   // JUMP_TRUE_OR_POP
         LAND,
