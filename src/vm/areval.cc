@@ -169,6 +169,21 @@ void ArgonVM::Eval(ArRoutine *routine) {
                 PUSH(TupleGetItem(code->statics, I16Arg(frame->instr_ptr)));
                 DISPATCH2();
             }
+            TARGET_OP(MK_LIST) {
+                if ((ret = ListNew()) == nullptr)
+                    goto error;
+
+                for (unsigned int i = es_cur - I32Arg(frame->instr_ptr); i < es_cur; i++) {
+                    if (!ListAppend((List *) ret, frame->eval_stack[i])) {
+                        // TODO: memoryerror
+                        goto error;
+                    }
+                    Release(frame->eval_stack[i]);
+                }
+                es_cur -= I32Arg(frame->instr_ptr);
+                PUSH(ret);
+                DISPATCH4();
+            }
             TARGET_OP(NOT) {
                 ret = True;
                 if (IsTrue(TOP()))
