@@ -130,8 +130,10 @@ ArObject *argon::object::MapGet(Map *map, ArObject *key) {
     size_t index = key->type->hash(key) % map->cap;
 
     for (MapEntry *cur = map->map[index]; cur != nullptr; cur = cur->next) {
-        if (key->type->equal(key, cur->key))
+        if (key->type->equal(key, cur->key)) {
+            IncRef(cur->value);
             return cur->value;
+        }
     }
 
     return nullptr;
