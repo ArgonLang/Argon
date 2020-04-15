@@ -8,6 +8,7 @@
 #include <lang/opcodes.h>
 #include <object/bool.h>
 #include <object/error.h>
+#include <object/map.h>
 
 using namespace lang;
 using namespace argon::object;
@@ -83,6 +84,48 @@ void ArgonVM::Eval(ArRoutine *routine) {
 
     while (frame->instr_ptr < (code->instr + code->instr_sz)) {
         switch (*(lang::OpCodes *) frame->instr_ptr) {
+            TARGET_OP(NGV) {
+                // if code->names == null -> compiler error!
+                assert(code->names != nullptr);
+                ret = TupleGetItem(code->names, I16Arg(frame->instr_ptr));
+
+                assert(!MapContains((Map *) frame->globals, ret)); // Double declaration, compiler error!
+                if (!MapInsert((Map *) frame->globals, ret, TOP())) {
+                    // todo: memory error!
+                    Release(ret);
+                    goto error;
+                }
+                Release(ret);
+                POP();
+                DISPATCH2();
+            }
+            TARGET_OP(STGBL) {
+                assert(code->names != nullptr);
+                ret = TupleGetItem(code->names, I16Arg(frame->instr_ptr));
+
+                if (!MapContains((Map *) frame->globals, ret)) {
+                    Release(ret);
+                    goto error; // todo: Unknown variable
+                }
+
+                MapInsert((Map *) frame->globals, ret, TOP());
+                Release(ret);
+                POP();
+                DISPATCH2();
+            }
+            TARGET_OP(LDGBL) {
+                assert(code->names != nullptr);
+                ArObject *key = TupleGetItem(code->names, I16Arg(frame->instr_ptr));
+
+                if ((ret = MapGet((Map *) frame->globals, key)) == nullptr) {
+                    Release(key);
+                    goto error; // todo Unknown variable
+                }
+
+                PUSH(ret);
+                Release(key);
+                DISPATCH2();
+            }
             TARGET_OP(CMP) {
                 auto mode = (CompareMode) I16Arg(frame->instr_ptr);
                 ArObject *left = PEEK1();

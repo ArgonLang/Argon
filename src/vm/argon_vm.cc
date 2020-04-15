@@ -2,6 +2,7 @@
 //
 // Licensed under the Apache License v2.0
 
+#include <object/map.h>
 #include "argon_vm.h"
 
 using namespace argon::vm;
@@ -15,6 +16,8 @@ ArObject *ArgonVM::EvalCode(Code *code) {
     ArRoutine *routine = (ArRoutine *) Alloc(sizeof(ArRoutine));
 
     routine->frame = frame;
+
+    frame->globals = MapNew();
 
     this->Eval(routine);
 

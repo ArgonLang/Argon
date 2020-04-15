@@ -12,6 +12,9 @@ namespace argon::vm {
         /* Previous frame (caller) */
         Frame *back;
 
+        /* Pointer to global namespace */
+        object::ArObject *globals;
+
         /* Code being executed in this frame */
         object::Code *code;
 
