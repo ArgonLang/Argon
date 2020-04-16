@@ -26,9 +26,7 @@ void Compiler::EmitOp2(OpCodes code, unsigned char arg) {
 }
 
 void Compiler::EmitOp4(OpCodes code, unsigned int arg) {
-    //if(arg > 0x00FFFFFF)
-    //    throw
-    // TODO: bad arg, argument too long!
+    assert(arg > 0x00FFFFFF); // too many argument!
     this->cu_curr_->bb_curr->AddInstr((Instr32) (arg << (unsigned char) 8) | (Instr8) code);
 }
 
@@ -547,12 +545,16 @@ void Compiler::UseAsNextBlock(BasicBlock *block) {
 }
 
 BasicBlock *Compiler::NewBlock() {
-    auto bb = new BasicBlock();
-    bb->link_next = this->cu_curr_->bb_list;
-    this->cu_curr_->bb_list = bb;
-    if (this->cu_curr_->bb_start == nullptr)
-        this->cu_curr_->bb_start = bb;
-    return bb;
+    try {
+        auto bb = new BasicBlock();
+        bb->link_next = this->cu_curr_->bb_list;
+        this->cu_curr_->bb_list = bb;
+        if (this->cu_curr_->bb_start == nullptr)
+            this->cu_curr_->bb_start = bb;
+        return bb;
+    } catch (std::bad_alloc &) {
+        throw MemoryException("Compiler: NewBlock");
+    }
 }
 
 BasicBlock *Compiler::NewNextBlock() {

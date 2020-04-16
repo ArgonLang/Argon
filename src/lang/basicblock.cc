@@ -5,11 +5,13 @@
 #include <cassert>
 #include <memory/memory.h>
 #include "basicblock.h"
+#include "compiler_exception.h"
 
 using namespace lang;
 
 BasicBlock::BasicBlock() {
-    this->instrs = (unsigned char *) argon::memory::Alloc(ARGON_LANG_BASICBLOCK_STARTSZ);
+    if ((this->instrs = (unsigned char *) argon::memory::Alloc(ARGON_LANG_BASICBLOCK_STARTSZ)) == nullptr)
+        throw MemoryException("BasicBlock: new");
     this->allocated_ = ARGON_LANG_BASICBLOCK_STARTSZ;
 }
 
@@ -37,7 +39,9 @@ void BasicBlock::CheckSize(size_t size) {
     if (this->instr_sz + size >= this->allocated_) {
         auto tmp = (unsigned char *) argon::memory::Realloc(this->instrs,
                                                             this->allocated_ + ARGON_LANG_BASICBLOCK_INCSZ);
-        assert(tmp != nullptr); // TODO: raise exception ?!
+        if (tmp == nullptr)
+            throw MemoryException("BasicBlock: CheckSize");
+
         this->instrs = tmp;
         this->allocated_ += ARGON_LANG_BASICBLOCK_INCSZ;
     }

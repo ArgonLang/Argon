@@ -5,6 +5,8 @@
 #ifndef ARGON_LANG_COMPILE_UNIT_H_
 #define ARGON_LANG_COMPILE_UNIT_H_
 
+#include "compiler_exception.h"
+
 namespace lang {
     enum class CUScope {
         MODULE,
@@ -34,10 +36,26 @@ namespace lang {
         const CUScope scope;
 
         explicit CompileUnit(CUScope scope) : scope(scope) {
-            this->statics_map = argon::object::MapNew();
-            this->statics = argon::object::ListNew();
-            this->names = argon::object::ListNew();
-            this->locals = argon::object::ListNew();
+            if ((this->statics_map = argon::object::MapNew()) == nullptr)
+                throw MemoryException("CompileUnit: statics_map");
+
+            if ((this->statics = argon::object::ListNew()) == nullptr) {
+                argon::object::Release(this->statics_map);
+                throw MemoryException("CompileUnit: statics");
+            }
+
+            if ((this->names = argon::object::ListNew()) == nullptr) {
+                argon::object::Release(this->statics_map);
+                argon::object::Release(this->statics);
+                throw MemoryException("CompileUnit: names");
+            }
+
+            if ((this->locals = argon::object::ListNew()) == nullptr) {
+                argon::object::Release(this->statics_map);
+                argon::object::Release(this->statics);
+                argon::object::Release(this->names);
+                throw MemoryException("CompileUnit: locals");
+            }
         }
 
         ~CompileUnit() {
