@@ -32,12 +32,16 @@ void Compiler::EmitOp4(OpCodes code, unsigned int arg) {
     this->cu_curr_->bb_curr->AddInstr((Instr32) (arg << (unsigned char) 8) | (Instr8) code);
 }
 
-void Compiler::EnterScope() {
-    // TODO: fix this! it's only a template for dirty experiments
-    CompileUnit *cu = &this->cu_list_.emplace_back();
-    cu->symt = std::make_unique<SymbolTable>("", SymTScope::MODULE);
+void Compiler::EnterScope(const std::string &scope_name, CUScope scope) {
+    CompileUnit *cu = &this->cu_list_.emplace_back(scope);
+    cu->symt = std::make_unique<SymbolTable>(scope_name);
     cu->prev = this->cu_curr_;
     this->cu_curr_ = cu;
+}
+
+void Compiler::ExitScope() {
+    this->cu_curr_ = this->cu_curr_->prev;
+    this->cu_list_.pop_back();
 }
 
 void Compiler::CompileBinaryExpr(const ast::Binary *binary) {
@@ -347,7 +351,7 @@ void Compiler::CompileVariable(const ast::Variable *variable) {
 
     this->CompileCode(variable->value);
 
-    if (this->cu_curr_->symt->type == SymTScope::MODULE) {
+    if (this->cu_curr_->scope == CUScope::MODULE) {
         if (!known) {
             sym->id = this->cu_curr_->names->len;
 
@@ -387,7 +391,7 @@ void Compiler::CompileIdentifier(const ast::Identifier *identifier) {
         return;
     }
 
-    if (this->cu_curr_->symt->level == sym->table->level && this->cu_curr_->symt->type == SymTScope::FUNCTION) {
+    if (this->cu_curr_->symt->level == sym->table->level && this->cu_curr_->scope == CUScope::FUNCTION) {
         this->EmitOp2(OpCodes::LDLC, sym->id);
         return;
     }
@@ -415,7 +419,7 @@ void Compiler::CompileAssignment(const ast::Assignment *assign) {
             return;
         }
 
-        if (this->cu_curr_->symt->level == sym->table->level && this->cu_curr_->symt->type == SymTScope::FUNCTION) {
+        if (this->cu_curr_->symt->level == sym->table->level && this->cu_curr_->scope == CUScope::FUNCTION) {
             this->EmitOp2(OpCodes::STLC, sym->id);
             return;
         }
@@ -566,7 +570,7 @@ Code *Compiler::Compile(std::istream *source) {
     Parser parser(source);
     std::unique_ptr<ast::Program> program = parser.Parse();
 
-    this->EnterScope();
+    this->EnterScope(program->filename, CUScope::MODULE);
 
     this->NewNextBlock();
 

@@ -6,13 +6,12 @@
 
 using namespace lang;
 
-SymbolTable::SymbolTable(std::string name, SymTScope type, unsigned short level) : name(std::move(name)),
-                                                                                   type(type), level(level) {}
+SymbolTable::SymbolTable(std::string name, unsigned short level) : name(std::move(name)), level(level) {}
 
-SymbolTable::SymbolTable(std::string name, SymTScope type) : SymbolTable(std::move(name), type, 0) {}
+SymbolTable::SymbolTable(std::string name) : SymbolTable(std::move(name), 0) {}
 
-SymbolTable *SymbolTable::NewScope(std::string table_name, SymTScope table_type) {
-    auto table = new SymbolTable(std::move(table_name), table_type, this->level + 1);
+SymbolTable *SymbolTable::NewScope(std::string table_name) {
+    auto table = new SymbolTable(std::move(table_name), this->level + 1);
     table->prev_ = this;
     return table;
 }

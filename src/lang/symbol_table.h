@@ -21,11 +21,6 @@ namespace lang {
 
     using SymUptr = std::unique_ptr<Symbol>;
 
-    enum class SymTScope {
-        MODULE,
-        FUNCTION
-    };
-
     class StringPtrHashWrapper {
     public:
         size_t operator()(const std::string *str) const { return std::hash<std::string>()(*str); }
@@ -41,14 +36,13 @@ namespace lang {
         SymbolTable *prev_ = nullptr;
     public:
         const std::string name;
-        const SymTScope type;
         const unsigned short level;
 
-        SymbolTable(std::string name, SymTScope type, unsigned short level);
+        SymbolTable(std::string name, unsigned short level);
 
-        SymbolTable(std::string name, SymTScope type);
+        explicit SymbolTable(std::string name);
 
-        SymbolTable *NewScope(std::string table_name, SymTScope table_type);
+        SymbolTable *NewScope(std::string table_name);
 
         Symbol *Insert(const std::string &sym_name);
 

@@ -11,29 +11,28 @@
 using namespace lang;
 
 TEST(SymbolTable, NewScope) {
-    auto symt = std::make_shared<lang::SymbolTable>("main", SymTScope::MODULE);
-    auto fna = symt->NewScope("fun_a", SymTScope::FUNCTION);
+    auto symt = std::make_shared<lang::SymbolTable>("main");
+    auto fna = symt->NewScope("fun_a");
 
     ASSERT_EQ(symt->level, 0);
     ASSERT_EQ(fna->level, 1);
-    ASSERT_EQ(fna->type, SymTScope::FUNCTION);
 }
 
 TEST(SymbolTable, Insert) {
-    auto symt = std::make_shared<lang::SymbolTable>("main", SymTScope::MODULE);
+    auto symt = std::make_shared<lang::SymbolTable>("main");
     ASSERT_EQ(symt->Insert("var_a")->name, "var_a");
     ASSERT_EQ(symt->Insert("var_a"), nullptr);
 }
 
 TEST(SymbolTable, Lookup) {
-    auto symt = std::make_shared<lang::SymbolTable>("main", SymTScope::MODULE);
-    auto fna = symt->NewScope("fun_a", SymTScope::FUNCTION);
+    auto symt = std::make_shared<lang::SymbolTable>("main");
+    auto fna = symt->NewScope("fun_a");
     symt->Insert("var_a");
     ASSERT_EQ(fna->Lookup("var_a")->name, "var_a");
 }
 
 TEST(SymbolTable, LocalLookup) {
-    auto symt = std::make_shared<lang::SymbolTable>("main", SymTScope::MODULE);
+    auto symt = std::make_shared<lang::SymbolTable>("main");
     symt->Insert("var_a");
 
     ASSERT_EQ(symt->Lookup("var_a")->name, "var_a");

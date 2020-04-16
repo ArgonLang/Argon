@@ -17,6 +17,12 @@
 #include "symbol_table.h"
 
 namespace lang {
+
+    enum class CUScope {
+        MODULE,
+        FUNCTION
+    };
+
     struct CompileUnit {
         SymTUptr symt;
         argon::object::Map *statics_map;
@@ -37,7 +43,9 @@ namespace lang {
         unsigned int stack_sz = 0;
         unsigned int stack_cu_sz = 0;
 
-        CompileUnit() {
+        const CUScope scope;
+
+        explicit CompileUnit(CUScope scope) : scope(scope) {
             this->statics_map = argon::object::MapNew();
             this->statics = argon::object::ListNew();
             this->names = argon::object::ListNew();
@@ -70,7 +78,9 @@ namespace lang {
 
         void EmitOp4(OpCodes code, unsigned int arg);
 
-        void EnterScope();
+        void EnterScope(const std::string &scope_name, CUScope scope);
+
+        void ExitScope();
 
         void CompileBinaryExpr(const ast::Binary *binary);
 
