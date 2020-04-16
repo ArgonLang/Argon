@@ -15,55 +15,9 @@
 #include "opcodes.h"
 #include "ast/ast.h"
 #include "symbol_table.h"
+#include "compile_unit.h"
 
 namespace lang {
-
-    enum class CUScope {
-        MODULE,
-        FUNCTION
-    };
-
-    struct CompileUnit {
-        SymTUptr symt;
-        argon::object::Map *statics_map;
-
-        argon::object::List *statics;
-        argon::object::List *names;
-        argon::object::List *locals;
-
-        std::vector<BasicBlock *> bb_splist;
-
-        BasicBlock *bb_start = nullptr;
-        BasicBlock *bb_list = nullptr;
-        BasicBlock *bb_curr = nullptr;
-
-        CompileUnit *prev = nullptr;
-
-        unsigned int instr_sz = 0;
-        unsigned int stack_sz = 0;
-        unsigned int stack_cu_sz = 0;
-
-        const CUScope scope;
-
-        explicit CompileUnit(CUScope scope) : scope(scope) {
-            this->statics_map = argon::object::MapNew();
-            this->statics = argon::object::ListNew();
-            this->names = argon::object::ListNew();
-            this->locals = argon::object::ListNew();
-        }
-
-        ~CompileUnit() {
-            for (BasicBlock *cursor = this->bb_list, *nxt; cursor != nullptr; cursor = nxt) {
-                nxt = cursor->link_next;
-                delete (cursor);
-            }
-            argon::object::Release(this->statics_map);
-            argon::object::Release(this->statics);
-            argon::object::Release(this->names);
-            argon::object::Release(this->locals);
-        }
-    };
-
     class Compiler {
         argon::object::Map *statics_global;
 
