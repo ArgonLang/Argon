@@ -1125,7 +1125,8 @@ ast::NodeUptr Parser::ParseArrowOrTuple() {
                 params.push_back(this->Test());
                 last_is_comma = false;
             }
-        }
+        } else
+            params.push_back(std::move(tmp));
     }
 
     end = this->currTk_.end;
