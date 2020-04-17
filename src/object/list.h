@@ -26,6 +26,8 @@ namespace argon::object {
 
     bool ListAppend(List *list, ArObject *obj);
 
+    ArObject *ListGetItem(List *list, size_t i);
+
 } // namespace argon::object
 
 #endif // !ARGON_OBJECT_LIST_H_
