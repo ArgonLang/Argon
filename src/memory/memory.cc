@@ -2,6 +2,7 @@
 //
 // Licensed under the Apache License v2.0
 
+#include <cassert>
 #include "memory.h"
 #include "memobj.h"
 #include "arena.h"
@@ -69,8 +70,10 @@ void TryReleaseMemory(Pool *pool, size_t clazz) {
 
 void *argon::memory::Alloc(size_t size) noexcept {
     size_t clazz = SizeToPoolClass(size);
-    Pool *pool = nullptr;
-    void *mem = nullptr;
+    Pool *pool;
+    void *mem;
+
+    assert(size > 0);
 
     if (size <= ARGON_MEMORY_BLOCK_MAX_SIZE) {
         pools[clazz].lock.lock();
