@@ -42,6 +42,10 @@ namespace lang {
 
         void CompileCode(const ast::NodeUptr &node);
 
+        void CompileFunction(const ast::Function *function);
+
+        void NewVariable(const std::string &name);
+
         void CompileLoop(const ast::Loop *loop);
 
         void CompileSwitch(const ast::Switch *stmt, bool as_if);

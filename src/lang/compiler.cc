@@ -9,6 +9,7 @@
 #include <object/nil.h>
 #include <object/bool.h>
 #include <object/code.h>
+#include <object/function.h>
 
 #include "compiler.h"
 #include "parser.h"
@@ -26,7 +27,7 @@ void Compiler::EmitOp2(OpCodes code, unsigned char arg) {
 }
 
 void Compiler::EmitOp4(OpCodes code, unsigned int arg) {
-    assert(arg > 0x00FFFFFF); // too many argument!
+    assert(arg < 0x00FFFFFF); // too many argument!
     this->cu_curr_->bb_curr->AddInstr((Instr32) (arg << (unsigned char) 8) | (Instr8) code);
 }
 
@@ -94,10 +95,79 @@ void Compiler::CompileBranch(const ast::If *stmt) {
     this->UseAsNextBlock(last);
 }
 
+void Compiler::CompileFunction(const ast::Function *function) {
+    argon::object::Code *code;
+    argon::object::Function *fn;
+    argon::object::ArObject *tmp;
+    bool variadic = false;
+
+    this->EnterScope(function->id, CUScope::FUNCTION);
+    this->NewNextBlock();
+
+    for (auto &param: function->params) {
+        auto id = CastNode<Identifier>(param);
+        auto sym = this->cu_curr_->symt->Insert(id->value);
+
+        if (sym == nullptr)
+            throw RedeclarationException("redeclaration of func param: " + id->value);
+
+        sym->id = this->cu_curr_->locals->len;
+        sym->declared = true;
+        variadic = id->rest_element;
+
+        if ((tmp = StringNew(id->value)) == nullptr)
+            throw MemoryException("CompileFunction: StringNew");
+
+        if (!ListAppend(this->cu_curr_->locals, tmp)) {
+            Release(tmp);
+            throw MemoryException("CompileFunction: ListAppend");
+        }
+        Release(tmp);
+    }
+
+    this->CompileCode(function->body);
+    this->Dfs(this->cu_curr_, this->cu_curr_->bb_start);
+
+    code = this->Assemble();
+
+    this->ExitScope();
+
+    fn = FunctionNew(code, function->params.size());
+    Release(code);
+
+    if (fn == nullptr)
+        throw MemoryException("CompileFunction: FunctionNew");
+
+    fn->variadic = variadic;
+
+    // Push to static resources
+    if ((tmp = IntegerNew(this->cu_curr_->statics->len)) == nullptr) {
+        Release(fn);
+        throw MemoryException("CompileFunction: IntegerNew");
+    }
+
+    bool ok = ListAppend(this->cu_curr_->statics, fn);
+    Release(tmp);
+    Release(fn);
+
+    if (!ok)
+        throw MemoryException("CompileFunction: ListAppend(statics)");
+
+    this->IncEvalStack();
+    this->EmitOp2(OpCodes::LSTATIC, this->cu_curr_->statics->len - 1);
+
+    if (!function->id.empty())
+        this->NewVariable(function->id);
+}
+
+
 void Compiler::CompileCode(const ast::NodeUptr &node) {
     BasicBlock *tmp;
 
     switch (node->type) {
+        case NodeType::FUNC:
+            this->CompileFunction(CastNode<ast::Function>(node));
+            break;
         case NodeType::EXPRESSION:
             this->CompileCode(CastNode<Expression>(node)->expr);
             this->EmitOp(OpCodes::POP);
@@ -333,44 +403,50 @@ void Compiler::CompileSwitch(const ast::Switch *stmt, bool as_if) {
     this->UseAsNextBlock(last);
 }
 
-void Compiler::CompileVariable(const ast::Variable *variable) {
-    Symbol *sym = this->cu_curr_->symt->Insert(variable->name);
+void Compiler::NewVariable(const std::string &name) {
+    Symbol *sym = this->cu_curr_->symt->Insert(name);
+    argon::object::List *dest = this->cu_curr_->names;
+
+    ArObject *arname;
     bool known = false;
 
     if (sym == nullptr) {
-        sym = this->cu_curr_->symt->Lookup(variable->name);
-        if (sym->declared) {
-            assert(sym == nullptr); // TODO exception variable already exists
-            return;
-        }
-        sym->declared = true;
+        // Variable already exists
+        sym = this->cu_curr_->symt->Lookup(name);
+        if (sym->declared)
+            throw RedeclarationException("redeclaration of variable: " + name);
         known = true;
     }
 
-    this->CompileCode(variable->value);
+    sym->declared = true;
 
     if (this->cu_curr_->scope == CUScope::MODULE) {
-        if (!known) {
-            sym->id = this->cu_curr_->names->len;
-
-            auto id = StringNew(variable->name);
-            assert(id != nullptr);
-            ListAppend(this->cu_curr_->names, id);
-            Release(id);
-        }
-        this->EmitOp2(OpCodes::NGV, sym->id);
-        return;
+        this->EmitOp2(OpCodes::NGV, known ? sym->id : dest->len);
+        if (known)
+            return;
+    } else {
+        dest = this->cu_curr_->locals;
+        this->EmitOp2(OpCodes::NLV, dest->len);
     }
 
-    if (!known) {
-        sym->id = this->cu_curr_->locals->len;
-
-        auto id = StringNew(variable->name);
-        assert(id != nullptr);
-        ListAppend(this->cu_curr_->locals, id);
-        Release(id);
+    if (known)
+        arname = ListGetItem(this->cu_curr_->names, sym->id);
+    else {
+        // Convert name string to ArObject
+        if ((arname = StringNew(name)) == nullptr)
+            throw MemoryException("NewVariable: StringNew");
     }
-    this->EmitOp2(OpCodes::STLC, sym->id);
+
+    sym->id = dest->len;
+    bool ok = ListAppend(dest, arname);
+    Release(arname);
+    if (!ok)
+        throw MemoryException("NewVariable: ListAppend");
+}
+
+void Compiler::CompileVariable(const ast::Variable *variable) {
+    this->CompileCode(variable->value);
+    this->NewVariable(variable->name);
 }
 
 void Compiler::CompileIdentifier(const ast::Identifier *identifier) {
@@ -389,7 +465,7 @@ void Compiler::CompileIdentifier(const ast::Identifier *identifier) {
         return;
     }
 
-    if (this->cu_curr_->symt->level == sym->table->level && this->cu_curr_->scope == CUScope::FUNCTION) {
+    if (sym->declared && this->cu_curr_->scope == CUScope::FUNCTION) {
         this->EmitOp2(OpCodes::LDLC, sym->id);
         return;
     }
