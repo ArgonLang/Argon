@@ -70,7 +70,7 @@ namespace lang {
 
         void IncEvalStack();
 
-        void DecEvalStack();
+        void DecEvalStack(int value);
 
         BasicBlock *NewBlock();
 

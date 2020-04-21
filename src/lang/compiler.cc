@@ -80,6 +80,7 @@ void Compiler::CompileBranch(const ast::If *stmt) {
 
     this->CompileCode(stmt->test);
     this->EmitOp4(OpCodes::JF, 0);
+    this->DecEvalStack(1);
     test->flow_else = last;
 
     this->NewNextBlock();
@@ -158,8 +159,9 @@ void Compiler::CompileFunction(const ast::Function *function) {
     if (!ok)
         throw MemoryException("CompileFunction: ListAppend(statics)");
 
-    this->IncEvalStack();
+
     this->EmitOp2(OpCodes::LSTATIC, this->cu_curr_->statics->len - 1);
+    this->IncEvalStack();
 
     if (!function->id.empty())
         this->NewVariable(function->id);
@@ -180,18 +182,20 @@ void Compiler::CompileCode(const ast::NodeUptr &node) {
                 this->CompileCode(args);
             this->cu_curr_->stack_cu_sz = stack_sz_tmp;
             this->EmitOp2(OpCodes::CALL, CastNode<Call>(node)->args.size());
+            this->IncEvalStack();
             break;
         case NodeType::RETURN:
             this->CompileCode(CastNode<Unary>(node)->expr);
             this->EmitOp(OpCodes::RET);
+            this->DecEvalStack(1);
             break;
         case NodeType::EXPRESSION:
             this->CompileCode(CastNode<Expression>(node)->expr);
             this->EmitOp(OpCodes::POP);
+            this->DecEvalStack(1);
             break;
         case NodeType::VARIABLE:
             this->CompileVariable(CastNode<Variable>(node));
-            this->DecEvalStack();
             break;
         case NodeType::BLOCK:
             for (auto &stmt : CastNode<Block>(node)->stmts)
@@ -209,7 +213,6 @@ void Compiler::CompileCode(const ast::NodeUptr &node) {
         case NodeType::ASSIGN:
             if (CastNode<Assignment>(node)->kind == scanner::TokenType::EQUAL) {
                 this->CompileAssignment(CastNode<Assignment>(node));
-                this->DecEvalStack(); // TODO: stub
                 break;
             }
             this->CompileCode(CastNode<Assignment>(node)->assignee);
@@ -222,7 +225,7 @@ void Compiler::CompileCode(const ast::NodeUptr &node) {
                 this->EmitOp(OpCodes::IPMUL);
             else // TokenType::SLASH_EQ
                 this->EmitOp(OpCodes::IPDIV);
-            this->DecEvalStack();
+            this->DecEvalStack(1);
             break;
         case NodeType::IF:
             this->CompileBranch(CastNode<If>(node));
@@ -246,7 +249,7 @@ void Compiler::CompileCode(const ast::NodeUptr &node) {
             else if (CastNode<Binary>(node)->kind == scanner::TokenType::CARET)
                 this->EmitOp(OpCodes::LXOR);
             else this->EmitOp(OpCodes::LAND);
-            this->DecEvalStack();
+            this->DecEvalStack(1); //  POP one element and replace first!
             break;
         case NodeType::EQUALITY:
             this->CompileCode(CastNode<Binary>(node)->left);
@@ -255,7 +258,7 @@ void Compiler::CompileCode(const ast::NodeUptr &node) {
                 this->EmitOp2(OpCodes::CMP, (unsigned char) CompareMode::EQ);
             else if (CastNode<Binary>(node)->kind == scanner::TokenType::NOT_EQUAL)
                 this->EmitOp2(OpCodes::CMP, (unsigned char) CompareMode::NE);
-            this->DecEvalStack();
+            this->DecEvalStack(1); //  POP one element and replace first!
             break;
         case NodeType::RELATIONAL:
             this->CompileCode(CastNode<Binary>(node)->left);
@@ -268,25 +271,26 @@ void Compiler::CompileCode(const ast::NodeUptr &node) {
                 this->EmitOp2(OpCodes::CMP, (unsigned char) CompareMode::LE);
             else if (CastNode<Binary>(node)->kind == scanner::TokenType::LESS_EQ)
                 this->EmitOp2(OpCodes::CMP, (unsigned char) CompareMode::LEQ);
-            this->DecEvalStack();
+            this->DecEvalStack(1); //  POP one element and replace first!
             break;
         case NodeType::BINARY_OP:
             this->CompileCode(CastNode<Binary>(node)->left);
             this->CompileCode(CastNode<Binary>(node)->right);
             this->CompileBinaryExpr(CastNode<Binary>(node));
-            this->DecEvalStack();
+            this->DecEvalStack(1); //  POP one element and replace first!
             break;
         case NodeType::UNARY_OP:
             this->CompileCode(CastNode<Unary>(node)->expr);
             this->CompileUnaryExpr(CastNode<Unary>(node));
             break;
         case NodeType::UPDATE:
+            /*
             this->CompileCode(CastNode<Update>(node)->expr);
             if (CastNode<Update>(node)->kind == scanner::TokenType::PLUS_PLUS)
                 this->EmitOp(CastNode<Update>(node)->prefix ? OpCodes::PREI : OpCodes::PSTI);
             else // TokenType::MINUS_MINUS
                 this->EmitOp(CastNode<Update>(node)->prefix ? OpCodes::PRED : OpCodes::PSTD);
-            this->DecEvalStack();
+            */
             break;
         case NodeType::TUPLE:
         case NodeType::LIST:
@@ -296,13 +300,11 @@ void Compiler::CompileCode(const ast::NodeUptr &node) {
             break;
         case NodeType::IDENTIFIER:
             this->CompileIdentifier(CastNode<Identifier>(node));
-            this->IncEvalStack();
             break;
         case NodeType::SCOPE:
             break;
         case NodeType::LITERAL:
             this->CompileLiteral(CastNode<Literal>(node));
-            this->IncEvalStack();
             break;
         default:
             assert(false);
@@ -311,7 +313,7 @@ void Compiler::CompileCode(const ast::NodeUptr &node) {
 
 void Compiler::CompileLoop(const ast::Loop *loop) {
     BasicBlock *last = this->NewBlock();
-    BasicBlock *head = nullptr;
+    BasicBlock *head;
 
     this->NewNextBlock();
     head = this->cu_curr_->bb_curr;
@@ -334,15 +336,19 @@ void Compiler::CompileCompound(const ast::List *list) {
     switch (list->type) {
         case NodeType::TUPLE:
             this->EmitOp4(OpCodes::MK_TUPLE, list->expressions.size());
+            this->DecEvalStack(list->expressions.size());
             return;
         case NodeType::LIST:
             this->EmitOp4(OpCodes::MK_LIST, list->expressions.size());
+            this->DecEvalStack(list->expressions.size());
             return;
         case NodeType::SET:
             this->EmitOp4(OpCodes::MK_SET, list->expressions.size());
+            this->DecEvalStack(list->expressions.size());
             return;
         case NodeType::MAP:
             this->EmitOp4(OpCodes::MK_MAP, list->expressions.size() / 2);
+            this->DecEvalStack(list->expressions.size() / 2);
             return;
         default:
             assert(false);
@@ -459,6 +465,7 @@ void Compiler::NewVariable(const std::string &name) {
     Release(arname);
     if (!ok)
         throw MemoryException("NewVariable: ListAppend");
+    this->DecEvalStack(1);
 }
 
 void Compiler::CompileVariable(const ast::Variable *variable) {
@@ -479,15 +486,18 @@ void Compiler::CompileIdentifier(const ast::Identifier *identifier) {
         Release(id);
 
         this->EmitOp2(OpCodes::LDGBL, sym->id);
+        this->IncEvalStack();
         return;
     }
 
     if (sym->declared && this->cu_curr_->scope == CUScope::FUNCTION) {
         this->EmitOp2(OpCodes::LDLC, sym->id);
+        this->IncEvalStack();
         return;
     }
 
     this->EmitOp2(OpCodes::LDGBL, sym->id);
+    this->IncEvalStack();
 }
 
 void Compiler::CompileAssignment(const ast::Assignment *assign) {
@@ -586,6 +596,7 @@ void Compiler::CompileLiteral(const ast::Literal *literal) {
     } else idx = (((Integer *) tmp))->integer;
 
     this->EmitOp2(OpCodes::LSTATIC, idx);
+    this->IncEvalStack();
     Release(obj);
 }
 
@@ -694,6 +705,7 @@ Code *Compiler::Assemble() {
     auto buffer = (unsigned char *) argon::memory::Alloc(this->cu_curr_->instr_sz);
     size_t offset = 0;
 
+    assert(this->cu_curr_->stack_cu_sz == 0);
     assert(buffer != nullptr);
 
     for (auto &bb : this->cu_curr_->bb_splist) {
@@ -718,8 +730,8 @@ void Compiler::IncEvalStack() {
         this->cu_curr_->stack_sz = this->cu_curr_->stack_cu_sz;
 }
 
-void Compiler::DecEvalStack() {
-    this->cu_curr_->stack_cu_sz--;
+void Compiler::DecEvalStack(int value) {
+    this->cu_curr_->stack_cu_sz -= value;
     assert(this->cu_curr_->stack_cu_sz < 0x00FFFFFF);
 }
 
