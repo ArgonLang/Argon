@@ -94,6 +94,8 @@ namespace argon::object {
     inline void IncRef(ArObject *obj) { obj->strong_or_ref++; };
 
     inline void Release(ArObject *obj) {
+        if (obj == nullptr)
+            return;
         if (obj->strong_or_ref.fetch_sub(1) == 1) {
             if (obj->type->cleanup != nullptr)
                 obj->type->cleanup(obj);

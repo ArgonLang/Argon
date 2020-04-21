@@ -9,6 +9,8 @@
 #include <object/bool.h>
 #include <object/error.h>
 #include <object/map.h>
+#include <object/function.h>
+#include <object/nil.h>
 
 using namespace lang;
 using namespace argon::object;
@@ -76,9 +78,12 @@ ArObject *Binary(ArRoutine *routine, ArObject *l, ArObject *r, int op) {
 }
 
 void ArgonVM::Eval(ArRoutine *routine) {
+    begin:
     Frame *frame = routine->frame;
     object::Code *code = frame->code;
-    unsigned int es_cur = ((unsigned char *) frame->eval_stack) - (unsigned char *) frame->stack_extra_base;
+    unsigned int es_cur =
+            (((unsigned char *) frame->eval_stack) - (unsigned char *) frame->stack_extra_base) / sizeof(ArObject *);
+    frame->eval_stack = (ArObject **) frame->stack_extra_base;
 
     ArObject *ret = nullptr;
 
@@ -121,10 +126,106 @@ void ArgonVM::Eval(ArRoutine *routine) {
                     Release(key);
                     goto error; // todo Unknown variable
                 }
-
                 PUSH(ret);
                 Release(key);
                 DISPATCH2();
+            }
+            TARGET_OP(LDLC) {
+                PUSH(frame->locals[I16Arg(frame->instr_ptr)]);
+                DISPATCH2();
+            }
+            TARGET_OP(CALL) {
+                // TODO: check if callable!
+                auto largs = I16Arg(frame->instr_ptr);
+                auto args = largs;
+                auto func = (Function *) frame->eval_stack[es_cur - args - 1];
+
+                if (func->currying != nullptr)
+                    args += func->currying->len;
+
+                if (args > func->arity) {
+                    if (!func->variadic)
+                        goto error; // TODO: Too much arguments!
+
+                    auto plus = args - func->arity;
+
+                    if ((ret = ListNew(plus)) == nullptr)
+                        goto error;
+
+                    // +1 is the rest element itself
+                    for (unsigned int i = es_cur - (plus + 1); i < es_cur; i++) {
+                        if (!ListAppend((List *) ret, frame->eval_stack[i])) {
+                            Release(ret);
+                            goto error;
+                        }
+                        Release(frame->eval_stack[i]);
+                    }
+                    es_cur -= plus;
+                    largs -= plus;
+                    TOP_REPLACE(ret);
+                } else if (args < func->arity) {
+                    if (args == 0) {
+                        // TODO: MISSING PARAMS!
+                        goto error;
+                    }
+                    // Missing argument/s -> Currying
+                    if (func->arity - args > 1 || !func->variadic) {
+                        Function *new_fn;
+                        if ((new_fn = FunctionNew(func, args)) == nullptr)
+                            goto error;
+
+                        for (unsigned int i = es_cur - I16Arg(frame->instr_ptr); i < es_cur; i++) {
+                            if (!ListAppend((List *) new_fn->currying, frame->eval_stack[i])) {
+                                Release(new_fn);
+                                goto error;
+                            }
+                            Release(frame->eval_stack[i]);
+                        }
+                        es_cur -= I16Arg(frame->instr_ptr);
+                        TOP_REPLACE(new_fn);
+                        DISPATCH2();
+                    }
+                }
+
+                //****+ TODO: TEMPORARY, REMOVED AT THE END OF TEST *********
+                auto fr = FrameNew(func->code);
+                if (fr == nullptr) {
+                    assert(false);
+                    goto error;
+                }
+                int pos = 0;
+                // fill locals!
+                if (func->currying != nullptr) {
+                    for (pos = 0; pos < func->currying->len; pos++) {
+                        fr->locals[pos] = func->currying->objects[pos];
+                        IncRef(fr->locals[pos]);
+                    }
+                }
+                for (unsigned int i = es_cur - largs; i < es_cur; i++)
+                    fr->locals[pos++] = frame->eval_stack[i];
+                es_cur -= largs;
+                assert(TOP()->type == &type_function_);
+                POP(); // pop function!
+
+                // Invoke function!
+                // save PC
+                frame->instr_ptr += sizeof(Instr16);
+                frame->eval_stack = &frame->eval_stack[es_cur];
+                fr->back = frame;
+                routine->frame = fr;
+                goto begin;
+            }
+            TARGET_OP(RET) {
+                assert(frame->back != nullptr);
+                if (es_cur == 0) {
+                    IncRef(NilVal);
+                    frame->back->eval_stack[0] = NilVal;
+                } else {
+                    frame->back->eval_stack[0] = TOP();
+                    es_cur--;
+                }
+                frame->back->eval_stack++;
+                goto end_while;
             }
             TARGET_OP(CMP) {
                 auto mode = (CompareMode) I16Arg(frame->instr_ptr);
@@ -255,6 +356,13 @@ void ArgonVM::Eval(ArRoutine *routine) {
         error:
         assert(false);
     }
+    end_while:
     assert(es_cur == 0);
+
+    if (frame->back != nullptr) {
+        routine->frame = frame->back;
+        FrameDel(frame);
+        goto begin;
+    }
 }
 

@@ -12,6 +12,8 @@ namespace argon::object {
 
     struct Function : ArObject {
         argon::object::Code *code;
+        argon::object::List *currying;
+
         unsigned short arity;
         bool variadic;
     };
@@ -19,6 +21,8 @@ namespace argon::object {
     extern const TypeInfo type_function_;
 
     Function *FunctionNew(argon::object::Code *code, unsigned short arity);
+
+    Function *FunctionNew(const Function *func, unsigned short currying_len);
 
 } // namespace argon::object
 

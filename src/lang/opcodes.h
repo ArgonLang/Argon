@@ -17,6 +17,7 @@ namespace lang {
 
     enum class OpCodes : unsigned char {
         ADD,
+        CALL,
         CMP,
         DIV,
         IDIV,
@@ -52,6 +53,7 @@ namespace lang {
         PREI,
         PSTD,
         PSTI,
+        RET,
         SHL,
         SHR,
         STGBL,

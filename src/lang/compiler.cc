@@ -126,6 +126,11 @@ void Compiler::CompileFunction(const ast::Function *function) {
     }
 
     this->CompileCode(function->body);
+
+    if (CastNode<Block>(function->body)->stmts.empty() ||
+        CastNode<Block>(function->body)->stmts.back()->type != NodeType::RETURN)
+        this->EmitOp(OpCodes::RET);
+
     this->Dfs(this->cu_curr_, this->cu_curr_->bb_start);
 
     code = this->Assemble();
@@ -160,13 +165,25 @@ void Compiler::CompileFunction(const ast::Function *function) {
         this->NewVariable(function->id);
 }
 
-
 void Compiler::CompileCode(const ast::NodeUptr &node) {
     BasicBlock *tmp;
+    unsigned int stack_sz_tmp;
 
     switch (node->type) {
         case NodeType::FUNC:
             this->CompileFunction(CastNode<ast::Function>(node));
+            break;
+        case NodeType::CALL:
+            stack_sz_tmp = this->cu_curr_->stack_cu_sz;
+            this->CompileCode(CastNode<Call>(node)->callee);
+            for (auto &args : CastNode<Call>(node)->args)
+                this->CompileCode(args);
+            this->cu_curr_->stack_cu_sz = stack_sz_tmp;
+            this->EmitOp2(OpCodes::CALL, CastNode<Call>(node)->args.size());
+            break;
+        case NodeType::RETURN:
+            this->CompileCode(CastNode<Unary>(node)->expr);
+            this->EmitOp(OpCodes::RET);
             break;
         case NodeType::EXPRESSION:
             this->CompileCode(CastNode<Expression>(node)->expr);

@@ -10,7 +10,8 @@ using namespace argon::object;
 using namespace argon::memory;
 
 Frame *argon::vm::FrameNew(Code *code) {
-    auto frame = (Frame *) Alloc(sizeof(Frame) + (code->stack_sz * sizeof(object::ArObject *)) + code->locals->len);
+    auto frame = (Frame *) Alloc(sizeof(Frame) + (code->stack_sz * sizeof(object::ArObject *)) +
+                                 (code->locals->len * sizeof(object::ArObject *)));
 
     assert(frame != nullptr); // TODO: NOMEM
 
@@ -20,6 +21,7 @@ Frame *argon::vm::FrameNew(Code *code) {
     frame->code = code;
     frame->instr_ptr = (unsigned char *) code->instr;
     frame->eval_stack = (object::ArObject **) frame->stack_extra_base;
+    frame->locals = (ArObject **) (frame->stack_extra_base + (code->stack_sz * sizeof(object::ArObject *)));
 
     return frame;
 }
