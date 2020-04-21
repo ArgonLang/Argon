@@ -997,6 +997,7 @@ ast::NodeUptr Parser::ParseArguments(NodeUptr left) {
         this->Eat();
         call->AddArgument(std::move(tmp));
     } else {
+        call->AddArgument(std::move(tmp));
         while (this->Match(TokenType::COMMA)) {
             this->Eat();
             tmp = this->Test();
