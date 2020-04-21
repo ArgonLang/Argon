@@ -42,7 +42,7 @@ void list_cleanup(ArObject *obj) {
 bool CheckSize(List *list) {
     ArObject **tmp = nullptr;
 
-    if (list->len + 1 >= list->cap) {
+    if (list->len + 1 > list->cap) {
         tmp = (ArObject **) Realloc(list->objects, (list->cap + (list->cap / 2)) * sizeof(ArObject *));
         if (tmp == nullptr)
             return false;
