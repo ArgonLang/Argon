@@ -32,11 +32,13 @@ namespace lang {
         JT,     // JUMP_TRUE
         JTOP,   // JUMP_TRUE_OR_POP
         LAND,
+        LDENC,
         LDGBL,
         LDLC,
         LOR,
         LSTATIC,
         LXOR,
+        MK_CLOSURE,
         MK_LIST,
         MK_MAP,
         MK_SET,

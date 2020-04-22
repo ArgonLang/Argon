@@ -56,7 +56,7 @@ namespace lang {
 
         void CompileCompound(const ast::List *list);
 
-        void CompileIdentifier(const ast::Identifier *identifier);
+        void LoadVariable(const std::string &name);
 
         void CompileLiteral(const ast::Literal *literal);
 

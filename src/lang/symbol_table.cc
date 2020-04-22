@@ -32,10 +32,8 @@ Symbol *SymbolTable::Insert(const std::string &sym_name) {
 }
 
 Symbol *SymbolTable::Lookup(const std::string &sym_name) {
-    for (SymbolTable *current = this; current != nullptr; current = current->prev_) {
-        auto itm = current->map_.find((std::string *) &sym_name);
-        if (itm != current->map_.end())
-            return itm->second.get();
-    }
+    auto itm = this->map_.find((std::string *) &sym_name);
+    if (itm != this->map_.end())
+        return itm->second.get();
     return nullptr;
 }

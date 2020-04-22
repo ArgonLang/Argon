@@ -107,23 +107,8 @@ void Compiler::CompileFunction(const ast::Function *function) {
 
     for (auto &param: function->params) {
         auto id = CastNode<Identifier>(param);
-        auto sym = this->cu_curr_->symt->Insert(id->value);
-
-        if (sym == nullptr)
-            throw RedeclarationException("redeclaration of func param: " + id->value);
-
-        sym->id = this->cu_curr_->locals->len;
-        sym->declared = true;
+        this->NewVariable(id->value);
         variadic = id->rest_element;
-
-        if ((tmp = StringNew(id->value)) == nullptr)
-            throw MemoryException("CompileFunction: StringNew");
-
-        if (!ListAppend(this->cu_curr_->locals, tmp)) {
-            Release(tmp);
-            throw MemoryException("CompileFunction: ListAppend");
-        }
-        Release(tmp);
     }
 
     this->CompileCode(function->body);
@@ -163,8 +148,20 @@ void Compiler::CompileFunction(const ast::Function *function) {
     this->EmitOp2(OpCodes::LSTATIC, this->cu_curr_->statics->len - 1);
     this->IncEvalStack();
 
-    if (!function->id.empty())
+    if (code->deref->len > 0) {
+        for (int i = 0; i < code->deref->len; i++) {
+            auto st = (String *) TupleGetItem(code->deref, i);
+            this->LoadVariable(std::string((char *) st->buffer, st->len));
+            Release(st);
+        }
+        this->DecEvalStack(code->deref->len);
+        this->EmitOp4(OpCodes::MK_CLOSURE, code->deref->len);
+    }
+
+    if (!function->id.empty()) {
         this->NewVariable(function->id);
+        this->DecEvalStack(1);
+    }
 }
 
 void Compiler::CompileCode(const ast::NodeUptr &node) {
@@ -299,7 +296,7 @@ void Compiler::CompileCode(const ast::NodeUptr &node) {
             this->CompileCompound(CastNode<ast::List>(node));
             break;
         case NodeType::IDENTIFIER:
-            this->CompileIdentifier(CastNode<Identifier>(node));
+            this->LoadVariable(CastNode<Identifier>(node)->value);
             break;
         case NodeType::SCOPE:
             break;
@@ -453,7 +450,7 @@ void Compiler::NewVariable(const std::string &name) {
     }
 
     if (known)
-        arname = ListGetItem(this->cu_curr_->names, sym->id);
+        arname = ListGetItem(!sym->free ? this->cu_curr_->names : this->cu_curr_->deref, sym->id);
     else {
         // Convert name string to ArObject
         if ((arname = StringNew(name)) == nullptr)
@@ -465,39 +462,59 @@ void Compiler::NewVariable(const std::string &name) {
     Release(arname);
     if (!ok)
         throw MemoryException("NewVariable: ListAppend");
-    this->DecEvalStack(1);
 }
 
 void Compiler::CompileVariable(const ast::Variable *variable) {
     this->CompileCode(variable->value);
     this->NewVariable(variable->name);
+    this->DecEvalStack(1);
 }
 
-void Compiler::CompileIdentifier(const ast::Identifier *identifier) {
-    Symbol *sym = this->cu_curr_->symt->Lookup(identifier->value);
+void Compiler::LoadVariable(const std::string &name) {
+    Symbol *sym = this->cu_curr_->symt->Lookup(name);
+    argon::object::List *dest = this->cu_curr_->names;
+    ArObject *tmp;
+
+    this->IncEvalStack();
 
     if (sym == nullptr) {
-        sym = this->cu_curr_->symt->Insert(identifier->value);
-        sym->id = this->cu_curr_->names->len;
+        sym = this->cu_curr_->symt->Insert(name);
 
-        auto id = StringNew(identifier->value);
-        assert(id != nullptr);
-        ListAppend(this->cu_curr_->names, id);
-        Release(id);
+        if ((tmp = StringNew(name)) == nullptr)
+            throw MemoryException("LoadVariable: StringNew");
 
-        this->EmitOp2(OpCodes::LDGBL, sym->id);
-        this->IncEvalStack();
-        return;
+        // Check if identifier is a Free Variable
+        for (CompileUnit *cu = this->cu_curr_; cu != nullptr && cu->scope == CUScope::FUNCTION; cu = cu->prev) {
+            Symbol *psym = cu->symt->Lookup(name);
+            if (psym != nullptr && (psym->declared || psym->free)) {
+                dest = this->cu_curr_->deref;
+                sym->free = true;
+            }
+        }
+
+        sym->id = dest->len;
+        bool ok = ListAppend(dest, tmp);
+        Release(tmp);
+
+        if (!ok)
+            throw MemoryException("LoadVariable: ListAppend");
     }
 
-    if (sym->declared && this->cu_curr_->scope == CUScope::FUNCTION) {
-        this->EmitOp2(OpCodes::LDLC, sym->id);
-        this->IncEvalStack();
-        return;
+    if (this->cu_curr_->scope == CUScope::FUNCTION) {
+        if (sym->declared) {
+            // Local variable
+            this->EmitOp2(OpCodes::LDLC, sym->id);
+            return;
+        }
+
+        if (sym->free) {
+            // Closure variable
+            this->EmitOp2(OpCodes::LDENC, sym->id);
+            return;
+        }
     }
 
     this->EmitOp2(OpCodes::LDGBL, sym->id);
-    this->IncEvalStack();
 }
 
 void Compiler::CompileAssignment(const ast::Assignment *assign) {
@@ -506,6 +523,8 @@ void Compiler::CompileAssignment(const ast::Assignment *assign) {
         this->CompileCode(assign->right);
         auto identifier = CastNode<Identifier>(assign->assignee);
         Symbol *sym = this->cu_curr_->symt->Lookup(identifier->value);
+
+        this->DecEvalStack(1);
 
         if (sym == nullptr) {
             sym = this->cu_curr_->symt->Insert(identifier->value);
@@ -721,7 +740,7 @@ Code *Compiler::Assemble() {
     }
 
     return argon::object::CodeNew(buffer, this->cu_curr_->instr_sz, this->cu_curr_->stack_sz, this->cu_curr_->statics,
-                                  this->cu_curr_->names, this->cu_curr_->locals);
+                                  this->cu_curr_->names, this->cu_curr_->locals, this->cu_curr_->deref);
 }
 
 void Compiler::IncEvalStack() {

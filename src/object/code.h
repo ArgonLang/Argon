@@ -14,6 +14,7 @@ namespace argon::object {
         argon::object::Tuple *statics;
         argon::object::Tuple *names;
         argon::object::Tuple *locals;
+        argon::object::Tuple *deref;
 
         const unsigned char *instr;
 
@@ -23,8 +24,13 @@ namespace argon::object {
         size_t hash;
     };
 
-    Code *CodeNew(const unsigned char *instr, unsigned int instr_sz, unsigned int stack_sz,
-                  argon::object::List *statics, argon::object::List *names, argon::object::List *locals);
+    Code *CodeNew(const unsigned char *instr,
+                  unsigned int instr_sz,
+                  unsigned int stack_sz,
+                  argon::object::List *statics,
+                  argon::object::List *names,
+                  argon::object::List *locals,
+                  argon::object::List *deref);
 } // namespace argon::object
 
 #endif // !ARGON_OBJECT_CODE_H_

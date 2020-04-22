@@ -20,6 +20,7 @@ namespace lang {
         argon::object::List *statics;
         argon::object::List *names;
         argon::object::List *locals;
+        argon::object::List *deref;
 
         std::vector<BasicBlock *> bb_splist;
 
@@ -56,6 +57,14 @@ namespace lang {
                 argon::object::Release(this->names);
                 throw MemoryException("CompileUnit: locals");
             }
+
+            if ((this->deref = argon::object::ListNew()) == nullptr) {
+                argon::object::Release(this->statics_map);
+                argon::object::Release(this->statics);
+                argon::object::Release(this->names);
+                argon::object::Release(this->locals);
+                throw MemoryException("CompileUnit: deref");
+            }
         }
 
         ~CompileUnit() {
@@ -67,6 +76,7 @@ namespace lang {
             argon::object::Release(this->statics);
             argon::object::Release(this->names);
             argon::object::Release(this->locals);
+            argon::object::Release(this->deref);
         }
     };
 } // namespace lang

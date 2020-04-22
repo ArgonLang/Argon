@@ -15,6 +15,7 @@ namespace lang {
         const class SymbolTable *table;
         unsigned int id = 0;
         bool declared = false;
+        bool free = false;
 
         explicit Symbol(std::string name, class SymbolTable *table) : name(std::move(name)), table(table) {}
     };

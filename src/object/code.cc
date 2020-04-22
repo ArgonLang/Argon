@@ -65,8 +65,13 @@ const TypeInfo type_code_ = {
 };
 
 
-Code *argon::object::CodeNew(const unsigned char *instr, unsigned int instr_sz, unsigned int stack_sz,
-                             argon::object::List *statics, argon::object::List *names, argon::object::List *locals) {
+Code *argon::object::CodeNew(const unsigned char *instr,
+                             unsigned int instr_sz,
+                             unsigned int stack_sz,
+                             argon::object::List *statics,
+                             argon::object::List *names,
+                             argon::object::List *locals,
+                             argon::object::List *deref) {
     auto code = (Code *) Alloc(sizeof(Code));
     assert(code != nullptr);
     code->strong_or_ref = 1;
@@ -82,6 +87,8 @@ Code *argon::object::CodeNew(const unsigned char *instr, unsigned int instr_sz, 
     assert(code->names != nullptr);
     code->locals = TupleNew(locals);
     assert(code->locals != nullptr);
+    code->deref = TupleNew(deref);
+    assert(code->deref != nullptr);
 
     return code;
 }
