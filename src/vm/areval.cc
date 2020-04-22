@@ -134,6 +134,12 @@ void ArgonVM::Eval(ArRoutine *routine) {
                 PUSH(frame->locals[I16Arg(frame->instr_ptr)]);
                 DISPATCH2();
             }
+            TARGET_OP(NLV) {
+                IncRef(TOP());
+                frame->locals[I16Arg(frame->instr_ptr)] = TOP();
+                POP();
+                DISPATCH2();
+            }
             TARGET_OP(CALL) {
                 // TODO: check if callable!
                 auto largs = I16Arg(frame->instr_ptr);
@@ -211,6 +217,7 @@ void ArgonVM::Eval(ArRoutine *routine) {
                 // save PC
                 frame->instr_ptr += sizeof(Instr16);
                 frame->eval_stack = &frame->eval_stack[es_cur];
+                fr->globals = frame->globals;
                 fr->back = frame;
                 routine->frame = fr;
                 goto begin;
