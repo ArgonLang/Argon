@@ -7,9 +7,28 @@
 using namespace argon::object;
 using namespace argon::memory;
 
+inline void CloneFn(Function *fn_new, const Function *func) {
+    IncRef(func->code);
+    fn_new->code = func->code;
+
+    if (func->currying != nullptr) {
+        IncRef(func->currying);
+        fn_new->currying = func->currying;
+    }
+
+    if (func->enclosed != nullptr) {
+        IncRef(func->enclosed);
+        fn_new->enclosed = func->enclosed;
+    }
+
+    fn_new->arity = func->arity;
+    fn_new->variadic = func->variadic;
+}
+
 void function_cleanup(Function *fn) {
     Release(fn->code);
     Release(fn->currying);
+    Release(fn->enclosed);
 }
 
 const TypeInfo argon::object::type_function_ = {
@@ -42,7 +61,9 @@ Function *argon::object::FunctionNew(Code *code, unsigned short arity) {
         IncRef(code);
         fn->code = code;
         fn->currying = nullptr;
+        fn->enclosed = nullptr;
         fn->arity = arity;
+        fn->variadic = false;
     }
 
     return fn;
@@ -55,16 +76,28 @@ Function *argon::object::FunctionNew(const Function *func, unsigned short curryi
         fn->strong_or_ref = 1;
         fn->type = &type_function_;
 
-        IncRef(func->code);
-        fn->code = func->code;
+        CloneFn(fn, func);
 
         if ((fn->currying = ListNew(currying_len)) == nullptr) {
             Release(fn);
             return nullptr;
         }
+    }
 
-        fn->arity = func->arity;
-        fn->variadic = func->variadic;
+    return fn;
+}
+
+Function *argon::object::FunctionNew(const Function *func, argon::object::List *enclosed) {
+    auto fn = (Function *) Alloc(sizeof(Function));
+
+    if (fn != nullptr) {
+        fn->strong_or_ref = 1;
+        fn->type = &type_function_;
+
+        CloneFn(fn, func);
+
+        IncRef(enclosed);
+        fn->enclosed = enclosed;
     }
 
     return fn;

@@ -107,7 +107,7 @@ void Compiler::CompileFunction(const ast::Function *function) {
 
     for (auto &param: function->params) {
         auto id = CastNode<Identifier>(param);
-        this->NewVariable(id->value);
+        this->NewVariable(id->value, false);
         variadic = id->rest_element;
     }
 
@@ -155,11 +155,12 @@ void Compiler::CompileFunction(const ast::Function *function) {
             Release(st);
         }
         this->DecEvalStack(code->deref->len);
-        this->EmitOp4(OpCodes::MK_CLOSURE, code->deref->len);
+        this->EmitOp4(OpCodes::MK_LIST, code->deref->len);
+        this->EmitOp(OpCodes::MK_CLOSURE);
     }
 
     if (!function->id.empty()) {
-        this->NewVariable(function->id);
+        this->NewVariable(function->id, true);
         this->DecEvalStack(1);
     }
 }
@@ -294,6 +295,7 @@ void Compiler::CompileCode(const ast::NodeUptr &node) {
         case NodeType::SET:
         case NodeType::MAP:
             this->CompileCompound(CastNode<ast::List>(node));
+            this->IncEvalStack();
             break;
         case NodeType::IDENTIFIER:
             this->LoadVariable(CastNode<Identifier>(node)->value);
@@ -423,7 +425,7 @@ void Compiler::CompileSwitch(const ast::Switch *stmt, bool as_if) {
     this->UseAsNextBlock(last);
 }
 
-void Compiler::NewVariable(const std::string &name) {
+void Compiler::NewVariable(const std::string &name, bool emit_op) {
     Symbol *sym = this->cu_curr_->symt->Insert(name);
     argon::object::List *dest = this->cu_curr_->names;
 
@@ -441,12 +443,14 @@ void Compiler::NewVariable(const std::string &name) {
     sym->declared = true;
 
     if (this->cu_curr_->scope == CUScope::MODULE) {
-        this->EmitOp2(OpCodes::NGV, known ? sym->id : dest->len);
+        if (emit_op)
+            this->EmitOp2(OpCodes::NGV, known ? sym->id : dest->len);
         if (known)
             return;
     } else {
         dest = this->cu_curr_->locals;
-        this->EmitOp2(OpCodes::NLV, dest->len);
+        if (emit_op)
+            this->EmitOp2(OpCodes::NLV, dest->len);
     }
 
     if (known)
@@ -466,7 +470,7 @@ void Compiler::NewVariable(const std::string &name) {
 
 void Compiler::CompileVariable(const ast::Variable *variable) {
     this->CompileCode(variable->value);
-    this->NewVariable(variable->name);
+    this->NewVariable(variable->name, true);
     this->DecEvalStack(1);
 }
 

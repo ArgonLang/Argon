@@ -44,7 +44,7 @@ namespace lang {
 
         void CompileFunction(const ast::Function *function);
 
-        void NewVariable(const std::string &name);
+        void NewVariable(const std::string &name, bool emit_op);
 
         void CompileLoop(const ast::Loop *loop);
 

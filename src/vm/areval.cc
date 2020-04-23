@@ -134,6 +134,17 @@ void ArgonVM::Eval(ArRoutine *routine) {
                 PUSH(frame->locals[I16Arg(frame->instr_ptr)]);
                 DISPATCH2();
             }
+            TARGET_OP(LDENC) {
+                PUSH(frame->enclosed[I16Arg(frame->instr_ptr)]);
+                DISPATCH2();
+            }
+            TARGET_OP(MK_CLOSURE) {
+                if ((ret = FunctionNew((Function *) PEEK1(), (List *) TOP())) == nullptr)
+                    goto error; // TODO: nomem
+                POP();
+                TOP_REPLACE(ret);
+                DISPATCH();
+            }
             TARGET_OP(NLV) {
                 IncRef(TOP());
                 frame->locals[I16Arg(frame->instr_ptr)] = TOP();
@@ -210,6 +221,14 @@ void ArgonVM::Eval(ArRoutine *routine) {
                 for (unsigned int i = es_cur - largs; i < es_cur; i++)
                     fr->locals[pos++] = frame->eval_stack[i];
                 es_cur -= largs;
+
+                if (func->enclosed != nullptr) {
+                    for (size_t i = 0; i < func->enclosed->len; i++) {
+                        IncRef(func->enclosed->objects[i]);
+                        fr->enclosed[i] = func->enclosed->objects[i];
+                    }
+                }
+
                 assert(TOP()->type == &type_function_);
                 POP(); // pop function!
 

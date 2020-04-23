@@ -27,6 +27,9 @@ namespace argon::vm {
         /* Locals variables */
         object::ArObject **locals;
 
+        /* Enclosing scope (If Any) */
+        object::ArObject **enclosed;
+
         /* At the end of each frame there is allocated space for(in this order): eval_stack + local_variables */
         unsigned char *stack_extra_base[];
     };
