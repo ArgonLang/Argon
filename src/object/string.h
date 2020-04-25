@@ -16,7 +16,13 @@ namespace argon::object {
         size_t hash;
     };
 
+    extern const TypeInfo type_string_;
+
     String *StringNew(const std::string &string);
+
+    String *StringIntern(const std::string &string);
+
+    bool StringEq(String *string, const unsigned char *c_str, size_t len);
 }
 
 

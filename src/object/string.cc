@@ -6,8 +6,11 @@
 
 #include "string.h"
 #include "hash_magic.h"
+#include "map.h"
 
 using namespace argon::object;
+
+static Map *intern;
 
 bool string_equal(ArObject *self, ArObject *other) {
     if (self != other) {
@@ -28,6 +31,18 @@ bool string_equal(ArObject *self, ArObject *other) {
     return true;
 }
 
+bool argon::object::StringEq(String *string, const unsigned char *c_str, size_t len) {
+    if (string->len != len)
+        return false;
+
+    for (size_t i = 0; i < string->len; i++) {
+        if (string->buffer[i] != c_str[i])
+            return false;
+    }
+
+    return true;
+}
+
 size_t string_hash(ArObject *obj) {
     auto self = (String *) obj;
     if (self->hash == 0)
@@ -44,7 +59,7 @@ void string_cleanup(ArObject *obj) {
     argon::memory::Free(((String *) obj)->buffer);
 }
 
-const TypeInfo type_string_ = {
+const TypeInfo argon::object::type_string_ = {
         (const unsigned char *) "string",
         sizeof(String),
         nullptr,
@@ -80,4 +95,27 @@ String *argon::object::StringNew(const std::string &string) {
     str->hash = 0;
 
     return str;
+}
+
+String *argon::object::StringIntern(const std::string &string) {
+    String *ret = nullptr;
+
+    if (intern == nullptr) {
+        intern = MapNew();
+        assert(intern != nullptr);
+    } else
+        ret = (String *) MapGetFrmStr(intern, string.c_str(), string.size());
+
+    if (ret == nullptr) {
+        ret = StringNew(string);
+
+        if (ret != nullptr) {
+            if (!MapInsert(intern, ret, ret)) {
+                ret = nullptr;
+                Release(ret);
+            }
+        }
+    }
+
+    return ret;
 }
