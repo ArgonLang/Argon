@@ -9,6 +9,9 @@ using namespace argon::vm;
 using namespace argon::object;
 using namespace argon::memory;
 
+ArgonVM::ArgonVM() {
+    this->main = ModuleNew("main");
+}
 
 ArObject *ArgonVM::EvalCode(Code *code) {
     // TODO: STUB
@@ -17,7 +20,7 @@ ArObject *ArgonVM::EvalCode(Code *code) {
 
     routine->frame = frame;
 
-    frame->globals = MapNew();
+    frame->globals = this->main->module_ns;
 
     this->Eval(routine);
 

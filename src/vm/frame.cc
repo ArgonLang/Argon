@@ -30,6 +30,18 @@ Frame *argon::vm::FrameNew(Code *code) {
 }
 
 void argon::vm::FrameDel(Frame *frame) {
-    Release(frame->code);
+    Code *code = frame->code;
+
+    if (code->locals != nullptr) {
+        for (size_t i = 0; i < code->locals->len; i++)
+            Release(frame->locals[i]);
+    }
+
+    if (code->deref != nullptr) {
+        for (size_t i = 0; i < code->deref->len; i++)
+            Release(frame->enclosed[i]);
+    }
+
+    Release(code);
     Free(frame);
 }

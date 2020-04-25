@@ -6,14 +6,19 @@
 #define ARGON_VM_ARGON_VM_H_
 
 #include <object/object.h>
+#include <object/module.h>
 #include "ar_routine.h"
 
 namespace argon::vm {
     class ArgonVM {
     private:
+        argon::object::Module *main;
+
         void Eval(ArRoutine *routine);
 
     public:
+        ArgonVM();
+
         argon::object::ArObject *EvalCode(argon::object::Code *code);
     };
 } // namespace argon::vm
