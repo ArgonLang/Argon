@@ -6,6 +6,8 @@
 
 #include <memory/memory.h>
 #include "map.h"
+#include "hash_magic.h"
+#include "string.h"
 
 using namespace argon::object;
 using namespace argon::memory;
@@ -131,6 +133,19 @@ ArObject *argon::object::MapGet(Map *map, ArObject *key) {
 
     for (MapEntry *cur = map->map[index]; cur != nullptr; cur = cur->next) {
         if (key->type->equal(key, cur->key)) {
+            IncRef(cur->value);
+            return cur->value;
+        }
+    }
+
+    return nullptr;
+}
+
+ArObject *argon::object::MapGetFrmStr(Map *map, const char *key, size_t len) {
+    size_t index = HashBytes((const unsigned char *) key, len) % map->cap;
+
+    for (MapEntry *cur = map->map[index]; cur != nullptr; cur = cur->next) {
+        if (cur->key->type == &type_string_ && StringEq((String *) cur->key, (const unsigned char *) key, len)) {
             IncRef(cur->value);
             return cur->value;
         }

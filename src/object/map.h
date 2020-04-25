@@ -36,6 +36,8 @@ namespace argon::object {
 
     ArObject *MapGet(Map *map, ArObject *key);
 
+    ArObject *MapGetFrmStr(Map *map, const char *key, size_t len);
+
     bool MapInsert(Map *map, ArObject *key, ArObject *value);
 
     void MapRemove(Map *map, ArObject *key);
