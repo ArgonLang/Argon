@@ -86,6 +86,7 @@ void ArgonVM::Eval(ArRoutine *routine) {
     frame->eval_stack = (ArObject **) frame->stack_extra_base;
 
     ArObject *ret = nullptr;
+    unsigned int opargs;
 
     while (frame->instr_ptr < (code->instr + code->instr_sz)) {
         switch (*(lang::OpCodes *) frame->instr_ptr) {
@@ -343,12 +344,33 @@ void ArgonVM::Eval(ArRoutine *routine) {
                 if ((ret = ListNew()) == nullptr)
                     goto error;
 
-                for (unsigned int i = es_cur - I32Arg(frame->instr_ptr); i < es_cur; i++) {
+                opargs = I32Arg(frame->instr_ptr);
+
+                for (unsigned int i = es_cur - opargs; i < es_cur; i++) {
                     if (!ListAppend((List *) ret, frame->eval_stack[i])) {
                         // TODO: memoryerror
                         goto error;
                     }
                     Release(frame->eval_stack[i]);
+                }
+                es_cur -= I32Arg(frame->instr_ptr);
+                PUSH(ret);
+                DISPATCH4();
+            }
+            TARGET_OP(MK_MAP) {
+                if ((ret = MapNew()) == nullptr)
+                    goto error; // todo: nomem
+
+                opargs = I32Arg(frame->instr_ptr) * 2;
+
+                for (unsigned int i = es_cur - opargs; i < es_cur; i += 2) {
+                    if (!MapInsert((Map *) ret, frame->eval_stack[i], frame->eval_stack[i + 1])) {
+                        Release(ret);
+                        // todo: memoryerror or unhasbale key!!
+                        goto error;
+                    }
+                    Release(frame->eval_stack[i]);
+                    Release(frame->eval_stack[i + 1]);
                 }
                 es_cur -= I32Arg(frame->instr_ptr);
                 PUSH(ret);
