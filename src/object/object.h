@@ -23,11 +23,40 @@ namespace argon::object {
     using BoolUnaryOp = bool (*)(struct ArObject *obj);
     using UnaryOp = struct ArObject *(*)(struct ArObject *);
     using BinaryOp = struct ArObject *(*)(struct ArObject *, struct ArObject *);
+    using TernaryOp = struct ArObject *(*)(struct ArObject *, struct ArObject *, struct ArObject *);
     using CompareOp = struct ArObject *(*)(struct ArObject *, struct ArObject *, CompareMode);
     using BinaryOpSizeT = struct ArObject *(*)(struct ArObject *, size_t);
 
     using SizeTUnaryOp = size_t (*)(struct ArObject *);
     using BoolBinOp = bool (*)(struct ArObject *, struct ArObject *);
+
+    struct OpSlots {
+        // Math
+        BinaryOp add;
+        BinaryOp sub;
+        BinaryOp mul;
+        BinaryOp div;
+        BinaryOp idiv;
+        BinaryOp module;
+        UnaryOp pos;
+        UnaryOp neg;
+
+        // Logical op
+        BinaryOp l_and;
+        BinaryOp l_or;
+        BinaryOp l_xor;
+        BinaryOp shl;
+        BinaryOp shr;
+        UnaryOp invert;
+
+        // Inplace update
+        BinaryOp inp_add;
+        BinaryOp inp_sub;
+        BinaryOp inp_mul;
+        BinaryOp inp_div;
+        VoidUnaryOp inc;
+        VoidUnaryOp dec;
+    };
 
     struct NumberActions {
         BinaryOp idiv;
@@ -58,13 +87,7 @@ namespace argon::object {
         CompareOp compare;
         SizeTUnaryOp hash;
 
-        BinaryOp add;
-        BinaryOp sub;
-        BinaryOp mul;
-        BinaryOp div;
-        BinaryOp module;
-        BinaryOp lsh;
-        BinaryOp rsh;
+        const OpSlots *ops;
 
         VoidUnaryOp cleanup;
     };

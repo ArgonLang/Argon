@@ -70,12 +70,6 @@ const TypeInfo argon::object::type_string_ = {
         nullptr,
         string_hash,
         nullptr,
-        nullptr,
-        nullptr,
-        nullptr,
-        nullptr,
-        nullptr,
-        nullptr,
         string_cleanup
 };
 

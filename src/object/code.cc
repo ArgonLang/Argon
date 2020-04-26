@@ -55,12 +55,6 @@ const TypeInfo type_code_ = {
         nullptr,
         code_hash,
         nullptr,
-        nullptr,
-        nullptr,
-        nullptr,
-        nullptr,
-        nullptr,
-        nullptr,
         code_cleanup
 };
 

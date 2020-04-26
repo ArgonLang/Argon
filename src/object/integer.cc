@@ -97,6 +97,29 @@ const NumberActions integer_actions{
         (BinaryOp) integer_div,
 };
 
+const OpSlots integer_ops{
+        (BinaryOp) integer_add,
+        (BinaryOp) integer_sub,
+        (BinaryOp) integer_mul,
+        (BinaryOp) integer_div,
+        nullptr,
+        (BinaryOp) integer_mod,
+        nullptr,
+        nullptr,
+        nullptr,
+        nullptr,
+        nullptr,
+        (BinaryOp) integer_lsh,
+        (BinaryOp) integer_rsh,
+        nullptr,
+        nullptr,
+        nullptr,
+        nullptr,
+        nullptr,
+        nullptr,
+        nullptr,
+};
+
 const TypeInfo argon::object::type_integer_ = {
         (const unsigned char *) "integer",
         sizeof(Integer),
@@ -107,13 +130,7 @@ const TypeInfo argon::object::type_integer_ = {
         integer_equal,
         integer_compare,
         integer_hash,
-        (BinaryOp) integer_add,
-        (BinaryOp) integer_sub,
-        (BinaryOp) integer_mul,
-        (BinaryOp) integer_div,
-        (BinaryOp) integer_mod,
-        (BinaryOp) integer_lsh,
-        (BinaryOp) integer_rsh,
+        &integer_ops,
         nullptr
 };
 

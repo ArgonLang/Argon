@@ -55,11 +55,12 @@ continue
 Release(frame->eval_stack[es_cur-1]);   \
 frame->eval_stack[es_cur-1]=obj
 
-#define GET_ACTIONS(struct, offset) *((BinaryOp *) (((unsigned char *) struct) + offset))
+#define GET_BINARY_OP(struct, offset) *((BinaryOp *) (((unsigned char *) struct) + offset))
 
-ArObject *Binary(ArRoutine *routine, ArObject *l, ArObject *r, int op) {
-    BinaryOp lop = GET_ACTIONS(l->type, op);
-    BinaryOp rop = GET_ACTIONS(r->type, op);
+ArObject *Binary(ArObject *l, ArObject *r, int offset) {
+    BinaryOp lop = GET_BINARY_OP(l->type->ops, offset);
+    BinaryOp rop = GET_BINARY_OP(r->type->ops, offset);
+
     ArObject *result = nullptr;
 
     if (lop != nullptr)
@@ -76,6 +77,13 @@ ArObject *Binary(ArRoutine *routine, ArObject *l, ArObject *r, int op) {
 
     return result;
 }
+
+#define BINARY_OP(op)                                                   \
+if ((ret = Binary(PEEK1(), TOP(), offsetof(OpSlots, op))) == nullptr)   \
+    goto error;                                                         \
+POP();                                                                  \
+TOP_REPLACE(ret);                                                       \
+DISPATCH()
 
 void ArgonVM::Eval(ArRoutine *routine) {
     begin:
@@ -304,38 +312,55 @@ void ArgonVM::Eval(ArRoutine *routine) {
                 }
                 JUMPTO(I32Arg(frame->instr_ptr));
             }
+
+                // *** COMMON MATH OPERATIONS ***
+
             TARGET_OP(ADD) {
-                ret = Binary(routine, PEEK1(), TOP(), offsetof(TypeInfo, add));
-                if (ret == nullptr)
-                    goto error;
-                POP();
-                TOP_REPLACE(ret);
-                DISPATCH();
+                BINARY_OP(add);
             }
             TARGET_OP(SUB) {
-                ret = Binary(routine, PEEK1(), TOP(), offsetof(TypeInfo, sub));
-                if (ret == nullptr)
-                    goto error;
-                POP();
-                TOP_REPLACE(ret);
-                DISPATCH();
+                BINARY_OP(sub);
             }
             TARGET_OP(MUL) {
-                ret = Binary(routine, PEEK1(), TOP(), offsetof(TypeInfo, mul));
-                if (ret == nullptr)
-                    goto error;
-                POP();
-                TOP_REPLACE(ret);
-                DISPATCH();
+                BINARY_OP(mul);
             }
             TARGET_OP(DIV) {
-                ret = Binary(routine, PEEK1(), TOP(), offsetof(TypeInfo, div));
-                if (ret == nullptr)
-                    goto error;
-                POP();
-                TOP_REPLACE(ret);
-                DISPATCH();
+                BINARY_OP(div);
             }
+            TARGET_OP(IDIV) {
+                BINARY_OP(idiv);
+            }
+            TARGET_OP(MOD) {
+                BINARY_OP(module);
+            }
+            TARGET_OP(POS) {
+                BINARY_OP(pos);
+            }
+            TARGET_OP(NEG) {
+                BINARY_OP(neg);
+            }
+
+                // *** COMMON LOGICAL OPERATIONS ***
+
+            TARGET_OP(LAND) {
+                BINARY_OP(l_and);
+            }
+            TARGET_OP(LOR) {
+                BINARY_OP(l_or);
+            }
+            TARGET_OP(LXOR) {
+                BINARY_OP(l_xor);
+            }
+            TARGET_OP(SHL) {
+                BINARY_OP(shl);
+            }
+            TARGET_OP(SHR) {
+                BINARY_OP(shr);
+            }
+            TARGET_OP(INV) {
+                BINARY_OP(invert);
+            }
+
             TARGET_OP(LSTATIC) {
                 PUSH(TupleGetItem(code->statics, I16Arg(frame->instr_ptr)));
                 DISPATCH2();

@@ -30,12 +30,6 @@ const TypeInfo type_bool_ = {
         nullptr,
         bool_hash,
         nullptr,
-        nullptr,
-        nullptr,
-        nullptr,
-        nullptr,
-        nullptr,
-        nullptr,
         nullptr
 };
 
