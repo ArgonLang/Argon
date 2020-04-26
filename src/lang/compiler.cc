@@ -347,7 +347,7 @@ void Compiler::CompileCompound(const ast::List *list) {
             return;
         case NodeType::MAP:
             this->EmitOp4(OpCodes::MK_MAP, list->expressions.size() / 2);
-            this->DecEvalStack(list->expressions.size() / 2);
+            this->DecEvalStack(list->expressions.size());
             return;
         default:
             assert(false);
