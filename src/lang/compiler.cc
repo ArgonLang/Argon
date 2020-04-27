@@ -543,7 +543,7 @@ void Compiler::CompileAssignment(const ast::Assignment *assign) {
             return;
         }
 
-        if (this->cu_curr_->symt->level == sym->table->level && this->cu_curr_->scope == CUScope::FUNCTION) {
+        if (sym->declared && this->cu_curr_->scope == CUScope::FUNCTION) {
             this->EmitOp2(OpCodes::STLC, sym->id);
             return;
         }
@@ -605,8 +605,9 @@ void Compiler::CompileLiteral(const ast::Literal *literal) {
             Release(obj);
             obj = tmp;
             IncRef(obj);
-        } else
-            ListAppend(this->cu_curr_->statics, obj);
+        }
+
+        ListAppend(this->cu_curr_->statics, obj);
         idx = this->cu_curr_->statics->len - 1;
 
         auto inx_obj = IntegerNew(idx);
