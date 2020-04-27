@@ -15,7 +15,11 @@ namespace argon::object {
 
     Tuple *TupleNew(const ArObject *sequence);
 
+    Tuple *TupleNew(size_t len);
+
     ArObject *TupleGetItem(Tuple *tuple, size_t i);
+
+    bool TupleInsertAt(Tuple *tuple, size_t idx, ArObject *obj);
 
 } // namespace argon::object
 

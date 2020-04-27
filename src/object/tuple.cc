@@ -5,6 +5,7 @@
 #include <cassert>
 #include "tuple.h"
 #include "list.h"
+#include "nil.h"
 
 #include <memory/memory.h>
 
@@ -59,6 +60,30 @@ const TypeInfo type_tuple_ = {
         tuple_cleanup
 };
 
+Tuple *argon::object::TupleNew(size_t len) {
+    auto tuple = (Tuple *) argon::memory::Alloc(sizeof(Tuple));
+
+    if (tuple != nullptr) {
+        tuple->strong_or_ref = 1;
+        tuple->type = &type_tuple_;
+
+        tuple->len = len;
+
+        if ((tuple->objects = (ArObject **) Alloc(len * sizeof(ArObject *))) == nullptr) {
+            Release(tuple);
+            return nullptr;
+        }
+
+        for (size_t i = 0; i < len; i++) {
+            IncRef(NilVal);
+            tuple->objects[i] = NilVal;
+        }
+
+    }
+
+    return tuple;
+}
+
 Tuple *argon::object::TupleNew(const ArObject *sequence) {
     auto tuple = (Tuple *) argon::memory::Alloc(sizeof(Tuple));
     ArObject *tmp;
@@ -92,4 +117,16 @@ Tuple *argon::object::TupleNew(const ArObject *sequence) {
     }
 
     return tuple;
+}
+
+bool argon::object::TupleInsertAt(Tuple *tuple, size_t idx, ArObject *obj) {
+    if (idx >= tuple->len)
+        return false;
+
+
+    Release(tuple->objects[idx]);
+
+    IncRef(obj);
+    tuple->objects[idx] = obj;
+    return true;
 }

@@ -94,7 +94,6 @@ void ArgonVM::Eval(ArRoutine *routine) {
     frame->eval_stack = (ArObject **) frame->stack_extra_base;
 
     ArObject *ret = nullptr;
-    unsigned int opargs;
 
     while (frame->instr_ptr < (code->instr + code->instr_sz)) {
         switch (*(lang::OpCodes *) frame->instr_ptr) {
@@ -279,9 +278,9 @@ void ArgonVM::Eval(ArRoutine *routine) {
                 TOP_REPLACE(ret);
                 DISPATCH2();
             }
-            TARGET_OP(JMP) {
-                JUMPTO(I32Arg(frame->instr_ptr));
-            }
+
+                // *** JUMP ***
+
             TARGET_OP(JF) {
                 if (!IsTrue(TOP())) {
                     POP();
@@ -289,6 +288,16 @@ void ArgonVM::Eval(ArRoutine *routine) {
                 }
                 POP();
                 DISPATCH4();
+            }
+            TARGET_OP(JFOP) {
+                if (IsTrue(TOP())) {
+                    POP();
+                    DISPATCH4();
+                }
+                JUMPTO(I32Arg(frame->instr_ptr));
+            }
+            TARGET_OP(JMP) {
+                JUMPTO(I32Arg(frame->instr_ptr));
             }
             TARGET_OP(JT) {
                 if (IsTrue(TOP())) {
@@ -300,13 +309,6 @@ void ArgonVM::Eval(ArRoutine *routine) {
             }
             TARGET_OP(JTOP) {
                 if (!IsTrue(TOP())) {
-                    POP();
-                    DISPATCH4();
-                }
-                JUMPTO(I32Arg(frame->instr_ptr));
-            }
-            TARGET_OP(JFOP) {
-                if (IsTrue(TOP())) {
                     POP();
                     DISPATCH4();
                 }
@@ -361,43 +363,55 @@ void ArgonVM::Eval(ArRoutine *routine) {
                 BINARY_OP(invert);
             }
 
-            TARGET_OP(LSTATIC) {
-                PUSH(TupleGetItem(code->statics, I16Arg(frame->instr_ptr)));
-                DISPATCH2();
-            }
+                // *** COMPOUND DATA STRUCTURES ***
+
             TARGET_OP(MK_LIST) {
+                unsigned int args = I32Arg(frame->instr_ptr);
+
                 if ((ret = ListNew()) == nullptr)
-                    goto error;
+                    goto error; // todo: memroyerror
 
-                opargs = I32Arg(frame->instr_ptr);
-
-                for (unsigned int i = es_cur - opargs; i < es_cur; i++) {
-                    if (!ListAppend((List *) ret, frame->eval_stack[i])) {
-                        // TODO: memoryerror
-                        goto error;
-                    }
+                for (unsigned int i = es_cur - args; i < es_cur; i++) {
+                    if (!ListAppend((List *) ret, frame->eval_stack[i]))
+                        goto error; // TODO: memoryerror
                     Release(frame->eval_stack[i]);
                 }
-                es_cur -= I32Arg(frame->instr_ptr);
+
+                es_cur -= args;
+                PUSH(ret);
+                DISPATCH4();
+            }
+            TARGET_OP(MK_TUPLE) {
+                unsigned int args = I32Arg(frame->instr_ptr);
+
+                if ((ret = TupleNew(args)) == nullptr)
+                    goto error; // todo: memoryerror
+
+                for (unsigned int i = es_cur - args; i < es_cur; i++) {
+                    if (!TupleInsertAt((Tuple *) ret, i, frame->eval_stack[i]))
+                        goto error; // TODO: out of range!
+                    Release(frame->eval_stack[i]);
+                }
+
+                es_cur -= args;
                 PUSH(ret);
                 DISPATCH4();
             }
             TARGET_OP(MK_MAP) {
+                unsigned int args = I32Arg(frame->instr_ptr) * 2;
+
                 if ((ret = MapNew()) == nullptr)
-                    goto error; // todo: nomem
+                    goto error; // todo: memoryerrpr
 
-                opargs = I32Arg(frame->instr_ptr) * 2;
-
-                for (unsigned int i = es_cur - opargs; i < es_cur; i += 2) {
+                for (unsigned int i = es_cur - args; i < es_cur; i += 2) {
                     if (!MapInsert((Map *) ret, frame->eval_stack[i], frame->eval_stack[i + 1])) {
                         Release(ret);
-                        // todo: memoryerror or unhasbale key!!
-                        goto error;
+                        goto error; // todo: memoryerror or unhasbale key!!
                     }
                     Release(frame->eval_stack[i]);
                     Release(frame->eval_stack[i + 1]);
                 }
-                es_cur -= I32Arg(frame->instr_ptr);
+                es_cur -= args;
                 PUSH(ret);
                 DISPATCH4();
             }
@@ -422,6 +436,10 @@ void ArgonVM::Eval(ArRoutine *routine) {
                 }
                 TOP_REPLACE(BoolToArBool(false));
                 DISPATCH();
+            }
+            TARGET_OP(LSTATIC) {
+                PUSH(TupleGetItem(code->statics, I16Arg(frame->instr_ptr)));
+                DISPATCH2();
             }
             default:
                 assert(false);
