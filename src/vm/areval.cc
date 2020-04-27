@@ -97,68 +97,7 @@ void ArgonVM::Eval(ArRoutine *routine) {
 
     while (frame->instr_ptr < (code->instr + code->instr_sz)) {
         switch (*(lang::OpCodes *) frame->instr_ptr) {
-            TARGET_OP(NGV) {
-                // if code->names == null -> compiler error!
-                assert(code->names != nullptr);
-                ret = TupleGetItem(code->names, I16Arg(frame->instr_ptr));
 
-                assert(!MapContains((Map *) frame->globals, ret)); // Double declaration, compiler error!
-                if (!MapInsert((Map *) frame->globals, ret, TOP())) {
-                    // todo: memory error!
-                    Release(ret);
-                    goto error;
-                }
-                Release(ret);
-                POP();
-                DISPATCH2();
-            }
-            TARGET_OP(STGBL) {
-                assert(code->names != nullptr);
-                ret = TupleGetItem(code->names, I16Arg(frame->instr_ptr));
-
-                if (!MapContains((Map *) frame->globals, ret)) {
-                    Release(ret);
-                    goto error; // todo: Unknown variable
-                }
-
-                MapInsert((Map *) frame->globals, ret, TOP());
-                Release(ret);
-                POP();
-                DISPATCH2();
-            }
-            TARGET_OP(LDGBL) {
-                assert(code->names != nullptr);
-                ArObject *key = TupleGetItem(code->names, I16Arg(frame->instr_ptr));
-
-                if ((ret = MapGet((Map *) frame->globals, key)) == nullptr) {
-                    Release(key);
-                    goto error; // todo Unknown variable
-                }
-                PUSH(ret);
-                Release(key);
-                DISPATCH2();
-            }
-            TARGET_OP(LDLC) {
-                PUSH(frame->locals[I16Arg(frame->instr_ptr)]);
-                DISPATCH2();
-            }
-            TARGET_OP(LDENC) {
-                PUSH(frame->enclosed[I16Arg(frame->instr_ptr)]);
-                DISPATCH2();
-            }
-            TARGET_OP(MK_CLOSURE) {
-                if ((ret = FunctionNew((Function *) PEEK1(), (List *) TOP())) == nullptr)
-                    goto error; // TODO: nomem
-                POP();
-                TOP_REPLACE(ret);
-                DISPATCH();
-            }
-            TARGET_OP(NLV) {
-                IncRef(TOP());
-                frame->locals[I16Arg(frame->instr_ptr)] = TOP();
-                POP();
-                DISPATCH2();
-            }
             TARGET_OP(CALL) {
                 // TODO: check if callable!
                 auto largs = I16Arg(frame->instr_ptr);
@@ -249,18 +188,7 @@ void ArgonVM::Eval(ArRoutine *routine) {
                 routine->frame = fr;
                 goto begin;
             }
-            TARGET_OP(RET) {
-                assert(frame->back != nullptr);
-                if (es_cur == 0) {
-                    IncRef(NilVal);
-                    frame->back->eval_stack[0] = NilVal;
-                } else {
-                    frame->back->eval_stack[0] = TOP();
-                    es_cur--;
-                }
-                frame->back->eval_stack++;
-                goto end_while;
-            }
+
             TARGET_OP(CMP) {
                 auto mode = (CompareMode) I16Arg(frame->instr_ptr);
                 ArObject *left = PEEK1();
@@ -277,6 +205,24 @@ void ArgonVM::Eval(ArRoutine *routine) {
                 POP();
                 TOP_REPLACE(ret);
                 DISPATCH2();
+            }
+            TARGET_OP(TEST) {
+                ArObject *left = PEEK1();
+                if (left->type->equal(left, TOP())) {
+                    POP();
+                    TOP_REPLACE(BoolToArBool(true));
+                    DISPATCH();
+                }
+                TOP_REPLACE(BoolToArBool(false));
+                DISPATCH();
+            }
+            TARGET_OP(NOT) {
+                ret = True;
+                if (IsTrue(TOP()))
+                    ret = False;
+                IncRef(ret);
+                TOP_REPLACE(ret);
+                DISPATCH();
             }
 
                 // *** JUMP ***
@@ -313,6 +259,83 @@ void ArgonVM::Eval(ArRoutine *routine) {
                     DISPATCH4();
                 }
                 JUMPTO(I32Arg(frame->instr_ptr));
+            }
+
+                // *** NEW VARIABLES ***
+
+            TARGET_OP(NGV) {
+                assert(code->names != nullptr);
+                ret = TupleGetItem(code->names, I16Arg(frame->instr_ptr));
+
+                assert(!MapContains((Map *) frame->globals, ret)); // Double declaration, compiler error!
+                if (!MapInsert((Map *) frame->globals, ret, TOP())) {
+                    Release(ret);
+                    goto error; // todo: memory error!
+                }
+
+                Release(ret);
+                POP();
+                DISPATCH2();
+            }
+            TARGET_OP(NLV) {
+                IncRef(TOP());
+                frame->locals[I16Arg(frame->instr_ptr)] = TOP();
+                POP();
+                DISPATCH2();
+            }
+
+                // *** STORE VALUES ***
+
+            TARGET_OP(STGBL) {
+                assert(code->names != nullptr);
+                ret = TupleGetItem(code->names, I16Arg(frame->instr_ptr));
+
+                if (!MapContains((Map *) frame->globals, ret)) {
+                    Release(ret);
+                    goto error; // todo: Unknown variable
+                }
+
+                MapInsert((Map *) frame->globals, ret, TOP());
+                Release(ret);
+                POP();
+                DISPATCH2();
+            }
+            TARGET_OP(STLC) {
+                assert(frame->locals != nullptr);
+                Release(frame->locals[I16Arg(frame->instr_ptr)]);
+                frame->locals[I16Arg(frame->instr_ptr)] = TOP();
+                --es_cur; // back eval pointer without release object!
+                DISPATCH2();
+            }
+
+                // *** LOAD VARIABLES ***
+
+            TARGET_OP(LDENC) {
+                assert(frame->enclosed != nullptr);
+                PUSH(frame->enclosed[I16Arg(frame->instr_ptr)]);
+                DISPATCH2();
+            }
+            TARGET_OP(LDGBL) {
+                assert(code->names != nullptr);
+                ArObject *key = TupleGetItem(code->names, I16Arg(frame->instr_ptr));
+
+                ret = MapGet((Map *) frame->globals, key);
+                Release(key);
+
+                if (ret == nullptr)
+                    goto error; // todo: Unknown variable
+
+                PUSH(ret);
+                DISPATCH2();
+            }
+            TARGET_OP(LDLC) {
+                assert(frame->locals != nullptr);
+                PUSH(frame->locals[I16Arg(frame->instr_ptr)]);
+                DISPATCH2();
+            }
+            TARGET_OP(LSTATIC) {
+                PUSH(TupleGetItem(code->statics, I16Arg(frame->instr_ptr)));
+                DISPATCH2();
             }
 
                 // *** COMMON MATH OPERATIONS ***
@@ -387,8 +410,8 @@ void ArgonVM::Eval(ArRoutine *routine) {
                 if ((ret = TupleNew(args)) == nullptr)
                     goto error; // todo: memoryerror
 
-                for (unsigned int i = es_cur - args; i < es_cur; i++) {
-                    if (!TupleInsertAt((Tuple *) ret, i, frame->eval_stack[i]))
+                for (unsigned int i = es_cur - args, idx = 0; i < es_cur; i++) {
+                    if (!TupleInsertAt((Tuple *) ret, idx++, frame->eval_stack[i]))
                         goto error; // TODO: out of range!
                     Release(frame->eval_stack[i]);
                 }
@@ -415,31 +438,29 @@ void ArgonVM::Eval(ArRoutine *routine) {
                 PUSH(ret);
                 DISPATCH4();
             }
-            TARGET_OP(NOT) {
-                ret = True;
-                if (IsTrue(TOP()))
-                    ret = False;
-                IncRef(ret);
+            TARGET_OP(MK_CLOSURE) {
+                if ((ret = FunctionNew((Function *) PEEK1(), (List *) TOP())) == nullptr)
+                    goto error; // TODO: nomem
+                POP();
                 TOP_REPLACE(ret);
                 DISPATCH();
+            }
+
+            TARGET_OP(RET) {
+                assert(frame->back != nullptr);
+                if (es_cur == 0) {
+                    IncRef(NilVal);
+                    frame->back->eval_stack[0] = NilVal;
+                } else {
+                    frame->back->eval_stack[0] = TOP();
+                    es_cur--;
+                }
+                frame->back->eval_stack++;
+                goto end_while;
             }
             TARGET_OP(POP) {
                 POP();
                 DISPATCH();
-            }
-            TARGET_OP(TEST) {
-                ArObject *left = PEEK1();
-                if (left->type->equal(left, TOP())) {
-                    POP();
-                    TOP_REPLACE(BoolToArBool(true));
-                    DISPATCH();
-                }
-                TOP_REPLACE(BoolToArBool(false));
-                DISPATCH();
-            }
-            TARGET_OP(LSTATIC) {
-                PUSH(TupleGetItem(code->statics, I16Arg(frame->instr_ptr)));
-                DISPATCH2();
             }
             default:
                 assert(false);
