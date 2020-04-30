@@ -19,13 +19,15 @@ namespace argon::object {
         LEQ
     };
 
+    using arsize = long;
+
     using VoidUnaryOp = void (*)(struct ArObject *obj);
     using BoolUnaryOp = bool (*)(struct ArObject *obj);
     using UnaryOp = struct ArObject *(*)(struct ArObject *);
     using BinaryOp = struct ArObject *(*)(struct ArObject *, struct ArObject *);
     using TernaryOp = struct ArObject *(*)(struct ArObject *, struct ArObject *, struct ArObject *);
     using CompareOp = struct ArObject *(*)(struct ArObject *, struct ArObject *, CompareMode);
-    using BinaryOpSizeT = struct ArObject *(*)(struct ArObject *, size_t);
+    using BinaryOpArSize = struct ArObject *(*)(struct ArObject *, arsize);
 
     using SizeTUnaryOp = size_t (*)(struct ArObject *);
     using BoolBinOp = bool (*)(struct ArObject *, struct ArObject *);
@@ -64,7 +66,7 @@ namespace argon::object {
 
     struct SequenceActions {
         SizeTUnaryOp length;
-        BinaryOpSizeT get_item;
+        BinaryOpArSize get_item;
     };
 
     struct MapActions {

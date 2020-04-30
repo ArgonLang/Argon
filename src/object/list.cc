@@ -22,7 +22,7 @@ size_t list_len(ArObject *obj) {
     return ((List *) obj)->len;
 }
 
-ArObject *argon::object::ListGetItem(List *list, size_t i) {
+ArObject *argon::object::ListGetItem(List *list, arsize i) {
     ArObject *obj;
 
     if (i >= list->len)
@@ -66,7 +66,7 @@ bool argon::object::ListAppend(List *list, ArObject *obj) {
 
 const SequenceActions list_actions{
         list_len,
-        (BinaryOpSizeT) argon::object::ListGetItem,
+        (BinaryOpArSize) argon::object::ListGetItem,
 };
 
 const TypeInfo argon::object::type_list_ = {
