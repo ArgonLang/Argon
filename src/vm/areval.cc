@@ -338,6 +338,27 @@ void ArgonVM::Eval(ArRoutine *routine) {
                 PUSH(TupleGetItem(code->statics, I16Arg(frame->instr_ptr)));
                 DISPATCH2();
             }
+            TARGET_OP(SUBSCR) {
+                if (IsMap(PEEK1())) {
+                    // todo: check if key is hasbale!
+                    if ((ret = PEEK1()->type->map_actions->get_item(PEEK1(), TOP())) == nullptr)
+                        goto error; // todo key not exists
+                } else if (IsSequence(PEEK1())) {
+                    if (AsIndex(TOP())) {
+                        ret = PEEK1()->type->sequence_actions->get_item(PEEK1(),
+                                                                        TOP()->type->number_actions->as_index(TOP()));
+                        if (ret == nullptr)
+                            goto error; // todo outofbounderror
+                    } else if (TOP()->type == &type_bounds_)
+                        ret = PEEK1()->type->sequence_actions->get_slice(PEEK1(), TOP());
+                    else
+                        goto error; // todo: key must be index or bounds!
+                } else
+                    goto error; // todo: object not subscriptable
+                POP();
+                TOP_REPLACE(ret);
+                DISPATCH();
+            }
 
                 // *** COMMON MATH OPERATIONS ***
 

@@ -69,6 +69,7 @@ namespace argon::object {
     struct SequenceActions {
         SizeTUnaryOp length;
         BinaryOpArSize get_item;
+        BinaryOp get_slice;
     };
 
     struct MapActions {
