@@ -38,6 +38,7 @@ namespace lang {
         LOR,
         LSTATIC,
         LXOR,
+        MK_BOUNDS,
         MK_CLOSURE,
         MK_LIST,
         MK_MAP,
@@ -61,6 +62,7 @@ namespace lang {
         STGBL,
         STLC,
         SUB,
+        SUBSCR,
         TEST
     };
 } // namespace lang

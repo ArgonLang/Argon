@@ -30,6 +30,7 @@ namespace argon::object {
     using BinaryOpArSize = struct ArObject *(*)(struct ArObject *, arsize);
 
     using SizeTUnaryOp = size_t (*)(struct ArObject *);
+    using ArSizeUnaryOp = arsize (*)(struct ArObject *);
     using BoolBinOp = bool (*)(struct ArObject *, struct ArObject *);
 
     struct OpSlots {
@@ -61,7 +62,8 @@ namespace argon::object {
     };
 
     struct NumberActions {
-        BinaryOp idiv;
+        UnaryOp as_number;
+        ArSizeUnaryOp as_index;
     };
 
     struct SequenceActions {
@@ -103,6 +105,10 @@ namespace argon::object {
     inline bool IsNumber(const ArObject *obj) { return obj->type->number_actions != nullptr; }
 
     inline bool IsSequence(const ArObject *obj) { return obj->type->sequence_actions != nullptr; }
+
+    inline bool AsIndex(const ArObject *obj) {
+        return obj->type->number_actions != nullptr && obj->type->number_actions->as_index;
+    }
 
     inline bool IsMap(const ArObject *obj) { return obj->type->map_actions != nullptr; }
 

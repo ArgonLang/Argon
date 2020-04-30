@@ -170,6 +170,29 @@ void Compiler::CompileCode(const ast::NodeUptr &node) {
     unsigned int stack_sz_tmp;
 
     switch (node->type) {
+        case NodeType::SUBSCRIPT: {
+            auto slice = CastNode<Slice>(CastNode<Binary>(node)->right);
+            unsigned char len = 1;
+
+            this->CompileCode(CastNode<Binary>(node)->left);
+            this->CompileCode(slice->low);
+
+            if (slice->type == NodeType::SLICE) {
+                if (slice->high != nullptr) {
+                    this->CompileCode(slice->high);
+                    len++;
+                }
+                if (slice->step != nullptr) {
+                    this->CompileCode(slice->step);
+                    len++;
+                }
+                this->EmitOp2(OpCodes::MK_BOUNDS, len);
+            }
+
+            this->DecEvalStack(len);
+            this->EmitOp(OpCodes::SUBSCR);
+            break;
+        }
         case NodeType::FUNC:
             this->CompileFunction(CastNode<ast::Function>(node));
             break;

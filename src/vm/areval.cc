@@ -11,6 +11,7 @@
 #include <object/map.h>
 #include <object/function.h>
 #include <object/nil.h>
+#include <object/bounds.h>
 
 using namespace lang;
 using namespace argon::object;
@@ -388,6 +389,47 @@ void ArgonVM::Eval(ArRoutine *routine) {
 
                 // *** COMPOUND DATA STRUCTURES ***
 
+            TARGET_OP(MK_BOUNDS) {
+                unsigned short args = I16Arg(frame->instr_ptr);
+                arsize step = 1;
+                arsize stop = 0;
+                arsize start;
+
+                if (args == 3) {
+                    if (!AsIndex(TOP())) {
+                        goto error; // todo: MUST BE A NUMBER!
+                    }
+                    step = TOP()->type->number_actions->as_index(TOP());
+                    POP();
+                }
+
+                if (args >= 2) {
+                    if (!AsIndex(TOP())) {
+                        goto error; // todo: MUST BE A NUMBER!
+                    }
+                    stop = TOP()->type->number_actions->as_index(TOP());
+                    POP();
+                }
+
+                if (!AsIndex(TOP())) {
+                    goto error; // todo: MUST BE A NUMBER!
+                }
+
+                start = TOP()->type->number_actions->as_index(TOP());
+
+                if ((ret = BoundsNew(start, stop, step)) == nullptr)
+                    goto error; // todo: memoryerror
+
+                TOP_REPLACE(ret);
+                DISPATCH2();
+            }
+            TARGET_OP(MK_CLOSURE) {
+                if ((ret = FunctionNew((Function *) PEEK1(), (List *) TOP())) == nullptr)
+                    goto error; // TODO: nomem
+                POP();
+                TOP_REPLACE(ret);
+                DISPATCH();
+            }
             TARGET_OP(MK_LIST) {
                 unsigned int args = I32Arg(frame->instr_ptr);
 
@@ -437,13 +479,6 @@ void ArgonVM::Eval(ArRoutine *routine) {
                 es_cur -= args;
                 PUSH(ret);
                 DISPATCH4();
-            }
-            TARGET_OP(MK_CLOSURE) {
-                if ((ret = FunctionNew((Function *) PEEK1(), (List *) TOP())) == nullptr)
-                    goto error; // TODO: nomem
-                POP();
-                TOP_REPLACE(ret);
-                DISPATCH();
             }
 
             TARGET_OP(RET) {

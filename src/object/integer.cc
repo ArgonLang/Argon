@@ -93,8 +93,13 @@ ArObject *integer_rsh(Integer *self, ArObject *other) {
     return ReturnError(NotImpl);
 }
 
+arsize integer_as_index(Integer *self) {
+    return self->integer;
+}
+
 const NumberActions integer_actions{
-        (BinaryOp) integer_div,
+        nullptr,
+        (ArSizeUnaryOp) integer_as_index
 };
 
 const OpSlots integer_ops{
