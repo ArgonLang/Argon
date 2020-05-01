@@ -171,26 +171,7 @@ void Compiler::CompileCode(const ast::NodeUptr &node) {
 
     switch (node->type) {
         case NodeType::SUBSCRIPT: {
-            auto slice = CastNode<Slice>(CastNode<Binary>(node)->right);
-            unsigned char len = 1;
-
-            this->CompileCode(CastNode<Binary>(node)->left);
-            this->CompileCode(slice->low);
-
-            if (slice->type == NodeType::SLICE) {
-                if (slice->high != nullptr) {
-                    this->CompileCode(slice->high);
-                    len++;
-                }
-                if (slice->step != nullptr) {
-                    this->CompileCode(slice->step);
-                    len++;
-                }
-                this->EmitOp2(OpCodes::MK_BOUNDS, len);
-            }
-
-            this->DecEvalStack(len);
-            this->EmitOp(OpCodes::SUBSCR);
+            this->CompileSubscr(CastNode<Binary>(node), nullptr);
             break;
         }
         case NodeType::FUNC:
@@ -572,8 +553,8 @@ void Compiler::CompileAssignment(const ast::Assignment *assign) {
         }
 
         this->EmitOp2(OpCodes::STGBL, sym->id);
-    } else {
-        assert(false);
+    } else if (assign->assignee->type == NodeType::SUBSCRIPT) {
+        this->CompileSubscr(CastNode<Binary>(assign->assignee), assign->right);
     }
 }
 
@@ -789,4 +770,40 @@ Compiler::Compiler() {
 
 Compiler::~Compiler() {
     Release(this->statics_global);
+}
+
+void Compiler::CompileSlice(const ast::Slice *slice) {
+    unsigned char len = 1;
+
+    this->CompileCode(slice->low);
+
+    if (slice->type == NodeType::SLICE) {
+        if (slice->high != nullptr) {
+            this->CompileCode(slice->high);
+            len++;
+        }
+        if (slice->step != nullptr) {
+            this->CompileCode(slice->step);
+            len++;
+        }
+        this->EmitOp2(OpCodes::MK_BOUNDS, len);
+    }
+
+    this->DecEvalStack(len - 1);
+}
+
+void Compiler::CompileSubscr(const ast::Binary *subscr, const ast::NodeUptr &assignable) {
+    this->CompileCode(subscr->left);
+    this->CompileSlice(CastNode<Slice>(subscr->right));
+
+
+    if (assignable != nullptr) {
+        this->CompileCode(assignable);
+        this->DecEvalStack(3);
+        this->EmitOp(OpCodes::STSUBSCR);
+        return;
+    }
+
+    this->EmitOp(OpCodes::SUBSCR);
+    this->DecEvalStack(1);
 }

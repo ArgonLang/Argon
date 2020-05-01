@@ -61,6 +61,7 @@ namespace lang {
         SHR,
         STGBL,
         STLC,
+        STSUBSCR,
         SUB,
         SUBSCR,
         TEST

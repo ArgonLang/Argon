@@ -217,7 +217,8 @@ bool argon::object::MapContains(Map *map, ArObject *key) {
 
 const MapActions map_actions{
         map_len,
-        (BinaryOp) argon::object::MapGet
+        (BinaryOp) argon::object::MapGet,
+        (BoolTernOp) argon::object::MapInsert
 };
 
 const TypeInfo type_map_ = {

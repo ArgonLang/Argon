@@ -54,6 +54,10 @@ namespace lang {
 
         void CompileAssignment(const ast::Assignment *assign);
 
+        void CompileSubscr(const ast::Binary *subscr, const ast::NodeUptr &assignable);
+
+        void CompileSlice(const ast::Slice *slice);
+
         void CompileCompound(const ast::List *list);
 
         void LoadVariable(const std::string &name);

@@ -29,9 +29,12 @@ namespace argon::object {
     using CompareOp = struct ArObject *(*)(struct ArObject *, struct ArObject *, CompareMode);
     using BinaryOpArSize = struct ArObject *(*)(struct ArObject *, arsize);
 
+
     using SizeTUnaryOp = size_t (*)(struct ArObject *);
     using ArSizeUnaryOp = arsize (*)(struct ArObject *);
     using BoolBinOp = bool (*)(struct ArObject *, struct ArObject *);
+    using BoolTernOp = bool (*)(struct ArObject *, struct ArObject *, struct ArObject *);
+    using BoolTernOpArSize = bool (*)(struct ArObject *, struct ArObject *, arsize);
 
     struct OpSlots {
         // Math
@@ -69,12 +72,15 @@ namespace argon::object {
     struct SequenceActions {
         SizeTUnaryOp length;
         BinaryOpArSize get_item;
+        BoolTernOpArSize set_item;
         BinaryOp get_slice;
+        BoolTernOp set_slice;
     };
 
     struct MapActions {
         SizeTUnaryOp length;
         BinaryOp get_item;
+        BoolTernOp set_item;
     };
 
     struct TypeInfo {

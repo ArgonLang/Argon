@@ -51,6 +51,7 @@ continue
 
 #define TOP()       frame->eval_stack[es_cur-1]
 #define PEEK1()     frame->eval_stack[es_cur-2]
+#define PEEK2()     frame->eval_stack[es_cur-3]
 
 #define TOP_REPLACE(obj)                \
 Release(frame->eval_stack[es_cur-1]);   \
@@ -307,6 +308,28 @@ void ArgonVM::Eval(ArRoutine *routine) {
                 frame->locals[I16Arg(frame->instr_ptr)] = TOP();
                 --es_cur; // back eval pointer without release object!
                 DISPATCH2();
+            }
+            TARGET_OP(STSUBSCR) {
+                if (IsMap(PEEK2())) {
+                    // todo: check if key is hasbale!
+                    if (!PEEK2()->type->map_actions->set_item(PEEK2(), PEEK1(), TOP()))
+                        goto error; // todo memory error
+                } else if (IsSequence(PEEK2())) {
+                    if (AsIndex(PEEK1())) {
+                        if (PEEK2()->type->sequence_actions->set_item(PEEK2(), TOP(),
+                                                                      TOP()->type->number_actions->as_index(TOP())))
+                            goto error; // todo outofbounderror or memoryerror
+                    } else if (PEEK1()->type == &type_bounds_) {
+                        if (PEEK2()->type->sequence_actions->set_slice(PEEK2(), PEEK1(), TOP()))
+                            goto error; // todo outofbounderror or memoryerror
+                    } else
+                        goto error; // todo: key must be index or bounds!
+                } else
+                    goto error; // todo: object not subscriptable
+                POP();
+                POP();
+                POP();
+                DISPATCH();
             }
 
                 // *** LOAD VARIABLES ***
