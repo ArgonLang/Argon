@@ -14,7 +14,7 @@
 #include "basicblock.h"
 #include "opcodes.h"
 #include "ast/ast.h"
-#include "symbol_table.h"
+#include "lang/symt/symbol_table.h"
 #include "compile_unit.h"
 
 namespace lang {

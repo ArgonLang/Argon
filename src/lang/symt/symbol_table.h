@@ -2,26 +2,14 @@
 //
 // Licensed under the Apache License v2.0
 
-#ifndef ARGON_LANG_SYMBOL_TABLE_H_
-#define ARGON_LANG_SYMBOL_TABLE_H_
+#ifndef ARGON_LANG_SYMT_SYMBOL_TABLE_H_
+#define ARGON_LANG_SYMT_SYMBOL_TABLE_H_
 
+#include <list>
 #include <unordered_map>
-#include <memory>
+#include "symbol.h"
 
-namespace lang {
-
-    struct Symbol {
-        const std::string name;
-        const class SymbolTable *table;
-        unsigned int id = 0;
-        bool declared = false;
-        bool free = false;
-
-        explicit Symbol(std::string name, class SymbolTable *table) : name(std::move(name)), table(table) {}
-    };
-
-    using SymUptr = std::unique_ptr<Symbol>;
-
+namespace lang::symbol_table {
     class StringPtrHashWrapper {
     public:
         size_t operator()(const std::string *str) const { return std::hash<std::string>()(*str); }
@@ -32,26 +20,35 @@ namespace lang {
         bool operator()(const std::string *str, const std::string *other) const { return *str == *other; }
     };
 
+    struct MapStack {
+        std::unordered_map<std::string *, SymUptr, StringPtrHashWrapper, StringPtrEqualToWrapper> map;
+        unsigned short nested = 0;
+        MapStack *prev = nullptr;
+    };
+
     class SymbolTable {
-        std::unordered_map<std::string *, SymUptr, StringPtrHashWrapper, StringPtrEqualToWrapper> map_;
-        SymbolTable *prev_ = nullptr;
+        MapStack *stack_map_;
     public:
         const std::string name;
         const unsigned short level;
 
-        SymbolTable(std::string name, unsigned short level);
-
         explicit SymbolTable(std::string name);
 
-        SymbolTable *NewScope(std::string table_name);
+        SymbolTable(std::string name, unsigned short level);
+
+        ~ SymbolTable();
 
         Symbol *Insert(const std::string &sym_name);
 
         Symbol *Lookup(const std::string &sym_name);
+
+        void EnterSubScope();
+
+        void ExitSubScope();
     };
 
     using SymTUptr = std::unique_ptr<SymbolTable>;
 
 } // namespace lang
 
-#endif // !ARGON_LANG_SYMBOL_TABLE_H_
+#endif // !ARGON_LANG_SYMT_SYMBOL_TABLE_H_

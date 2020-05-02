@@ -16,6 +16,7 @@
 
 using namespace lang;
 using namespace lang::ast;
+using namespace lang::symbol_table;
 using namespace argon::object;
 
 void Compiler::EmitOp(OpCodes code) {
@@ -84,13 +85,19 @@ void Compiler::CompileBranch(const ast::If *stmt) {
     test->flow_else = last;
 
     this->NewNextBlock();
+
+    this->cu_curr_->symt->EnterSubScope();
     this->CompileCode(stmt->body);
+    this->cu_curr_->symt->ExitSubScope();
+
     if (stmt->orelse != nullptr) {
         this->cu_curr_->bb_curr->flow_else = last;
         this->EmitOp4(OpCodes::JMP, 0);
         this->NewNextBlock();
         test->flow_else = this->cu_curr_->bb_curr;
+        this->cu_curr_->symt->EnterSubScope();
         this->CompileCode(stmt->orelse);
+        this->cu_curr_->symt->ExitSubScope();
     }
 
     this->UseAsNextBlock(last);
@@ -323,10 +330,15 @@ void Compiler::CompileLoop(const ast::Loop *loop) {
     if (loop->test != nullptr) {
         this->CompileCode(loop->test);
         this->EmitOp4(OpCodes::JF, 0);
+        this->DecEvalStack(1);
         this->cu_curr_->bb_curr->flow_else = last;
         this->NewNextBlock();
     }
+
+    this->cu_curr_->symt->EnterSubScope();
     this->CompileCode(loop->body);
+    this->cu_curr_->symt->ExitSubScope();
+
     this->EmitOp4(OpCodes::JMP, 0);
     this->cu_curr_->bb_curr->flow_else = head;
     this->UseAsNextBlock(last);
@@ -373,6 +385,8 @@ void Compiler::CompileSwitch(const ast::Switch *stmt, bool as_if) {
         if (index != 1) {
             body->flow_next = this->NewBlock();
             body = body->flow_next;
+            if (!as_if)
+                this->IncEvalStack();
         }
 
         if (!CastNode<Case>(swcase)->tests.empty()) {
@@ -385,23 +399,32 @@ void Compiler::CompileSwitch(const ast::Switch *stmt, bool as_if) {
                 }
                 compound_cond = true;
                 this->CompileCode(test);
-                if (!as_if)
+                if (!as_if) {
                     this->EmitOp(OpCodes::TEST);
+                    this->DecEvalStack(1);
+                }
                 this->EmitOp4(OpCodes::JT, 0);
+                this->DecEvalStack(1);
                 cond->flow_else = body;
             }
         } else {
             // Default
             def = this->NewBlock();
             this->cu_curr_->bb_curr = def;
-            if (!as_if)
+            if (!as_if) {
                 this->EmitOp(OpCodes::POP);
+                this->DecEvalStack(1);
+            }
             this->EmitOp4(OpCodes::JMP, 0);
             this->cu_curr_->bb_curr->flow_else = body;
         }
 
         this->cu_curr_->bb_curr = body; // Use bb pointed by body
+
+        this->cu_curr_->symt->EnterSubScope();
         this->CompileCode(CastNode<Case>(swcase)->body);
+        this->cu_curr_->symt->ExitSubScope();
+
         body = this->cu_curr_->bb_curr; // Update body after CompileCode, body may be changed (Eg: if)
 
         if (index < stmt->cases.size()) {
@@ -446,7 +469,7 @@ void Compiler::NewVariable(const std::string &name, bool emit_op) {
 
     sym->declared = true;
 
-    if (this->cu_curr_->scope == CUScope::MODULE) {
+    if (this->cu_curr_->scope == CUScope::MODULE && sym->nested == 0) {
         if (emit_op)
             this->EmitOp2(OpCodes::NGV, known ? sym->id : dest->len);
         if (known)
@@ -508,7 +531,7 @@ void Compiler::LoadVariable(const std::string &name) {
             throw MemoryException("LoadVariable: ListAppend");
     }
 
-    if (this->cu_curr_->scope == CUScope::FUNCTION) {
+    if (this->cu_curr_->scope == CUScope::FUNCTION || sym->nested > 0) {
         if (sym->declared) {
             // Local variable
             this->EmitOp2(OpCodes::LDLC, sym->id);
@@ -547,7 +570,7 @@ void Compiler::CompileAssignment(const ast::Assignment *assign) {
             return;
         }
 
-        if (sym->declared && this->cu_curr_->scope == CUScope::FUNCTION) {
+        if (sym->declared && (this->cu_curr_->scope == CUScope::FUNCTION || sym->nested > 0)) {
             this->EmitOp2(OpCodes::STLC, sym->id);
             return;
         }

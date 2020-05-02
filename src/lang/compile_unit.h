@@ -14,7 +14,7 @@ namespace lang {
     };
 
     struct CompileUnit {
-        SymTUptr symt;
+        symbol_table::SymTUptr symt;
         argon::object::Map *statics_map;
 
         argon::object::List *statics;
