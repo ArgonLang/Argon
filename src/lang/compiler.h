@@ -46,6 +46,8 @@ namespace lang {
 
         void NewVariable(const std::string &name, bool emit_op);
 
+        void CompileForLoop(const ast::For * loop);
+
         void CompileLoop(const ast::Loop *loop);
 
         void CompileSwitch(const ast::Switch *stmt, bool as_if);
