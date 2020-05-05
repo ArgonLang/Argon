@@ -37,6 +37,7 @@ void Compiler::EnterScope(const std::string &scope_name, CUScope scope) {
     cu->symt = std::make_unique<SymbolTable>(scope_name);
     cu->prev = this->cu_curr_;
     this->cu_curr_ = cu;
+    this->NewNextBlock();
 }
 
 void Compiler::ExitScope() {
@@ -103,14 +104,12 @@ void Compiler::CompileBranch(const ast::If *stmt) {
     this->UseAsNextBlock(last);
 }
 
-void Compiler::CompileFunction(const ast::Function *function) {
+argon::object::Function *Compiler::AssembleFunction(const ast::Function *function) {
     argon::object::Code *code;
     argon::object::Function *fn;
-    argon::object::ArObject *tmp;
     bool variadic = false;
 
     this->EnterScope(function->id, CUScope::FUNCTION);
-    this->NewNextBlock();
 
     for (auto &param: function->params) {
         auto id = CastNode<Identifier>(param);
@@ -134,26 +133,28 @@ void Compiler::CompileFunction(const ast::Function *function) {
     Release(code);
 
     if (fn == nullptr)
-        throw MemoryException("CompileFunction: FunctionNew");
+        return nullptr;
 
     fn->variadic = variadic;
 
-    // Push to static resources
-    if ((tmp = IntegerNew(this->cu_curr_->statics->len)) == nullptr) {
-        Release(fn);
-        throw MemoryException("CompileFunction: IntegerNew");
-    }
+    return fn;
+}
 
-    bool ok = ListAppend(this->cu_curr_->statics, fn);
-    Release(tmp);
+void Compiler::CompileFunction(const ast::Function *function) {
+    argon::object::Function *fn;
+    Code *code;
+
+    if((fn=this->AssembleFunction(function))== nullptr)
+        throw MemoryException("AssembleFunction");
+
+    code = fn->code;
+
+    // Push to static resources
+    bool ok = this->PushStatic(fn, true);
     Release(fn);
 
     if (!ok)
-        throw MemoryException("CompileFunction: ListAppend(statics)");
-
-
-    this->EmitOp2(OpCodes::LSTATIC, this->cu_curr_->statics->len - 1);
-    this->IncEvalStack();
+        throw MemoryException("CompileFunction: PushStatic");
 
     if (code->deref->len > 0) {
         for (int i = 0; i < code->deref->len; i++) {
@@ -335,7 +336,7 @@ void Compiler::CompileForLoop(const ast::For *loop) {
 
     this->NewNextBlock();
     head = this->cu_curr_->bb_curr;
-    
+
     this->CompileCode(loop->test);
     this->EmitOp4(OpCodes::JF, 0);
     this->DecEvalStack(1);
@@ -762,8 +763,6 @@ Code *Compiler::Compile(std::istream *source) {
 
     this->EnterScope(program->filename, CUScope::MODULE);
 
-    this->NewNextBlock();
-
     for (auto &stmt : program->body)
         this->CompileCode(stmt);
 
@@ -862,4 +861,25 @@ void Compiler::CompileSubscr(const ast::Binary *subscr, const ast::NodeUptr &ass
 
     this->EmitOp(OpCodes::SUBSCR);
     this->DecEvalStack(1);
+}
+
+bool Compiler::PushStatic(argon::object::ArObject *obj, bool emit_op) {
+    ArObject *index = IntegerNew(this->cu_curr_->statics->len);
+
+    if (index == nullptr)
+        return false;
+
+    // Push to static resources
+    bool ok = ListAppend(this->cu_curr_->statics, obj);
+    Release(index);
+
+    if (!ok)
+        return false;
+
+    if (emit_op) {
+        this->EmitOp2(OpCodes::LSTATIC, this->cu_curr_->statics->len - 1);
+        this->IncEvalStack();
+    }
+
+    return true;
 }

@@ -10,6 +10,7 @@
 #include <object/list.h>
 #include <object/map.h>
 #include <object/code.h>
+#include <object/function.h>
 
 #include "basicblock.h"
 #include "opcodes.h"
@@ -42,7 +43,11 @@ namespace lang {
 
         void CompileCode(const ast::NodeUptr &node);
 
+        argon::object::Function *AssembleFunction(const ast::Function *function);
+
         void CompileFunction(const ast::Function *function);
+
+        bool PushStatic(argon::object::ArObject *obj, bool emit_op);
 
         void NewVariable(const std::string &name, bool emit_op);
 
