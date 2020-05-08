@@ -123,8 +123,6 @@ namespace lang {
 
         ast::NodeUptr ParseArrowOrTuple();
 
-        std::list<ast::NodeUptr> ParsePeap();
-
         ast::NodeUptr ParseList();
 
         ast::NodeUptr ParseMapOrSet();

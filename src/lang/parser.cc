@@ -1158,25 +1158,6 @@ ast::NodeUptr Parser::ParseArrowOrTuple() {
     return tuple;
 }
 
-std::list<ast::NodeUptr> Parser::ParsePeap() {
-    std::list<ast::NodeUptr> params;
-    NodeUptr tmp = this->Variadic();
-
-    if (!tmp) {
-        params.push_back(this->Test());
-        while (this->MatchEat(TokenType::COMMA, true)) {
-            if ((tmp = this->Variadic()) != nullptr) {
-                params.push_back(std::move(tmp));
-                break;
-            }
-            params.push_back(this->Test());
-        }
-    } else
-        params.push_back(std::move(tmp));
-
-    return params;
-}
-
 ast::NodeUptr Parser::ParseList() {
     auto list = std::make_unique<List>(NodeType::LIST, this->currTk_.start);
 
