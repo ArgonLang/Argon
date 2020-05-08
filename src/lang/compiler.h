@@ -25,7 +25,49 @@ namespace lang {
         std::list<CompileUnit> cu_list_;
         CompileUnit *cu_curr_ = nullptr;
 
+        BasicBlock *NewBlock();
+
+        BasicBlock *NewNextBlock();
+
+        bool PushStatic(argon::object::ArObject *obj, bool store, bool emit_op, unsigned int *out_idx);
+
         argon::object::Code *Assemble();
+
+        argon::object::Function *AssembleFunction(const ast::Function *function);
+
+        void CompileAssignment(const ast::Assignment *assign);
+
+        void CompileBinaryExpr(const ast::Binary *binary);
+
+        void CompileBranch(const ast::If *stmt);
+
+        void CompileCode(const ast::NodeUptr &node);
+
+        void CompileCompound(const ast::List *list);
+
+        void CompileForLoop(const ast::For *loop);
+
+        void CompileFunction(const ast::Function *function);
+
+        void CompileLiteral(const ast::Literal *literal);
+
+        void CompileLoop(const ast::Loop *loop);
+
+        void CompileSlice(const ast::Slice *slice);
+
+        void CompileSubscr(const ast::Binary *subscr, const ast::NodeUptr &assignable);
+
+        void CompileSwitch(const ast::Switch *stmt, bool as_if);
+
+        void CompileTest(const ast::Binary *test);
+
+        void CompileUnaryExpr(const ast::Unary *unary);
+
+        void CompileVariable(const ast::Variable *variable);
+
+        void DecEvalStack(int value);
+
+        void Dfs(CompileUnit *unit, BasicBlock *start);
 
         void EmitOp(OpCodes code);
 
@@ -37,55 +79,13 @@ namespace lang {
 
         void ExitScope();
 
-        void CompileBinaryExpr(const ast::Binary *binary);
-
-        void CompileBranch(const ast::If *stmt);
-
-        void CompileCode(const ast::NodeUptr &node);
-
-        argon::object::Function *AssembleFunction(const ast::Function *function);
-
-        void CompileFunction(const ast::Function *function);
-
-        bool PushStatic(argon::object::ArObject *obj, bool emit_op);
-
-        void NewVariable(const std::string &name, bool emit_op);
-
-        void CompileForLoop(const ast::For * loop);
-
-        void CompileLoop(const ast::Loop *loop);
-
-        void CompileSwitch(const ast::Switch *stmt, bool as_if);
-
-        void CompileVariable(const ast::Variable *variable);
-
-        void CompileAssignment(const ast::Assignment *assign);
-
-        void CompileSubscr(const ast::Binary *subscr, const ast::NodeUptr &assignable);
-
-        void CompileSlice(const ast::Slice *slice);
-
-        void CompileCompound(const ast::List *list);
+        void IncEvalStack();
 
         void LoadVariable(const std::string &name);
 
-        void CompileLiteral(const ast::Literal *literal);
-
-        void CompileTest(const ast::Binary *test);
-
-        void CompileUnaryExpr(const ast::Unary *unary);
-
-        void Dfs(CompileUnit *unit, BasicBlock *start);
+        void NewVariable(const std::string &name, bool emit_op);
 
         void UseAsNextBlock(BasicBlock *block);
-
-        void IncEvalStack();
-
-        void DecEvalStack(int value);
-
-        BasicBlock *NewBlock();
-
-        BasicBlock *NewNextBlock();
 
     public:
         Compiler();
