@@ -25,8 +25,8 @@
 | \<from_import_stmt\> | 'from' \<scope\> 'import' \<import_as_name\> (',' \<import_as_name\>)* |
 | \<import_as_name\>   | %IDENTIFIER% ['as' %IDENTIFIER%]                             |
 | \<scope_as_name\>    | \<scope\> ['as' %IDENTIFIER%]                                |
-| \<spawn_stmt\>       | 'spawn' \<atom_expr\>                                        |
-| \<defer_stmt\>       | 'defer' \<atom_expr\>                                        |
+| \<spawn_stmt\>       | 'spawn' \<test\>                                             |
+| \<defer_stmt\>       | 'defer' \<test\>                                             |
 | \<return_stmt\>      | 'return' \<testlist\>                                        |
 | \<jmp_stmt\>         | ('break' \| 'continue' \| 'goto') [%IDENTIFIER%] \| 'fallthrough' |
 | \<for_stmt\>         | 'for' (<br />[\<var_decl\> \| \<expression\>] ';' \<test\> ';' \<test\><br />\| %IDENTIFIER% (',' %IDENTIFIER%)* 'in' \<expression\><br />) \<block\> |

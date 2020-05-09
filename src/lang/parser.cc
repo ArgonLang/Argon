@@ -401,11 +401,11 @@ ast::NodeUptr Parser::Statement() {
         switch (this->currTk_.type) {
             case TokenType::DEFER:
                 this->Eat();
-                tmp = std::make_unique<Unary>(NodeType::DEFER, this->AtomExpr(), start);
+                tmp = std::make_unique<Unary>(NodeType::DEFER, this->Test(), start);
                 break;
             case TokenType::SPAWN:
                 this->Eat();
-                tmp = std::make_unique<Unary>(NodeType::SPAWN, this->AtomExpr(), start);
+                tmp = std::make_unique<Unary>(NodeType::SPAWN, this->Test(), start);
                 break;
             case TokenType::RETURN:
                 this->Eat();
