@@ -1,6 +1,6 @@
 # Grammar rules of Argon programming language
 
-|                      |                                                   |
+|                      |                                                              |
 | -------------------- | :----------------------------------------------------------- |
 | \<program\>          | \<declaration\>* %EOF%                                       |
 | \<declaration\>      | \<impl_decl\> \| \<access_modifier\>                         |
@@ -34,7 +34,7 @@
 | \<if_stmt\>          | 'if' \<test\> \<block\> [('elif' \<test\> \<block\>)* 'else' \<block\>] |
 | \<switch_stmt\>      | 'switch' [\<test\>] '{' \<switch_case\>* '}'                 |
 | \<switch_case\>      | \<switch_label\> \<block_body\>*                             |
-| \<switch_label\>     | 'case' \<test\> (';' \<test\>)* ':' \| 'default' ':'        |
+| \<switch_label\>     | 'case' \<test\> (';' \<test\>)* ':' \| 'default' ':'         |
 | \<block\>            | '{' \<block_body\>* '}'                                      |
 | \<block_body\>       | \<small_decl\> \| \<statement\>                              |
 |                      |                                                              |
@@ -53,13 +53,12 @@
 | \<arith_expr\>       | \<mult_expr\> (('+' \| '-') \<mult_expr\>)*                  |
 | \<mult_expr\>        | \<unary_expr\> (('\*' \| '/' \| '%' \| '//') \<unary_expr\>)* |
 | \<unary_expr\>       | ('!' \| '~' \| '-' \| '+' \| '++' \| '--') \<unary\> \| \<atom_expr\> |
-| \<atom_expr\>        | \<atom\> \<initializer\> \<trailer\>*                        |
+| \<atom_expr\>        | \<atom\> \<trailer\>* [\<initializer\> (\<member_access\> \<trailer\>* [\<initializer\>])*]  [ '++' \| '--' ] |
 | \<initializer\>      | '!{' [<br />\<test\> (',' \<test\>)* \|<br />%IDENTIFIER% ':' \<test\> (',' %IDENTIFIER% ':' \<test\>)<br />] '}' |
-| \<trailers\>         | '(' \<arguments\> ')' \| \<subscript\> \| \<member_access\> \| '++' \| '--' |
+| \<trailers\>         | '(' \<arguments\> ')' \| \<subscript\> \| \<member_access\>  |
 | \<arguments\>        | [ \<test\> (',' \<test\>)* [',' \<test\> '...'] ] \| \<test\> '...' |
 | \<subscript\>        | '[' \<test\> [':' \<test\> [':' \<test\> ] ] ']'             |
-| \<member_access\>    | '.' \<scope\> \| \<nil_safety\>                              |
-| \<nil_safety\>       | '?.' \<scope\><br />\| '!.' \<scope\>                        |
+| \<member_access\>    | '.' \<scope\> \| '?.' \<scope\><br />                        |
 | \<atom\>             | 'false' \| 'true' \| 'nil' \| 'self'<br />\| \<number\><br />\| \<string\><br />\| \<list\><br />\| \<maporset\><br />\| \<scope\><br />\| \<arrow\> |
 | \<arrow\>            | \<peap\> '=>' \<block\>                                      |
 | \<peap\>             | '(' [ \<test\> (',' \<test\>)* [',' \<variadic\>] ] \| \<variadic\> ')' |

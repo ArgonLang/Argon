@@ -739,10 +739,6 @@ TEST(Parser, MemberAccess) {
     parser = Parser(&source);
     ASSERT_EQ(parser.Parse()->body.front()->type, NodeType::MEMBER_SAFE);
 
-    source = std::istringstream("mystruct!.item");
-    parser = Parser(&source);
-    ASSERT_EQ(parser.Parse()->body.front()->type, NodeType::MEMBER_ASSERT);
-
     source = std::istringstream("mystruct!.item.subitem");
     parser = Parser(&source);
     ASSERT_EQ(parser.Parse()->body.front()->type, NodeType::MEMBER);

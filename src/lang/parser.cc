@@ -914,13 +914,15 @@ ast::NodeUptr Parser::AtomExpr() {
     auto left = this->ParseAtom();
     Pos end;
 
-    if (this->Match(TokenType::EXCLAMATION_LBRACES))
-        left = this->Initializer(std::move(left));
-
-    end = left->end;
-
-    while (end > 0) {
+    do {
         end = left->end;
+        if (this->Match(TokenType::EXCLAMATION_LBRACES)) {
+            left = this->Initializer(std::move(left));
+
+            if (!this->Match(TokenType::DOT, TokenType::QUESTION_DOT))
+                break;
+        }
+
         switch (this->currTk_.type) {
             case TokenType::LEFT_ROUND:
                 left = this->ParseArguments(std::move(left));
@@ -930,18 +932,18 @@ ast::NodeUptr Parser::AtomExpr() {
                 break;
             case TokenType::DOT:
             case TokenType::QUESTION_DOT:
-            case TokenType::EXCLAMATION_DOT:
                 left = this->MemberAccess(std::move(left));
-                break;
-            case TokenType::PLUS_PLUS:
-            case TokenType::MINUS_MINUS:
-                left = std::make_unique<Update>(std::move(left), this->currTk_.type, false, end);
-                this->Eat();
                 break;
             default:
                 end = 0;
         }
+    } while (end > 0);
+
+    if (end == 0 && this->Match(TokenType::PLUS_PLUS, TokenType::MINUS_MINUS)) {
+        left = std::make_unique<Update>(std::move(left), this->currTk_.type, false, end);
+        this->Eat();
     }
+
     return left;
 }
 
@@ -1045,18 +1047,19 @@ ast::NodeUptr Parser::ParseSubscript() {
 }
 
 ast::NodeUptr Parser::MemberAccess(ast::NodeUptr left) {
+    if (left == nullptr)
+        left = this->ParseScope();
+
     switch (this->currTk_.type) {
         case TokenType::DOT:
             this->Eat();
-            return std::make_unique<Binary>(NodeType::MEMBER, std::move(left), this->ParseScope());
+            return std::make_unique<Binary>(NodeType::MEMBER, std::move(left), this->MemberAccess(nullptr));
         case TokenType::QUESTION_DOT:
             this->Eat();
-            return std::make_unique<Binary>(NodeType::MEMBER_SAFE, std::move(left), this->ParseScope());
-        case TokenType::EXCLAMATION_DOT:
-            this->Eat();
-            return std::make_unique<Binary>(NodeType::MEMBER_ASSERT, std::move(left), this->ParseScope());
+            return std::make_unique<Binary>(NodeType::MEMBER_SAFE, std::move(left), this->MemberAccess(nullptr));
         default:
-            throw SyntaxException("expected . or ?. or !. operator", this->currTk_);
+            return left;
+            //throw SyntaxException("expected . or ?. or !. operator", this->currTk_);
     }
 }
 

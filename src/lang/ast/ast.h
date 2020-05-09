@@ -43,7 +43,6 @@ namespace lang::ast {
         LOOP,
         MAP,
         MEMBER,
-        MEMBER_ASSERT,
         MEMBER_SAFE,
         PROGRAM,
         RELATIONAL,
