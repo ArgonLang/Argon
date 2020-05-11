@@ -1115,12 +1115,13 @@ ast::NodeUptr Parser::ParseArrowOrTuple() {
     Pos end = 0;
     std::list<NodeUptr> params;
     NodeUptr tmp;
-    bool must_fn = true;
+    bool must_fn = false;
     bool last_is_comma = false;
 
     this->Eat();
 
     if (!this->MatchEatNL(TokenType::RIGHT_ROUND)) {
+        must_fn = true;
         if ((tmp = this->Variadic()) == nullptr) {
             must_fn = false;
             params.push_back(this->Test());
