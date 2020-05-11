@@ -912,7 +912,9 @@ ast::NodeUptr Parser::UnaryExpr() {
 
 ast::NodeUptr Parser::AtomExpr() {
     auto left = this->ParseAtom();
-    Pos end;
+    Pos start = left->start;
+    Pos end = 0;
+    bool safe = false;
 
     do {
         end = left->end;
@@ -932,7 +934,7 @@ ast::NodeUptr Parser::AtomExpr() {
                 break;
             case TokenType::DOT:
             case TokenType::QUESTION_DOT:
-                left = this->MemberAccess(std::move(left));
+                left = this->MemberAccess(std::move(left), safe);
                 break;
             default:
                 end = 0;
@@ -940,9 +942,13 @@ ast::NodeUptr Parser::AtomExpr() {
     } while (end > 0);
 
     if (end == 0 && this->Match(TokenType::PLUS_PLUS, TokenType::MINUS_MINUS)) {
-        left = std::make_unique<Update>(std::move(left), this->currTk_.type, false, end);
+        left = std::make_unique<Update>(std::move(left), this->currTk_.type, false, this->currTk_.end);
         this->Eat();
     }
+
+    if (safe)
+        // Wrapper for Nullable-Expression E.g: a.b?.c or a?.b()?.c() ...
+        return std::make_unique<Unary>(NodeType::NULLABLE, std::move(left), start);
 
     return left;
 }
@@ -1046,17 +1052,18 @@ ast::NodeUptr Parser::ParseSubscript() {
     return slice;
 }
 
-ast::NodeUptr Parser::MemberAccess(ast::NodeUptr left) {
+ast::NodeUptr Parser::MemberAccess(ast::NodeUptr left, bool &safe) {
     if (left == nullptr)
         left = this->ParseScope();
 
     switch (this->currTk_.type) {
         case TokenType::DOT:
             this->Eat();
-            return std::make_unique<Binary>(NodeType::MEMBER, std::move(left), this->MemberAccess(nullptr));
+            return std::make_unique<Member>(std::move(left), this->MemberAccess(nullptr, safe), false);
         case TokenType::QUESTION_DOT:
             this->Eat();
-            return std::make_unique<Binary>(NodeType::MEMBER_SAFE, std::move(left), this->MemberAccess(nullptr));
+            safe = true;
+            return std::make_unique<Member>(std::move(left), this->MemberAccess(nullptr, safe), true);
         default:
             return left;
             //throw SyntaxException("expected . or ?. or !. operator", this->currTk_);

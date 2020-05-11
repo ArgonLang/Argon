@@ -10,6 +10,25 @@
 using namespace lang;
 using namespace lang::ast;
 
+NodeUptr GetStmt(std::istream *src) {
+    Parser parser(src);
+    return std::move(CastNode<Program>(parser.Parse())->body.front());
+}
+
+NodeUptr &StripWrapperExpr(NodeUptr *node) {
+    NodeUptr *curr = node;
+    while (true) {
+        if (curr->get()->type == NodeType::EXPRESSION)
+            curr = &((Expression *) curr->get())->expr;
+        else if (curr->get()->type == NodeType::NULLABLE)
+            curr = &((Unary *) curr->get())->expr;
+        else
+            break;
+    }
+
+    return *curr;
+}
+
 TEST(Parser, Alias) {
     auto source = std::istringstream("using id as identifier");
     Parser parser(&source);
@@ -732,20 +751,17 @@ two
 
 TEST(Parser, MemberAccess) {
     auto source = std::istringstream("mymstruct.item");
-    Parser parser(&source);
-    ASSERT_EQ(parser.Parse()->body.front()->type, NodeType::MEMBER);
+    NodeUptr stmt = GetStmt(&source);
+
+    ASSERT_EQ(StripWrapperExpr(&stmt)->type, NodeType::MEMBER);
 
     source = std::istringstream("mystruct?.item");
-    parser = Parser(&source);
-    ASSERT_EQ(parser.Parse()->body.front()->type, NodeType::MEMBER_SAFE);
-
-    source = std::istringstream("mystruct!.item.subitem");
-    parser = Parser(&source);
-    ASSERT_EQ(parser.Parse()->body.front()->type, NodeType::MEMBER);
+    stmt = GetStmt(&source);
+    ASSERT_EQ(StripWrapperExpr(&stmt)->type, NodeType::MEMBER);
+    ASSERT_TRUE(CastNode<Member>(StripWrapperExpr(&stmt))->safe);
 
     source = std::istringstream("mystruct?.");
-    parser = Parser(&source);
-    EXPECT_THROW(parser.Parse(), SyntaxException);
+    EXPECT_THROW(GetStmt(&source), SyntaxException);
 }
 
 TEST(Parser, Subscript) {

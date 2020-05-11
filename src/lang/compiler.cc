@@ -211,7 +211,7 @@ void Compiler::CompileAssignment(const ast::Assignment *assign) {
         this->EmitOp2(OpCodes::STGBL, sym->id);
     } else if (assign->assignee->type == NodeType::SUBSCRIPT) {
         this->CompileSubscr(CastNode<Binary>(assign->assignee), assign->right);
-    } else if (assign->assignee->type == NodeType::MEMBER || assign->assignee->type == NodeType::MEMBER_SAFE) {
+    } else if (assign->assignee->type == NodeType::MEMBER) {
 
     }
 }

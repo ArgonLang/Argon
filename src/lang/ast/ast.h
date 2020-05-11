@@ -43,7 +43,7 @@ namespace lang::ast {
         LOOP,
         MAP,
         MEMBER,
-        MEMBER_SAFE,
+        NULLABLE,
         PROGRAM,
         RELATIONAL,
         RETURN,
@@ -360,6 +360,16 @@ namespace lang::ast {
             this->body = std::move(body);
             this->end = this->body->end;
         }
+    };
+
+    struct Member : Node {
+        NodeUptr left;
+        NodeUptr right;
+        bool safe;
+
+        explicit Member(NodeUptr left, NodeUptr right, bool safe) : Node(NodeType::MEMBER, left->start, right->end),
+                                                                    left(std::move(left)), right(std::move(right)),
+                                                                    safe(safe) {}
     };
 
     struct Program : NodeDoc {
