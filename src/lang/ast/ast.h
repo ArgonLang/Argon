@@ -218,13 +218,6 @@ namespace lang::ast {
         }
     };
 
-    struct Expression : Node {
-        NodeUptr expr;
-
-        explicit Expression(NodeUptr expr) : Node(NodeType::EXPRESSION, expr->start, expr->end),
-                                             expr(std::move(expr)) {}
-    };
-
     struct For : Node {
         NodeUptr init;
         NodeUptr test;

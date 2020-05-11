@@ -301,7 +301,7 @@ void Compiler::CompileCode(const ast::NodeUptr &node) {
             this->DecEvalStack(1);
             break;
         case NodeType::EXPRESSION:
-            this->CompileCode(CastNode<Expression>(node)->expr);
+            this->CompileCode(CastNode<Unary>(node)->expr);
             this->EmitOp(OpCodes::POP);
             this->DecEvalStack(1);
             break;

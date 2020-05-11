@@ -447,8 +447,9 @@ ast::NodeUptr Parser::Statement() {
         }
     } else {
         tmp = this->Expression();
+        start = tmp->start;
         if (tmp->type != NodeType::ASSIGN)
-            tmp = std::make_unique<ast::Expression>(std::move(tmp));
+            tmp = std::make_unique<ast::Unary>(NodeType::EXPRESSION, std::move(tmp), start);
     }
 
     if (label)

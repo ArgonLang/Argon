@@ -17,14 +17,8 @@ NodeUptr GetStmt(std::istream *src) {
 
 NodeUptr &StripWrapperExpr(NodeUptr *node) {
     NodeUptr *curr = node;
-    while (true) {
-        if (curr->get()->type == NodeType::EXPRESSION)
-            curr = &((Expression *) curr->get())->expr;
-        else if (curr->get()->type == NodeType::NULLABLE)
-            curr = &((Unary *) curr->get())->expr;
-        else
-            break;
-    }
+    while (curr->get()->type == NodeType::EXPRESSION || curr->get()->type == NodeType::NULLABLE)
+        curr = &((Unary *) curr->get())->expr;
 
     return *curr;
 }
