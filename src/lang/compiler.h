@@ -31,6 +31,8 @@ namespace lang {
 
         bool PushStatic(argon::object::ArObject *obj, bool store, bool emit_op, unsigned int *out_idx);
 
+        bool PushStatic(const std::string &value, bool emit_op, unsigned int *out_idx);
+
         argon::object::Code *Assemble();
 
         argon::object::Function *AssembleFunction(const ast::Function *function);
@@ -52,6 +54,8 @@ namespace lang {
         void CompileLiteral(const ast::Literal *literal);
 
         void CompileLoop(const ast::Loop *loop);
+
+        void CompileMember(const ast::Member *member);
 
         void CompileSlice(const ast::Slice *slice);
 

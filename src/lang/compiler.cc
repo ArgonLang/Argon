@@ -108,6 +108,18 @@ bool Compiler::PushStatic(ArObject *obj, bool store, bool emit_op, unsigned int 
     return ok;
 }
 
+bool Compiler::PushStatic(const std::string &value, bool emit_op, unsigned int *out_idx) {
+    ArObject *tmp;
+
+    if ((tmp = StringNew(value)) == nullptr)
+        return false;
+
+    bool ok = this->PushStatic(tmp, true, emit_op, out_idx);
+    Release(tmp);
+
+    return ok;
+}
+
 Code *Compiler::Assemble() {
     auto buffer = (unsigned char *) argon::memory::Alloc(this->cu_curr_->instr_sz);
     size_t offset = 0;
@@ -279,7 +291,10 @@ void Compiler::CompileCode(const ast::NodeUptr &node) {
     BasicBlock *tmp;
     unsigned int stack_sz_tmp;
 
-    switch (node->type){
+    switch (node->type) {
+        case NodeType::MEMBER:
+            this->CompileMember(CastNode<Member>(node));
+            break;
         case NodeType::SUBSCRIPT:
             this->CompileSubscr(CastNode<Binary>(node), nullptr);
             break;
@@ -299,6 +314,13 @@ void Compiler::CompileCode(const ast::NodeUptr &node) {
             this->CompileCode(CastNode<Unary>(node)->expr);
             this->EmitOp(OpCodes::RET);
             this->DecEvalStack(1);
+            break;
+        case NodeType::NULLABLE:
+            tmp = this->NewBlock();
+            this->cu_curr_->nullable_stack.push_back(tmp);
+            this->CompileCode(CastNode<Unary>(node)->expr);
+            this->cu_curr_->nullable_stack.pop_back();
+            this->UseAsNextBlock(tmp);
             break;
         case NodeType::EXPRESSION:
             this->CompileCode(CastNode<Unary>(node)->expr);
@@ -606,6 +628,39 @@ void Compiler::CompileLoop(const ast::Loop *loop) {
     this->EmitOp4(OpCodes::JMP, 0);
     this->cu_curr_->bb_curr->flow_else = head;
     this->UseAsNextBlock(last);
+}
+
+void Compiler::CompileMember(const ast::Member *member) {
+    bool safe;
+    unsigned int index;
+
+    this->CompileCode(member->left);
+
+    while (member->right->type == NodeType::MEMBER) {
+        safe = member->safe;
+        member = CastNode<Member>(member->right);
+
+        if (!this->PushStatic(CastNode<Identifier>(member->left)->value, false, &index))
+            throw MemoryException("CompileMember: PushStatic");
+
+        if (safe) {
+            this->EmitOp4(OpCodes::JNIL, 0);
+            this->cu_curr_->bb_curr->flow_else = this->cu_curr_->nullable_stack.back();
+            this->NewNextBlock();
+        }
+        this->EmitOp2(OpCodes::LDATTR, index);
+    }
+
+    if (!this->PushStatic(CastNode<Identifier>(member->right)->value, false, &index))
+        throw MemoryException("CompileMember: PushStatic");
+
+    if (member->safe) {
+        this->EmitOp4(OpCodes::JNIL, 0);
+        this->cu_curr_->bb_curr->flow_else = this->cu_curr_->nullable_stack.back();
+        this->NewNextBlock();
+    }
+
+    this->EmitOp2(OpCodes::LDATTR, index);
 }
 
 void Compiler::CompileSlice(const ast::Slice *slice) {

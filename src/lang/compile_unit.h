@@ -23,6 +23,7 @@ namespace lang {
         argon::object::List *deref;
 
         std::vector<BasicBlock *> bb_splist;
+        std::vector<BasicBlock *> nullable_stack;
 
         BasicBlock *bb_start = nullptr;
         BasicBlock *bb_list = nullptr;

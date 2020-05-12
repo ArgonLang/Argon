@@ -29,9 +29,11 @@ namespace lang {
         JF,     // JUMP_FALSE
         JFOP,   // JUMP_FALSE_OR_POP
         JMP,    // JUMP
+        JNIL,   // JUMP IF NIL
         JT,     // JUMP_TRUE
         JTOP,   // JUMP_TRUE_OR_POP
         LAND,
+        LDATTR,
         LDENC,
         LDGBL,
         LDLC,
