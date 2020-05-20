@@ -7,6 +7,23 @@
 
 #include <atomic>
 
+#include <memory/memory.h>
+
+/*
+ *    +------------- Overflow flag
+ *    |
+ *    |              Inline flag -------+
+ *    |                                 |
+ *    |              Static flag ---+   |
+ *    |                             |   |
+ *    v                             v   v
+ *    +-+-+-----------------------+-+-+-+-+
+ *    |   | Strong inline counter |   |   |
+ * +  +---+-----------------------+---+---+  +
+ * |                                         |
+ * +------------+ uintptr_t +----------------+
+ */
+
 namespace argon::object {
 
     struct BitOffsets {
@@ -85,7 +102,58 @@ namespace argon::object {
     };
 
     class RefCount {
-        std::atomic<RefBits> bits_;
+        std::atomic<RefBits> bits_{};
+    public:
+        RefCount() = default;
+
+        explicit RefCount(uintptr_t status) {
+            this->bits_.store(RefBits(status), std::memory_order_consume);
+        }
+
+        void IncStrong() {
+            RefBits current = this->bits_.load(std::memory_order_consume);
+            RefBits desired = {};
+
+            if (current.IsStatic())
+                return;
+
+            do {
+                desired = current;
+
+                if (!desired.IsInlineCounter()) {
+                    desired.GetSideTable()->strong_++;
+                    return;
+                }
+
+                if (desired.Increment()) {
+                    // Inline counter overflow
+                    // TODO: ??
+                    return;
+                }
+            } while (!this->bits_.compare_exchange_weak(current, desired, std::memory_order_relaxed));
+        }
+
+        bool DecStrong() {
+            RefBits current = this->bits_.load(std::memory_order_consume);
+            RefBits desired = {};
+            bool release;
+
+            if (current.IsStatic())
+                return false;
+
+            do {
+                desired = current;
+
+                if (!desired.IsInlineCounter()) {
+                    // TODO: ??
+                    return false;
+                }
+
+                release = desired.Decrement();
+            } while (!this->bits_.compare_exchange_weak(current, desired, std::memory_order_relaxed));
+
+            return release;
+        }
     };
 
 } // namespace argon::object
