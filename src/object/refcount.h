@@ -7,6 +7,7 @@
 
 #include <atomic>
 
+#include "object.h"
 #include <memory/memory.h>
 
 /*
@@ -51,11 +52,12 @@ namespace argon::object {
     struct SideTable {
         std::atomic_uintptr_t strong_;
         std::atomic_uintptr_t weak_;
-        // TODO: ArObject
+
+        ArObject *object;
     };
 
-#define ARGON_OBJECT_REFCOUNT_INLINE 0x01
-#define ARGON_OBJECT_REFCOUNT_STATIC 0x02
+#define ARGON_OBJECT_REFCOUNT_INLINE    ((unsigned char)0x04 | (unsigned char)0x01)
+#define ARGON_OBJECT_REFCOUNT_STATIC    0x02
 
     class RefBits {
         uintptr_t bits_;
@@ -103,6 +105,32 @@ namespace argon::object {
 
     class RefCount {
         std::atomic<RefBits> bits_{};
+
+        SideTable *AllocOrGetSideTable() {
+            RefBits current = this->bits_.load(std::memory_order_consume);
+            SideTable *side;
+
+            assert(!current.IsStatic());
+
+            if (!current.IsInlineCounter())
+                return current.GetSideTable();
+
+            side = (SideTable *) argon::memory::Alloc(sizeof(SideTable));
+            side->strong_.store(current.GetStrong());
+            side->weak_.store(1);
+
+            RefBits desired((uintptr_t) side);
+            do {
+                if (!current.IsInlineCounter()) {
+                    argon::memory::Free(side);
+                    side = current.GetSideTable();
+                    break;
+                }
+            } while (!this->bits_.compare_exchange_weak(current, desired, std::memory_order_release,
+                                                        std::memory_order_relaxed));
+            return side;
+        }
+
     public:
         RefCount() = default;
 
@@ -121,16 +149,24 @@ namespace argon::object {
                 desired = current;
 
                 if (!desired.IsInlineCounter()) {
-                    desired.GetSideTable()->strong_++;
+                    assert(desired.GetSideTable()->strong_.fetch_add(1) != 0);
                     return;
                 }
 
+                assert(desired.GetStrong() > 0);
+
                 if (desired.Increment()) {
                     // Inline counter overflow
-                    // TODO: ??
+                    this->AllocOrGetSideTable()->strong_++;
                     return;
                 }
             } while (!this->bits_.compare_exchange_weak(current, desired, std::memory_order_relaxed));
+        }
+
+        uintptr_t IncWeak() {
+            auto side = this->AllocOrGetSideTable();
+            side->weak_++;
+            return (uintptr_t) side;
         }
 
         bool DecStrong() {
@@ -145,7 +181,16 @@ namespace argon::object {
                 desired = current;
 
                 if (!desired.IsInlineCounter()) {
-                    // TODO: ??
+                    auto side = desired.GetSideTable();
+
+                    if (side->strong_.fetch_sub(1) == 1) {
+                        // ArObject can be destroyed
+                        if (side->weak_.fetch_sub(1) == 1) {
+                            // No weak ref! SideTable can be destroyed
+                            argon::memory::Free(side);
+                        }
+                        return true;
+                    }
                     return false;
                 }
 
@@ -153,6 +198,19 @@ namespace argon::object {
             } while (!this->bits_.compare_exchange_weak(current, desired, std::memory_order_relaxed));
 
             return release;
+        }
+
+        bool DecWeak() {
+            RefBits current = this->bits_.load(std::memory_order_consume);
+            assert(!current.IsInlineCounter());
+
+            auto side = current.GetSideTable();
+            auto weak = side->weak_.fetch_sub(1);
+
+            if (weak == 1)
+                argon::memory::Free(side);
+
+            return weak <= 2;
         }
     };
 

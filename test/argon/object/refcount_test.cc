@@ -10,12 +10,17 @@ using namespace argon::object;
 
 TEST(RefCount, InlineCounter) {
     RefCount ref(ARGON_OBJECT_REFCOUNT_INLINE);
-    ref.IncStrong();
     ASSERT_TRUE(ref.DecStrong());
 }
 
 TEST(RefCount, StaticResource) {
     RefCount ref(ARGON_OBJECT_REFCOUNT_STATIC);
-    ref.IncStrong();
     ASSERT_FALSE(ref.DecStrong());
+}
+
+TEST(RefCount, WeakInc) {
+    RefCount strong(ARGON_OBJECT_REFCOUNT_INLINE);
+    RefCount weak(strong.IncWeak());
+    ASSERT_TRUE(strong.DecStrong());
+    ASSERT_TRUE(weak.DecWeak());
 }
