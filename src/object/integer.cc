@@ -142,7 +142,7 @@ const TypeInfo argon::object::type_integer_ = {
 Integer *argon::object::IntegerNew(long number) {
     auto integer = (Integer *) argon::memory::Alloc(sizeof(Integer));
     assert(integer != nullptr);
-    integer->strong_or_ref = 1;
+    integer->ref_count =  ARGON_OBJECT_REFCOUNT_INLINE;
     integer->type = &type_integer_;
     integer->integer = number;
     return integer;
@@ -151,7 +151,7 @@ Integer *argon::object::IntegerNew(long number) {
 Integer *argon::object::IntegerNewFromString(const std::string &string, int base) {
     auto integer = (Integer *) argon::memory::Alloc(sizeof(Integer));
     assert(integer != nullptr);
-    integer->strong_or_ref = 1;
+    integer->ref_count =  ARGON_OBJECT_REFCOUNT_INLINE;
     integer->type = &type_integer_;
     integer->integer = std::strtol(string.c_str(), nullptr, base);
     return integer;

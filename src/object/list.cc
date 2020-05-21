@@ -90,7 +90,7 @@ List *argon::object::ListNew() {
 List *argon::object::ListNew(size_t cap) {
     assert(cap > 0);
     auto list = (List *) Alloc(sizeof(List));
-    list->strong_or_ref = 1;
+    list->ref_count =  ARGON_OBJECT_REFCOUNT_INLINE;
     list->type = &type_list_;
 
     list->objects = (ArObject **) Alloc(cap * sizeof(ArObject *));

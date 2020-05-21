@@ -49,7 +49,7 @@ Function *argon::object::FunctionNew(Code *code, unsigned short arity) {
     auto fn = (Function *) Alloc(sizeof(Function));
 
     if (fn != nullptr) {
-        fn->strong_or_ref = 1;
+        fn->ref_count = ARGON_OBJECT_REFCOUNT_INLINE;
         fn->type = &type_function_;
 
         IncRef(code);
@@ -67,7 +67,7 @@ Function *argon::object::FunctionNew(const Function *func, unsigned short curryi
     auto fn = (Function *) Alloc(sizeof(Function));
 
     if (fn != nullptr) {
-        fn->strong_or_ref = 1;
+        fn->ref_count =  ARGON_OBJECT_REFCOUNT_INLINE;
         fn->type = &type_function_;
 
         CloneFn(fn, func);
@@ -85,7 +85,7 @@ Function *argon::object::FunctionNew(const Function *func, argon::object::List *
     auto fn = (Function *) Alloc(sizeof(Function));
 
     if (fn != nullptr) {
-        fn->strong_or_ref = 1;
+        fn->ref_count =  ARGON_OBJECT_REFCOUNT_INLINE;
         fn->type = &type_function_;
 
         CloneFn(fn, func);

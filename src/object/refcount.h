@@ -5,9 +5,9 @@
 #ifndef ARGON_OBJECT_REFCOUNT_H_
 #define ARGON_OBJECT_REFCOUNT_H_
 
+#include <cassert>
 #include <atomic>
 
-#include "object.h"
 #include <memory/memory.h>
 
 /*
@@ -53,11 +53,8 @@ namespace argon::object {
         std::atomic_uintptr_t strong_;
         std::atomic_uintptr_t weak_;
 
-        ArObject *object;
+        class ArObject *object;
     };
-
-#define ARGON_OBJECT_REFCOUNT_INLINE    ((unsigned char)0x04 | (unsigned char)0x01)
-#define ARGON_OBJECT_REFCOUNT_STATIC    0x02
 
     class RefBits {
         uintptr_t bits_;
@@ -103,6 +100,9 @@ namespace argon::object {
 #undef GET_FIELD
     };
 
+#define ARGON_OBJECT_REFCOUNT_INLINE    argon::object::RefBits((unsigned char)0x04 | (unsigned char)0x01)
+#define ARGON_OBJECT_REFCOUNT_STATIC    argon::object::RefBits(0x02)
+
     class RefCount {
         std::atomic<RefBits> bits_{};
 
@@ -134,8 +134,8 @@ namespace argon::object {
     public:
         RefCount() = default;
 
-        explicit RefCount(uintptr_t status) {
-            this->bits_.store(RefBits(status), std::memory_order_consume);
+        explicit RefCount(RefBits status) {
+            this->bits_.store(status, std::memory_order_consume);
         }
 
         void IncStrong() {
@@ -163,10 +163,10 @@ namespace argon::object {
             } while (!this->bits_.compare_exchange_weak(current, desired, std::memory_order_relaxed));
         }
 
-        uintptr_t IncWeak() {
+        RefBits IncWeak() {
             auto side = this->AllocOrGetSideTable();
             side->weak_++;
-            return (uintptr_t) side;
+            return RefBits((uintptr_t) side);
         }
 
         bool DecStrong() {
@@ -211,6 +211,11 @@ namespace argon::object {
                 argon::memory::Free(side);
 
             return weak <= 2;
+        }
+
+        RefCount &operator=(RefBits status) {
+            this->bits_.store(status);
+            return *this;
         }
     };
 

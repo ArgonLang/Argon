@@ -68,7 +68,7 @@ Code *argon::object::CodeNew(const unsigned char *instr,
                              argon::object::List *deref) {
     auto code = (Code *) Alloc(sizeof(Code));
     assert(code != nullptr);
-    code->strong_or_ref = 1;
+    code->ref_count = ARGON_OBJECT_REFCOUNT_INLINE;
     code->type = &type_code_;
 
     code->instr = instr;

@@ -22,7 +22,7 @@ const TypeInfo type_not_implemented_ = {
 
 NotImplemented *NotImplementedNew() noexcept {
     static NotImplemented ni;
-    ni.strong_or_ref = 1;
+    ni.ref_count =  ARGON_OBJECT_REFCOUNT_STATIC;
     ni.type = &type_not_implemented_;
     return &ni;
 }

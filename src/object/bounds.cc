@@ -26,7 +26,7 @@ Bounds *argon::object::BoundsNew(arsize start, arsize stop, arsize step) {
     auto bounds = (Bounds *) Alloc(sizeof(Bounds));
 
     if (bounds != nullptr) {
-        bounds->strong_or_ref = 1;
+        bounds->ref_count =  ARGON_OBJECT_REFCOUNT_INLINE;
         bounds->type = &type_bounds_;
 
         bounds->start = start;

@@ -76,7 +76,7 @@ const TypeInfo argon::object::type_string_ = {
 String *argon::object::StringNew(const std::string &string) {
     auto str = (String *) argon::memory::Alloc(sizeof(String));
     assert(str != nullptr);
-    str->strong_or_ref = 1;
+    str->ref_count =  ARGON_OBJECT_REFCOUNT_INLINE;
     str->type = &type_string_;
 
     str->buffer = (unsigned char *) argon::memory::Alloc(string.length());

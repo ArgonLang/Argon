@@ -64,7 +64,7 @@ Tuple *argon::object::TupleNew(size_t len) {
     auto tuple = (Tuple *) argon::memory::Alloc(sizeof(Tuple));
 
     if (tuple != nullptr) {
-        tuple->strong_or_ref = 1;
+        tuple->ref_count = ARGON_OBJECT_REFCOUNT_INLINE;
         tuple->type = &type_tuple_;
 
         tuple->len = len;
@@ -90,7 +90,7 @@ Tuple *argon::object::TupleNew(const ArObject *sequence) {
 
     assert(tuple != nullptr);
 
-    tuple->strong_or_ref = 1;
+    tuple->ref_count =  ARGON_OBJECT_REFCOUNT_INLINE;
     tuple->type = &type_tuple_;
 
     if (IsSequence(sequence)) {
