@@ -2,7 +2,9 @@
 //
 // Licensed under the Apache License v2.0
 
+#include "object.h"
 #include "refcount.h"
+#include "nil.h"
 
 using namespace argon::object;
 using namespace argon::memory;
@@ -27,6 +29,7 @@ SideTable *RefCount::AllocOrGetSideTable() {
     side = (SideTable *) Alloc(sizeof(SideTable));
     side->strong_.store(current.GetStrong());
     side->weak_.store(1);
+    side->object = this->GetObjectBase();
 
     RefBits desired((uintptr_t) side);
     do {
@@ -38,6 +41,12 @@ SideTable *RefCount::AllocOrGetSideTable() {
     } while (!this->bits_.compare_exchange_weak(current, desired, std::memory_order_release,
                                                 std::memory_order_relaxed));
     return side;
+}
+
+ArObject *RefCount::GetObjectBase() {
+    auto obj = (ArObject *) this;
+    assert(((void *) obj == &(obj->ref_count)) && "RefCount must be FIRST field in ArObject structure!");
+    return obj;
 }
 
 void RefCount::IncStrong() {
@@ -113,4 +122,20 @@ bool RefCount::DecWeak() {
         Free(side);
 
     return weak <= 2;
+}
+
+ArObject *RefCount::GetObject() {
+    RefBits current = this->bits_.load(std::memory_order_consume);
+
+    if (current.IsInlineCounter())
+        return this->GetObjectBase();
+
+    auto side = current.GetSideTable();
+    if (side->strong_.fetch_add(1) == 0) {
+        side->strong_--;
+        IncRef(NilVal);
+        return NilVal;
+    }
+
+    return side->object;
 }

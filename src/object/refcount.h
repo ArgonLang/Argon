@@ -108,6 +108,8 @@ namespace argon::object {
 
         SideTable *AllocOrGetSideTable();
 
+        class ArObject *GetObjectBase();
+
     public:
         RefCount() = default;
 
@@ -122,6 +124,8 @@ namespace argon::object {
         bool DecStrong();
 
         bool DecWeak();
+
+        class ArObject *GetObject();
     };
 
 } // namespace argon::object
