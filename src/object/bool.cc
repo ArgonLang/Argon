@@ -36,7 +36,7 @@ const TypeInfo type_bool_ = {
 Bool *BoolNew(bool value) noexcept {
     auto boolean = (Bool *) argon::memory::Alloc(sizeof(Bool));
     assert(boolean != nullptr);
-    boolean->strong_or_ref = 1;
+    boolean->ref_count = ARGON_OBJECT_REFCOUNT_STATIC;
     boolean->type = &type_bool_;
     boolean->value = value;
     return boolean;

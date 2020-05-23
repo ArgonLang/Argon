@@ -50,7 +50,7 @@ Module *argon::object::ModuleNew(const std::string &name) {
     auto module = (Module *) Alloc(sizeof(Module));
 
     if (module != nullptr) {
-        module->strong_or_ref = 1;
+        module->ref_count =  ARGON_OBJECT_REFCOUNT_INLINE;
         module->type = &type_module_;
 
         if ((module->name = StringNew(name)) == nullptr) {

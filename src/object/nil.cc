@@ -36,7 +36,7 @@ const TypeInfo type_nil_ = {
 Nil *NilNew() noexcept {
     auto nil = (Nil *) argon::memory::Alloc(sizeof(Nil));
     assert(nil != nullptr);
-    nil->strong_or_ref = 1;
+    nil->ref_count = ARGON_OBJECT_REFCOUNT_STATIC;
     nil->type = &type_nil_;
     return nil;
 }

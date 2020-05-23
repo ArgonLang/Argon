@@ -8,6 +8,7 @@
 #include <atomic>
 
 #include <memory/memory.h>
+#include "refcount.h"
 
 namespace argon::object {
     enum class CompareMode : unsigned char {
@@ -105,7 +106,7 @@ namespace argon::object {
 
 
     struct ArObject {
-        std::atomic_uintptr_t strong_or_ref;
+        RefCount ref_count;
         const TypeInfo *type;
     };
 
@@ -129,12 +130,12 @@ namespace argon::object {
         return false;
     }
 
-    inline void IncRef(ArObject *obj) { obj->strong_or_ref++; };
+    inline void IncRef(ArObject *obj) { obj->ref_count.IncStrong(); };
 
     inline void Release(ArObject *obj) {
         if (obj == nullptr)
             return;
-        if (obj->strong_or_ref.fetch_sub(1) == 1) {
+        if (obj->ref_count.DecStrong()) {
             if (obj->type->cleanup != nullptr)
                 obj->type->cleanup(obj);
             argon::memory::Free(obj);
