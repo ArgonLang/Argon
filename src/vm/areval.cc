@@ -247,6 +247,12 @@ void ArgonVM::Eval(ArRoutine *routine) {
             TARGET_OP(JMP) {
                 JUMPTO(I32Arg(frame->instr_ptr));
             }
+            TARGET_OP(JNIL) {
+                if (TOP() == NilVal) {
+                    JUMPTO(I32Arg(frame->instr_ptr));
+                }
+                DISPATCH4();
+            }
             TARGET_OP(JT) {
                 if (IsTrue(TOP())) {
                     POP();
