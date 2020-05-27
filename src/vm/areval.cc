@@ -275,8 +275,8 @@ void ArgonVM::Eval(ArRoutine *routine) {
                 assert(code->names != nullptr);
                 ret = TupleGetItem(code->names, I16Arg(frame->instr_ptr));
 
-                assert(!MapContains((Map *) frame->globals, ret)); // Double declaration, compiler error!
-                if (!MapInsert((Map *) frame->globals, ret, TOP())) {
+                assert(!NamespaceContains(frame->globals, ret, nullptr)); // Double declaration, compiler error!
+                if (!NamespaceNewSymbol(frame->globals, PropertyInfo(0), ret, TOP())) {
                     Release(ret);
                     goto error; // todo: memory error!
                 }
@@ -298,12 +298,12 @@ void ArgonVM::Eval(ArRoutine *routine) {
                 assert(code->names != nullptr);
                 ret = TupleGetItem(code->names, I16Arg(frame->instr_ptr));
 
-                if (!MapContains((Map *) frame->globals, ret)) {
+                if (!NamespaceContains(frame->globals, ret, nullptr)) {
                     Release(ret);
                     goto error; // todo: Unknown variable
                 }
 
-                MapInsert((Map *) frame->globals, ret, TOP());
+                NamespaceSetValue(frame->globals, ret, TOP());
                 Release(ret);
                 POP();
                 DISPATCH2();
@@ -349,7 +349,7 @@ void ArgonVM::Eval(ArRoutine *routine) {
                 assert(code->names != nullptr);
                 ArObject *key = TupleGetItem(code->names, I16Arg(frame->instr_ptr));
 
-                ret = MapGet((Map *) frame->globals, key);
+                ret = NamespaceGetValue(frame->globals, key, nullptr);
                 Release(key);
 
                 if (ret == nullptr)
