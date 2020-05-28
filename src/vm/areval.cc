@@ -273,17 +273,17 @@ void ArgonVM::Eval(ArRoutine *routine) {
 
             TARGET_OP(NGV) {
                 assert(code->names != nullptr);
-                ret = TupleGetItem(code->names, I16Arg(frame->instr_ptr));
+                ret = TupleGetItem(code->names, I16Arg(frame->instr_ptr)); // I16 extract arg bit
 
                 assert(!NamespaceContains(frame->globals, ret, nullptr)); // Double declaration, compiler error!
-                if (!NamespaceNewSymbol(frame->globals, PropertyInfo(0), ret, TOP())) {
+                if (!NamespaceNewSymbol(frame->globals, PropertyInfo(I32Arg(frame->instr_ptr) >> 16), ret, TOP())) {
                     Release(ret);
                     goto error; // todo: memory error!
                 }
 
                 Release(ret);
                 POP();
-                DISPATCH2();
+                DISPATCH4();
             }
             TARGET_OP(NLV) {
                 IncRef(TOP());
@@ -296,17 +296,23 @@ void ArgonVM::Eval(ArRoutine *routine) {
 
             TARGET_OP(STGBL) {
                 assert(code->names != nullptr);
+                PropertyInfo info;
                 ret = TupleGetItem(code->names, I16Arg(frame->instr_ptr));
 
-                if (!NamespaceContains(frame->globals, ret, nullptr)) {
+                if (!NamespaceContains(frame->globals, ret, &info)) {
                     Release(ret);
                     goto error; // todo: Unknown variable
+                }
+
+                if(info.IsConstant()){
+                    Release(ret);
+                    goto error; // todo: Constant!
                 }
 
                 NamespaceSetValue(frame->globals, ret, TOP());
                 Release(ret);
                 POP();
-                DISPATCH2();
+                DISPATCH4();
             }
             TARGET_OP(STLC) {
                 assert(frame->locals != nullptr);
@@ -356,7 +362,7 @@ void ArgonVM::Eval(ArRoutine *routine) {
                     goto error; // todo: Unknown variable
 
                 PUSH(ret);
-                DISPATCH2();
+                DISPATCH4();
             }
             TARGET_OP(LDLC) {
                 assert(frame->locals != nullptr);

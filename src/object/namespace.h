@@ -12,9 +12,9 @@
 #define ARGON_OBJECT_NS_MUL_FACTOR     (ARGON_OBJECT_NS_LOAD_FACTOR * 2)
 
 
-#define ARGON_OBJECT_NS_PROP_PUB    0x01
-#define ARGON_OBJECT_NS_PROP_CONST  0x01<<(unsigned char)1
-#define ARGON_OBJECT_NS_PROP_WEAK   0x01<<(unsigned char)2
+#define ARGON_OBJECT_NS_PROP_PUB    (unsigned char) 0x01
+#define ARGON_OBJECT_NS_PROP_CONST  (unsigned char)((unsigned char) 0x01 << (unsigned char) 1)
+#define ARGON_OBJECT_NS_PROP_WEAK   (unsigned char)((unsigned char) 0x01 << (unsigned char) 2)
 
 namespace argon::object {
     class PropertyInfo {

@@ -142,6 +142,8 @@ bool argon::object::NamespaceNewSymbol(Namespace *ns, PropertyInfo info, ArObjec
         ns->len++;
     }
 
+    entry->info = info;
+
     if (entry->info.IsWeak()) {
         entry->ref = value->ref_count.IncWeak();
         return true;

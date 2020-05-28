@@ -79,6 +79,8 @@ namespace lang {
 
         void EmitOp4(OpCodes code, unsigned int arg);
 
+        void EmitOp4Flags(OpCodes code, unsigned char flags, unsigned short arg);
+
         void EnterScope(const std::string &scope_name, CUScope scope);
 
         void ExitScope();
@@ -87,7 +89,7 @@ namespace lang {
 
         void LoadVariable(const std::string &name);
 
-        void NewVariable(const std::string &name, bool emit_op);
+        void NewVariable(const std::string &name, bool emit_op, unsigned char flags);
 
         void UseAsNextBlock(BasicBlock *block);
 
