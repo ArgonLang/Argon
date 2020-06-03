@@ -5,6 +5,7 @@
 #ifndef ARGON_VM_FRAME_H_
 #define ARGON_VM_FRAME_H_
 
+#include <object/namespace.h>
 #include <object/code.h>
 
 namespace argon::vm {
@@ -13,7 +14,7 @@ namespace argon::vm {
         Frame *back;
 
         /* Pointer to global namespace */
-        object::ArObject *globals;
+        object::Namespace *globals;
 
         /* Code being executed in this frame */
         object::Code *code;

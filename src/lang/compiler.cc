@@ -10,6 +10,7 @@
 #include <object/bool.h>
 #include <object/code.h>
 #include <object/function.h>
+#include <object/namespace.h>
 
 #include "compiler.h"
 #include "parser.h"
@@ -18,6 +19,17 @@ using namespace lang;
 using namespace lang::ast;
 using namespace lang::symbol_table;
 using namespace argon::object;
+
+inline unsigned char AttrToFlags(bool pub, bool constant, bool weak) {
+    unsigned char flags = 0;
+    if (pub)
+        flags |= ARGON_OBJECT_NS_PROP_PUB;
+    if (constant)
+        flags |= ARGON_OBJECT_NS_PROP_CONST;
+    if (weak)
+        flags |= ARGON_OBJECT_NS_PROP_WEAK;
+    return flags;
+}
 
 Compiler::Compiler() {
     this->statics_global = MapNew();
@@ -166,7 +178,7 @@ argon::object::Function *Compiler::AssembleFunction(const ast::Function *functio
 
     for (auto &param: function->params) {
         auto id = CastNode<Identifier>(param);
-        this->NewVariable(id->value, false);
+        this->NewVariable(id->value, false, 0);
         variadic = id->rest_element;
     }
 
@@ -211,7 +223,7 @@ void Compiler::CompileAssignment(const ast::Assignment *assign) {
             ListAppend(this->cu_curr_->names, id);
             Release(id);
 
-            this->EmitOp2(OpCodes::STGBL, sym->id);
+            this->EmitOp4(OpCodes::STGBL, sym->id);
             return;
         }
 
@@ -220,7 +232,7 @@ void Compiler::CompileAssignment(const ast::Assignment *assign) {
             return;
         }
 
-        this->EmitOp2(OpCodes::STGBL, sym->id);
+        this->EmitOp4(OpCodes::STGBL, sym->id);
     } else if (assign->assignee->type == NodeType::SUBSCRIPT) {
         this->CompileSubscr(CastNode<Binary>(assign->assignee), assign->right);
     } else if (assign->assignee->type == NodeType::MEMBER) {
@@ -325,6 +337,12 @@ void Compiler::CompileCode(const ast::NodeUptr &node) {
         case NodeType::EXPRESSION:
             this->CompileCode(CastNode<Unary>(node)->expr);
             this->EmitOp(OpCodes::POP);
+            this->DecEvalStack(1);
+            break;
+        case NodeType::CONSTANT:
+            this->CompileCode(CastNode<Constant>(node)->value);
+            this->NewVariable(CastNode<Constant>(node)->name, true,
+                              AttrToFlags(CastNode<Constant>(node)->pub, true, false));
             this->DecEvalStack(1);
             break;
         case NodeType::VARIABLE:
@@ -532,7 +550,7 @@ void Compiler::CompileFunction(const ast::Function *function) {
     }
 
     if (!function->id.empty()) {
-        this->NewVariable(function->id, true);
+        this->NewVariable(function->id, true, 0);
         this->DecEvalStack(1);
     }
 }
@@ -826,7 +844,7 @@ void Compiler::CompileUnaryExpr(const ast::Unary *unary) {
 
 void Compiler::CompileVariable(const ast::Variable *variable) {
     this->CompileCode(variable->value);
-    this->NewVariable(variable->name, true);
+    this->NewVariable(variable->name, true, AttrToFlags(variable->pub, false, variable->weak));
     this->DecEvalStack(1);
 }
 
@@ -859,6 +877,11 @@ void Compiler::EmitOp2(OpCodes code, unsigned char arg) {
 void Compiler::EmitOp4(OpCodes code, unsigned int arg) {
     assert(arg < 0x00FFFFFF); // too many argument!
     this->cu_curr_->bb_curr->AddInstr((Instr32) (arg << (unsigned char) 8) | (Instr8) code);
+}
+
+void Compiler::EmitOp4Flags(OpCodes code, unsigned char flags, unsigned short arg) {
+    Instr32 istr = ((flags << (unsigned char) 24)) | ((unsigned short) (arg << (unsigned char) 8)) | (Instr8) code;
+    this->cu_curr_->bb_curr->AddInstr(istr);
 }
 
 void Compiler::EnterScope(const std::string &scope_name, CUScope scope) {
@@ -924,10 +947,10 @@ void Compiler::LoadVariable(const std::string &name) {
         }
     }
 
-    this->EmitOp2(OpCodes::LDGBL, sym->id);
+    this->EmitOp4(OpCodes::LDGBL, sym->id);
 }
 
-void Compiler::NewVariable(const std::string &name, bool emit_op) {
+void Compiler::NewVariable(const std::string &name, bool emit_op, unsigned char flags) {
     Symbol *sym = this->cu_curr_->symt->Insert(name);
     argon::object::List *dest = this->cu_curr_->names;
 
@@ -946,7 +969,7 @@ void Compiler::NewVariable(const std::string &name, bool emit_op) {
 
     if (this->cu_curr_->scope == CUScope::MODULE && sym->nested == 0) {
         if (emit_op)
-            this->EmitOp2(OpCodes::NGV, known ? sym->id : dest->len);
+            this->EmitOp4Flags(OpCodes::NGV, flags, known ? sym->id : dest->len);
         if (known)
             return;
     } else {

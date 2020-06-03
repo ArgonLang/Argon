@@ -29,14 +29,14 @@ bool InsertID(Module *module, const std::string &id, ArObject *value) {
     if (key == nullptr)
         return false;
 
-    bool ok = MapInsert(module->module_ns, key, value);
+    bool ok = NamespaceNewSymbol(module->module_ns, PropertyInfo(0), key, value);
 
     Release(key);
     return ok;
 }
 
 bool InitGlobals(Module *module) {
-    if ((module->module_ns = MapNew()) != nullptr) {
+    if ((module->module_ns = NamespaceNew()) != nullptr) {
         if (!InsertID(module, "__name", module->name))
             return false;
 
@@ -50,7 +50,7 @@ Module *argon::object::ModuleNew(const std::string &name) {
     auto module = (Module *) Alloc(sizeof(Module));
 
     if (module != nullptr) {
-        module->ref_count =  ARGON_OBJECT_REFCOUNT_INLINE;
+        module->ref_count = ARGON_OBJECT_REFCOUNT_INLINE;
         module->type = &type_module_;
 
         if ((module->name = StringNew(name)) == nullptr) {

@@ -6,12 +6,12 @@
 #define ARGON_OBJECT_MODULE_H_
 
 #include "object.h"
-#include "map.h"
+#include "namespace.h"
 #include "string.h"
 
 namespace argon::object {
     struct Module : ArObject {
-        Map *module_ns;
+        Namespace *module_ns;
         String *name;
     };
 

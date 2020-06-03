@@ -273,17 +273,17 @@ void ArgonVM::Eval(ArRoutine *routine) {
 
             TARGET_OP(NGV) {
                 assert(code->names != nullptr);
-                ret = TupleGetItem(code->names, I16Arg(frame->instr_ptr));
+                ret = TupleGetItem(code->names, I16Arg(frame->instr_ptr)); // I16 extract arg bit
 
-                assert(!MapContains((Map *) frame->globals, ret)); // Double declaration, compiler error!
-                if (!MapInsert((Map *) frame->globals, ret, TOP())) {
+                assert(!NamespaceContains(frame->globals, ret, nullptr)); // Double declaration, compiler error!
+                if (!NamespaceNewSymbol(frame->globals, PropertyInfo(I32Arg(frame->instr_ptr) >> 16), ret, TOP())) {
                     Release(ret);
                     goto error; // todo: memory error!
                 }
 
                 Release(ret);
                 POP();
-                DISPATCH2();
+                DISPATCH4();
             }
             TARGET_OP(NLV) {
                 IncRef(TOP());
@@ -296,17 +296,23 @@ void ArgonVM::Eval(ArRoutine *routine) {
 
             TARGET_OP(STGBL) {
                 assert(code->names != nullptr);
+                PropertyInfo info;
                 ret = TupleGetItem(code->names, I16Arg(frame->instr_ptr));
 
-                if (!MapContains((Map *) frame->globals, ret)) {
+                if (!NamespaceContains(frame->globals, ret, &info)) {
                     Release(ret);
                     goto error; // todo: Unknown variable
                 }
 
-                MapInsert((Map *) frame->globals, ret, TOP());
+                if(info.IsConstant()){
+                    Release(ret);
+                    goto error; // todo: Constant!
+                }
+
+                NamespaceSetValue(frame->globals, ret, TOP());
                 Release(ret);
                 POP();
-                DISPATCH2();
+                DISPATCH4();
             }
             TARGET_OP(STLC) {
                 assert(frame->locals != nullptr);
@@ -349,14 +355,14 @@ void ArgonVM::Eval(ArRoutine *routine) {
                 assert(code->names != nullptr);
                 ArObject *key = TupleGetItem(code->names, I16Arg(frame->instr_ptr));
 
-                ret = MapGet((Map *) frame->globals, key);
+                ret = NamespaceGetValue(frame->globals, key, nullptr);
                 Release(key);
 
                 if (ret == nullptr)
                     goto error; // todo: Unknown variable
 
                 PUSH(ret);
-                DISPATCH2();
+                DISPATCH4();
             }
             TARGET_OP(LDLC) {
                 assert(frame->locals != nullptr);
