@@ -304,7 +304,7 @@ void ArgonVM::Eval(ArRoutine *routine) {
                     goto error; // todo: Unknown variable
                 }
 
-                if(info.IsConstant()){
+                if (info.IsConstant()) {
                     Release(ret);
                     goto error; // todo: Constant!
                 }
@@ -501,6 +501,9 @@ void ArgonVM::Eval(ArRoutine *routine) {
                 es_cur -= args;
                 PUSH(ret);
                 DISPATCH4();
+            }
+            TARGET_OP(MK_TRAIT) {
+                DISPATCH2();
             }
             TARGET_OP(MK_TUPLE) {
                 unsigned int args = I32Arg(frame->instr_ptr);

@@ -65,6 +65,8 @@ namespace lang {
 
         void CompileTest(const ast::Binary *test);
 
+        void CompileTrait(const ast::Construct *trait);
+
         void CompileUnaryExpr(const ast::Unary *unary);
 
         void CompileVariable(const ast::Variable *variable);

@@ -304,6 +304,9 @@ void Compiler::CompileCode(const ast::NodeUptr &node) {
     unsigned int stack_sz_tmp;
 
     switch (node->type) {
+        case NodeType::TRAIT:
+            this->CompileTrait(CastNode<ast::Construct>(node));
+            break;
         case NodeType::MEMBER:
             this->CompileMember(CastNode<Member>(node));
             break;
@@ -821,6 +824,43 @@ void Compiler::CompileTest(const ast::Binary *test) {
 
     this->CompileCode(test->right);
     this->UseAsNextBlock(last);
+}
+
+void Compiler::CompileTrait(const ast::Construct *trait) {
+    Code *co_trait;
+
+    this->EnterScope(trait->name, CUScope::TRAIT);
+
+    this->CompileCode(trait->body);
+
+    this->Dfs(this->cu_curr_, this->cu_curr_->bb_start);
+
+    if ((co_trait = this->Assemble()) == nullptr)
+        throw MemoryException("CompileTrait");
+
+    this->ExitScope();
+
+    // trait name
+    if (!this->PushStatic(trait->name, true, nullptr)) {
+        Release(co_trait);
+        throw MemoryException("CompileTrait: PushStatic");
+    }
+
+    bool ok = this->PushStatic(co_trait, false, true, nullptr);
+    Release(co_trait);
+
+    if (!ok)
+        throw MemoryException("CompileTrait: PushStatic(trait)");
+
+    // impls
+    for (auto &impl:trait->impls)
+        this->CompileCode(impl);
+
+    this->EmitOp2(OpCodes::MK_TRAIT, trait->impls.size());
+    this->DecEvalStack(trait->impls.size() + 1);
+
+    this->NewVariable(trait->name, true, AttrToFlags(trait->pub, false, false));
+    this->DecEvalStack(1);
 }
 
 void Compiler::CompileUnaryExpr(const ast::Unary *unary) {

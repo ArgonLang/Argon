@@ -45,6 +45,7 @@ namespace lang {
         MK_LIST,
         MK_MAP,
         MK_SET,
+        MK_TRAIT,
         MK_TUPLE,
         MOD,
         MUL,
