@@ -20,6 +20,8 @@ Frame *argon::vm::FrameNew(Code *code) {
     IncRef(code);
 
     frame->back = nullptr;
+    frame->globals = nullptr;
+    frame->proxy_globals = nullptr;
     frame->code = code;
     frame->instr_ptr = (unsigned char *) code->instr;
     frame->eval_stack = (object::ArObject **) frame->stack_extra_base;
@@ -43,5 +45,7 @@ void argon::vm::FrameDel(Frame *frame) {
     }
 
     Release(code);
+    Release(frame->globals);
+    Release(frame->proxy_globals);
     Free(frame);
 }

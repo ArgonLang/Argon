@@ -16,6 +16,9 @@ namespace argon::vm {
         /* Pointer to global namespace */
         object::Namespace *globals;
 
+        /* Pointer to proxy global namespace (an isolated global environment) */
+        object::Namespace *proxy_globals;
+
         /* Code being executed in this frame */
         object::Code *code;
 

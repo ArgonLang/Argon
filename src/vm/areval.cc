@@ -272,11 +272,15 @@ void ArgonVM::Eval(ArRoutine *routine) {
                 // *** NEW VARIABLES ***
 
             TARGET_OP(NGV) {
+                auto map = frame->globals;
                 assert(code->names != nullptr);
                 ret = TupleGetItem(code->names, I16Arg(frame->instr_ptr)); // I16 extract arg bit
 
-                assert(!NamespaceContains(frame->globals, ret, nullptr)); // Double declaration, compiler error!
-                if (!NamespaceNewSymbol(frame->globals, PropertyInfo(I32Arg(frame->instr_ptr) >> 16), ret, TOP())) {
+                if (frame->proxy_globals != nullptr)
+                    map = frame->proxy_globals;
+
+                assert(!NamespaceContains(map, ret, nullptr)); // Double declaration, compiler error!
+                if (!NamespaceNewSymbol(map, PropertyInfo(I32Arg(frame->instr_ptr) >> 16), ret, TOP())) {
                     Release(ret);
                     goto error; // todo: memory error!
                 }
@@ -295,11 +299,16 @@ void ArgonVM::Eval(ArRoutine *routine) {
                 // *** STORE VALUES ***
 
             TARGET_OP(STGBL) {
+                auto map = frame->globals;
+
                 assert(code->names != nullptr);
                 PropertyInfo info;
                 ret = TupleGetItem(code->names, I16Arg(frame->instr_ptr));
 
-                if (!NamespaceContains(frame->globals, ret, &info)) {
+                if (frame->proxy_globals != nullptr)
+                    map = frame->proxy_globals;
+
+                if (!NamespaceContains(map, ret, &info)) {
                     Release(ret);
                     goto error; // todo: Unknown variable
                 }
@@ -309,7 +318,7 @@ void ArgonVM::Eval(ArRoutine *routine) {
                     goto error; // todo: Constant!
                 }
 
-                NamespaceSetValue(frame->globals, ret, TOP());
+                NamespaceSetValue(map, ret, TOP());
                 Release(ret);
                 POP();
                 DISPATCH4();
@@ -352,10 +361,16 @@ void ArgonVM::Eval(ArRoutine *routine) {
                 DISPATCH2();
             }
             TARGET_OP(LDGBL) {
+                auto map = frame->globals;
+
                 assert(code->names != nullptr);
                 ArObject *key = TupleGetItem(code->names, I16Arg(frame->instr_ptr));
 
                 ret = NamespaceGetValue(frame->globals, key, nullptr);
+
+                if (ret == nullptr && frame->proxy_globals != nullptr)
+                    ret = NamespaceGetValue(frame->proxy_globals, key, nullptr);
+
                 Release(key);
 
                 if (ret == nullptr)
