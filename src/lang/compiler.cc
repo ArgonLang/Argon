@@ -840,11 +840,13 @@ void Compiler::CompileTrait(const ast::Construct *trait) {
 
     this->ExitScope();
 
+    /*
     // trait name
     if (!this->PushStatic(trait->name, true, nullptr)) {
         Release(co_trait);
         throw MemoryException("CompileTrait: PushStatic");
     }
+     */
 
     bool ok = this->PushStatic(co_trait, false, true, nullptr);
     Release(co_trait);
@@ -857,7 +859,7 @@ void Compiler::CompileTrait(const ast::Construct *trait) {
         this->CompileCode(impl);
 
     this->EmitOp2(OpCodes::MK_TRAIT, trait->impls.size());
-    this->DecEvalStack(trait->impls.size() + 1);
+    this->DecEvalStack(trait->impls.size());
 
     this->NewVariable(trait->name, true, AttrToFlags(trait->pub, false, false));
     this->DecEvalStack(1);
@@ -1007,7 +1009,7 @@ void Compiler::NewVariable(const std::string &name, bool emit_op, unsigned char 
 
     sym->declared = true;
 
-    if (this->cu_curr_->scope == CUScope::MODULE && sym->nested == 0) {
+    if (this->cu_curr_->scope != CUScope::FUNCTION && sym->nested == 0) {
         if (emit_op)
             this->EmitOp4Flags(OpCodes::NGV, flags, known ? sym->id : dest->len);
         if (known)
