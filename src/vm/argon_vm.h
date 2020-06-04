@@ -14,8 +14,6 @@ namespace argon::vm {
     private:
         argon::object::Module *main;
 
-        void Eval(ArRoutine *routine);
-
     public:
         ArgonVM();
 

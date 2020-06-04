@@ -4,7 +4,7 @@
 
 #include <cassert>
 
-#include "argon_vm.h"
+#include "areval.h"
 #include <lang/opcodes.h>
 #include <object/bool.h>
 #include <object/error.h>
@@ -87,7 +87,16 @@ POP();                                                                  \
 TOP_REPLACE(ret);                                                       \
 DISPATCH()
 
-void ArgonVM::Eval(ArRoutine *routine) {
+void argon::vm::Eval(ArRoutine *routine, Frame *frame) {
+    frame->back = routine->frame;
+    routine->frame = frame;
+    Eval(routine);
+    routine->frame = frame->back;
+}
+
+void argon::vm::Eval(ArRoutine *routine) {
+    Frame *base = routine->frame; // TODO: refactor THIS!
+
     begin:
     Frame *frame = routine->frame;
     object::Code *code = frame->code;
@@ -579,7 +588,7 @@ void ArgonVM::Eval(ArRoutine *routine) {
     end_while:
     assert(es_cur == 0);
 
-    if (frame->back != nullptr) {
+    if (frame->back != nullptr && frame != base) {
         routine->frame = frame->back;
         FrameDel(frame);
         goto begin;

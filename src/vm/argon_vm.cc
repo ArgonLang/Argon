@@ -4,6 +4,7 @@
 
 #include <object/map.h>
 #include "argon_vm.h"
+#include "areval.h"
 
 using namespace argon::vm;
 using namespace argon::object;
@@ -18,13 +19,10 @@ ArObject *ArgonVM::EvalCode(Code *code) {
     ArRoutine *routine = (ArRoutine *) Alloc(sizeof(ArRoutine));
     Frame *frame = FrameNew(code, this->main->module_ns, nullptr);
 
-    routine->frame = frame;
-
-    this->Eval(routine);
-
-    Free(routine);
+    Eval(routine, frame);
 
     FrameDel(frame);
+    Free(routine);
 
     return nullptr;
 }
