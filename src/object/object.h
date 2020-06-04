@@ -130,7 +130,10 @@ namespace argon::object {
         return false;
     }
 
-    inline void IncRef(ArObject *obj) { obj->ref_count.IncStrong(); };
+    inline void IncRef(ArObject *obj) {
+        if (obj != nullptr)
+            obj->ref_count.IncStrong();
+    };
 
     inline void Release(ArObject *obj) {
         if (obj == nullptr)

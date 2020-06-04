@@ -9,7 +9,7 @@ using namespace argon::vm;
 using namespace argon::object;
 using namespace argon::memory;
 
-Frame *argon::vm::FrameNew(Code *code) {
+Frame *argon::vm::FrameNew(object::Code *code, object::Namespace *globals, object::Namespace *proxy_globals) {
     auto frame = (Frame *) Alloc(sizeof(Frame) +
                                  (code->stack_sz * sizeof(object::ArObject *)) +
                                  (code->locals->len * sizeof(object::ArObject *)) +
@@ -18,10 +18,12 @@ Frame *argon::vm::FrameNew(Code *code) {
     assert(frame != nullptr); // TODO: NOMEM
 
     IncRef(code);
+    IncRef(globals);
+    IncRef(proxy_globals);
 
     frame->back = nullptr;
-    frame->globals = nullptr;
-    frame->proxy_globals = nullptr;
+    frame->globals = globals;
+    frame->proxy_globals = proxy_globals;
     frame->code = code;
     frame->instr_ptr = (unsigned char *) code->instr;
     frame->eval_stack = (object::ArObject **) frame->stack_extra_base;

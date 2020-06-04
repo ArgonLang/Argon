@@ -154,7 +154,7 @@ void ArgonVM::Eval(ArRoutine *routine) {
                 }
 
                 //****+ TODO: TEMPORARY, REMOVED AT THE END OF TEST *********
-                auto fr = FrameNew(func->code);
+                auto fr = FrameNew(func->code, frame->globals, frame->proxy_globals);
                 if (fr == nullptr) {
                     assert(false);
                     goto error;
@@ -185,7 +185,6 @@ void ArgonVM::Eval(ArRoutine *routine) {
                 // save PC
                 frame->instr_ptr += sizeof(Instr16);
                 frame->eval_stack = &frame->eval_stack[es_cur];
-                fr->globals = frame->globals;
                 fr->back = frame;
                 routine->frame = fr;
                 goto begin;

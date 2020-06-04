@@ -38,7 +38,7 @@ namespace argon::vm {
         unsigned char *stack_extra_base[];
     };
 
-    Frame *FrameNew(object::Code *code);
+    Frame *FrameNew(object::Code *code, object::Namespace *globals, object::Namespace *proxy_globals);
 
     void FrameDel(Frame *frame);
 
