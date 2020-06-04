@@ -97,10 +97,11 @@ Tuple *argon::object::TupleNew(const ArObject *sequence) {
         if (sequence->type == &type_list_) {
             // List FAST-PATH
             auto list = (List *) sequence;
+            tuple->len = list->len;
+
             if (list->len > 0) {
                 tuple->objects = (ArObject **) Alloc(list->len * sizeof(ArObject *));
                 assert(tuple->objects != nullptr);
-                tuple->len = list->len;
 
                 auto other_buf = (const ArObject **) list->objects;
                 for (size_t i = 0; i < list->len; i++) {
