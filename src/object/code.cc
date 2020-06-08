@@ -44,7 +44,7 @@ void code_cleanup(ArObject *obj) {
     Release(code->locals);
 }
 
-const TypeInfo type_code_ = {
+const TypeInfo argon::object::type_code_ = {
         (const unsigned char *) "code",
         sizeof(Code),
         nullptr,

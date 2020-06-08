@@ -24,6 +24,8 @@ namespace argon::object {
         size_t hash;
     };
 
+    extern const TypeInfo type_code_;
+
     Code *CodeNew(const unsigned char *instr,
                   unsigned int instr_sz,
                   unsigned int stack_sz,

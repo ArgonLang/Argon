@@ -26,6 +26,10 @@ namespace argon::object {
 
     bool ListAppend(List *list, ArObject *obj);
 
+    bool ListConcat(List *list, ArObject *sequence);
+
+    void ListRemove(List *list, arsize i);
+
     ArObject *ListGetItem(List *list, arsize i);
 
 } // namespace argon::object
