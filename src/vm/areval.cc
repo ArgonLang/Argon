@@ -13,6 +13,7 @@
 #include <object/nil.h>
 #include <object/bounds.h>
 #include <object/trait.h>
+#include <object/struct.h>
 
 using namespace lang;
 using namespace argon::object;
@@ -121,6 +122,42 @@ ArObject *MkTrait(String *name, Namespace *names, ArObject **impls, size_t count
     }
 
     return trait;
+}
+
+ArObject *MkStruct(String *name, Namespace *names, ArObject **impls, size_t count) {
+    List *mro = nullptr;
+    Struct *stru;
+
+    if (count > 0) {
+        List *bases = BuildBasesList((Trait **) impls, count);
+        if (bases == nullptr) {
+            assert(false);
+            return nullptr; // TODO memerror!
+        }
+
+        mro = ComputeMRO(bases);
+        Release(bases);
+
+        if (mro == nullptr) {
+            assert(false);
+            return nullptr; // TODO memerror!
+        }
+
+        if (mro->len == 0) {
+            assert(false);
+            Release(mro);
+            return nullptr; // TODO: impls error
+        }
+    }
+
+    stru = StructNew(name, names, mro);
+    Release(mro);
+
+    if (stru == nullptr) {
+        // TODO: enomem
+    }
+
+    return stru;
 }
 
 void argon::vm::Eval(ArRoutine *routine, Frame *frame) {
@@ -560,6 +597,45 @@ void argon::vm::Eval(ArRoutine *routine) {
                 es_cur -= args;
                 PUSH(ret);
                 DISPATCH4();
+            }
+            TARGET_OP(MK_STRUCT) {
+                unsigned short args = I16Arg(frame->instr_ptr);
+                auto name = (String *) frame->eval_stack[(es_cur - args) - 2];
+                auto co_trait = (Code *) frame->eval_stack[(es_cur - args) - 1];
+
+                if (co_trait->type != &type_code_)
+                    goto error; // todo: Expected Code object!
+
+                Namespace *struct_ns = NamespaceNew();
+
+                if (struct_ns == nullptr)
+                    goto error; // TODO:enomem
+
+                auto struct_frame = FrameNew(co_trait, frame->globals, struct_ns);
+
+                if (struct_frame == nullptr) {
+                    Release(struct_ns);
+                    goto error; // TODO: enomem
+                }
+
+                Eval(routine, struct_frame);
+                FrameDel(struct_frame);
+
+                ret = MkStruct(name, struct_ns, frame->eval_stack + (es_cur - args), args);
+                Release(struct_ns);
+
+                if (ret == nullptr) {
+                    goto error; // TODO: enomem
+                }
+
+                // CLEAN EVAL STACK!
+                for (unsigned short i = (es_cur - args); i < args; i++)
+                    Release(frame->eval_stack[i]);
+
+                es_cur -= args + 1; // + name
+
+                TOP_REPLACE(ret);
+                DISPATCH2();
             }
             TARGET_OP(MK_TRAIT) {
                 unsigned short args = I16Arg(frame->instr_ptr);
