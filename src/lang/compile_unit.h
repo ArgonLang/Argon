@@ -10,6 +10,7 @@
 namespace lang {
     enum class CUScope {
         MODULE,
+        STRUCT,
         TRAIT,
         FUNCTION
     };

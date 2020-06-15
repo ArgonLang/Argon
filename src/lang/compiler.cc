@@ -304,8 +304,9 @@ void Compiler::CompileCode(const ast::NodeUptr &node) {
     unsigned int stack_sz_tmp;
 
     switch (node->type) {
+        case NodeType::STRUCT:
         case NodeType::TRAIT:
-            this->CompileTrait(CastNode<ast::Construct>(node));
+            this->CompileConstruct(CastNode<ast::Construct>(node));
             break;
         case NodeType::MEMBER:
             this->CompileMember(CastNode<Member>(node));
@@ -826,40 +827,41 @@ void Compiler::CompileTest(const ast::Binary *test) {
     this->UseAsNextBlock(last);
 }
 
-void Compiler::CompileTrait(const ast::Construct *trait) {
-    Code *co_trait;
+void Compiler::CompileConstruct(const ast::Construct *construct) {
+    bool structure = construct->type == NodeType::STRUCT;
+    Code *co_construct;
 
-    this->EnterScope(trait->name, CUScope::TRAIT);
+    this->EnterScope(construct->name, structure ? CUScope::STRUCT : CUScope::TRAIT);
 
-    this->CompileCode(trait->body);
+    this->CompileCode(construct->body);
 
     this->Dfs(this->cu_curr_, this->cu_curr_->bb_start);
 
-    if ((co_trait = this->Assemble()) == nullptr)
-        throw MemoryException("CompileTrait");
+    if ((co_construct = this->Assemble()) == nullptr)
+        throw MemoryException("CompileConstruct");
 
     this->ExitScope();
 
-    // trait name
-    if (!this->PushStatic(trait->name, true, nullptr)) {
-        Release(co_trait);
-        throw MemoryException("CompileTrait: PushStatic");
+    // construct name
+    if (!this->PushStatic(construct->name, true, nullptr)) {
+        Release(co_construct);
+        throw MemoryException("CompileConstruct: PushStatic");
     }
 
-    bool ok = this->PushStatic(co_trait, false, true, nullptr);
-    Release(co_trait);
+    bool ok = this->PushStatic(co_construct, false, true, nullptr);
+    Release(co_construct);
 
     if (!ok)
-        throw MemoryException("CompileTrait: PushStatic(trait)");
+        throw MemoryException("CompileConstruct: PushStatic(construct)");
 
     // impls
-    for (auto &impl:trait->impls)
+    for (auto &impl:construct->impls)
         this->CompileCode(impl);
 
-    this->EmitOp2(OpCodes::MK_TRAIT, trait->impls.size());
-    this->DecEvalStack(trait->impls.size()+1);
+    this->EmitOp2(structure ? OpCodes::MK_STRUCT : OpCodes::MK_TRAIT, construct->impls.size());
+    this->DecEvalStack(construct->impls.size() + 1);
 
-    this->NewVariable(trait->name, true, AttrToFlags(trait->pub, false, false));
+    this->NewVariable(construct->name, true, AttrToFlags(construct->pub, false, false));
     this->DecEvalStack(1);
 }
 
