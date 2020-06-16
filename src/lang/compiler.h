@@ -59,6 +59,8 @@ namespace lang {
 
         void CompileSlice(const ast::Slice *slice);
 
+        void CompileStructInit(const ast::StructInit *init);
+
         void CompileSubscr(const ast::Binary *subscr, const ast::NodeUptr &assignable);
 
         void CompileSwitch(const ast::Switch *stmt, bool as_if);

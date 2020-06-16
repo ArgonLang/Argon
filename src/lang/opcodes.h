@@ -21,6 +21,7 @@ namespace lang {
         CMP,
         DIV,
         IDIV,
+        INIT,   // See OpCodeINITFLAGS
         INV,
         IPADD,
         IPDIV,
@@ -69,6 +70,11 @@ namespace lang {
         SUB,
         SUBSCR,
         TEST
+    };
+
+    enum class OpCodeINITFlags : unsigned char {
+        LIST = 0,
+        DICT = 1
     };
 } // namespace lang
 

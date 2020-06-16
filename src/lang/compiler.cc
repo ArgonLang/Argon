@@ -20,7 +20,7 @@ using namespace lang::ast;
 using namespace lang::symbol_table;
 using namespace argon::object;
 
-inline unsigned char AttrToFlags(bool pub, bool constant, bool weak) {
+inline unsigned char AttrToFlags(bool pub, bool constant, bool weak, bool member) {
     unsigned char flags = 0;
     if (pub)
         flags |= ARGON_OBJECT_NS_PROP_PUB;
@@ -28,6 +28,8 @@ inline unsigned char AttrToFlags(bool pub, bool constant, bool weak) {
         flags |= ARGON_OBJECT_NS_PROP_CONST;
     if (weak)
         flags |= ARGON_OBJECT_NS_PROP_WEAK;
+    if (member && !constant)
+        flags |= ARGON_OBJECT_NS_PROP_MEMBER;
     return flags;
 }
 
@@ -308,6 +310,9 @@ void Compiler::CompileCode(const ast::NodeUptr &node) {
         case NodeType::TRAIT:
             this->CompileConstruct(CastNode<ast::Construct>(node));
             break;
+        case NodeType::STRUCT_INIT:
+            this->CompileStructInit(CastNode<ast::StructInit>(node));
+            break;
         case NodeType::MEMBER:
             this->CompileMember(CastNode<Member>(node));
             break;
@@ -346,7 +351,7 @@ void Compiler::CompileCode(const ast::NodeUptr &node) {
         case NodeType::CONSTANT:
             this->CompileCode(CastNode<Constant>(node)->value);
             this->NewVariable(CastNode<Constant>(node)->name, true,
-                              AttrToFlags(CastNode<Constant>(node)->pub, true, false));
+                              AttrToFlags(CastNode<Constant>(node)->pub, true, false, false));
             this->DecEvalStack(1);
             break;
         case NodeType::VARIABLE:
@@ -705,6 +710,31 @@ void Compiler::CompileSlice(const ast::Slice *slice) {
     this->DecEvalStack(len - 1);
 }
 
+void Compiler::CompileStructInit(const ast::StructInit *init) {
+    this->CompileCode(init->left);
+
+    if (init->keys) {
+        bool key = true;
+        for (auto &arg:init->args) {
+            if (key) {
+                this->PushStatic(CastNode<Identifier>(arg)->value, true, nullptr);
+                key = false;
+            } else {
+                this->CompileCode(arg);
+                key = true;
+            }
+        }
+    } else
+        for (auto &arg : init->args)
+            this->CompileCode(arg);
+
+    this->EmitOp4Flags(OpCodes::INIT,
+                       init->keys ? (unsigned char) OpCodeINITFlags::DICT : (unsigned char) OpCodeINITFlags::LIST,
+                       init->args.size());
+
+    this->DecEvalStack(init->args.size());
+}
+
 void Compiler::CompileSubscr(const ast::Binary *subscr, const ast::NodeUptr &assignable) {
     this->CompileCode(subscr->left);
     this->CompileSlice(CastNode<Slice>(subscr->right));
@@ -861,7 +891,7 @@ void Compiler::CompileConstruct(const ast::Construct *construct) {
     this->EmitOp2(structure ? OpCodes::MK_STRUCT : OpCodes::MK_TRAIT, construct->impls.size());
     this->DecEvalStack(construct->impls.size() + 1);
 
-    this->NewVariable(construct->name, true, AttrToFlags(construct->pub, false, false));
+    this->NewVariable(construct->name, true, AttrToFlags(construct->pub, false, false, false));
     this->DecEvalStack(1);
 }
 
@@ -886,7 +916,8 @@ void Compiler::CompileUnaryExpr(const ast::Unary *unary) {
 
 void Compiler::CompileVariable(const ast::Variable *variable) {
     this->CompileCode(variable->value);
-    this->NewVariable(variable->name, true, AttrToFlags(variable->pub, false, variable->weak));
+    this->NewVariable(variable->name, true, AttrToFlags(variable->pub, false, variable->weak,
+                                                        this->cu_curr_->scope == CUScope::STRUCT));
     this->DecEvalStack(1);
 }
 
