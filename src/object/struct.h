@@ -15,6 +15,8 @@ namespace argon::object {
         String *name;
         Namespace *names;
         List *impls;
+
+        unsigned short properties_count;
     };
 
     extern const TypeInfo type_struct_;

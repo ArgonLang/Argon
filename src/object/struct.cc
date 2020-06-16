@@ -27,7 +27,7 @@ const TypeInfo argon::object::type_struct_ = {
         (VoidUnaryOp) struct_cleanup
 };
 
-Struct * argon::object::StructNew(String *name, Namespace *names, List *mro) {
+Struct *argon::object::StructNew(String *name, Namespace *names, List *mro) {
     auto stru = (Struct *) Alloc(sizeof(Struct));
 
     if (stru != nullptr) {
@@ -40,6 +40,12 @@ Struct * argon::object::StructNew(String *name, Namespace *names, List *mro) {
         stru->names = names;
         IncRef(mro);
         stru->impls = mro;
+
+        // Looking into 'names' and counts the number of instantiable properties.
+        stru->properties_count = 0;
+        for (NsEntry *cur = names->iter_begin; cur != nullptr; cur = cur->iter_next) {
+            if (cur->info.IsMember()) stru->properties_count++;
+        }
     }
 
     return stru;

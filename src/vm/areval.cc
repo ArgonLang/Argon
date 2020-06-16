@@ -14,6 +14,7 @@
 #include <object/bounds.h>
 #include <object/trait.h>
 #include <object/struct.h>
+#include <object/instance.h>
 
 using namespace lang;
 using namespace argon::object;
@@ -150,6 +151,60 @@ ArObject *MkConstruct(ArRoutine *routine, Code *code, String *name, Trait **impl
     }
 
     return ret;
+}
+
+ArObject *InstantiateStruct(ArRoutine *routine, Struct *base, ArObject **values, size_t count, bool key_pair) {
+    Instance *instance;
+    Namespace *instance_ns;
+
+    if ((instance_ns = NamespaceNew()) == nullptr)
+        return nullptr; // todo: enomem
+
+    if (!key_pair) {
+        size_t index = 0;
+        for (NsEntry *cur = base->names->iter_begin; cur != nullptr; cur = cur->iter_next) {
+            if (cur->info.IsMember()) {
+                ArObject *value;
+
+                if (index < count) {
+                    value = values[index++];
+                    IncRef(value);
+                } else
+                    value = NamespaceGetValue(base->names, cur->key, nullptr);
+
+                bool ok = NamespaceNewSymbol(instance_ns, cur->info, cur->key, value);
+                Release(value);
+
+                if (!ok) {
+                    Release(instance_ns);
+                    return nullptr; // todo: enomem
+                }
+            }
+        }
+    } else {
+        // Load default values
+        for (NsEntry *cur = base->names->iter_begin; cur != nullptr; cur = cur->iter_next) {
+            if (cur->info.IsMember())
+                if (!NamespaceNewSymbol(instance_ns, cur->info, cur->key, cur->obj)) {
+                    Release(instance_ns);
+                    return nullptr; // todo: enomem
+                }
+        }
+
+        for (size_t i = 0; i < count; i += 2) {
+            if (!NamespaceSetValue(instance_ns, values[i], values[i + 1])) {
+                Release(instance_ns);
+                return nullptr; // todo: Invalid Key!
+            }
+        }
+    }
+
+    instance = InstanceNew(base, instance_ns);
+    Release(instance_ns);
+
+    // todo: set enomem if nullptr
+
+    return instance;
 }
 
 void argon::vm::Eval(ArRoutine *routine, Frame *frame) {
@@ -661,6 +716,29 @@ void argon::vm::Eval(ArRoutine *routine) {
                 DISPATCH4();
             }
 
+            TARGET_OP(INIT) {
+                unsigned short args = I16Arg(frame->instr_ptr);
+                bool key_pair = I32ExtractFlag(frame->instr_ptr);
+                auto bstruct = (Struct *) frame->eval_stack[(es_cur - args) - 1];
+
+                if (bstruct->type != &type_struct_)
+                    goto error; // todo: expected struct
+
+                if (!key_pair && args >= bstruct->properties_count)
+                    goto error;  // TODO: too many values
+
+                ret = InstantiateStruct(routine, bstruct, frame->eval_stack + (es_cur - args), args, key_pair);
+                if (ret == nullptr)
+                    goto error;
+
+                // CLEAN EVAL STACK!
+                for (size_t i = es_cur - 1; i >= es_cur - args; i--)
+                    Release(frame->eval_stack[i]);
+                es_cur -= args;
+
+                TOP_REPLACE(ret);
+                DISPATCH4();
+            }
             TARGET_OP(RET) {
                 assert(frame->back != nullptr);
                 if (es_cur == 0) {
