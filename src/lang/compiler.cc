@@ -872,17 +872,17 @@ void Compiler::CompileConstruct(const ast::Construct *construct) {
 
     this->ExitScope();
 
-    // construct name
-    if (!this->PushStatic(construct->name, true, nullptr)) {
+    if (!this->PushStatic(co_construct, false, true, nullptr)) {
         Release(co_construct);
-        throw MemoryException("CompileConstruct: PushStatic");
+        throw MemoryException("CompileConstruct: PushStatic(struct/trait)");
     }
 
-    bool ok = this->PushStatic(co_construct, false, true, nullptr);
+    // construct name
+    bool ok = this->PushStatic(construct->name, true, nullptr);
     Release(co_construct);
 
     if (!ok)
-        throw MemoryException("CompileConstruct: PushStatic(construct)");
+        throw MemoryException("CompileConstruct: PushStatic");
 
     // impls
     for (auto &impl:construct->impls)

@@ -51,6 +51,10 @@ continue
 #define PUSH(obj)   frame->eval_stack[es_cur++] = obj
 #define POP()       Release(frame->eval_stack[--es_cur])
 
+#define STACK_REWIND(offset)                                                        \
+for (size_t i = es_cur; i > es_cur - (offset); Release(frame->eval_stack[--i]));    \
+es_cur -= offset
+
 #define TOP()       frame->eval_stack[es_cur-1]
 #define PEEK1()     frame->eval_stack[es_cur-2]
 #define PEEK2()     frame->eval_stack[es_cur-3]
@@ -648,36 +652,26 @@ void argon::vm::Eval(ArRoutine *routine) {
             TARGET_OP(MK_STRUCT) {
                 unsigned short args = I16Arg(frame->instr_ptr);
 
-                if ((ret = MkConstruct(routine, (Code *) frame->eval_stack[(es_cur - args) - 1],
-                                       (String *) frame->eval_stack[(es_cur - args) - 2],
+                if ((ret = MkConstruct(routine, (Code *) frame->eval_stack[(es_cur - args) - 2],
+                                       (String *) frame->eval_stack[(es_cur - args) - 1],
                                        (Trait **) frame->eval_stack + (es_cur - args),
                                        args, false)) == nullptr)
                     goto error;
 
-                // CLEAN EVAL STACK!
-                for (unsigned short i = (es_cur - args); i < args; i++)
-                    Release(frame->eval_stack[i]);
-
-                es_cur -= args + 1; // args + 1(name)
-
+                STACK_REWIND(args + 1); // args + 1(name)
                 TOP_REPLACE(ret);
                 DISPATCH2();
             }
             TARGET_OP(MK_TRAIT) {
                 unsigned short args = I16Arg(frame->instr_ptr);
 
-                if ((ret = MkConstruct(routine, (Code *) frame->eval_stack[(es_cur - args) - 1],
-                                       (String *) frame->eval_stack[(es_cur - args) - 2],
+                if ((ret = MkConstruct(routine, (Code *) frame->eval_stack[(es_cur - args) - 2],
+                                       (String *) frame->eval_stack[(es_cur - args) - 1],
                                        (Trait **) frame->eval_stack + (es_cur - args),
                                        args, true)) == nullptr)
                     goto error;
 
-                // CLEAN EVAL STACK!
-                for (unsigned short i = (es_cur - args); i < args; i++)
-                    Release(frame->eval_stack[i]);
-
-                es_cur -= args + 1; // args + 1(name)
-
+                STACK_REWIND(args + 1); // args + 1(name)
                 TOP_REPLACE(ret);
                 DISPATCH2();
             }
@@ -724,18 +718,14 @@ void argon::vm::Eval(ArRoutine *routine) {
                 if (bstruct->type != &type_struct_)
                     goto error; // todo: expected struct
 
-                if (!key_pair && args >= bstruct->properties_count)
+                if (!key_pair && args > bstruct->properties_count)
                     goto error;  // TODO: too many values
 
                 ret = InstantiateStruct(routine, bstruct, frame->eval_stack + (es_cur - args), args, key_pair);
                 if (ret == nullptr)
                     goto error;
 
-                // CLEAN EVAL STACK!
-                for (size_t i = es_cur - 1; i >= es_cur - args; i--)
-                    Release(frame->eval_stack[i]);
-                es_cur -= args;
-
+                STACK_REWIND(args);
                 TOP_REPLACE(ret);
                 DISPATCH4();
             }
