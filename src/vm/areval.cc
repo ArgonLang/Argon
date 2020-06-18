@@ -487,6 +487,20 @@ void argon::vm::Eval(ArRoutine *routine) {
 
                 // *** LOAD VARIABLES ***
 
+            TARGET_OP(LDATTR) {
+                assert(code->statics != nullptr);
+                ArObject *key = TupleGetItem(code->statics, I16Arg(frame->instr_ptr));
+                ArObject *instance = (Instance *) TOP();
+
+                ret = instance->type->obj_actions->get_attr(instance, key);
+                Release(key);
+
+                if (ret == nullptr)
+                    goto error; // TODO: key not found / priv,pub ecc
+
+                TOP_REPLACE(ret);
+                DISPATCH2();
+            }
             TARGET_OP(LDENC) {
                 assert(frame->enclosed != nullptr);
                 PUSH(frame->enclosed[I16Arg(frame->instr_ptr)]);

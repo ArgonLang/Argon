@@ -50,6 +50,7 @@ const TypeInfo argon::object::type_code_ = {
         nullptr,
         nullptr,
         nullptr,
+        nullptr,
         (BoolUnaryOp) code_istrue,
         code_equal,
         nullptr,

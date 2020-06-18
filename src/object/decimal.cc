@@ -87,6 +87,7 @@ const TypeInfo type_decimal_ = {
         &decimal_actions,
         nullptr,
         nullptr,
+        nullptr,
         (BoolUnaryOp) decimal_istrue,
         decimal_equal,
         nullptr,

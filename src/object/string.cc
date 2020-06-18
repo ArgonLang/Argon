@@ -65,6 +65,7 @@ const TypeInfo argon::object::type_string_ = {
         nullptr,
         nullptr,
         nullptr,
+        nullptr,
         (BoolUnaryOp) string_istrue,
         string_equal,
         nullptr,

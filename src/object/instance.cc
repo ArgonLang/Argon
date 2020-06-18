@@ -3,6 +3,7 @@
 // Licensed under the Apache License v2.0
 
 #include "instance.h"
+#include "trait.h"
 
 using namespace argon::object;
 using namespace argon::memory;
@@ -12,12 +13,44 @@ void instance_cleanup(Instance *self) {
     Release(self->properties);
 }
 
+ArObject *instance_getattr(Instance *self, ArObject *key) {
+    PropertyInfo pinfo{};
+    ArObject *obj;
+
+    obj = NamespaceGetValue(self->properties, key, &pinfo);
+
+    if (obj == nullptr) {
+        // Search in parent
+        obj = NamespaceGetValue(self->base->names, key, &pinfo);
+        if (obj == nullptr || pinfo.IsConstant()) {
+            Release(obj);
+
+            // Search in parent MRO!
+            for (size_t i = 0; self->base->impls->len; i++) {
+                auto trait = (Trait *) self->base->impls->objects[i];
+                obj = NamespaceGetValue(trait->names, key, &pinfo);
+                if (obj != nullptr && !pinfo.IsConstant())
+                    break;
+            }
+
+            assert(obj != nullptr);
+        }
+    }
+
+    return obj; // TODO impl error: value nopt found / priv variable
+}
+
+const ObjectActions instance_actions{
+        (BinaryOp) instance_getattr
+};
+
 const TypeInfo argon::object::type_instance_ = {
         (const unsigned char *) "instance",
         sizeof(Instance),
         nullptr,
         nullptr,
         nullptr,
+        &instance_actions,
         nullptr,
         nullptr,
         nullptr,

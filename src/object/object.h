@@ -84,6 +84,10 @@ namespace argon::object {
         BoolTernOp set_item;
     };
 
+    struct ObjectActions {
+        BinaryOp get_attr;
+    };
+
     struct TypeInfo {
         const unsigned char *name;
         unsigned short size;
@@ -92,6 +96,7 @@ namespace argon::object {
         const NumberActions *number_actions;
         const SequenceActions *sequence_actions;
         const MapActions *map_actions;
+        const ObjectActions *obj_actions;
 
         // Generic actions
         BoolUnaryOp is_true;

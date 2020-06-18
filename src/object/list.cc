@@ -121,6 +121,7 @@ const TypeInfo argon::object::type_list_ = {
         &list_actions,
         nullptr,
         nullptr,
+        nullptr,
         list_equal,
         nullptr,
         list_hash,

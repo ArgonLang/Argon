@@ -131,6 +131,7 @@ const TypeInfo argon::object::type_integer_ = {
         &integer_actions,
         nullptr,
         nullptr,
+        nullptr,
         (BoolUnaryOp) integer_istrue,
         integer_equal,
         integer_compare,

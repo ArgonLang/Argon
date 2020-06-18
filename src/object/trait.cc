@@ -24,6 +24,7 @@ const TypeInfo argon::object::type_trait_ = {
         nullptr,
         nullptr,
         nullptr,
+        nullptr,
         (VoidUnaryOp) trait_cleanup
 };
 
