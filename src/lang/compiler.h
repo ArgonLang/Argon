@@ -55,7 +55,7 @@ namespace lang {
 
         void CompileLoop(const ast::Loop *loop);
 
-        void CompileMember(const ast::Member *member);
+        void CompileMember(const ast::Member *member, const ast::NodeUptr *node);
 
         void CompileSlice(const ast::Slice *slice);
 

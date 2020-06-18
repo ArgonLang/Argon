@@ -238,7 +238,7 @@ void Compiler::CompileAssignment(const ast::Assignment *assign) {
     } else if (assign->assignee->type == NodeType::SUBSCRIPT) {
         this->CompileSubscr(CastNode<Binary>(assign->assignee), assign->right);
     } else if (assign->assignee->type == NodeType::MEMBER) {
-
+        this->CompileMember(CastNode<Member>(assign->assignee), &assign->right); // TODO: impl NULLABLE
     }
 }
 
@@ -314,7 +314,7 @@ void Compiler::CompileCode(const ast::NodeUptr &node) {
             this->CompileStructInit(CastNode<ast::StructInit>(node));
             break;
         case NodeType::MEMBER:
-            this->CompileMember(CastNode<Member>(node));
+            this->CompileMember(CastNode<Member>(node), nullptr);
             break;
         case NodeType::SUBSCRIPT:
             this->CompileSubscr(CastNode<Binary>(node), nullptr);
@@ -657,7 +657,7 @@ void Compiler::CompileLoop(const ast::Loop *loop) {
     this->UseAsNextBlock(last);
 }
 
-void Compiler::CompileMember(const ast::Member *member) {
+void Compiler::CompileMember(const ast::Member *member, const ast::NodeUptr *node) {
     bool safe;
     unsigned int index;
 
@@ -687,7 +687,13 @@ void Compiler::CompileMember(const ast::Member *member) {
         this->NewNextBlock();
     }
 
-    this->EmitOp2(OpCodes::LDATTR, index);
+    if (node != nullptr) {
+        this->CompileCode(*node);
+        this->EmitOp2(OpCodes::STATTR, index);
+        this->DecEvalStack(2);
+    } else
+        this->EmitOp2(OpCodes::LDATTR, index);
+
 }
 
 void Compiler::CompileSlice(const ast::Slice *slice) {

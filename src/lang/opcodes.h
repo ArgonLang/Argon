@@ -66,6 +66,7 @@ namespace lang {
         RET,
         SHL,
         SHR,
+        STATTR,
         STGBL,
         STLC,
         STSUBSCR,

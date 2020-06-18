@@ -430,6 +430,22 @@ void argon::vm::Eval(ArRoutine *routine) {
 
                 // *** STORE VALUES ***
 
+            TARGET_OP(STATTR) {
+                assert(code->statics != nullptr);
+                ArObject *key = TupleGetItem(code->statics, I16Arg(frame->instr_ptr));
+                ArObject *instance = (Instance *) PEEK1();
+
+                if (!instance->type->obj_actions->set_attr(instance, key, TOP())) {
+                    Release(key);
+                    goto error; // TODO: key not found / priv,pub ecc
+                }
+
+                Release(key);
+
+                POP(); // value
+                POP(); // instance
+                DISPATCH2();
+            }
             TARGET_OP(STGBL) {
                 auto map = frame->globals;
 

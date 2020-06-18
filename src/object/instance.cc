@@ -40,8 +40,14 @@ ArObject *instance_getattr(Instance *self, ArObject *key) {
     return obj; // TODO impl error: value nopt found / priv variable
 }
 
+bool instance_setattr(Instance *self, ArObject *key, ArObject *value) {
+    // TODO: check access permission!
+    return NamespaceSetValue(self->properties, key, value); // TODO: invalid key!
+}
+
 const ObjectActions instance_actions{
-        (BinaryOp) instance_getattr
+        (BinaryOp) instance_getattr,
+        (BoolTernOp) instance_setattr
 };
 
 const TypeInfo argon::object::type_instance_ = {
