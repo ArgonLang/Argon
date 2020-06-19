@@ -171,17 +171,17 @@ Code *Compiler::Compile(std::istream *source) {
     return this->Assemble();
 }
 
-argon::object::Function *Compiler::AssembleFunction(const ast::Function *function) {
+argon::object::Code *Compiler::AssembleFunction(const ast::Function *function) {
     argon::object::Code *code;
-    argon::object::Function *fn;
-    bool variadic = false;
+    OpCodeMKFUNCFlags fn_flags = OpCodeMKFUNCFlags::PLAIN;
 
     this->EnterScope(function->id, CUScope::FUNCTION);
 
     for (auto &param: function->params) {
         auto id = CastNode<Identifier>(param);
         this->NewVariable(id->value, false, 0);
-        variadic = id->rest_element;
+        if(id->rest_element)
+            fn_flags = OpCodeMKFUNCFlags::VARIADIC;
     }
 
     this->CompileCode(function->body);
@@ -196,15 +196,13 @@ argon::object::Function *Compiler::AssembleFunction(const ast::Function *functio
 
     this->ExitScope();
 
-    fn = FunctionNew(code, function->params.size());
-    Release(code);
+    // Push to static resources
+    if (!this->PushStatic(code, false, true, nullptr))
+        throw MemoryException("CompileFunction: PushStatic");
 
-    if (fn == nullptr)
-        return nullptr;
+    this->EmitOp4Flags(OpCodes::MK_FUNC, (unsigned char) fn_flags, function->params.size());
 
-    fn->variadic = variadic;
-
-    return fn;
+    return code;
 }
 
 void Compiler::CompileAssignment(const ast::Assignment *assign) {
@@ -532,20 +530,10 @@ void Compiler::CompileForLoop(const ast::For *loop) {
 }
 
 void Compiler::CompileFunction(const ast::Function *function) {
-    argon::object::Function *fn;
-    Code *code;
+    Code *code = this->AssembleFunction(function);
 
-    if ((fn = this->AssembleFunction(function)) == nullptr)
+    if (code == nullptr)
         throw MemoryException("AssembleFunction");
-
-    code = fn->code;
-
-    // Push to static resources
-    bool ok = this->PushStatic(fn, false, true, nullptr);
-    Release(fn);
-
-    if (!ok)
-        throw MemoryException("CompileFunction: PushStatic");
 
     if (code->deref->len > 0) {
         for (int i = 0; i < code->deref->len; i++) {

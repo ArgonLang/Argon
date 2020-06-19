@@ -663,6 +663,16 @@ void argon::vm::Eval(ArRoutine *routine) {
                 TOP_REPLACE(ret);
                 DISPATCH();
             }
+            TARGET_OP(MK_FUNC) {
+                assert(TOP()->type == &type_code_);
+                ret = FunctionNew((Code *) TOP(), I16Arg(frame->instr_ptr), I32ExtractFlag(frame->instr_ptr));
+
+                if (ret == nullptr)
+                    goto error; // todo: enomem
+
+                TOP_REPLACE(ret);
+                DISPATCH4();
+            }
             TARGET_OP(MK_LIST) {
                 unsigned int args = I32Arg(frame->instr_ptr);
 

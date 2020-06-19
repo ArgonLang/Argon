@@ -46,7 +46,7 @@ const TypeInfo argon::object::type_function_ = {
         (VoidUnaryOp) function_cleanup
 };
 
-Function *argon::object::FunctionNew(Code *code, unsigned short arity) {
+Function *argon::object::FunctionNew(Code *code, unsigned short arity, bool variadic) {
     auto fn = (Function *) Alloc(sizeof(Function));
 
     if (fn != nullptr) {
@@ -58,7 +58,7 @@ Function *argon::object::FunctionNew(Code *code, unsigned short arity) {
         fn->currying = nullptr;
         fn->enclosed = nullptr;
         fn->arity = arity;
-        fn->variadic = false;
+        fn->variadic = variadic;
     }
 
     return fn;

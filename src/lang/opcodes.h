@@ -45,6 +45,7 @@ namespace lang {
         LXOR,
         MK_BOUNDS,
         MK_CLOSURE,
+        MK_FUNC,
         MK_LIST,
         MK_MAP,
         MK_SET,
@@ -79,6 +80,12 @@ namespace lang {
         LIST = 0,
         DICT = 1
     };
+
+    enum class OpCodeMKFUNCFlags : unsigned char {
+        PLAIN = 0,
+        VARIADIC = 1
+    };
+
 } // namespace lang
 
 #endif // !ARGON_LANG_OPCODES_H_

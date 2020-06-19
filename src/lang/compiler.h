@@ -35,7 +35,7 @@ namespace lang {
 
         argon::object::Code *Assemble();
 
-        argon::object::Function *AssembleFunction(const ast::Function *function);
+        argon::object::Code *AssembleFunction(const ast::Function *function);
 
         void CompileAssignment(const ast::Assignment *assign);
 
