@@ -174,13 +174,23 @@ Code *Compiler::Compile(std::istream *source) {
 argon::object::Code *Compiler::AssembleFunction(const ast::Function *function) {
     argon::object::Code *code;
     OpCodeMKFUNCFlags fn_flags = OpCodeMKFUNCFlags::PLAIN;
+    size_t p_count = function->params.size();
 
     this->EnterScope(function->id, CUScope::FUNCTION);
+
+    // Push self as first param in method definition
+    if (this->cu_curr_->prev != nullptr && !function->id.empty()) {
+        auto prev = this->cu_curr_->prev;
+        if (prev->scope == CUScope::STRUCT || prev->scope == CUScope::TRAIT) {
+            this->NewVariable("self", false, 0);
+            p_count++;
+        }
+    }
 
     for (auto &param: function->params) {
         auto id = CastNode<Identifier>(param);
         this->NewVariable(id->value, false, 0);
-        if(id->rest_element)
+        if (id->rest_element)
             fn_flags = OpCodeMKFUNCFlags::VARIADIC;
     }
 
@@ -200,7 +210,7 @@ argon::object::Code *Compiler::AssembleFunction(const ast::Function *function) {
     if (!this->PushStatic(code, false, true, nullptr))
         throw MemoryException("CompileFunction: PushStatic");
 
-    this->EmitOp4Flags(OpCodes::MK_FUNC, (unsigned char) fn_flags, function->params.size());
+    this->EmitOp4Flags(OpCodes::MK_FUNC, (unsigned char) fn_flags, p_count);
 
     return code;
 }
