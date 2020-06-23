@@ -173,7 +173,7 @@ Code *Compiler::Compile(std::istream *source) {
 
 argon::object::Code *Compiler::AssembleFunction(const ast::Function *function) {
     argon::object::Code *code;
-    OpCodeMKFUNCFlags fn_flags = OpCodeMKFUNCFlags::PLAIN;
+    MkFuncFlags fn_flags = MkFuncFlags::PLAIN;
     size_t p_count = function->params.size();
 
     this->EnterScope(function->id, CUScope::FUNCTION);
@@ -191,7 +191,7 @@ argon::object::Code *Compiler::AssembleFunction(const ast::Function *function) {
         auto id = CastNode<Identifier>(param);
         this->NewVariable(id->value, false, 0);
         if (id->rest_element)
-            fn_flags = OpCodeMKFUNCFlags::VARIADIC;
+            fn_flags = MkFuncFlags::VARIADIC;
     }
 
     this->CompileCode(function->body);
@@ -209,6 +209,17 @@ argon::object::Code *Compiler::AssembleFunction(const ast::Function *function) {
     // Push to static resources
     if (!this->PushStatic(code, false, true, nullptr))
         throw MemoryException("CompileFunction: PushStatic");
+
+    if (code->deref->len > 0) {
+        for (int i = 0; i < code->deref->len; i++) {
+            auto st = (String *) TupleGetItem(code->deref, i);
+            this->LoadVariable(std::string((char *) st->buffer, st->len));
+            Release(st);
+        }
+        this->DecEvalStack(code->deref->len);
+        this->EmitOp4(OpCodes::MK_LIST, code->deref->len);
+        fn_flags |= MkFuncFlags::CLOSURE;
+    }
 
     this->EmitOp4Flags(OpCodes::MK_FUNC, (unsigned char) fn_flags, p_count);
 
@@ -544,17 +555,6 @@ void Compiler::CompileFunction(const ast::Function *function) {
 
     if (code == nullptr)
         throw MemoryException("AssembleFunction");
-
-    if (code->deref->len > 0) {
-        for (int i = 0; i < code->deref->len; i++) {
-            auto st = (String *) TupleGetItem(code->deref, i);
-            this->LoadVariable(std::string((char *) st->buffer, st->len));
-            Release(st);
-        }
-        this->DecEvalStack(code->deref->len);
-        this->EmitOp4(OpCodes::MK_LIST, code->deref->len);
-        this->EmitOp(OpCodes::MK_CLOSURE);
-    }
 
     if (!function->id.empty()) {
         this->NewVariable(function->id, true, 0);

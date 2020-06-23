@@ -656,19 +656,24 @@ void argon::vm::Eval(ArRoutine *routine) {
                 TOP_REPLACE(ret);
                 DISPATCH2();
             }
-            TARGET_OP(MK_CLOSURE) {
-                if ((ret = FunctionNew((Function *) PEEK1(), (List *) TOP())) == nullptr)
-                    goto error; // TODO: nomem
-                POP();
-                TOP_REPLACE(ret);
-                DISPATCH();
-            }
             TARGET_OP(MK_FUNC) {
-                assert(TOP()->type == &type_code_);
-                ret = FunctionNew((Code *) TOP(), I16Arg(frame->instr_ptr), I32ExtractFlag(frame->instr_ptr));
+                auto flags = (MkFuncFlags) I32ExtractFlag(frame->instr_ptr);
+                Code *fn_code = (Code *) TOP();
+                List *enclosed = nullptr;
+
+                if (ENUMBITMASK_ISTRUE(flags, MkFuncFlags::CLOSURE)) {
+                    enclosed = (List *) TOP();
+                    fn_code = (Code *) PEEK1();
+                }
+
+                ret = FunctionNew(fn_code, I16Arg(frame->instr_ptr),
+                                  ENUMBITMASK_ISTRUE(flags, MkFuncFlags::VARIADIC), enclosed);
 
                 if (ret == nullptr)
                     goto error; // todo: enomem
+
+                if (ENUMBITMASK_ISTRUE(flags, MkFuncFlags::CLOSURE))
+                    POP();
 
                 TOP_REPLACE(ret);
                 DISPATCH4();

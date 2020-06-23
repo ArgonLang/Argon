@@ -46,7 +46,7 @@ const TypeInfo argon::object::type_function_ = {
         (VoidUnaryOp) function_cleanup
 };
 
-Function *argon::object::FunctionNew(Code *code, unsigned short arity, bool variadic) {
+Function *argon::object::FunctionNew(Code *code, unsigned short arity, bool variadic, argon::object::List *enclosed) {
     auto fn = (Function *) Alloc(sizeof(Function));
 
     if (fn != nullptr) {
@@ -56,7 +56,12 @@ Function *argon::object::FunctionNew(Code *code, unsigned short arity, bool vari
         IncRef(code);
         fn->code = code;
         fn->currying = nullptr;
-        fn->enclosed = nullptr;
+
+        if (enclosed != nullptr) {
+            IncRef(enclosed);
+            fn->enclosed = enclosed;
+        }
+
         fn->arity = arity;
         fn->variadic = variadic;
     }
@@ -68,7 +73,7 @@ Function *argon::object::FunctionNew(const Function *func, unsigned short curryi
     auto fn = (Function *) Alloc(sizeof(Function));
 
     if (fn != nullptr) {
-        fn->ref_count =  ARGON_OBJECT_REFCOUNT_INLINE;
+        fn->ref_count = ARGON_OBJECT_REFCOUNT_INLINE;
         fn->type = &type_function_;
 
         CloneFn(fn, func);
@@ -86,7 +91,7 @@ Function *argon::object::FunctionNew(const Function *func, argon::object::List *
     auto fn = (Function *) Alloc(sizeof(Function));
 
     if (fn != nullptr) {
-        fn->ref_count =  ARGON_OBJECT_REFCOUNT_INLINE;
+        fn->ref_count = ARGON_OBJECT_REFCOUNT_INLINE;
         fn->type = &type_function_;
 
         CloneFn(fn, func);

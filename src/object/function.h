@@ -21,7 +21,8 @@ namespace argon::object {
 
     extern const TypeInfo type_function_;
 
-    Function *FunctionNew(argon::object::Code *code, unsigned short arity, bool variadic);
+    Function *
+    FunctionNew(argon::object::Code *code, unsigned short arity, bool variadic, argon::object::List *enclosed);
 
     Function *FunctionNew(const Function *func, unsigned short currying_len);
 
