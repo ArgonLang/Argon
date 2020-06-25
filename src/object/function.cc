@@ -11,15 +11,14 @@ inline void CloneFn(Function *fn_new, const Function *func) {
     IncRef(func->code);
     fn_new->code = func->code;
 
-    if (func->currying != nullptr) {
-        IncRef(func->currying);
-        fn_new->currying = func->currying;
-    }
+    IncRef(func->currying);
+    fn_new->currying = func->currying;
 
-    if (func->enclosed != nullptr) {
-        IncRef(func->enclosed);
-        fn_new->enclosed = func->enclosed;
-    }
+    IncRef(func->enclosed);
+    fn_new->enclosed = func->enclosed;
+
+    IncRef(func->instance);
+    fn_new->instance = func->instance;
 
     fn_new->arity = func->arity;
     fn_new->variadic = func->variadic;
@@ -62,6 +61,8 @@ Function *argon::object::FunctionNew(Code *code, unsigned short arity, bool vari
             fn->enclosed = enclosed;
         }
 
+        fn->instance = nullptr;
+
         fn->arity = arity;
         fn->variadic = variadic;
     }
@@ -87,7 +88,7 @@ Function *argon::object::FunctionNew(const Function *func, unsigned short curryi
     return fn;
 }
 
-Function *argon::object::FunctionNew(const Function *func, argon::object::List *enclosed) {
+Function *argon::object::FunctionNew(const Function *func, ArObject *instance) {
     auto fn = (Function *) Alloc(sizeof(Function));
 
     if (fn != nullptr) {
@@ -96,8 +97,8 @@ Function *argon::object::FunctionNew(const Function *func, argon::object::List *
 
         CloneFn(fn, func);
 
-        IncRef(enclosed);
-        fn->enclosed = enclosed;
+        IncRef(instance);
+        fn->instance = instance;
     }
 
     return fn;

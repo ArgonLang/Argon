@@ -28,7 +28,7 @@ inline unsigned char AttrToFlags(bool pub, bool constant, bool weak, bool member
         flags |= ARGON_OBJECT_NS_PROP_CONST;
     if (weak)
         flags |= ARGON_OBJECT_NS_PROP_WEAK;
-    if (member && !constant)
+    if (member)
         flags |= ARGON_OBJECT_NS_PROP_MEMBER;
     return flags;
 }
@@ -557,7 +557,8 @@ void Compiler::CompileFunction(const ast::Function *function) {
         throw MemoryException("AssembleFunction");
 
     if (!function->id.empty()) {
-        this->NewVariable(function->id, true, 0);
+        auto is_method = this->cu_curr_->scope == CUScope::STRUCT || this->cu_curr_->scope == CUScope::TRAIT;
+        this->NewVariable(function->id, true, AttrToFlags(function->pub, true, false, is_method));
         this->DecEvalStack(1);
     }
 }

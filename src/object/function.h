@@ -15,6 +15,9 @@ namespace argon::object {
         argon::object::List *currying;
         argon::object::List *enclosed;
 
+        // Method
+        ArObject *instance;
+
         unsigned short arity;
         bool variadic;
     };
@@ -26,7 +29,7 @@ namespace argon::object {
 
     Function *FunctionNew(const Function *func, unsigned short currying_len);
 
-    Function *FunctionNew(const Function *func, argon::object::List *enclosed);
+    Function *FunctionNew(const Function *func, ArObject *instance);
 
 } // namespace argon::object
 

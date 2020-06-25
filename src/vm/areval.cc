@@ -167,7 +167,7 @@ ArObject *InstantiateStruct(ArRoutine *routine, Struct *base, ArObject **values,
     if (!key_pair) {
         size_t index = 0;
         for (NsEntry *cur = base->names->iter_begin; cur != nullptr; cur = cur->iter_next) {
-            if (cur->info.IsMember()) {
+            if (cur->info.IsMember() && !cur->info.IsConstant()) {
                 ArObject *value;
 
                 if (index < count) {
@@ -239,6 +239,8 @@ void argon::vm::Eval(ArRoutine *routine) {
                 auto args = largs;
                 auto func = (Function *) frame->eval_stack[es_cur - args - 1];
 
+                if (func->instance != nullptr)args++;
+
                 if (func->currying != nullptr)
                     args += func->currying->len;
 
@@ -281,6 +283,7 @@ void argon::vm::Eval(ArRoutine *routine) {
                             Release(frame->eval_stack[i]);
                         }
                         es_cur -= I16Arg(frame->instr_ptr);
+
                         TOP_REPLACE(new_fn);
                         DISPATCH2();
                     }
@@ -293,11 +296,17 @@ void argon::vm::Eval(ArRoutine *routine) {
                     goto error;
                 }
                 int pos = 0;
+
+                if (func->instance != nullptr) {
+                    fr->locals[pos++] = func->instance;
+                    IncRef(func->instance);
+                }
+
                 // fill locals!
                 if (func->currying != nullptr) {
-                    for (pos = 0; pos < func->currying->len; pos++) {
-                        fr->locals[pos] = func->currying->objects[pos];
-                        IncRef(fr->locals[pos]);
+                    for (size_t i = 0; i < func->currying->len; i++) {
+                        fr->locals[pos] = func->currying->objects[i];
+                        IncRef(fr->locals[pos++]);
                     }
                 }
                 for (unsigned int i = es_cur - largs; i < es_cur; i++)
@@ -519,6 +528,7 @@ void argon::vm::Eval(ArRoutine *routine) {
             }
             TARGET_OP(LDENC) {
                 assert(frame->enclosed != nullptr);
+                IncRef(frame->enclosed[I16Arg(frame->instr_ptr)]);
                 PUSH(frame->enclosed[I16Arg(frame->instr_ptr)]);
                 DISPATCH2();
             }
@@ -543,6 +553,7 @@ void argon::vm::Eval(ArRoutine *routine) {
             }
             TARGET_OP(LDLC) {
                 assert(frame->locals != nullptr);
+                IncRef(frame->locals[I16Arg(frame->instr_ptr)]);
                 PUSH(frame->locals[I16Arg(frame->instr_ptr)]);
                 DISPATCH2();
             }
