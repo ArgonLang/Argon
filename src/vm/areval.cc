@@ -211,6 +211,70 @@ ArObject *InstantiateStruct(ArRoutine *routine, Struct *base, ArObject **values,
     return instance;
 }
 
+void FillFrameBeforeCall(Frame *frame, Function *callable, ArObject **args, size_t count) {
+    size_t local_idx = 0;
+
+    // If method, first parameter must be an instance
+    if (callable->instance != nullptr) {
+        frame->locals[local_idx++] = callable->instance;
+        IncRef(callable->instance);
+    }
+
+    // Push currying args
+    if (callable->currying != nullptr) {
+        for (size_t i = 0; i < callable->currying->len; i++)
+            frame->locals[local_idx++] = ListGetItem(callable->currying, i);
+    }
+
+    // Fill with stack args
+    for (size_t i = 0; i < count; i++)
+        frame->locals[local_idx++] = args[i];
+
+    // If last parameter in variadic function is empty, fill it with NilVal
+    if (callable->variadic && local_idx + 1 == callable->arity) {
+        frame->locals[local_idx++] = NilVal;
+        IncRef(NilVal);
+    }
+
+    assert(local_idx == callable->arity);
+
+    // Fill with enclosed args
+    if (callable->enclosed != nullptr) {
+        for (size_t i = 0; i < callable->enclosed->len; i++)
+            frame->enclosed[i] = ListGetItem(callable->enclosed, i);
+    }
+}
+
+ArObject *RestElementToList(ArObject **args, size_t count) {
+    List *rest = ListNew(count);
+
+    if (rest != nullptr) {
+        for (size_t i = 0; i < count; i++) {
+            if (!ListAppend(rest, args[i])) {
+                Release(rest);
+                return nullptr;
+            }
+        }
+    }
+
+    return rest;
+}
+
+ArObject *MkCurrying(Function *fn_old, ArObject **args, size_t count) {
+    Function *fn_new = FunctionNew(fn_old, count);
+
+    if (fn_new != nullptr) {
+        for (size_t i = 0; i < count; i++) {
+            if (!ListAppend(fn_new->currying, args[i])) {
+                Release(fn_new);
+                return nullptr;
+            }
+        }
+    }
+
+    return fn_new;
+}
+
 void argon::vm::Eval(ArRoutine *routine, Frame *frame) {
     frame->back = routine->frame;
     routine->frame = frame;
@@ -239,86 +303,46 @@ void argon::vm::Eval(ArRoutine *routine) {
                 auto args = largs;
                 auto func = (Function *) frame->eval_stack[es_cur - args - 1];
 
-                if (func->instance != nullptr)args++;
+                if (func->instance != nullptr) args++;
 
                 if (func->currying != nullptr)
                     args += func->currying->len;
 
-                if (args > func->arity) {
-                    if (!func->variadic)
-                        goto error; // TODO: Too much arguments!
+                if (args < func->arity) {
+                    if (args == 0)
+                        goto error; // TODO: MISSING PARAMS!
 
-                    auto plus = args - func->arity;
-
-                    if ((ret = ListNew(plus)) == nullptr)
-                        goto error;
-
-                    // +1 is the rest element itself
-                    for (unsigned int i = es_cur - (plus + 1); i < es_cur; i++) {
-                        if (!ListAppend((List *) ret, frame->eval_stack[i])) {
-                            Release(ret);
-                            goto error;
-                        }
-                        Release(frame->eval_stack[i]);
-                    }
-                    es_cur -= plus;
-                    largs -= plus;
-                    TOP_REPLACE(ret);
-                } else if (args < func->arity) {
-                    if (args == 0) {
-                        // TODO: MISSING PARAMS!
-                        goto error;
-                    }
-                    // Missing argument/s -> Currying
                     if (func->arity - args > 1 || !func->variadic) {
-                        Function *new_fn;
-                        if ((new_fn = FunctionNew(func, args)) == nullptr)
-                            goto error;
+                        if ((ret = MkCurrying(func, frame->eval_stack + (es_cur - largs), largs)) == nullptr)
+                            goto error; // TODO: enomem
 
-                        for (unsigned int i = es_cur - I16Arg(frame->instr_ptr); i < es_cur; i++) {
-                            if (!ListAppend((List *) new_fn->currying, frame->eval_stack[i])) {
-                                Release(new_fn);
-                                goto error;
-                            }
-                            Release(frame->eval_stack[i]);
-                        }
-                        es_cur -= I16Arg(frame->instr_ptr);
-
-                        TOP_REPLACE(new_fn);
+                        STACK_REWIND(largs);
+                        TOP_REPLACE(ret);
                         DISPATCH2();
                     }
+                } else if (args >= func->arity) {
+                    if (func->variadic) {
+                        unsigned short exceeded = args - func->arity;
+
+                        ret = RestElementToList(frame->eval_stack + (es_cur - (exceeded + 1)), exceeded + 1);
+
+                        if (ret == nullptr)
+                            goto error; // TODO: enomem
+
+                        STACK_REWIND(exceeded);
+                        largs -= exceeded;
+                        TOP_REPLACE(ret);
+                    } else if (args > func->arity)
+                        goto error; // TODO: Too much arguments!
                 }
 
                 //****+ TODO: TEMPORARY, REMOVED AT THE END OF TEST *********
                 auto fr = FrameNew(func->code, frame->globals, frame->proxy_globals);
-                if (fr == nullptr) {
-                    assert(false);
-                    goto error;
-                }
-                int pos = 0;
+                if (fr == nullptr)
+                    goto error; // TODO: enomem
 
-                if (func->instance != nullptr) {
-                    fr->locals[pos++] = func->instance;
-                    IncRef(func->instance);
-                }
-
-                // fill locals!
-                if (func->currying != nullptr) {
-                    for (size_t i = 0; i < func->currying->len; i++) {
-                        fr->locals[pos] = func->currying->objects[i];
-                        IncRef(fr->locals[pos++]);
-                    }
-                }
-                for (unsigned int i = es_cur - largs; i < es_cur; i++)
-                    fr->locals[pos++] = frame->eval_stack[i];
+                FillFrameBeforeCall(fr, func, frame->eval_stack + (es_cur - largs), largs);
                 es_cur -= largs;
-
-                if (func->enclosed != nullptr) {
-                    for (size_t i = 0; i < func->enclosed->len; i++) {
-                        IncRef(func->enclosed->objects[i]);
-                        fr->enclosed[i] = func->enclosed->objects[i];
-                    }
-                }
 
                 assert(TOP()->type == &type_function_);
                 POP(); // pop function!
@@ -807,13 +831,16 @@ void argon::vm::Eval(ArRoutine *routine) {
         error:
         assert(false);
     }
+
     end_while:
     assert(es_cur == 0);
 
     if (frame->back != nullptr && frame != base) {
-        routine->frame = frame->back;
+        routine->
+                frame = frame->back;
         FrameDel(frame);
-        goto begin;
+        goto
+                begin;
     }
 }
 
