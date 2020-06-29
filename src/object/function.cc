@@ -8,8 +8,12 @@ using namespace argon::object;
 using namespace argon::memory;
 
 inline void CloneFn(Function *fn_new, const Function *func) {
-    IncRef(func->code);
-    fn_new->code = func->code;
+
+    if (!func->native) {
+        IncRef(func->code);
+        fn_new->code = func->code;
+    } else
+        fn_new->native_fn = func->native_fn;
 
     IncRef(func->currying);
     fn_new->currying = func->currying;
@@ -22,10 +26,13 @@ inline void CloneFn(Function *fn_new, const Function *func) {
 
     fn_new->arity = func->arity;
     fn_new->variadic = func->variadic;
+    fn_new->native = func->native;
 }
 
 void function_cleanup(Function *fn) {
-    Release(fn->code);
+    if (!fn->native)
+        Release(fn->code);
+
     Release(fn->currying);
     Release(fn->enclosed);
 }
@@ -56,15 +63,25 @@ Function *argon::object::FunctionNew(Code *code, unsigned short arity, bool vari
         fn->code = code;
         fn->currying = nullptr;
 
-        if (enclosed != nullptr) {
-            IncRef(enclosed);
-            fn->enclosed = enclosed;
-        }
+        IncRef(enclosed);
+        fn->enclosed = enclosed;
 
         fn->instance = nullptr;
 
         fn->arity = arity;
         fn->variadic = variadic;
+        fn->native = false;
+    }
+
+    return fn;
+}
+
+Function *argon::object::FunctionNew(NativeFuncPtr func, unsigned short arity, bool variadic) {
+    auto fn = FunctionNew(nullptr, arity, variadic, nullptr);
+
+    if (fn != nullptr) {
+        fn->native_fn = func;
+        fn->native = true;
     }
 
     return fn;

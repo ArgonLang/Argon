@@ -275,6 +275,40 @@ ArObject *MkCurrying(Function *fn_old, ArObject **args, size_t count) {
     return fn_new;
 }
 
+ArObject *NativeCall(ArRoutine *routine, Function *function, ArObject **args, size_t count) {
+    List *arguments = nullptr;
+    ArObject **raw = nullptr;
+
+    if (function->arity > 0) {
+        raw = args;
+
+        if (count < function->arity) {
+            if ((arguments = ListNew(function->arity)) == nullptr) {
+                return nullptr; // TODO: enomem
+            }
+
+            if (function->currying != nullptr) {
+                if (!ListConcat(arguments, function->currying)) {
+                    return nullptr; // TODO: enomem
+                }
+            }
+
+            for (size_t i = 0; i < count; i++)
+                ListAppend(arguments, args[i]);
+
+            if (function->variadic && arguments->len + 1 == function->arity)
+                ListAppend(arguments, NilVal);
+
+            raw = arguments->objects;
+        }
+    }
+
+    auto res = function->native_fn(function, raw);
+    Release(arguments);
+
+    return res;
+}
+
 void argon::vm::Eval(ArRoutine *routine, Frame *frame) {
     frame->back = routine->frame;
     routine->frame = frame;
@@ -298,51 +332,62 @@ void argon::vm::Eval(ArRoutine *routine) {
         switch (*(lang::OpCodes *) frame->instr_ptr) {
 
             TARGET_OP(CALL) {
-                // TODO: check if callable!
-                auto largs = I16Arg(frame->instr_ptr);
-                auto args = largs;
-                auto func = (Function *) frame->eval_stack[es_cur - args - 1];
+                unsigned short local_args = I16Arg(frame->instr_ptr);
+                unsigned short total_args = local_args;
+                auto func = (Function *) frame->eval_stack[es_cur - local_args - 1];
+                unsigned short arity = func->arity;
 
-                if (func->instance != nullptr) args++;
+                if (func->type != &type_function_)
+                    goto error; //TODO: not callable!
 
-                if (func->currying != nullptr)
-                    args += func->currying->len;
+                if (func->instance != nullptr) total_args++;
 
-                if (args < func->arity) {
-                    if (args == 0)
-                        goto error; // TODO: MISSING PARAMS!
+                if (func->currying != nullptr) total_args += func->currying->len;
 
-                    if (func->arity - args > 1 || !func->variadic) {
-                        if ((ret = MkCurrying(func, frame->eval_stack + (es_cur - largs), largs)) == nullptr)
-                            goto error; // TODO: enomem
+                if (func->variadic) arity--;
 
-                        STACK_REWIND(largs);
-                        TOP_REPLACE(ret);
-                        DISPATCH2();
-                    }
-                } else if (args >= func->arity) {
-                    if (func->variadic) {
-                        unsigned short exceeded = args - func->arity;
+                if (total_args < arity) {
+                    if (total_args == 0)
+                        goto error; // TODO: set error MISSING PARAMS
 
-                        ret = RestElementToList(frame->eval_stack + (es_cur - (exceeded + 1)), exceeded + 1);
+                    if ((ret = MkCurrying(func, frame->eval_stack + (es_cur - local_args), local_args)) == nullptr)
+                        goto error; // TODO: enomem
 
-                        if (ret == nullptr)
-                            goto error; // TODO: enomem
+                    STACK_REWIND(local_args);
+                    TOP_REPLACE(ret);
+                    DISPATCH2();
+                } else if (total_args > arity) {
+                    unsigned short exceeded = total_args - arity;
 
-                        STACK_REWIND(exceeded);
-                        largs -= exceeded;
-                        TOP_REPLACE(ret);
-                    } else if (args > func->arity)
+                    if (!func->variadic)
                         goto error; // TODO: Too much arguments!
+
+                    ret = RestElementToList(frame->eval_stack + (es_cur - (exceeded)), exceeded);
+
+                    if (ret == nullptr)
+                        goto error; // TODO: enomem
+
+                    STACK_REWIND(exceeded - 1);
+                    TOP_REPLACE(ret);
                 }
 
-                //****+ TODO: TEMPORARY, REMOVED AT THE END OF TEST *********
+                if (func->native) {
+                    ret = NativeCall(routine, func, frame->eval_stack + (es_cur - local_args), local_args);
+
+                    if (ret == nullptr)
+                        goto error;
+
+                    STACK_REWIND(local_args);
+                    TOP_REPLACE(ret);
+                    DISPATCH2();
+                }
+
                 auto fr = FrameNew(func->code, frame->globals, frame->proxy_globals);
                 if (fr == nullptr)
                     goto error; // TODO: enomem
 
-                FillFrameBeforeCall(fr, func, frame->eval_stack + (es_cur - largs), largs);
-                es_cur -= largs;
+                FillFrameBeforeCall(fr, func, frame->eval_stack + (es_cur - local_args), local_args);
+                es_cur -= local_args;
 
                 assert(TOP()->type == &type_function_);
                 POP(); // pop function!
