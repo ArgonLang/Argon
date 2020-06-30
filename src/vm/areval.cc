@@ -261,16 +261,20 @@ ArObject *RestElementToList(ArObject **args, size_t count) {
 }
 
 ArObject *MkCurrying(Function *fn_old, ArObject **args, size_t count) {
-    Function *fn_new = FunctionNew(fn_old, count);
+    List *currying = ListNew(count);
 
-    if (fn_new != nullptr) {
-        for (size_t i = 0; i < count; i++) {
-            if (!ListAppend(fn_new->currying, args[i])) {
-                Release(fn_new);
-                return nullptr;
-            }
+    if (currying == nullptr)
+        return nullptr;
+
+    for (size_t i = 0; i < count; i++) {
+        if (!ListAppend(currying, args[i])) {
+            Release(currying);
+            return nullptr;
         }
     }
+
+    Function *fn_new = FunctionNew(fn_old, currying);
+    Release(currying);
 
     return fn_new;
 }

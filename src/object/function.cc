@@ -52,7 +52,7 @@ const TypeInfo argon::object::type_function_ = {
         (VoidUnaryOp) function_cleanup
 };
 
-Function *argon::object::FunctionNew(Code *code, unsigned short arity, bool variadic, argon::object::List *enclosed) {
+Function *argon::object::FunctionNew(Code *code, unsigned short arity, bool variadic, List *enclosed) {
     auto fn = (Function *) Alloc(sizeof(Function));
 
     if (fn != nullptr) {
@@ -76,18 +76,18 @@ Function *argon::object::FunctionNew(Code *code, unsigned short arity, bool vari
     return fn;
 }
 
-Function *argon::object::FunctionNew(NativeFuncPtr func, unsigned short arity, bool variadic) {
-    auto fn = FunctionNew(nullptr, arity, variadic, nullptr);
+Function *argon::object::FunctionNew(const FunctionNative *native) {
+    auto fn = FunctionNew(nullptr, native->arity, native->variadic, nullptr);
 
     if (fn != nullptr) {
-        fn->native_fn = func;
+        fn->native_fn = native->func;
         fn->native = true;
     }
 
     return fn;
 }
 
-Function *argon::object::FunctionNew(const Function *func, unsigned short currying_len) {
+Function *argon::object::FunctionNew(const Function *func, List *currying) {
     auto fn = (Function *) Alloc(sizeof(Function));
 
     if (fn != nullptr) {
@@ -96,10 +96,8 @@ Function *argon::object::FunctionNew(const Function *func, unsigned short curryi
 
         CloneFn(fn, func);
 
-        if ((fn->currying = ListNew(currying_len)) == nullptr) {
-            Release(fn);
-            return nullptr;
-        }
+        IncRef(currying);
+        fn->currying = currying;
     }
 
     return fn;
