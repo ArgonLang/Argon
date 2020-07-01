@@ -15,12 +15,15 @@ namespace lang {
 
     inline unsigned int I32Arg(const unsigned char *instr) { return *((Instr32 *) instr) >> (unsigned char) 8; }
 
+    inline unsigned char I32ExtractFlag(const unsigned char *instr) { return I32Arg(instr) >> (unsigned char) 16; }
+
     enum class OpCodes : unsigned char {
         ADD,
         CALL,
         CMP,
         DIV,
         IDIV,
+        INIT,   // See OpCodeINITFLAGS
         INV,
         IPADD,
         IPDIV,
@@ -45,6 +48,8 @@ namespace lang {
         MK_LIST,
         MK_MAP,
         MK_SET,
+        MK_STRUCT,
+        MK_TRAIT,
         MK_TUPLE,
         MOD,
         MUL,
@@ -61,12 +66,18 @@ namespace lang {
         RET,
         SHL,
         SHR,
+        STATTR,
         STGBL,
         STLC,
         STSUBSCR,
         SUB,
         SUBSCR,
         TEST
+    };
+
+    enum class OpCodeINITFlags : unsigned char {
+        LIST = 0,
+        DICT = 1
     };
 } // namespace lang
 

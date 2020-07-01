@@ -84,6 +84,11 @@ namespace argon::object {
         BoolTernOp set_item;
     };
 
+    struct ObjectActions {
+        BinaryOp get_attr;
+        BoolTernOp set_attr;
+    };
+
     struct TypeInfo {
         const unsigned char *name;
         unsigned short size;
@@ -92,6 +97,7 @@ namespace argon::object {
         const NumberActions *number_actions;
         const SequenceActions *sequence_actions;
         const MapActions *map_actions;
+        const ObjectActions *obj_actions;
 
         // Generic actions
         BoolUnaryOp is_true;
@@ -130,7 +136,10 @@ namespace argon::object {
         return false;
     }
 
-    inline void IncRef(ArObject *obj) { obj->ref_count.IncStrong(); };
+    inline void IncRef(ArObject *obj) {
+        if (obj != nullptr)
+            obj->ref_count.IncStrong();
+    };
 
     inline void Release(ArObject *obj) {
         if (obj == nullptr)

@@ -55,15 +55,19 @@ namespace lang {
 
         void CompileLoop(const ast::Loop *loop);
 
-        void CompileMember(const ast::Member *member);
+        void CompileMember(const ast::Member *member, const ast::NodeUptr *node);
 
         void CompileSlice(const ast::Slice *slice);
+
+        void CompileStructInit(const ast::StructInit *init);
 
         void CompileSubscr(const ast::Binary *subscr, const ast::NodeUptr &assignable);
 
         void CompileSwitch(const ast::Switch *stmt, bool as_if);
 
         void CompileTest(const ast::Binary *test);
+
+        void CompileConstruct(const ast::Construct *construct);
 
         void CompileUnaryExpr(const ast::Unary *unary);
 

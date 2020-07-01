@@ -15,6 +15,7 @@
 #define ARGON_OBJECT_NS_PROP_PUB    (unsigned char) 0x01
 #define ARGON_OBJECT_NS_PROP_CONST  (unsigned char)((unsigned char) 0x01 << (unsigned char) 1)
 #define ARGON_OBJECT_NS_PROP_WEAK   (unsigned char)((unsigned char) 0x01 << (unsigned char) 2)
+#define ARGON_OBJECT_NS_PROP_MEMBER (unsigned char)((unsigned char) 0x01 << (unsigned char) 3)
 
 namespace argon::object {
     class PropertyInfo {
@@ -42,10 +43,17 @@ namespace argon::object {
         [[nodiscard]] bool IsWeak() const {
             return (this->flags_ & ((unsigned char) ARGON_OBJECT_NS_PROP_WEAK));
         }
+
+        [[nodiscard]] bool IsMember() const {
+            return (this->flags_ & ((unsigned char) ARGON_OBJECT_NS_PROP_MEMBER));
+        }
     };
 
     struct NsEntry {
         NsEntry *next = nullptr;
+        NsEntry *iter_next = nullptr;
+        NsEntry *iter_prev = nullptr;
+
         ArObject *key = nullptr;
         union {
             RefCount ref;
@@ -56,6 +64,8 @@ namespace argon::object {
 
     struct Namespace : ArObject {
         NsEntry **ns;
+        NsEntry *iter_begin;
+        NsEntry *iter_end;
 
         size_t cap;
         size_t len;

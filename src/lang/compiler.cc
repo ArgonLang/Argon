@@ -20,7 +20,7 @@ using namespace lang::ast;
 using namespace lang::symbol_table;
 using namespace argon::object;
 
-inline unsigned char AttrToFlags(bool pub, bool constant, bool weak) {
+inline unsigned char AttrToFlags(bool pub, bool constant, bool weak, bool member) {
     unsigned char flags = 0;
     if (pub)
         flags |= ARGON_OBJECT_NS_PROP_PUB;
@@ -28,6 +28,8 @@ inline unsigned char AttrToFlags(bool pub, bool constant, bool weak) {
         flags |= ARGON_OBJECT_NS_PROP_CONST;
     if (weak)
         flags |= ARGON_OBJECT_NS_PROP_WEAK;
+    if (member && !constant)
+        flags |= ARGON_OBJECT_NS_PROP_MEMBER;
     return flags;
 }
 
@@ -236,7 +238,7 @@ void Compiler::CompileAssignment(const ast::Assignment *assign) {
     } else if (assign->assignee->type == NodeType::SUBSCRIPT) {
         this->CompileSubscr(CastNode<Binary>(assign->assignee), assign->right);
     } else if (assign->assignee->type == NodeType::MEMBER) {
-
+        this->CompileMember(CastNode<Member>(assign->assignee), &assign->right); // TODO: impl NULLABLE
     }
 }
 
@@ -304,8 +306,15 @@ void Compiler::CompileCode(const ast::NodeUptr &node) {
     unsigned int stack_sz_tmp;
 
     switch (node->type) {
+        case NodeType::STRUCT:
+        case NodeType::TRAIT:
+            this->CompileConstruct(CastNode<ast::Construct>(node));
+            break;
+        case NodeType::STRUCT_INIT:
+            this->CompileStructInit(CastNode<ast::StructInit>(node));
+            break;
         case NodeType::MEMBER:
-            this->CompileMember(CastNode<Member>(node));
+            this->CompileMember(CastNode<Member>(node), nullptr);
             break;
         case NodeType::SUBSCRIPT:
             this->CompileSubscr(CastNode<Binary>(node), nullptr);
@@ -342,7 +351,7 @@ void Compiler::CompileCode(const ast::NodeUptr &node) {
         case NodeType::CONSTANT:
             this->CompileCode(CastNode<Constant>(node)->value);
             this->NewVariable(CastNode<Constant>(node)->name, true,
-                              AttrToFlags(CastNode<Constant>(node)->pub, true, false));
+                              AttrToFlags(CastNode<Constant>(node)->pub, true, false, false));
             this->DecEvalStack(1);
             break;
         case NodeType::VARIABLE:
@@ -648,7 +657,7 @@ void Compiler::CompileLoop(const ast::Loop *loop) {
     this->UseAsNextBlock(last);
 }
 
-void Compiler::CompileMember(const ast::Member *member) {
+void Compiler::CompileMember(const ast::Member *member, const ast::NodeUptr *node) {
     bool safe;
     unsigned int index;
 
@@ -678,7 +687,13 @@ void Compiler::CompileMember(const ast::Member *member) {
         this->NewNextBlock();
     }
 
-    this->EmitOp2(OpCodes::LDATTR, index);
+    if (node != nullptr) {
+        this->CompileCode(*node);
+        this->EmitOp2(OpCodes::STATTR, index);
+        this->DecEvalStack(2);
+    } else
+        this->EmitOp2(OpCodes::LDATTR, index);
+
 }
 
 void Compiler::CompileSlice(const ast::Slice *slice) {
@@ -699,6 +714,31 @@ void Compiler::CompileSlice(const ast::Slice *slice) {
     }
 
     this->DecEvalStack(len - 1);
+}
+
+void Compiler::CompileStructInit(const ast::StructInit *init) {
+    this->CompileCode(init->left);
+
+    if (init->keys) {
+        bool key = true;
+        for (auto &arg:init->args) {
+            if (key) {
+                this->PushStatic(CastNode<Identifier>(arg)->value, true, nullptr);
+                key = false;
+            } else {
+                this->CompileCode(arg);
+                key = true;
+            }
+        }
+    } else
+        for (auto &arg : init->args)
+            this->CompileCode(arg);
+
+    this->EmitOp4Flags(OpCodes::INIT,
+                       init->keys ? (unsigned char) OpCodeINITFlags::DICT : (unsigned char) OpCodeINITFlags::LIST,
+                       init->args.size());
+
+    this->DecEvalStack(init->args.size());
 }
 
 void Compiler::CompileSubscr(const ast::Binary *subscr, const ast::NodeUptr &assignable) {
@@ -823,6 +863,44 @@ void Compiler::CompileTest(const ast::Binary *test) {
     this->UseAsNextBlock(last);
 }
 
+void Compiler::CompileConstruct(const ast::Construct *construct) {
+    bool structure = construct->type == NodeType::STRUCT;
+    Code *co_construct;
+
+    this->EnterScope(construct->name, structure ? CUScope::STRUCT : CUScope::TRAIT);
+
+    this->CompileCode(construct->body);
+
+    this->Dfs(this->cu_curr_, this->cu_curr_->bb_start);
+
+    if ((co_construct = this->Assemble()) == nullptr)
+        throw MemoryException("CompileConstruct");
+
+    this->ExitScope();
+
+    if (!this->PushStatic(co_construct, false, true, nullptr)) {
+        Release(co_construct);
+        throw MemoryException("CompileConstruct: PushStatic(struct/trait)");
+    }
+
+    // construct name
+    bool ok = this->PushStatic(construct->name, true, nullptr);
+    Release(co_construct);
+
+    if (!ok)
+        throw MemoryException("CompileConstruct: PushStatic");
+
+    // impls
+    for (auto &impl:construct->impls)
+        this->CompileCode(impl);
+
+    this->EmitOp2(structure ? OpCodes::MK_STRUCT : OpCodes::MK_TRAIT, construct->impls.size());
+    this->DecEvalStack(construct->impls.size() + 1);
+
+    this->NewVariable(construct->name, true, AttrToFlags(construct->pub, false, false, false));
+    this->DecEvalStack(1);
+}
+
 void Compiler::CompileUnaryExpr(const ast::Unary *unary) {
     switch (unary->kind) {
         case scanner::TokenType::EXCLAMATION:
@@ -844,7 +922,8 @@ void Compiler::CompileUnaryExpr(const ast::Unary *unary) {
 
 void Compiler::CompileVariable(const ast::Variable *variable) {
     this->CompileCode(variable->value);
-    this->NewVariable(variable->name, true, AttrToFlags(variable->pub, false, variable->weak));
+    this->NewVariable(variable->name, true, AttrToFlags(variable->pub, false, variable->weak,
+                                                        this->cu_curr_->scope == CUScope::STRUCT));
     this->DecEvalStack(1);
 }
 
@@ -967,7 +1046,7 @@ void Compiler::NewVariable(const std::string &name, bool emit_op, unsigned char 
 
     sym->declared = true;
 
-    if (this->cu_curr_->scope == CUScope::MODULE && sym->nested == 0) {
+    if (this->cu_curr_->scope != CUScope::FUNCTION && sym->nested == 0) {
         if (emit_op)
             this->EmitOp4Flags(OpCodes::NGV, flags, known ? sym->id : dest->len);
         if (known)

@@ -89,8 +89,34 @@ const TypeInfo type_namespace_ = {
         nullptr,
         nullptr,
         nullptr,
+        nullptr,
         namespace_cleanup
 };
+
+void AppendIterItem(Namespace *ns, NsEntry *entry) {
+    if (ns->iter_begin == nullptr) {
+        ns->iter_begin = entry;
+        ns->iter_end = entry;
+        return;
+    }
+
+    entry->iter_next = nullptr;
+    entry->iter_prev = ns->iter_end;
+    ns->iter_end->iter_next = entry;
+    ns->iter_end = entry;
+}
+
+void RemoveIterItem(Namespace *ns, NsEntry *entry) {
+    if (entry->iter_prev != nullptr)
+        entry->iter_prev->iter_next = entry->iter_next;
+    else
+        ns->iter_begin = entry->iter_next;
+
+    if (entry->iter_next != nullptr)
+        entry->iter_next->iter_prev = entry->iter_prev;
+    else
+        ns->iter_end = entry->iter_prev;
+}
 
 Namespace *argon::object::NamespaceNew() {
     auto ns = (Namespace *) Alloc(sizeof(Namespace));
@@ -104,6 +130,8 @@ Namespace *argon::object::NamespaceNew() {
             return nullptr;
         }
 
+        ns->iter_begin = nullptr;
+        ns->iter_end = nullptr;
         ns->cap = ARGON_OBJECT_NS_INITIAL_SIZE;
         ns->len = 0;
 
@@ -138,6 +166,8 @@ bool argon::object::NamespaceNewSymbol(Namespace *ns, PropertyInfo info, ArObjec
 
         entry->next = ns->ns[index];
         ns->ns[index] = entry;
+
+        AppendIterItem(ns, entry);
 
         ns->len++;
     }
@@ -208,6 +238,7 @@ void argon::object::NamespaceRemove(Namespace *ns, ArObject *key) {
         if (key->type->equal(key, cur->key)) {
             Release(cur->key);
             FreeOrReplace(cur, nullptr);
+            RemoveIterItem(ns, cur);
 
             if (prev == nullptr)
                 ns->ns[index] = cur->next;

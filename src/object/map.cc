@@ -228,6 +228,7 @@ const TypeInfo type_map_ = {
         nullptr,
         &map_actions,
         nullptr,
+        nullptr,
         map_equal,
         nullptr,
         map_hash,

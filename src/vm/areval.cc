@@ -4,7 +4,7 @@
 
 #include <cassert>
 
-#include "argon_vm.h"
+#include "areval.h"
 #include <lang/opcodes.h>
 #include <object/bool.h>
 #include <object/error.h>
@@ -12,6 +12,9 @@
 #include <object/function.h>
 #include <object/nil.h>
 #include <object/bounds.h>
+#include <object/trait.h>
+#include <object/struct.h>
+#include <object/instance.h>
 
 using namespace lang;
 using namespace argon::object;
@@ -44,10 +47,13 @@ continue
 #define DISPATCH goto *computed_goto[(unsigned char)*(lang::OpCodes *) frame->instr_ptr]
 #endif
 
-
 // STACK MANIPULATION MACRO
 #define PUSH(obj)   frame->eval_stack[es_cur++] = obj
 #define POP()       Release(frame->eval_stack[--es_cur])
+
+#define STACK_REWIND(offset)                                                        \
+for (size_t i = es_cur; i > es_cur - (offset); Release(frame->eval_stack[--i]));    \
+es_cur -= offset
 
 #define TOP()       frame->eval_stack[es_cur-1]
 #define PEEK1()     frame->eval_stack[es_cur-2]
@@ -87,7 +93,134 @@ POP();                                                                  \
 TOP_REPLACE(ret);                                                       \
 DISPATCH()
 
-void ArgonVM::Eval(ArRoutine *routine) {
+bool GetMRO(ArRoutine *routine, List **mro, Trait **impls, size_t count) {
+    (*mro) = nullptr;
+
+    if (count > 0) {
+        List *bases = BuildBasesList((Trait **) impls, count);
+        if (bases == nullptr) {
+            assert(false);
+            return false; // TODO memerror!
+        }
+
+        (*mro) = ComputeMRO(bases);
+        Release(bases);
+
+        if ((*mro) == nullptr) {
+            assert(false);
+            return false; // TODO memerror!
+        }
+
+        if ((*mro)->len == 0) {
+            assert(false);
+            Release((*mro));
+            return false; // TODO: impls error
+        }
+    }
+
+    return true;
+}
+
+ArObject *MkConstruct(ArRoutine *routine, Code *code, String *name, Trait **impls, size_t count, bool is_trait) {
+    ArObject *ret;
+    Namespace *ns;
+    Frame *frame;
+    List *mro;
+
+    if (code->type != &type_code_)
+        return nullptr; // todo: Expected Code object!
+
+    if ((ns = NamespaceNew()) == nullptr)
+        return nullptr; // TODO: enomem
+
+    if ((frame = FrameNew(code, routine->frame->globals, ns)) == nullptr) {
+        Release(ns);
+        return nullptr; // TODO: enomem
+    }
+
+    Eval(routine, frame);
+    FrameDel(frame);
+
+    if (!GetMRO(routine, &mro, impls, count)) {
+        Release(ns);
+        return nullptr; // TODO mro error
+    }
+
+    ret = is_trait ? (ArObject *) TraitNew(name, ns, mro) : (ArObject *) StructNew(name, ns, mro);
+    Release(ns);
+    Release(mro);
+
+    if (ret == nullptr) {
+        // todo:enomem
+    }
+
+    return ret;
+}
+
+ArObject *InstantiateStruct(ArRoutine *routine, Struct *base, ArObject **values, size_t count, bool key_pair) {
+    Instance *instance;
+    Namespace *instance_ns;
+
+    if ((instance_ns = NamespaceNew()) == nullptr)
+        return nullptr; // todo: enomem
+
+    if (!key_pair) {
+        size_t index = 0;
+        for (NsEntry *cur = base->names->iter_begin; cur != nullptr; cur = cur->iter_next) {
+            if (cur->info.IsMember()) {
+                ArObject *value;
+
+                if (index < count) {
+                    value = values[index++];
+                    IncRef(value);
+                } else
+                    value = NamespaceGetValue(base->names, cur->key, nullptr);
+
+                bool ok = NamespaceNewSymbol(instance_ns, cur->info, cur->key, value);
+                Release(value);
+
+                if (!ok) {
+                    Release(instance_ns);
+                    return nullptr; // todo: enomem
+                }
+            }
+        }
+    } else {
+        // Load default values
+        for (NsEntry *cur = base->names->iter_begin; cur != nullptr; cur = cur->iter_next) {
+            if (cur->info.IsMember())
+                if (!NamespaceNewSymbol(instance_ns, cur->info, cur->key, cur->obj)) {
+                    Release(instance_ns);
+                    return nullptr; // todo: enomem
+                }
+        }
+
+        for (size_t i = 0; i < count; i += 2) {
+            if (!NamespaceSetValue(instance_ns, values[i], values[i + 1])) {
+                Release(instance_ns);
+                return nullptr; // todo: Invalid Key!
+            }
+        }
+    }
+
+    instance = InstanceNew(base, instance_ns);
+    Release(instance_ns);
+
+    // todo: set enomem if nullptr
+
+    return instance;
+}
+
+void argon::vm::Eval(ArRoutine *routine, Frame *frame) {
+    frame->back = routine->frame;
+    routine->frame = frame;
+    Eval(routine);
+    routine->frame = frame->back;
+}
+
+void argon::vm::Eval(ArRoutine *routine) {
+    Frame *base = routine->frame; // TODO: refactor THIS!
+
     begin:
     Frame *frame = routine->frame;
     object::Code *code = frame->code;
@@ -154,7 +287,7 @@ void ArgonVM::Eval(ArRoutine *routine) {
                 }
 
                 //****+ TODO: TEMPORARY, REMOVED AT THE END OF TEST *********
-                auto fr = FrameNew(func->code);
+                auto fr = FrameNew(func->code, frame->globals, frame->proxy_globals);
                 if (fr == nullptr) {
                     assert(false);
                     goto error;
@@ -185,7 +318,6 @@ void ArgonVM::Eval(ArRoutine *routine) {
                 // save PC
                 frame->instr_ptr += sizeof(Instr16);
                 frame->eval_stack = &frame->eval_stack[es_cur];
-                fr->globals = frame->globals;
                 fr->back = frame;
                 routine->frame = fr;
                 goto begin;
@@ -272,11 +404,15 @@ void ArgonVM::Eval(ArRoutine *routine) {
                 // *** NEW VARIABLES ***
 
             TARGET_OP(NGV) {
+                auto map = frame->globals;
                 assert(code->names != nullptr);
                 ret = TupleGetItem(code->names, I16Arg(frame->instr_ptr)); // I16 extract arg bit
 
-                assert(!NamespaceContains(frame->globals, ret, nullptr)); // Double declaration, compiler error!
-                if (!NamespaceNewSymbol(frame->globals, PropertyInfo(I32Arg(frame->instr_ptr) >> 16), ret, TOP())) {
+                if (frame->proxy_globals != nullptr)
+                    map = frame->proxy_globals;
+
+                assert(!NamespaceContains(map, ret, nullptr)); // Double declaration, compiler error!
+                if (!NamespaceNewSymbol(map, PropertyInfo(I32Arg(frame->instr_ptr) >> 16), ret, TOP())) {
                     Release(ret);
                     goto error; // todo: memory error!
                 }
@@ -294,22 +430,43 @@ void ArgonVM::Eval(ArRoutine *routine) {
 
                 // *** STORE VALUES ***
 
+            TARGET_OP(STATTR) {
+                assert(code->statics != nullptr);
+                ArObject *key = TupleGetItem(code->statics, I16Arg(frame->instr_ptr));
+                ArObject *instance = (Instance *) PEEK1();
+
+                if (!instance->type->obj_actions->set_attr(instance, key, TOP())) {
+                    Release(key);
+                    goto error; // TODO: key not found / priv,pub ecc
+                }
+
+                Release(key);
+
+                POP(); // value
+                POP(); // instance
+                DISPATCH2();
+            }
             TARGET_OP(STGBL) {
+                auto map = frame->globals;
+
                 assert(code->names != nullptr);
                 PropertyInfo info;
                 ret = TupleGetItem(code->names, I16Arg(frame->instr_ptr));
 
-                if (!NamespaceContains(frame->globals, ret, &info)) {
+                if (frame->proxy_globals != nullptr)
+                    map = frame->proxy_globals;
+
+                if (!NamespaceContains(map, ret, &info)) {
                     Release(ret);
                     goto error; // todo: Unknown variable
                 }
 
-                if(info.IsConstant()){
+                if (info.IsConstant()) {
                     Release(ret);
                     goto error; // todo: Constant!
                 }
 
-                NamespaceSetValue(frame->globals, ret, TOP());
+                NamespaceSetValue(map, ret, TOP());
                 Release(ret);
                 POP();
                 DISPATCH4();
@@ -346,16 +503,36 @@ void ArgonVM::Eval(ArRoutine *routine) {
 
                 // *** LOAD VARIABLES ***
 
+            TARGET_OP(LDATTR) {
+                assert(code->statics != nullptr);
+                ArObject *key = TupleGetItem(code->statics, I16Arg(frame->instr_ptr));
+                ArObject *instance = (Instance *) TOP();
+
+                ret = instance->type->obj_actions->get_attr(instance, key);
+                Release(key);
+
+                if (ret == nullptr)
+                    goto error; // TODO: key not found / priv,pub ecc
+
+                TOP_REPLACE(ret);
+                DISPATCH2();
+            }
             TARGET_OP(LDENC) {
                 assert(frame->enclosed != nullptr);
                 PUSH(frame->enclosed[I16Arg(frame->instr_ptr)]);
                 DISPATCH2();
             }
             TARGET_OP(LDGBL) {
+                auto map = frame->globals;
+
                 assert(code->names != nullptr);
                 ArObject *key = TupleGetItem(code->names, I16Arg(frame->instr_ptr));
 
                 ret = NamespaceGetValue(frame->globals, key, nullptr);
+
+                if (ret == nullptr && frame->proxy_globals != nullptr)
+                    ret = NamespaceGetValue(frame->proxy_globals, key, nullptr);
+
                 Release(key);
 
                 if (ret == nullptr)
@@ -502,6 +679,32 @@ void ArgonVM::Eval(ArRoutine *routine) {
                 PUSH(ret);
                 DISPATCH4();
             }
+            TARGET_OP(MK_STRUCT) {
+                unsigned short args = I16Arg(frame->instr_ptr);
+
+                if ((ret = MkConstruct(routine, (Code *) frame->eval_stack[(es_cur - args) - 2],
+                                       (String *) frame->eval_stack[(es_cur - args) - 1],
+                                       (Trait **) frame->eval_stack + (es_cur - args),
+                                       args, false)) == nullptr)
+                    goto error;
+
+                STACK_REWIND(args + 1); // args + 1(name)
+                TOP_REPLACE(ret);
+                DISPATCH2();
+            }
+            TARGET_OP(MK_TRAIT) {
+                unsigned short args = I16Arg(frame->instr_ptr);
+
+                if ((ret = MkConstruct(routine, (Code *) frame->eval_stack[(es_cur - args) - 2],
+                                       (String *) frame->eval_stack[(es_cur - args) - 1],
+                                       (Trait **) frame->eval_stack + (es_cur - args),
+                                       args, true)) == nullptr)
+                    goto error;
+
+                STACK_REWIND(args + 1); // args + 1(name)
+                TOP_REPLACE(ret);
+                DISPATCH2();
+            }
             TARGET_OP(MK_TUPLE) {
                 unsigned int args = I32Arg(frame->instr_ptr);
 
@@ -537,6 +740,25 @@ void ArgonVM::Eval(ArRoutine *routine) {
                 DISPATCH4();
             }
 
+            TARGET_OP(INIT) {
+                unsigned short args = I16Arg(frame->instr_ptr);
+                bool key_pair = I32ExtractFlag(frame->instr_ptr);
+                auto bstruct = (Struct *) frame->eval_stack[(es_cur - args) - 1];
+
+                if (bstruct->type != &type_struct_)
+                    goto error; // todo: expected struct
+
+                if (!key_pair && args > bstruct->properties_count)
+                    goto error;  // TODO: too many values
+
+                ret = InstantiateStruct(routine, bstruct, frame->eval_stack + (es_cur - args), args, key_pair);
+                if (ret == nullptr)
+                    goto error;
+
+                STACK_REWIND(args);
+                TOP_REPLACE(ret);
+                DISPATCH4();
+            }
             TARGET_OP(RET) {
                 assert(frame->back != nullptr);
                 if (es_cur == 0) {
@@ -562,7 +784,7 @@ void ArgonVM::Eval(ArRoutine *routine) {
     end_while:
     assert(es_cur == 0);
 
-    if (frame->back != nullptr) {
+    if (frame->back != nullptr && frame != base) {
         routine->frame = frame->back;
         FrameDel(frame);
         goto begin;

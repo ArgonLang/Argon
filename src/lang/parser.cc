@@ -976,7 +976,8 @@ ast::NodeUptr Parser::Initializer(NodeUptr left) {
                 this->EatTerm(false, TokenType::SEMICOLON);
                 init->AddKeyValue(std::move(key), this->Test());
             } while (this->MatchEat(TokenType::COMMA, true));
-        }
+        } else
+            init->AddArgument(std::move(key));
     }
 
     init->end = this->currTk_.end;
