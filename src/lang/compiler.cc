@@ -28,7 +28,7 @@ inline unsigned char AttrToFlags(bool pub, bool constant, bool weak, bool member
         flags |= ARGON_OBJECT_NS_PROP_CONST;
     if (weak)
         flags |= ARGON_OBJECT_NS_PROP_WEAK;
-    if (member && !constant)
+    if (member)
         flags |= ARGON_OBJECT_NS_PROP_MEMBER;
     return flags;
 }
@@ -171,17 +171,27 @@ Code *Compiler::Compile(std::istream *source) {
     return this->Assemble();
 }
 
-argon::object::Function *Compiler::AssembleFunction(const ast::Function *function) {
+argon::object::Code *Compiler::AssembleFunction(const ast::Function *function) {
     argon::object::Code *code;
-    argon::object::Function *fn;
-    bool variadic = false;
+    MkFuncFlags fn_flags = MkFuncFlags::PLAIN;
+    size_t p_count = function->params.size();
 
     this->EnterScope(function->id, CUScope::FUNCTION);
+
+    // Push self as first param in method definition
+    if (this->cu_curr_->prev != nullptr && !function->id.empty()) {
+        auto prev = this->cu_curr_->prev;
+        if (prev->scope == CUScope::STRUCT || prev->scope == CUScope::TRAIT) {
+            this->NewVariable("self", false, 0);
+            p_count++;
+        }
+    }
 
     for (auto &param: function->params) {
         auto id = CastNode<Identifier>(param);
         this->NewVariable(id->value, false, 0);
-        variadic = id->rest_element;
+        if (id->rest_element)
+            fn_flags = MkFuncFlags::VARIADIC;
     }
 
     this->CompileCode(function->body);
@@ -196,15 +206,24 @@ argon::object::Function *Compiler::AssembleFunction(const ast::Function *functio
 
     this->ExitScope();
 
-    fn = FunctionNew(code, function->params.size());
-    Release(code);
+    // Push to static resources
+    if (!this->PushStatic(code, false, true, nullptr))
+        throw MemoryException("CompileFunction: PushStatic");
 
-    if (fn == nullptr)
-        return nullptr;
+    if (code->deref->len > 0) {
+        for (int i = 0; i < code->deref->len; i++) {
+            auto st = (String *) TupleGetItem(code->deref, i);
+            this->LoadVariable(std::string((char *) st->buffer, st->len));
+            Release(st);
+        }
+        this->DecEvalStack(code->deref->len);
+        this->EmitOp4(OpCodes::MK_LIST, code->deref->len);
+        fn_flags |= MkFuncFlags::CLOSURE;
+    }
 
-    fn->variadic = variadic;
+    this->EmitOp4Flags(OpCodes::MK_FUNC, (unsigned char) fn_flags, p_count);
 
-    return fn;
+    return code;
 }
 
 void Compiler::CompileAssignment(const ast::Assignment *assign) {
@@ -532,34 +551,14 @@ void Compiler::CompileForLoop(const ast::For *loop) {
 }
 
 void Compiler::CompileFunction(const ast::Function *function) {
-    argon::object::Function *fn;
-    Code *code;
+    Code *code = this->AssembleFunction(function);
 
-    if ((fn = this->AssembleFunction(function)) == nullptr)
+    if (code == nullptr)
         throw MemoryException("AssembleFunction");
 
-    code = fn->code;
-
-    // Push to static resources
-    bool ok = this->PushStatic(fn, false, true, nullptr);
-    Release(fn);
-
-    if (!ok)
-        throw MemoryException("CompileFunction: PushStatic");
-
-    if (code->deref->len > 0) {
-        for (int i = 0; i < code->deref->len; i++) {
-            auto st = (String *) TupleGetItem(code->deref, i);
-            this->LoadVariable(std::string((char *) st->buffer, st->len));
-            Release(st);
-        }
-        this->DecEvalStack(code->deref->len);
-        this->EmitOp4(OpCodes::MK_LIST, code->deref->len);
-        this->EmitOp(OpCodes::MK_CLOSURE);
-    }
-
     if (!function->id.empty()) {
-        this->NewVariable(function->id, true, 0);
+        auto is_method = this->cu_curr_->scope == CUScope::STRUCT || this->cu_curr_->scope == CUScope::TRAIT;
+        this->NewVariable(function->id, true, AttrToFlags(function->pub, true, false, is_method));
         this->DecEvalStack(1);
     }
 }

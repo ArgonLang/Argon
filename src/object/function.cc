@@ -8,25 +8,31 @@ using namespace argon::object;
 using namespace argon::memory;
 
 inline void CloneFn(Function *fn_new, const Function *func) {
-    IncRef(func->code);
-    fn_new->code = func->code;
 
-    if (func->currying != nullptr) {
-        IncRef(func->currying);
-        fn_new->currying = func->currying;
-    }
+    if (!func->native) {
+        IncRef(func->code);
+        fn_new->code = func->code;
+    } else
+        fn_new->native_fn = func->native_fn;
 
-    if (func->enclosed != nullptr) {
-        IncRef(func->enclosed);
-        fn_new->enclosed = func->enclosed;
-    }
+    IncRef(func->currying);
+    fn_new->currying = func->currying;
+
+    IncRef(func->enclosed);
+    fn_new->enclosed = func->enclosed;
+
+    IncRef(func->instance);
+    fn_new->instance = func->instance;
 
     fn_new->arity = func->arity;
     fn_new->variadic = func->variadic;
+    fn_new->native = func->native;
 }
 
 void function_cleanup(Function *fn) {
-    Release(fn->code);
+    if (!fn->native)
+        Release(fn->code);
+
     Release(fn->currying);
     Release(fn->enclosed);
 }
@@ -46,7 +52,7 @@ const TypeInfo argon::object::type_function_ = {
         (VoidUnaryOp) function_cleanup
 };
 
-Function *argon::object::FunctionNew(Code *code, unsigned short arity) {
+Function *argon::object::FunctionNew(Code *code, unsigned short arity, bool variadic, List *enclosed) {
     auto fn = (Function *) Alloc(sizeof(Function));
 
     if (fn != nullptr) {
@@ -56,43 +62,58 @@ Function *argon::object::FunctionNew(Code *code, unsigned short arity) {
         IncRef(code);
         fn->code = code;
         fn->currying = nullptr;
-        fn->enclosed = nullptr;
-        fn->arity = arity;
-        fn->variadic = false;
-    }
-
-    return fn;
-}
-
-Function *argon::object::FunctionNew(const Function *func, unsigned short currying_len) {
-    auto fn = (Function *) Alloc(sizeof(Function));
-
-    if (fn != nullptr) {
-        fn->ref_count =  ARGON_OBJECT_REFCOUNT_INLINE;
-        fn->type = &type_function_;
-
-        CloneFn(fn, func);
-
-        if ((fn->currying = ListNew(currying_len)) == nullptr) {
-            Release(fn);
-            return nullptr;
-        }
-    }
-
-    return fn;
-}
-
-Function *argon::object::FunctionNew(const Function *func, argon::object::List *enclosed) {
-    auto fn = (Function *) Alloc(sizeof(Function));
-
-    if (fn != nullptr) {
-        fn->ref_count =  ARGON_OBJECT_REFCOUNT_INLINE;
-        fn->type = &type_function_;
-
-        CloneFn(fn, func);
 
         IncRef(enclosed);
         fn->enclosed = enclosed;
+
+        fn->instance = nullptr;
+
+        fn->arity = arity;
+        fn->variadic = variadic;
+        fn->native = false;
+    }
+
+    return fn;
+}
+
+Function *argon::object::FunctionNew(const FunctionNative *native) {
+    auto fn = FunctionNew(nullptr, native->arity, native->variadic, nullptr);
+
+    if (fn != nullptr) {
+        fn->native_fn = native->func;
+        fn->native = true;
+    }
+
+    return fn;
+}
+
+Function *argon::object::FunctionNew(const Function *func, List *currying) {
+    auto fn = (Function *) Alloc(sizeof(Function));
+
+    if (fn != nullptr) {
+        fn->ref_count = ARGON_OBJECT_REFCOUNT_INLINE;
+        fn->type = &type_function_;
+
+        CloneFn(fn, func);
+
+        IncRef(currying);
+        fn->currying = currying;
+    }
+
+    return fn;
+}
+
+Function *argon::object::FunctionNew(const Function *func, ArObject *instance) {
+    auto fn = (Function *) Alloc(sizeof(Function));
+
+    if (fn != nullptr) {
+        fn->ref_count = ARGON_OBJECT_REFCOUNT_INLINE;
+        fn->type = &type_function_;
+
+        CloneFn(fn, func);
+
+        IncRef(instance);
+        fn->instance = instance;
     }
 
     return fn;

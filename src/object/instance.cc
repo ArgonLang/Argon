@@ -4,6 +4,7 @@
 
 #include "instance.h"
 #include "trait.h"
+#include "function.h"
 
 using namespace argon::object;
 using namespace argon::memory;
@@ -22,19 +23,25 @@ ArObject *instance_getattr(Instance *self, ArObject *key) {
     if (obj == nullptr) {
         // Search in parent
         obj = NamespaceGetValue(self->base->names, key, &pinfo);
-        if (obj == nullptr || pinfo.IsConstant()) {
+        if (obj == nullptr || (pinfo.IsConstant() && !pinfo.IsMember())) {
             Release(obj);
 
             // Search in parent MRO!
-            for (size_t i = 0; self->base->impls->len; i++) {
+            for (size_t i = 0; i < self->base->impls->len; i++) {
                 auto trait = (Trait *) self->base->impls->objects[i];
                 obj = NamespaceGetValue(trait->names, key, &pinfo);
-                if (obj != nullptr && !pinfo.IsConstant())
+                if (obj != nullptr && pinfo.IsMember())
                     break;
             }
 
             assert(obj != nullptr);
         }
+    }
+
+    if (obj->type == &type_function_ && (pinfo.IsConstant() && pinfo.IsMember())) {
+        auto tmp = FunctionNew((Function *) obj, self);
+        Release(obj);
+        obj = tmp;
     }
 
     return obj; // TODO impl error: value nopt found / priv variable

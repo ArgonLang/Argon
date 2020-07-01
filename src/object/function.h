@@ -10,22 +10,41 @@
 
 namespace argon::object {
 
-    struct Function : ArObject {
-        argon::object::Code *code;
-        argon::object::List *currying;
-        argon::object::List *enclosed;
+    using FunctionNativePtr = ArObject *(*)(struct Function *self, ArObject **argv);
 
+    struct FunctionNative {
+        const char *name;
+        const char *doc;
+        FunctionNativePtr func;
         unsigned short arity;
         bool variadic;
     };
 
+    struct Function : ArObject {
+        union {
+            Code *code;
+            FunctionNativePtr native_fn;
+        };
+        List *currying;
+        List *enclosed;
+
+        // Method
+        ArObject *instance;
+
+        unsigned short arity;
+        bool variadic;
+        bool native;
+    };
+
     extern const TypeInfo type_function_;
 
-    Function *FunctionNew(argon::object::Code *code, unsigned short arity);
+    Function *FunctionNew(Code *code, unsigned short arity, bool variadic, List *enclosed);
 
-    Function *FunctionNew(const Function *func, unsigned short currying_len);
+    Function *FunctionNew(const FunctionNative *native);
 
-    Function *FunctionNew(const Function *func, argon::object::List *enclosed);
+    Function *FunctionNew(const Function *func, List *currying);
+
+    Function *FunctionNew(const Function *func, ArObject *instance);
 
 } // namespace argon::object
 
