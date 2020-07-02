@@ -35,6 +35,8 @@ namespace lang::ast {
         IF,
         IMPL,
         IMPORT,
+        IMPORT_FROM,
+        IMPORT_NAME,
         INDEX,
         LABEL,
         LIST,
@@ -309,15 +311,33 @@ namespace lang::ast {
         NodeUptr module;
         std::list<NodeUptr> names;
 
-        explicit Import(scanner::Pos start) : Import(nullptr, start) {}
+        explicit Import(scanner::Pos start) : Node(NodeType::IMPORT, start, 0) {}
 
-        explicit Import(NodeUptr module, scanner::Pos start) : Node(NodeType::IMPORT, start, 0) {
+        explicit Import(NodeUptr module, scanner::Pos start) : Node(NodeType::IMPORT_FROM, start, 0) {
             this->module = std::move(module);
         }
 
         void AddName(NodeUptr name) {
             this->end = name->end;
             this->names.push_back(std::move(name));
+        }
+    };
+
+    struct ImportName : Node {
+        std::string name;
+        std::string import_as;
+
+        explicit ImportName(scanner::Pos start) : Node(NodeType::IMPORT_NAME, start, 0) {}
+
+        void AddSegment(const std::string segment, scanner::Pos end) {
+            if (!this->name.empty()) {
+                this->name += "::" + segment;
+                this->import_as = segment;
+            } else {
+                name = segment;
+                import_as = segment;
+            }
+            this->end = end;
         }
     };
 

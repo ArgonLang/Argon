@@ -463,11 +463,11 @@ ast::NodeUptr Parser::ImportStmt() {
 
     this->Eat(TokenType::IMPORT, "expected import keyword");
 
-    import->AddName(this->ScopeAsName(false));
+    import->AddName(this->ScopeAsName(false, true));
 
     while (this->Match(TokenType::COMMA)) {
         this->Eat();
-        import->AddName(this->ScopeAsName(false));
+        import->AddName(this->ScopeAsName(false, true));
     }
 
     return import;
@@ -479,39 +479,60 @@ ast::NodeUptr Parser::FromImportStmt() {
 
     this->Eat(TokenType::FROM, "expected from keyword");
 
-    import = std::make_unique<Import>(this->ScopeAsName(false), start);
+    import = std::make_unique<Import>(this->ScopeAsName(false, false), start);
 
     this->Eat(TokenType::IMPORT, "expected import keyword");
 
-    import->AddName(this->ScopeAsName(true));
+    import->AddName(this->ScopeAsName(true, true));
     while (this->Match(TokenType::COMMA)) {
         this->Eat();
-        import->AddName(this->ScopeAsName(true));
+        import->AddName(this->ScopeAsName(true, true));
     }
 
     return import;
 }
 
-ast::NodeUptr Parser::ScopeAsName(bool id_only) {
+ast::NodeUptr Parser::ScopeAsName(bool id_only, bool with_alias) {
+    auto name = std::make_unique<ImportName>(this->currTk_.start);
     Pos start = this->currTk_.start;
     Pos end;
-    NodeUptr path;
     NodeUptr alias;
 
-    path = this->ParseScope();
-    end = path->end;
+    if (!this->Match(TokenType::IDENTIFIER)) {
+        if (id_only)
+            throw SyntaxException("expected name", this->currTk_);
+        else
+            throw SyntaxException("expected name or scope path", this->currTk_);
+    }
 
-    if (id_only && path->type != NodeType::IDENTIFIER)
-        throw SyntaxException("expected name", this->currTk_);
+    name->AddSegment(this->currTk_.value, this->currTk_.end);
+    this->Eat();
+
+    if (this->Match(TokenType::SCOPE)) {
+        if (id_only)
+            throw SyntaxException("expected name not scope path", this->currTk_);
+        do {
+            this->Eat();
+            if (!this->Match(TokenType::IDENTIFIER))
+                throw SyntaxException("expected name after scope path separator", this->currTk_);
+            name->AddSegment(this->currTk_.value, this->currTk_.end);
+            this->Eat();
+        } while (this->Match(TokenType::SCOPE));
+    }
+
+    end = name->end;
+
+    if (!with_alias)
+        return name;
 
     if (this->Match(TokenType::AS)) {
         this->Eat();
         alias = std::make_unique<Identifier>(this->currTk_);
-        end = alias->end;
+        end = this->currTk_.end;
         this->Eat(TokenType::IDENTIFIER, "expected alias name");
     }
 
-    return std::make_unique<Alias>(std::move(alias), std::move(path), start, end);
+    return std::make_unique<Alias>(std::move(alias), std::move(name), start, end);
 }
 
 ast::NodeUptr Parser::ForStmt() {

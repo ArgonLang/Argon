@@ -51,6 +51,10 @@ namespace lang {
 
         void CompileFunction(const ast::Function *function);
 
+        void CompileImport(const ast::Import *import);
+
+        void CompileImportFrom(const ast::Import *import);
+
         void CompileLiteral(const ast::Literal *literal);
 
         void CompileLoop(const ast::Loop *loop);

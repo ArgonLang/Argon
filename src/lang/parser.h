@@ -63,7 +63,7 @@ namespace lang {
 
         ast::NodeUptr FromImportStmt();
 
-        ast::NodeUptr ScopeAsName(bool id_only);
+        ast::NodeUptr ScopeAsName(bool id_only, bool with_alias);
 
         ast::NodeUptr ForStmt();
 

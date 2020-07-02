@@ -25,6 +25,8 @@ namespace lang {
         CMP,
         DIV,
         IDIV,
+        IMPFRM,
+        IMPMOD,
         INIT,   // See OpCodeINITFLAGS
         INV,
         IPADD,

@@ -325,6 +325,12 @@ void Compiler::CompileCode(const ast::NodeUptr &node) {
     unsigned int stack_sz_tmp;
 
     switch (node->type) {
+        case NodeType::IMPORT:
+            this->CompileImport(CastNode<ast::Import>(node));
+            break;
+        case NodeType::IMPORT_FROM:
+            this->CompileImportFrom(CastNode<ast::Import>(node));
+            break;
         case NodeType::STRUCT:
         case NodeType::TRAIT:
             this->CompileConstruct(CastNode<ast::Construct>(node));
@@ -561,6 +567,63 @@ void Compiler::CompileFunction(const ast::Function *function) {
         this->NewVariable(function->id, true, AttrToFlags(function->pub, true, false, is_method));
         this->DecEvalStack(1);
     }
+}
+
+void Compiler::CompileImport(const ast::Import *import) {
+    std::string path;
+    unsigned int idx;
+
+    for (auto &name : import->names) {
+        auto name_alias = CastNode<Alias>(name);
+        std::string name_to_store;
+
+        path = CastNode<ImportName>(name_alias->value)->name;
+        name_to_store = CastNode<ImportName>(name_alias->value)->import_as;
+
+        if (!this->PushStatic(path, false, &idx))
+            throw MemoryException("CompileImport: PushStatic");
+
+        this->EmitOp2(OpCodes::IMPMOD, idx);
+        this->IncEvalStack();
+
+        if (name_alias->name != nullptr)
+            name_to_store = CastNode<Identifier>(name_alias->name)->value;
+
+        this->NewVariable(name_to_store, true, AttrToFlags(false, true, false, false));
+        this->DecEvalStack(1);
+    }
+}
+
+void Compiler::CompileImportFrom(const ast::Import *import) {
+    unsigned int idx;
+
+    if (!this->PushStatic(CastNode<ImportName>(import->module)->name, false, &idx))
+        throw MemoryException("CompileImport: PushStatic");
+
+    this->EmitOp2(OpCodes::IMPMOD, idx);
+    this->IncEvalStack();
+
+    for (auto &name : import->names) {
+        auto name_alias = CastNode<Alias>(name);
+        std::string name_to_store;
+
+        name_to_store = CastNode<ImportName>(name_alias->value)->name;
+
+        if (!this->PushStatic(name_to_store, false, &idx))
+            throw MemoryException("CompileImport: PushStatic");
+
+        this->EmitOp2(OpCodes::IMPFRM, idx);
+        this->IncEvalStack();
+
+        if (name_alias->name != nullptr)
+            name_to_store = CastNode<Identifier>(name_alias->name)->value;
+
+        this->NewVariable(name_to_store, true, AttrToFlags(false, true, false, false));
+        this->DecEvalStack(1);
+    }
+
+    this->EmitOp(OpCodes::POP);
+    this->DecEvalStack(1);
 }
 
 void Compiler::CompileLiteral(const ast::Literal *literal) {

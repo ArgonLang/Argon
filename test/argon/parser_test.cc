@@ -301,7 +301,7 @@ TEST(Parser, Import) {
     source = std::istringstream("from a::b::c import fn1 as a, f2, fn3 as func3");
     parser = Parser(&source);
     tmp = std::move(parser.Parse()->body);
-    ASSERT_EQ(tmp.front()->type, NodeType::IMPORT);
+    ASSERT_EQ(tmp.front()->type, NodeType::IMPORT_FROM);
     ASSERT_EQ(tmp.front()->start, 1);
     ASSERT_EQ(tmp.front()->end, 47);
 
