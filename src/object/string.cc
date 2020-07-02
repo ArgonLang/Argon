@@ -54,7 +54,6 @@ bool string_istrue(String *self) {
     return self->len > 0;
 }
 
-
 void string_cleanup(ArObject *obj) {
     argon::memory::Free(((String *) obj)->buffer);
 }
@@ -74,19 +73,19 @@ const TypeInfo argon::object::type_string_ = {
         string_cleanup
 };
 
-String *argon::object::StringNew(const std::string &string) {
+String *argon::object::StringNew(const char *string, size_t len) {
     auto str = (String *) argon::memory::Alloc(sizeof(String));
-    assert(str != nullptr);
-    str->ref_count =  ARGON_OBJECT_REFCOUNT_INLINE;
+    assert(str != nullptr); // TODO: enomem
+
+    str->ref_count = ARGON_OBJECT_REFCOUNT_INLINE;
     str->type = &type_string_;
 
-    str->buffer = (unsigned char *) argon::memory::Alloc(string.length());
-    assert(str->buffer != nullptr);
+    str->buffer = (unsigned char *) argon::memory::Alloc(len);
+    assert(str->buffer != nullptr); // TODO: enomem
 
-    auto c_tmp = string.c_str();
-    for (size_t i = 0; i < string.length(); i++)
-        str->buffer[i] = c_tmp[i];
-    str->len = string.length();
+    memory::MemoryCopy(str->buffer, string, len);
+
+    str->len = len;
     str->hash = 0;
 
     return str;

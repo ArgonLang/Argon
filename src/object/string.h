@@ -6,6 +6,7 @@
 #define ARGON_OBJECT_STRING_H_
 
 #include <string>
+#include <cstring>
 
 #include "object.h"
 
@@ -18,7 +19,11 @@ namespace argon::object {
 
     extern const TypeInfo type_string_;
 
-    String *StringNew(const std::string &string);
+    String *StringNew(const char *string, size_t len);
+
+    inline String *StringNew(const char *string) { return StringNew(string, strlen(string)); }
+
+    inline String *StringNew(const std::string &string) { return StringNew(string.c_str(), string.length()); }
 
     String *StringIntern(const std::string &string);
 
