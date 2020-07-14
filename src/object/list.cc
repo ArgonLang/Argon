@@ -135,9 +135,7 @@ List *argon::object::ListNew() {
 
 List *argon::object::ListNew(size_t cap) {
     assert(cap > 0);
-    auto list = (List *) Alloc(sizeof(List));
-    list->ref_count = ARGON_OBJECT_REFCOUNT_INLINE;
-    list->type = &type_list_;
+    auto list = ArObjectNew<List>(RCType::INLINE, &type_list_);
     list->objects = nullptr;
 
     if (cap > 0)

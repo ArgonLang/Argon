@@ -29,12 +29,9 @@ const TypeInfo argon::object::type_struct_ = {
 };
 
 Struct *argon::object::StructNew(String *name, Namespace *names, List *mro) {
-    auto stru = (Struct *) Alloc(sizeof(Struct));
+    auto stru = ArObjectNew<Struct>(RCType::INLINE, &type_struct_);
 
     if (stru != nullptr) {
-        stru->ref_count = ARGON_OBJECT_REFCOUNT_INLINE;
-        stru->type = &type_struct_;
-
         IncRef(name);
         stru->name = name;
         IncRef(names);

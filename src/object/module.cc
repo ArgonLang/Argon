@@ -47,11 +47,9 @@ bool InitGlobals(Module *module) {
 }
 
 Module *argon::object::ModuleNew(const std::string &name) {
-    auto module = (Module *) Alloc(sizeof(Module));
+    auto module = ArObjectNew<Module>(RCType::INLINE, &type_module_);
 
     if (module != nullptr) {
-        module->ref_count = ARGON_OBJECT_REFCOUNT_INLINE;
-        module->type = &type_module_;
 
         if ((module->name = StringNew(name)) == nullptr) {
             Release(module);

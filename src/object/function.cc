@@ -53,12 +53,9 @@ const TypeInfo argon::object::type_function_ = {
 };
 
 Function *argon::object::FunctionNew(Code *code, unsigned short arity, bool variadic, List *enclosed) {
-    auto fn = (Function *) Alloc(sizeof(Function));
+    auto fn = ArObjectNew<Function>(RCType::INLINE, &type_function_);
 
     if (fn != nullptr) {
-        fn->ref_count = ARGON_OBJECT_REFCOUNT_INLINE;
-        fn->type = &type_function_;
-
         IncRef(code);
         fn->code = code;
         fn->currying = nullptr;
@@ -88,11 +85,9 @@ Function *argon::object::FunctionNew(const FunctionNative *native) {
 }
 
 Function *argon::object::FunctionNew(const Function *func, List *currying) {
-    auto fn = (Function *) Alloc(sizeof(Function));
+    auto fn = ArObjectNew<Function>(RCType::INLINE, &type_function_);
 
     if (fn != nullptr) {
-        fn->ref_count = ARGON_OBJECT_REFCOUNT_INLINE;
-        fn->type = &type_function_;
 
         CloneFn(fn, func);
 
@@ -104,11 +99,9 @@ Function *argon::object::FunctionNew(const Function *func, List *currying) {
 }
 
 Function *argon::object::FunctionNew(const Function *func, ArObject *instance) {
-    auto fn = (Function *) Alloc(sizeof(Function));
+    auto fn = ArObjectNew<Function>(RCType::INLINE, &type_function_);
 
     if (fn != nullptr) {
-        fn->ref_count = ARGON_OBJECT_REFCOUNT_INLINE;
-        fn->type = &type_function_;
 
         CloneFn(fn, func);
 

@@ -74,11 +74,8 @@ const TypeInfo argon::object::type_string_ = {
 };
 
 String *argon::object::StringNew(const char *string, size_t len) {
-    auto str = (String *) argon::memory::Alloc(sizeof(String));
+    auto str = ArObjectNew<String>(RCType::INLINE, &type_string_);
     assert(str != nullptr); // TODO: enomem
-
-    str->ref_count = ARGON_OBJECT_REFCOUNT_INLINE;
-    str->type = &type_string_;
 
     str->buffer = (unsigned char *) argon::memory::Alloc(len);
     assert(str->buffer != nullptr); // TODO: enomem

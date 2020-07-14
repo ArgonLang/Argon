@@ -5,9 +5,6 @@
 #ifndef ARGON_OBJECT_BOOL_H_
 #define ARGON_OBJECT_BOOL_H_
 
-#include <new>
-#include <memory/memory.h>
-
 #include "object.h"
 
 namespace argon::object {

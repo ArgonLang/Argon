@@ -97,20 +97,16 @@ const TypeInfo type_decimal_ = {
 };
 
 Decimal *argon::object::DecimalNew(long double number) {
-    auto decimal = (Decimal *) argon::memory::Alloc(sizeof(Decimal));
+    auto decimal = ArObjectNew<Decimal>(RCType::INLINE, &type_decimal_);
     assert(decimal != nullptr);
-    decimal->ref_count = ARGON_OBJECT_REFCOUNT_INLINE;
-    decimal->type = &type_decimal_;
     decimal->decimal = number;
     return decimal;
 }
 
 Decimal *argon::object::DecimalNewFromString(const std::string &string) {
-    auto decimal = (Decimal *) argon::memory::Alloc(sizeof(Decimal));
+    auto decimal = ArObjectNew<Decimal>(RCType::INLINE, &type_decimal_);
     std::size_t idx;
     assert(decimal != nullptr);
-    decimal->ref_count = ARGON_OBJECT_REFCOUNT_INLINE;
-    decimal->type = &type_decimal_;
     decimal->decimal = std::stold(string, &idx);
     return decimal;
 }

@@ -12,6 +12,8 @@ using namespace argon::memory;
 
 RefCount::RefCount(RefBits status) : bits_(status) {}
 
+RefCount::RefCount(RCType status) : bits_(RefBits((unsigned char) status)) {}
+
 RefCount &RefCount::operator=(RefBits status) {
     this->bits_.store(status);
     return *this;
@@ -27,8 +29,8 @@ SideTable *RefCount::AllocOrGetSideTable() {
         return current.GetSideTable();
 
     side = (SideTable *) Alloc(sizeof(SideTable));
-    side->strong_.store(current.GetStrong());
-    side->weak_.store(1);
+    side->strong.store(current.GetStrong());
+    side->weak.store(1);
     side->object = this->GetObjectBase();
 
     RefBits desired((uintptr_t) side);
@@ -60,7 +62,7 @@ void RefCount::IncStrong() {
         desired = current;
 
         if (!desired.IsInlineCounter()) {
-            assert(desired.GetSideTable()->strong_.fetch_add(1) != 0);
+            assert(desired.GetSideTable()->strong.fetch_add(1) != 0);
             return;
         }
 
@@ -68,7 +70,7 @@ void RefCount::IncStrong() {
 
         if (desired.Increment()) {
             // Inline counter overflow
-            this->AllocOrGetSideTable()->strong_++;
+            this->AllocOrGetSideTable()->strong++;
             return;
         }
     } while (!this->bits_.compare_exchange_weak(current, desired, std::memory_order_relaxed));
@@ -76,7 +78,7 @@ void RefCount::IncStrong() {
 
 RefBits RefCount::IncWeak() {
     auto side = this->AllocOrGetSideTable();
-    side->weak_++;
+    side->weak++;
     return RefBits((uintptr_t) side);
 }
 
@@ -94,9 +96,9 @@ bool RefCount::DecStrong() {
         if (!desired.IsInlineCounter()) {
             auto side = desired.GetSideTable();
 
-            if (side->strong_.fetch_sub(1) == 1) {
+            if (side->strong.fetch_sub(1) == 1) {
                 // ArObject can be destroyed
-                if (side->weak_.fetch_sub(1) == 1) {
+                if (side->weak.fetch_sub(1) == 1) {
                     // No weak ref! SideTable can be destroyed
                     Free(side);
                 }
@@ -116,7 +118,7 @@ bool RefCount::DecWeak() {
     assert(!current.IsInlineCounter());
 
     auto side = current.GetSideTable();
-    auto weak = side->weak_.fetch_sub(1);
+    auto weak = side->weak.fetch_sub(1);
 
     if (weak == 1)
         Free(side);
@@ -131,10 +133,9 @@ ArObject *RefCount::GetObject() {
         return this->GetObjectBase();
 
     auto side = current.GetSideTable();
-    if (side->strong_.fetch_add(1) == 0) {
-        side->strong_--;
-        IncRef(NilVal);
-        return NilVal;
+    if (side->strong.fetch_add(1) == 0) {
+        side->strong--;
+        return ReturnNil();
     }
 
     return side->object;

@@ -21,10 +21,8 @@ const TypeInfo type_not_implemented_ = {
 };
 
 NotImplemented *NotImplementedNew() noexcept {
-    static NotImplemented ni;
-    ni.ref_count =  ARGON_OBJECT_REFCOUNT_STATIC;
-    ni.type = &type_not_implemented_;
-    return &ni;
+    auto ni = ArObjectNew<NotImplemented>(RCType::INLINE, &type_not_implemented_);
+    return ni;
 }
 
 ArObject *argon::object::NotImpl = NotImplementedNew();

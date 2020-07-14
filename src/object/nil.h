@@ -12,6 +12,12 @@ namespace argon::object {
     };
 
     extern Nil *NilVal;
+
+    inline Nil *ReturnNil() {
+        IncRef(NilVal);
+        return NilVal;
+    }
+
 } // namespace argon::object
 
 #endif // !ARGON_OBJECT_NIL_H_

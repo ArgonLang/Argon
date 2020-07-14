@@ -3,6 +3,7 @@
 // Licensed under the Apache License v2.0
 
 #include "namespace.h"
+#include "nil.h"
 
 using namespace argon::object;
 using namespace argon::memory;
@@ -11,7 +12,7 @@ void FreeOrReplace(NsEntry *entry, ArObject *value) {
     if (entry->info.IsWeak()) {
         entry->ref.DecWeak();
         if (value != nullptr)
-            entry->ref = value->ref_count.IncWeak();
+            entry->ref =value->ref_count.IncWeak();
         return;
     }
 
@@ -119,12 +120,9 @@ void RemoveIterItem(Namespace *ns, NsEntry *entry) {
 }
 
 Namespace *argon::object::NamespaceNew() {
-    auto ns = (Namespace *) Alloc(sizeof(Namespace));
+    auto ns = ArObjectNew<Namespace>(RCType::INLINE, &type_namespace_);
 
     if (ns != nullptr) {
-        ns->ref_count = ARGON_OBJECT_REFCOUNT_INLINE;
-        ns->type = &type_namespace_;
-
         if ((ns->ns = (NsEntry **) Alloc(ARGON_OBJECT_NS_INITIAL_SIZE * sizeof(NsEntry *))) == nullptr) {
             Release(ns);
             return nullptr;

@@ -62,12 +62,9 @@ const TypeInfo type_tuple_ = {
 };
 
 Tuple *argon::object::TupleNew(size_t len) {
-    auto tuple = (Tuple *) argon::memory::Alloc(sizeof(Tuple));
+    auto tuple = ArObjectNew<Tuple>(RCType::INLINE, &type_tuple_);
 
     if (tuple != nullptr) {
-        tuple->ref_count = ARGON_OBJECT_REFCOUNT_INLINE;
-        tuple->type = &type_tuple_;
-
         tuple->len = len;
 
         if ((tuple->objects = (ArObject **) Alloc(len * sizeof(ArObject *))) == nullptr) {
@@ -86,13 +83,10 @@ Tuple *argon::object::TupleNew(size_t len) {
 }
 
 Tuple *argon::object::TupleNew(const ArObject *sequence) {
-    auto tuple = (Tuple *) argon::memory::Alloc(sizeof(Tuple));
+    auto tuple = ArObjectNew<Tuple>(RCType::INLINE, &type_tuple_);
     ArObject *tmp;
 
     assert(tuple != nullptr);
-
-    tuple->ref_count =  ARGON_OBJECT_REFCOUNT_INLINE;
-    tuple->type = &type_tuple_;
 
     if (IsSequence(sequence)) {
         if (sequence->type == &type_list_) {

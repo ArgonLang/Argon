@@ -237,10 +237,9 @@ const TypeInfo type_map_ = {
 };
 
 Map *argon::object::MapNew() {
-    auto map = (Map *) Alloc(sizeof(Map));
+    auto map = ArObjectNew<Map>(RCType::INLINE, &type_map_);
     assert(map != nullptr);
-    map->ref_count =  ARGON_OBJECT_REFCOUNT_INLINE;
-    map->type = &type_map_;
+
 
     map->map = (MapEntry **) Alloc(ARGON_OBJECT_MAP_INITIAL_SIZE * sizeof(MapEntry *));
     assert(map->map != nullptr); // TODO: NOMEM

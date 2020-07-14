@@ -29,12 +29,9 @@ const TypeInfo argon::object::type_trait_ = {
 };
 
 Trait *argon::object::TraitNew(String *name, Namespace *names, List *mro) {
-    auto trait = (Trait *) Alloc(sizeof(Trait));
+    auto trait = ArObjectNew<Trait>(RCType::INLINE, &type_trait_);
 
     if (trait != nullptr) {
-        trait->ref_count = ARGON_OBJECT_REFCOUNT_INLINE;
-        trait->type = &type_trait_;
-
         IncRef(name);
         trait->name = name;
         IncRef(names);

@@ -67,10 +67,9 @@ Code *argon::object::CodeNew(const unsigned char *instr,
                              argon::object::List *names,
                              argon::object::List *locals,
                              argon::object::List *deref) {
-    auto code = (Code *) Alloc(sizeof(Code));
-    assert(code != nullptr);
-    code->ref_count = ARGON_OBJECT_REFCOUNT_INLINE;
+    auto code = ArObjectNew<Code>(RCType::INLINE, &type_code_);
     code->type = &type_code_;
+    assert(code != nullptr);
 
     code->instr = instr;
     code->instr_sz = instr_sz;

@@ -23,12 +23,9 @@ const TypeInfo argon::object::type_bounds_ = {
 
 
 Bounds *argon::object::BoundsNew(arsize start, arsize stop, arsize step) {
-    auto bounds = (Bounds *) Alloc(sizeof(Bounds));
+    auto bounds = ArObjectNew<Bounds>(RCType::INLINE, &type_bounds_);
 
     if (bounds != nullptr) {
-        bounds->ref_count =  ARGON_OBJECT_REFCOUNT_INLINE;
-        bounds->type = &type_bounds_;
-
         bounds->start = start;
         bounds->stop = stop;
         bounds->step = step;

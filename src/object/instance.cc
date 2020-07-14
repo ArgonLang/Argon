@@ -73,12 +73,9 @@ const TypeInfo argon::object::type_instance_ = {
 };
 
 Instance *argon::object::InstanceNew(Struct *base, Namespace *properties) {
-    auto instance = (Instance *) Alloc(sizeof(Instance));
+    auto instance = ArObjectNew<Instance>(RCType::INLINE, &type_instance_);
 
     if (instance != nullptr) {
-        instance->ref_count = ARGON_OBJECT_REFCOUNT_INLINE;
-        instance->type = &type_instance_;
-
         IncRef(base);
         instance->base = base;
         IncRef(properties);

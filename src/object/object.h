@@ -116,6 +116,19 @@ namespace argon::object {
         const TypeInfo *type;
     };
 
+    template<typename T>
+    inline typename std::enable_if<std::is_base_of<ArObject, T>::value, T>::type *
+    ArObjectNew(RCType init, const TypeInfo *type) {
+        auto obj = (T *) memory::Alloc(sizeof(ArObject) + sizeof(T));
+
+        if (obj != nullptr) {
+            obj->ref_count = RefBits((unsigned char)init);
+            obj->type = type;
+        }
+
+        return obj;
+    }
+
     inline bool IsNumber(const ArObject *obj) { return obj->type->number_actions != nullptr; }
 
     inline bool IsSequence(const ArObject *obj) { return obj->type->sequence_actions != nullptr; }

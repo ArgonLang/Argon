@@ -50,8 +50,8 @@ namespace argon::object {
     };
 
     struct SideTable {
-        std::atomic_uintptr_t strong_;
-        std::atomic_uintptr_t weak_;
+        std::atomic_uintptr_t strong;
+        std::atomic_uintptr_t weak;
 
         class ArObject *object;
     };
@@ -100,8 +100,10 @@ namespace argon::object {
 #undef GET_FIELD
     };
 
-#define ARGON_OBJECT_REFCOUNT_INLINE    argon::object::RefBits((unsigned char)0x04 | (unsigned char)0x01)
-#define ARGON_OBJECT_REFCOUNT_STATIC    argon::object::RefBits(0x02)
+    enum class RCType : unsigned char {
+        INLINE = (unsigned char) 0x04 | (unsigned char) 0x01,
+        STATIC = 0x02
+    };
 
     class RefCount {
         std::atomic<RefBits> bits_{};
@@ -114,6 +116,8 @@ namespace argon::object {
         RefCount() = default;
 
         explicit RefCount(RefBits status);
+
+        explicit RefCount(RCType status);
 
         RefCount &operator=(RefBits status);
 
