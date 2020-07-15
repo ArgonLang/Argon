@@ -21,8 +21,20 @@ TEST(RefCount, StaticResource) {
     ASSERT_FALSE(ref.DecStrong());
 }
 
+TEST(RefCount, GCResource) {
+    RefCount ref(RCType::GC);
+    ASSERT_TRUE(ref.DecStrong());
+}
+
 TEST(RefCount, WeakInc) {
     RefCount strong(RCType::INLINE);
+    RefCount weak(strong.IncWeak());
+    ASSERT_TRUE(strong.DecStrong());
+    ASSERT_TRUE(weak.DecWeak());
+}
+
+TEST(RefCount, WeakGCInc) {
+    RefCount strong(RCType::GC);
     RefCount weak(strong.IncWeak());
     ASSERT_TRUE(strong.DecStrong());
     ASSERT_TRUE(weak.DecWeak());

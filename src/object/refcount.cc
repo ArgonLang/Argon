@@ -34,6 +34,10 @@ SideTable *RefCount::AllocOrGetSideTable() {
     side->object = this->GetObjectBase();
 
     RefBits desired((uintptr_t) side);
+
+    if (current.IsGcObject())
+        desired.SetGCBit();
+
     do {
         if (!current.IsInlineCounter()) {
             Free(side);
@@ -139,4 +143,18 @@ ArObject *RefCount::GetObject() {
     }
 
     return side->object;
+}
+
+bool RefCount::IsGcObject() {
+    RefBits current = this->bits_.load(std::memory_order_relaxed);
+    return current.IsGcObject();
+}
+
+uintptr_t RefCount::GetStrongCount() {
+    RefBits current = this->bits_.load(std::memory_order_consume);
+
+    if (current.IsInlineCounter() || current.IsStatic())
+        return current.GetStrong();
+
+    return current.GetSideTable()->strong;
 }

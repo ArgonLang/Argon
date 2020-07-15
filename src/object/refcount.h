@@ -9,23 +9,30 @@
 #include <atomic>
 
 #include <memory/memory.h>
+#include <memory/arena.h>
 
 /*
  *      +----------- Overflow flag
  *      |
- *      |            Inline flag -------+
- *      |                               |
- *      |            Static flag ---+   |
- *      |                           |   |
- *      v                           v   v
- *    +-+-+-----------------------+-+-+-+-+
- *    |   | Strong inline counter |   |   |
- * +  +---+-----------------------+---+---+  +
- * |                                         |
- * +------------+ uintptr_t +----------------+
+ *      |                Inline flag -------+
+ *      |                                   |
+ *      |                Static flag ---+   |
+ *      |                               |   |
+ *      |                 GC flag --+   |   |
+ *      |                           |   |   |
+ *      v                           v   v   v
+ *    +-+-+-----------------------+-+-+-+-+-+-+
+ *    |   | Strong inline counter |   |   |   |
+ * +  +---+-----------------------+-+-+---+---+  +
+ * |                                             |
+ * +----------------+ uintptr_t +----------------+
  */
 
 namespace argon::object {
+
+#if (ARGON_MEMORY_QUANTUM % 8)
+#error RefCount uses a tagged pointer to optimally manage references to an object and needs at least 3 (less significant) bits free
+#endif
 
     struct BitOffsets {
 #define Mask(name)          (((uintptr_t(1)<<name##Bits)-1) << name##Shift)
@@ -40,8 +47,12 @@ namespace argon::object {
         static const unsigned char StaticBits = 1;
         static const uintptr_t StaticMask = Mask(Static);
 
-        static const unsigned char StrongShift = After(Static);
-        static const unsigned char StrongBits = CounterBits(Static) - 1;
+        static const unsigned char GCShift = After(Static);
+        static const unsigned char GCBits = 1;
+        static const uintptr_t GCMask = Mask(GC);
+
+        static const unsigned char StrongShift = After(GC);
+        static const unsigned char StrongBits = CounterBits(Static) - 2;
         static const uintptr_t StrongMask = Mask(Strong);
 
         static const unsigned char StrongVFLAGShift = After(Strong);
@@ -80,12 +91,16 @@ namespace argon::object {
             return (this->bits_ & BitOffsets::StrongMask) == 0;
         }
 
+        void SetGCBit() {
+            this->bits_ |= BitOffsets::GCMask;
+        }
+
         [[nodiscard]] uintptr_t GetStrong() const {
             return GET_FIELD(Strong);
         }
 
         [[nodiscard]] SideTable *GetSideTable() const {
-            return (SideTable *) this->bits_;
+            return (SideTable *) (this->bits_ & ~BitOffsets::GCMask);
         }
 
         [[nodiscard]] bool IsInlineCounter() const {
@@ -96,13 +111,18 @@ namespace argon::object {
             return GET_FIELD(Static);
         }
 
+        [[nodiscard]] bool IsGcObject() const {
+            return GET_FIELD(GC);
+        }
+
 #undef SET_FIELD
 #undef GET_FIELD
     };
 
     enum class RCType : unsigned char {
-        INLINE = (unsigned char) 0x04 | (unsigned char) 0x01,
-        STATIC = 0x02
+        INLINE = (unsigned char) 0x08 | (unsigned char) 0x01,
+        STATIC = 0x02,
+        GC = 0x0D
     };
 
     class RefCount {
@@ -128,6 +148,10 @@ namespace argon::object {
         bool DecStrong();
 
         bool DecWeak();
+
+        bool IsGcObject();
+
+        uintptr_t GetStrongCount();
 
         class ArObject *GetObject();
     };
