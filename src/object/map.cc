@@ -233,6 +233,7 @@ const TypeInfo type_map_ = {
         nullptr,
         map_hash,
         nullptr,
+        nullptr,
         map_cleanup
 };
 

@@ -93,6 +93,7 @@ const TypeInfo type_decimal_ = {
         nullptr,
         decimal_hash,
         nullptr,
+        nullptr,
         nullptr
 };
 

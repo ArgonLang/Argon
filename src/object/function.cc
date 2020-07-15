@@ -49,6 +49,7 @@ const TypeInfo argon::object::type_function_ = {
         nullptr,
         nullptr,
         nullptr,
+        nullptr,
         (VoidUnaryOp) function_cleanup
 };
 

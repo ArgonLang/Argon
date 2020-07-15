@@ -69,6 +69,7 @@ const TypeInfo argon::object::type_instance_ = {
         nullptr,
         nullptr,
         nullptr,
+        nullptr,
         (VoidUnaryOp) instance_cleanup
 };
 

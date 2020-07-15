@@ -18,6 +18,7 @@ const TypeInfo argon::object::type_bounds_ = {
         nullptr,
         nullptr,
         nullptr,
+        nullptr,
         nullptr
 };
 

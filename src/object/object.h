@@ -22,17 +22,18 @@ namespace argon::object {
 
     using arsize = long;
 
-    using VoidUnaryOp = void (*)(struct ArObject *obj);
-    using BoolUnaryOp = bool (*)(struct ArObject *obj);
     using UnaryOp = struct ArObject *(*)(struct ArObject *);
     using BinaryOp = struct ArObject *(*)(struct ArObject *, struct ArObject *);
     using TernaryOp = struct ArObject *(*)(struct ArObject *, struct ArObject *, struct ArObject *);
     using CompareOp = struct ArObject *(*)(struct ArObject *, struct ArObject *, CompareMode);
     using BinaryOpArSize = struct ArObject *(*)(struct ArObject *, arsize);
 
-
+    using VoidUnaryOp = void (*)(struct ArObject *obj);
+    using VoidUnaryVoid = void (*)(struct ArObject *, void *args);
+    using Trace = void (*)(struct ArObject *, VoidUnaryVoid, void *args);
     using SizeTUnaryOp = size_t (*)(struct ArObject *);
     using ArSizeUnaryOp = arsize (*)(struct ArObject *);
+    using BoolUnaryOp = bool (*)(struct ArObject *obj);
     using BoolBinOp = bool (*)(struct ArObject *, struct ArObject *);
     using BoolTernOp = bool (*)(struct ArObject *, struct ArObject *, struct ArObject *);
     using BoolTernOpArSize = bool (*)(struct ArObject *, struct ArObject *, arsize);
@@ -107,6 +108,7 @@ namespace argon::object {
 
         const OpSlots *ops;
 
+        Trace trace;
         VoidUnaryOp cleanup;
     };
 
@@ -119,10 +121,10 @@ namespace argon::object {
     template<typename T>
     inline typename std::enable_if<std::is_base_of<ArObject, T>::value, T>::type *
     ArObjectNew(RCType init, const TypeInfo *type) {
-        auto obj = (T *) memory::Alloc(sizeof(ArObject) + sizeof(T));
+        auto obj = (T *) memory::Alloc(sizeof(T));
 
         if (obj != nullptr) {
-            obj->ref_count = RefBits((unsigned char)init);
+            obj->ref_count = RefBits((unsigned char) init);
             obj->type = type;
         }
 

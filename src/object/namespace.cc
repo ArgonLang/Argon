@@ -91,6 +91,7 @@ const TypeInfo type_namespace_ = {
         nullptr,
         nullptr,
         nullptr,
+        nullptr,
         namespace_cleanup
 };
 

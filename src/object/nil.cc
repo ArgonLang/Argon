@@ -31,6 +31,7 @@ const TypeInfo type_nil_ = {
         nullptr,
         nil_hash,
         nullptr,
+        nullptr,
         nullptr
 };
 

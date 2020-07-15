@@ -137,6 +137,7 @@ const TypeInfo argon::object::type_integer_ = {
         integer_compare,
         integer_hash,
         &integer_ops,
+        nullptr,
         nullptr
 };
 

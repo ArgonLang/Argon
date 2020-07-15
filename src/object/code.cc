@@ -56,6 +56,7 @@ const TypeInfo argon::object::type_code_ = {
         nullptr,
         code_hash,
         nullptr,
+        nullptr,
         code_cleanup
 };
 

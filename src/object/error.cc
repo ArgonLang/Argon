@@ -17,6 +17,7 @@ const TypeInfo type_not_implemented_ = {
         nullptr,
         nullptr,
         nullptr,
+        nullptr,
         nullptr
 };
 
