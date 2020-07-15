@@ -9,7 +9,8 @@
 #include <atomic>
 
 #include <memory/memory.h>
-#include <memory/arena.h>
+
+#include "bitoffset.h"
 
 /*
  *      +----------- Overflow flag
@@ -29,37 +30,6 @@
  */
 
 namespace argon::object {
-
-#if (ARGON_MEMORY_QUANTUM % 8)
-#error RefCount uses a tagged pointer to optimally manage references to an object and needs at least 3 (less significant) bits free
-#endif
-
-    struct BitOffsets {
-#define Mask(name)          (((uintptr_t(1)<<name##Bits)-1) << name##Shift)
-#define After(name)         (name##Shift + name##Bits)
-#define CounterBits(name)   (sizeof(uintptr_t) * 8) - After(name)
-
-        static const unsigned char InlineShift = 0;
-        static const unsigned char InlineBits = 1;
-        static const uintptr_t InlineMask = Mask(Inline);
-
-        static const unsigned char StaticShift = After(Inline);
-        static const unsigned char StaticBits = 1;
-        static const uintptr_t StaticMask = Mask(Static);
-
-        static const unsigned char GCShift = After(Static);
-        static const unsigned char GCBits = 1;
-        static const uintptr_t GCMask = Mask(GC);
-
-        static const unsigned char StrongShift = After(GC);
-        static const unsigned char StrongBits = CounterBits(Static) - 2;
-        static const uintptr_t StrongMask = Mask(Strong);
-
-        static const unsigned char StrongVFLAGShift = After(Strong);
-        static const unsigned char StrongVFLAGBits = 1;
-        static const uintptr_t StrongVFLAGMask = Mask(StrongVFLAG);
-    };
-
     struct SideTable {
         std::atomic_uintptr_t strong;
         std::atomic_uintptr_t weak;
@@ -72,7 +42,7 @@ namespace argon::object {
 
 #define SET_FIELD(name, value)  (this->bits_ = (this->bits_ & ~BitOffsets::name##Mask) | \
                                 ((uintptr_t(value) << BitOffsets::name##Shift) & BitOffsets::name##Mask))
-#define GET_FIELD(name)         ((this->bits_ & BitOffsets::name##Mask) >> BitOffsets::name##Shift)
+#define GET_FIELD(name)         ((this->bits_ & RCBitOffsets::name##Mask) >> RCBitOffsets::name##Shift)
 
     public:
         RefBits() = default;
@@ -82,17 +52,17 @@ namespace argon::object {
         }
 
         bool Increment() {
-            this->bits_ += uintptr_t(1) << BitOffsets::StrongShift;
-            return this->bits_ & BitOffsets::StrongVFLAGMask;
+            this->bits_ += uintptr_t(1) << RCBitOffsets::StrongShift;
+            return this->bits_ & RCBitOffsets::StrongVFLAGMask;
         }
 
         bool Decrement() {
-            this->bits_ -= uintptr_t(1) << BitOffsets::StrongShift;
-            return (this->bits_ & BitOffsets::StrongMask) == 0;
+            this->bits_ -= uintptr_t(1) << RCBitOffsets::StrongShift;
+            return (this->bits_ & RCBitOffsets::StrongMask) == 0;
         }
 
         void SetGCBit() {
-            this->bits_ |= BitOffsets::GCMask;
+            this->bits_ |= RCBitOffsets::GCMask;
         }
 
         [[nodiscard]] uintptr_t GetStrong() const {
@@ -100,7 +70,7 @@ namespace argon::object {
         }
 
         [[nodiscard]] SideTable *GetSideTable() const {
-            return (SideTable *) (this->bits_ & ~BitOffsets::GCMask);
+            return (SideTable *) (this->bits_ & ~RCBitOffsets::GCMask);
         }
 
         [[nodiscard]] bool IsInlineCounter() const {
