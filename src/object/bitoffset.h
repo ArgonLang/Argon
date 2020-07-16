@@ -41,6 +41,16 @@ namespace argon::object {
         static const uintptr_t StrongVFLAGMask = Mask(StrongVFLAG);
     };
 
+    struct GCBitOffsets{
+        static const unsigned char VisitedShift = 0;
+        static const unsigned char VisitedBits = 1;
+        static const uintptr_t VisitedMask = Mask(Visited);
+
+        static const unsigned char AddressShift = After(Visited);
+        static const unsigned char AddressBits = CounterBits(Visited) - 1;
+        static const uintptr_t AddressMask = Mask(Address);
+    };
+
 #undef Mask
 #undef After
 #undef CounterBits

@@ -9,6 +9,7 @@
 
 #include <memory/memory.h>
 #include "refcount.h"
+#include "gc.h"
 
 namespace argon::object {
     enum class CompareMode : unsigned char {
@@ -125,6 +126,19 @@ namespace argon::object {
 
         if (obj != nullptr) {
             obj->ref_count = RefBits((unsigned char) init);
+            obj->type = type;
+        }
+
+        return obj;
+    }
+
+    template<typename T>
+    inline typename std::enable_if<std::is_base_of<ArObject, T>::value, T>::type *
+    ArObjectNewGC(const TypeInfo *type) {
+        auto obj = (T *) GCNew(sizeof(T));
+
+        if (obj != nullptr) {
+            obj->ref_count = RefBits((unsigned char) RCType::GC);
             obj->type = type;
         }
 
