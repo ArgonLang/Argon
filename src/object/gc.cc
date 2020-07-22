@@ -46,14 +46,49 @@ bool argon::object::GCIsTracking(ArObject *obj) {
     return false;
 }
 
+void GCDecRef(ArObject *obj) {
+    if (obj->ref_count.IsGcObject()) {
+        auto head = GCGetHead(obj);
+
+        if (!head->IsVisited()) {
+            head->ref = obj->ref_count.GetStrongCount();
+            obj->ref_count.IncStrong(); // Required to break references cycle if the cleanup method will be called!
+            head->SetVisited();
+        }
+
+        head->ref--;
+    }
+}
+
+void GC::SearchRoots(unsigned short generation) {
+    GCHead *cursor = this->generation_[generation].next;
+    ArObject *obj;
+
+    while (cursor != nullptr) {
+        obj = cursor->GetObject<ArObject>();
+        obj->type->trace(obj, GCDecRef);
+        cursor = cursor->Next();
+    }
+}
+
+void GC::Collect() {
+    for (int i = 0; i < ARGON_OBJECT_GC_GENERATIONS; i++)
+        this->Collect(i);
+}
+
+void GC::Collect(unsigned short generation) {
+    // Enumerate roots
+    this->SearchRoots(generation);
+}
+
 void argon::object::GC::Track(ArObject *obj) {
     auto head = GCGetHead(obj);
 
     if (!obj->ref_count.IsGcObject())
         return;
 
-    this->generation[0].lock.lock();
+    this->track_lck.lock();
     if (!head->IsTracked())
-        InsertObject(&this->generation[0].tracked, head);
-    this->generation[0].lock.unlock();
+        InsertObject(&this->generation_[0], head);
+    this->track_lck.unlock();
 }

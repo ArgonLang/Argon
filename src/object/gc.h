@@ -44,14 +44,18 @@ namespace argon::object {
         }
     };
 
-    struct GCGeneration {
-        GCHead tracked;
-        std::mutex lock;
-    };
-
     class GC {
-        GCGeneration generation[ARGON_OBJECT_GC_GENERATIONS] = {};
+        GCHead generation_[ARGON_OBJECT_GC_GENERATIONS] = {};
+
+        std::mutex track_lck;
+
+        void SearchRoots(unsigned short generation);
+
     public:
+        void Collect();
+
+        void Collect(unsigned short generation);
+
         void Track(struct ArObject *obj);
     };
 

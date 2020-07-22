@@ -30,8 +30,7 @@ namespace argon::object {
     using BinaryOpArSize = struct ArObject *(*)(struct ArObject *, arsize);
 
     using VoidUnaryOp = void (*)(struct ArObject *obj);
-    using VoidUnaryVoid = void (*)(struct ArObject *, void *args);
-    using Trace = void (*)(struct ArObject *, VoidUnaryVoid, void *args);
+    using Trace = void (*)(struct ArObject *, VoidUnaryOp);
     using SizeTUnaryOp = size_t (*)(struct ArObject *);
     using ArSizeUnaryOp = arsize (*)(struct ArObject *);
     using BoolUnaryOp = bool (*)(struct ArObject *obj);
