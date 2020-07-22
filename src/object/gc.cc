@@ -47,16 +47,29 @@ bool argon::object::GCIsTracking(ArObject *obj) {
 }
 
 void GCDecRef(ArObject *obj) {
-    if (obj->ref_count.IsGcObject()) {
+    if (GCIsTracking(obj)) {
         auto head = GCGetHead(obj);
 
         if (!head->IsVisited()) {
             head->ref = obj->ref_count.GetStrongCount();
             obj->ref_count.IncStrong(); // Required to break references cycle if the cleanup method will be called!
-            head->SetVisited();
+            head->SetVisited(true);
         }
 
         head->ref--;
+    }
+}
+
+void GCIncRef(ArObject *obj) {
+    if (GCIsTracking(obj)) {
+        auto head = GCGetHead(obj);
+
+        if (head->IsVisited()) {
+            head->SetVisited(false);
+            obj->type->trace(obj, GCIncRef);
+        }
+
+        head->ref++;
     }
 }
 
@@ -71,14 +84,41 @@ void GC::SearchRoots(unsigned short generation) {
     }
 }
 
+void GC::TraceRoots(GCHead *unreachable, unsigned short generation) {
+    GCHead *tmp;
+
+    for (GCHead *cursor = this->generation_[generation].next; cursor != nullptr; cursor = tmp) {
+        tmp = cursor->Next();
+
+        if (cursor->ref == 0) {
+            RemoveObject(cursor);
+            InsertObject(unreachable, cursor);
+            continue;
+        }
+
+        if (cursor->IsVisited()) {
+            auto obj = cursor->GetObject<ArObject>();
+            obj->type->trace(obj, GCIncRef);
+        }
+    }
+}
+
 void GC::Collect() {
     for (int i = 0; i < ARGON_OBJECT_GC_GENERATIONS; i++)
         this->Collect(i);
 }
 
 void GC::Collect(unsigned short generation) {
+    GCHead unreachable{};
+
+    if (this->generation_[generation].next == nullptr)
+        return;
+
     // Enumerate roots
     this->SearchRoots(generation);
+
+    // Trace objects reachable from roots
+    this->TraceRoots(&unreachable, generation);
 }
 
 void argon::object::GC::Track(ArObject *obj) {

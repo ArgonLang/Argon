@@ -36,11 +36,15 @@ namespace argon::object {
         }
 
         [[nodiscard]] bool IsVisited() {
-            return ((((uintptr_t) this->next) & GCBitOffsets::VisitedMask) >> GCBitOffsets::VisitedMask);
+            return ((((uintptr_t) this->next) & GCBitOffsets::VisitedMask) >> GCBitOffsets::VisitedShift);
         }
 
-        void SetVisited() {
-            this->next = (GCHead *) (((uintptr_t) this->next) | GCBitOffsets::VisitedMask);
+        void SetVisited(bool visited) {
+            if (visited) {
+                this->next = (GCHead *) (((uintptr_t) this->next) | GCBitOffsets::VisitedMask);
+                return;
+            }
+            this->next = (GCHead *) (((uintptr_t) this->next) & ~GCBitOffsets::VisitedMask);
         }
     };
 
@@ -50,6 +54,8 @@ namespace argon::object {
         std::mutex track_lck;
 
         void SearchRoots(unsigned short generation);
+
+        void TraceRoots(GCHead *unreachable, unsigned short generation);
 
     public:
         void Collect();
