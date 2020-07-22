@@ -92,7 +92,7 @@ namespace argon::object {
     enum class RCType : unsigned char {
         INLINE = (unsigned char) 0x08 | (unsigned char) 0x01,
         STATIC = 0x02,
-        GC = 0x0D
+        GC = 0x08 | ((unsigned char) 0x04 | (unsigned char) 0x01)
     };
 
     class RefCount {
@@ -111,7 +111,7 @@ namespace argon::object {
 
         RefCount &operator=(RefBits status);
 
-        void IncStrong();
+        class ArObject *GetObject();
 
         RefBits IncWeak();
 
@@ -123,7 +123,9 @@ namespace argon::object {
 
         uintptr_t GetStrongCount();
 
-        class ArObject *GetObject();
+        uintptr_t GetWeakCount();
+
+        void IncStrong();
     };
 
 } // namespace argon::object

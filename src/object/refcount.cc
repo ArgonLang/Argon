@@ -19,6 +19,33 @@ RefCount &RefCount::operator=(RefBits status) {
     return *this;
 }
 
+ArObject *RefCount::GetObjectBase() {
+    auto obj = (ArObject *) this;
+    assert(((void *) obj == &(obj->ref_count)) && "RefCount must be FIRST field in ArObject structure!");
+    return obj;
+}
+
+ArObject *RefCount::GetObject() {
+    RefBits current = this->bits_.load(std::memory_order_consume);
+
+    if (current.IsInlineCounter()) {
+        this->IncStrong();
+        return this->GetObjectBase();
+    }
+
+    auto side = current.GetSideTable();
+    uintptr_t strong = side->strong.load(std::memory_order_consume);
+    uintptr_t desired;
+
+    do {
+        desired = strong + 1;
+        if (desired == 1)
+            return ReturnNil();
+    } while (side->strong.compare_exchange_weak(strong, desired, std::memory_order_relaxed));
+
+    return side->object;
+}
+
 SideTable *RefCount::AllocOrGetSideTable() {
     RefBits current = this->bits_.load(std::memory_order_consume);
     SideTable *side;
@@ -47,37 +74,6 @@ SideTable *RefCount::AllocOrGetSideTable() {
     } while (!this->bits_.compare_exchange_weak(current, desired, std::memory_order_release,
                                                 std::memory_order_relaxed));
     return side;
-}
-
-ArObject *RefCount::GetObjectBase() {
-    auto obj = (ArObject *) this;
-    assert(((void *) obj == &(obj->ref_count)) && "RefCount must be FIRST field in ArObject structure!");
-    return obj;
-}
-
-void RefCount::IncStrong() {
-    RefBits current = this->bits_.load(std::memory_order_consume);
-    RefBits desired = {};
-
-    if (current.IsStatic())
-        return;
-
-    do {
-        desired = current;
-
-        if (!desired.IsInlineCounter()) {
-            assert(desired.GetSideTable()->strong.fetch_add(1) != 0);
-            return;
-        }
-
-        assert(desired.GetStrong() > 0);
-
-        if (desired.Increment()) {
-            // Inline counter overflow
-            this->AllocOrGetSideTable()->strong++;
-            return;
-        }
-    } while (!this->bits_.compare_exchange_weak(current, desired, std::memory_order_relaxed));
 }
 
 RefBits RefCount::IncWeak() {
@@ -130,27 +126,6 @@ bool RefCount::DecWeak() {
     return weak <= 2;
 }
 
-ArObject *RefCount::GetObject() {
-    RefBits current = this->bits_.load(std::memory_order_consume);
-
-    if (current.IsInlineCounter()) {
-        this->IncStrong();
-        return this->GetObjectBase();
-    }
-
-    auto side = current.GetSideTable();
-    uintptr_t strong = side->strong.load(std::memory_order_consume);
-    uintptr_t desired;
-
-    do {
-        desired = strong + 1;
-        if (desired == 1)
-            return ReturnNil();
-    } while (side->strong.compare_exchange_weak(strong, desired, std::memory_order_relaxed));
-
-    return side->object;
-}
-
 bool RefCount::IsGcObject() {
     RefBits current = this->bits_.load(std::memory_order_relaxed);
     return current.IsGcObject();
@@ -163,4 +138,38 @@ uintptr_t RefCount::GetStrongCount() {
         return current.GetStrong();
 
     return current.GetSideTable()->strong;
+}
+
+uintptr_t RefCount::GetWeakCount() {
+    RefBits current = this->bits_.load(std::memory_order_consume);
+
+    if (!current.IsInlineCounter())
+        return current.GetSideTable()->weak;
+
+    return 0;
+}
+
+void RefCount::IncStrong() {
+    RefBits current = this->bits_.load(std::memory_order_consume);
+    RefBits desired = {};
+
+    if (current.IsStatic())
+        return;
+
+    do {
+        desired = current;
+
+        if (!desired.IsInlineCounter()) {
+            assert(desired.GetSideTable()->strong.fetch_add(1) != 0);
+            return;
+        }
+
+        assert(desired.GetStrong() > 0);
+
+        if (desired.Increment()) {
+            // Inline counter overflow
+            this->AllocOrGetSideTable()->strong++;
+            return;
+        }
+    } while (!this->bits_.compare_exchange_weak(current, desired, std::memory_order_relaxed));
 }
