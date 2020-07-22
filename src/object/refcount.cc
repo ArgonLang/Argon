@@ -133,14 +133,20 @@ bool RefCount::DecWeak() {
 ArObject *RefCount::GetObject() {
     RefBits current = this->bits_.load(std::memory_order_consume);
 
-    if (current.IsInlineCounter())
+    if (current.IsInlineCounter()) {
+        this->IncStrong();
         return this->GetObjectBase();
+    }
 
     auto side = current.GetSideTable();
-    if (side->strong.fetch_add(1) == 0) {
-        side->strong--;
-        return ReturnNil();
-    }
+    uintptr_t strong = side->strong.load(std::memory_order_consume);
+    uintptr_t desired;
+
+    do {
+        desired = strong + 1;
+        if (desired == 1)
+            return ReturnNil();
+    } while (side->strong.compare_exchange_weak(strong, desired, std::memory_order_relaxed));
 
     return side->object;
 }
