@@ -51,7 +51,11 @@ namespace argon::object {
     class GC {
         GCHead generation_[ARGON_OBJECT_GC_GENERATIONS] = {};
 
-        std::mutex track_lck;
+        GCHead garbage_ = {};
+
+        std::mutex track_lck_;
+
+        std::mutex garbage_lck_;
 
         void SearchRoots(unsigned short generation);
 
@@ -61,6 +65,8 @@ namespace argon::object {
         void Collect();
 
         void Collect(unsigned short generation);
+
+        void Sweep();
 
         void Track(struct ArObject *obj);
     };

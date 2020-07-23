@@ -66,6 +66,7 @@ void GCIncRef(ArObject *obj) {
 
         if (head->IsVisited()) {
             head->SetVisited(false);
+            obj->ref_count.DecStrong(); // Acquired in first step (SearchRoots)
             obj->type->trace(obj, GCIncRef);
         }
 
@@ -98,6 +99,8 @@ void GC::TraceRoots(GCHead *unreachable, unsigned short generation) {
 
         if (cursor->IsVisited()) {
             auto obj = cursor->GetObject<ArObject>();
+            cursor->SetVisited(false);
+            obj->ref_count.DecStrong(); // Acquired in first step (SearchRoots)
             obj->type->trace(obj, GCIncRef);
         }
     }
@@ -106,6 +109,7 @@ void GC::TraceRoots(GCHead *unreachable, unsigned short generation) {
 void GC::Collect() {
     for (int i = 0; i < ARGON_OBJECT_GC_GENERATIONS; i++)
         this->Collect(i);
+    this->Sweep();
 }
 
 void GC::Collect(unsigned short generation) {
@@ -119,6 +123,27 @@ void GC::Collect(unsigned short generation) {
 
     // Trace objects reachable from roots
     this->TraceRoots(&unreachable, generation);
+
+    // Check if object is really unreachable and break it's reference
+    GCHead *tmp;
+    for (GCHead *cursor = unreachable.next; cursor != nullptr; cursor = tmp) {
+        auto obj = cursor->GetObject<ArObject>();
+        tmp = cursor->next;
+
+        RemoveObject(cursor);
+
+        if (cursor->ref == 0) {
+            obj->type->cleanup(obj);
+
+            this->garbage_lck_.lock();
+            InsertObject(&this->garbage_, cursor);
+            this->garbage_lck_.unlock();
+
+            continue;
+        }
+
+        InsertObject(&this->generation_[generation], cursor);
+    }
 }
 
 void argon::object::GC::Track(ArObject *obj) {
@@ -127,8 +152,25 @@ void argon::object::GC::Track(ArObject *obj) {
     if (!obj->ref_count.IsGcObject())
         return;
 
-    this->track_lck.lock();
+    this->track_lck_.lock();
     if (!head->IsTracked())
         InsertObject(&this->generation_[0], head);
-    this->track_lck.unlock();
+    this->track_lck_.unlock();
+}
+
+void GC::Sweep() {
+    GCHead *cursor;
+    GCHead *tmp;
+
+    this->garbage_lck_.lock();
+    cursor = this->garbage_.next;
+    this->garbage_.next = nullptr;
+    this->garbage_lck_.unlock();
+
+    while (cursor != nullptr) {
+        tmp = cursor;
+        cursor = cursor->next;
+        tmp->GetObject<ArObject>()->ref_count.DecStrong();
+        Free(tmp);
+    }
 }
