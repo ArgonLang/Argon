@@ -125,6 +125,8 @@ namespace argon::object {
 
         uintptr_t GetWeakCount();
 
+        void ClearWeakRef();
+
         void IncStrong();
     };
 

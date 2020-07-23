@@ -39,7 +39,7 @@ ArObject *RefCount::GetObject() {
 
     do {
         desired = strong + 1;
-        if (desired == 1)
+        if (desired == 1 || side->object == nullptr)
             return ReturnNil();
     } while (side->strong.compare_exchange_weak(strong, desired, std::memory_order_relaxed));
 
@@ -147,6 +147,13 @@ uintptr_t RefCount::GetWeakCount() {
         return current.GetSideTable()->weak;
 
     return 0;
+}
+
+void RefCount::ClearWeakRef() {
+    RefBits current = this->bits_.load(std::memory_order_consume);
+
+    if (!current.IsInlineCounter())
+        current.GetSideTable()->object = nullptr;
 }
 
 void RefCount::IncStrong() {

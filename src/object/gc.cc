@@ -135,6 +135,9 @@ void GC::Collect(unsigned short generation) {
         if (cursor->ref == 0) {
             obj->type->cleanup(obj);
 
+            // Kill all weak reference (if any...)
+            obj->ref_count.ClearWeakRef();
+
             this->garbage_lck_.lock();
             InsertObject(&this->garbage_, cursor);
             this->garbage_lck_.unlock();
