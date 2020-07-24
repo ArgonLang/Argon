@@ -2,8 +2,8 @@
 //
 // Licensed under the Apache License v2.0
 
-#ifndef ARGON_OBJECT_OBJECT_H_
-#define ARGON_OBJECT_OBJECT_H_
+#ifndef ARGON_OBJECT_AROBJECT_H_
+#define ARGON_OBJECT_AROBJECT_H_
 
 #include <atomic>
 
@@ -181,4 +181,4 @@ namespace argon::object {
 
 } // namespace argon::object
 
-#endif // !ARGON_OBJECT_OBJECT_H_
+#endif // !ARGON_OBJECT_AROBJECT_H_

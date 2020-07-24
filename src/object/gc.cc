@@ -5,7 +5,7 @@
 #include <memory/memory.h>
 
 #include "gc.h"
-#include "object.h"
+#include "arobject.h"
 
 using namespace argon::memory;
 using namespace argon::object;

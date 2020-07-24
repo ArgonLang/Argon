@@ -5,7 +5,7 @@
 #ifndef ARGON_OBJECT_BOUNDS_H_
 #define ARGON_OBJECT_BOUNDS_H_
 
-#include "object.h"
+#include "arobject.h"
 
 namespace argon::object {
 

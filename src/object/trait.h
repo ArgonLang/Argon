@@ -5,7 +5,7 @@
 #ifndef ARGON_OBJECT_TRAIT_H_
 #define ARGON_OBJECT_TRAIT_H_
 
-#include "object.h"
+#include "arobject.h"
 #include "namespace.h"
 #include "list.h"
 #include "string.h"

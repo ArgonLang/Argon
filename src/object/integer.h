@@ -7,7 +7,7 @@
 
 #include <string>
 
-#include "object.h"
+#include "arobject.h"
 
 namespace argon::object {
     struct Integer : ArObject {

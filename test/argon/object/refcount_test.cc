@@ -4,7 +4,7 @@
 
 #include <gtest/gtest.h>
 
-#include <object/object.h>
+#include <object/arobject.h>
 #include <object/refcount.h>
 #include <object/list.h>
 #include <object/nil.h>
