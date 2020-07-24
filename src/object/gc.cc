@@ -177,3 +177,12 @@ void GC::Sweep() {
         Free(tmp);
     }
 }
+
+void GC::UnTrack(struct ArObject *obj) {
+    auto head = GCGetHead(obj);
+
+    this->track_lck_.lock();
+    if (GCIsTracking(obj))
+        RemoveObject(head);
+    this->track_lck_.unlock();
+}

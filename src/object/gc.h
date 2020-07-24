@@ -69,6 +69,8 @@ namespace argon::object {
         void Sweep();
 
         void Track(struct ArObject *obj);
+
+        void UnTrack(struct ArObject *obj);
     };
 
     inline GCHead *GCGetHead(struct ArObject *obj) {
