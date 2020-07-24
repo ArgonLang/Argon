@@ -5,7 +5,6 @@
 #include <memory/memory.h>
 
 #include "gc.h"
-#include "arobject.h"
 
 using namespace argon::memory;
 using namespace argon::object;
@@ -38,12 +37,6 @@ void *argon::object::GCNew(size_t len) {
     }
 
     return obj;
-}
-
-bool argon::object::GCIsTracking(ArObject *obj) {
-    if (obj->ref_count.IsGcObject())
-        return GCGetHead(obj)->IsTracked();
-    return false;
 }
 
 void GCDecRef(ArObject *obj) {

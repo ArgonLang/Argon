@@ -8,6 +8,7 @@
 #include <atomic>
 #include <mutex>
 
+#include "arobject.h"
 #include "bitoffset.h"
 
 #define ARGON_OBJECT_GC_GENERATIONS 3
@@ -68,16 +69,20 @@ namespace argon::object {
 
         void Sweep();
 
-        void Track(struct ArObject *obj);
+        void Track(ArObject *obj);
 
-        void UnTrack(struct ArObject *obj);
+        void UnTrack(ArObject *obj);
     };
 
-    inline GCHead *GCGetHead(struct ArObject *obj) {
+    inline GCHead *GCGetHead(ArObject *obj) {
         return (GCHead *) (((unsigned char *) obj) - sizeof(GCHead));
     }
 
-    bool GCIsTracking(struct ArObject *obj);
+    inline bool GCIsTracking(ArObject *obj) {
+        if (obj->ref_count.IsGcObject())
+            return GCGetHead(obj)->IsTracked();
+        return false;
+    }
 
     void *GCNew(size_t len);
 } // namespace argon::object

@@ -5,7 +5,7 @@
 #ifndef ARGON_OBJECT_STRUCT_H_
 #define ARGON_OBJECT_STRUCT_H_
 
-#include "arobject.h"
+#include "objmgmt.h"
 #include "string.h"
 #include "namespace.h"
 #include "list.h"

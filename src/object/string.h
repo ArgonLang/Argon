@@ -8,7 +8,7 @@
 #include <string>
 #include <cstring>
 
-#include "arobject.h"
+#include "objmgmt.h"
 
 namespace argon::object {
     struct String : public ArObject {

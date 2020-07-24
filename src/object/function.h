@@ -5,7 +5,7 @@
 #ifndef ARGON_OBJECT_FUNCTION_H_
 #define ARGON_OBJECT_FUNCTION_H_
 
-#include "arobject.h"
+#include "objmgmt.h"
 #include "code.h"
 
 namespace argon::object {

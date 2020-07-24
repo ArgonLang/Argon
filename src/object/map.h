@@ -5,7 +5,7 @@
 #ifndef ARGON_OBJECT_MAP_H_
 #define ARGON_OBJECT_MAP_H_
 
-#include "arobject.h"
+#include "objmgmt.h"
 
 #define ARGON_OBJECT_MAP_INITIAL_SIZE   10
 #define ARGON_OBJECT_MAP_LOAD_FACTOR    0.75f

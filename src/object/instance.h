@@ -5,7 +5,7 @@
 #ifndef ARGON_OBJECT_INSTANCE_H_
 #define ARGON_OBJECT_INSTANCE_H_
 
-#include "arobject.h"
+#include "objmgmt.h"
 #include "struct.h"
 
 namespace argon::object {

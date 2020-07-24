@@ -5,7 +5,7 @@
 #ifndef ARGON_OBJECT_TUPLE_H_
 #define ARGON_OBJECT_TUPLE_H_
 
-#include "arobject.h"
+#include "objmgmt.h"
 
 namespace argon::object {
     struct Tuple : ArObject {
