@@ -39,6 +39,11 @@ void list_cleanup(ArObject *obj) {
         Release(list->objects[i]);
 }
 
+void list_trace(List *self, VoidUnaryOp trace) {
+    for (size_t i = 0; i < self->len; i++)
+        trace(self->objects[i]);
+}
+
 bool CheckSize(List *list, size_t count) {
     ArObject **tmp;
 
@@ -46,14 +51,14 @@ bool CheckSize(List *list, size_t count) {
 
         if (list->objects != nullptr) {
             if (count > 1)
-                tmp = (ArObject **) Realloc(list->objects, (list->cap + count) * sizeof(ArObject *));
+                tmp = (ArObject **) Realloc(list->objects, (list->cap + count) * sizeof(ArObject * ));
             else
-                tmp = (ArObject **) Realloc(list->objects, (list->cap + (list->cap / 2)) * sizeof(ArObject *));
+                tmp = (ArObject **) Realloc(list->objects, (list->cap + (list->cap / 2)) * sizeof(ArObject * ));
         } else {
             if (count > 1)
-                tmp = (ArObject **) Alloc(count * sizeof(ArObject *));
+                tmp = (ArObject **) Alloc(count * sizeof(ArObject * ));
             else
-                tmp = (ArObject **) Alloc(ARGON_OBJECT_LIST_INITIAL_CAP * sizeof(ArObject *));
+                tmp = (ArObject **) Alloc(ARGON_OBJECT_LIST_INITIAL_CAP * sizeof(ArObject * ));
         }
 
 
@@ -91,7 +96,7 @@ bool argon::object::ListConcat(List *list, ArObject *sequence) {
                 list->objects[list->len + i] = other->objects[i];
             }
 
-            list->len+=other->len;
+            list->len += other->len;
             return true;
         }
     }
@@ -126,7 +131,7 @@ const TypeInfo argon::object::type_list_ = {
         nullptr,
         list_hash,
         nullptr,
-        nullptr,
+        (Trace) list_trace,
         list_cleanup
 };
 
@@ -136,11 +141,11 @@ List *argon::object::ListNew() {
 
 List *argon::object::ListNew(size_t cap) {
     assert(cap > 0);
-    auto list = ArObjectNew<List>(RCType::INLINE, &type_list_);
+    auto list = ArObjectNewGC<List>(&type_list_);
     list->objects = nullptr;
 
     if (cap > 0)
-        list->objects = (ArObject **) Alloc(cap * sizeof(ArObject *));
+        list->objects = (ArObject **) Alloc(cap * sizeof(ArObject * ));
 
     assert(list->objects != nullptr);
     list->len = 0;

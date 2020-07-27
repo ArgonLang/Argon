@@ -43,6 +43,11 @@ void map_cleanup(ArObject *obj) {
     Free(map->map);
 }
 
+void map_trace(Map *self, VoidUnaryOp trace) {
+    for (MapEntry *cur = self->iter_begin; cur != nullptr; cur = cur->iter_next)
+        trace(cur->value);
+}
+
 bool CheckSize(Map *map) {
     MapEntry **new_map = nullptr;
     size_t new_cap;
@@ -233,12 +238,12 @@ const TypeInfo type_map_ = {
         nullptr,
         map_hash,
         nullptr,
-        nullptr,
+        (Trace) map_trace,
         map_cleanup
 };
 
 Map *argon::object::MapNew() {
-    auto map = ArObjectNew<Map>(RCType::INLINE, &type_map_);
+    auto map = ArObjectNewGC<Map>(&type_map_);
     assert(map != nullptr);
 
 

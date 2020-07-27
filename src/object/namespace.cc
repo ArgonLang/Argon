@@ -3,7 +3,6 @@
 // Licensed under the Apache License v2.0
 
 #include "namespace.h"
-#include "nil.h"
 
 using namespace argon::object;
 using namespace argon::memory;
@@ -12,7 +11,7 @@ void FreeOrReplace(NsEntry *entry, ArObject *value) {
     if (entry->info.IsWeak()) {
         entry->ref.DecWeak();
         if (value != nullptr)
-            entry->ref =value->ref_count.IncWeak();
+            entry->ref = value->ref_count.IncWeak();
         return;
     }
 
@@ -79,6 +78,12 @@ void namespace_cleanup(ArObject *obj) {
     Free(map->ns);
 }
 
+void namespace_trace(Namespace *self, VoidUnaryOp trace) {
+    for (size_t i = 0; i < self->cap; i++)
+        for (NsEntry *cursor = self->ns[i]; cursor != nullptr; cursor = cursor->next)
+            trace(cursor->obj);
+}
+
 const TypeInfo type_namespace_ = {
         (const unsigned char *) "namespace",
         sizeof(Namespace),
@@ -91,7 +96,7 @@ const TypeInfo type_namespace_ = {
         nullptr,
         nullptr,
         nullptr,
-        nullptr,
+        (Trace) namespace_trace,
         namespace_cleanup
 };
 
@@ -121,7 +126,7 @@ void RemoveIterItem(Namespace *ns, NsEntry *entry) {
 }
 
 Namespace *argon::object::NamespaceNew() {
-    auto ns = ArObjectNew<Namespace>(RCType::INLINE, &type_namespace_);
+    auto ns = ArObjectNewGC<Namespace>(&type_namespace_);
 
     if (ns != nullptr) {
         if ((ns->ns = (NsEntry **) Alloc(ARGON_OBJECT_NS_INITIAL_SIZE * sizeof(NsEntry *))) == nullptr) {
