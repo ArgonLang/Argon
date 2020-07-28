@@ -69,6 +69,12 @@ namespace argon::object {
         if (obj->ref_count.DecStrong()) {
             if (obj->type->cleanup != nullptr)
                 obj->type->cleanup(obj);
+
+            if (obj->ref_count.IsGcObject()) {
+                argon::memory::Free(GCGetHead(obj));
+                return;
+            }
+
             argon::memory::Free(obj);
         }
     }

@@ -20,9 +20,9 @@ inline void InsertObject(GCHead *head, GCHead *next) {
 }
 
 inline void RemoveObject(GCHead *head) {
-    *head->prev = head->next;
-    if (head->next != nullptr)
-        head->next->prev = head->prev;
+    *head->prev = head->Next();
+    if (head->Next() != nullptr)
+        head->Next()->prev = head->prev;
 }
 
 void *argon::object::GCNew(size_t len) {
@@ -39,15 +39,18 @@ void *argon::object::GCNew(size_t len) {
     return obj;
 }
 
+inline void InitGCRefCount(GCHead *head, ArObject *obj){
+    head->ref = obj->ref_count.GetStrongCount();
+    obj->ref_count.IncStrong(); // Required to break references cycle if the cleanup method will be called!
+    head->SetVisited(true);
+}
+
 void GCDecRef(ArObject *obj) {
     if (GCIsTracking(obj)) {
         auto head = GCGetHead(obj);
 
-        if (!head->IsVisited()) {
-            head->ref = obj->ref_count.GetStrongCount();
-            obj->ref_count.IncStrong(); // Required to break references cycle if the cleanup method will be called!
-            head->SetVisited(true);
-        }
+        if (!head->IsVisited())
+            InitGCRefCount(head, obj);
 
         head->ref--;
     }
@@ -73,6 +76,10 @@ void GC::SearchRoots(unsigned short generation) {
 
     while (cursor != nullptr) {
         obj = cursor->GetObject<ArObject>();
+
+        if(!cursor->IsVisited())
+            InitGCRefCount(cursor, obj);
+
         obj->type->trace(obj, GCDecRef);
         cursor = cursor->Next();
     }
