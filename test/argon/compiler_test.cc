@@ -7,7 +7,7 @@
 
 #include <lang/compiler.h>
 
-#include <object/bool.h>
+#include <object/datatype/bool.h>
 
 TEST(Compiler, SimpleExpr) {
     auto a = argon::object::True;

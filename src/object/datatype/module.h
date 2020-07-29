@@ -5,7 +5,7 @@
 #ifndef ARGON_OBJECT_MODULE_H_
 #define ARGON_OBJECT_MODULE_H_
 
-#include "objmgmt.h"
+#include <object/objmgmt.h>
 #include "namespace.h"
 #include "string.h"
 

@@ -6,7 +6,7 @@
 #define ARGON_OBJECT_DECIMAL_H_
 
 #include <string>
-#include "objmgmt.h"
+#include <object/objmgmt.h>
 
 namespace argon::object {
     struct Decimal : public ArObject {

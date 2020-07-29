@@ -5,8 +5,8 @@
 #ifndef ARGON_VM_FRAME_H_
 #define ARGON_VM_FRAME_H_
 
-#include <object/namespace.h>
-#include <object/code.h>
+#include <object/datatype/namespace.h>
+#include <object/datatype/code.h>
 
 namespace argon::vm {
     struct Frame {

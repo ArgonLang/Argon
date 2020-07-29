@@ -3,6 +3,7 @@
 // Licensed under the Apache License v2.0
 
 #include "namespace.h"
+#include "nil.h"
 
 using namespace argon::object;
 using namespace argon::memory;
@@ -223,11 +224,9 @@ ArObject *argon::object::NamespaceGetValue(Namespace *ns, ArObject *key, Propert
                 *info = cur->info;
 
             if (cur->info.IsWeak())
-                return cur->ref.GetObject();
-            else {
-                IncRef(cur->obj);
-                return cur->obj;
-            }
+                return ReturnNil(cur->ref.GetObject());
+            else
+                return cur->obj->ref_count.GetObject();
         }
     }
 

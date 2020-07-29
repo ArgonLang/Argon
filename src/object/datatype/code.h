@@ -5,7 +5,7 @@
 #ifndef ARGON_OBJECT_CODE_H_
 #define ARGON_OBJECT_CODE_H_
 
-#include "objmgmt.h"
+#include <object/objmgmt.h>
 #include "list.h"
 #include "tuple.h"
 

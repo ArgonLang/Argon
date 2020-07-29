@@ -6,7 +6,7 @@
 #define ARGON_VM_ARGON_VM_H_
 
 #include <object/arobject.h>
-#include <object/module.h>
+#include <object/datatype/module.h>
 #include "ar_routine.h"
 
 namespace argon::vm {

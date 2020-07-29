@@ -5,7 +5,7 @@
 #ifndef ARGON_OBJECT_BOUNDS_H_
 #define ARGON_OBJECT_BOUNDS_H_
 
-#include "objmgmt.h"
+#include <object/objmgmt.h>
 
 namespace argon::object {
 

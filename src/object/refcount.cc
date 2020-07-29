@@ -2,9 +2,8 @@
 //
 // Licensed under the Apache License v2.0
 
-#include "arobject.h"
 #include "refcount.h"
-#include "nil.h"
+#include "arobject.h"
 
 using namespace argon::object;
 using namespace argon::memory;
@@ -40,7 +39,7 @@ ArObject *RefCount::GetObject() {
     do {
         desired = strong + 1;
         if (desired == 1 || side->object == nullptr)
-            return ReturnNil();
+            return nullptr; //ReturnNil();
     } while (side->strong.compare_exchange_weak(strong, desired, std::memory_order_relaxed));
 
     return side->object;

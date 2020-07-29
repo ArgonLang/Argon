@@ -4,7 +4,7 @@
 
 #include <gtest/gtest.h>
 
-#include <object/list.h>
+#include <object/datatype/list.h>
 
 using namespace argon::object;
 

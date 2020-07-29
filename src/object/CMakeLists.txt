@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.7)
 
-add_library(object SHARED integer.cc decimal.cc string.cc code.cc list.cc tuple.cc map.cc hash_magic.cc nil.cc bool.cc function.cc bounds.cc module.cc error.cc refcount.cc namespace.cc struct.cc trait.cc instance.cc gc.cc gc.h)
+add_library(object SHARED datatype/integer.cc datatype/decimal.cc datatype/string.cc datatype/code.cc datatype/list.cc datatype/tuple.cc datatype/map.cc datatype/hash_magic.cc datatype/nil.cc datatype/bool.cc datatype/function.cc datatype/bounds.cc datatype/module.cc datatype/error.cc refcount.cc datatype/namespace.cc datatype/struct.cc datatype/trait.cc datatype/instance.cc gc.cc gc.h)
 add_dependencies(object memory)
 target_link_libraries(object memory)

@@ -6,8 +6,8 @@
 
 #include <object/arobject.h>
 #include <object/refcount.h>
-#include <object/list.h>
-#include <object/nil.h>
+#include <object/datatype/list.h>
+#include <object/datatype/nil.h>
 
 using namespace argon::object;
 
@@ -51,7 +51,7 @@ TEST(RefCount, WeakObject) {
 
     Release(list);
 
-    tmp = weak.GetObject();
+    tmp = ReturnNil(weak.GetObject());
     ASSERT_EQ(tmp, NilVal);
     Release(tmp);
     weak.DecWeak();
