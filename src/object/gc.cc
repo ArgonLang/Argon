@@ -39,7 +39,7 @@ void *argon::object::GCNew(size_t len) {
     return obj;
 }
 
-inline void InitGCRefCount(GCHead *head, ArObject *obj){
+inline void InitGCRefCount(GCHead *head, ArObject *obj) {
     head->ref = obj->ref_count.GetStrongCount();
     obj->ref_count.IncStrong(); // Required to break references cycle if the cleanup method will be called!
     head->SetVisited(true);
@@ -77,11 +77,13 @@ void GC::SearchRoots(unsigned short generation) {
     while (cursor != nullptr) {
         obj = cursor->GetObject<ArObject>();
 
-        if(!cursor->IsVisited())
+        if (!cursor->IsVisited())
             InitGCRefCount(cursor, obj);
 
         obj->type->trace(obj, GCDecRef);
         cursor = cursor->Next();
+
+        this->stats_[generation].count++;
     }
 }
 
@@ -112,8 +114,16 @@ void GC::Collect() {
     this->Sweep();
 }
 
+GCStats GC::GetStats(unsigned short generation) {
+    return this->stats_[generation];
+}
+
 void GC::Collect(unsigned short generation) {
     GCHead unreachable{};
+
+    this->stats_[generation].count = 0;
+    this->stats_[generation].collected = 0;
+    this->stats_[generation].uncollected = 0;
 
     if (this->generation_[generation].next == nullptr)
         return;
@@ -142,11 +152,15 @@ void GC::Collect(unsigned short generation) {
             InsertObject(&this->garbage_, cursor);
             this->garbage_lck_.unlock();
 
+            this->stats_[generation].collected++;
+
             continue;
         }
 
         InsertObject(&this->generation_[generation], cursor);
     }
+
+    this->stats_[generation].uncollected = this->stats_[generation].count - this->stats_[generation].collected;
 }
 
 void argon::object::GC::Track(ArObject *obj) {

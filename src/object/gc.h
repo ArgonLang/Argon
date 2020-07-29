@@ -49,8 +49,16 @@ namespace argon::object {
         }
     };
 
+    struct GCStats {
+        size_t count;
+        size_t collected;
+        size_t uncollected;
+    };
+
     class GC {
         GCHead generation_[ARGON_OBJECT_GC_GENERATIONS] = {};
+
+        GCStats stats_[ARGON_OBJECT_GC_GENERATIONS] = {};
 
         GCHead garbage_ = {};
 
@@ -63,6 +71,8 @@ namespace argon::object {
         void TraceRoots(GCHead *unreachable, unsigned short generation);
 
     public:
+        GCStats GetStats(unsigned short generation);
+
         void Collect();
 
         void Collect(unsigned short generation);
