@@ -13,6 +13,8 @@
 
 #define ARGON_OBJECT_GC_GENERATIONS 3
 
+// TODO: Implement support for other generations
+
 namespace argon::object {
 
     class alignas(ARGON_MEMORY_QUANTUM) GCHead {
