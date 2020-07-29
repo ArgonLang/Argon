@@ -2,9 +2,8 @@
 //
 // Licensed under the Apache License v2.0
 
-#include "object.h"
 #include "refcount.h"
-#include "nil.h"
+#include "arobject.h"
 
 using namespace argon::object;
 using namespace argon::memory;
@@ -12,9 +11,38 @@ using namespace argon::memory;
 
 RefCount::RefCount(RefBits status) : bits_(status) {}
 
+RefCount::RefCount(RCType status) : bits_(RefBits((unsigned char) status)) {}
+
 RefCount &RefCount::operator=(RefBits status) {
     this->bits_.store(status);
     return *this;
+}
+
+ArObject *RefCount::GetObjectBase() {
+    auto obj = (ArObject *) this;
+    assert(((void *) obj == &(obj->ref_count)) && "RefCount must be FIRST field in ArObject structure!");
+    return obj;
+}
+
+ArObject *RefCount::GetObject() {
+    RefBits current = this->bits_.load(std::memory_order_consume);
+
+    if (current.IsInlineCounter()) {
+        this->IncStrong();
+        return this->GetObjectBase();
+    }
+
+    auto side = current.GetSideTable();
+    uintptr_t strong = side->strong.load(std::memory_order_consume);
+    uintptr_t desired;
+
+    do {
+        desired = strong + 1;
+        if (desired == 1 || side->object == nullptr)
+            return nullptr; //ReturnNil();
+    } while (side->strong.compare_exchange_weak(strong, desired, std::memory_order_relaxed));
+
+    return side->object;
 }
 
 SideTable *RefCount::AllocOrGetSideTable() {
@@ -27,11 +55,15 @@ SideTable *RefCount::AllocOrGetSideTable() {
         return current.GetSideTable();
 
     side = (SideTable *) Alloc(sizeof(SideTable));
-    side->strong_.store(current.GetStrong());
-    side->weak_.store(1);
+    side->strong.store(current.GetStrong());
+    side->weak.store(1);
     side->object = this->GetObjectBase();
 
     RefBits desired((uintptr_t) side);
+
+    if (current.IsGcObject())
+        desired.SetGCBit();
+
     do {
         if (!current.IsInlineCounter()) {
             Free(side);
@@ -43,40 +75,9 @@ SideTable *RefCount::AllocOrGetSideTable() {
     return side;
 }
 
-ArObject *RefCount::GetObjectBase() {
-    auto obj = (ArObject *) this;
-    assert(((void *) obj == &(obj->ref_count)) && "RefCount must be FIRST field in ArObject structure!");
-    return obj;
-}
-
-void RefCount::IncStrong() {
-    RefBits current = this->bits_.load(std::memory_order_consume);
-    RefBits desired = {};
-
-    if (current.IsStatic())
-        return;
-
-    do {
-        desired = current;
-
-        if (!desired.IsInlineCounter()) {
-            assert(desired.GetSideTable()->strong_.fetch_add(1) != 0);
-            return;
-        }
-
-        assert(desired.GetStrong() > 0);
-
-        if (desired.Increment()) {
-            // Inline counter overflow
-            this->AllocOrGetSideTable()->strong_++;
-            return;
-        }
-    } while (!this->bits_.compare_exchange_weak(current, desired, std::memory_order_relaxed));
-}
-
 RefBits RefCount::IncWeak() {
     auto side = this->AllocOrGetSideTable();
-    side->weak_++;
+    side->weak++;
     return RefBits((uintptr_t) side);
 }
 
@@ -94,9 +95,9 @@ bool RefCount::DecStrong() {
         if (!desired.IsInlineCounter()) {
             auto side = desired.GetSideTable();
 
-            if (side->strong_.fetch_sub(1) == 1) {
+            if (side->strong.fetch_sub(1) == 1) {
                 // ArObject can be destroyed
-                if (side->weak_.fetch_sub(1) == 1) {
+                if (side->weak.fetch_sub(1) == 1) {
                     // No weak ref! SideTable can be destroyed
                     Free(side);
                 }
@@ -116,7 +117,7 @@ bool RefCount::DecWeak() {
     assert(!current.IsInlineCounter());
 
     auto side = current.GetSideTable();
-    auto weak = side->weak_.fetch_sub(1);
+    auto weak = side->weak.fetch_sub(1);
 
     if (weak == 1)
         Free(side);
@@ -124,18 +125,57 @@ bool RefCount::DecWeak() {
     return weak <= 2;
 }
 
-ArObject *RefCount::GetObject() {
+bool RefCount::IsGcObject() {
+    RefBits current = this->bits_.load(std::memory_order_relaxed);
+    return current.IsGcObject();
+}
+
+uintptr_t RefCount::GetStrongCount() {
     RefBits current = this->bits_.load(std::memory_order_consume);
 
-    if (current.IsInlineCounter())
-        return this->GetObjectBase();
+    if (current.IsInlineCounter() || current.IsStatic())
+        return current.GetStrong();
 
-    auto side = current.GetSideTable();
-    if (side->strong_.fetch_add(1) == 0) {
-        side->strong_--;
-        IncRef(NilVal);
-        return NilVal;
-    }
+    return current.GetSideTable()->strong;
+}
 
-    return side->object;
+uintptr_t RefCount::GetWeakCount() {
+    RefBits current = this->bits_.load(std::memory_order_consume);
+
+    if (!current.IsInlineCounter())
+        return current.GetSideTable()->weak;
+
+    return 0;
+}
+
+void RefCount::ClearWeakRef() {
+    RefBits current = this->bits_.load(std::memory_order_consume);
+
+    if (!current.IsInlineCounter())
+        current.GetSideTable()->object = nullptr;
+}
+
+void RefCount::IncStrong() {
+    RefBits current = this->bits_.load(std::memory_order_consume);
+    RefBits desired = {};
+
+    if (current.IsStatic())
+        return;
+
+    do {
+        desired = current;
+
+        if (!desired.IsInlineCounter()) {
+            assert(desired.GetSideTable()->strong.fetch_add(1) != 0);
+            return;
+        }
+
+        assert(desired.GetStrong() > 0);
+
+        if (desired.Increment()) {
+            // Inline counter overflow
+            this->AllocOrGetSideTable()->strong++;
+            return;
+        }
+    } while (!this->bits_.compare_exchange_weak(current, desired, std::memory_order_relaxed));
 }

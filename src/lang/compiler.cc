@@ -3,14 +3,14 @@
 // Licensed under the Apache License v2.0
 
 #include <cassert>
-#include <object/string.h>
-#include <object/integer.h>
-#include <object/decimal.h>
-#include <object/nil.h>
-#include <object/bool.h>
-#include <object/code.h>
-#include <object/function.h>
-#include <object/namespace.h>
+#include <object/datatype/string.h>
+#include <object/datatype/integer.h>
+#include <object/datatype/decimal.h>
+#include <object/datatype/nil.h>
+#include <object/datatype/bool.h>
+#include <object/datatype/code.h>
+#include <object/datatype/function.h>
+#include <object/datatype/namespace.h>
 
 #include "compiler.h"
 #include "parser.h"

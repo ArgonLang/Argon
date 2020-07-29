@@ -6,15 +6,15 @@
 
 #include "areval.h"
 #include <lang/opcodes.h>
-#include <object/bool.h>
-#include <object/error.h>
-#include <object/map.h>
-#include <object/function.h>
-#include <object/nil.h>
-#include <object/bounds.h>
-#include <object/trait.h>
-#include <object/struct.h>
-#include <object/instance.h>
+#include <object/datatype/bool.h>
+#include <object/datatype/error.h>
+#include <object/datatype/map.h>
+#include <object/datatype/function.h>
+#include <object/datatype/nil.h>
+#include <object/datatype/bounds.h>
+#include <object/datatype/trait.h>
+#include <object/datatype/struct.h>
+#include <object/datatype/instance.h>
 
 using namespace lang;
 using namespace argon::object;
@@ -231,10 +231,8 @@ void FillFrameBeforeCall(Frame *frame, Function *callable, ArObject **args, size
         frame->locals[local_idx++] = args[i];
 
     // If last parameter in variadic function is empty, fill it with NilVal
-    if (callable->variadic && local_idx + 1 == callable->arity) {
-        frame->locals[local_idx++] = NilVal;
-        IncRef(NilVal);
-    }
+    if (callable->variadic && local_idx + 1 == callable->arity)
+        frame->locals[local_idx++] = ReturnNil();
 
     assert(local_idx == callable->arity);
 
@@ -885,11 +883,9 @@ void argon::vm::Eval(ArRoutine *routine) {
     assert(es_cur == 0);
 
     if (frame->back != nullptr && frame != base) {
-        routine->
-                frame = frame->back;
+        routine->frame = frame->back;
         FrameDel(frame);
-        goto
-                begin;
+        goto begin;
     }
 }
 

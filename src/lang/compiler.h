@@ -7,10 +7,10 @@
 
 #include <istream>
 #include <vector>
-#include <object/list.h>
-#include <object/map.h>
-#include <object/code.h>
-#include <object/function.h>
+#include <object/datatype/list.h>
+#include <object/datatype/map.h>
+#include <object/datatype/code.h>
+#include <object/datatype/function.h>
 
 #include "basicblock.h"
 #include "opcodes.h"

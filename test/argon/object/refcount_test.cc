@@ -4,25 +4,37 @@
 
 #include <gtest/gtest.h>
 
-#include <object/object.h>
+#include <object/arobject.h>
 #include <object/refcount.h>
-#include <object/list.h>
-#include <object/nil.h>
+#include <object/datatype/list.h>
+#include <object/datatype/nil.h>
 
 using namespace argon::object;
 
 TEST(RefCount, InlineCounter) {
-    RefCount ref(ARGON_OBJECT_REFCOUNT_INLINE);
+    RefCount ref(RCType::INLINE);
     ASSERT_TRUE(ref.DecStrong());
 }
 
 TEST(RefCount, StaticResource) {
-    RefCount ref(ARGON_OBJECT_REFCOUNT_STATIC);
+    RefCount ref(RCType::STATIC);
     ASSERT_FALSE(ref.DecStrong());
 }
 
+TEST(RefCount, GCResource) {
+    RefCount ref(RCType::GC);
+    ASSERT_TRUE(ref.DecStrong());
+}
+
 TEST(RefCount, WeakInc) {
-    RefCount strong(ARGON_OBJECT_REFCOUNT_INLINE);
+    RefCount strong(RCType::INLINE);
+    RefCount weak(strong.IncWeak());
+    ASSERT_TRUE(strong.DecStrong());
+    ASSERT_TRUE(weak.DecWeak());
+}
+
+TEST(RefCount, WeakGCInc) {
+    RefCount strong(RCType::GC);
     RefCount weak(strong.IncWeak());
     ASSERT_TRUE(strong.DecStrong());
     ASSERT_TRUE(weak.DecWeak());
@@ -39,7 +51,7 @@ TEST(RefCount, WeakObject) {
 
     Release(list);
 
-    tmp = weak.GetObject();
+    tmp = ReturnNil(weak.GetObject());
     ASSERT_EQ(tmp, NilVal);
     Release(tmp);
     weak.DecWeak();

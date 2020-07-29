@@ -4,8 +4,8 @@
 
 #include <gtest/gtest.h>
 
-#include <object/map.h>
-#include <object/string.h>
+#include <object/datatype/map.h>
+#include <object/datatype/string.h>
 
 using namespace argon::object;
 

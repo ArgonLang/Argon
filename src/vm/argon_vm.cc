@@ -2,7 +2,7 @@
 //
 // Licensed under the Apache License v2.0
 
-#include <object/map.h>
+#include <object/datatype/map.h>
 #include "argon_vm.h"
 #include "areval.h"
 
