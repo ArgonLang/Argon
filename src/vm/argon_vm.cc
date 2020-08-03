@@ -16,8 +16,8 @@ ArgonVM::ArgonVM() {
 
 ArObject *ArgonVM::EvalCode(Code *code) {
     // TODO: STUB
-    ArRoutine *routine = (ArRoutine *) Alloc(sizeof(ArRoutine));
     Frame *frame = FrameNew(code, this->main->module_ns, nullptr);
+    auto routine = RoutineNew(frame);
 
     Eval(routine, frame);
 
