@@ -8,9 +8,11 @@
 #include <object/arobject.h>
 #include "frame.h"
 
+#define ARGON_VM_QUEUE_MAX_ROUTINES 255
+
 namespace argon::vm {
 
-    enum class RoutineStatus : unsigned char {
+    enum class ArRoutineStatus : unsigned char {
         RUNNING,
         RUNNABLE,
         BLOCKED
@@ -22,12 +24,23 @@ namespace argon::vm {
 
         Frame *frame;
 
-        RoutineStatus status;
+        ArRoutineStatus status;
     };
 
-    ArRoutine *RoutineNew(Frame *frame, RoutineStatus status);
+    class ArRoutineQueue {
+        ArRoutine *queue_ = nullptr;
+        ArRoutine *front_ = nullptr;
+        unsigned int len_ = 0;
 
-    inline ArRoutine *RoutineNew(Frame *frame) { return RoutineNew(frame, RoutineStatus::RUNNABLE); }
+    public:
+        ArRoutine *Dequeue();
+
+        bool Enqueue(ArRoutine *routine);
+    };
+
+    ArRoutine *RoutineNew(Frame *frame, ArRoutineStatus status);
+
+    inline ArRoutine *RoutineNew(Frame *frame) { return RoutineNew(frame, ArRoutineStatus::RUNNABLE); }
 
 } // namespace argon::vm
 
