@@ -2,7 +2,6 @@
 //
 // Licensed under the Apache License v2.0
 
-#include <cassert>
 #include "nil.h"
 
 using namespace argon::object;
@@ -15,7 +14,7 @@ size_t nil_hash(ArObject *obj) {
     return 0;
 }
 
-bool nil_istrue(Nil *self) {
+bool nil_istrue(ArObject *self) {
     return false;
 }
 
@@ -26,7 +25,7 @@ const TypeInfo type_nil_ = {
         nullptr,
         nullptr,
         nullptr,
-        (BoolUnaryOp) nil_istrue,
+        nil_istrue,
         nil_equal,
         nullptr,
         nil_hash,
@@ -35,11 +34,6 @@ const TypeInfo type_nil_ = {
         nullptr
 };
 
-Nil *NilNew() noexcept {
-    auto nil = ArObjectNew<Nil>(RCType::STATIC, &type_nil_);
-    assert(nil != nullptr);
-    return nil;
-}
+Nil NilDef{{RefCount(RCType::STATIC), &type_nil_}};
 
-Nil *argon::object::NilVal = NilNew();
-
+Nil *argon::object::NilVal = &NilDef;

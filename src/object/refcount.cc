@@ -9,9 +9,9 @@ using namespace argon::object;
 using namespace argon::memory;
 
 
-RefCount::RefCount(RefBits status) : bits_(status) {}
+RefCount::RefCount(RefBits status) noexcept: bits_(status) {}
 
-RefCount::RefCount(RCType status) : bits_(RefBits((unsigned char) status)) {}
+RefCount::RefCount(RCType status) noexcept: bits_(RefBits((unsigned char) status)) {}
 
 RefCount &RefCount::operator=(RefBits status) {
     this->bits_.store(status);

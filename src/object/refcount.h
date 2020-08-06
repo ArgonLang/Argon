@@ -105,9 +105,9 @@ namespace argon::object {
     public:
         RefCount() = default;
 
-        explicit RefCount(RefBits status);
+        explicit RefCount(RefBits status) noexcept;
 
-        explicit RefCount(RCType status);
+        explicit RefCount(RCType status) noexcept;
 
         RefCount &operator=(RefBits status);
 

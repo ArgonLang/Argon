@@ -2,7 +2,6 @@
 //
 // Licensed under the Apache License v2.0
 
-#include <cassert>
 #include "bool.h"
 
 using namespace argon::object;
@@ -35,12 +34,11 @@ const TypeInfo type_bool_ = {
         nullptr
 };
 
-Bool *BoolNew(bool value) noexcept {
-    auto boolean = ArObjectNew<Bool>(RCType::STATIC, &type_bool_);
-    assert(boolean != nullptr);
-    boolean->value = value;
-    return boolean;
-}
+#define BOOL_TYPE(sname, export_name, value)                  \
+Bool sname {{RefCount(RCType::STATIC), &type_bool_}, value};  \
+Bool *export_name = &sname
 
-Bool *argon::object::True = BoolNew(true);
-Bool *argon::object::False = BoolNew(false);
+BOOL_TYPE(BoolTrue, argon::object::True, true);
+BOOL_TYPE(BoolFalse, argon::object::False, false);
+
+#undef BOOL_TYPE
