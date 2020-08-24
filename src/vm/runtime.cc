@@ -5,55 +5,70 @@
 #include <thread>
 #include <mutex>
 
+#include "ar_routine.h"
 #include "runtime.h"
 
-struct OSThread {
-    std::thread self;
+using namespace argon::vm;
 
+struct OSThread {
     OSThread *next;
     OSThread **prev;
 
-    struct VCore *vcore;
+    ArRoutine *routine;
+
+    struct VCore *current;
+    struct VCore *old;
+
+    std::thread self;
 };
 
 struct VCore {
-    OSThread *ost;
+
 };
 
-OSThread ost_active = {};       // Working threads
-OSThread ost_idle = {};         // IDLE threads
-
-unsigned int ost_count = 0;     // Threads counter (active + idle)
-unsigned int ost_max = 10000;   // Maximum threads allowed
-
+/* OSThread variables */
+OSThread *ost_active = nullptr; // Working OSThread
+OSThread *ost_idle = nullptr;   // IDLE OSThread
+unsigned int ost_max = 10000;   // Maximum OSThread allowed
+unsigned int ost_count = 0;     // OSThread counter (active + idle)
 std::mutex ost_lock;            // OSThread lock (active + idle)
 
-void PushOSThread(OSThread *thread, OSThread *list) {
+void PushOSThread(OSThread *ost, OSThread **list) {
     ost_lock.lock();
-    list->next = thread->next;
 
-    if (list->next != nullptr)
-        list->next->prev = &list->next;
+    if (*list == nullptr) {
+        ost->next = nullptr;
+        ost->prev = list;
+    } else {
+        ost->next = (*list);
 
-    thread->next = list;
-    list->prev = &thread->next;
+        if ((*list) != nullptr)
+            (*list)->prev = &ost->next;
+
+        ost->prev = list;
+    }
+
+    *list = ost;
+
     ost_lock.unlock();
 }
 
-void RemoveOSThread(OSThread *thread) {
+void RemoveOSThread(OSThread *ost) {
     ost_lock.lock();
-    *thread->prev = thread->next;
-    if (thread->next != nullptr)
-        thread->next->prev = thread->prev;
+
+    *ost->prev = ost->next;
+    if (ost->next != nullptr)
+        ost->next->prev = ost->prev;
+
     ost_lock.unlock();
 }
 
-void MoveOSThreadToIdle(OSThread *thread) {
-    RemoveOSThread(thread);
-    PushOSThread(thread, &ost_idle);
+inline void MoveOSThreadToActive(OSThread *ost) {
+    RemoveOSThread(ost);
+    PushOSThread(ost, &ost_active);
 }
 
-void MoveOSThreadToActive(OSThread *thread) {
-    RemoveOSThread(thread);
-    PushOSThread(thread, &ost_active);
+inline void MoveOSThreadToIdle(OSThread *ost) {
+    RemoveOSThread(ost);
+    PushOSThread(ost, &ost_idle);
 }
