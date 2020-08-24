@@ -5,5 +5,8 @@
 #ifndef ARGON_VM_RUNTIME_H_
 #define ARGON_VM_RUNTIME_H_
 
+namespace argon::vm {
+    bool Initialize();
+}
 
 #endif //ARGON_VM_RUNTIME_H_

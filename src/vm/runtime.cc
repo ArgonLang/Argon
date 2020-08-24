@@ -22,8 +22,17 @@ struct OSThread {
     std::thread self;
 };
 
-struct VCore {
+enum class VCoreStatus {
+    IDLE,
+    RUNNING
+};
 
+struct VCore {
+    std::atomic<OSThread *> ost;
+
+    ArRoutineQueue queue;   // ArRoutine queue (No lock needed ;))
+
+    VCoreStatus status;
 };
 
 /* OSThread variables */
@@ -32,6 +41,31 @@ OSThread *ost_idle = nullptr;   // IDLE OSThread
 unsigned int ost_max = 10000;   // Maximum OSThread allowed
 unsigned int ost_count = 0;     // OSThread counter (active + idle)
 std::mutex ost_lock;            // OSThread lock (active + idle)
+
+/* VCore variables */
+VCore *vcs = nullptr;           // List of instantiated VCore
+unsigned int vcs_count = 0;     // Maximum concurrent VCore
+
+bool argon::vm::Initialize() {
+    vcs_count = std::thread::hardware_concurrency();
+
+    if (vcs_count == 0)
+        vcs_count = 2;
+
+    // Initialize list of VCore
+    vcs = (VCore *) argon::memory::Alloc(sizeof(VCore) * vcs_count);
+
+    if (vcs == nullptr)
+        return false;
+
+    for (unsigned int i = 0; i < vcs_count; i++) {
+        vcs[i].ost = nullptr;
+        vcs[i].queue = ArRoutineQueue();
+        vcs[i].status = VCoreStatus::IDLE;
+    }
+
+    return true;
+}
 
 void PushOSThread(OSThread *ost, OSThread **list) {
     ost_lock.lock();
