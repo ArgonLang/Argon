@@ -35,7 +35,11 @@ namespace argon::vm {
     public:
         ArRoutine *Dequeue();
 
+        ArRoutine *StealQueue(unsigned int min_len, ArRoutineQueue &queue);
+
         bool Enqueue(ArRoutine *routine);
+
+        unsigned int GrabHalfQueue(unsigned int min_len, ArRoutineQueue &queue);
     };
 
     ArRoutine *RoutineNew(Frame *frame, ArRoutineStatus status);

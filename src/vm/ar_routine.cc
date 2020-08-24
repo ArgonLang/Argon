@@ -54,3 +54,51 @@ bool ArRoutineQueue::Enqueue(ArRoutine *routine) {
     this->len_++;
     return true;
 }
+
+ArRoutine *ArRoutineQueue::StealQueue(unsigned int min_len, ArRoutineQueue &queue) {
+    if (this->GrabHalfQueue(min_len, queue) > 0)
+        return this->Dequeue();
+    return nullptr;
+}
+
+unsigned int ArRoutineQueue::GrabHalfQueue(unsigned int min_len, ArRoutineQueue &queue) {
+    ArRoutine *mid = queue.queue_;  // Mid element pointer
+    ArRoutine *last;                // Pointer to last element in queue
+    unsigned int grab_len = 0;
+    unsigned int counter = 0;
+
+    // Check target queue minimum length
+    if (queue.len_ < min_len) {
+        return 0;
+    }
+
+    // StealQueue
+    for (ArRoutine *cursor = queue.queue_; cursor != nullptr; cursor = cursor->next) {
+        last = cursor;
+
+        if (counter & (unsigned char) 1) {
+            mid = mid->next;
+            grab_len = counter;
+        }
+        counter++;
+    }
+    grab_len = queue.len_ - grab_len;
+
+    queue.front_ = mid->prev;
+    if (mid->prev != nullptr)
+        mid->prev->next = nullptr;
+    else
+        queue.queue_ = nullptr;
+    queue.len_ -= grab_len;
+
+    last->next = this->queue_;
+    if (this->queue_ != nullptr)
+        this->queue_->prev = last;
+    this->queue_ = mid;
+    this->queue_->prev = nullptr;
+    if (this->front_ == nullptr)
+        this->front_ = last;
+    this->len_ += grab_len;
+
+    return grab_len;
+}
