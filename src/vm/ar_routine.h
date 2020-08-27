@@ -20,26 +20,10 @@ namespace argon::vm {
 
     struct ArRoutine {
         ArRoutine *next;
-        ArRoutine *prev;
 
         Frame *frame;
 
         ArRoutineStatus status;
-    };
-
-    class ArRoutineQueue {
-        ArRoutine *queue_ = nullptr;
-        ArRoutine *front_ = nullptr;
-        unsigned int len_ = 0;
-
-    public:
-        ArRoutine *Dequeue();
-
-        ArRoutine *StealQueue(unsigned int min_len, ArRoutineQueue &queue);
-
-        bool Enqueue(ArRoutine *routine);
-
-        unsigned int GrabHalfQueue(unsigned int min_len, ArRoutineQueue &queue);
     };
 
     ArRoutine *RoutineNew(Frame *frame, ArRoutineStatus status);

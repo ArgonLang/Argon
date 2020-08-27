@@ -7,6 +7,7 @@
 #include <condition_variable>
 
 #include "ar_routine.h"
+#include "routine_queue.h"
 #include "runtime.h"
 
 using namespace argon::vm;
@@ -80,7 +81,7 @@ bool argon::vm::Initialize() {
 
     for (unsigned int i = 0; i < vcs_count; i++) {
         vcs[i].ost = nullptr;
-        vcs[i].queue = ArRoutineQueue();
+        vcs[i].queue = ArRoutineQueue(ARGON_VM_QUEUE_MAX_ROUTINES);
         vcs[i].status = VCoreStatus::IDLE;
     }
 
