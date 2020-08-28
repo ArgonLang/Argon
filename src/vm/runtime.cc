@@ -63,7 +63,7 @@ std::atomic_uint vcs_idle_count = 0;        // IDLE VCore
 
 /* ArRoutine Global queue */
 ArRoutineQueue routine_gq;
-std::mutex gqr_lock;
+// std::mutex gqr_lock;
 
 bool argon::vm::Initialize() {
     vcs_count = std::thread::hardware_concurrency();
@@ -81,7 +81,7 @@ bool argon::vm::Initialize() {
 
     for (unsigned int i = 0; i < vcs_count; i++) {
         vcs[i].ost = nullptr;
-        vcs[i].queue = ArRoutineQueue(ARGON_VM_QUEUE_MAX_ROUTINES);
+        new(&((vcs + i)->queue))ArRoutineQueue(ARGON_VM_QUEUE_MAX_ROUTINES);
         vcs[i].status = VCoreStatus::IDLE;
     }
 
@@ -207,11 +207,11 @@ ArRoutine *FindExecutable() {
         if ((routine = ost_local->current->queue.Dequeue()) != nullptr)
             return routine;
 
-        {   // Global queue
-            std::scoped_lock<std::mutex> scopedLock(gqr_lock);
-            if ((routine = routine_gq.Dequeue()) != nullptr)
-                return routine;
-        }
+        // {   // Global queue
+        // std::scoped_lock<std::mutex> scopedLock(gqr_lock);
+        if ((routine = routine_gq.Dequeue()) != nullptr)
+            return routine;
+        // }
 
         //                                               ▼▼▼▼▼ Busy VCore ▼▼▼▼▼
         if (ost_local->spinning || ost_spinning_count < (vcs_count - vcs_idle_count)) {

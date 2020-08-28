@@ -7,6 +7,8 @@
 using namespace argon::vm;
 
 bool ArRoutineQueue::Enqueue(ArRoutine *routine) {
+    std::unique_lock<std::mutex> uniqueLock(this->queue_lock);
+
     if (this->limit_ > 0 && this->len_ + 1 >= this->limit_)
         return false;
 
@@ -24,6 +26,8 @@ bool ArRoutineQueue::Enqueue(ArRoutine *routine) {
 }
 
 ArRoutine *ArRoutineQueue::Dequeue() {
+    std::unique_lock<std::mutex> uniqueLock(this->queue_lock);
+
     ArRoutine *routine = this->head_;
 
     if (routine != nullptr) {
@@ -41,6 +45,8 @@ ArRoutine *ArRoutineQueue::StealQueue(unsigned int min_len, ArRoutineQueue &queu
 }
 
 unsigned int ArRoutineQueue::GrabHalfQueue(unsigned int min_len, ArRoutineQueue &queue) {
+    std::unique_lock<std::mutex> uniqueLock(this->queue_lock);
+
     ArRoutine *mid = queue.head_;   // Mid element pointer
     ArRoutine *mid_prev = nullptr;
     ArRoutine *last;                // Pointer to last element in queue
