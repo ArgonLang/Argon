@@ -66,6 +66,8 @@ std::atomic_uint vcs_idle_count = 0;        // IDLE VCore
 ArRoutineQueue routine_gq;
 // std::mutex gqr_lock;
 
+thread_local ArRoutine *routine_main = nullptr; // Main routine, this routine is created by calling Context::Eval
+
 bool argon::vm::Initialize() {
     vcs_count = std::thread::hardware_concurrency();
 
@@ -106,6 +108,32 @@ bool argon::vm::Shutdown() {
     }
 
     return false;
+}
+
+ArRoutine *argon::vm::GetRoutine() {
+    if (ost_local != nullptr) {
+        // We are into a spawned thread
+        // If a new context was created from a native call into spawned thread,
+        // returns routine_main instead ost_local->routine
+        if (routine_main != nullptr)
+            return routine_main;
+        return ost_local->routine;
+    }
+
+    return routine_main;
+}
+
+Context *argon::vm::GetContext() {
+    ArRoutine *routine = GetRoutine();
+
+    if (routine != nullptr)
+        return routine->context;
+
+    return nullptr;
+}
+
+void argon::vm::SetRoutineMain(ArRoutine *routine) {
+    routine_main = routine;
 }
 
 void PushOSThread(OSThread *ost, OSThread **list) {

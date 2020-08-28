@@ -6,6 +6,8 @@
 #define ARGON_VM_AR_ROUTINE_H_
 
 #include <object/arobject.h>
+
+#include "context.h"
 #include "frame.h"
 
 #define ARGON_VM_QUEUE_MAX_ROUTINES 255
@@ -22,6 +24,8 @@ namespace argon::vm {
         ArRoutine *next;
 
         Frame *frame;
+
+        Context *context;
 
         ArRoutineStatus status;
     };
