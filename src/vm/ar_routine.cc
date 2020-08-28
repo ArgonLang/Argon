@@ -18,3 +18,8 @@ ArRoutine *argon::vm::RoutineNew(Frame *frame, ArRoutineStatus status) {
 
     return routine;
 }
+
+void argon::vm::RoutineDel(ArRoutine *routine) {
+    FrameDel(routine->frame);
+    Free(routine);
+}

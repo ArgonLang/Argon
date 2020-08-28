@@ -7,6 +7,8 @@
 
 namespace argon::vm {
     bool Initialize();
+
+    bool Shutdown();
 }
 
 #endif //ARGON_VM_RUNTIME_H_

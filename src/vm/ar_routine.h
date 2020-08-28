@@ -28,6 +28,8 @@ namespace argon::vm {
 
     ArRoutine *RoutineNew(Frame *frame, ArRoutineStatus status);
 
+    void RoutineDel(ArRoutine *routine);
+
     inline ArRoutine *RoutineNew(Frame *frame) { return RoutineNew(frame, ArRoutineStatus::RUNNABLE); }
 
 } // namespace argon::vm

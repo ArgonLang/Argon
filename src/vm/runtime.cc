@@ -6,7 +6,7 @@
 #include <mutex>
 #include <condition_variable>
 
-#include "ar_routine.h"
+#include "areval.h"
 #include "routine_queue.h"
 #include "runtime.h"
 
@@ -34,7 +34,7 @@ enum class VCoreStatus {
 struct VCore {
     std::atomic<OSThread *> ost;
 
-    ArRoutineQueue queue;   // ArRoutine queue (No lock needed ;))
+    ArRoutineQueue queue;   // ArRoutine queue (No lock needed... In the future, I hope ...))
 
     VCoreStatus status;
 };
@@ -51,6 +51,7 @@ thread_local OSThread *ost_local = nullptr; //
 unsigned int ost_max = 10000;               // Maximum OSThread allowed
 unsigned int ost_count = 0;                 // OSThread counter
 unsigned int ost_idle_count = 0;            // OSThread counter (idle)
+bool should_stop = false;                   // If true all thread should be stopped
 std::atomic_uint ost_spinning_count = 0;    // OSThread in spinning
 std::mutex ost_lock;                        // OSThread lock (active + idle)
 std::mutex ost_cond_lock;                   // OSThread mutex for condition variable
@@ -73,6 +74,9 @@ bool argon::vm::Initialize() {
 
     vcs_idle_count = vcs_count;
 
+    // Initialize memory subsystem
+    argon::memory::InitializeMemory();
+
     // Initialize list of VCore
     vcs = (VCore *) argon::memory::Alloc(sizeof(VCore) * vcs_count);
 
@@ -86,6 +90,22 @@ bool argon::vm::Initialize() {
     }
 
     return true;
+}
+
+bool argon::vm::Shutdown() {
+    short attempt = 10;
+
+    while (ost_count > 0 && attempt > 0) {
+        std::this_thread::sleep_for(std::chrono::milliseconds(600));
+        attempt--;
+    }
+
+    if (ost_count == 0) {
+        argon::memory::FinalizeMemory();
+        return true;
+    }
+
+    return false;
 }
 
 void PushOSThread(OSThread *ost, OSThread **list) {
@@ -152,6 +172,9 @@ bool AcquireVCore() {
 }
 
 void ReleaseVC() {
+    if (ost_local->current == nullptr)
+        return;
+
     ost_local->old = ost_local->current;
 
     ost_local->current->status = VCoreStatus::IDLE;
@@ -163,8 +186,7 @@ void ReleaseVC() {
 
 void OSTSleep() {
     // Release VCore
-    if (ost_local->current != nullptr)
-        ReleaseVC();
+    ReleaseVC();
 
     // Go to sleep
     ost_cond_lock.lock();
@@ -174,15 +196,15 @@ void OSTSleep() {
     // Reacquire VCore
     bool ok;
     do {
-        if (!(ok = WireVC(ost_local->old)))
+        if (!(ok = WireVC(ost_local->old)) && !should_stop)
             ok = AcquireVCore();
-        if (!ok) {
+        if (!ok && !should_stop) {
             // Go back to sleep
             ost_cond_lock.lock();
             ost_cond.wait(ost_cond_lock);
             ost_cond_lock.unlock();
         }
-    } while (!ok);
+    } while (!ok && !should_stop);
 }
 
 inline void OSTWakeup() {
@@ -200,9 +222,9 @@ void ResetSpinning() {
 }
 
 ArRoutine *FindExecutable() {
-    ArRoutine *routine;
+    ArRoutine *routine = nullptr;
 
-    do {
+    while (routine == nullptr && !should_stop) {
         // Local queue
         if ((routine = ost_local->current->queue.Dequeue()) != nullptr)
             return routine;
@@ -241,7 +263,7 @@ ArRoutine *FindExecutable() {
         }
 
         OSTSleep();
-    } while (routine == nullptr);
+    }
 
     return nullptr;
 }
@@ -249,17 +271,61 @@ ArRoutine *FindExecutable() {
 void Schedule(OSThread *self) {
     ost_local = self;
 
+    start:
+
+    if (should_stop)
+        return;
+
     // Find a free VCore and associate with it
-    while (!AcquireVCore());
-    FromIdleToActive(self);
+    bool ok = false;
 
-    // DO Things....
-    self->routine = FindExecutable();   // Blocks until returns
+    while (!ok && !should_stop)
+        ok = AcquireVCore();
 
-    if (self->spinning)
-        ResetSpinning();
+    if (ok)
+        FromIdleToActive(self);
 
-    //IF nullptr goto TOP!
+    // Main procedure
+    while (!should_stop) {
+        self->routine = FindExecutable();   // Blocks until returns
+
+        if (self->spinning)
+            ResetSpinning();
+
+        // *******************************
+        if (self->routine == nullptr) {
+            if (should_stop)
+                break;
+            goto start;
+        }
+        // *******************************
+
+        Eval(self->routine);
+
+        // Free after use ? Yes (For now...)
+        RoutineDel(self->routine);
+        self->routine = nullptr;
+
+        if (self->current == nullptr) {
+            if (!WireVC(self->old)) {
+                FromActiveToIdle(self);
+                goto start;
+            }
+        }
+    }
+
+    // Shutdown procedure
+    ReleaseVC();
+
+    assert(self->routine == nullptr);
+
+    ost_lock.lock();
+    RemoveOSThread(self);
+    ost_count--;
+    ost_lock.unlock();
+
+    self->self.detach();
+    argon::memory::Free(self);
 }
 
 OSThread *AllocOST() {
