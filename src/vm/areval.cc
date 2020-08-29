@@ -311,15 +311,20 @@ ArObject *NativeCall(ArRoutine *routine, Function *function, ArObject **args, si
     return res;
 }
 
-void argon::vm::Eval(ArRoutine *routine, Frame *frame) {
+ArObject *argon::vm::Eval(ArRoutine *routine, Frame *frame) {
+    ArObject *ret;
+
     frame->back = routine->frame;
     routine->frame = frame;
-    Eval(routine);
+    ret = Eval(routine);
     routine->frame = frame->back;
+
+    return ret;
 }
 
-void argon::vm::Eval(ArRoutine *routine) {
+ArObject *argon::vm::Eval(ArRoutine *routine) {
     Frame *base = routine->frame; // TODO: refactor THIS!
+    ArObject *last_pop = nullptr;
 
     begin:
     Frame *frame = routine->frame;
@@ -869,7 +874,8 @@ void argon::vm::Eval(ArRoutine *routine) {
                 goto end_while;
             }
             TARGET_OP(POP) {
-                POP();
+                Release(last_pop);
+                last_pop = frame->eval_stack[--es_cur];
                 DISPATCH();
             }
             default:
@@ -887,5 +893,7 @@ void argon::vm::Eval(ArRoutine *routine) {
         FrameDel(frame);
         goto begin;
     }
+
+    return last_pop;
 }
 
