@@ -27,6 +27,12 @@ namespace argon::memory {
 
     void *MemoryCopy(void *dest, const void *src, size_t size);
 
+    void *MemoryConcat(void *s1, size_t size1, void *s2, size_t size2);
+
+    void *MemorySet(void *dest, int val, size_t size);
+
+    inline void *MemoryZero(void *dest, size_t size) { return MemorySet(dest, 0x00, size); }
+
     void *Realloc(void *ptr, size_t size);
 
     void InitializeMemory();
