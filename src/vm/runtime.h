@@ -5,6 +5,7 @@
 #ifndef ARGON_VM_RUNTIME_H_
 #define ARGON_VM_RUNTIME_H_
 
+#include <object/arobject.h>
 #include "ar_routine.h"
 #include "context.h"
 
@@ -18,6 +19,8 @@ namespace argon::vm {
     Context *GetContext();
 
     void SetRoutineMain(ArRoutine *routine);
+
+    argon::object::ArObject *Panic(argon::object::ArObject *obj);
 }
 
 #endif //ARGON_VM_RUNTIME_H_

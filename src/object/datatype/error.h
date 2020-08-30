@@ -8,15 +8,26 @@
 #include <object/objmgmt.h>
 
 namespace argon::object {
-    struct NotImplemented : ArObject {
+
+    struct Error : ArObject {
+        ArObject *obj;
     };
 
-    extern ArObject *NotImpl;
+    struct ErrorStr : ArObject {
+        const char *msg;
+    };
+
+    Error *ErrorNew(ArObject *obj);
 
     inline ArObject *ReturnError(ArObject *err) {
         IncRef(err);
         return err;
     }
+
+    // ExportedErrors
+    extern ArObject *ZeroDivisionError;
+    extern ArObject *OutOfMemoryError;
+    extern ArObject *NotImplementedError;
 
 } // namespace argon::object
 

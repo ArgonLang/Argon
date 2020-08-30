@@ -2,6 +2,7 @@
 //
 // Licensed under the Apache License v2.0
 
+#include <object/objmgmt.h>
 #include "ar_routine.h"
 
 using namespace argon::vm;
@@ -22,4 +23,9 @@ ArRoutine *argon::vm::RoutineNew(Frame *frame, ArRoutineStatus status) {
 void argon::vm::RoutineDel(ArRoutine *routine) {
     FrameDel(routine->frame);
     Free(routine);
+}
+
+void argon::vm::RoutineCleanPanic(ArRoutine *routine) {
+    argon::object::Release(routine->panic_object);
+    routine->panic_object = nullptr;
 }

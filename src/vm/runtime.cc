@@ -132,6 +132,18 @@ Context *argon::vm::GetContext() {
     return nullptr;
 }
 
+argon::object::ArObject *argon::vm::Panic(argon::object::ArObject *obj) {
+    auto routine = GetRoutine();
+
+    if (routine != nullptr) {
+        assert(routine->panic_object == nullptr);
+        argon::object::IncRef(obj);
+        routine->panic_object = obj;
+    }
+
+    return nullptr;
+}
+
 void argon::vm::SetRoutineMain(ArRoutine *routine) {
     routine_main = routine;
 }

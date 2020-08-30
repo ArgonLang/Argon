@@ -21,18 +21,27 @@ namespace argon::vm {
     };
 
     struct ArRoutine {
+        /* Next ArRoutine (used by ArRoutineQueue) */
         ArRoutine *next;
 
+        /* Current execution frame */
         Frame *frame;
 
+        /* Pointer to object that describe actual routine panic (if any...) */
+        argon::object::ArObject *panic_object;
+
+        /* Context in which this routine was created */
         Context *context;
 
+        /* Routine status */
         ArRoutineStatus status;
     };
 
     ArRoutine *RoutineNew(Frame *frame, ArRoutineStatus status);
 
     void RoutineDel(ArRoutine *routine);
+
+    void RoutineCleanPanic(ArRoutine *routine);
 
     inline ArRoutine *RoutineNew(Frame *frame) { return RoutineNew(frame, ArRoutineStatus::RUNNABLE); }
 

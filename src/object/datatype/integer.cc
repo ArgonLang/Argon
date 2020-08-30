@@ -3,6 +3,8 @@
 // Licensed under the Apache License v2.0
 
 #include <cassert>
+
+#include <vm/runtime.h>
 #include "integer.h"
 #include "error.h"
 #include "bool.h"
@@ -39,7 +41,7 @@ ArObject *integer_compare(ArObject *self, ArObject *other, CompareMode mode) {
         }
     }
 
-    return ReturnError(NotImpl);
+    return ReturnError(NotImplementedError);
 }
 
 size_t integer_hash(ArObject *obj) {
@@ -53,44 +55,48 @@ bool integer_istrue(Integer *self) {
 ArObject *integer_add(Integer *self, ArObject *other) {
     if (self->type == other->type)
         return IntegerNew(self->integer + ((Integer *) other)->integer);
-    return ReturnError(NotImpl);
+    return argon::vm::Panic(NotImplementedError);
 }
 
 ArObject *integer_sub(Integer *self, ArObject *other) {
     if (self->type == other->type)
         return IntegerNew(self->integer - ((Integer *) other)->integer);
-    return ReturnError(NotImpl);
+    return argon::vm::Panic(NotImplementedError);
 }
 
 ArObject *integer_mul(Integer *self, ArObject *other) {
     if (self->type == other->type)
         return IntegerNew(self->integer * ((Integer *) other)->integer);
-    return ReturnError(NotImpl);
+    return argon::vm::Panic(NotImplementedError);
 }
 
 ArObject *integer_div(Integer *self, ArObject *other) {
-    if (self->type == other->type)
+    if (self->type == other->type) {
+        if (((Integer *) other)->integer == 0)
+            return argon::vm::Panic(ZeroDivisionError);
+
         return IntegerNew(self->integer / ((Integer *) other)->integer);
-    return ReturnError(NotImpl);
+    }
+    return argon::vm::Panic(NotImplementedError);
 }
 
 ArObject *integer_mod(Integer *self, ArObject *other) {
     if (self->type == other->type)
         return IntegerNew(self->integer % ((Integer *) other)->integer);
 
-    return ReturnError(NotImpl);
+    return argon::vm::Panic(NotImplementedError);
 }
 
 ArObject *integer_lsh(Integer *self, ArObject *other) {
     if (self->type == other->type)
         return IntegerNew(self->integer << ((Integer *) other)->integer);
-    return ReturnError(NotImpl);
+    return argon::vm::Panic(NotImplementedError);
 }
 
 ArObject *integer_rsh(Integer *self, ArObject *other) {
     if (self->type == other->type)
         return IntegerNew(self->integer >> ((Integer *) other)->integer);
-    return ReturnError(NotImpl);
+    return argon::vm::Panic(NotImplementedError);
 }
 
 arsize integer_as_index(Integer *self) {
