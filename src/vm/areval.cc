@@ -676,10 +676,18 @@ ArObject *argon::vm::Eval(ArRoutine *routine) {
                 BINARY_OP(routine, module);
             }
             TARGET_OP(POS) {
-                BINARY_OP(routine, pos);
+                ret = TOP();
+                if ((ret = ret->type->ops->pos(ret)) == nullptr)
+                    goto error;
+                TOP_REPLACE(ret);
+                DISPATCH();
             }
             TARGET_OP(NEG) {
-                BINARY_OP(routine, neg);
+                ret = TOP();
+                if ((ret = ret->type->ops->neg(ret)) == nullptr)
+                    goto error;
+                TOP_REPLACE(ret);
+                DISPATCH();
             }
 
                 // *** COMMON LOGICAL OPERATIONS ***
@@ -700,7 +708,11 @@ ArObject *argon::vm::Eval(ArRoutine *routine) {
                 BINARY_OP(routine, shr);
             }
             TARGET_OP(INV) {
-                BINARY_OP(routine, invert);
+                ret = TOP();
+                if ((ret = ret->type->ops->invert(ret)) == nullptr)
+                    goto error;
+                TOP_REPLACE(ret);
+                DISPATCH();
             }
 
                 // *** COMPOUND DATA STRUCTURES ***

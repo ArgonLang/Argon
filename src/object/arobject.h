@@ -61,8 +61,8 @@ namespace argon::object {
         BinaryOp inp_sub;
         BinaryOp inp_mul;
         BinaryOp inp_div;
-        VoidUnaryOp inc;
-        VoidUnaryOp dec;
+        UnaryOp inc;
+        UnaryOp dec;
     };
 
     struct NumberActions {
