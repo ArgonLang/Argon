@@ -41,7 +41,7 @@ ArObject *integer_compare(ArObject *self, ArObject *other, CompareMode mode) {
         }
     }
 
-    return ReturnError(NotImplementedError);
+    return nullptr;
 }
 
 size_t integer_hash(ArObject *obj) {
@@ -55,19 +55,19 @@ bool integer_istrue(Integer *self) {
 ArObject *integer_add(Integer *self, ArObject *other) {
     if (self->type == other->type)
         return IntegerNew(self->integer + ((Integer *) other)->integer);
-    return argon::vm::Panic(NotImplementedError);
+    return nullptr;
 }
 
 ArObject *integer_sub(Integer *self, ArObject *other) {
     if (self->type == other->type)
         return IntegerNew(self->integer - ((Integer *) other)->integer);
-    return argon::vm::Panic(NotImplementedError);
+    return nullptr;
 }
 
 ArObject *integer_mul(Integer *self, ArObject *other) {
     if (self->type == other->type)
         return IntegerNew(self->integer * ((Integer *) other)->integer);
-    return argon::vm::Panic(NotImplementedError);
+    return nullptr;
 }
 
 ArObject *integer_div(Integer *self, ArObject *other) {
@@ -77,26 +77,26 @@ ArObject *integer_div(Integer *self, ArObject *other) {
 
         return IntegerNew(self->integer / ((Integer *) other)->integer);
     }
-    return argon::vm::Panic(NotImplementedError);
+    return nullptr;
 }
 
 ArObject *integer_mod(Integer *self, ArObject *other) {
     if (self->type == other->type)
         return IntegerNew(self->integer % ((Integer *) other)->integer);
 
-    return argon::vm::Panic(NotImplementedError);
+    return nullptr;
 }
 
 ArObject *integer_lsh(Integer *self, ArObject *other) {
     if (self->type == other->type)
         return IntegerNew(self->integer << ((Integer *) other)->integer);
-    return argon::vm::Panic(NotImplementedError);
+    return nullptr;
 }
 
 ArObject *integer_rsh(Integer *self, ArObject *other) {
     if (self->type == other->type)
         return IntegerNew(self->integer >> ((Integer *) other)->integer);
-    return argon::vm::Panic(NotImplementedError);
+    return nullptr;
 }
 
 arsize integer_as_index(Integer *self) {

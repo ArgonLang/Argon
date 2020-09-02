@@ -5,7 +5,7 @@
 #ifndef ARGON_OBJECT_LIST_H_
 #define ARGON_OBJECT_LIST_H_
 
-#include <object/objmgmt.h>
+#include <object/arobject.h>
 
 #define ARGON_OBJECT_LIST_INITIAL_CAP   4
 

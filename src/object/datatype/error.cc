@@ -2,26 +2,13 @@
 //
 // Licensed under the Apache License v2.0
 
+#include <cstdarg>
+
+#include <vm/runtime.h>
+#include <object/objmgmt.h>
 #include "error.h"
 
 using namespace argon::object;
-
-#define ERROR_NEW_TYPE(type_name, name, base, obj_actions)      \
-const TypeInfo type_##type_name##_ = {                          \
-        (const unsigned char *) #name,                          \
-        sizeof(base),                                           \
-        nullptr,                                                \
-        nullptr,                                                \
-        nullptr,                                                \
-        obj_actions,                                            \
-        nullptr,                                                \
-        nullptr,                                                \
-        nullptr,                                                \
-        nullptr,                                                \
-        nullptr,                                                \
-        nullptr,                                                \
-        nullptr                                                 \
-}
 
 #define ERROR_STATIC_INIT(base, name, ptr_name, type, obj)  \
 base name {                                                 \
@@ -30,26 +17,8 @@ base name {                                                 \
 };                                                          \
 ArObject *ptr_name = &name
 
-ArObject *error_getattr(Error *self, ArObject *key) {
-    /*
-    if (StringEq((String *) key, "err")) {
-        IncRef(self->obj);
-        return self->obj;
-    }
-     */
-    return nullptr;
-}
-
-ObjectActions error_actions{
-        (BinaryOp) error_getattr,
-        nullptr
-};
-
-// Generic error that can encapsulate any ArObject
-ERROR_NEW_TYPE(error, error, Error, &error_actions);
-
 Error *argon::object::ErrorNew(ArObject *obj) {
-    auto error = ArObjectNew<Error>(RCType::INLINE, &type_error_);
+    auto error = ArObjectNew<Error>(RCType::INLINE, &error_error);
 
     if (error != nullptr)
         error->obj = obj;
@@ -57,15 +26,46 @@ Error *argon::object::ErrorNew(ArObject *obj) {
     return error;
 }
 
+ArObject *argon::object::ErrorFormat(const TypeInfo *etype, const char *format, ...) {
+    char *buf;
+    ErrorStr *error;
+
+    int sz;
+    va_list args;
+
+    va_start (args, format);
+    sz = vsnprintf(nullptr, 0, format, args) + 1; // +1 is for '\0'
+    va_end(args);
+
+    if ((buf = (char *) argon::memory::Alloc(sz)) == nullptr) {
+        argon::vm::Panic(OutOfMemoryError);
+        return nullptr;
+    }
+
+    if ((error = ArObjectNew<ErrorStr>(RCType::INLINE, etype)) == nullptr) {
+        argon::memory::Free(buf);
+        argon::vm::Panic(OutOfMemoryError);
+        return nullptr;
+    }
+
+    va_start(args, format);
+    vsnprintf(buf, sz, format, args);
+    va_end(args);
+
+    error->msg = buf;
+
+    argon::vm::Panic(error);
+    return nullptr;
+}
+
+void argon::object::__error_str_cleanup(ArObject *obj) { argon::memory::Free((char *) ((ErrorStr *) obj)->msg); }
+
+void argon::object::__error_error_cleanup(ArObject *obj) { Release(((Error *) obj)->obj); }
+
 // ArithmeticError
-ERROR_NEW_TYPE(zero_division_error, ZeroDivisionError, ErrorStr, nullptr);
-ERROR_STATIC_INIT(ErrorStr, ZeroDivision, argon::object::ZeroDivisionError, type_zero_division_error_,
+ERROR_STATIC_INIT(ErrorStr, ZeroDivision, argon::object::ZeroDivisionError, error_zero_division_error,
                   "divide by zero");
 
 // RuntimeError
-ERROR_NEW_TYPE(oo_memory, OutOfMemory, ErrorStr, nullptr);
-ERROR_STATIC_INIT(ErrorStr, OutOfMemory, argon::object::OutOfMemoryError, type_oo_memory_, "out of memory");
-
-ERROR_NEW_TYPE(not_impl, NotImplemented, ErrorStr, nullptr);
-ERROR_STATIC_INIT(ErrorStr, NotImplemented, argon::object::NotImplementedError, type_not_impl_, "not implemented");
+ERROR_STATIC_INIT(ErrorStr, OutOfMemory, argon::object::OutOfMemoryError, error_oo_memory, "out of memory");
 

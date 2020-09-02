@@ -6,6 +6,8 @@
 #include <mutex>
 #include <condition_variable>
 
+#include <object/objmgmt.h>
+
 #include "areval.h"
 #include "routine_queue.h"
 #include "runtime.h"

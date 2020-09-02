@@ -3,6 +3,7 @@
 // Licensed under the Apache License v2.0
 
 #include <cassert>
+#include <object/objmgmt.h>
 #include "frame.h"
 
 using namespace argon::vm;

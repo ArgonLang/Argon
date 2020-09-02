@@ -73,8 +73,7 @@ ArObject *Binary(ArRoutine *routine, ArObject *l, ArObject *r, int offset) {
 
     if (lop != nullptr)
         result = lop(l, r);
-    if (rop != nullptr && result == nullptr && routine->panic_object == NotImplementedError) {
-        RoutineCleanPanic(routine);
+    if (rop != nullptr && result == nullptr && routine->panic_object == nullptr) {
         Release(result);
         result = rop(l, r);
     }
@@ -82,11 +81,15 @@ ArObject *Binary(ArRoutine *routine, ArObject *l, ArObject *r, int offset) {
     return result;
 }
 
-#define BINARY_OP(routine, op)                                                      \
-if ((ret = Binary(routine, PEEK1(), TOP(), offsetof(OpSlots, op))) == nullptr)      \
-    goto error;                                                                     \
-POP();                                                                              \
-TOP_REPLACE(ret);                                                                   \
+#define BINARY_OP(routine, op, opchar)                                                      \
+if ((ret = Binary(routine, PEEK1(), TOP(), offsetof(OpSlots, op))) == nullptr) {            \
+    if(routine->panic_object==nullptr)                                                      \
+        ErrorFormat(&error_type_error, "unsupported operand type '%s' for: '%s' and '%s'",  \
+        #opchar, PEEK1()->type->name, TOP()->type->name);                                   \
+    goto error;                                                                             \
+    }                                                                                       \
+POP();                                                                                      \
+TOP_REPLACE(ret);                                                                           \
 DISPATCH()
 
 bool GetMRO(ArRoutine *routine, List **mro, Trait **impls, size_t count) {
@@ -658,22 +661,22 @@ ArObject *argon::vm::Eval(ArRoutine *routine) {
                 // *** COMMON MATH OPERATIONS ***
 
             TARGET_OP(ADD) {
-                BINARY_OP(routine, add);
+                BINARY_OP(routine, add, +);
             }
             TARGET_OP(SUB) {
-                BINARY_OP(routine, sub);
+                BINARY_OP(routine, sub, -);
             }
             TARGET_OP(MUL) {
-                BINARY_OP(routine, mul);
+                BINARY_OP(routine, mul, *);
             }
             TARGET_OP(DIV) {
-                BINARY_OP(routine, div);
+                BINARY_OP(routine, div, /);
             }
             TARGET_OP(IDIV) {
-                BINARY_OP(routine, idiv);
+                BINARY_OP(routine, idiv, '//');
             }
             TARGET_OP(MOD) {
-                BINARY_OP(routine, module);
+                BINARY_OP(routine, module, %);
             }
             TARGET_OP(POS) {
                 ret = TOP();
@@ -693,19 +696,19 @@ ArObject *argon::vm::Eval(ArRoutine *routine) {
                 // *** COMMON LOGICAL OPERATIONS ***
 
             TARGET_OP(LAND) {
-                BINARY_OP(routine, l_and);
+                BINARY_OP(routine, l_and, &);
             }
             TARGET_OP(LOR) {
-                BINARY_OP(routine, l_or);
+                BINARY_OP(routine, l_or, |);
             }
             TARGET_OP(LXOR) {
-                BINARY_OP(routine, l_xor);
+                BINARY_OP(routine, l_xor, ^);
             }
             TARGET_OP(SHL) {
-                BINARY_OP(routine, shl);
+                BINARY_OP(routine, shl, <<);
             }
             TARGET_OP(SHR) {
-                BINARY_OP(routine, shr);
+                BINARY_OP(routine, shr, >>);
             }
             TARGET_OP(INV) {
                 ret = TOP();

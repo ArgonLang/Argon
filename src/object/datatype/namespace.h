@@ -5,7 +5,7 @@
 #ifndef ARGON_OBJECT_NAMESPACE_H_
 #define ARGON_OBJECT_NAMESPACE_H_
 
-#include <object/objmgmt.h>
+#include <object/arobject.h>
 
 #define ARGON_OBJECT_NS_INITIAL_SIZE   16
 #define ARGON_OBJECT_NS_LOAD_FACTOR    0.75f
