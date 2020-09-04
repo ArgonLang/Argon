@@ -6,16 +6,21 @@
 #define ARGON_OBJECT_DECIMAL_H_
 
 #include <string>
-#include <object/objmgmt.h>
+#include <object/arobject.h>
 
 namespace argon::object {
+
+    using DecimalUnderlayer = long double;
+
     struct Decimal : public ArObject {
-        long double decimal;
+        DecimalUnderlayer decimal;
     };
 
-    Decimal *DecimalNew(long double number);
+    Decimal *DecimalNew(DecimalUnderlayer number);
 
     Decimal *DecimalNewFromString(const std::string &string);
+
+    extern const TypeInfo type_decimal_;
 
 } // namespace argon::object
 

@@ -7,11 +7,14 @@
 
 #include <string>
 
-#include <object/objmgmt.h>
+#include <object/arobject.h>
 
 namespace argon::object {
+
+    using IntegerUnderlayer = long;
+
     struct Integer : ArObject {
-        long integer;
+        IntegerUnderlayer integer;
     };
 
     extern const TypeInfo type_integer_;
@@ -19,6 +22,8 @@ namespace argon::object {
     Integer *IntegerNew(long number);
 
     Integer *IntegerNewFromString(const std::string &string, int base);
+
+    int IntegerCountBits(Integer *number);
 
 } // namespace argon::object
 

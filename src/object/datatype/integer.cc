@@ -160,3 +160,17 @@ Integer *argon::object::IntegerNewFromString(const std::string &string, int base
     integer->integer = std::strtol(string.c_str(), nullptr, base);
     return integer;
 }
+
+int argon::object::IntegerCountBits(Integer *number) {
+    assert(number->type == &type_integer_);
+
+    IntegerUnderlayer i = number->integer;
+    int count = 0;
+
+    while (i) {
+        count++;
+        i >>= 1;
+    }
+
+    return count;
+}
