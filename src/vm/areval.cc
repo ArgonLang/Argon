@@ -65,7 +65,7 @@ frame->eval_stack[es_cur-1]=obj
 
 #define GET_BINARY_OP(struct, offset) *((BinaryOp *) (((unsigned char *) struct) + offset))
 
-ArObject *Binary(ArObject *l, ArObject *r, int offset) {
+ArObject *Binary(ArRoutine *routine, ArObject *l, ArObject *r, int offset) {
     BinaryOp lop = GET_BINARY_OP(l->type->ops, offset);
     BinaryOp rop = GET_BINARY_OP(r->type->ops, offset);
 
@@ -73,24 +73,23 @@ ArObject *Binary(ArObject *l, ArObject *r, int offset) {
 
     if (lop != nullptr)
         result = lop(l, r);
-    if (rop != nullptr && result == NotImpl) {
+    if (rop != nullptr && result == nullptr && routine->panic_object == nullptr) {
         Release(result);
         result = rop(l, r);
-    }
-
-    if (result == NotImpl) {
-        // TODO: SET ROUTINE ERROR
-        result = nullptr;
     }
 
     return result;
 }
 
-#define BINARY_OP(op)                                                   \
-if ((ret = Binary(PEEK1(), TOP(), offsetof(OpSlots, op))) == nullptr)   \
-    goto error;                                                         \
-POP();                                                                  \
-TOP_REPLACE(ret);                                                       \
+#define BINARY_OP(routine, op, opchar)                                                      \
+if ((ret = Binary(routine, PEEK1(), TOP(), offsetof(OpSlots, op))) == nullptr) {            \
+    if(routine->panic_object==nullptr)                                                      \
+        ErrorFormat(&error_type_error, "unsupported operand type '%s' for: '%s' and '%s'",  \
+        #opchar, PEEK1()->type->name, TOP()->type->name);                                   \
+    goto error;                                                                             \
+    }                                                                                       \
+POP();                                                                                      \
+TOP_REPLACE(ret);                                                                           \
 DISPATCH()
 
 bool GetMRO(ArRoutine *routine, List **mro, Trait **impls, size_t count) {
@@ -311,15 +310,20 @@ ArObject *NativeCall(ArRoutine *routine, Function *function, ArObject **args, si
     return res;
 }
 
-void argon::vm::Eval(ArRoutine *routine, Frame *frame) {
+ArObject *argon::vm::Eval(ArRoutine *routine, Frame *frame) {
+    ArObject *ret;
+
     frame->back = routine->frame;
     routine->frame = frame;
-    Eval(routine);
+    ret = Eval(routine);
     routine->frame = frame->back;
+
+    return ret;
 }
 
-void argon::vm::Eval(ArRoutine *routine) {
+ArObject *argon::vm::Eval(ArRoutine *routine) {
     Frame *base = routine->frame; // TODO: refactor THIS!
+    ArObject *last_pop = nullptr;
 
     begin:
     Frame *frame = routine->frame;
@@ -657,49 +661,61 @@ void argon::vm::Eval(ArRoutine *routine) {
                 // *** COMMON MATH OPERATIONS ***
 
             TARGET_OP(ADD) {
-                BINARY_OP(add);
+                BINARY_OP(routine, add, +);
             }
             TARGET_OP(SUB) {
-                BINARY_OP(sub);
+                BINARY_OP(routine, sub, -);
             }
             TARGET_OP(MUL) {
-                BINARY_OP(mul);
+                BINARY_OP(routine, mul, *);
             }
             TARGET_OP(DIV) {
-                BINARY_OP(div);
+                BINARY_OP(routine, div, /);
             }
             TARGET_OP(IDIV) {
-                BINARY_OP(idiv);
+                BINARY_OP(routine, idiv, '//');
             }
             TARGET_OP(MOD) {
-                BINARY_OP(module);
+                BINARY_OP(routine, module, %);
             }
             TARGET_OP(POS) {
-                BINARY_OP(pos);
+                ret = TOP();
+                if ((ret = ret->type->ops->pos(ret)) == nullptr)
+                    goto error;
+                TOP_REPLACE(ret);
+                DISPATCH();
             }
             TARGET_OP(NEG) {
-                BINARY_OP(neg);
+                ret = TOP();
+                if ((ret = ret->type->ops->neg(ret)) == nullptr)
+                    goto error;
+                TOP_REPLACE(ret);
+                DISPATCH();
             }
 
                 // *** COMMON LOGICAL OPERATIONS ***
 
             TARGET_OP(LAND) {
-                BINARY_OP(l_and);
+                BINARY_OP(routine, l_and, &);
             }
             TARGET_OP(LOR) {
-                BINARY_OP(l_or);
+                BINARY_OP(routine, l_or, |);
             }
             TARGET_OP(LXOR) {
-                BINARY_OP(l_xor);
+                BINARY_OP(routine, l_xor, ^);
             }
             TARGET_OP(SHL) {
-                BINARY_OP(shl);
+                BINARY_OP(routine, shl, <<);
             }
             TARGET_OP(SHR) {
-                BINARY_OP(shr);
+                BINARY_OP(routine, shr, >>);
             }
             TARGET_OP(INV) {
-                BINARY_OP(invert);
+                ret = TOP();
+                if ((ret = ret->type->ops->invert(ret)) == nullptr)
+                    goto error;
+                TOP_REPLACE(ret);
+                DISPATCH();
             }
 
                 // *** COMPOUND DATA STRUCTURES ***
@@ -869,7 +885,8 @@ void argon::vm::Eval(ArRoutine *routine) {
                 goto end_while;
             }
             TARGET_OP(POP) {
-                POP();
+                Release(last_pop);
+                last_pop = frame->eval_stack[--es_cur];
                 DISPATCH();
             }
             default:
@@ -887,5 +904,7 @@ void argon::vm::Eval(ArRoutine *routine) {
         FrameDel(frame);
         goto begin;
     }
+
+    return last_pop;
 }
 

@@ -6,7 +6,9 @@
 #define ARGON_OBJECT_OBJMGMT_H_
 
 #include <memory/memory.h>
+#include <vm/runtime.h>
 
+#include <object/datatype/error.h>
 #include "arobject.h"
 #include "gc.h"
 
@@ -20,7 +22,7 @@ namespace argon::object {
         if (obj != nullptr) {
             obj->ref_count = RefBits((unsigned char) init);
             obj->type = type;
-        }
+        } else argon::vm::Panic(OutOfMemoryError);
 
         return obj;
     }
@@ -33,7 +35,7 @@ namespace argon::object {
         if (obj != nullptr) {
             obj->ref_count = RefBits((unsigned char) RCType::GC);
             obj->type = type;
-        }
+        } else argon::vm::Panic(OutOfMemoryError);
 
         return obj;
     }

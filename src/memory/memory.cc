@@ -114,6 +114,25 @@ void *argon::memory::MemoryCopy(void *dest, const void *src, size_t size) {
     return dest;
 }
 
+void *argon::memory::MemoryConcat(void *s1, size_t size1, void *s2, size_t size2) {
+    auto dst = (unsigned char *) Alloc(size1 + size2);
+
+    if (dst != nullptr) {
+        MemoryCopy(dst, s1, size1);
+        MemoryCopy(dst + size1, s2, size2);
+    }
+
+    return dst;
+}
+
+void *argon::memory::MemorySet(void *dest, int val, size_t size) {
+    // 27/08/20 was a bad day... but did you really do IT? REALLY?!
+    auto ptr = (unsigned char *) dest;
+    while (size-- > 0)
+        *ptr++ = val;
+    return dest;
+}
+
 void *argon::memory::Realloc(void *ptr, size_t size) {
     Pool *pool = (Pool *) AlignDown(ptr, ARGON_MEMORY_PAGE_SIZE);
     bool in_arenas = AddressInArenas(ptr);

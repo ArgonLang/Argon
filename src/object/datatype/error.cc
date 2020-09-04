@@ -2,30 +2,70 @@
 //
 // Licensed under the Apache License v2.0
 
+#include <cstdarg>
+
+#include <vm/runtime.h>
+#include <object/objmgmt.h>
 #include "error.h"
 
 using namespace argon::object;
 
-const TypeInfo type_not_implemented_ = {
-        (const unsigned char *) "NotImplemented",
-        sizeof(NotImplemented),
-        nullptr,
-        nullptr,
-        nullptr,
-        nullptr,
-        nullptr,
-        nullptr,
-        nullptr,
-        nullptr,
-        nullptr,
-        nullptr
-};
+#define ERROR_STATIC_INIT(base, name, ptr_name, type, obj)  \
+base name {                                                 \
+        {RefCount(RCType::STATIC), &type},                  \
+        obj                                                 \
+};                                                          \
+ArObject *ptr_name = &name
 
-NotImplemented *NotImplementedNew() noexcept {
-    auto ni = ArObjectNew<NotImplemented>(RCType::INLINE, &type_not_implemented_);
-    return ni;
+Error *argon::object::ErrorNew(ArObject *obj) {
+    auto error = ArObjectNew<Error>(RCType::INLINE, &error_error);
+
+    if (error != nullptr)
+        error->obj = obj;
+
+    return error;
 }
 
-ArObject *argon::object::NotImpl = NotImplementedNew();
+ArObject *argon::object::ErrorFormat(const TypeInfo *etype, const char *format, ...) {
+    char *buf;
+    ErrorStr *error;
 
+    int sz;
+    va_list args;
+
+    va_start (args, format);
+    sz = vsnprintf(nullptr, 0, format, args) + 1; // +1 is for '\0'
+    va_end(args);
+
+    if ((buf = (char *) argon::memory::Alloc(sz)) == nullptr) {
+        argon::vm::Panic(OutOfMemoryError);
+        return nullptr;
+    }
+
+    if ((error = ArObjectNew<ErrorStr>(RCType::INLINE, etype)) == nullptr) {
+        argon::memory::Free(buf);
+        argon::vm::Panic(OutOfMemoryError);
+        return nullptr;
+    }
+
+    va_start(args, format);
+    vsnprintf(buf, sz, format, args);
+    va_end(args);
+
+    error->msg = buf;
+
+    argon::vm::Panic(error);
+    return nullptr;
+}
+
+void argon::object::__error_str_cleanup(ArObject *obj) { argon::memory::Free((char *) ((ErrorStr *) obj)->msg); }
+
+void argon::object::__error_error_cleanup(ArObject *obj) { Release(((Error *) obj)->obj); }
+
+// ArithmeticError
+ERROR_STATIC_INIT(ErrorStr, ZeroDivision, argon::object::ZeroDivisionError, error_zero_division_error,
+                  "divide by zero");
+
+// RuntimeError
+ERROR_STATIC_INIT(ErrorStr, OutOfMemory, argon::object::OutOfMemoryError, error_oo_memory, "out of memory");
 

@@ -4,6 +4,8 @@
 
 #include <gtest/gtest.h>
 
+#include <object/gc.h>
+#include <object/objmgmt.h>
 #include <object/datatype/list.h>
 
 using namespace argon::object;

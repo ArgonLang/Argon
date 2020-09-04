@@ -3,9 +3,10 @@
 // Licensed under the Apache License v2.0
 
 #include <cassert>
-#include "list.h"
-
 #include <memory/memory.h>
+
+#include <object/objmgmt.h>
+#include "list.h"
 
 using namespace argon::object;
 using namespace argon::memory;

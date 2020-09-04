@@ -5,18 +5,62 @@
 #ifndef ARGON_OBJECT_ERROR_H_
 #define ARGON_OBJECT_ERROR_H_
 
-#include <object/objmgmt.h>
+#include <object/arobject.h>
 
 namespace argon::object {
-    struct NotImplemented : ArObject {
+    struct Error : ArObject {
+        ArObject *obj;
     };
 
-    extern ArObject *NotImpl;
+    struct ErrorStr : ArObject {
+        const char *msg;
+    };
 
-    inline ArObject *ReturnError(ArObject *err) {
-        IncRef(err);
-        return err;
-    }
+    void __error_str_cleanup(ArObject *obj);
+
+    void __error_error_cleanup(ArObject *obj);
+
+    Error *ErrorNew(ArObject *obj);
+
+    ArObject *ErrorFormat(const TypeInfo *etype, const char *format, ...);
+
+#define ERROR_NEW_TYPE(type_name, name, base, cleanup, obj_actions) \
+const TypeInfo error_##type_name = {                                \
+        (const unsigned char *) #name,                              \
+        sizeof(base),                                               \
+        nullptr,                                                    \
+        nullptr,                                                    \
+        nullptr,                                                    \
+        obj_actions,                                                \
+        nullptr,                                                    \
+        nullptr,                                                    \
+        nullptr,                                                    \
+        nullptr,                                                    \
+        nullptr,                                                    \
+        nullptr,                                                    \
+        cleanup                                                     \
+}
+
+#define ERROR_STR_NEW_TYPE(type_name, name, obj_actions)                        \
+ERROR_NEW_TYPE(type_name, name, ErrorStr, __error_str_cleanup, obj_actions)
+
+    // Generic error that can encapsulate any ArObject
+    ERROR_NEW_TYPE(error, error, Error, __error_error_cleanup, nullptr);
+
+    // ArithmeticErrors
+    ERROR_STR_NEW_TYPE(zero_division_error, ZeroDivisionError, nullptr);
+
+    // Runtime errors
+    ERROR_STR_NEW_TYPE(oo_memory, OutOfMemory, nullptr);
+    ERROR_STR_NEW_TYPE(type_error, TypeError, nullptr);
+    ERROR_STR_NEW_TYPE(not_implemented, NotImplemented, nullptr);
+
+#undef ERROR_STR_NEW_TYPE
+#undef ERROR_NEW_TYPE
+
+    // ExportedErrors
+    extern ArObject *ZeroDivisionError;
+    extern ArObject *OutOfMemoryError;
 
 } // namespace argon::object
 

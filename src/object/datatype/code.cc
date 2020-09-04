@@ -5,6 +5,7 @@
 #include <cassert>
 #include <memory/memory.h>
 
+#include <object/objmgmt.h>
 #include "hash_magic.h"
 #include "code.h"
 

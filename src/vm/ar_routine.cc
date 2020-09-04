@@ -2,6 +2,7 @@
 //
 // Licensed under the Apache License v2.0
 
+#include <object/objmgmt.h>
 #include "ar_routine.h"
 
 using namespace argon::vm;
@@ -12,7 +13,6 @@ ArRoutine *argon::vm::RoutineNew(Frame *frame, ArRoutineStatus status) {
 
     if (routine != nullptr) {
         routine->next = nullptr;
-        routine->prev = nullptr;
         routine->frame = frame;
         routine->status = status;
     }
@@ -20,37 +20,12 @@ ArRoutine *argon::vm::RoutineNew(Frame *frame, ArRoutineStatus status) {
     return routine;
 }
 
-// *** ArRoutineQueue ***
-
-ArRoutine *ArRoutineQueue::Dequeue() {
-    ArRoutine *routine = this->front_;
-
-    if (routine != nullptr) {
-        this->front_ = routine->prev;
-        if (routine->prev != nullptr)
-            routine->prev->next = nullptr;
-        else
-            this->queue_ = nullptr;
-        this->len_--;
-    }
-
-    return routine;
+void argon::vm::RoutineDel(ArRoutine *routine) {
+    FrameDel(routine->frame);
+    Free(routine);
 }
 
-bool ArRoutineQueue::Enqueue(ArRoutine *routine) {
-    if (this->len_ + 1 > ARGON_VM_QUEUE_MAX_ROUTINES)
-        return false;
-
-    routine->next = this->queue_;
-    routine->prev = nullptr;
-
-    if (this->queue_ != nullptr)
-        this->queue_->prev = routine;
-    else
-        this->front_ = routine;
-
-    this->queue_ = routine;
-
-    this->len_++;
-    return true;
+void argon::vm::RoutineCleanPanic(ArRoutine *routine) {
+    argon::object::Release(routine->panic_object);
+    routine->panic_object = nullptr;
 }
