@@ -2,7 +2,6 @@
 //
 // Licensed under the Apache License v2.0
 
-#include <cassert>
 #include <memory/memory.h>
 
 #include <object/objmgmt.h>
@@ -33,7 +32,7 @@ size_t code_hash(ArObject *obj) {
     return code->hash;
 }
 
-bool code_istrue(Code *self) {
+bool code_istrue(ArObject *self) {
     return true;
 }
 
@@ -52,7 +51,7 @@ const TypeInfo argon::object::type_code_ = {
         nullptr,
         nullptr,
         nullptr,
-        (BoolUnaryOp) code_istrue,
+        code_istrue,
         code_equal,
         nullptr,
         code_hash,
@@ -65,26 +64,26 @@ const TypeInfo argon::object::type_code_ = {
 Code *argon::object::CodeNew(const unsigned char *instr,
                              unsigned int instr_sz,
                              unsigned int stack_sz,
-                             argon::object::List *statics,
-                             argon::object::List *names,
-                             argon::object::List *locals,
-                             argon::object::List *deref) {
+                             List *statics,
+                             List *names,
+                             List *locals,
+                             List *enclosed) {
     auto code = ArObjectNew<Code>(RCType::INLINE, &type_code_);
-    code->type = &type_code_;
-    assert(code != nullptr);
 
-    code->instr = instr;
-    code->instr_sz = instr_sz;
-    code->stack_sz = stack_sz;
+    if (code != nullptr) {
+        code->instr = instr;
+        code->instr_sz = instr_sz;
+        code->stack_sz = stack_sz;
 
-    code->statics = TupleNew(statics);
-    assert(code->statics != nullptr);
-    code->names = TupleNew(names);
-    assert(code->names != nullptr);
-    code->locals = TupleNew(locals);
-    assert(code->locals != nullptr);
-    code->deref = TupleNew(deref);
-    assert(code->deref != nullptr);
+        if ((code->statics = TupleNew(statics)) == nullptr)
+            Release(code);
+        if ((code->names = TupleNew(names)) == nullptr)
+            Release(code);
+        if ((code->locals = TupleNew(locals)) == nullptr)
+            Release(code);
+        if ((code->enclosed = TupleNew(enclosed)) == nullptr)
+            Release(code);
+    }
 
     return code;
 }

@@ -14,7 +14,7 @@ Frame *argon::vm::FrameNew(object::Code *code, object::Namespace *globals, objec
     auto frame = (Frame *) Alloc(sizeof(Frame) +
                                  (code->stack_sz * sizeof(object::ArObject *)) +
                                  (code->locals->len * sizeof(object::ArObject *)) +
-                                 (code->deref->len * sizeof(object::ArObject *)));
+                                 (code->enclosed->len * sizeof(object::ArObject *)));
 
     assert(frame != nullptr); // TODO: NOMEM
 
@@ -42,8 +42,8 @@ void argon::vm::FrameDel(Frame *frame) {
             Release(frame->locals[i]);
     }
 
-    if (code->deref != nullptr) {
-        for (size_t i = 0; i < code->deref->len; i++)
+    if (code->enclosed != nullptr) {
+        for (size_t i = 0; i < code->enclosed->len; i++)
             Release(frame->enclosed[i]);
     }
 

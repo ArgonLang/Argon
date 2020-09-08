@@ -66,7 +66,7 @@ namespace lang {
                 argon::object::Release(this->statics);
                 argon::object::Release(this->names);
                 argon::object::Release(this->locals);
-                throw MemoryException("CompileUnit: deref");
+                throw MemoryException("CompileUnit: enclosed");
             }
         }
 

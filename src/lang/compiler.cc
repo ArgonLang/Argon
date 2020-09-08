@@ -210,14 +210,14 @@ argon::object::Code *Compiler::AssembleFunction(const ast::Function *function) {
     if (!this->PushStatic(code, false, true, nullptr))
         throw MemoryException("CompileFunction: PushStatic");
 
-    if (code->deref->len > 0) {
-        for (int i = 0; i < code->deref->len; i++) {
-            auto st = (String *) TupleGetItem(code->deref, i);
+    if (code->enclosed->len > 0) {
+        for (int i = 0; i < code->enclosed->len; i++) {
+            auto st = (String *) TupleGetItem(code->enclosed, i);
             this->LoadVariable(std::string((char *) st->buffer, st->len));
             Release(st);
         }
-        this->DecEvalStack(code->deref->len);
-        this->EmitOp4(OpCodes::MK_LIST, code->deref->len);
+        this->DecEvalStack(code->enclosed->len);
+        this->EmitOp4(OpCodes::MK_LIST, code->enclosed->len);
         fn_flags |= MkFuncFlags::CLOSURE;
     }
 

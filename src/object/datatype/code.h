@@ -11,14 +11,25 @@
 
 namespace argon::object {
     struct Code : ArObject {
-        argon::object::Tuple *statics;
-        argon::object::Tuple *names;
-        argon::object::Tuple *locals;
-        argon::object::Tuple *deref;
+        /* Static resources */
+        Tuple *statics;
 
+        /* External variables (global scope) */
+        Tuple *names;
+
+        /* Local variables (function/cycle scope) */
+        Tuple *locals;
+
+        /* Closure */
+        Tuple *enclosed;
+
+        /* Array that contains Argon assembly */
         const unsigned char *instr;
 
+        /* Length of instr */
         unsigned int instr_sz;
+
+        /* Maximum stack size required to run this code */
         unsigned int stack_sz;
 
         size_t hash;
@@ -29,10 +40,10 @@ namespace argon::object {
     Code *CodeNew(const unsigned char *instr,
                   unsigned int instr_sz,
                   unsigned int stack_sz,
-                  argon::object::List *statics,
-                  argon::object::List *names,
-                  argon::object::List *locals,
-                  argon::object::List *deref);
+                  List *statics,
+                  List *names,
+                  List *locals,
+                  List *enclosed);
 } // namespace argon::object
 
 #endif // !ARGON_OBJECT_CODE_H_
