@@ -5,28 +5,176 @@
 #include <cassert>
 
 #include <vm/runtime.h>
-#include "integer.h"
 #include "error.h"
 #include "bool.h"
+#include "decimal.h"
+#include "integer.h"
 
 using namespace argon::object;
 
+ArObject *integer_add(ArObject *left, ArObject *right) {
+    if (left->type == right->type)
+        return IntegerNew(((Integer *) left)->integer + ((Integer *) right)->integer);
+    return nullptr;
+}
+
+ArObject *integer_sub(ArObject *left, ArObject *right) {
+    if (left->type == right->type)
+        return IntegerNew(((Integer *) left)->integer - ((Integer *) right)->integer);
+    return nullptr;
+}
+
+ArObject *integer_mul(ArObject *left, ArObject *right) {
+    if (left->type == right->type)
+        return IntegerNew(((Integer *) left)->integer * ((Integer *) right)->integer);
+    return nullptr;
+}
+
+ArObject *integer_div(ArObject *left, ArObject *right) {
+    auto l = (Integer *) left;
+
+    if (left->type == &type_integer_) {
+        if (right->type == &type_decimal_) {
+            if (((Decimal *) right)->decimal == 0)
+                return argon::vm::Panic(ZeroDivisionError);
+            return DecimalNew((DecimalUnderlayer) l->integer / ((Decimal *) right)->decimal);
+        } else if (left->type == right->type) {
+            if (((Integer *) right)->integer == 0)
+                return argon::vm::Panic(ZeroDivisionError);
+            return DecimalNew((DecimalUnderlayer) l->integer / ((Integer *) right)->integer);
+        }
+    }
+
+    return nullptr;
+}
+
+ArObject *integer_idiv(ArObject *left, ArObject *right) {
+    if (left->type == right->type) {
+        if (((Integer *) right)->integer == 0)
+            return argon::vm::Panic(ZeroDivisionError);
+        return IntegerNew(((Integer *) left)->integer / ((Integer *) right)->integer);
+    } else if (right->type == &type_decimal_) {
+        if (((Decimal *) right)->decimal == 0)
+            return argon::vm::Panic(ZeroDivisionError);
+        return IntegerNew((((Integer *) left)->integer / ((Decimal *) right)->decimal));
+    }
+
+    return nullptr;
+}
+
+ArObject *integer_mod(ArObject *left, ArObject *right) {
+    if (left->type == right->type)
+        return IntegerNew(((Integer *) left)->integer % ((Integer *) right)->integer);
+    return nullptr;
+}
+
+ArObject *integer_pos(Integer *self) {
+    if (self->integer < 0)
+        return IntegerNew(self->integer * -1);
+    IncRef(self);
+    return self;
+}
+
+ArObject *integer_neg(Integer *self) {
+    if (self->integer > 0)
+        return IntegerNew(-self->integer);
+    IncRef(self);
+    return self;
+}
+
+ArObject *integer_land(ArObject *left, ArObject *right) {
+    if (left->type == right->type)
+        return IntegerNew(((Integer *) left)->integer & ((Integer *) right)->integer);
+    return nullptr;
+}
+
+ArObject *integer_lor(ArObject *left, ArObject *right) {
+    if (left->type == right->type)
+        return IntegerNew(((Integer *) left)->integer | ((Integer *) right)->integer);
+    return nullptr;
+}
+
+ArObject *integer_lxor(ArObject *left, ArObject *right) {
+    if (left->type == right->type)
+        return IntegerNew(((Integer *) left)->integer ^ ((Integer *) right)->integer);
+    return nullptr;
+}
+
+ArObject *integer_lsh(ArObject *left, ArObject *right) {
+    if (left->type == right->type)
+        return IntegerNew(((Integer *) left)->integer << ((Integer *) right)->integer);
+    return nullptr;
+}
+
+ArObject *integer_rsh(ArObject *left, ArObject *right) {
+    if (left->type == right->type)
+        return IntegerNew(((Integer *) left)->integer >> ((Integer *) right)->integer);
+    return nullptr;
+}
+
+ArObject *integer_inv(Integer *self) {
+    return IntegerNew(~self->integer);
+}
+
+ArObject *integer_inc(Integer *self) {
+    return IntegerNew(self->integer + 1);
+}
+
+ArObject *integer_dec(Integer *self) {
+    return IntegerNew(self->integer - 1);
+}
+
+arsize integer_as_index(Integer *self) {
+    return self->integer;
+}
+
+const NumberActions integer_actions{
+        nullptr,
+        (ArSizeUnaryOp) integer_as_index
+};
+
+const OpSlots integer_ops{
+        integer_add,
+        integer_sub,
+        integer_mul,
+        integer_div,
+        integer_idiv,
+        integer_mod,
+        (UnaryOp) integer_pos,
+        (UnaryOp) integer_neg,
+        integer_land,
+        integer_lor,
+        integer_lxor,
+        (BinaryOp) integer_lsh,
+        (BinaryOp) integer_rsh,
+        (UnaryOp) integer_inv,
+        nullptr,
+        nullptr,
+        nullptr,
+        nullptr,
+        (UnaryOp) integer_inc,
+        (UnaryOp) integer_dec,
+};
+
 bool integer_equal(ArObject *self, ArObject *other) {
+    IntegerUnderlayer i = ((Integer *) self)->integer;
+
     if (self != other) {
         if (self->type == other->type)
-            return ((Integer *) self)->integer == ((Integer *) other)->integer;
+            return i == ((Integer *) other)->integer;
+        else if (other->type == &type_decimal_)
+            return i == ((Decimal *) other)->decimal;
+
         return false;
     }
+
     return true;
 }
 
 ArObject *integer_compare(ArObject *self, ArObject *other, CompareMode mode) {
-    long left;
-    long right;
-
-    if (self->type == &type_integer_ && other->type == &type_integer_) {
-        left = ((Integer *) self)->integer;
-        right = ((Integer *) other)->integer;
+    if (self->type == other->type) {
+        IntegerUnderlayer left = ((Integer *) self)->integer;
+        IntegerUnderlayer right = ((Integer *) other)->integer;
         switch (mode) {
             case CompareMode::GE:
                 return BoolToArBool(left > right);
@@ -52,85 +200,6 @@ bool integer_istrue(Integer *self) {
     return self->integer > 0;
 }
 
-ArObject *integer_add(Integer *self, ArObject *other) {
-    if (self->type == other->type)
-        return IntegerNew(self->integer + ((Integer *) other)->integer);
-    return nullptr;
-}
-
-ArObject *integer_sub(Integer *self, ArObject *other) {
-    if (self->type == other->type)
-        return IntegerNew(self->integer - ((Integer *) other)->integer);
-    return nullptr;
-}
-
-ArObject *integer_mul(Integer *self, ArObject *other) {
-    if (self->type == other->type)
-        return IntegerNew(self->integer * ((Integer *) other)->integer);
-    return nullptr;
-}
-
-ArObject *integer_div(Integer *self, ArObject *other) {
-    if (self->type == other->type) {
-        if (((Integer *) other)->integer == 0)
-            return argon::vm::Panic(ZeroDivisionError);
-
-        return IntegerNew(self->integer / ((Integer *) other)->integer);
-    }
-    return nullptr;
-}
-
-ArObject *integer_mod(Integer *self, ArObject *other) {
-    if (self->type == other->type)
-        return IntegerNew(self->integer % ((Integer *) other)->integer);
-
-    return nullptr;
-}
-
-ArObject *integer_lsh(Integer *self, ArObject *other) {
-    if (self->type == other->type)
-        return IntegerNew(self->integer << ((Integer *) other)->integer);
-    return nullptr;
-}
-
-ArObject *integer_rsh(Integer *self, ArObject *other) {
-    if (self->type == other->type)
-        return IntegerNew(self->integer >> ((Integer *) other)->integer);
-    return nullptr;
-}
-
-arsize integer_as_index(Integer *self) {
-    return self->integer;
-}
-
-const NumberActions integer_actions{
-        nullptr,
-        (ArSizeUnaryOp) integer_as_index
-};
-
-const OpSlots integer_ops{
-        (BinaryOp) integer_add,
-        (BinaryOp) integer_sub,
-        (BinaryOp) integer_mul,
-        (BinaryOp) integer_div,
-        nullptr,
-        (BinaryOp) integer_mod,
-        nullptr,
-        nullptr,
-        nullptr,
-        nullptr,
-        nullptr,
-        (BinaryOp) integer_lsh,
-        (BinaryOp) integer_rsh,
-        nullptr,
-        nullptr,
-        nullptr,
-        nullptr,
-        nullptr,
-        nullptr,
-        nullptr,
-};
-
 const TypeInfo argon::object::type_integer_ = {
         (const unsigned char *) "integer",
         sizeof(Integer),
@@ -147,17 +216,21 @@ const TypeInfo argon::object::type_integer_ = {
         nullptr
 };
 
-Integer *argon::object::IntegerNew(long number) {
+Integer *argon::object::IntegerNew(IntegerUnderlayer number) {
     auto integer = ArObjectNew<Integer>(RCType::INLINE, &type_integer_);
-    assert(integer != nullptr);
-    integer->integer = number;
+
+    if (integer != nullptr)
+        integer->integer = number;
+
     return integer;
 }
 
 Integer *argon::object::IntegerNewFromString(const std::string &string, int base) {
     auto integer = ArObjectNew<Integer>(RCType::INLINE, &type_integer_);
-    assert(integer != nullptr);
-    integer->integer = std::strtol(string.c_str(), nullptr, base);
+
+    if (integer != nullptr)
+        integer->integer = std::strtol(string.c_str(), nullptr, base);
+
     return integer;
 }
 
@@ -166,6 +239,8 @@ int argon::object::IntegerCountBits(Integer *number) {
 
     IntegerUnderlayer i = number->integer;
     int count = 0;
+
+    if (i < 0)i *= -1;
 
     while (i) {
         count++;

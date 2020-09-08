@@ -19,7 +19,7 @@ namespace argon::object {
 
     extern const TypeInfo type_integer_;
 
-    Integer *IntegerNew(long number);
+    Integer *IntegerNew(IntegerUnderlayer number);
 
     Integer *IntegerNewFromString(const std::string &string, int base);
 
