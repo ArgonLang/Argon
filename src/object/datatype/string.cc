@@ -2,21 +2,90 @@
 //
 // Licensed under the Apache License v2.0
 
-#include <cassert>
 
-#include "string.h"
 #include "hash_magic.h"
 #include "map.h"
+#include "integer.h"
+#include "string.h"
 
 using namespace argon::object;
 
 static Map *intern;
 
-bool string_equal(ArObject *self, ArObject *other) {
-    if (self != other) {
-        if (self->type != other->type)
-            return false;
+ArObject *string_add(ArObject *left, ArObject *right) {
+    String *ret;
 
+    if (left->type == right->type && left->type == &type_string_) {
+        auto l = (String *) left;
+        auto r = (String *) right;
+
+        if ((ret = StringNew(nullptr, 0)) != nullptr) {
+            ret->buffer = (unsigned char *) argon::memory::MemoryConcat(l->buffer, l->len, r->buffer, r->len);
+
+            if (ret->buffer == nullptr) {
+                argon::vm::Panic(OutOfMemoryError);
+                Release(ret);
+                ret = nullptr;
+            }
+
+            return ret;
+        }
+    }
+
+    return nullptr;
+}
+
+ArObject *string_mul(ArObject *left, ArObject *right) {
+    auto l = (String *) left;
+
+    if (left->type != &type_string_) {
+        l = (String *) right;
+        right = left;
+    }
+
+    if (right->type == &type_integer_) {
+        auto i = (Integer *) right;
+
+        auto ret = StringNew(nullptr, l->len * i->integer);
+
+        if (ret != nullptr)
+            for (size_t times = 0; times < i->integer; times++)
+                argon::memory::MemoryCopy(ret->buffer + (l->len * times), l->buffer, l->len);
+
+        return ret;
+    }
+
+    return nullptr;
+}
+
+OpSlots string_ops{
+        string_add,
+        nullptr,
+        string_mul,
+        nullptr,
+        nullptr,
+        nullptr,
+        nullptr,
+        nullptr,
+        nullptr,
+        nullptr,
+        nullptr,
+        nullptr,
+        nullptr,
+        nullptr,
+        nullptr,
+        nullptr,
+        nullptr,
+        nullptr,
+        nullptr,
+        nullptr,
+};
+
+bool string_equal(ArObject *self, ArObject *other) {
+    if (self == other)
+        return true;
+
+    if (self->type == other->type) {
         auto s = (String *) self;
         auto o = (String *) other;
 
@@ -27,8 +96,11 @@ bool string_equal(ArObject *self, ArObject *other) {
             if (s->buffer[i] != o->buffer[i])
                 return false;
         }
+
+        return true;
     }
-    return true;
+
+    return false;
 }
 
 bool argon::object::StringEq(String *string, const unsigned char *c_str, size_t len) {
@@ -69,22 +141,27 @@ const TypeInfo argon::object::type_string_ = {
         string_equal,
         nullptr,
         string_hash,
-        nullptr,
+        &string_ops,
         nullptr,
         string_cleanup
 };
 
 String *argon::object::StringNew(const char *string, size_t len) {
     auto str = ArObjectNew<String>(RCType::INLINE, &type_string_);
-    assert(str != nullptr); // TODO: enomem
 
-    str->buffer = (unsigned char *) argon::memory::Alloc(len);
-    assert(str->buffer != nullptr); // TODO: enomem
+    if (str != nullptr) {
 
-    memory::MemoryCopy(str->buffer, string, len);
+        str->buffer = (unsigned char *) argon::memory::Alloc(len);
+        if (str->buffer == nullptr) {
+            Release(str);
+            return (String *) argon::vm::Panic(OutOfMemoryError);
+        }
 
-    str->len = len;
-    str->hash = 0;
+        memory::MemoryCopy(str->buffer, string, len);
+
+        str->len = len;
+        str->hash = 0;
+    }
 
     return str;
 }
@@ -93,15 +170,13 @@ String *argon::object::StringIntern(const std::string &string) {
     String *ret = nullptr;
 
     if (intern == nullptr) {
-        intern = MapNew();
-        assert(intern != nullptr);
+        if ((intern = MapNew()) == nullptr)
+            return nullptr;
     } else
         ret = (String *) MapGetFrmStr(intern, string.c_str(), string.size());
 
     if (ret == nullptr) {
-        ret = StringNew(string);
-
-        if (ret != nullptr) {
+        if ((ret = StringNew(string)) != nullptr) {
             if (!MapInsert(intern, ret, ret)) {
                 ret = nullptr;
                 Release(ret);
