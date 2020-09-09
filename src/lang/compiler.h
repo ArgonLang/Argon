@@ -18,7 +18,7 @@
 #include "lang/symt/symbol_table.h"
 #include "compile_unit.h"
 
-namespace lang {
+namespace argon::lang {
     class Compiler {
         argon::object::Map *statics_global;
 

@@ -9,7 +9,7 @@
 
 #include "token.h"
 
-namespace lang::scanner {
+namespace argon::lang::scanner {
     constexpr bool IsSpace(int chr) { return chr == 0x09 || chr == 0x20; }
 
     constexpr bool IsAlpha(int chr) { return (chr >= 'a' && chr <= 'z') || (chr >= 'A' && chr <= 'Z') || chr == '_'; }

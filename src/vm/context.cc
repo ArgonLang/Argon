@@ -12,7 +12,7 @@
 
 #include "context.h"
 
-using namespace lang;
+using namespace argon::lang;
 using namespace argon::vm;
 using namespace argon::object;
 

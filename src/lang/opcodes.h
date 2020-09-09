@@ -7,7 +7,7 @@
 
 #include "utils/enum_bitmask.h"
 
-namespace lang {
+namespace argon::lang {
 
     using Instr32 = unsigned int;
     using Instr16 = unsigned short;
@@ -92,6 +92,6 @@ namespace lang {
 
 } // namespace lang
 
-ENUMBITMASK_ENABLE(lang::MkFuncFlags);
+ENUMBITMASK_ENABLE(argon::lang::MkFuncFlags);
 
 #endif // !ARGON_LANG_OPCODES_H_

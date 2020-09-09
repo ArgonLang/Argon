@@ -7,7 +7,7 @@
 
 #include "compiler_exception.h"
 
-namespace lang {
+namespace argon::lang {
     enum class CUScope {
         MODULE,
         STRUCT,

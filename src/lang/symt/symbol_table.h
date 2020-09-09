@@ -9,7 +9,7 @@
 #include <unordered_map>
 #include "symbol.h"
 
-namespace lang::symbol_table {
+namespace argon::lang::symbol_table {
     class StringPtrHashWrapper {
     public:
         size_t operator()(const std::string *str) const { return std::hash<std::string>()(*str); }

@@ -7,7 +7,7 @@
 #include "basicblock.h"
 #include "compiler_exception.h"
 
-using namespace lang;
+using namespace argon::lang;
 
 BasicBlock::BasicBlock() {
     if ((this->instrs = (unsigned char *) argon::memory::Alloc(ARGON_LANG_BASICBLOCK_STARTSZ)) == nullptr)

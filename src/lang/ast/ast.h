@@ -9,7 +9,7 @@
 
 #include <lang/scanner/token.h>
 
-namespace lang::ast {
+namespace argon::lang::ast {
     enum class NodeType {
         ALIAS,
         ASSIGN,

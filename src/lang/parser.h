@@ -10,7 +10,7 @@
 
 #include <list>
 
-namespace lang {
+namespace argon::lang {
     class Parser {
         std::unique_ptr<scanner::Scanner> scanner_;
         std::list<ast::Comment> comments_;

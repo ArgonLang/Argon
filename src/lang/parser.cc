@@ -7,9 +7,9 @@
 #include "parser.h"
 #include "syntax_exception.h"
 
-using namespace lang;
-using namespace lang::ast;
-using namespace lang::scanner;
+using namespace argon::lang;
+using namespace argon::lang::ast;
+using namespace argon::lang::scanner;
 
 Parser::Parser(std::string filename, std::istream *source) {
     this->scanner_ = std::make_unique<Scanner>(source);

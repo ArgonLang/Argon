@@ -14,6 +14,6 @@ TEST(Compiler, SimpleExpr) {
 
 
     auto source = std::istringstream("1+1");
-    lang::Compiler compiler;
+    argon::lang::Compiler compiler;
     compiler.Compile(&source);
 }

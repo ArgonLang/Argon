@@ -8,7 +8,7 @@
 #include <string>
 #include <memory>
 
-namespace lang::symbol_table {
+namespace argon::lang::symbol_table {
     struct Symbol {
         const std::string name;
         const unsigned int nested;

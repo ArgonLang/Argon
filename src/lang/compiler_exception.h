@@ -8,7 +8,7 @@
 #include <string>
 #include <exception>
 
-namespace lang {
+namespace argon::lang {
     class CompilerException : std::exception {
     public:
         ~CompilerException() override = default;

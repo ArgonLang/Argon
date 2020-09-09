@@ -7,7 +7,7 @@
 
 #include <lang/symt/symbol_table.h>
 
-using namespace lang;
+using namespace argon::lang;
 using namespace symbol_table;
 
 

@@ -9,7 +9,7 @@
 #include <string>
 #include <map>
 
-namespace lang::scanner {
+namespace argon::lang::scanner {
 
     enum class TokenType {
         TK_NULL,

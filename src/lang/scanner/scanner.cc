@@ -4,7 +4,7 @@
 
 #include "scanner.h"
 
-using namespace lang::scanner;
+using namespace argon::lang::scanner;
 
 Token Scanner::ParseBinary(Pos start) {
     int value = this->source_->peek();

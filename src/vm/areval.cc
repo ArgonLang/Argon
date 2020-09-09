@@ -16,7 +16,7 @@
 #include <object/datatype/struct.h>
 #include <object/datatype/instance.h>
 
-using namespace lang;
+using namespace argon::lang;
 using namespace argon::object;
 using namespace argon::vm;
 

@@ -7,8 +7,8 @@
 #include <lang/parser.h>
 #include <lang/syntax_exception.h>
 
-using namespace lang;
-using namespace lang::ast;
+using namespace argon::lang;
+using namespace argon::lang::ast;
 
 NodeUptr GetStmt(std::istream *src) {
     Parser parser(src);

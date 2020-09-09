@@ -4,7 +4,7 @@
 
 #include "symbol_table.h"
 
-using namespace lang::symbol_table;
+using namespace argon::lang::symbol_table;
 
 SymbolTable::SymbolTable(std::string name, unsigned short level) : name(std::move(name)), level(level) {
     this->stack_map_ = new(MapStack);

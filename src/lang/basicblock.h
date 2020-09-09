@@ -10,7 +10,7 @@
 
 #include "opcodes.h"
 
-namespace lang {
+namespace argon::lang {
     class BasicBlock {
         size_t allocated_ = 0;
 

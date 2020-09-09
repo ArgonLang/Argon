@@ -15,9 +15,9 @@
 #include "compiler.h"
 #include "parser.h"
 
-using namespace lang;
-using namespace lang::ast;
-using namespace lang::symbol_table;
+using namespace argon::lang;
+using namespace argon::lang::ast;
+using namespace argon::lang::symbol_table;
 using namespace argon::object;
 
 inline unsigned char AttrToFlags(bool pub, bool constant, bool weak, bool member) {
