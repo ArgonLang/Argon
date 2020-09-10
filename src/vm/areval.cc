@@ -633,8 +633,8 @@ ArObject *argon::vm::Eval(ArRoutine *routine) {
                 DISPATCH2();
             }
             TARGET_OP(LSTATIC) {
-                PUSH(TupleGetItem(code->statics, I16Arg(frame->instr_ptr)));
-                DISPATCH2();
+                PUSH(TupleGetItem(code->statics, I32Arg(frame->instr_ptr)));
+                DISPATCH4();
             }
             TARGET_OP(SUBSCR) {
                 if (IsMap(PEEK1())) {

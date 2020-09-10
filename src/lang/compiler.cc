@@ -4,6 +4,11 @@
 
 #include <memory/memory.h>
 
+#include <object/datatype/nil.h>
+#include <object/datatype/bool.h>
+#include <object/datatype/integer.h>
+#include <object/datatype/decimal.h>
+
 #include "lang/parser.h"
 #include "compiler.h"
 
@@ -39,21 +44,6 @@ argon::object::Code *Compiler::Compile(std::istream *source) {
     return nullptr;
 }
 
-void Compiler::EnterContext(const std::string &name, TUScope scope) {
-    auto tu = AllocObject<TranslationUnit>(name, scope);
-    tu->prev = this->unit_;
-    this->unit_ = tu;
-
-    // Create a new first BasicBlock
-    this->unit_->BlockNew();
-}
-
-void Compiler::ExitContext() {
-    auto tmp = this->unit_;
-    this->unit_ = tmp->prev;
-    FreeObject(tmp);
-}
-
 void Compiler::CompileCode(const ast::NodeUptr &stmt) {
 #define TARGET_TYPE(type)   case ast::NodeType::type:
 
@@ -87,6 +77,10 @@ void Compiler::CompileCode(const ast::NodeUptr &stmt) {
         TARGET_TYPE(EQUALITY)
             break;
         TARGET_TYPE(EXPRESSION)
+            // TODO: review
+            this->CompileCode(ast::CastNode<ast::Unary>(stmt)->expr);
+            this->EmitOp(OpCodes::POP);
+            this->unit_->DecStack();
             break;
         TARGET_TYPE(FALLTHROUGH)
             break;
@@ -117,6 +111,7 @@ void Compiler::CompileCode(const ast::NodeUptr &stmt) {
         TARGET_TYPE(LIST)
             break;
         TARGET_TYPE(LITERAL)
+            this->CompileLiteral(ast::CastNode<ast::Literal>(stmt));
             break;
         TARGET_TYPE(LOGICAL)
             break;
@@ -166,3 +161,150 @@ void Compiler::CompileCode(const ast::NodeUptr &stmt) {
 
 #undef TARGET_TYPE
 }
+
+void Compiler::CompileLiteral(const ast::Literal *literal) {
+    ArObject *obj;
+
+    switch (literal->kind) {
+        case scanner::TokenType::STRING:
+            obj = StringNew(literal->value);
+            break;
+        case scanner::TokenType::BYTE_STRING:
+            assert(false); // TODO: BYTE_STRING
+            break;
+        case scanner::TokenType::RAW_STRING:
+            assert(false);// TODO: RAW_STRING
+            break;
+        case scanner::TokenType::DECIMAL:
+            obj = DecimalNewFromString(literal->value);
+            break;
+        case scanner::TokenType::NUMBER:
+            obj = IntegerNewFromString(literal->value, 10);
+            break;
+        case scanner::TokenType::NUMBER_BIN:
+            obj = IntegerNewFromString(literal->value, 2);
+            break;
+        case scanner::TokenType::NUMBER_OCT:
+            obj = IntegerNewFromString(literal->value, 8);
+            break;
+        case scanner::TokenType::NUMBER_HEX:
+            obj = IntegerNewFromString(literal->value, 16);
+            break;
+        case scanner::TokenType::FALSE:
+            obj = False;
+            IncRef(False);
+            break;
+        case scanner::TokenType::TRUE:
+            obj = True;
+            IncRef(True);
+            break;
+        case scanner::TokenType::NIL:
+            obj = NilVal;
+            IncRef(NilVal);
+            break;
+        default:
+            break;
+    }
+
+    // Sanity check
+    if (obj == nullptr)
+        throw std::bad_alloc();
+
+    this->PushStatic(obj, true, true);
+
+    Release(obj);
+}
+
+void Compiler::EnterContext(const std::string &name, TUScope scope) {
+    auto tu = AllocObject<TranslationUnit>(name, scope);
+    tu->prev = this->unit_;
+    this->unit_ = tu;
+
+    // Create a new first BasicBlock
+    this->unit_->BlockAsNextNew();
+}
+
+void Compiler::ExitContext() {
+    auto tmp = this->unit_;
+    this->unit_ = tmp->prev;
+    FreeObject(tmp);
+}
+
+void Compiler::EmitOp(OpCodes code) {
+    this->unit_->bb.current->AddInstr((Instr8) code);
+}
+
+void Compiler::EmitOp2(OpCodes code, unsigned char arg) {
+    this->unit_->bb.current->AddInstr((Instr16) ((unsigned short) (arg << (unsigned char) 8) | (Instr8) code));
+}
+
+void Compiler::EmitOp4(OpCodes code, unsigned int arg) {
+    assert(arg < 0x00FFFFFF); // TODO: too many argument!
+    this->unit_->bb.current->AddInstr((Instr32) (arg << (unsigned char) 8) | (Instr8) code);
+}
+
+void Compiler::EmitOp4Flags(OpCodes code, unsigned char flags, unsigned short arg) {
+    Instr32 istr = ((unsigned int) (flags << (unsigned char) 24)) |
+                   ((unsigned short) (arg << (unsigned char) 8)) |
+                   (Instr8) code;
+    this->unit_->bb.current->AddInstr(istr);
+}
+
+unsigned int Compiler::PushStatic(ArObject *obj, bool store, bool emit) {
+    ArObject *tmp = nullptr;
+    IntegerUnderlayer idx = -1;
+
+    IncRef(obj);
+
+    if (store) {
+        // check if object is already present in TranslationUnit
+        tmp = MapGet(this->unit_->statics_map, obj);
+
+        if (tmp == nullptr) {
+            // Object not found in the current TranslationUnit, try in global_statics
+            if ((tmp = MapGet(this->statics_globals_, obj)) != nullptr) {
+                // recover already existing object and discard the actual one
+                Release(obj);
+                obj = tmp;
+            }
+
+            ArObject *index;
+
+            if ((index = IntegerNew(this->unit_->statics->len)) == nullptr)
+                goto error;
+
+            // Add to local map
+            if (!MapInsert(this->unit_->statics_map, obj, index)) {
+                Release(index);
+                goto error;
+            }
+
+            Release(index);
+
+            // Add obj to global_statics
+            if (tmp == nullptr) {
+                if (!MapInsert(this->statics_globals_, obj, obj))
+                    goto error;
+            }
+        } else idx = ((Integer *) tmp)->integer;
+    }
+
+    if (!store || idx == -1) {
+        idx = this->unit_->statics->len;
+        if (!ListAppend(this->unit_->statics, obj))
+            goto error;
+    }
+
+    if (emit) {
+        this->EmitOp4(OpCodes::LSTATIC, idx);
+        this->unit_->IncStack();
+    }
+
+    error:
+    Release(tmp);
+    Release(obj);
+
+    return idx;
+}
+
+

@@ -19,6 +19,12 @@ namespace argon::lang {
 
     inline unsigned char I32ExtractFlag(const unsigned char *instr) { return I32Arg(instr) >> (unsigned char) 16; }
 
+    /*
+     *  OpCode size
+     *
+     *  LSTATIC: 4Bytes
+     */
+
     enum class OpCodes : unsigned char {
         ADD,
         CALL,

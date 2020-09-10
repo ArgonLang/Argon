@@ -7,6 +7,7 @@
 
 #include <istream>
 
+#include <object/arobject.h>
 #include <object/datatype/code.h>
 #include <object/datatype/map.h>
 
@@ -20,11 +21,23 @@ namespace argon::lang {
 
         TranslationUnit *unit_;
 
+        void CompileCode(const ast::NodeUptr &stmt);
+
+        void CompileLiteral(const ast::Literal *literal);
+
         void EnterContext(const std::string &name, TUScope scope);
 
         void ExitContext();
 
-        void CompileCode(const ast::NodeUptr &stmt);
+        void EmitOp(OpCodes code);
+
+        void EmitOp2(OpCodes code, unsigned char arg);
+
+        void EmitOp4(OpCodes code, unsigned int arg);
+
+        void EmitOp4Flags(OpCodes code, unsigned char flags, unsigned short arg);
+
+        unsigned int PushStatic(argon::object::ArObject *obj, bool store, bool emit);
 
     public:
         Compiler();
