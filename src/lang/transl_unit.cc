@@ -4,7 +4,6 @@
 
 #include <memory/memory.h>
 
-#include <lang/compiler_exception.h>
 #include "transl_unit.h"
 
 using namespace argon::object;
@@ -30,7 +29,7 @@ TranslationUnit::TranslationUnit(TUScope scope) : scope(scope) {
     Release(this->names);
     Release(this->locals);
     Release(this->enclosed);
-    throw MemoryException("");
+    throw std::bad_alloc();
 }
 
 TranslationUnit::~TranslationUnit() {
@@ -61,7 +60,7 @@ BasicBlock *TranslationUnit::BlockNew() {
         return block;
     }
 
-    throw MemoryException("");
+    throw std::bad_alloc();
 }
 
 BasicBlock *TranslationUnit::BlockAsNextNew() {

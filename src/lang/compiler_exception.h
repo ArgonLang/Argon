@@ -14,16 +14,6 @@ namespace argon::lang {
         ~CompilerException() override = default;
     };
 
-    class MemoryException : CompilerException {
-        const char *what_;
-    public:
-        explicit MemoryException(const char *what) : what_(what) {}
-
-        [[nodiscard]] const char *what() const noexcept override {
-            return this->what_;
-        }
-    };
-
     class RedeclarationException : CompilerException {
         const std::string what_;
     public:

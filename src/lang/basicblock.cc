@@ -4,7 +4,6 @@
 
 #include <memory/memory.h>
 
-#include <lang/compiler_exception.h>
 #include "basicblock.h"
 
 using namespace argon::memory;
@@ -15,7 +14,7 @@ using namespace argon::lang;
 
 BasicBlock::BasicBlock() {
     if ((this->instr = (unsigned char *) Alloc(STARTSZ)) == nullptr)
-        throw MemoryException("BasicBlock: new");
+        throw std::bad_alloc();
     this->allocated_ = STARTSZ;
 }
 
@@ -46,7 +45,7 @@ void BasicBlock::CheckSize(size_t size) {
         auto tmp = (unsigned char *) argon::memory::Realloc(this->instr, this->allocated_ + INCSZ);
 
         if (tmp == nullptr)
-            throw MemoryException("BasicBlock: CheckSize");
+            throw std::bad_alloc();
 
         this->instr = tmp;
         this->allocated_ += INCSZ;
