@@ -20,6 +20,7 @@ namespace argon::lang {
     };
 
     class Symbol {
+    public:
         const std::string name;
         const unsigned short nested = 0;
         unsigned int id = 0;
@@ -31,7 +32,6 @@ namespace argon::lang {
 
         BasicBlock *blocks = nullptr;
 
-    public:
         Symbol(std::string name, unsigned short nested) : name(std::move(name)),
                                                           type(SymbolType::UNKNOWN),
                                                           nested(nested) {}

@@ -5,10 +5,9 @@
 #ifndef ARGON_LANG_BASICBLOCK_H_
 #define ARGON_LANG_BASICBLOCK_H_
 
-#define ARGON_LANG_BASICBLOCK_STARTSZ   16
-#define ARGON_LANG_BASICBLOCK_INCSZ     8
+#include <cstddef>
 
-#include "opcodes.h"
+#include <lang/opcodes.h>
 
 namespace argon::lang {
     class BasicBlock {
@@ -18,12 +17,13 @@ namespace argon::lang {
 
     public:
         BasicBlock *link_next = nullptr;
-        BasicBlock *flow_next = nullptr;
-        BasicBlock *flow_else = nullptr;
 
-        unsigned char *instrs = nullptr;
+        struct {
+            BasicBlock *next = nullptr;
+            BasicBlock *jump = nullptr;
+        } flow;
 
-        unsigned int start = 0;
+        unsigned char *instr = nullptr;
         unsigned int instr_sz = 0;
 
         bool visited = false;
@@ -32,12 +32,12 @@ namespace argon::lang {
 
         ~BasicBlock();
 
-        void AddInstr(Instr8 instr);
+        void AddInstr(Instr8 instr8);
 
-        void AddInstr(Instr16 instr);
+        void AddInstr(Instr16 instr16);
 
-        void AddInstr(Instr32 instr);
+        void AddInstr(Instr32 instr32);
     };
-} // namespace lang
+}
 
 #endif // !ARGON_LANG_BASICBLOCK_H_

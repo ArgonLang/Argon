@@ -2,47 +2,53 @@
 //
 // Licensed under the Apache License v2.0
 
-#include <cassert>
 #include <memory/memory.h>
-#include "basicblock.h"
-#include "compiler_exception.h"
 
+#include <lang/compiler_exception.h>
+#include "basicblock.h"
+
+using namespace argon::memory;
 using namespace argon::lang;
 
+#define STARTSZ  16
+#define INCSZ    8
+
 BasicBlock::BasicBlock() {
-    if ((this->instrs = (unsigned char *) argon::memory::Alloc(ARGON_LANG_BASICBLOCK_STARTSZ)) == nullptr)
+    if ((this->instr = (unsigned char *) Alloc(STARTSZ)) == nullptr)
         throw MemoryException("BasicBlock: new");
-    this->allocated_ = ARGON_LANG_BASICBLOCK_STARTSZ;
+    this->allocated_ = STARTSZ;
 }
 
-BasicBlock::~BasicBlock() { argon::memory::Free(this->instrs); }
+BasicBlock::~BasicBlock() {
+    Free(this->instr);
+}
 
-void BasicBlock::AddInstr(Instr8 instr) {
+void BasicBlock::AddInstr(Instr8 instr8) {
     this->CheckSize(sizeof(Instr8));
-    *(this->instrs + this->instr_sz) = (Instr8) instr;
+    *(this->instr + this->instr_sz) = (Instr8) instr8;
     this->instr_sz++;
 }
 
-void BasicBlock::AddInstr(Instr16 instr) {
+void BasicBlock::AddInstr(Instr16 instr16) {
     this->CheckSize(sizeof(Instr16));
-    *((Instr16 *) (this->instrs + this->instr_sz)) = (Instr16) instr;
+    *((Instr16 *) (this->instr + this->instr_sz)) = (Instr16) instr16;
     this->instr_sz += sizeof(Instr16);
 }
 
-void BasicBlock::AddInstr(Instr32 instr) {
+void BasicBlock::AddInstr(Instr32 instr32) {
     this->CheckSize(sizeof(Instr32));
-    *((Instr32 *) (this->instrs + this->instr_sz)) = instr;
+    *((Instr32 *) (this->instr + this->instr_sz)) = instr32;
     this->instr_sz += sizeof(Instr32);
 }
 
 void BasicBlock::CheckSize(size_t size) {
     if (this->instr_sz + size >= this->allocated_) {
-        auto tmp = (unsigned char *) argon::memory::Realloc(this->instrs,
-                                                            this->allocated_ + ARGON_LANG_BASICBLOCK_INCSZ);
+        auto tmp = (unsigned char *) argon::memory::Realloc(this->instr, this->allocated_ + INCSZ);
+
         if (tmp == nullptr)
             throw MemoryException("BasicBlock: CheckSize");
 
-        this->instrs = tmp;
-        this->allocated_ += ARGON_LANG_BASICBLOCK_INCSZ;
+        this->instr = tmp;
+        this->allocated_ += INCSZ;
     }
 }
