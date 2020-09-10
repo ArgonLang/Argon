@@ -21,15 +21,15 @@ namespace argon::lang {
 
     class Symbol {
         const std::string name;
-        const unsigned short nested;
-        unsigned int id;
+        const unsigned short nested = 0;
+        unsigned int id = 0;
 
         SymbolType type;
 
-        bool declared;
-        bool free;
+        bool declared = false;
+        bool free = false;
 
-        BasicBlock *blocks;
+        BasicBlock *blocks = nullptr;
 
     public:
         Symbol(std::string name, unsigned short nested) : name(std::move(name)),

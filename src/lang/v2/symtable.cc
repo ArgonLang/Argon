@@ -6,6 +6,8 @@
 
 using namespace argon::lang;
 
+SymTable::SymTable() : SymTable(0) {}
+
 SymTable::SymTable(unsigned short level) : level(level) {
     this->nested_symt_ = new MapStack;
 }

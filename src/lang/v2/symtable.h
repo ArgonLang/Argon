@@ -40,6 +40,8 @@ namespace argon::lang {
 
         const unsigned short level;
 
+        SymTable();
+
         explicit SymTable(unsigned short level);
 
         ~SymTable();
