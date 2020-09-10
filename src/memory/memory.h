@@ -14,10 +14,24 @@
 namespace argon::memory {
     void *Alloc(size_t size) noexcept;
 
-    template<typename T, typename ...Args>
-    inline T *AllocObject(Args ...args) { return new(Alloc(sizeof(T))) T(args...); }
-
     void Free(void *ptr);
+
+    template<typename T, typename ...Args>
+    inline T *AllocObject(Args ...args) {
+        auto mem = Alloc(sizeof(T));
+        T *obj = nullptr;
+
+        if (mem != nullptr) {
+            try {
+                obj = new(mem) T(args...);
+            } catch (...) {
+                Free(mem);
+                throw;
+            }
+        }
+
+        return obj;
+    }
 
     template<typename T>
     inline void FreeObject(T *obj) {
