@@ -74,8 +74,21 @@ void Compiler::CompileCode(const ast::NodeUptr &stmt) {
             break;
         TARGET_TYPE(ELVIS)
             break;
-        TARGET_TYPE(EQUALITY)
+        TARGET_TYPE(EQUALITY) {
+            this->CompileCode(ast::CastNode<ast::Binary>(stmt)->left);
+            this->CompileCode(ast::CastNode<ast::Binary>(stmt)->right);
+
+            scanner::TokenType type = ast::CastNode<ast::Binary>(stmt)->kind;
+            if (type == scanner::TokenType::EQUAL_EQUAL)
+                this->EmitOp2(OpCodes::CMP, (unsigned char) CompareMode::EQ);
+            else if (type == scanner::TokenType::NOT_EQUAL)
+                this->EmitOp2(OpCodes::CMP, (unsigned char) CompareMode::NE);
+            else
+                assert(false);
+
+            this->unit_->DecStack();
             break;
+        }
         TARGET_TYPE(EXPRESSION)
             // TODO: review
             this->CompileCode(ast::CastNode<ast::Unary>(stmt)->expr);
@@ -113,8 +126,23 @@ void Compiler::CompileCode(const ast::NodeUptr &stmt) {
         TARGET_TYPE(LITERAL)
             this->CompileLiteral(ast::CastNode<ast::Literal>(stmt));
             break;
-        TARGET_TYPE(LOGICAL)
+        TARGET_TYPE(LOGICAL) {
+            this->CompileCode(ast::CastNode<ast::Binary>(stmt)->left);
+            this->CompileCode(ast::CastNode<ast::Binary>(stmt)->right);
+
+            scanner::TokenType type = ast::CastNode<ast::Binary>(stmt)->kind;
+            if (type == scanner::TokenType::PIPE)
+                this->EmitOp(OpCodes::LOR);
+            else if (type == scanner::TokenType::CARET)
+                this->EmitOp(OpCodes::LXOR);
+            else if (type == scanner::TokenType::AMPERSAND)
+                this->EmitOp(OpCodes::LAND);
+            else
+                assert(false);
+
+            this->unit_->DecStack();
             break;
+        }
         TARGET_TYPE(LOOP)
             break;
         TARGET_TYPE(MAP)
@@ -125,8 +153,25 @@ void Compiler::CompileCode(const ast::NodeUptr &stmt) {
             break;
         TARGET_TYPE(PROGRAM)
             break;
-        TARGET_TYPE(RELATIONAL)
+        TARGET_TYPE(RELATIONAL) {
+            this->CompileCode(ast::CastNode<ast::Binary>(stmt)->left);
+            this->CompileCode(ast::CastNode<ast::Binary>(stmt)->right);
+
+            scanner::TokenType type = ast::CastNode<ast::Binary>(stmt)->kind;
+            if (type == scanner::TokenType::GREATER)
+                this->EmitOp2(OpCodes::CMP, (unsigned char) CompareMode::GE);
+            else if (type == scanner::TokenType::GREATER_EQ)
+                this->EmitOp2(OpCodes::CMP, (unsigned char) CompareMode::GEQ);
+            else if (type == scanner::TokenType::LESS)
+                this->EmitOp2(OpCodes::CMP, (unsigned char) CompareMode::LE);
+            else if (type == scanner::TokenType::LESS_EQ)
+                this->EmitOp2(OpCodes::CMP, (unsigned char) CompareMode::LEQ);
+            else
+                assert(false);
+
+            this->unit_->DecStack();
             break;
+        }
         TARGET_TYPE(RETURN)
             break;
         TARGET_TYPE(SCOPE)
