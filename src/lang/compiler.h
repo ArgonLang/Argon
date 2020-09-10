@@ -21,7 +21,9 @@ namespace argon::lang {
 
         TranslationUnit *unit_;
 
-        void CompileCode(const ast::NodeUptr &stmt);
+        void CompileCode(const ast::NodeUptr &node);
+
+        void CompileBinary(const ast::Binary *binary);
 
         void CompileLiteral(const ast::Literal *literal);
 

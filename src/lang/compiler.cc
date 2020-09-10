@@ -44,17 +44,23 @@ argon::object::Code *Compiler::Compile(std::istream *source) {
     return nullptr;
 }
 
-void Compiler::CompileCode(const ast::NodeUptr &stmt) {
+void Compiler::CompileCode(const ast::NodeUptr &node) {
 #define TARGET_TYPE(type)   case ast::NodeType::type:
 
-    switch (stmt->type) {
+    switch (node->type) {
         TARGET_TYPE(ALIAS)
             break;
         TARGET_TYPE(ASSIGN)
             break;
         TARGET_TYPE(BINARY_OP)
+            this->CompileCode(ast::CastNode<ast::Binary>(node)->left);
+            this->CompileCode(ast::CastNode<ast::Binary>(node)->right);
+            this->CompileBinary(ast::CastNode<ast::Binary>(node));
+            this->unit_->DecStack();
             break;
         TARGET_TYPE(BLOCK)
+            for (auto &stmt : ast::CastNode<ast::Block>(node)->stmts)
+                this->CompileCode(stmt);
             break;
         TARGET_TYPE(BREAK)
             break;
@@ -75,10 +81,10 @@ void Compiler::CompileCode(const ast::NodeUptr &stmt) {
         TARGET_TYPE(ELVIS)
             break;
         TARGET_TYPE(EQUALITY) {
-            this->CompileCode(ast::CastNode<ast::Binary>(stmt)->left);
-            this->CompileCode(ast::CastNode<ast::Binary>(stmt)->right);
+            this->CompileCode(ast::CastNode<ast::Binary>(node)->left);
+            this->CompileCode(ast::CastNode<ast::Binary>(node)->right);
 
-            scanner::TokenType type = ast::CastNode<ast::Binary>(stmt)->kind;
+            scanner::TokenType type = ast::CastNode<ast::Binary>(node)->kind;
             if (type == scanner::TokenType::EQUAL_EQUAL)
                 this->EmitOp2(OpCodes::CMP, (unsigned char) CompareMode::EQ);
             else if (type == scanner::TokenType::NOT_EQUAL)
@@ -91,7 +97,7 @@ void Compiler::CompileCode(const ast::NodeUptr &stmt) {
         }
         TARGET_TYPE(EXPRESSION)
             // TODO: review
-            this->CompileCode(ast::CastNode<ast::Unary>(stmt)->expr);
+            this->CompileCode(ast::CastNode<ast::Unary>(node)->expr);
             this->EmitOp(OpCodes::POP);
             this->unit_->DecStack();
             break;
@@ -124,13 +130,13 @@ void Compiler::CompileCode(const ast::NodeUptr &stmt) {
         TARGET_TYPE(LIST)
             break;
         TARGET_TYPE(LITERAL)
-            this->CompileLiteral(ast::CastNode<ast::Literal>(stmt));
+            this->CompileLiteral(ast::CastNode<ast::Literal>(node));
             break;
         TARGET_TYPE(LOGICAL) {
-            this->CompileCode(ast::CastNode<ast::Binary>(stmt)->left);
-            this->CompileCode(ast::CastNode<ast::Binary>(stmt)->right);
+            this->CompileCode(ast::CastNode<ast::Binary>(node)->left);
+            this->CompileCode(ast::CastNode<ast::Binary>(node)->right);
 
-            scanner::TokenType type = ast::CastNode<ast::Binary>(stmt)->kind;
+            scanner::TokenType type = ast::CastNode<ast::Binary>(node)->kind;
             if (type == scanner::TokenType::PIPE)
                 this->EmitOp(OpCodes::LOR);
             else if (type == scanner::TokenType::CARET)
@@ -154,10 +160,10 @@ void Compiler::CompileCode(const ast::NodeUptr &stmt) {
         TARGET_TYPE(PROGRAM)
             break;
         TARGET_TYPE(RELATIONAL) {
-            this->CompileCode(ast::CastNode<ast::Binary>(stmt)->left);
-            this->CompileCode(ast::CastNode<ast::Binary>(stmt)->right);
+            this->CompileCode(ast::CastNode<ast::Binary>(node)->left);
+            this->CompileCode(ast::CastNode<ast::Binary>(node)->right);
 
-            scanner::TokenType type = ast::CastNode<ast::Binary>(stmt)->kind;
+            scanner::TokenType type = ast::CastNode<ast::Binary>(node)->kind;
             if (type == scanner::TokenType::GREATER)
                 this->EmitOp2(OpCodes::CMP, (unsigned char) CompareMode::GE);
             else if (type == scanner::TokenType::GREATER_EQ)
@@ -205,6 +211,37 @@ void Compiler::CompileCode(const ast::NodeUptr &stmt) {
     }
 
 #undef TARGET_TYPE
+}
+
+void Compiler::CompileBinary(const ast::Binary *binary) {
+    switch (binary->kind) {
+        case scanner::TokenType::SHL:
+            this->EmitOp(OpCodes::SHL);
+            return;
+        case scanner::TokenType::SHR:
+            this->EmitOp(OpCodes::SHR);
+            return;
+        case scanner::TokenType::PLUS:
+            this->EmitOp(OpCodes::ADD);
+            return;
+        case scanner::TokenType::MINUS:
+            this->EmitOp(OpCodes::SUB);
+            return;
+        case scanner::TokenType::ASTERISK:
+            this->EmitOp(OpCodes::MUL);
+            return;
+        case scanner::TokenType::SLASH:
+            this->EmitOp(OpCodes::DIV);
+            return;
+        case scanner::TokenType::SLASH_SLASH:
+            this->EmitOp(OpCodes::IDIV);
+            return;
+        case scanner::TokenType::PERCENT:
+            this->EmitOp(OpCodes::MOD);
+            return;
+        default:
+            assert(false);
+    }
 }
 
 void Compiler::CompileLiteral(const ast::Literal *literal) {
@@ -351,5 +388,3 @@ unsigned int Compiler::PushStatic(ArObject *obj, bool store, bool emit) {
 
     return idx;
 }
-
-
