@@ -62,7 +62,7 @@ namespace argon::lang {
 
         const TUScope scope;
 
-        explicit TranslationUnit(TUScope scope);
+        explicit TranslationUnit(std::string name, TUScope scope);
 
         ~TranslationUnit();
 

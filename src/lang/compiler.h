@@ -10,10 +10,21 @@
 #include <object/datatype/code.h>
 #include <object/datatype/map.h>
 
+#include <lang/ast/ast.h>
+#include "transl_unit.h"
+
 namespace argon::lang {
 
     class Compiler {
-        argon::object::Map *statics_globals;
+        argon::object::Map *statics_globals_;
+
+        TranslationUnit *unit_;
+
+        void EnterContext(const std::string &name, TUScope scope);
+
+        void ExitContext();
+
+        void CompileCode(const ast::NodeUptr &stmt);
 
     public:
         Compiler();

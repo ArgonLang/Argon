@@ -9,7 +9,7 @@
 using namespace argon::object;
 using namespace argon::lang;
 
-TranslationUnit::TranslationUnit(TUScope scope) : scope(scope) {
+TranslationUnit::TranslationUnit(std::string name, TUScope scope) : name(std::move(name)), scope(scope) {
     if ((this->statics_map = MapNew()) == nullptr)
         goto error;
     if ((this->statics = ListNew()) == nullptr)
