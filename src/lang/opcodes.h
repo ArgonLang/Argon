@@ -22,7 +22,12 @@ namespace argon::lang {
     /*
      *  OpCode size
      *
-     *  LSTATIC: 4Bytes
+     *  NGV:        4Bytes
+     *  NLV:        2Bytes
+     *  LDLC:       2Bytes
+     *  LDENC:      2Bytes
+     *  LDGBL:      4Bytes
+     *  LSTATIC:    4Bytes
      */
 
     enum class OpCodes : unsigned char {

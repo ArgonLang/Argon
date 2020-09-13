@@ -29,18 +29,16 @@ Symbol *SymTable::Insert(const std::string &sym_name) {
 }
 
 Symbol *SymTable::Insert(const std::string &sym_name, SymbolType type, bool *out_inserted) {
+    bool inserted = true;
     SymbolUptr symbol;
     Symbol *raw;
-
-    if (out_inserted != nullptr)
-        *out_inserted = true;
 
     auto itm = this->nested_symt_->map.find((std::string *) &sym_name);
 
     if (itm != this->nested_symt_->map.end()) {
         auto &sym = itm->second;
 
-        if (sym->type != SymbolType::UNKNOWN) {
+        if (sym->declared) {
             std::string error;
 
             if (sym->type == SymbolType::VARIABLE)
@@ -54,15 +52,19 @@ Symbol *SymTable::Insert(const std::string &sym_name, SymbolType type, bool *out
             throw RedeclarationException(error);
         }
         raw = itm->second.get();
-
-        if (out_inserted != nullptr)
-            *out_inserted = false;
+        inserted = false;
     } else {
         symbol = std::make_unique<Symbol>(sym_name, this->nested_symt_->nested);
         raw = symbol.get();
         raw->type = type;
         this->nested_symt_->map[(std::string *) &sym_name] = std::move(symbol);
     }
+
+    if (out_inserted != nullptr)
+        *out_inserted = inserted;
+
+    if (type != SymbolType::UNKNOWN)
+        raw->declared = true;
 
     return raw;
 }

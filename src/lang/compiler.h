@@ -21,6 +21,8 @@ namespace argon::lang {
 
         TranslationUnit *unit_;
 
+        bool IsFreeVariable(const std::string &name);
+
         void CompileCode(const ast::NodeUptr &node);
 
         void CompileBinary(const ast::Binary *binary);
@@ -40,6 +42,8 @@ namespace argon::lang {
         void EmitOp4Flags(OpCodes code, unsigned char flags, unsigned short arg);
 
         void VariableNew(const std::string &name, bool emit, unsigned char flags);
+
+        void VariableLoad(const std::string &name);
 
         unsigned int PushStatic(argon::object::ArObject *obj, bool store, bool emit);
 

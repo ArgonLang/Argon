@@ -59,6 +59,19 @@ inline unsigned char AttrToFlags(bool pub, bool constant, bool weak, bool member
     return flags;
 }
 
+bool Compiler::IsFreeVariable(const std::string &name) {
+    // Look back in the TranslationUnits,
+    // if a variable with the same name exists and is declared or free
+    // in turn then this is a free variable
+    for (TranslationUnit *tu = this->unit_; tu != nullptr && tu->scope == TUScope::FUNCTION; tu = tu->prev) {
+        auto sym = tu->symt.Lookup(name);
+        if (sym != nullptr && (sym->declared || sym->free))
+            return true;
+    }
+
+    return false;
+}
+
 void Compiler::CompileCode(const ast::NodeUptr &node) {
 #define TARGET_TYPE(type)   case ast::NodeType::type:
 
@@ -131,6 +144,7 @@ void Compiler::CompileCode(const ast::NodeUptr &node) {
         TARGET_TYPE(GOTO)
             break;
         TARGET_TYPE(IDENTIFIER)
+            this->VariableLoad(ast::CastNode<ast::Identifier>(node)->value);
             break;
         TARGET_TYPE(IF)
             break;
@@ -341,14 +355,18 @@ void Compiler::VariableNew(const std::string &name, bool emit, unsigned char fla
     sym = this->unit_->symt.Insert(name, type, &inserted);
 
     if (this->unit_->scope != TUScope::FUNCTION && sym->nested == 0) {
-        if (emit)
+        if (emit) {
             this->EmitOp4Flags(OpCodes::NGV, flags, inserted ? sym->id : dest->len);
+            this->unit_->DecStack();
+        }
         if (!inserted)
             return;
     } else {
         dest = this->unit_->locals;
-        if (emit)
+        if (emit) {
             this->EmitOp2(OpCodes::NLV, dest->len);
+            this->unit_->DecStack();
+        }
     }
 
     if (!inserted)
@@ -364,6 +382,53 @@ void Compiler::VariableNew(const std::string &name, bool emit, unsigned char fla
     Release(arname);
     if (!ok)
         throw std::bad_alloc();
+}
+
+void Compiler::VariableLoad(const std::string &name) {
+    // N.B. Unknown variable, by default does not raise an error,
+    // but tries to load it from the global namespace.
+    Symbol *sym = this->unit_->symt.Lookup(name);
+
+    this->unit_->IncStack();
+
+    if (sym == nullptr) {
+        List *dst = this->unit_->names;
+        String *tmp;
+
+        sym = this->unit_->symt.Insert(name);
+
+        if ((tmp = StringNew(name)) == nullptr)
+            throw std::bad_alloc();
+
+        // Check if identifier is a Free Variable (Closure)
+        if (this->IsFreeVariable(name)) {
+            sym->type = SymbolType::VARIABLE;
+            dst = this->unit_->enclosed;
+            sym->free = true;
+        }
+
+        sym->id = dst->len;
+        bool ok = ListAppend(dst, tmp);
+        Release(tmp);
+        if (!ok)
+            throw std::bad_alloc();
+    }
+
+    if (this->unit_->scope == TUScope::FUNCTION || sym->nested > 0) {
+        if (sym->declared) {
+            // Local variable
+            this->EmitOp2(OpCodes::LDLC, sym->id);
+            return;
+        }
+
+        if (sym->free) {
+            // Closure variable
+            this->EmitOp2(OpCodes::LDENC, sym->id);
+            return;
+        }
+    }
+
+    this->EmitOp4(OpCodes::LDGBL, sym->id);
 }
 
 void Compiler::EnterContext(const std::string &name, TUScope scope) {
