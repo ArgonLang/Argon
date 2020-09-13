@@ -39,6 +39,8 @@ namespace argon::lang {
 
         void EmitOp4Flags(OpCodes code, unsigned char flags, unsigned short arg);
 
+        void VariableNew(const std::string &name, bool emit, unsigned char flags);
+
         unsigned int PushStatic(argon::object::ArObject *obj, bool store, bool emit);
 
     public:

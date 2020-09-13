@@ -2,6 +2,9 @@
 //
 // Licensed under the Apache License v2.0
 
+#include <cassert>
+
+#include "compiler_exception.h"
 #include "symtable.h"
 
 using namespace argon::lang;
@@ -22,16 +25,44 @@ SymTable::~SymTable() {
 }
 
 Symbol *SymTable::Insert(const std::string &sym_name) {
+    return this->Insert(sym_name, SymbolType::UNKNOWN, nullptr);
+}
+
+Symbol *SymTable::Insert(const std::string &sym_name, SymbolType type, bool *out_inserted) {
     SymbolUptr symbol;
     Symbol *raw;
 
-    if (this->nested_symt_->map.find((std::string *) &sym_name) != this->nested_symt_->map.end())
-        return nullptr;
+    if (out_inserted != nullptr)
+        *out_inserted = true;
 
-    symbol = std::make_unique<Symbol>(sym_name, this->nested_symt_->nested);
-    raw = symbol.get();
+    auto itm = this->nested_symt_->map.find((std::string *) &sym_name);
 
-    this->nested_symt_->map[(std::string *) &sym_name] = std::move(symbol);
+    if (itm != this->nested_symt_->map.end()) {
+        auto &sym = itm->second;
+
+        if (sym->type != SymbolType::UNKNOWN) {
+            std::string error;
+
+            if (sym->type == SymbolType::VARIABLE)
+                error = "redeclaration of variable: " + sym_name;
+            else if (sym->type == SymbolType::CONSTANT)
+                error = "redeclaration of variable '" + sym_name + "' previously known as: let " + sym_name +
+                        " (constant)";
+            else
+                assert(false);
+
+            throw RedeclarationException(error);
+        }
+        raw = itm->second.get();
+
+        if (out_inserted != nullptr)
+            *out_inserted = false;
+    } else {
+        symbol = std::make_unique<Symbol>(sym_name, this->nested_symt_->nested);
+        raw = symbol.get();
+        raw->type = type;
+        this->nested_symt_->map[(std::string *) &sym_name] = std::move(symbol);
+    }
 
     return raw;
 }

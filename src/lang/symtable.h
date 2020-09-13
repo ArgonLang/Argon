@@ -48,6 +48,8 @@ namespace argon::lang {
 
         Symbol *Insert(const std::string &sym_name);
 
+        Symbol *Insert(const std::string &sym_name, SymbolType type, bool *out_inserted);
+
         Symbol *Lookup(const std::string &sym_name);
 
         void EnterSub();

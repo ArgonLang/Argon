@@ -8,7 +8,9 @@
 #include <object/datatype/bool.h>
 #include <object/datatype/integer.h>
 #include <object/datatype/decimal.h>
+#include <object/datatype/namespace.h>
 
+#include "compiler_exception.h"
 #include "lang/parser.h"
 #include "compiler.h"
 
@@ -44,6 +46,19 @@ argon::object::Code *Compiler::Compile(std::istream *source) {
     return nullptr;
 }
 
+inline unsigned char AttrToFlags(bool pub, bool constant, bool weak, bool member) {
+    unsigned char flags = 0;
+    if (pub)
+        flags |= ARGON_OBJECT_NS_PROP_PUB;
+    if (constant)
+        flags |= ARGON_OBJECT_NS_PROP_CONST;
+    if (weak)
+        flags |= ARGON_OBJECT_NS_PROP_WEAK;
+    if (member)
+        flags |= ARGON_OBJECT_NS_PROP_MEMBER;
+    return flags;
+}
+
 void Compiler::CompileCode(const ast::NodeUptr &node) {
 #define TARGET_TYPE(type)   case ast::NodeType::type:
 
@@ -70,8 +85,12 @@ void Compiler::CompileCode(const ast::NodeUptr &node) {
             break;
         TARGET_TYPE(COMMENT)
             break;
-        TARGET_TYPE(CONSTANT)
+        TARGET_TYPE(CONSTANT) {
+            auto cnst = ast::CastNode<ast::Constant>(node);
+            this->CompileCode(cnst->value);
+            this->VariableNew(cnst->name, true, AttrToFlags(cnst->pub, true, false, false));
             break;
+        }
         TARGET_TYPE(CONTINUE)
             break;
         TARGET_TYPE(DEFER)
@@ -206,8 +225,20 @@ void Compiler::CompileCode(const ast::NodeUptr &node) {
             break;
         TARGET_TYPE(UPDATE)
             break;
-        TARGET_TYPE(VARIABLE)
+        TARGET_TYPE(VARIABLE) {
+            auto variable = ast::CastNode<ast::Variable>(node);
+
+            if (variable->value == nullptr) {
+                IncRef(NilVal);
+                this->PushStatic(NilVal, true, true);
+            } else this->CompileCode(variable->value);
+
+            this->VariableNew(variable->name, true, AttrToFlags(variable->pub,
+                                                                false,
+                                                                variable->weak,
+                                                                this->unit_->scope == TUScope::STRUCT));
             break;
+        }
     }
 
 #undef TARGET_TYPE
@@ -295,6 +326,44 @@ void Compiler::CompileLiteral(const ast::Literal *literal) {
     this->PushStatic(obj, true, true);
 
     Release(obj);
+}
+
+void Compiler::VariableNew(const std::string &name, bool emit, unsigned char flags) {
+    SymbolType type = SymbolType::VARIABLE;
+    List *dest = this->unit_->names;
+    ArObject *arname;
+    Symbol *sym;
+    bool inserted;
+
+    if ((flags & ARGON_OBJECT_NS_PROP_CONST) == ARGON_OBJECT_NS_PROP_CONST)
+        type = SymbolType::CONSTANT;
+
+    sym = this->unit_->symt.Insert(name, type, &inserted);
+
+    if (this->unit_->scope != TUScope::FUNCTION && sym->nested == 0) {
+        if (emit)
+            this->EmitOp4Flags(OpCodes::NGV, flags, inserted ? sym->id : dest->len);
+        if (!inserted)
+            return;
+    } else {
+        dest = this->unit_->locals;
+        if (emit)
+            this->EmitOp2(OpCodes::NLV, dest->len);
+    }
+
+    if (!inserted)
+        arname = ListGetItem(!sym->free ? this->unit_->names : this->unit_->enclosed, sym->id);
+    else {
+        // Convert string name to ArObject
+        if ((arname = StringNew(name)) == nullptr)
+            throw std::bad_alloc();
+    }
+
+    sym->id = dest->len;
+    bool ok = ListAppend(dest, arname);
+    Release(arname);
+    if (!ok)
+        throw std::bad_alloc();
 }
 
 void Compiler::EnterContext(const std::string &name, TUScope scope) {
