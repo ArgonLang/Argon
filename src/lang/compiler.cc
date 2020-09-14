@@ -147,6 +147,7 @@ void Compiler::CompileCode(const ast::NodeUptr &node) {
             this->VariableLoad(ast::CastNode<ast::Identifier>(node)->value);
             break;
         TARGET_TYPE(IF)
+            this->CompileBranch(ast::CastNode<ast::If>(node));
             break;
         TARGET_TYPE(IMPL)
             break;
@@ -258,6 +259,33 @@ void Compiler::CompileCode(const ast::NodeUptr &node) {
 #undef TARGET_TYPE
 }
 
+void Compiler::CompileBranch(const ast::If *stmt) {
+    BasicBlock *test = this->unit_->bb.current;
+    BasicBlock *end = this->unit_->BlockNew();
+
+    this->CompileCode(stmt->test);
+    this->CompileJump(OpCodes::JF, test, end);
+    this->unit_->DecStack();
+
+    this->unit_->BlockAsNextNew();
+
+    this->unit_->symt.EnterSub();
+    this->CompileCode(stmt->body);
+    this->unit_->symt.ExitSub();
+
+    if (stmt->orelse != nullptr) {
+        this->CompileJump(OpCodes::JMP, this->unit_->bb.current, end);
+
+        this->unit_->BlockAsNextNew();
+        test->flow.jump = this->unit_->bb.current;
+        this->unit_->symt.EnterSub();
+        this->CompileCode(stmt->orelse);
+        this->unit_->symt.ExitSub();
+    }
+
+    this->unit_->BlockAsNext(end);
+}
+
 void Compiler::CompileBinary(const ast::Binary *binary) {
     switch (binary->kind) {
         case scanner::TokenType::SHL:
@@ -287,6 +315,13 @@ void Compiler::CompileBinary(const ast::Binary *binary) {
         default:
             assert(false);
     }
+}
+
+void Compiler::CompileJump(OpCodes op, BasicBlock *src, BasicBlock *dest) {
+    this->EmitOp4(op, 0);
+
+    if (src != nullptr && dest != nullptr)
+        src->flow.jump = dest;
 }
 
 void Compiler::CompileLiteral(const ast::Literal *literal) {
