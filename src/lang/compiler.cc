@@ -92,8 +92,19 @@ void Compiler::CompileCode(const ast::NodeUptr &node) {
             break;
         TARGET_TYPE(BREAK)
             break;
-        TARGET_TYPE(CALL)
+        TARGET_TYPE(CALL) {
+            auto call = ast::CastNode<ast::Call>(node);
+            auto stack_sz = this->unit_->stack.current;
+
+            this->CompileCode(call->callee);
+            for (auto &arg : call->args)
+                this->CompileCode(arg);
+            this->unit_->DecStack(this->unit_->stack.current - stack_sz);
+            this->EmitOp2(OpCodes::CALL, call->args.size());
+
+            this->unit_->IncStack();
             break;
+        }
         TARGET_TYPE(CASE)
             break;
         TARGET_TYPE(COMMENT)
