@@ -97,3 +97,28 @@ void TranslationUnit::DecStack(unsigned short size) {
     this->stack.current -= size;
     assert(this->stack.current < 0x00FFFFFF);
 }
+
+void TranslationUnit::Dfs() {
+    this->Dfs(this->bb.start);
+}
+
+void TranslationUnit::Dfs(BasicBlock *start) {
+    start->visited = true;
+    start->instr_sz_start = this->instr_sz;
+    this->instr_sz += start->instr_sz;
+
+    // APPEND
+    if (this->bb.flow_head == nullptr) {
+        this->bb.flow_head = start;
+        this->bb.flow_tail = start;
+    } else {
+        this->bb.flow_tail->block_next = start;
+        this->bb.flow_tail = start;
+    }
+
+    if (start->flow.next != nullptr && !start->flow.next->visited)
+        this->Dfs(start->flow.next);
+
+    if (start->flow.jump != nullptr && !start->flow.jump->visited)
+        this->Dfs(start->flow.jump);
+}

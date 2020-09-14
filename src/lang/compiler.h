@@ -21,6 +21,8 @@ namespace argon::lang {
 
         TranslationUnit *unit_;
 
+        argon::object::Code *Assemble();
+
         bool IsFreeVariable(const std::string &name);
 
         void CompileCode(const ast::NodeUptr &node);

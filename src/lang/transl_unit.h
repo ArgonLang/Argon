@@ -22,6 +22,8 @@ namespace argon::lang {
     };
 
     class TranslationUnit {
+        void Dfs(BasicBlock *start);
+
     public:
         /* Name of translation unit (function/module/struct/trait) */
         const std::string name;
@@ -51,6 +53,9 @@ namespace argon::lang {
             BasicBlock *list = nullptr;
             BasicBlock *start = nullptr;
             BasicBlock *current = nullptr;
+
+            BasicBlock *flow_head = nullptr;
+            BasicBlock *flow_tail = nullptr;
         } bb;
 
         unsigned int instr_sz = 0;
@@ -79,6 +84,8 @@ namespace argon::lang {
         void DecStack();
 
         void DecStack(unsigned short size);
+
+        void Dfs();
     };
 
 } // namespace argon::lang

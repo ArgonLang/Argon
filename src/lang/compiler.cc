@@ -43,7 +43,7 @@ argon::object::Code *Compiler::Compile(std::istream *source) {
     for (auto &stmt:program->body)
         this->CompileCode(stmt);
 
-    return nullptr;
+    return this->Assemble();
 }
 
 inline unsigned char AttrToFlags(bool pub, bool constant, bool weak, bool member) {
@@ -57,6 +57,31 @@ inline unsigned char AttrToFlags(bool pub, bool constant, bool weak, bool member
     if (member)
         flags |= ARGON_OBJECT_NS_PROP_MEMBER;
     return flags;
+}
+
+argon::object::Code *Compiler::Assemble() {
+    unsigned char *buffer;
+    size_t offset = 0;
+
+    this->unit_->Dfs();
+
+    if ((buffer = (unsigned char *) Alloc(this->unit_->instr_sz)) == nullptr)
+        throw std::bad_alloc();
+
+    for (BasicBlock *cu = this->unit_->bb.flow_head; cu != nullptr; cu = cu->block_next) {
+        // Calculate JMP offset
+        if (cu->flow.jump != nullptr) {
+            auto j_off = (OpCodes) (*((Instr32 *) (cu->instr + (cu->instr_sz - sizeof(Instr32)))) & (Instr8) 0xFF);
+            auto jmp = (Instr32) cu->flow.jump->instr_sz_start << (unsigned char) 8 | (Instr8) j_off;
+            *((Instr32 *) (cu->instr + (cu->instr_sz - sizeof(Instr32)))) = jmp;
+        }
+        // Copy instrs to destination CodeObject
+        MemoryCopy(buffer + offset, cu->instr, cu->instr_sz);
+        offset += cu->instr_sz;
+    }
+
+    return CodeNew(buffer, this->unit_->instr_sz, this->unit_->stack.required, this->unit_->statics, this->unit_->names,
+                   this->unit_->locals, this->unit_->enclosed);
 }
 
 bool Compiler::IsFreeVariable(const std::string &name) {

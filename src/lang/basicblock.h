@@ -17,6 +17,7 @@ namespace argon::lang {
 
     public:
         BasicBlock *link_next = nullptr;
+        BasicBlock *block_next = nullptr;
 
         struct {
             BasicBlock *next = nullptr;
@@ -25,6 +26,8 @@ namespace argon::lang {
 
         unsigned char *instr = nullptr;
         unsigned int instr_sz = 0;
+
+        unsigned int instr_sz_start = 0;
 
         bool visited = false;
 
