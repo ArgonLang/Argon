@@ -285,8 +285,30 @@ void Compiler::CompileCode(const ast::NodeUptr &node) {
         TARGET_TYPE(TUPLE)
             this->CompileCompound(ast::CastNode<ast::List>(node));
             break;
-        TARGET_TYPE(UNARY_OP)
+        TARGET_TYPE(UNARY_OP) {
+            auto unary = ast::CastNode<ast::Unary>(node);
+
+            this->CompileCode(unary->expr);
+
+            switch (unary->kind) {
+                case scanner::TokenType::EXCLAMATION:
+                    this->EmitOp(OpCodes::NOT);
+                    break;
+                case scanner::TokenType::TILDE:
+                    this->EmitOp(OpCodes::INV);
+                    break;
+                case scanner::TokenType::PLUS:
+                    this->EmitOp(OpCodes::POS);
+                    break;
+                case scanner::TokenType::MINUS:
+                    this->EmitOp(OpCodes::NEG);
+                    break;
+                default:
+                    assert(false);
+            }
+
             break;
+        }
         TARGET_TYPE(UPDATE)
             break;
         TARGET_TYPE(VARIABLE) {
