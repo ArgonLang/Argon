@@ -479,6 +479,27 @@ void Compiler::CompileSwitch(const ast::Switch *stmt) {
     this->unit_->BlockAsNext(end);
 }
 
+void Compiler::CompileSlice(const ast::Slice *slice) {
+    unsigned short len = 1;
+
+    this->CompileCode(slice->low);
+
+    if (slice->type == ast::NodeType::SLICE) {
+        if (slice->high != nullptr) {
+            this->CompileCode(slice->high);
+            len++;
+        }
+        if (slice->step != nullptr) {
+            this->CompileCode(slice->step);
+            len++;
+        }
+
+        this->EmitOp2(OpCodes::MK_BOUNDS, len);
+    }
+
+    this->unit_->DecStack(len - 1);
+}
+
 void Compiler::CompileCompound(const ast::List *list) {
     for (auto &expr : list->expressions)
         this->CompileCode(expr);

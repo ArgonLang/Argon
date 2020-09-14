@@ -33,6 +33,8 @@ namespace argon::lang {
 
         void CompileSwitch(const ast::Switch *stmt);
 
+        void CompileSlice(const ast::Slice *slice);
+
         void CompileCompound(const ast::List *list);
 
         argon::object::Code * CompileFunction(const ast::Function *func);
