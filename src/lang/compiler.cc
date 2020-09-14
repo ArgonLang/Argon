@@ -110,8 +110,16 @@ void Compiler::CompileCode(const ast::NodeUptr &node) {
             break;
         TARGET_TYPE(ELLIPSIS)
             break;
-        TARGET_TYPE(ELVIS)
+        TARGET_TYPE(ELVIS) {
+            auto end = this->unit_->BlockNew();
+            auto elvis = ast::CastNode<ast::Binary>(node);
+            this->CompileCode(elvis->left);
+            this->CompileJump(OpCodes::JTOP, end);
+            this->unit_->BlockAsNextNew();
+            this->CompileCode(elvis->right);
+            this->unit_->BlockAsNext(end);
             break;
+        }
         TARGET_TYPE(EQUALITY) {
             this->CompileCode(ast::CastNode<ast::Binary>(node)->left);
             this->CompileCode(ast::CastNode<ast::Binary>(node)->right);
@@ -231,6 +239,7 @@ void Compiler::CompileCode(const ast::NodeUptr &node) {
         TARGET_TYPE(SWITCH)
             break;
         TARGET_TYPE(TEST)
+            this->CompileTest(ast::CastNode<ast::Binary>(node));
             break;
         TARGET_TYPE(TRAIT)
             break;
@@ -322,6 +331,36 @@ void Compiler::CompileJump(OpCodes op, BasicBlock *src, BasicBlock *dest) {
 
     if (src != nullptr && dest != nullptr)
         src->flow.jump = dest;
+}
+
+void Compiler::CompileJump(OpCodes op, BasicBlock *dest) {
+    this->EmitOp4(op, 0);
+    this->unit_->bb.current->flow.jump = dest;
+}
+
+void Compiler::CompileTest(const ast::Binary *test) {
+    BasicBlock *end = this->unit_->BlockNew();
+
+    while (true) {
+        this->CompileCode(test->left);
+
+        if (test->kind == scanner::TokenType::AND)
+            this->CompileJump(OpCodes::JFOP, end);
+        else if (test->kind == scanner::TokenType::OR)
+            this->CompileJump(OpCodes::JTOP, end);
+        else
+            assert(false);
+
+        this->unit_->BlockAsNextNew();
+
+        if (test->right->type != ast::NodeType::TEST)
+            break;
+
+        test = ast::CastNode<ast::Binary>(test->right);
+    }
+
+    this->CompileCode(test->right);
+    this->unit_->BlockAsNext(end);
 }
 
 void Compiler::CompileLiteral(const ast::Literal *literal) {

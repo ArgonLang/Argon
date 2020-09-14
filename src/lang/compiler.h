@@ -31,6 +31,10 @@ namespace argon::lang {
 
         void CompileJump(OpCodes op, BasicBlock *src, BasicBlock *dest);
 
+        void CompileJump(OpCodes op, BasicBlock *dest);
+
+        void CompileTest(const ast::Binary *test);
+
         void CompileLiteral(const ast::Literal *literal);
 
         void EnterContext(const std::string &name, TUScope scope);
