@@ -183,8 +183,15 @@ void Compiler::CompileCode(const ast::NodeUptr &node) {
             break;
         TARGET_TYPE(FOR_IN)
             break;
-        TARGET_TYPE(FUNC)
+        TARGET_TYPE(FUNC) {
+            auto func = ast::CastNode<ast::Function>(node);
+            this->CompileFunction(func);
+            if (!func->id.empty()) {
+                auto is_method = this->unit_->scope == TUScope::STRUCT || this->unit_->scope == TUScope::TRAIT;
+                this->VariableNew(func->id, true, AttrToFlags(func->pub, true, false, is_method));
+            }
             break;
+        }
         TARGET_TYPE(GOTO)
             break;
         TARGET_TYPE(IDENTIFIER)
@@ -414,6 +421,61 @@ void Compiler::CompileCompound(const ast::List *list) {
     }
 
     this->unit_->IncStack();
+}
+
+argon::object::Code *Compiler::CompileFunction(const ast::Function *func) {
+    MkFuncFlags fun_flags = MkFuncFlags::PLAIN;
+    unsigned short p_count = func->params.size();
+    Code *fu_code;
+
+    this->EnterContext(func->id, TUScope::FUNCTION);
+
+    // Push self as first param in method definition
+    if (!func->id.empty()) {
+        if (this->unit_->prev->scope == TUScope::STRUCT || this->unit_->prev->scope == TUScope::TRAIT) {
+            this->VariableNew("self", false, 0);
+            p_count++;
+        }
+    }
+
+    // Store params name
+    for (auto &param : func->params) {
+        auto id = ast::CastNode<ast::Identifier>(param);
+        this->VariableNew(id->value, false, 0);
+        if (id->rest_element)
+            fun_flags = MkFuncFlags::VARIADIC;
+    }
+
+    this->CompileCode(func->body);
+
+    {
+        // If the function is empty or the last statement is not return,
+        // forcefully enter return as last statement
+        auto block = ast::CastNode<ast::Block>(func->body);
+        if (block->stmts.empty() || block->stmts.back()->type != ast::NodeType::RETURN)
+            this->EmitOp(OpCodes::RET);
+    }
+
+    fu_code = this->Assemble();
+
+    this->ExitContext();
+
+    if (this->PushStatic(fu_code, false, true) == -1)
+        throw std::bad_alloc();
+
+    if (fu_code->enclosed->len > 0) {
+        for (int i = 0; i < fu_code->enclosed->len; i++) {
+            auto st = (String *) fu_code->enclosed->objects[i];
+            this->VariableLoad(std::string((char *) st->buffer, st->len));
+        }
+        this->unit_->DecStack(fu_code->enclosed->len);
+        this->EmitOp4(OpCodes::MK_LIST, fu_code->enclosed->len);
+        fun_flags |= MkFuncFlags::CLOSURE;
+    }
+
+    this->EmitOp4Flags(OpCodes::MK_FUNC, (unsigned char) fun_flags, p_count);
+
+    return fu_code;
 }
 
 void Compiler::CompileJump(OpCodes op, BasicBlock *src, BasicBlock *dest) {

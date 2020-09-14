@@ -33,6 +33,8 @@ namespace argon::lang {
 
         void CompileCompound(const ast::List *list);
 
+        argon::object::Code * CompileFunction(const ast::Function *func);
+
         void CompileJump(OpCodes op, BasicBlock *src, BasicBlock *dest);
 
         void CompileJump(OpCodes op, BasicBlock *dest);
