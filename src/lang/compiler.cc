@@ -283,6 +283,7 @@ void Compiler::CompileCode(const ast::NodeUptr &node) {
         TARGET_TYPE(SUBSCRIPT)
             break;
         TARGET_TYPE(SWITCH)
+            this->CompileSwitch(ast::CastNode<ast::Switch>(node));
             break;
         TARGET_TYPE(TEST)
             this->CompileTest(ast::CastNode<ast::Binary>(node));
@@ -393,6 +394,89 @@ void Compiler::CompileBinary(const ast::Binary *binary) {
         default:
             assert(false);
     }
+}
+
+void Compiler::CompileSwitch(const ast::Switch *stmt) {
+    // TODO: manage break stmt
+    BasicBlock *end = this->unit_->BlockNew();
+    BasicBlock *cond = this->unit_->bb.current;
+    BasicBlock *fbody = this->unit_->BlockNew();
+    BasicBlock *body = fbody;
+    BasicBlock *def = nullptr;
+
+    unsigned short index = 1;
+
+    bool as_if = stmt->test == nullptr;
+
+    if (!as_if)
+        this->CompileCode(stmt->test);
+
+    for (auto &swcase : stmt->cases) {
+        auto case_ = ast::CastNode<ast::Case>(swcase);
+
+        if (index != 1) {
+            body->flow.next = this->unit_->BlockNew();
+            body = body->flow.next;
+            if (!as_if)
+                this->unit_->IncStack();
+        }
+
+        if (!case_->tests.empty()) {
+            // Case
+            bool compound_cond = false;
+            for (auto &test : case_->tests) {
+                if (compound_cond || cond->flow.jump != nullptr) {
+                    this->unit_->BlockAsNextNew();
+                    cond = this->unit_->bb.current;
+                }
+                compound_cond = true;
+                this->CompileCode(test);
+                if (!as_if) {
+                    this->EmitOp(OpCodes::TEST);
+                    this->unit_->DecStack();
+                }
+                this->CompileJump(OpCodes::JT, cond, body);
+                this->unit_->DecStack();
+            }
+        } else {
+            // Default
+            def = this->unit_->BlockNew();
+            this->unit_->bb.current = def;
+            if (!as_if) {
+                this->EmitOp(OpCodes::POP);
+                this->unit_->DecStack();
+            }
+            this->CompileJump(OpCodes::JMP, body);
+        }
+
+        this->unit_->bb.current = body; // Use bb pointed by body
+
+        this->unit_->symt.EnterSub();
+        this->CompileCode(case_->body);
+        this->unit_->symt.ExitSub();
+
+        body = this->unit_->bb.current; // Update body after CompileCode, body may be changed (Eg: if)
+
+        if (index < stmt->cases.size()) {
+            if (ast::CastNode<ast::Block>(case_->body)->stmts.back()->type != ast::NodeType::FALLTHROUGH)
+                this->CompileJump(OpCodes::JMP, body, end);
+        }
+
+        this->unit_->bb.current = cond;
+        index++;
+    }
+
+    if (def == nullptr) {
+        this->unit_->BlockAsNextNew();
+        if (!as_if)
+            this->EmitOp(OpCodes::POP);
+        this->CompileJump(OpCodes::JMP, end);
+    } else this->unit_->BlockAsNext(def);
+
+    this->unit_->bb.current->flow.next = fbody;
+    this->unit_->bb.current = body;
+
+    this->unit_->BlockAsNext(end);
 }
 
 void Compiler::CompileCompound(const ast::List *list) {

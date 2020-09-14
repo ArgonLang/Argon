@@ -31,6 +31,8 @@ namespace argon::lang {
 
         void CompileBinary(const ast::Binary *binary);
 
+        void CompileSwitch(const ast::Switch *stmt);
+
         void CompileCompound(const ast::List *list);
 
         argon::object::Code * CompileFunction(const ast::Function *func);
