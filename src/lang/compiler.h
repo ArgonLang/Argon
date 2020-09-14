@@ -31,6 +31,8 @@ namespace argon::lang {
 
         void CompileBinary(const ast::Binary *binary);
 
+        void CompileCompound(const ast::List *list);
+
         void CompileJump(OpCodes op, BasicBlock *src, BasicBlock *dest);
 
         void CompileJump(OpCodes op, BasicBlock *dest);

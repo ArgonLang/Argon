@@ -206,6 +206,7 @@ void Compiler::CompileCode(const ast::NodeUptr &node) {
         TARGET_TYPE(LABEL)
             break;
         TARGET_TYPE(LIST)
+            this->CompileCompound(ast::CastNode<ast::List>(node));
             break;
         TARGET_TYPE(LITERAL)
             this->CompileLiteral(ast::CastNode<ast::Literal>(node));
@@ -230,6 +231,7 @@ void Compiler::CompileCode(const ast::NodeUptr &node) {
         TARGET_TYPE(LOOP)
             break;
         TARGET_TYPE(MAP)
+            this->CompileCompound(ast::CastNode<ast::List>(node));
             break;
         TARGET_TYPE(MEMBER)
             break;
@@ -261,6 +263,7 @@ void Compiler::CompileCode(const ast::NodeUptr &node) {
         TARGET_TYPE(SCOPE)
             break;
         TARGET_TYPE(SET)
+            this->CompileCompound(ast::CastNode<ast::List>(node));
             break;
         TARGET_TYPE(SLICE)
             break;
@@ -280,6 +283,7 @@ void Compiler::CompileCode(const ast::NodeUptr &node) {
         TARGET_TYPE(TRAIT)
             break;
         TARGET_TYPE(TUPLE)
+            this->CompileCompound(ast::CastNode<ast::List>(node));
             break;
         TARGET_TYPE(UNARY_OP)
             break;
@@ -360,6 +364,34 @@ void Compiler::CompileBinary(const ast::Binary *binary) {
         default:
             assert(false);
     }
+}
+
+void Compiler::CompileCompound(const ast::List *list) {
+    for (auto &expr : list->expressions)
+        this->CompileCode(expr);
+
+    switch (list->type) {
+        case ast::NodeType::TUPLE:
+            this->EmitOp4(OpCodes::MK_TUPLE, list->expressions.size());
+            this->unit_->DecStack(list->expressions.size());
+            break;
+        case ast::NodeType::LIST:
+            this->EmitOp4(OpCodes::MK_LIST, list->expressions.size());
+            this->unit_->DecStack(list->expressions.size());
+            break;
+        case ast::NodeType::SET:
+            this->EmitOp4(OpCodes::MK_SET, list->expressions.size());
+            this->unit_->DecStack(list->expressions.size());
+            break;
+        case ast::NodeType::MAP:
+            this->EmitOp4(OpCodes::MK_MAP, list->expressions.size() / 2);
+            this->unit_->DecStack(list->expressions.size());
+            break;
+        default:
+            assert(false);
+    }
+
+    this->unit_->IncStack();
 }
 
 void Compiler::CompileJump(OpCodes op, BasicBlock *src, BasicBlock *dest) {
