@@ -104,6 +104,7 @@ void Compiler::CompileCode(const ast::NodeUptr &node) {
         TARGET_TYPE(ALIAS)
             break;
         TARGET_TYPE(ASSIGN)
+            this->CompileAssignment(ast::CastNode<ast::Assignment>(node));
             break;
         TARGET_TYPE(BINARY_OP)
             this->CompileCode(ast::CastNode<ast::Binary>(node)->left);
@@ -280,8 +281,14 @@ void Compiler::CompileCode(const ast::NodeUptr &node) {
             break;
         TARGET_TYPE(STRUCT_INIT)
             break;
-        TARGET_TYPE(SUBSCRIPT)
+        TARGET_TYPE(SUBSCRIPT) {
+            auto subs = ast::CastNode<ast::Binary>(node);
+            this->CompileCode(subs->left);
+            this->CompileSlice(ast::CastNode<ast::Slice>(subs->right));
+            this->EmitOp(OpCodes::SUBSCR);
+            this->unit_->DecStack();
             break;
+        }
         TARGET_TYPE(SWITCH)
             this->CompileSwitch(ast::CastNode<ast::Switch>(node));
             break;
@@ -477,6 +484,97 @@ void Compiler::CompileSwitch(const ast::Switch *stmt) {
     this->unit_->bb.current = body;
 
     this->unit_->BlockAsNext(end);
+}
+
+void Compiler::CompileAugAssignment(const ast::NodeUptr &left, const ast::NodeUptr &right, OpCodes code) {
+    unsigned char pback = 0;
+
+    switch (left->type) {
+        case ast::NodeType::IDENTIFIER:
+            this->CompileCode(left);
+            break;
+        case ast::NodeType::SUBSCRIPT: {
+            auto subs = ast::CastNode<ast::Binary>(left);
+            this->CompileCode(subs->left);
+            this->CompileSlice(ast::CastNode<ast::Slice>(subs->right));
+            this->EmitOp2(OpCodes::DUP, 2);
+            this->unit_->IncStack(2);
+            this->EmitOp(OpCodes::SUBSCR);
+            this->unit_->DecStack();
+            pback = 3;
+            break;
+        }
+        default:
+            assert(false);
+    }
+
+    this->CompileCode(right);
+    this->EmitOp(code);
+    this->unit_->DecStack();
+
+    if (pback != 0)
+        this->EmitOp2(OpCodes::PB_HEAD, pback);
+}
+
+void Compiler::CompileAssignment(const ast::Assignment *assign) {
+    bool is_equal = false;
+
+    switch (assign->kind) {
+        case scanner::TokenType::EQUAL:
+            this->CompileCode(assign->right);
+            is_equal = true;
+            break;
+        case scanner::TokenType::PLUS_EQ:
+            this->CompileAugAssignment(assign->assignee, assign->right, OpCodes::IPADD);
+            break;
+        case scanner::TokenType::MINUS_EQ:
+            this->CompileAugAssignment(assign->assignee, assign->right, OpCodes::IPSUB);
+            break;
+        case scanner::TokenType::ASTERISK_EQ:
+            this->CompileAugAssignment(assign->assignee, assign->right, OpCodes::IPMUL);
+            break;
+        case scanner::TokenType::SLASH_EQ:
+            this->CompileAugAssignment(assign->assignee, assign->right, OpCodes::IPDIV);
+            break;
+        default:
+            assert(false);
+    }
+
+    switch (assign->assignee->type) {
+        case ast::NodeType::IDENTIFIER: {
+            auto id = ast::CastNode<ast::Identifier>(assign->assignee);
+            Symbol *sym;
+
+            this->VariableLookupCreate(id->value, &sym);
+
+            if (sym->declared && (this->unit_->scope == TUScope::FUNCTION || sym->nested > 0)) {
+                this->EmitOp2(OpCodes::STLC, sym->id);
+                break;
+            } else if (sym->free) {
+                this->EmitOp2(OpCodes::STENC, sym->id);
+                break;
+            }
+            this->EmitOp4(OpCodes::STGBL, sym->id);
+            break;
+        }
+        case ast::NodeType::SUBSCRIPT: {
+            if (is_equal) {
+                auto subs = ast::CastNode<ast::Binary>(assign->assignee);
+                this->CompileCode(subs->left);
+                this->CompileSlice(ast::CastNode<ast::Slice>(subs->right));
+            }
+            this->unit_->DecStack(2);
+            this->EmitOp(OpCodes::STSUBSCR);
+            break;
+        }
+        case ast::NodeType::MEMBER:
+            break;
+        default:
+            assert(false);
+    }
+
+
+    this->unit_->DecStack();
 }
 
 void Compiler::CompileSlice(const ast::Slice *slice) {
@@ -718,9 +816,32 @@ void Compiler::VariableNew(const std::string &name, bool emit, unsigned char fla
 void Compiler::VariableLoad(const std::string &name) {
     // N.B. Unknown variable, by default does not raise an error,
     // but tries to load it from the global namespace.
-    Symbol *sym = this->unit_->symt.Lookup(name);
+    Symbol *sym;
+
+    this->VariableLookupCreate(name, &sym);
 
     this->unit_->IncStack();
+
+    if (this->unit_->scope == TUScope::FUNCTION || sym->nested > 0) {
+        if (sym->declared) {
+            // Local variable
+            this->EmitOp2(OpCodes::LDLC, sym->id);
+            return;
+        }
+
+        if (sym->free) {
+            // Closure variable
+            this->EmitOp2(OpCodes::LDENC, sym->id);
+            return;
+        }
+    }
+
+    this->EmitOp4(OpCodes::LDGBL, sym->id);
+}
+
+bool Compiler::VariableLookupCreate(const std::string &name, Symbol **out_sym) {
+    Symbol *sym = this->unit_->symt.Lookup(name);
+    bool created = false;
 
     if (sym == nullptr) {
         List *dst = this->unit_->names;
@@ -743,23 +864,14 @@ void Compiler::VariableLoad(const std::string &name) {
         Release(tmp);
         if (!ok)
             throw std::bad_alloc();
+
+        created = true;
     }
 
-    if (this->unit_->scope == TUScope::FUNCTION || sym->nested > 0) {
-        if (sym->declared) {
-            // Local variable
-            this->EmitOp2(OpCodes::LDLC, sym->id);
-            return;
-        }
+    if (out_sym != nullptr)
+        (*out_sym) = sym;
 
-        if (sym->free) {
-            // Closure variable
-            this->EmitOp2(OpCodes::LDENC, sym->id);
-            return;
-        }
-    }
-
-    this->EmitOp4(OpCodes::LDGBL, sym->id);
+    return created;
 }
 
 void Compiler::EnterContext(const std::string &name, TUScope scope) {

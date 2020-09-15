@@ -35,9 +35,13 @@ namespace argon::lang {
 
         void CompileSlice(const ast::Slice *slice);
 
+        void CompileAugAssignment(const ast::NodeUptr &left, const ast::NodeUptr &right, OpCodes code);
+
+        void CompileAssignment(const ast::Assignment *assign);
+
         void CompileCompound(const ast::List *list);
 
-        argon::object::Code * CompileFunction(const ast::Function *func);
+        argon::object::Code *CompileFunction(const ast::Function *func);
 
         void CompileJump(OpCodes op, BasicBlock *src, BasicBlock *dest);
 
@@ -62,6 +66,8 @@ namespace argon::lang {
         void VariableNew(const std::string &name, bool emit, unsigned char flags);
 
         void VariableLoad(const std::string &name);
+
+        bool VariableLookupCreate(const std::string &name, Symbol **out_sym);
 
         unsigned int PushStatic(argon::object::ArObject *obj, bool store, bool emit);
 

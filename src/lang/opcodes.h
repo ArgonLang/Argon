@@ -25,7 +25,9 @@ namespace argon::lang {
      *  NGV:        4Bytes
      *  NLV:        2Bytes
      *  LDLC:       2Bytes
+     *  STLC:       2Bytes
      *  LDENC:      2Bytes
+     *  STENC:      2Bytes
      *  LDGBL:      4Bytes
      *  LSTATIC:    4Bytes
      */
@@ -35,6 +37,7 @@ namespace argon::lang {
         CALL,
         CMP,
         DIV,
+        DUP,    // Duplicate elements on stack
         IDIV,
         IMPFRM,
         IMPMOD,
@@ -78,10 +81,12 @@ namespace argon::lang {
         PREI,
         PSTD,
         PSTI,
+        PB_HEAD,    // Push back head item of n position
         RET,
         SHL,
         SHR,
         STATTR,
+        STENC,
         STGBL,
         STLC,
         STSUBSCR,
