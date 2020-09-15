@@ -84,7 +84,7 @@ void TranslationUnit::IncStack() {
 }
 
 void TranslationUnit::IncStack(unsigned short size) {
-    this->stack.current++;
+    this->stack.current+=size;
     if (this->stack.current > this->stack.required)
         this->stack.required = this->stack.current;
 }
