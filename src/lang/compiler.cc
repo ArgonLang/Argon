@@ -267,6 +267,9 @@ void Compiler::CompileCode(const ast::NodeUptr &node) {
             break;
         }
         TARGET_TYPE(RETURN)
+            this->CompileCode(ast::CastNode<ast::Unary>(node)->expr);
+            this->EmitOp(OpCodes::RET);
+            this->unit_->DecStack();
             break;
         TARGET_TYPE(SCOPE)
             break;
