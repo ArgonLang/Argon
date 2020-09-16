@@ -31,6 +31,8 @@ namespace argon::lang {
 
         void CompileBinary(const ast::Binary *binary);
 
+        void CompileLoop(const ast::Loop *loop, const std::string &name);
+
         void CompileSwitch(const ast::Switch *stmt);
 
         void CompileSlice(const ast::Slice *slice);

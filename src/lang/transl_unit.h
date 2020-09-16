@@ -21,6 +21,17 @@ namespace argon::lang {
         TRAIT
     };
 
+    class LoopMeta {
+    public:
+        const std::string *name;
+        BasicBlock *begin = nullptr;
+        BasicBlock *end = nullptr;
+
+        LoopMeta *prev = nullptr;
+
+        LoopMeta(const std::string *name) : name(name) {}
+    };
+
     class TranslationUnit {
         void Dfs(BasicBlock *start);
 
@@ -49,6 +60,8 @@ namespace argon::lang {
         /* Closure */
         argon::object::List *enclosed = nullptr;
 
+        LoopMeta *lstack = nullptr;
+
         struct {
             BasicBlock *list = nullptr;
             BasicBlock *start = nullptr;
@@ -74,6 +87,12 @@ namespace argon::lang {
         BasicBlock *BlockNew();
 
         BasicBlock *BlockAsNextNew();
+
+        LoopMeta *LoopBegin(const std::string &loop_name);
+
+        LoopMeta *LoopGet(const std::string &loop_name);
+
+        void LoopEnd();
 
         void BlockAsNext(BasicBlock *block);
 

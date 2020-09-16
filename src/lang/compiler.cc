@@ -116,8 +116,17 @@ void Compiler::CompileCode(const ast::NodeUptr &node) {
             for (auto &stmt : ast::CastNode<ast::Block>(node)->stmts)
                 this->CompileCode(stmt);
             break;
-        TARGET_TYPE(BREAK)
+        TARGET_TYPE(BREAK) {
+            auto brk = ast::CastNode<ast::Unary>(node);
+            auto meta = this->unit_->LoopGet(
+                    brk->expr != nullptr ?
+                    ast::CastNode<ast::Identifier>(brk->expr)->value : "");
+            if (meta == nullptr)
+                throw InvalidSyntaxtException("use of keyword 'break' outside of loop is forbidden");
+            this->CompileJump(OpCodes::JMP, meta->end);
+            this->unit_->BlockAsNextNew();
             break;
+        }
         TARGET_TYPE(CALL) {
             auto call = ast::CastNode<ast::Call>(node);
             auto stack_sz = this->unit_->stack.current;
@@ -131,8 +140,10 @@ void Compiler::CompileCode(const ast::NodeUptr &node) {
             this->unit_->IncStack();
             break;
         }
-        TARGET_TYPE(CASE)
-            break;
+            /*
+            TARGET_TYPE(CASE)
+                break;
+                */
         TARGET_TYPE(COMMENT)
             break;
         TARGET_TYPE(CONSTANT) {
@@ -141,8 +152,17 @@ void Compiler::CompileCode(const ast::NodeUptr &node) {
             this->VariableNew(cnst->name, true, AttrToFlags(cnst->pub, true, false, false));
             break;
         }
-        TARGET_TYPE(CONTINUE)
+        TARGET_TYPE(CONTINUE) {
+            auto cnt = ast::CastNode<ast::Unary>(node);
+            auto meta = this->unit_->LoopGet(
+                    cnt->expr != nullptr ?
+                    ast::CastNode<ast::Identifier>(cnt->expr)->value : "");
+            if (meta == nullptr)
+                throw InvalidSyntaxtException("use of keyword 'continue' outside of loop is forbidden");
+            this->CompileJump(OpCodes::JMP, meta->begin);
+            this->unit_->BlockAsNextNew();
             break;
+        }
         TARGET_TYPE(DEFER)
             break;
         TARGET_TYPE(ELLIPSIS)
@@ -178,8 +198,10 @@ void Compiler::CompileCode(const ast::NodeUptr &node) {
             this->EmitOp(OpCodes::POP);
             this->unit_->DecStack();
             break;
+            /*
         TARGET_TYPE(FALLTHROUGH)
             break;
+             */
         TARGET_TYPE(FOR)
             break;
         TARGET_TYPE(FOR_IN)
@@ -211,8 +233,13 @@ void Compiler::CompileCode(const ast::NodeUptr &node) {
             break;
         TARGET_TYPE(INDEX)
             break;
-        TARGET_TYPE(LABEL)
+        TARGET_TYPE(LABEL) {
+            auto label = ast::CastNode<ast::Binary>(node);
+            if (label->right->type == ast::NodeType::LOOP)
+                this->CompileLoop(ast::CastNode<ast::Loop>(label->right),
+                                  ast::CastNode<ast::Identifier>(label->left)->value);
             break;
+        }
         TARGET_TYPE(LIST)
             this->CompileCompound(ast::CastNode<ast::List>(node));
             break;
@@ -237,6 +264,7 @@ void Compiler::CompileCode(const ast::NodeUptr &node) {
             break;
         }
         TARGET_TYPE(LOOP)
+            this->CompileLoop(ast::CastNode<ast::Loop>(node), "");
             break;
         TARGET_TYPE(MAP)
             this->CompileCompound(ast::CastNode<ast::List>(node));
@@ -373,6 +401,24 @@ void Compiler::CompileBranch(const ast::If *stmt) {
     }
 
     this->unit_->BlockAsNext(end);
+}
+
+void Compiler::CompileLoop(const ast::Loop *loop, const std::string &name) {
+    auto meta = this->unit_->LoopBegin(name);
+
+    if (loop->test != nullptr) {
+        this->CompileCode(loop->test);
+        this->unit_->DecStack();
+        this->CompileJump(OpCodes::JF, meta->end);
+        this->unit_->BlockAsNextNew();
+    }
+
+    this->unit_->symt.EnterSub();
+    this->CompileCode(loop->body);
+    this->unit_->symt.ExitSub();
+    this->CompileJump(OpCodes::JMP, meta->begin);
+
+    this->unit_->LoopEnd();
 }
 
 void Compiler::CompileBinary(const ast::Binary *binary) {

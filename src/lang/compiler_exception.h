@@ -14,6 +14,16 @@ namespace argon::lang {
         ~CompilerException() override = default;
     };
 
+    class InvalidSyntaxtException : CompilerException {
+        const std::string what_;
+    public:
+        explicit InvalidSyntaxtException(std::string what) : what_(std::move(what)) {}
+
+        [[nodiscard]] const char *what() const noexcept override {
+            return this->what_.c_str();
+        }
+    };
+
     class RedeclarationException : CompilerException {
         const std::string what_;
     public:
