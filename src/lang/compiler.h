@@ -33,6 +33,8 @@ namespace argon::lang {
 
         void CompileLoop(const ast::Loop *loop, const std::string &name);
 
+        void CompileForLoop(const ast::For *loop, const std::string &name);
+
         void CompileSwitch(const ast::Switch *stmt);
 
         void CompileSlice(const ast::Slice *slice);

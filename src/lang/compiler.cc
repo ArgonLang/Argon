@@ -203,6 +203,7 @@ void Compiler::CompileCode(const ast::NodeUptr &node) {
             break;
              */
         TARGET_TYPE(FOR)
+            this->CompileForLoop(ast::CastNode<ast::For>(node), "");
             break;
         TARGET_TYPE(FOR_IN)
             break;
@@ -238,6 +239,11 @@ void Compiler::CompileCode(const ast::NodeUptr &node) {
             if (label->right->type == ast::NodeType::LOOP)
                 this->CompileLoop(ast::CastNode<ast::Loop>(label->right),
                                   ast::CastNode<ast::Identifier>(label->left)->value);
+            else if(label->right->type == ast::NodeType::FOR)
+                this->CompileForLoop(ast::CastNode<ast::For>(label->right),
+                                  ast::CastNode<ast::Identifier>(label->left)->value);
+            else
+                this->CompileCode(label->right);
             break;
         }
         TARGET_TYPE(LIST)
@@ -304,8 +310,10 @@ void Compiler::CompileCode(const ast::NodeUptr &node) {
         TARGET_TYPE(SET)
             this->CompileCompound(ast::CastNode<ast::List>(node));
             break;
+            /*
         TARGET_TYPE(SLICE)
             break;
+             */
         TARGET_TYPE(SPAWN)
             break;
         TARGET_TYPE(STRUCT)
@@ -419,6 +427,33 @@ void Compiler::CompileLoop(const ast::Loop *loop, const std::string &name) {
     this->CompileJump(OpCodes::JMP, meta->begin);
 
     this->unit_->LoopEnd();
+}
+
+void Compiler::CompileForLoop(const ast::For *loop, const std::string &name) {
+    LoopMeta *meta;
+
+    this->unit_->symt.EnterSub();
+
+    if (loop->init != nullptr)
+        this->CompileCode(loop->init);
+
+    meta = this->unit_->LoopBegin(name);
+
+    this->CompileCode(loop->test);
+    this->unit_->DecStack();
+    this->CompileJump(OpCodes::JF, meta->end);
+
+    this->unit_->BlockAsNextNew();
+    this->CompileCode(loop->body);
+
+    if (loop->inc != nullptr)
+        this->CompileCode(loop->inc);
+
+    this->CompileJump(OpCodes::JMP, meta->begin);
+
+    this->unit_->LoopEnd();
+
+    this->unit_->symt.ExitSub();
 }
 
 void Compiler::CompileBinary(const ast::Binary *binary) {
