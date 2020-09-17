@@ -35,6 +35,8 @@ namespace argon::lang {
 
         void CompileForLoop(const ast::For *loop, const std::string &name);
 
+        void CompileImport(const ast::Import *import);
+
         void CompileSwitch(const ast::Switch *stmt);
 
         void CompileSlice(const ast::Slice *slice);
@@ -72,6 +74,8 @@ namespace argon::lang {
         void VariableLoad(const std::string &name);
 
         bool VariableLookupCreate(const std::string &name, Symbol **out_sym);
+
+        unsigned int PushStatic(const std::string &value, bool store, bool emit);
 
         unsigned int PushStatic(argon::object::ArObject *obj, bool store, bool emit);
 

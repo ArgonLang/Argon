@@ -30,6 +30,7 @@ namespace argon::lang {
      *  STENC:      2Bytes
      *  LDGBL:      4Bytes
      *  LSTATIC:    4Bytes
+     *  IMPMOD:     4Bytes
      */
 
     enum class OpCodes : unsigned char {

@@ -227,6 +227,7 @@ void Compiler::CompileCode(const ast::NodeUptr &node) {
         TARGET_TYPE(IMPL)
             break;
         TARGET_TYPE(IMPORT)
+            this->CompileImport(ast::CastNode<ast::Import>(node));
             break;
         TARGET_TYPE(IMPORT_FROM)
             break;
@@ -239,9 +240,9 @@ void Compiler::CompileCode(const ast::NodeUptr &node) {
             if (label->right->type == ast::NodeType::LOOP)
                 this->CompileLoop(ast::CastNode<ast::Loop>(label->right),
                                   ast::CastNode<ast::Identifier>(label->left)->value);
-            else if(label->right->type == ast::NodeType::FOR)
+            else if (label->right->type == ast::NodeType::FOR)
                 this->CompileForLoop(ast::CastNode<ast::For>(label->right),
-                                  ast::CastNode<ast::Identifier>(label->left)->value);
+                                     ast::CastNode<ast::Identifier>(label->left)->value);
             else
                 this->CompileCode(label->right);
             break;
@@ -454,6 +455,29 @@ void Compiler::CompileForLoop(const ast::For *loop, const std::string &name) {
     this->unit_->LoopEnd();
 
     this->unit_->symt.ExitSub();
+}
+
+void Compiler::CompileImport(const ast::Import *import) {
+    ast::ImportName *path;
+    unsigned int idx;
+
+    for (auto &name : import->names) {
+        auto alias = ast::CastNode<ast::Alias>(name);
+        std::string *name_to_store;
+
+        path = ast::CastNode<ast::ImportName>(alias->value);
+        name_to_store = &(ast::CastNode<ast::ImportName>(alias->value)->import_as);
+
+        idx = this->PushStatic(path->name, true, false);
+
+        this->EmitOp4(OpCodes::IMPMOD, idx);
+        this->unit_->IncStack();
+
+        if(alias->name!= nullptr)
+            name_to_store = &(ast::CastNode<ast::Identifier>(alias->name)->value);
+
+        this->VariableNew(*name_to_store, true, AttrToFlags(false, true, false, false));
+    }
 }
 
 void Compiler::CompileBinary(const ast::Binary *binary) {
@@ -869,7 +893,7 @@ void Compiler::VariableNew(const std::string &name, bool emit, unsigned char fla
 
     if (this->unit_->scope != TUScope::FUNCTION && sym->nested == 0) {
         if (emit) {
-            this->EmitOp4Flags(OpCodes::NGV, flags, inserted ? sym->id : dest->len);
+            this->EmitOp4Flags(OpCodes::NGV, flags, !inserted ? sym->id : dest->len);
             this->unit_->DecStack();
         }
         if (!inserted)
@@ -991,6 +1015,18 @@ void Compiler::EmitOp4Flags(OpCodes code, unsigned char flags, unsigned short ar
                    ((unsigned short) (arg << (unsigned char) 8)) |
                    (Instr8) code;
     this->unit_->bb.current->AddInstr(istr);
+}
+
+unsigned int Compiler::PushStatic(const std::string &value, bool store, bool emit) {
+    String *tmp;
+
+    if ((tmp = StringNew(value)) == nullptr)
+        throw std::bad_alloc();
+
+    unsigned int val = this->PushStatic(tmp, store, emit);
+    Release(tmp);
+
+    return val;
 }
 
 unsigned int Compiler::PushStatic(ArObject *obj, bool store, bool emit) {
