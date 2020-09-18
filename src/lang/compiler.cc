@@ -230,6 +230,7 @@ void Compiler::CompileCode(const ast::NodeUptr &node) {
             this->CompileImport(ast::CastNode<ast::Import>(node));
             break;
         TARGET_TYPE(IMPORT_FROM)
+            this->CompileImportFrom(ast::CastNode<ast::Import>(node));
             break;
         TARGET_TYPE(IMPORT_NAME)
             break;
@@ -473,11 +474,41 @@ void Compiler::CompileImport(const ast::Import *import) {
         this->EmitOp4(OpCodes::IMPMOD, idx);
         this->unit_->IncStack();
 
-        if(alias->name!= nullptr)
+        if (alias->name != nullptr)
             name_to_store = &(ast::CastNode<ast::Identifier>(alias->name)->value);
 
         this->VariableNew(*name_to_store, true, AttrToFlags(false, true, false, false));
     }
+}
+
+void Compiler::CompileImportFrom(const ast::Import *import) {
+    unsigned int idx;
+
+    idx = this->PushStatic(ast::CastNode<ast::ImportName>(import->module)->name, true, false);
+
+    this->EmitOp4(OpCodes::IMPMOD, idx);
+    this->unit_->IncStack();
+
+
+    for (auto &name : import->names) {
+        auto alias = ast::CastNode<ast::Alias>(name);
+        std::string *name_to_store;
+
+        name_to_store = &(ast::CastNode<ast::ImportName>(alias->value)->name);
+
+        idx = this->PushStatic(*name_to_store, true, false);
+        this->unit_->IncStack();
+
+        this->EmitOp4(OpCodes::IMPFRM, idx);
+
+        if (alias->name != nullptr)
+            name_to_store = &(ast::CastNode<ast::Identifier>(alias->name)->value);
+
+        this->VariableNew(*name_to_store, true, AttrToFlags(false, true, false, false));
+    }
+
+    this->EmitOp(OpCodes::POP);
+    this->unit_->DecStack();
 }
 
 void Compiler::CompileBinary(const ast::Binary *binary) {

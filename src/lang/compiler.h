@@ -37,6 +37,8 @@ namespace argon::lang {
 
         void CompileImport(const ast::Import *import);
 
+        void CompileImportFrom(const ast::Import *import);
+
         void CompileSwitch(const ast::Switch *stmt);
 
         void CompileSlice(const ast::Slice *slice);
