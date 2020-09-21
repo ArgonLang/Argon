@@ -27,6 +27,8 @@ namespace argon::lang {
 
         void CompileCode(const ast::NodeUptr &node);
 
+        void CompileConstruct(const ast::Construct *construct);
+
         void CompileBranch(const ast::If *stmt);
 
         void CompileBinary(const ast::Binary *binary);

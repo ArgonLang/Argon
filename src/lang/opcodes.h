@@ -28,6 +28,8 @@ namespace argon::lang {
      *  STLC:       2Bytes
      *  LDENC:      2Bytes
      *  STENC:      2Bytes
+     *  MK_STRUCT   2Bytes
+     *  MK_TRAIT    2Bytes
      *  LDGBL:      4Bytes
      *  LSTATIC:    4Bytes
      *  IMPMOD:     4Bytes

@@ -319,6 +319,8 @@ void Compiler::CompileCode(const ast::NodeUptr &node) {
         TARGET_TYPE(SPAWN)
             break;
         TARGET_TYPE(STRUCT)
+        TARGET_TYPE(TRAIT)
+            this->CompileConstruct(ast::CastNode<ast::Construct>(node));
             break;
         TARGET_TYPE(STRUCT_INIT)
             break;
@@ -335,8 +337,6 @@ void Compiler::CompileCode(const ast::NodeUptr &node) {
             break;
         TARGET_TYPE(TEST)
             this->CompileTest(ast::CastNode<ast::Binary>(node));
-            break;
-        TARGET_TYPE(TRAIT)
             break;
         TARGET_TYPE(TUPLE)
             this->CompileCompound(ast::CastNode<ast::List>(node));
@@ -384,6 +384,34 @@ void Compiler::CompileCode(const ast::NodeUptr &node) {
     }
 
 #undef TARGET_TYPE
+}
+
+void Compiler::CompileConstruct(const ast::Construct *construct) {
+    // TODO: IF empty ?!
+    bool is_struct = construct->type == ast::NodeType::STRUCT;
+    Code *code;
+
+    this->EnterContext(construct->name, is_struct ? TUScope::STRUCT : TUScope::TRAIT);
+
+    this->CompileCode(construct->body);
+
+    code = this->Assemble();
+
+    this->ExitContext();
+
+    this->PushStatic(code, false, true);
+    Release(code);
+
+    this->PushStatic(construct->name, true, true);
+
+    // Impls
+    for (auto &impl:construct->impls)
+        this->CompileCode(impl);
+
+    this->EmitOp2(is_struct ? OpCodes::MK_STRUCT : OpCodes::MK_TRAIT, construct->impls.size());
+    this->unit_->DecStack(construct->impls.size() + 1); // +1 is name
+
+    this->VariableNew(construct->name, true, AttrToFlags(construct->pub, false, false, false));
 }
 
 void Compiler::CompileBranch(const ast::If *stmt) {
