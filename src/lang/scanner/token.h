@@ -114,7 +114,7 @@ namespace argon::lang::scanner {
         //NIL,
         PUB,
         RETURN,
-        SELF,
+        //SELF,
         SPAWN,
         STRUCT,
         SWITCH,
@@ -127,6 +127,7 @@ namespace argon::lang::scanner {
 
         FALSE,
         NIL,
+        SELF,
         TRUE,
 
         ERROR

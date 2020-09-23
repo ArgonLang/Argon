@@ -67,6 +67,8 @@ namespace argon::lang {
             BasicBlock *start = nullptr;
             BasicBlock *current = nullptr;
 
+            BasicBlock *stack = nullptr;
+
             BasicBlock *flow_head = nullptr;
             BasicBlock *flow_tail = nullptr;
         } bb;
@@ -86,6 +88,8 @@ namespace argon::lang {
 
         BasicBlock *BlockNew();
 
+        BasicBlock *BlockNewEnqueue();
+
         BasicBlock *BlockAsNextNew();
 
         LoopMeta *LoopBegin(const std::string &loop_name);
@@ -95,6 +99,8 @@ namespace argon::lang {
         void LoopEnd();
 
         void BlockAsNext(BasicBlock *block);
+
+        void BlockAsNextDequeue();
 
         void IncStack();
 

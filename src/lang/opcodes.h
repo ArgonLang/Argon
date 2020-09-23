@@ -31,6 +31,7 @@ namespace argon::lang {
      *  MK_STRUCT   2Bytes
      *  MK_TRAIT    2Bytes
      *  LDGBL:      4Bytes
+     *  LDATTR:     4Bytes
      *  LSTATIC:    4Bytes
      *  IMPMOD:     4Bytes
      *  IMPFRM:     4Bytes

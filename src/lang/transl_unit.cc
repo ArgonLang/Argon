@@ -63,6 +63,15 @@ BasicBlock *TranslationUnit::BlockNew() {
     throw std::bad_alloc();
 }
 
+BasicBlock *TranslationUnit::BlockNewEnqueue() {
+    auto block = this->BlockNew();
+
+    block->block_next = this->bb.stack;
+    this->bb.stack = block;
+
+    return block;
+}
+
 BasicBlock *TranslationUnit::BlockAsNextNew() {
     BasicBlock *bn = this->BlockNew();
     BasicBlock *bp = this->bb.current;
@@ -114,6 +123,15 @@ void TranslationUnit::LoopEnd() {
 void TranslationUnit::BlockAsNext(BasicBlock *block) {
     this->bb.current->flow.next = block;
     this->bb.current = block;
+}
+
+void TranslationUnit::BlockAsNextDequeue() {
+    auto block = this->bb.stack;
+
+    if (block != nullptr) {
+        this->bb.stack = block->block_next;
+        this->BlockAsNext(block);
+    }
 }
 
 void TranslationUnit::IncStack() {

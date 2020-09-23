@@ -29,6 +29,8 @@ namespace argon::lang {
 
         void CompileConstruct(const ast::Construct *construct);
 
+        unsigned int CompileMember(const ast::Member *member);
+
         void CompileBranch(const ast::If *stmt);
 
         void CompileBinary(const ast::Binary *binary);
@@ -45,7 +47,7 @@ namespace argon::lang {
 
         void CompileSlice(const ast::Slice *slice);
 
-        void CompileAugAssignment(const ast::NodeUptr &left, const ast::NodeUptr &right, OpCodes code);
+        void CompileAugAssignment(const ast::Assignment *assign);
 
         void CompileAssignment(const ast::Assignment *assign);
 
