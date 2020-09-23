@@ -10,8 +10,10 @@ using namespace argon::lang;
 
 TEST(SymbolTable, Insert) {
     auto symt = std::make_shared<SymTable>();
+    bool inserted = false;
     ASSERT_EQ(symt->Insert("var_a")->name, "var_a");
-    ASSERT_EQ(symt->Insert("var_a"), nullptr);
+    ASSERT_NE(symt->Insert("var_a", SymbolType::UNKNOWN, &inserted), nullptr);
+    ASSERT_FALSE(inserted);
 }
 
 TEST(SymbolTable, Lookup) {
