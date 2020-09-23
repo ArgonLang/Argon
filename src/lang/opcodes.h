@@ -33,6 +33,8 @@ namespace argon::lang {
      *  LDGBL:      4Bytes
      *  LDATTR:     4Bytes
      *  LSTATIC:    4Bytes
+     *  LDSCOPE:    4Bytes
+     *  STSCOPE:    4Bytes
      *  IMPMOD:     4Bytes
      *  IMPFRM:     4Bytes
      */
@@ -63,6 +65,7 @@ namespace argon::lang {
         LDENC,
         LDGBL,
         LDLC,
+        LDSCOPE,
         LOR,
         LSTATIC,
         LXOR,
@@ -94,6 +97,7 @@ namespace argon::lang {
         STENC,
         STGBL,
         STLC,
+        STSCOPE,
         STSUBSCR,
         SUB,
         SUBSCR,

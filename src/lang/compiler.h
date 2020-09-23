@@ -29,7 +29,9 @@ namespace argon::lang {
 
         void CompileConstruct(const ast::Construct *construct);
 
-        unsigned int CompileMember(const ast::Member *member);
+        unsigned int CompileMember(const ast::Member *member, bool emit_last);
+
+        unsigned int CompileScope(const ast::Scope *scope, bool emit_last);
 
         void CompileBranch(const ast::If *stmt);
 

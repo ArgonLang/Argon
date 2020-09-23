@@ -278,15 +278,17 @@ void Compiler::CompileCode(const ast::NodeUptr &node) {
             this->CompileCompound(ast::CastNode<ast::List>(node));
             break;
         TARGET_TYPE(MEMBER)
-            this->EmitOp4(OpCodes::LDATTR, this->CompileMember(ast::CastNode<ast::Member>(node)));
+            this->CompileMember(ast::CastNode<ast::Member>(node), true);
             break;
         TARGET_TYPE(NULLABLE)
             this->unit_->BlockNewEnqueue();
             this->CompileCode(ast::CastNode<ast::Unary>(node)->expr);
             this->unit_->BlockAsNextDequeue();
             break;
+            /*
         TARGET_TYPE(PROGRAM)
             break;
+             */
         TARGET_TYPE(RELATIONAL) {
             this->CompileCode(ast::CastNode<ast::Binary>(node)->left);
             this->CompileCode(ast::CastNode<ast::Binary>(node)->right);
@@ -312,6 +314,7 @@ void Compiler::CompileCode(const ast::NodeUptr &node) {
             this->unit_->DecStack();
             break;
         TARGET_TYPE(SCOPE)
+            this->CompileScope(ast::CastNode<ast::Scope>(node), true);
             break;
         TARGET_TYPE(SET)
             this->CompileCompound(ast::CastNode<ast::List>(node));
@@ -390,7 +393,7 @@ void Compiler::CompileCode(const ast::NodeUptr &node) {
 #undef TARGET_TYPE
 }
 
-unsigned int Compiler::CompileMember(const ast::Member *member) {
+unsigned int Compiler::CompileMember(const ast::Member *member, bool emit_last) {
     unsigned int index;
 
     this->CompileCode(member->left);
@@ -410,6 +413,8 @@ unsigned int Compiler::CompileMember(const ast::Member *member) {
     }
 
     // Ok now store last member
+    if (member->right->type != ast::NodeType::IDENTIFIER)
+        throw InvalidSyntaxtException("expected identifier");
     index = this->PushStatic(ast::CastNode<ast::Identifier>(member->right)->value, true, false);
 
     if (member->safe) {
@@ -417,7 +422,32 @@ unsigned int Compiler::CompileMember(const ast::Member *member) {
         this->unit_->BlockAsNextNew();
     }
 
+    if (emit_last)
+        this->EmitOp4(OpCodes::LDATTR, index);
+
     return index;
+}
+
+unsigned int Compiler::CompileScope(const ast::Scope *scope, bool emit_last) {
+    unsigned int id = 0;
+    size_t idx = 0;
+
+    for (auto &seg : scope->segments) {
+        if (idx++ == 0) {
+            this->VariableLoad(seg);
+            continue;
+        }
+
+        id = this->PushStatic(seg, true, false);
+
+        if (idx < scope->segments.size())
+            this->EmitOp4(OpCodes::LDSCOPE, id);
+    }
+
+    if (emit_last)
+        this->EmitOp4(OpCodes::LDSCOPE, id);
+
+    return id;
 }
 
 void Compiler::CompileConstruct(const ast::Construct *construct) {
@@ -744,12 +774,22 @@ this->unit_->IncStack(sz)
             if (member == nullptr)
                 member = ast::CastNode<ast::Member>(assign->assignee);
 
-            id = this->CompileMember(member);
+            id = this->CompileMember(member, false);
             DUP_STACK(1);
             this->EmitOp4(OpCodes::LDATTR, id);
             COMPILE_OP();
             this->EmitOp2(OpCodes::PB_HEAD, 1);
             this->EmitOp4(OpCodes::STATTR, id);
+            this->unit_->DecStack(2);
+            break;
+        }
+        case ast::NodeType::SCOPE: {
+            id = this->CompileScope(ast::CastNode<ast::Scope>(assign->assignee), false);
+            DUP_STACK(1);
+            this->EmitOp4(OpCodes::LDSCOPE, id);
+            COMPILE_OP();
+            this->EmitOp2(OpCodes::PB_HEAD, 1);
+            this->EmitOp4(OpCodes::STSCOPE, id);
             this->unit_->DecStack(2);
             break;
         }
@@ -799,8 +839,14 @@ void Compiler::CompileAssignment(const ast::Assignment *assign) {
                 if (member == nullptr)
                     member = ast::CastNode<ast::Member>(assign->assignee);
 
-                auto id = this->CompileMember(member);
+                auto id = this->CompileMember(member, false);
                 this->EmitOp4(OpCodes::STATTR, id);
+                this->unit_->DecStack();
+                break;
+            }
+            case ast::NodeType::SCOPE: {
+                auto id = this->CompileScope(ast::CastNode<ast::Scope>(assign->assignee), false);
+                this->EmitOp4(OpCodes::STSCOPE, id);
                 this->unit_->DecStack();
                 break;
             }
