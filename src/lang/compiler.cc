@@ -127,19 +127,9 @@ void Compiler::CompileCode(const ast::NodeUptr &node) {
             this->unit_->BlockAsNextNew();
             break;
         }
-        TARGET_TYPE(CALL) {
-            auto call = ast::CastNode<ast::Call>(node);
-            auto stack_sz = this->unit_->stack.current;
-
-            this->CompileCode(call->callee);
-            for (auto &arg : call->args)
-                this->CompileCode(arg);
-            this->unit_->DecStack(this->unit_->stack.current - stack_sz);
-            this->EmitOp2(OpCodes::CALL, call->args.size());
-
-            this->unit_->IncStack();
+        TARGET_TYPE(CALL)
+            this->CompileCall(ast::CastNode<ast::Call>(node), OpCodes::CALL);
             break;
-        }
             /*
             TARGET_TYPE(CASE)
                 break;
@@ -163,8 +153,13 @@ void Compiler::CompileCode(const ast::NodeUptr &node) {
             this->unit_->BlockAsNextNew();
             break;
         }
-        TARGET_TYPE(DEFER)
+        TARGET_TYPE(DEFER) {
+            auto dfr = ast::CastNode<ast::Unary>(node);
+            if (dfr->expr->type != ast::NodeType::CALL)
+                throw InvalidSyntaxtException("expression in defer must be function call");
+            this->CompileCall(ast::CastNode<ast::Call>(dfr->expr), OpCodes::DFR);
             break;
+        }
         TARGET_TYPE(ELLIPSIS)
             break;
         TARGET_TYPE(ELVIS) {
@@ -232,10 +227,12 @@ void Compiler::CompileCode(const ast::NodeUptr &node) {
         TARGET_TYPE(IMPORT_FROM)
             this->CompileImportFrom(ast::CastNode<ast::Import>(node));
             break;
+            /*
         TARGET_TYPE(IMPORT_NAME)
             break;
         TARGET_TYPE(INDEX)
             break;
+             */
         TARGET_TYPE(LABEL) {
             auto label = ast::CastNode<ast::Binary>(node);
             if (label->right->type == ast::NodeType::LOOP)
@@ -323,8 +320,13 @@ void Compiler::CompileCode(const ast::NodeUptr &node) {
         TARGET_TYPE(SLICE)
             break;
              */
-        TARGET_TYPE(SPAWN)
+        TARGET_TYPE(SPAWN) {
+            auto spawn = ast::CastNode<ast::Unary>(node);
+            if (spawn->expr->type != ast::NodeType::CALL)
+                throw InvalidSyntaxtException("expression in spawn must be function call");
+            this->CompileCall(ast::CastNode<ast::Call>(spawn->expr), OpCodes::SPWN);
             break;
+        }
         TARGET_TYPE(STRUCT)
         TARGET_TYPE(TRAIT)
             this->CompileConstruct(ast::CastNode<ast::Construct>(node));
@@ -391,6 +393,21 @@ void Compiler::CompileCode(const ast::NodeUptr &node) {
     }
 
 #undef TARGET_TYPE
+}
+
+void Compiler::CompileCall(const ast::Call *call, OpCodes code) {
+    auto stack_sz = this->unit_->stack.current;
+
+    this->CompileCode(call->callee);
+
+    for (auto &arg : call->args)
+        this->CompileCode(arg);
+
+    this->unit_->DecStack(this->unit_->stack.current - stack_sz);
+
+    this->EmitOp2(code, call->args.size()); // CALL, DFR, SPWN
+
+    this->unit_->IncStack();
 }
 
 unsigned int Compiler::CompileMember(const ast::Member *member, bool emit_last) {

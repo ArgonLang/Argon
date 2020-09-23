@@ -29,6 +29,8 @@ namespace argon::lang {
 
         void CompileConstruct(const ast::Construct *construct);
 
+        void CompileCall(const ast::Call *call, OpCodes code);
+
         unsigned int CompileMember(const ast::Member *member, bool emit_last);
 
         unsigned int CompileScope(const ast::Scope *scope, bool emit_last);

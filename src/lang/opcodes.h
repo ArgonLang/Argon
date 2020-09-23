@@ -43,6 +43,7 @@ namespace argon::lang {
         ADD,
         CALL,
         CMP,
+        DFR,
         DIV,
         DUP,    // Duplicate elements on stack
         IDIV,
@@ -93,6 +94,7 @@ namespace argon::lang {
         RET,
         SHL,
         SHR,
+        SPWN,
         STATTR,
         STENC,
         STGBL,
