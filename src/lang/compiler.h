@@ -27,13 +27,17 @@ namespace argon::lang {
 
         void CompileCode(const ast::NodeUptr &node);
 
+        void CompileUpdate(const ast::Update *update);
+
         void CompileConstruct(const ast::Construct *construct);
 
         void CompileCall(const ast::Call *call, OpCodes code);
 
-        unsigned int CompileMember(const ast::Member *member, bool emit_last);
+        void CompileSubscr(const ast::Binary *subscr, bool duplicate, bool emit_subscr);
 
-        unsigned int CompileScope(const ast::Scope *scope, bool emit_last);
+        unsigned int CompileMember(const ast::Member *member, bool duplicate, bool emit_last);
+
+        unsigned int CompileScope(const ast::Scope *scope, bool duplicate, bool emit_last);
 
         void CompileBranch(const ast::If *stmt);
 
@@ -82,6 +86,8 @@ namespace argon::lang {
         void VariableNew(const std::string &name, bool emit, unsigned char flags);
 
         void VariableLoad(const std::string &name);
+
+        void VariableStore(const std::string &name);
 
         bool VariableLookupCreate(const std::string &name, Symbol **out_sym);
 

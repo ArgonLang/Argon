@@ -275,7 +275,7 @@ void Compiler::CompileCode(const ast::NodeUptr &node) {
             this->CompileCompound(ast::CastNode<ast::List>(node));
             break;
         TARGET_TYPE(MEMBER)
-            this->CompileMember(ast::CastNode<ast::Member>(node), true);
+            this->CompileMember(ast::CastNode<ast::Member>(node), false, true);
             break;
         TARGET_TYPE(NULLABLE)
             this->unit_->BlockNewEnqueue();
@@ -311,7 +311,7 @@ void Compiler::CompileCode(const ast::NodeUptr &node) {
             this->unit_->DecStack();
             break;
         TARGET_TYPE(SCOPE)
-            this->CompileScope(ast::CastNode<ast::Scope>(node), true);
+            this->CompileScope(ast::CastNode<ast::Scope>(node), false, true);
             break;
         TARGET_TYPE(SET)
             this->CompileCompound(ast::CastNode<ast::List>(node));
@@ -333,14 +333,9 @@ void Compiler::CompileCode(const ast::NodeUptr &node) {
             break;
         TARGET_TYPE(STRUCT_INIT)
             break;
-        TARGET_TYPE(SUBSCRIPT) {
-            auto subs = ast::CastNode<ast::Binary>(node);
-            this->CompileCode(subs->left);
-            this->CompileSlice(ast::CastNode<ast::Slice>(subs->right));
-            this->EmitOp(OpCodes::SUBSCR);
-            this->unit_->DecStack();
+        TARGET_TYPE(SUBSCRIPT)
+            this->CompileSubscr(ast::CastNode<ast::Binary>(node), false, true);
             break;
-        }
         TARGET_TYPE(SWITCH)
             this->CompileSwitch(ast::CastNode<ast::Switch>(node));
             break;
@@ -375,6 +370,7 @@ void Compiler::CompileCode(const ast::NodeUptr &node) {
             break;
         }
         TARGET_TYPE(UPDATE)
+            this->CompileUpdate(ast::CastNode<ast::Update>(node));
             break;
         TARGET_TYPE(VARIABLE) {
             auto variable = ast::CastNode<ast::Variable>(node);
@@ -395,6 +391,8 @@ void Compiler::CompileCode(const ast::NodeUptr &node) {
 #undef TARGET_TYPE
 }
 
+void Compiler::CompileUpdate(const ast::Update *update) {}
+
 void Compiler::CompileCall(const ast::Call *call, OpCodes code) {
     auto stack_sz = this->unit_->stack.current;
 
@@ -410,7 +408,22 @@ void Compiler::CompileCall(const ast::Call *call, OpCodes code) {
     this->unit_->IncStack();
 }
 
-unsigned int Compiler::CompileMember(const ast::Member *member, bool emit_last) {
+void Compiler::CompileSubscr(const ast::Binary *subscr, bool duplicate, bool emit_subscr) {
+    this->CompileCode(subscr->left);
+    this->CompileSlice(ast::CastNode<ast::Slice>(subscr->right));
+
+    if (duplicate) {
+        this->EmitOp2(OpCodes::DUP, 2);
+        this->unit_->IncStack(2);
+    }
+
+    if (emit_subscr) {
+        this->EmitOp(OpCodes::SUBSCR);
+        this->unit_->DecStack();
+    }
+}
+
+unsigned int Compiler::CompileMember(const ast::Member *member, bool duplicate, bool emit_last) {
     unsigned int index;
 
     this->CompileCode(member->left);
@@ -439,13 +452,18 @@ unsigned int Compiler::CompileMember(const ast::Member *member, bool emit_last) 
         this->unit_->BlockAsNextNew();
     }
 
+    if (duplicate) {
+        this->EmitOp2(OpCodes::DUP, 1);
+        this->unit_->IncStack();
+    }
+
     if (emit_last)
         this->EmitOp4(OpCodes::LDATTR, index);
 
     return index;
 }
 
-unsigned int Compiler::CompileScope(const ast::Scope *scope, bool emit_last) {
+unsigned int Compiler::CompileScope(const ast::Scope *scope, bool duplicate, bool emit_last) {
     unsigned int id = 0;
     size_t idx = 0;
 
@@ -459,6 +477,11 @@ unsigned int Compiler::CompileScope(const ast::Scope *scope, bool emit_last) {
 
         if (idx < scope->segments.size())
             this->EmitOp4(OpCodes::LDSCOPE, id);
+    }
+
+    if (duplicate) {
+        this->EmitOp2(OpCodes::DUP, 1);
+        this->unit_->IncStack();
     }
 
     if (emit_last)
@@ -760,25 +783,19 @@ void Compiler::CompileAugAssignment(const ast::Assignment *assign) {
 #define COMPILE_OP()                \
 this->CompileCode(assign->right);   \
 this->EmitOp(code);                 \
-this->unit_->DecStack()             \
-
-#define DUP_STACK(sz)               \
-this->EmitOp2(OpCodes::DUP, sz);    \
-this->unit_->IncStack(sz)
+this->unit_->DecStack()
 
     switch (assign->assignee->type) {
-        case ast::NodeType::IDENTIFIER:
-            this->CompileCode(assign->assignee);
-            COMPILE_OP();
-            break;
-        case ast::NodeType::SUBSCRIPT: {
-            auto subs = ast::CastNode<ast::Binary>(assign->assignee);
+        case ast::NodeType::IDENTIFIER: {
+            auto var = ast::CastNode<ast::Identifier>(assign->assignee);
 
-            this->CompileCode(subs->left);
-            this->CompileSlice(ast::CastNode<ast::Slice>(subs->right));
-            DUP_STACK(2);
-            this->EmitOp(OpCodes::SUBSCR);
-            this->unit_->DecStack();
+            this->VariableLoad(var->value);
+            COMPILE_OP();
+            this->VariableStore(var->value);
+            break;
+        }
+        case ast::NodeType::SUBSCRIPT: {
+            this->CompileSubscr(ast::CastNode<ast::Binary>(assign->assignee), true, true);
             COMPILE_OP();
             this->EmitOp2(OpCodes::PB_HEAD, 3);
             this->EmitOp(OpCodes::STSUBSCR);
@@ -791,9 +808,7 @@ this->unit_->IncStack(sz)
             if (member == nullptr)
                 member = ast::CastNode<ast::Member>(assign->assignee);
 
-            id = this->CompileMember(member, false);
-            DUP_STACK(1);
-            this->EmitOp4(OpCodes::LDATTR, id);
+            id = this->CompileMember(member, true, true);
             COMPILE_OP();
             this->EmitOp2(OpCodes::PB_HEAD, 1);
             this->EmitOp4(OpCodes::STATTR, id);
@@ -801,9 +816,7 @@ this->unit_->IncStack(sz)
             break;
         }
         case ast::NodeType::SCOPE: {
-            id = this->CompileScope(ast::CastNode<ast::Scope>(assign->assignee), false);
-            DUP_STACK(1);
-            this->EmitOp4(OpCodes::LDSCOPE, id);
+            id = this->CompileScope(ast::CastNode<ast::Scope>(assign->assignee), true, true);
             COMPILE_OP();
             this->EmitOp2(OpCodes::PB_HEAD, 1);
             this->EmitOp4(OpCodes::STSCOPE, id);
@@ -815,7 +828,6 @@ this->unit_->IncStack(sz)
     }
 
 #undef COMPILE_OP
-#undef DUP_STACK
 }
 
 void Compiler::CompileAssignment(const ast::Assignment *assign) {
@@ -828,49 +840,34 @@ void Compiler::CompileAssignment(const ast::Assignment *assign) {
     if (assign->kind == scanner::TokenType::EQUAL) {
         this->CompileCode(assign->right);
         switch (assign->assignee->type) {
-            case ast::NodeType::IDENTIFIER: {
-                auto id = ast::CastNode<ast::Identifier>(assign->assignee);
-                Symbol *sym;
-
-                this->VariableLookupCreate(id->value, &sym);
-
-                if (sym->declared && (this->unit_->scope == TUScope::FUNCTION || sym->nested > 0))
-                    this->EmitOp2(OpCodes::STLC, sym->id);
-                else if (sym->free)
-                    this->EmitOp2(OpCodes::STENC, sym->id);
-                else
-                    this->EmitOp4(OpCodes::STGBL, sym->id);
+            case ast::NodeType::IDENTIFIER:
+                this->VariableStore(ast::CastNode<ast::Identifier>(assign->assignee)->value);
                 break;
-            }
-            case ast::NodeType::SUBSCRIPT: {
-                auto subs = ast::CastNode<ast::Binary>(assign->assignee);
-                this->CompileCode(subs->left);
-                this->CompileSlice(ast::CastNode<ast::Slice>(subs->right));
-                this->unit_->DecStack(2);
+            case ast::NodeType::SUBSCRIPT:
+                this->CompileSubscr(ast::CastNode<ast::Binary>(assign->assignee), false, false);
                 this->EmitOp(OpCodes::STSUBSCR);
+                this->unit_->DecStack(3);
                 break;
-            }
             case ast::NodeType::NULLABLE:
                 member = ast::CastNode<ast::Member>(ast::CastNode<ast::Unary>(assign->assignee)->expr);
             case ast::NodeType::MEMBER: {
                 if (member == nullptr)
                     member = ast::CastNode<ast::Member>(assign->assignee);
 
-                auto id = this->CompileMember(member, false);
+                auto id = this->CompileMember(member, false, false);
                 this->EmitOp4(OpCodes::STATTR, id);
-                this->unit_->DecStack();
+                this->unit_->DecStack(2);
                 break;
             }
             case ast::NodeType::SCOPE: {
-                auto id = this->CompileScope(ast::CastNode<ast::Scope>(assign->assignee), false);
+                auto id = this->CompileScope(ast::CastNode<ast::Scope>(assign->assignee), false, false);
                 this->EmitOp4(OpCodes::STSCOPE, id);
-                this->unit_->DecStack();
+                this->unit_->DecStack(2);
                 break;
             }
             default:
                 assert(false);
         }
-        this->unit_->DecStack();
     } else
         this->CompileAugAssignment(assign);
 
@@ -1030,7 +1027,7 @@ void Compiler::CompileTest(const ast::Binary *test) {
 }
 
 void Compiler::CompileLiteral(const ast::Literal *literal) {
-    ArObject *obj;
+    ArObject *obj = nullptr;
 
     switch (literal->kind) {
         case scanner::TokenType::STRING:
@@ -1148,6 +1145,25 @@ void Compiler::VariableLoad(const std::string &name) {
     }
 
     this->EmitOp4(OpCodes::LDGBL, sym->id);
+}
+
+void Compiler::VariableStore(const std::string &name) {
+    Symbol *sym;
+
+    if (this->VariableLookupCreate(name, &sym))
+        sym->type = SymbolType::VARIABLE;
+
+    this->unit_->DecStack();
+
+    if (sym->declared && (this->unit_->scope == TUScope::FUNCTION || sym->nested > 0)) {
+        this->EmitOp2(OpCodes::STLC, sym->id);
+        return;
+    } else if (sym->free) {
+        this->EmitOp2(OpCodes::STENC, sym->id);
+        return;
+    }
+
+    this->EmitOp4(OpCodes::STGBL, sym->id);
 }
 
 bool Compiler::VariableLookupCreate(const std::string &name, Symbol **out_sym) {
