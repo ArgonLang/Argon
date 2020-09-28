@@ -574,10 +574,12 @@ void Compiler::CompileConstruct(const ast::Construct *construct) {
 }
 
 void Compiler::CompileBranch(const ast::If *stmt) {
-    BasicBlock *test = this->unit_->bb.current;
     BasicBlock *end = this->unit_->BlockNew();
+    BasicBlock *test;
 
     this->CompileCode(stmt->test);
+    test = this->unit_->bb.current;
+
     this->CompileJump(OpCodes::JF, test, end);
     this->unit_->DecStack();
 
