@@ -391,7 +391,62 @@ void Compiler::CompileCode(const ast::NodeUptr &node) {
 #undef TARGET_TYPE
 }
 
-void Compiler::CompileUpdate(const ast::Update *update) {}
+void Compiler::CompileUpdate(const ast::Update *update) {
+    unsigned int id;
+
+#define EMIT_OP(kind, prefix)                                                           \
+if (prefix)                                                                             \
+    this->EmitOp(kind == scanner::TokenType::PLUS_PLUS ? OpCodes::INC : OpCodes::DEC);  \
+this->EmitOp2(OpCodes::DUP, 1);                                                         \
+this->unit_->IncStack();                                                                \
+if (!prefix)                                                                            \
+    this->EmitOp(kind == scanner::TokenType::PLUS_PLUS ? OpCodes::INC : OpCodes::DEC)
+
+    switch (update->expr->type) {
+        case ast::NodeType::IDENTIFIER: {
+            auto ident = ast::CastNode<ast::Identifier>(update->expr);
+
+            this->VariableLoad(ident->value);
+            EMIT_OP(update->kind, update->prefix);
+            this->VariableStore(ident->value);
+            break;
+        }
+        case ast::NodeType::SUBSCRIPT: {
+            auto subs = ast::CastNode<ast::Binary>(update->expr);
+
+            this->CompileSubscr(subs, true, true);
+            EMIT_OP(update->kind, update->prefix);
+            this->EmitOp2(OpCodes::PB_HEAD, 3);
+            this->EmitOp2(OpCodes::PB_HEAD, 3);
+            this->EmitOp(OpCodes::STSUBSCR);
+            this->unit_->DecStack(3);
+            break;
+        }
+        case ast::NodeType::MEMBER: {
+            auto member = ast::CastNode<ast::Member>(update->expr);
+
+            id = this->CompileMember(member, true, true);
+            EMIT_OP(update->kind, update->prefix);
+            this->EmitOp2(OpCodes::PB_HEAD, 2);
+            this->EmitOp2(OpCodes::PB_HEAD, 2);
+            this->EmitOp4(OpCodes::STATTR, id);
+            this->unit_->DecStack(2);
+            break;
+        }
+        case ast::NodeType::SCOPE:
+            id = this->CompileScope(ast::CastNode<ast::Scope>(update->expr), true, true);
+
+            EMIT_OP(update->kind, update->prefix);
+            this->EmitOp2(OpCodes::PB_HEAD, 2);
+            this->EmitOp2(OpCodes::PB_HEAD, 2);
+            this->EmitOp4(OpCodes::STSCOPE, id);
+            this->unit_->DecStack(2);
+            break;
+        default:
+            assert(false);
+    }
+#undef EMIT_OP
+}
 
 void Compiler::CompileCall(const ast::Call *call, OpCodes code) {
     auto stack_sz = this->unit_->stack.current;

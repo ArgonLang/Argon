@@ -17,6 +17,8 @@ namespace argon::lang {
         scanner::Token currTk_;
         std::string filename_;
 
+        unsigned short safe_ = 0;
+
         std::list<ast::Comment>::iterator BeginDocs();
 
         std::list<ast::Comment> GetDocs(std::list<ast::Comment>::iterator &pos);
@@ -107,7 +109,7 @@ namespace argon::lang {
 
         ast::NodeUptr MulExpr();
 
-        ast::NodeUptr UnaryExpr();
+        ast::NodeUptr UnaryExpr(bool first);
 
         ast::NodeUptr AtomExpr();
 
@@ -117,7 +119,7 @@ namespace argon::lang {
 
         ast::NodeUptr ParseSubscript();
 
-        ast::NodeUptr MemberAccess(ast::NodeUptr left, bool &safe);
+        ast::NodeUptr MemberAccess(ast::NodeUptr left);
 
         ast::NodeUptr ParseAtom();
 

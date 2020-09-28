@@ -43,12 +43,14 @@ namespace argon::lang {
         ADD,
         CALL,
         CMP,
+        DEC,
         DFR,
         DIV,
         DUP,    // Duplicate elements on stack
         IDIV,
         IMPFRM,
         IMPMOD,
+        INC,
         INIT,   // See OpCodeINITFLAGS
         INV,
         IPADD,

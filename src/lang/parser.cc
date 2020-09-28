@@ -891,7 +891,7 @@ ast::NodeUptr Parser::ArithExpr() {
 }
 
 ast::NodeUptr Parser::MulExpr() {
-    NodeUptr left = this->UnaryExpr();
+    NodeUptr left = this->UnaryExpr(true);
     TokenType type = this->currTk_.type;
 
     switch (this->currTk_.type) {
@@ -906,7 +906,7 @@ ast::NodeUptr Parser::MulExpr() {
     }
 }
 
-ast::NodeUptr Parser::UnaryExpr() {
+ast::NodeUptr Parser::UnaryExpr(bool first) {
     Pos start = this->currTk_.start;
     TokenType type = this->currTk_.type;
     Pos end;
@@ -918,25 +918,34 @@ ast::NodeUptr Parser::UnaryExpr() {
         case TokenType::PLUS:
         case TokenType::MINUS:
             this->Eat();
-            expr = this->UnaryExpr();
+            expr = this->UnaryExpr(false);
             end = expr->end;
-            return std::make_unique<Unary>(NodeType::UNARY_OP, type, std::move(expr), start, end);
+            expr = std::make_unique<Unary>(NodeType::UNARY_OP, type, std::move(expr), start, end);
+            break;
         case TokenType::PLUS_PLUS:
         case TokenType::MINUS_MINUS:
             this->Eat();
-            expr = this->UnaryExpr();
+            expr = this->UnaryExpr(false);
             end = expr->end;
-            return std::make_unique<Update>(std::move(expr), type, true, start, end);
+            expr = std::make_unique<Update>(std::move(expr), type, true, start, end);
+            break;
         default:
-            return this->AtomExpr();
+            expr = this->AtomExpr();
     }
+
+    if (first && this->safe_ > 0) {
+        // Wrapper for Nullable-Expression E.g: a.b?.c or a?.b()?.c() ...
+        this->safe_--;
+        return std::make_unique<Unary>(NodeType::NULLABLE, std::move(expr), start);
+    }
+
+    return expr;
 }
 
 ast::NodeUptr Parser::AtomExpr() {
     auto left = this->ParseAtom();
     Pos start = left->start;
     Pos end = 0;
-    bool safe = false;
 
     do {
         end = left->end;
@@ -956,7 +965,7 @@ ast::NodeUptr Parser::AtomExpr() {
                 break;
             case TokenType::DOT:
             case TokenType::QUESTION_DOT:
-                left = this->MemberAccess(std::move(left), safe);
+                left = this->MemberAccess(std::move(left));
                 break;
             default:
                 end = 0;
@@ -967,10 +976,6 @@ ast::NodeUptr Parser::AtomExpr() {
         left = std::make_unique<Update>(std::move(left), this->currTk_.type, false, this->currTk_.end);
         this->Eat();
     }
-
-    if (safe)
-        // Wrapper for Nullable-Expression E.g: a.b?.c or a?.b()?.c() ...
-        return std::make_unique<Unary>(NodeType::NULLABLE, std::move(left), start);
 
     return left;
 }
@@ -1075,18 +1080,18 @@ ast::NodeUptr Parser::ParseSubscript() {
     return slice;
 }
 
-ast::NodeUptr Parser::MemberAccess(ast::NodeUptr left, bool &safe) {
+ast::NodeUptr Parser::MemberAccess(ast::NodeUptr left) {
     if (left == nullptr)
         left = this->ParseScope();
 
     switch (this->currTk_.type) {
         case TokenType::DOT:
             this->Eat();
-            return std::make_unique<Member>(std::move(left), this->MemberAccess(nullptr, safe), false);
+            return std::make_unique<Member>(std::move(left), this->MemberAccess(nullptr), false);
         case TokenType::QUESTION_DOT:
             this->Eat();
-            safe = true;
-            return std::make_unique<Member>(std::move(left), this->MemberAccess(nullptr, safe), true);
+            this->safe_++;
+            return std::make_unique<Member>(std::move(left), this->MemberAccess(nullptr), true);
         default:
             return left;
             //throw SyntaxException("expected . or ?. or !. operator", this->currTk_);
