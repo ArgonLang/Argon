@@ -23,27 +23,35 @@ namespace argon::lang {
 
         argon::object::Code *Assemble();
 
+        argon::object::Code *CompileFunction(const ast::Function *func);
+
         bool IsFreeVariable(const std::string &name);
 
-        void CompileCode(const ast::NodeUptr &node);
-
-        void CompileUpdate(const ast::Update *update);
-
-        void CompileConstruct(const ast::Construct *construct);
-
-        void CompileCall(const ast::Call *call, OpCodes code);
-
-        void CompileSubscr(const ast::Binary *subscr, bool duplicate, bool emit_subscr);
+        bool VariableLookupCreate(const std::string &name, Symbol **out_sym);
 
         unsigned int CompileMember(const ast::Member *member, bool duplicate, bool emit_last);
 
         unsigned int CompileScope(const ast::Scope *scope, bool duplicate, bool emit_last);
 
-        void CompileBranch(const ast::If *stmt);
+        unsigned int PushStatic(const std::string &value, bool store, bool emit);
+
+        unsigned int PushStatic(argon::object::ArObject *obj, bool store, bool emit);
+
+        void CompileAssignment(const ast::Assignment *assign);
+
+        void CompileAugAssignment(const ast::Assignment *assign);
 
         void CompileBinary(const ast::Binary *binary);
 
-        void CompileLoop(const ast::Loop *loop, const std::string &name);
+        void CompileBranch(const ast::If *stmt);
+
+        void CompileCall(const ast::Call *call, OpCodes code);
+
+        void CompileCode(const ast::NodeUptr &node);
+
+        void CompileCompound(const ast::List *list);
+
+        void CompileConstruct(const ast::Construct *construct);
 
         void CompileForLoop(const ast::For *loop, const std::string &name);
 
@@ -51,29 +59,25 @@ namespace argon::lang {
 
         void CompileImportFrom(const ast::Import *import);
 
-        void CompileSwitch(const ast::Switch *stmt, const std::string &name);
-
-        void CompileSlice(const ast::Slice *slice);
-
-        void CompileAugAssignment(const ast::Assignment *assign);
-
-        void CompileAssignment(const ast::Assignment *assign);
-
-        void CompileCompound(const ast::List *list);
-
-        argon::object::Code *CompileFunction(const ast::Function *func);
-
         void CompileJump(OpCodes op, BasicBlock *src, BasicBlock *dest);
 
         void CompileJump(OpCodes op, BasicBlock *dest);
 
-        void CompileTest(const ast::Binary *test);
-
         void CompileLiteral(const ast::Literal *literal);
 
-        void EnterContext(const std::string &name, TUScope scope);
+        void CompileLoop(const ast::Loop *loop, const std::string &name);
 
-        void ExitContext();
+        void CompileSlice(const ast::Slice *slice);
+
+        void CompileStructInit(const ast::StructInit *init);
+
+        void CompileSubscr(const ast::Binary *subscr, bool duplicate, bool emit_subscr);
+
+        void CompileSwitch(const ast::Switch *stmt, const std::string &name);
+
+        void CompileTest(const ast::Binary *test);
+
+        void CompileUpdate(const ast::Update *update);
 
         void EmitOp(OpCodes code);
 
@@ -83,17 +87,15 @@ namespace argon::lang {
 
         void EmitOp4Flags(OpCodes code, unsigned char flags, unsigned short arg);
 
-        void VariableNew(const std::string &name, bool emit, unsigned char flags);
+        void EnterContext(const std::string &name, TUScope scope);
+
+        void ExitContext();
 
         void VariableLoad(const std::string &name);
 
+        void VariableNew(const std::string &name, bool emit, unsigned char flags);
+
         void VariableStore(const std::string &name);
-
-        bool VariableLookupCreate(const std::string &name, Symbol **out_sym);
-
-        unsigned int PushStatic(const std::string &value, bool store, bool emit);
-
-        unsigned int PushStatic(argon::object::ArObject *obj, bool store, bool emit);
 
     public:
         Compiler();
