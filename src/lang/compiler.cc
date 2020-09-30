@@ -118,11 +118,11 @@ void Compiler::CompileCode(const ast::NodeUptr &node) {
             break;
         TARGET_TYPE(BREAK) {
             auto brk = ast::CastNode<ast::Unary>(node);
-            auto meta = this->unit_->LoopGet(
+            auto meta = this->unit_->LBlockGet(
                     brk->expr != nullptr ?
                     ast::CastNode<ast::Identifier>(brk->expr)->value : "");
             if (meta == nullptr)
-                throw InvalidSyntaxtException("use of keyword 'break' outside of loop is forbidden");
+                throw InvalidSyntaxtException("use of keyword 'break' outside of switch/loop is forbidden");
             this->CompileJump(OpCodes::JMP, meta->end);
             this->unit_->BlockAsNextNew();
             break;
@@ -144,10 +144,10 @@ void Compiler::CompileCode(const ast::NodeUptr &node) {
         }
         TARGET_TYPE(CONTINUE) {
             auto cnt = ast::CastNode<ast::Unary>(node);
-            auto meta = this->unit_->LoopGet(
+            auto meta = this->unit_->LBlockGet(
                     cnt->expr != nullptr ?
                     ast::CastNode<ast::Identifier>(cnt->expr)->value : "");
-            if (meta == nullptr)
+            if (meta == nullptr || meta->begin == nullptr)
                 throw InvalidSyntaxtException("use of keyword 'continue' outside of loop is forbidden");
             this->CompileJump(OpCodes::JMP, meta->begin);
             this->unit_->BlockAsNextNew();
@@ -241,6 +241,9 @@ void Compiler::CompileCode(const ast::NodeUptr &node) {
             else if (label->right->type == ast::NodeType::FOR)
                 this->CompileForLoop(ast::CastNode<ast::For>(label->right),
                                      ast::CastNode<ast::Identifier>(label->left)->value);
+            else if (label->right->type == ast::NodeType::SWITCH)
+                this->CompileSwitch(ast::CastNode<ast::Switch>(label->right),
+                                    ast::CastNode<ast::Identifier>(label->left)->value);
             else
                 this->CompileCode(label->right);
             break;
@@ -337,7 +340,7 @@ void Compiler::CompileCode(const ast::NodeUptr &node) {
             this->CompileSubscr(ast::CastNode<ast::Binary>(node), false, true);
             break;
         TARGET_TYPE(SWITCH)
-            this->CompileSwitch(ast::CastNode<ast::Switch>(node));
+            this->CompileSwitch(ast::CastNode<ast::Switch>(node), "");
             break;
         TARGET_TYPE(TEST)
             this->CompileTest(ast::CastNode<ast::Binary>(node));
@@ -603,7 +606,7 @@ void Compiler::CompileBranch(const ast::If *stmt) {
 }
 
 void Compiler::CompileLoop(const ast::Loop *loop, const std::string &name) {
-    auto meta = this->unit_->LoopBegin(name);
+    auto meta = this->unit_->LBlockBegin(name, true);
 
     if (loop->test != nullptr) {
         this->CompileCode(loop->test);
@@ -617,18 +620,18 @@ void Compiler::CompileLoop(const ast::Loop *loop, const std::string &name) {
     this->unit_->symt.ExitSub();
     this->CompileJump(OpCodes::JMP, meta->begin);
 
-    this->unit_->LoopEnd();
+    this->unit_->LBlockEnd();
 }
 
 void Compiler::CompileForLoop(const ast::For *loop, const std::string &name) {
-    LoopMeta *meta;
+    LBlockMeta *meta;
 
     this->unit_->symt.EnterSub();
 
     if (loop->init != nullptr)
         this->CompileCode(loop->init);
 
-    meta = this->unit_->LoopBegin(name);
+    meta = this->unit_->LBlockBegin(name, true);
 
     this->CompileCode(loop->test);
     this->unit_->DecStack();
@@ -642,7 +645,7 @@ void Compiler::CompileForLoop(const ast::For *loop, const std::string &name) {
 
     this->CompileJump(OpCodes::JMP, meta->begin);
 
-    this->unit_->LoopEnd();
+    this->unit_->LBlockEnd();
 
     this->unit_->symt.ExitSub();
 }
@@ -731,87 +734,90 @@ void Compiler::CompileBinary(const ast::Binary *binary) {
     }
 }
 
-void Compiler::CompileSwitch(const ast::Switch *stmt) {
-    // TODO: manage break stmt
-    BasicBlock *end = this->unit_->BlockNew();
-    BasicBlock *cond = this->unit_->bb.current;
-    BasicBlock *fbody = this->unit_->BlockNew();
-    BasicBlock *body = fbody;
-    BasicBlock *def = nullptr;
+void Compiler::CompileSwitch(const ast::Switch *stmt, const std::string &name) {
+    BasicBlock *tests = this->unit_->bb.current;
+    BasicBlock *bodies = this->unit_->BlockNew();
 
-    unsigned short index = 1;
+    auto block = this->unit_->LBlockBegin(name, false);
+
+    BasicBlock *ltest = tests;
+    BasicBlock *lbody = bodies;
+    BasicBlock *defcase = nullptr;
 
     bool as_if = stmt->test == nullptr;
+    unsigned short idx = 0;
 
     if (!as_if)
         this->CompileCode(stmt->test);
 
     for (auto &swcase : stmt->cases) {
-        auto case_ = ast::CastNode<ast::Case>(swcase);
+        auto cas = ast::CastNode<ast::Case>(swcase);
 
-        if (index != 1) {
-            body->flow.next = this->unit_->BlockNew();
-            body = body->flow.next;
-            if (!as_if)
-                this->unit_->IncStack();
-        }
+        if (!cas->tests.empty()) {
+            bool compound = false;
+            for (auto &test : cas->tests) {
+                this->unit_->bb.current = ltest; // switch to test thread
 
-        if (!case_->tests.empty()) {
-            // Case
-            bool compound_cond = false;
-            for (auto &test : case_->tests) {
-                if (compound_cond || cond->flow.jump != nullptr) {
-                    this->unit_->BlockAsNextNew();
-                    cond = this->unit_->bb.current;
-                }
-                compound_cond = true;
+                if (!as_if && (compound || idx > 0))
+                    this->unit_->IncStack();
+
                 this->CompileCode(test);
+
                 if (!as_if) {
                     this->EmitOp(OpCodes::TEST);
                     this->unit_->DecStack();
                 }
-                this->CompileJump(OpCodes::JT, cond, body);
+
+                this->CompileJump(OpCodes::JT, lbody);
                 this->unit_->DecStack();
+
+                ltest->flow.next = this->unit_->BlockNew();
+                ltest = ltest->flow.next;
+                compound = true;
             }
         } else {
-            // Default
-            def = this->unit_->BlockNew();
-            this->unit_->bb.current = def;
-            if (!as_if) {
+            // Default case
+            defcase = this->unit_->BlockNew();
+            this->unit_->bb.current = defcase;
+            if (!as_if)
                 this->EmitOp(OpCodes::POP);
-                this->unit_->DecStack();
-            }
-            this->CompileJump(OpCodes::JMP, body);
+            this->CompileJump(OpCodes::JMP, lbody);
         }
 
-        this->unit_->bb.current = body; // Use bb pointed by body
+        // Compile Body
+        this->unit_->bb.current = lbody;
 
         this->unit_->symt.EnterSub();
-        this->CompileCode(case_->body);
+        this->CompileCode(cas->body);
         this->unit_->symt.ExitSub();
 
-        body = this->unit_->bb.current; // Update body after CompileCode, body may be changed (Eg: if)
+        lbody = this->unit_->bb.current; // Update body after CompileCode, body may be changed (Eg: if, test, ...)
 
-        if (index < stmt->cases.size()) {
-            if (ast::CastNode<ast::Block>(case_->body)->stmts.back()->type != ast::NodeType::FALLTHROUGH)
-                this->CompileJump(OpCodes::JMP, body, end);
+        if (++idx < stmt->cases.size()) {
+            // Fix jmp / fallthrough
+            if (ast::CastNode<ast::Block>(cas->body)->stmts.back()->type != ast::NodeType::FALLTHROUGH)
+                this->CompileJump(OpCodes::JMP, block->end);
+
+            lbody->flow.next = this->unit_->BlockNew();
+            lbody = lbody->flow.next;
         }
-
-        this->unit_->bb.current = cond;
-        index++;
     }
 
-    if (def == nullptr) {
-        this->unit_->BlockAsNextNew();
-        if (!as_if)
-            this->EmitOp(OpCodes::POP);
-        this->CompileJump(OpCodes::JMP, end);
-    } else this->unit_->BlockAsNext(def);
+    // Fix jump for default case
+    if (defcase != nullptr) {
+        ltest->flow.next = defcase;
+        defcase->flow.next = this->unit_->BlockNew();
+        ltest = defcase->flow.next;
+    } else {
+        this->unit_->bb.current = ltest;
+        this->CompileJump(OpCodes::JMP, block->end);
+    }
 
-    this->unit_->bb.current->flow.next = fbody;
-    this->unit_->bb.current = body;
+    // TEST -> BODIES -> rest of program
+    ltest->flow.next = bodies;
+    this->unit_->bb.current = lbody;
 
-    this->unit_->BlockAsNext(end);
+    this->unit_->LBlockEnd();
 }
 
 void Compiler::CompileAugAssignment(const ast::Assignment *assign) {

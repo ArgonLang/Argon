@@ -83,25 +83,27 @@ BasicBlock *TranslationUnit::BlockAsNextNew() {
     return bp;
 }
 
-LoopMeta *TranslationUnit::LoopBegin(const std::string &loop_name) {
-    auto meta = argon::memory::AllocObject<LoopMeta>(&loop_name);
+LBlockMeta *TranslationUnit::LBlockBegin(const std::string &lblock_name, bool mk_begin) {
+    auto meta = argon::memory::AllocObject<LBlockMeta>(&lblock_name);
 
     meta->prev = this->lstack;
     this->lstack = meta;
 
-    meta->begin = this->BlockNew();
-    meta->end = this->BlockNew();
+    if (mk_begin) {
+        meta->begin = this->BlockNew();
+        this->BlockAsNext(meta->begin);
+    }
 
-    this->BlockAsNext(meta->begin);
+    meta->end = this->BlockNew();
 
     return meta;
 }
 
-LoopMeta *TranslationUnit::LoopGet(const std::string &loop_name) {
+LBlockMeta *TranslationUnit::LBlockGet(const std::string &loop_name) {
     if (loop_name.empty())
         return this->lstack;
 
-    for (LoopMeta *cu = this->lstack; cu != nullptr; cu = cu->prev) {
+    for (LBlockMeta *cu = this->lstack; cu != nullptr; cu = cu->prev) {
         if (*cu->name == loop_name)
             return cu;
     }
@@ -109,7 +111,7 @@ LoopMeta *TranslationUnit::LoopGet(const std::string &loop_name) {
     return nullptr;
 }
 
-void TranslationUnit::LoopEnd() {
+void TranslationUnit::LBlockEnd() {
     auto meta = this->lstack;
 
     if (meta != nullptr) {

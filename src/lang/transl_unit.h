@@ -21,15 +21,15 @@ namespace argon::lang {
         TRAIT
     };
 
-    class LoopMeta {
+    class LBlockMeta {
     public:
         const std::string *name;
         BasicBlock *begin = nullptr;
         BasicBlock *end = nullptr;
 
-        LoopMeta *prev = nullptr;
+        LBlockMeta *prev = nullptr;
 
-        LoopMeta(const std::string *name) : name(name) {}
+        LBlockMeta(const std::string *name) : name(name) {}
     };
 
     class TranslationUnit {
@@ -60,7 +60,7 @@ namespace argon::lang {
         /* Closure */
         argon::object::List *enclosed = nullptr;
 
-        LoopMeta *lstack = nullptr;
+        LBlockMeta *lstack = nullptr;
 
         struct {
             BasicBlock *list = nullptr;
@@ -92,11 +92,11 @@ namespace argon::lang {
 
         BasicBlock *BlockAsNextNew();
 
-        LoopMeta *LoopBegin(const std::string &loop_name);
+        LBlockMeta *LBlockBegin(const std::string &lblock_name, bool mk_begin);
 
-        LoopMeta *LoopGet(const std::string &loop_name);
+        LBlockMeta *LBlockGet(const std::string &loop_name);
 
-        void LoopEnd();
+        void LBlockEnd();
 
         void BlockAsNext(BasicBlock *block);
 
