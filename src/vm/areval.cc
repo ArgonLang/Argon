@@ -5,6 +5,10 @@
 #include <object/datatype/bool.h>
 #include <object/datatype/error.h>
 #include <object/datatype/nil.h>
+#include <object/datatype/list.h>
+#include <object/datatype/tuple.h>
+#include <object/datatype/bounds.h>
+#include <object/datatype/map.h>
 #include <object/objmgmt.h>
 
 #include <lang/opcodes.h>
@@ -29,6 +33,39 @@ ArObject *Binary(ArRoutine *routine, ArObject *l, ArObject *r, int offset) {
 
     return result;
 #undef GET_BINARY_OP
+}
+
+ArObject *MkBounds(Frame *frame, unsigned short args) {
+    arsize step = 1;
+    arsize stop = 0;
+    arsize start;
+
+    ArObject *obj = *(frame->eval_stack - 1);
+
+    if (args == 3) {
+        if (!AsIndex(obj))
+            return ErrorFormat(&error_type_error, "step parameter must be integer not '%s'", obj->type->name);
+
+        step = obj->type->number_actions->as_index(obj);
+        Release(*(--frame->eval_stack));
+        obj = *(frame->eval_stack - 1);
+    }
+
+    if (args >= 2) {
+        if (!AsIndex(obj))
+            return ErrorFormat(&error_type_error, "stop parameter must be integer not '%s'", obj->type->name);
+
+        stop = obj->type->number_actions->as_index(obj);
+        Release(*(--frame->eval_stack));
+        obj = *(frame->eval_stack - 1);
+    }
+
+    if (!AsIndex(obj))
+        return ErrorFormat(&error_type_error, "start parameter must be integer not '%s'", obj->type->name);
+
+    start = obj->type->number_actions->as_index(obj);
+
+    return BoundsNew(start, stop, step);
 }
 
 ArObject *argon::vm::Eval(ArRoutine *routine, Frame *frame) {
@@ -239,6 +276,77 @@ ArObject *argon::vm::Eval(ArRoutine *routine) {
             TARGET_OP(LXOR) {
                 BINARY_OP(routine, l_xor, ^);
             }
+            TARGET_OP(MK_BOUNDS) {
+                if ((ret = MkBounds(cu_frame, ARG16)) == nullptr)
+                    goto error;
+
+                TOP_REPLACE(ret);
+                DISPATCH2();
+            }
+            TARGET_OP(MK_FUNC) {
+            }
+            TARGET_OP(MK_LIST) {
+                auto args = ARG32;
+
+                if ((ret = ListNew(args)) == nullptr)
+                    goto error;
+
+                // Fill list
+                for (ArObject **cursor = cu_frame->eval_stack - args; cursor != cu_frame->eval_stack; cursor++) {
+                    if (!ListAppend((List *) ret, *cursor))
+                        goto error;
+                    Release(*cursor);
+                }
+
+                cu_frame->eval_stack -= args;
+                PUSH(ret);
+                DISPATCH4();
+            }
+            TARGET_OP(MK_MAP) {
+                auto args = ARG32;
+
+                if ((ret = MapNew()) == nullptr)
+                    goto error;
+
+                // Fill map
+                for (ArObject **cursor = cu_frame->eval_stack - args; cursor != cu_frame->eval_stack; cursor += 2) {
+                    if (!MapInsert((Map *) ret, *cursor, *(cursor + 1)))
+                        goto error;
+                    Release(*cursor);
+                    Release(*(cursor + 1));
+                }
+
+                cu_frame->eval_stack -= args;
+                PUSH(ret);
+                DISPATCH4();
+            }
+            TARGET_OP(MK_SET) {
+
+            }
+            TARGET_OP(MK_STRUCT) {
+
+            }
+            TARGET_OP(MK_TRAIT) {
+
+            }
+            TARGET_OP(MK_TUPLE) {
+                auto args = ARG32;
+
+                if ((ret = TupleNew(args)) == nullptr)
+                    goto error;
+
+                // Fill tuple
+                unsigned int idx = 0;
+                for (ArObject **cursor = cu_frame->eval_stack - args; cursor != cu_frame->eval_stack; cursor++) {
+                    if (!TupleInsertAt((Tuple *) ret, idx++, *cursor))
+                        goto error;
+                    Release(*cursor);
+                }
+
+                cu_frame->eval_stack -= args;
+                PUSH(ret);
+                DISPATCH4();
+            }
             TARGET_OP(MOD) {
                 BINARY_OP(routine, module, %);
             }
@@ -268,6 +376,7 @@ ArObject *argon::vm::Eval(ArRoutine *routine) {
             }
         }
         error:
+        Release(ret);
         assert(false);
     }
 
