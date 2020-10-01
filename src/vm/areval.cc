@@ -382,6 +382,16 @@ ArObject *argon::vm::Eval(ArRoutine *routine) {
             TARGET_OP(SUB) {
                 BINARY_OP(routine, sub, -);
             }
+            TARGET_OP(TEST) {
+                ret = PEEK1();
+                if (ret->type->equal(ret, TOP())) {
+                    POP();
+                    TOP_REPLACE(BoolToArBool(true));
+                    DISPATCH();
+                }
+                TOP_REPLACE(BoolToArBool(false));
+                DISPATCH();
+            }
         }
         error:
         Release(ret);
