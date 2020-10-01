@@ -39,11 +39,13 @@ namespace argon::vm {
 
     ArRoutine *RoutineNew(Frame *frame, ArRoutineStatus status);
 
+    inline ArRoutine *RoutineNew(Frame *frame) { return RoutineNew(frame, ArRoutineStatus::RUNNABLE); }
+
     void RoutineDel(ArRoutine *routine);
 
     void RoutineCleanPanic(ArRoutine *routine);
 
-    inline ArRoutine *RoutineNew(Frame *frame) { return RoutineNew(frame, ArRoutineStatus::RUNNABLE); }
+    inline bool RoutineIsPanicking(ArRoutine *routine) { return routine->panic_object != nullptr; }
 
 } // namespace argon::vm
 

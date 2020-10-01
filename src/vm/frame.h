@@ -35,7 +35,7 @@ namespace argon::vm {
         object::ArObject **enclosed;
 
         /* At the end of each frame there is allocated space for(in this order): eval_stack + local_variables */
-        unsigned char *stack_extra_base[];
+        object::ArObject *stack_extra_base[];
     };
 
     Frame *FrameNew(object::Code *code, object::Namespace *globals, object::Namespace *proxy_globals);
