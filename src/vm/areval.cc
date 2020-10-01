@@ -157,6 +157,21 @@ ArObject *argon::vm::Eval(ArRoutine *routine) {
             TARGET_OP(INC) {
                 UNARY_OP(inc);
             }
+            TARGET_OP(INIT) {
+
+            }
+            TARGET_OP(IPADD) {
+                BINARY_OP(routine, inp_add, +=);
+            }
+            TARGET_OP(IPDIV) {
+                BINARY_OP(routine, inp_div, /=);
+            }
+            TARGET_OP(IPMUL) {
+                BINARY_OP(routine, inp_add, *=);
+            }
+            TARGET_OP(IPSUB) {
+                BINARY_OP(routine, inp_add, -=);
+            }
             TARGET_OP(INV) {
                 UNARY_OP(invert);
             }
