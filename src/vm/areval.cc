@@ -264,6 +264,17 @@ ArObject *argon::vm::Eval(ArRoutine *routine) {
             TARGET_OP(LAND) {
                 BINARY_OP(routine, l_and, &);
             }
+            TARGET_OP(LDGBL) {
+
+            }
+            TARGET_OP(LDLC) {
+                // TODO: CHECK OutOfBound
+                auto idx = ARG16;
+
+                IncRef(cu_frame->locals[idx]);
+                PUSH(cu_frame->locals[idx]);
+                DISPATCH2();
+            }
             TARGET_OP(LOR) {
                 BINARY_OP(routine, l_or, |);
             }
@@ -356,6 +367,15 @@ ArObject *argon::vm::Eval(ArRoutine *routine) {
             TARGET_OP(NEG) {
                 UNARY_OP(neg);
             }
+            TARGET_OP(NLV) {
+                // TODO: CHECK OutOfBound
+                auto idx = ARG16;
+
+                IncRef(TOP());
+                cu_frame->locals[idx] = TOP();
+                POP();
+                DISPATCH2();
+            }
             TARGET_OP(NOT) {
                 ret = True;
                 if (IsTrue(TOP()))
@@ -378,6 +398,15 @@ ArObject *argon::vm::Eval(ArRoutine *routine) {
             }
             TARGET_OP(SHR) {
                 BINARY_OP(routine, shr, <<);
+            }
+            TARGET_OP(STLC) {
+                // TODO: CHECK OutOfBound
+                auto idx = ARG16;
+
+                Release(cu_frame->locals[idx]);
+                cu_frame->locals[idx] = TOP();
+                cu_frame->eval_stack--;
+                DISPATCH();
             }
             TARGET_OP(SUB) {
                 BINARY_OP(routine, sub, -);
