@@ -356,6 +356,14 @@ ArObject *argon::vm::Eval(ArRoutine *routine) {
             TARGET_OP(NEG) {
                 UNARY_OP(neg);
             }
+            TARGET_OP(NOT) {
+                ret = True;
+                if (IsTrue(TOP()))
+                    ret = False;
+                IncRef(ret);
+                TOP_REPLACE(ret);
+                DISPATCH();
+            }
             TARGET_OP(POP) {
                 Release(last_popped);
                 last_popped = TOP();
