@@ -4,6 +4,7 @@
 
 #include <object/datatype/bool.h>
 #include <object/datatype/error.h>
+#include <object/datatype/nil.h>
 #include <object/objmgmt.h>
 
 #include <lang/opcodes.h>
@@ -63,6 +64,10 @@ ArObject *argon::vm::Eval(ArRoutine *routine) {
     case OpCodes::op:   \
     LBL_##op:
 #endif
+
+#define JUMPTO(offset)                                              \
+    cu_frame->instr_ptr = (unsigned char *)cu_code->instr + offset; \
+    continue
 
 // ARGUMENT
 #define ARG16 argon::lang::I16Arg(cu_frame->instr_ptr)
@@ -160,6 +165,9 @@ ArObject *argon::vm::Eval(ArRoutine *routine) {
             TARGET_OP(INIT) {
 
             }
+            TARGET_OP(INV) {
+                UNARY_OP(invert);
+            }
             TARGET_OP(IPADD) {
                 BINARY_OP(routine, inp_add, +=);
             }
@@ -172,8 +180,49 @@ ArObject *argon::vm::Eval(ArRoutine *routine) {
             TARGET_OP(IPSUB) {
                 BINARY_OP(routine, inp_add, -=);
             }
-            TARGET_OP(INV) {
-                UNARY_OP(invert);
+            TARGET_OP(JF) {
+                // JUMP FALSE
+                if (!IsTrue(TOP())) {
+                    POP();
+                    JUMPTO(ARG32);
+                }
+                POP();
+                DISPATCH4();
+            }
+            TARGET_OP(JFOP) {
+                // JUMP FALSE OR POP
+                if (IsTrue(TOP())) {
+                    POP();
+                    DISPATCH4();
+                }
+                JUMPTO(ARG32);
+            }
+            TARGET_OP(JMP) {
+                JUMPTO(ARG32);
+            }
+            TARGET_OP(JNIL) {
+                // JUMP IF NIL
+                if (TOP() == NilVal) {
+                    JUMPTO(ARG32);
+                }
+                DISPATCH4();
+            }
+            TARGET_OP(JT) {
+                // JUMP IF TRUE
+                if (IsTrue(TOP())) {
+                    POP();
+                    JUMPTO(ARG32);
+                }
+                POP();
+                DISPATCH4();
+            }
+            TARGET_OP(JTOP) {
+                // JUMP TRUE OR POP
+                if (!IsTrue(TOP())) {
+                    POP();
+                    DISPATCH4();
+                }
+                JUMPTO(ARG32);
             }
             TARGET_OP(LAND) {
                 BINARY_OP(routine, l_and, &);
@@ -228,6 +277,10 @@ ArObject *argon::vm::Eval(ArRoutine *routine) {
 #undef DISPATCH
 #undef DISPATCH2
 #undef DISPATCH4
+#undef JUMPTO
+
+#undef ARG16
+#undef ARG32
 
 #undef PUSH
 #undef POP
