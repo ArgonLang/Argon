@@ -136,11 +136,26 @@ ArObject *argon::vm::Eval(ArRoutine *routine) {
                 TOP_REPLACE(ret);
                 DISPATCH2();
             }
+            TARGET_OP(DEC) {
+                UNARY_OP(dec);
+            }
+            TARGET_OP(DFR) {
+            }
             TARGET_OP(DIV) {
                 BINARY_OP(routine, div, /);
             }
+            TARGET_OP(DUP) {
+
+            }
             TARGET_OP(IDIV) {
                 BINARY_OP(routine, idiv, '//');
+            }
+            TARGET_OP(IMPFRM) {
+            }
+            TARGET_OP(IMPMOD) {
+            }
+            TARGET_OP(INC) {
+                UNARY_OP(inc);
             }
             TARGET_OP(INV) {
                 UNARY_OP(invert);
