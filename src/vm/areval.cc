@@ -2,6 +2,8 @@
 //
 // Licensed under the Apache License v2.0
 
+#include <object/datatype/bool.h>
+#include <object/datatype/error.h>
 #include <object/objmgmt.h>
 
 #include <lang/opcodes.h>
@@ -62,6 +64,10 @@ ArObject *argon::vm::Eval(ArRoutine *routine) {
     LBL_##op:
 #endif
 
+// ARGUMENT
+#define ARG16 argon::lang::I16Arg(cu_frame->instr_ptr)
+#define ARG32 argon::lang::I32Arg(cu_frame->instr_ptr)
+
 // STACK MANIPULATION MACRO
 #define PUSH(obj)                   \
     *cu_frame->eval_stack = obj;    \
@@ -106,6 +112,30 @@ ArObject *argon::vm::Eval(ArRoutine *routine) {
             TARGET_OP(ADD) {
                 BINARY_OP(routine, add, +);
             }
+            TARGET_OP(CALL) {
+                break;
+            }
+            TARGET_OP(CMP) {
+                auto mode = (CompareMode) ARG16;
+                auto left = PEEK1();
+
+                if (mode == CompareMode::EQ)
+                    ret = BoolToArBool(left->type->equal(left, TOP()));
+                else if (mode == CompareMode::NE)
+                    ret = BoolToArBool(!left->type->equal(left, TOP()));
+                else {
+                    if (left->type->compare == nullptr) {
+                        ErrorFormat(&error_not_implemented,
+                                    "'%s' does not support any comparison operator",
+                                    left->type->name);
+                        goto error;
+                    }
+                    ret = left->type->compare(left, TOP(), mode);
+                }
+                POP();
+                TOP_REPLACE(ret);
+                DISPATCH2();
+            }
             TARGET_OP(DIV) {
                 BINARY_OP(routine, div, /);
             }
@@ -123,7 +153,7 @@ ArObject *argon::vm::Eval(ArRoutine *routine) {
             }
             TARGET_OP(LSTATIC) {
                 // TODO: CHECK OutOfBound
-                ret = TupleGetItem(cu_code->statics, argon::lang::I32Arg(cu_frame->instr_ptr));
+                ret = TupleGetItem(cu_code->statics, ARG32);
                 PUSH(ret);
                 DISPATCH4();
             }

@@ -55,6 +55,8 @@ ArObject *argon::object::ErrorFormat(const TypeInfo *etype, const char *format, 
     error->msg = buf;
 
     argon::vm::Panic(error);
+    Release(error);
+
     return nullptr;
 }
 
