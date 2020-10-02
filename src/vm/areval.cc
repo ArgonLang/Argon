@@ -68,6 +68,47 @@ ArObject *MkBounds(Frame *frame, unsigned short args) {
     return BoundsNew(start, stop, step);
 }
 
+ArObject *Subscript(ArObject *obj, ArObject *idx, ArObject *set) {
+    ArObject *ret = nullptr;
+
+    if (IsMap(obj)) {
+        if (set == nullptr) {
+            if ((ret = obj->type->map_actions->get_item(obj, idx)) == nullptr)
+                return nullptr;
+        } else {
+            if (!obj->type->map_actions->set_item(obj, idx, set))
+                return False;
+        }
+    } else if (IsSequence(obj)) {
+        if (AsIndex(idx)) {
+            if (set == nullptr) {
+                ret = obj->type->sequence_actions->get_item(obj, idx->type->number_actions->as_index(idx));
+                if (ret == nullptr)
+                    return nullptr;
+            } else {
+                if (!obj->type->sequence_actions->set_item(obj, set, idx->type->number_actions->as_index(idx)))
+                    return False;
+            }
+        } else if (idx->type == &type_bounds_) {
+            if (set == nullptr) {
+                ret = obj->type->sequence_actions->get_slice(obj, idx);
+            } else {
+                if (!obj->type->sequence_actions->set_slice(obj, idx, set))
+                    return False;
+            }
+        } else {
+            ErrorFormat(&error_type_error, "sequence index must be integer or bounds not '%s'",
+                        idx->type->name);
+            return nullptr;
+        }
+    } else {
+        ErrorFormat(&error_type_error, "'%s' not subscriptable", obj->type->name);
+        return nullptr;
+    }
+
+    return ret;
+}
+
 ArObject *argon::vm::Eval(ArRoutine *routine, Frame *frame) {
     ArObject *ret;
 
@@ -115,6 +156,7 @@ ArObject *argon::vm::Eval(ArRoutine *routine) {
     *cu_frame->eval_stack = obj;    \
     cu_frame->eval_stack++
 #define POP()       Release(*(--cu_frame->eval_stack))
+#define STACK_REWIND(offset) for(size_t i = offset; i>0; POP(), i--)
 #define TOP()       (*(cu_frame->eval_stack-1))
 #define TOP_REPLACE(obj)                \
     Release(*(cu_frame->eval_stack-1)); \
@@ -323,7 +365,7 @@ ArObject *argon::vm::Eval(ArRoutine *routine) {
                 DISPATCH4();
             }
             TARGET_OP(MK_MAP) {
-                auto args = ARG32;
+                auto args = ARG32*2;
 
                 if ((ret = MapNew()) == nullptr)
                     goto error;
@@ -417,8 +459,21 @@ ArObject *argon::vm::Eval(ArRoutine *routine) {
                 cu_frame->eval_stack--;
                 DISPATCH();
             }
+            TARGET_OP(STSUBSCR) {
+                if ((ret = Subscript(PEEK1(), TOP(), PEEK2())) == False)
+                    goto error;
+                STACK_REWIND(3);
+                DISPATCH();
+            }
             TARGET_OP(SUB) {
                 BINARY_OP(routine, sub, -);
+            }
+            TARGET_OP(SUBSCR) {
+                if ((ret = Subscript(PEEK1(), TOP(), nullptr)) == nullptr)
+                    goto error;
+                POP();
+                TOP_REPLACE(ret);
+                DISPATCH();
             }
             TARGET_OP(TEST) {
                 ret = PEEK1();
@@ -449,6 +504,7 @@ ArObject *argon::vm::Eval(ArRoutine *routine) {
 
 #undef PUSH
 #undef POP
+#undef STACK_REWIND
 #undef TOP
 #undef TOP_REPLACE
 #undef PEEK1
