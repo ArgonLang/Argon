@@ -187,7 +187,16 @@ ArObject *argon::vm::Eval(ArRoutine *routine) {
                 BINARY_OP(routine, div, /);
             }
             TARGET_OP(DUP) {
+                // TODO: CHECK OutOfBound on stack
+                auto back = ARG16;
+                ArObject **cursor = cu_frame->eval_stack - back;
 
+                while (back-- > 0) {
+                    IncRef(*cursor);
+                    PUSH(*(cursor++));
+                }
+
+                DISPATCH2();
             }
             TARGET_OP(IDIV) {
                 BINARY_OP(routine, idiv, '//');
