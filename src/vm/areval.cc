@@ -316,7 +316,23 @@ ArObject *argon::vm::Eval(ArRoutine *routine) {
                 BINARY_OP(routine, l_and, &);
             }
             TARGET_OP(LDGBL) {
+                // TODO: CHECK OutOfBound
+                auto *key = TupleGetItem(cu_code->names, ARG16);
 
+                ret = NamespaceGetValue(cu_frame->globals, key, nullptr);
+
+                if (ret == nullptr && cu_frame->proxy_globals != nullptr)
+                    ret = NamespaceGetValue(cu_frame->proxy_globals, key, nullptr);
+
+                Release(key);
+                if (ret == nullptr) {
+                    ErrorFormat(&error_undeclared_variable, "'%s' undeclared global variable",
+                                ((String *) key)->buffer);
+                    goto error;
+                }
+
+                PUSH(ret);
+                DISPATCH4();
             }
             TARGET_OP(LDLC) {
                 // TODO: CHECK OutOfBound
@@ -365,7 +381,7 @@ ArObject *argon::vm::Eval(ArRoutine *routine) {
                 DISPATCH4();
             }
             TARGET_OP(MK_MAP) {
-                auto args = ARG32*2;
+                auto args = ARG32 * 2;
 
                 if ((ret = MapNew()) == nullptr)
                     goto error;
@@ -418,6 +434,20 @@ ArObject *argon::vm::Eval(ArRoutine *routine) {
             TARGET_OP(NEG) {
                 UNARY_OP(neg);
             }
+            TARGET_OP(NGV) {
+                // TODO: CHECK OutOfBound
+                auto map = cu_frame->proxy_globals != nullptr ?
+                           cu_frame->proxy_globals : cu_frame->globals;
+
+                ret = TupleGetItem(cu_code->names, ARG16);
+
+                if (!NamespaceNewSymbol(map, PropertyInfo(ARG32 >> (unsigned char) 16), ret, TOP()))
+                    goto error;
+
+                Release(ret);
+                POP();
+                DISPATCH4();
+            }
             TARGET_OP(NLV) {
                 // TODO: CHECK OutOfBound
                 auto idx = ARG16;
@@ -449,6 +479,31 @@ ArObject *argon::vm::Eval(ArRoutine *routine) {
             }
             TARGET_OP(SHR) {
                 BINARY_OP(routine, shr, <<);
+            }
+            TARGET_OP(STGBL) {
+                // TODO: CHECK OutOfBound
+                auto map = cu_frame->proxy_globals != nullptr ?
+                           cu_frame->proxy_globals : cu_frame->globals;
+                PropertyInfo pinfo{};
+
+                ret = TupleGetItem(cu_code->names, ARG16);
+
+                if (!NamespaceContains(map, ret, &pinfo)) {
+                    ErrorFormat(&error_undeclared_variable, "'%s' undeclared global variable in assignment",
+                                ((String *) ret)->buffer);
+                    goto error;
+                }
+
+                if (pinfo.IsConstant()) {
+                    ErrorFormat(&error_unassignable_variable, "unable to assign value to '%s' because is constant",
+                                ((String *) ret)->buffer);
+                    goto error;
+                }
+
+                NamespaceSetValue(map, ret, TOP());
+                Release(ret);
+                POP();
+                DISPATCH4();
             }
             TARGET_OP(STLC) {
                 // TODO: CHECK OutOfBound

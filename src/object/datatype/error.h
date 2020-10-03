@@ -54,6 +54,8 @@ ERROR_NEW_TYPE(type_name, name, ErrorStr, __error_str_cleanup, obj_actions)
     ERROR_STR_NEW_TYPE(oo_memory, OutOfMemory, nullptr);
     ERROR_STR_NEW_TYPE(type_error, TypeError, nullptr);
     ERROR_STR_NEW_TYPE(not_implemented, NotImplemented, nullptr);
+    ERROR_STR_NEW_TYPE(undeclared_variable, UndeclaredVariable, nullptr);
+    ERROR_STR_NEW_TYPE(unassignable_variable, UnassignableVariable, nullptr);
 
 #undef ERROR_STR_NEW_TYPE
 #undef ERROR_NEW_TYPE
