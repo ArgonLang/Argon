@@ -9,6 +9,7 @@
 #include <object/datatype/tuple.h>
 #include <object/datatype/bounds.h>
 #include <object/datatype/map.h>
+#include <object/datatype/function.h>
 #include <object/objmgmt.h>
 
 #include <lang/opcodes.h>
@@ -362,6 +363,28 @@ ArObject *argon::vm::Eval(ArRoutine *routine) {
                 DISPATCH2();
             }
             TARGET_OP(MK_FUNC) {
+                auto flags = (argon::lang::MkFuncFlags) ARG32;
+                List *enclosed = nullptr;
+
+                ret = TOP();
+
+                if (ENUMBITMASK_ISTRUE(flags, argon::lang::MkFuncFlags::CLOSURE)) {
+                    enclosed = (List *) TOP();
+                    ret = PEEK1();
+                }
+
+                ret = FunctionNew((Code *) ret, ARG16,
+                                  ENUMBITMASK_ISTRUE(flags, argon::lang::MkFuncFlags::VARIADIC),
+                                  enclosed);
+
+                if (ret == nullptr)
+                    goto error;
+
+                if (ENUMBITMASK_ISTRUE(flags, argon::lang::MkFuncFlags::CLOSURE))
+                    POP();
+
+                TOP_REPLACE(ret);
+                DISPATCH4();
             }
             TARGET_OP(MK_LIST) {
                 auto args = ARG32;
