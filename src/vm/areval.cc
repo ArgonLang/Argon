@@ -69,6 +69,25 @@ ArObject *MkBounds(Frame *frame, unsigned short args) {
     return BoundsNew(start, stop, step);
 }
 
+ArObject *MkCurrying(Function *fn_old, ArObject **args, size_t count) {
+    List *currying = ListNew(count);
+
+    if (currying == nullptr)
+        return nullptr;
+
+    for (size_t i = 0; i < count; i++) {
+        if (!ListAppend(currying, args[i])) {
+            Release(currying);
+            return nullptr;
+        }
+    }
+
+    Function *fn_new = FunctionNew(fn_old, currying);
+    Release(currying);
+
+    return fn_new;
+}
+
 ArObject *Subscript(ArObject *obj, ArObject *idx, ArObject *set) {
     ArObject *ret = nullptr;
 
@@ -108,6 +127,88 @@ ArObject *Subscript(ArObject *obj, ArObject *idx, ArObject *set) {
     }
 
     return ret;
+}
+
+ArObject *NativeCall(ArRoutine *routine, Function *function, ArObject **args, size_t count) {
+    List *arguments = nullptr;
+    ArObject **raw = nullptr;
+
+    if (function->arity > 0) {
+        raw = args;
+
+        if (count < function->arity) {
+            if ((arguments = ListNew(function->arity)) == nullptr) {
+                return nullptr; // TODO: enomem
+            }
+
+            if (function->currying != nullptr) {
+                if (!ListConcat(arguments, function->currying)) {
+                    Release(arguments);
+                    return nullptr; // TODO: enomem
+                }
+            }
+
+            for (size_t i = 0; i < count; i++)
+                ListAppend(arguments, args[i]);
+
+            if (function->variadic && arguments->len + 1 == function->arity)
+                ListAppend(arguments, NilVal);
+
+            raw = arguments->objects;
+        }
+    }
+
+    auto res = function->native_fn(function, raw);
+    Release(arguments);
+
+    return res;
+}
+
+ArObject *RestElementToList(ArObject **args, size_t count) {
+    List *rest = ListNew(count);
+
+    if (rest != nullptr) {
+        for (size_t i = 0; i < count; i++) {
+            if (!ListAppend(rest, args[i])) {
+                Release(rest);
+                return nullptr;
+            }
+        }
+    }
+
+    return rest;
+}
+
+void FillFrameForCall(Frame *frame, Function *callable, ArObject **args, size_t count) {
+    size_t local_idx = 0;
+
+    // If method, first parameter must be an instance
+    if (callable->instance != nullptr) {
+        frame->locals[local_idx++] = callable->instance;
+        IncRef(callable->instance);
+    }
+
+    // Push currying args
+    if (callable->currying != nullptr) {
+        for (size_t i = 0; i < callable->currying->len; i++)
+            frame->locals[local_idx++] = ListGetItem(callable->currying, i);
+    }
+
+    // Fill with stack args
+    for (size_t i = 0; i < count; i++)
+        frame->locals[local_idx++] = args[i];
+
+    // If last parameter in variadic function is empty, fill it with NilVal
+    if (callable->variadic && local_idx + 1 == callable->arity)
+        frame->locals[local_idx++] = ReturnNil();
+
+    assert(local_idx == callable->arity);
+
+    // Fill with enclosed args
+    if (callable->enclosed != nullptr) {
+        for (size_t i = 0; i < callable->enclosed->len; i++)
+            frame->enclosed[i] = ListGetItem(callable->enclosed, i);
+    }
 }
 
 ArObject *argon::vm::Eval(ArRoutine *routine, Frame *frame) {
@@ -187,6 +288,7 @@ ArObject *argon::vm::Eval(ArRoutine *routine) {
     // FUNCTION START
     ArObject *last_popped = nullptr;
 
+    begin:
     Frame *cu_frame = routine->frame;
     Code *cu_code = cu_frame->code;
 
@@ -198,7 +300,73 @@ ArObject *argon::vm::Eval(ArRoutine *routine) {
                 BINARY_OP(routine, add, +);
             }
             TARGET_OP(CALL) {
-                break;
+                auto local_args = ARG16;
+                auto func = (Function *) *(cu_frame->eval_stack - local_args - 1);
+                unsigned short total_args = local_args;
+                unsigned short arity = func->arity;
+
+                if (func->type != &type_function_) {
+                    ErrorFormat(&error_type_error, "'%s' object is not callable", func->type->name);
+                    goto error;
+                }
+
+                if (func->instance != nullptr) total_args++;
+
+                if (func->currying != nullptr) total_args += func->currying->len;
+
+                if (func->variadic) arity--;
+
+                if (total_args < arity) {
+                    if (total_args == 0) {
+                        // TODO error
+                        goto error;
+                    }
+
+                    if ((ret = MkCurrying(func, cu_frame->eval_stack - local_args, local_args)) == nullptr)
+                        goto error;
+
+                    STACK_REWIND(local_args);
+                    TOP_REPLACE(ret);
+                    DISPATCH2();
+                } else if (total_args > arity) {
+                    unsigned short exceeded = total_args - arity;
+
+                    if (!func->variadic) {
+                        //ErrorFormat(error_type_error, "", func->) // TODO ERROR, function name!
+                        goto error;
+                    }
+
+                    if ((ret = RestElementToList(cu_frame->eval_stack - exceeded, exceeded)) == nullptr)
+                        goto error;
+
+                    STACK_REWIND(exceeded - 1);
+                    TOP_REPLACE(ret);
+                }
+
+                if (func->native) {
+                    if ((ret = NativeCall(routine, func, cu_frame->eval_stack - local_args, local_args)) == nullptr)
+                        goto error;
+
+                    STACK_REWIND(local_args);
+                    TOP_REPLACE(ret);
+                    DISPATCH2();
+                }
+
+                // Argon Code
+                auto func_frame = FrameNew(func->code, cu_frame->globals, cu_frame->proxy_globals);
+                if (func_frame == nullptr)
+                    goto error;
+
+                FillFrameForCall(func_frame, func, cu_frame->eval_stack - local_args, local_args);
+                cu_frame->eval_stack -= local_args;
+
+                POP(); // pop function!
+
+                // Invoke:
+                cu_frame->instr_ptr += sizeof(argon::lang::Instr16);
+                func_frame->back = cu_frame;
+                routine->frame = func_frame;
+                goto begin;
             }
             TARGET_OP(CMP) {
                 auto mode = (CompareMode) ARG16;
@@ -497,6 +665,17 @@ ArObject *argon::vm::Eval(ArRoutine *routine) {
             TARGET_OP(POS) {
                 UNARY_OP(pos);
             }
+            TARGET_OP(RET) {
+                if (cu_frame->stack_extra_base == cu_frame->eval_stack)
+                    *cu_frame->back->eval_stack = ReturnNil();
+                else {
+                    *cu_frame->back->eval_stack = TOP();
+                    cu_frame->eval_stack--;
+                }
+
+                cu_frame->back->eval_stack++;
+                goto end_while;
+            }
             TARGET_OP(SHL) {
                 BINARY_OP(routine, shl, >>);
             }
@@ -569,7 +748,17 @@ ArObject *argon::vm::Eval(ArRoutine *routine) {
         assert(false);
     }
 
-    return nullptr;
+    end_while:
+
+    assert(cu_frame->stack_extra_base == cu_frame->eval_stack);
+
+    if (cu_frame->back != nullptr) {
+        routine->frame = cu_frame->back;
+        FrameDel(cu_frame);
+        goto begin;
+    }
+
+    return last_popped;
 
 #undef TARGET_OP
 #undef DISPATCH
