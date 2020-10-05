@@ -617,6 +617,14 @@ ArObject *argon::vm::Eval(ArRoutine *routine) {
             TARGET_OP(LAND) {
                 BINARY_OP(routine, l_and, &);
             }
+            TARGET_OP(LDENC){
+                // TODO: CHECK OutOfBound
+                auto idx = ARG16;
+
+                IncRef(cu_frame->enclosed[idx]);
+                PUSH(cu_frame->enclosed[idx]);
+                DISPATCH2();
+            }
             TARGET_OP(LDGBL) {
                 // TODO: CHECK OutOfBound
                 auto *key = TupleGetItem(cu_code->names, ARG16);
@@ -845,6 +853,15 @@ ArObject *argon::vm::Eval(ArRoutine *routine) {
             }
             TARGET_OP(SHR) {
                 BINARY_OP(routine, shr, <<);
+            }
+            TARGET_OP(STENC){
+                // TODO: CHECK OutOfBound
+                auto idx = ARG16;
+
+                Release(cu_frame->enclosed[idx]);
+                cu_frame->enclosed[idx] = TOP();
+                cu_frame->eval_stack--;
+                DISPATCH();
             }
             TARGET_OP(STGBL) {
                 // TODO: CHECK OutOfBound
