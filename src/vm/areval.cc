@@ -10,6 +10,8 @@
 #include <object/datatype/bounds.h>
 #include <object/datatype/map.h>
 #include <object/datatype/function.h>
+#include <object/datatype/trait.h>
+#include <object/datatype/struct.h>
 #include <object/objmgmt.h>
 
 #include <lang/opcodes.h>
@@ -86,6 +88,61 @@ ArObject *MkCurrying(Function *fn_old, ArObject **args, size_t count) {
     Release(currying);
 
     return fn_new;
+}
+
+bool GetMRO(ArRoutine *routine, List **mro, Trait **impls, size_t count) {
+    (*mro) = nullptr;
+
+    if (count > 0) {
+        List *bases = BuildBasesList((Trait **) impls, count);
+        if (bases == nullptr)
+            return false;
+
+        (*mro) = ComputeMRO(bases);
+        Release(bases);
+
+        if ((*mro) == nullptr)
+            return false; // TODO: user error
+
+        if ((*mro)->len == 0) {
+            Release((*mro));
+            return false; // TODO: impls error
+        }
+    }
+
+    return true;
+}
+
+ArObject *MkConstruct(ArRoutine *routine, Code *code, String *name, Trait **impls, size_t count, bool is_trait) {
+    ArObject *ret;
+    Namespace *ns;
+    Frame *frame;
+    List *mro;
+
+    if ((ns = NamespaceNew()) == nullptr)
+        return nullptr;
+
+    if ((frame = FrameNew(code, routine->frame->globals, ns)) == nullptr) {
+        Release(ns);
+        return nullptr;
+    }
+
+    Eval(routine, frame);
+    FrameDel(frame);
+
+    if (!GetMRO(routine, &mro, impls, count)) {
+        Release(ns);
+        return nullptr;
+    }
+
+    ret = is_trait ?
+          (ArObject *) TraitNew(name, ns, mro) :
+          (ArObject *) StructNew(name, ns, mro);
+
+    Release(ns);
+    Release(mro);
+
+    return ret;
 }
 
 ArObject *Subscript(ArObject *obj, ArObject *idx, ArObject *set) {
@@ -287,6 +344,7 @@ ArObject *argon::vm::Eval(ArRoutine *routine) {
 
     // FUNCTION START
     ArObject *last_popped = nullptr;
+    Frame *first_frame = routine->frame;
 
     begin:
     Frame *cu_frame = routine->frame;
@@ -593,10 +651,30 @@ ArObject *argon::vm::Eval(ArRoutine *routine) {
 
             }
             TARGET_OP(MK_STRUCT) {
+                auto args = ARG16;
 
+                ret = MkConstruct(routine, (Code *) *(cu_frame->eval_stack - args - 2),
+                                  (String *) *(cu_frame->eval_stack - args - 1),
+                                  (Trait **) (cu_frame->eval_stack - args), args, false);
+                if (ret == nullptr)
+                    goto error;
+
+                STACK_REWIND(args+1); // args + 1(name)
+                TOP_REPLACE(ret);
+                DISPATCH2();
             }
             TARGET_OP(MK_TRAIT) {
+                auto args = ARG16;
 
+                ret = MkConstruct(routine, (Code *) *(cu_frame->eval_stack - args - 2),
+                                  (String *) *(cu_frame->eval_stack - args - 1),
+                                  (Trait **) (cu_frame->eval_stack - args), args, true);
+                if (ret == nullptr)
+                    goto error;
+
+                STACK_REWIND(args+1); // args + 1(name)
+                TOP_REPLACE(ret);
+                DISPATCH2();
             }
             TARGET_OP(MK_TUPLE) {
                 auto args = ARG32;
@@ -752,7 +830,7 @@ ArObject *argon::vm::Eval(ArRoutine *routine) {
 
     assert(cu_frame->stack_extra_base == cu_frame->eval_stack);
 
-    if (cu_frame->back != nullptr) {
+    if (cu_frame->back != nullptr && cu_frame != first_frame) {
         routine->frame = cu_frame->back;
         FrameDel(cu_frame);
         goto begin;
