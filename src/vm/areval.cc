@@ -12,6 +12,7 @@
 #include <object/datatype/function.h>
 #include <object/datatype/trait.h>
 #include <object/datatype/struct.h>
+#include <object/datatype/instance.h>
 #include <object/objmgmt.h>
 
 #include <lang/opcodes.h>
@@ -143,6 +144,60 @@ ArObject *MkConstruct(ArRoutine *routine, Code *code, String *name, Trait **impl
     Release(mro);
 
     return ret;
+}
+
+ArObject *InstantiateStruct(ArRoutine *routine, Struct *base, ArObject **values, size_t count, bool key_pair) {
+    Instance *instance;
+    Namespace *instance_ns;
+
+    if ((instance_ns = NamespaceNew()) == nullptr)
+        return nullptr;
+
+    if (!key_pair) {
+        size_t index = 0;
+        for (NsEntry *cur = base->names->iter_begin; cur != nullptr; cur = cur->iter_next) {
+            if (cur->info.IsMember() && !cur->info.IsConstant()) {
+                ArObject *value;
+
+                if (index < count) {
+                    value = values[index++];
+                    IncRef(value);
+                } else
+                    value = NamespaceGetValue(base->names, cur->key, nullptr);
+
+                bool ok = NamespaceNewSymbol(instance_ns, cur->info, cur->key, value);
+                Release(value);
+
+                if (!ok) {
+                    Release(instance_ns);
+                    return nullptr;
+                }
+            }
+        }
+    } else {
+        // Load default values
+        for (NsEntry *cur = base->names->iter_begin; cur != nullptr; cur = cur->iter_next) {
+            if (cur->info.IsMember())
+                if (!NamespaceNewSymbol(instance_ns, cur->info, cur->key, cur->obj)) {
+                    Release(instance_ns);
+                    return nullptr;
+                }
+        }
+
+        for (size_t i = 0; i < count; i += 2) {
+            if (!NamespaceSetValue(instance_ns, values[i], values[i + 1])) {
+                Release(instance_ns);
+                ErrorFormat(&error_undeclared_variable, "'%s' undeclared struct property",
+                            ((String *) values[i])->buffer);
+                return nullptr;
+            }
+        }
+    }
+
+    instance = InstanceNew(base, instance_ns);
+    Release(instance_ns);
+
+    return instance;
 }
 
 ArObject *Subscript(ArObject *obj, ArObject *idx, ArObject *set) {
@@ -478,7 +533,27 @@ ArObject *argon::vm::Eval(ArRoutine *routine) {
                 UNARY_OP(inc);
             }
             TARGET_OP(INIT) {
+                auto args = ARG16;
+                bool key_pair = argon::lang::I32ExtractFlag(cu_frame->instr_ptr);
+                auto bstruct = (Struct *) *(cu_frame->eval_stack - args - 1);
 
+                if (bstruct->type != &type_struct_) {
+                    ErrorFormat(&error_type_error, "expected struct, found '%s'", bstruct->type->name);
+                    goto error;
+                }
+
+                if (!key_pair && args > bstruct->properties_count) {
+                    ErrorFormat(&error_type_error, "'%s' takes %d positional arguments but %d were given",
+                                bstruct->name->buffer, bstruct->properties_count, args);
+                    goto error;
+                }
+
+                if ((ret = InstantiateStruct(routine, bstruct, cu_frame->eval_stack - args, args, key_pair)) == nullptr)
+                    goto error;
+
+                STACK_REWIND(args);
+                TOP_REPLACE(ret);
+                DISPATCH4();
             }
             TARGET_OP(INV) {
                 UNARY_OP(invert);
@@ -748,7 +823,7 @@ ArObject *argon::vm::Eval(ArRoutine *routine) {
 
                 ret = TOP(); // Save TOP
 
-                for (size_t i = 0; i < len-1; i++)
+                for (size_t i = 0; i < len - 1; i++)
                     *(cu_frame->eval_stack - i - 1) = *(cu_frame->eval_stack - i - 2);
 
                 *(cu_frame->eval_stack - len) = ret;
