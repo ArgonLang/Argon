@@ -225,8 +225,10 @@ ArObject *argon::object::NamespaceGetValue(Namespace *ns, ArObject *key, Propert
 
             if (cur->info.IsWeak())
                 return ReturnNil(cur->ref.GetObject());
-            else
-                return cur->obj->ref_count.GetObject();
+            else {
+                IncRef(cur->obj);
+                return cur->obj;
+            }
         }
     }
 
