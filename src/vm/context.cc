@@ -33,11 +33,10 @@ ArObject *Context::Eval(const std::string &source) {
 
     SetRoutineMain(routine);
 
-    auto ret = argon::vm::Eval(routine, frame);
+    auto ret = argon::vm::Eval(routine);
 
     SetRoutineMain(nullptr);
 
-    FrameDel(frame);
     RoutineDel(routine);
 
     return ret;
