@@ -566,10 +566,11 @@ ArObject *argon::vm::Eval(ArRoutine *routine) {
             TARGET_OP(IDIV) {
                 BINARY_OP(routine, idiv, '//');
             }
+            /*
             TARGET_OP(IMPFRM) {
             }
             TARGET_OP(IMPMOD) {
-            }
+            }*/
             TARGET_OP(INC) {
                 UNARY_OP(inc);
             }
@@ -706,7 +707,7 @@ ArObject *argon::vm::Eval(ArRoutine *routine) {
                 PUSH(cu_frame->locals[idx]);
                 DISPATCH2();
             }
-            TARGET_OP(LDSCOPE){
+            TARGET_OP(LDSCOPE) {
                 // TODO: CHECK OutOfBound
                 ArObject *key = TupleGetItem(cu_code->statics, ARG32);
 
@@ -739,7 +740,7 @@ ArObject *argon::vm::Eval(ArRoutine *routine) {
                 DISPATCH2();
             }
             TARGET_OP(MK_FUNC) {
-                auto flags = (argon::lang::MkFuncFlags) ARG32;
+                auto flags = (argon::lang::MkFuncFlags) argon::lang::I32ExtractFlag(cu_frame->instr_ptr);
                 List *enclosed = nullptr;
 
                 ret = TOP();
@@ -921,6 +922,7 @@ ArObject *argon::vm::Eval(ArRoutine *routine) {
             TARGET_OP(SHR) {
                 BINARY_OP(routine, shr, <<);
             }
+            /*TARGET_OP(SPWN){}*/
             TARGET_OP(STATTR) {
                 // TODO: CHECK OutOfBound
                 ArObject *key = TupleGetItem(cu_code->statics, ARG32);
@@ -943,7 +945,7 @@ ArObject *argon::vm::Eval(ArRoutine *routine) {
                 Release(cu_frame->enclosed[idx]);
                 cu_frame->enclosed[idx] = TOP();
                 cu_frame->eval_stack--;
-                DISPATCH();
+                DISPATCH2();
             }
             TARGET_OP(STGBL) {
                 // TODO: CHECK OutOfBound
@@ -979,7 +981,7 @@ ArObject *argon::vm::Eval(ArRoutine *routine) {
                 cu_frame->eval_stack--;
                 DISPATCH();
             }
-            TARGET_OP(STSCOPE){
+            TARGET_OP(STSCOPE) {
                 // TODO: CHECK OutOfBound
                 ArObject *key = TupleGetItem(cu_code->statics, ARG32);
 
@@ -1020,6 +1022,8 @@ ArObject *argon::vm::Eval(ArRoutine *routine) {
                 TOP_REPLACE(BoolToArBool(false));
                 DISPATCH();
             }
+            default:
+                ErrorFormat(&error_runtime_error, "unknown opcode: 0x%X", (unsigned char) (*cu_frame->instr_ptr));
         }
         error:
         Release(ret);
