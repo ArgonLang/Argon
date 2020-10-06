@@ -27,15 +27,29 @@ ArObject *instance_getattr(Instance *self, ArObject *key) {
             Release(obj);
 
             // Search in parent MRO!
-            for (size_t i = 0; i < self->base->impls->len; i++) {
-                auto trait = (Trait *) self->base->impls->objects[i];
-                obj = NamespaceGetValue(trait->names, key, &pinfo);
-                if (obj != nullptr && pinfo.IsMember())
-                    break;
+            if (self->base->impls != nullptr) {
+                for (size_t i = 0; i < self->base->impls->len; i++) {
+                    auto trait = (Trait *) self->base->impls->objects[i];
+                    obj = NamespaceGetValue(trait->names, key, &pinfo);
+                    if (obj != nullptr && pinfo.IsMember())
+                        break;
+                }
             }
-
-            assert(obj != nullptr);
         }
+    }
+
+    if (obj == nullptr) {
+        ErrorFormat(&error_attribute_error, "unknown attribute '%s' of object '%s'", ((String *) key)->buffer,
+                    ((String *) self->base->name)->buffer);
+        return nullptr;
+    }
+
+    if (argon::vm::GetRoutine()->frame->instance != self && !pinfo.IsPublic()) {
+        ErrorFormat(&error_access_violation, "access violation, member '%s' of '%s' are private",
+                    ((String *) key)->buffer,
+                    ((String *) self->base->name)->buffer);
+        Release(obj);
+        return nullptr;
     }
 
     if (obj->type == &type_function_ && (pinfo.IsConstant() && pinfo.IsMember())) {
@@ -44,17 +58,33 @@ ArObject *instance_getattr(Instance *self, ArObject *key) {
         obj = tmp;
     }
 
-    return obj; // TODO impl error: value nopt found / priv variable
+    return obj;
 }
 
 bool instance_setattr(Instance *self, ArObject *key, ArObject *value) {
-    // TODO: check access permission!
-    return NamespaceSetValue(self->properties, key, value); // TODO: invalid key!
+    PropertyInfo pinfo{};
+
+    if (!NamespaceContains(self->properties, key, &pinfo)) {
+        ErrorFormat(&error_attribute_error, "unknown attribute '%s' of object '%s'", ((String *) key)->buffer,
+                    ((String *) self->base->name)->buffer);
+        return false;
+    }
+
+    if (argon::vm::GetRoutine()->frame->instance != self && !pinfo.IsPublic()) {
+        ErrorFormat(&error_access_violation, "access violation, member '%s' of '%s' are private",
+                    ((String *) key)->buffer,
+                    ((String *) self->base->name)->buffer);
+        return false;
+    }
+
+    return NamespaceSetValue(self->properties, key, value);
 }
 
 const ObjectActions instance_actions{
         (BinaryOp) instance_getattr,
-        (BoolTernOp) instance_setattr
+        nullptr,
+        (BoolTernOp) instance_setattr,
+        nullptr
 };
 
 const TypeInfo argon::object::type_instance_ = {
