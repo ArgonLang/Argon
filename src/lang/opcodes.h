@@ -88,10 +88,6 @@ namespace argon::lang {
         NOT,
         POP,
         POS,
-        PRED,
-        PREI,
-        PSTD,
-        PSTI,
         PB_HEAD,    // Push back head item of n position
         RET,
         SHL,
