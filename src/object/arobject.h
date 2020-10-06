@@ -86,7 +86,9 @@ namespace argon::object {
 
     struct ObjectActions {
         BinaryOp get_attr;
+        BinaryOp get_static_attr;
         BoolTernOp set_attr;
+        BoolTernOp set_static_attr;
     };
 
     struct TypeInfo {

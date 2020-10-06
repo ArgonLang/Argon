@@ -241,6 +241,26 @@ ArObject *Subscript(ArObject *obj, ArObject *idx, ArObject *set) {
     return ret;
 }
 
+ArObject *LoadStoreAttribute(ArObject *obj, ArObject *key, ArObject *set) {
+    ArObject *ret = nullptr;
+
+
+    if (obj->type->obj_actions == nullptr || ((set != nullptr && obj->type->obj_actions->set_attr == nullptr) ||
+                                              obj->type->obj_actions->get_attr == nullptr)) {
+        ErrorFormat(&error_attribute_error, "'%s' object is unable to use the attribute(.) operator", obj->type->name);
+        return set != nullptr ? False : nullptr;
+    }
+
+    if (set == nullptr)
+        ret = obj->type->obj_actions->get_attr(obj, key);
+    else {
+        if (!obj->type->obj_actions->set_attr(obj, key, set))
+            return False;
+    }
+
+    return ret;
+}
+
 ArObject *NativeCall(ArRoutine *routine, Function *function, ArObject **args, size_t count) {
     List *arguments = nullptr;
     ArObject **raw = nullptr;
@@ -296,6 +316,7 @@ void FillFrameForCall(Frame *frame, Function *callable, ArObject **args, size_t 
 
     // If method, first parameter must be an instance
     if (callable->instance != nullptr) {
+        frame->instance = callable->instance;
         frame->locals[local_idx++] = callable->instance;
         IncRef(callable->instance);
     }
@@ -617,7 +638,20 @@ ArObject *argon::vm::Eval(ArRoutine *routine) {
             TARGET_OP(LAND) {
                 BINARY_OP(routine, l_and, &);
             }
-            TARGET_OP(LDENC){
+            TARGET_OP(LDATTR) {
+                // TODO: CHECK OutOfBound
+                ArObject *key = TupleGetItem(cu_code->statics, ARG32);
+
+                if ((ret = LoadStoreAttribute(TOP(), key, nullptr)) == nullptr) {
+                    Release(key);
+                    goto error;
+                }
+                Release(key);
+
+                TOP_REPLACE(ret);
+                DISPATCH4();
+            }
+            TARGET_OP(LDENC) {
                 // TODO: CHECK OutOfBound
                 auto idx = ARG16;
 
@@ -854,7 +888,22 @@ ArObject *argon::vm::Eval(ArRoutine *routine) {
             TARGET_OP(SHR) {
                 BINARY_OP(routine, shr, <<);
             }
-            TARGET_OP(STENC){
+            TARGET_OP(STATTR) {
+                // TODO: CHECK OutOfBound
+                ArObject *key = TupleGetItem(cu_code->statics, ARG32);
+
+                ret = LoadStoreAttribute(TOP(), key, PEEK1());
+                if (ret == False) {
+                    Release(key);
+                    goto error;
+                }
+
+                Release(key);
+                POP(); // Value
+                POP(); // Instance
+                DISPATCH4();
+            }
+            TARGET_OP(STENC) {
                 // TODO: CHECK OutOfBound
                 auto idx = ARG16;
 

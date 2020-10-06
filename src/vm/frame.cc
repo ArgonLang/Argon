@@ -25,6 +25,7 @@ Frame *argon::vm::FrameNew(object::Code *code, object::Namespace *globals, objec
     frame->back = nullptr;
     frame->globals = globals;
     frame->proxy_globals = proxy_globals;
+    frame->instance = nullptr;
     frame->code = code;
     frame->instr_ptr = (unsigned char *) code->instr;
     frame->eval_stack = (object::ArObject **) frame->stack_extra_base;
@@ -50,5 +51,6 @@ void argon::vm::FrameDel(Frame *frame) {
     Release(code);
     Release(frame->globals);
     Release(frame->proxy_globals);
+    // Do not release frame->instance, because it's point to frame->locals[0]
     Free(frame);
 }
