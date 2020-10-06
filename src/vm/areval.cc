@@ -261,6 +261,26 @@ ArObject *LoadStoreAttribute(ArObject *obj, ArObject *key, ArObject *set) {
     return ret;
 }
 
+ArObject *LoadStoreScope(ArObject *obj, ArObject *key, ArObject *set) {
+    ArObject *ret = nullptr;
+
+
+    if (obj->type->obj_actions == nullptr || ((set != nullptr && obj->type->obj_actions->set_static_attr == nullptr) ||
+                                              obj->type->obj_actions->get_static_attr == nullptr)) {
+        ErrorFormat(&error_attribute_error, "'%s' object is unable to use scope(::) operator", obj->type->name);
+        return set != nullptr ? False : nullptr;
+    }
+
+    if (set == nullptr)
+        ret = obj->type->obj_actions->get_static_attr(obj, key);
+    else {
+        if (!obj->type->obj_actions->set_static_attr(obj, key, set))
+            return False;
+    }
+
+    return ret;
+}
+
 ArObject *NativeCall(ArRoutine *routine, Function *function, ArObject **args, size_t count) {
     List *arguments = nullptr;
     ArObject **raw = nullptr;
@@ -686,6 +706,19 @@ ArObject *argon::vm::Eval(ArRoutine *routine) {
                 PUSH(cu_frame->locals[idx]);
                 DISPATCH2();
             }
+            TARGET_OP(LDSCOPE){
+                // TODO: CHECK OutOfBound
+                ArObject *key = TupleGetItem(cu_code->statics, ARG32);
+
+                if ((ret = LoadStoreScope(TOP(), key, nullptr)) == nullptr) {
+                    Release(key);
+                    goto error;
+                }
+                Release(key);
+
+                TOP_REPLACE(ret);
+                DISPATCH4();
+            }
             TARGET_OP(LOR) {
                 BINARY_OP(routine, l_or, |);
             }
@@ -945,6 +978,21 @@ ArObject *argon::vm::Eval(ArRoutine *routine) {
                 cu_frame->locals[idx] = TOP();
                 cu_frame->eval_stack--;
                 DISPATCH();
+            }
+            TARGET_OP(STSCOPE){
+                // TODO: CHECK OutOfBound
+                ArObject *key = TupleGetItem(cu_code->statics, ARG32);
+
+                ret = LoadStoreScope(TOP(), key, PEEK1());
+                if (ret == False) {
+                    Release(key);
+                    goto error;
+                }
+
+                Release(key);
+                POP(); // Value
+                POP(); // Instance
+                DISPATCH4();
             }
             TARGET_OP(STSUBSCR) {
                 if ((ret = Subscript(PEEK1(), TOP(), PEEK2())) == False)
