@@ -576,6 +576,7 @@ ArObject *argon::vm::Eval(ArRoutine *routine) {
 
                 STACK_REWIND(local_args + 1); // +1 func it self
                 DISPATCH2();
+                // MISS YOU E.V.
             }
             TARGET_OP(DIV) {
                 BINARY_OP(routine, div, /);
@@ -770,6 +771,7 @@ ArObject *argon::vm::Eval(ArRoutine *routine) {
             }
             TARGET_OP(MK_FUNC) {
                 auto flags = (argon::lang::MkFuncFlags) argon::lang::I32ExtractFlag(cu_frame->instr_ptr);
+                auto name = (String *) PEEK1();
                 List *enclosed = nullptr;
 
                 ret = TOP();
@@ -777,13 +779,12 @@ ArObject *argon::vm::Eval(ArRoutine *routine) {
                 if (ENUMBITMASK_ISTRUE(flags, argon::lang::MkFuncFlags::CLOSURE)) {
                     enclosed = (List *) TOP();
                     ret = PEEK1();
+                    name = (String *) PEEK2();
                 }
 
-                auto tmp = StringNew("func"); // TODO: FIX THIS!
-                ret = FunctionNew(tmp, (Code *) ret, ARG16,
+                ret = FunctionNew(name, (Code *) ret, ARG16,
                                   ENUMBITMASK_ISTRUE(flags, argon::lang::MkFuncFlags::VARIADIC),
                                   enclosed);
-                Release(tmp);
 
                 if (ret == nullptr)
                     goto error;
@@ -791,6 +792,7 @@ ArObject *argon::vm::Eval(ArRoutine *routine) {
                 if (ENUMBITMASK_ISTRUE(flags, argon::lang::MkFuncFlags::CLOSURE))
                     POP();
 
+                POP();
                 TOP_REPLACE(ret);
                 DISPATCH4();
             }

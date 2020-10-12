@@ -82,8 +82,12 @@ argon::object::Code *Compiler::CompileFunction(const ast::Function *func) {
 
     this->ExitContext();
 
-    if (this->PushStatic(fu_code, false, true) == -1)
+    if (this->PushStatic(!func->id.empty() ? func->id : "<anonymous>", true, true) == -1)
         throw std::bad_alloc();
+
+    if (this->PushStatic(fu_code, false, true) == -1) {
+        throw std::bad_alloc();
+    }
 
     if (fu_code->enclosed->len > 0) {
         for (int i = 0; i < fu_code->enclosed->len; i++) {
