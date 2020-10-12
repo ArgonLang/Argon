@@ -7,6 +7,7 @@
 
 #include <object/arobject.h>
 #include "code.h"
+#include "string.h"
 
 namespace argon::object {
 
@@ -38,6 +39,9 @@ namespace argon::object {
             FunctionNativePtr native_fn;
         };
 
+        /* Function name */
+        String *name;
+
         /* List that contains values for partial application */
         List *currying;
 
@@ -61,7 +65,7 @@ namespace argon::object {
 
     extern const TypeInfo type_function_;
 
-    Function *FunctionNew(Code *code, unsigned short arity, bool variadic, List *enclosed);
+    Function *FunctionNew(String *name, Code *code, unsigned short arity, bool variadic, List *enclosed);
 
     Function *FunctionNew(const FunctionNative *native);
 

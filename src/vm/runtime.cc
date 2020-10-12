@@ -137,10 +137,22 @@ Context *argon::vm::GetContext() {
 argon::object::ArObject *argon::vm::Panic(argon::object::ArObject *obj) {
     auto routine = GetRoutine();
 
+    if (routine != nullptr)
+        RoutineNewPanic(routine, obj);
+
+    return nullptr;
+}
+
+argon::object::ArObject *argon::vm::Recover() {
+    auto routine = GetRoutine();
+
     if (routine != nullptr) {
-        assert(routine->panic_object == nullptr);
-        argon::object::IncRef(obj);
-        routine->panic_object = obj;
+        if (routine->cu_defer != nullptr && routine->cu_defer->panic != nullptr) {
+            auto panic = routine->cu_defer->panic;
+            argon::object::IncRef(panic->object);
+            RoutinePopPanic(routine);
+            return panic->object;
+        }
     }
 
     return nullptr;

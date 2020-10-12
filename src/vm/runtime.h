@@ -21,6 +21,8 @@ namespace argon::vm {
     void SetRoutineMain(ArRoutine *routine);
 
     argon::object::ArObject *Panic(argon::object::ArObject *obj);
+
+    argon::object::ArObject *Recover();
 }
 
 #endif //ARGON_VM_RUNTIME_H_

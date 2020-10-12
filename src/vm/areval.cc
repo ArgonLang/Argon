@@ -30,7 +30,7 @@ ArObject *Binary(ArRoutine *routine, ArObject *l, ArObject *r, int offset) {
 
     if (lop != nullptr)
         result = lop(l, r);
-    if (rop != nullptr && result == nullptr && routine->panic_object == nullptr) {
+    if (rop != nullptr && result == nullptr && RoutineIsPanicking(routine)) {
         Release(result);
         result = rop(l, r);
     }
@@ -486,7 +486,8 @@ ArObject *argon::vm::Eval(ArRoutine *routine) {
                     unsigned short exceeded = total_args - arity;
 
                     if (!func->variadic) {
-                        //ErrorFormat(error_type_error, "", func->) // TODO ERROR, function name!
+                        ErrorFormat(&error_type_error, "%s() takes %d argument, but %d were given",
+                                    ((String *) func->name)->buffer, func->arity, total_args);
                         goto error;
                     }
 
@@ -547,6 +548,34 @@ ArObject *argon::vm::Eval(ArRoutine *routine) {
                 UNARY_OP(dec);
             }
             TARGET_OP(DFR) {
+                auto local_args = ARG16;
+                auto func = (Function *) *(cu_frame->eval_stack - local_args - 1);
+                unsigned short total_args = local_args;
+                unsigned short arity = func->arity;
+
+                if (func->type != &type_function_) {
+                    ErrorFormat(&error_type_error, "'%s' object is not callable", func->type->name);
+                    goto error;
+                }
+
+                if (func->variadic) arity--;
+
+                if (func->instance != nullptr) total_args++;
+
+                if (arity != total_args) {
+                    ErrorFormat(&error_type_error, "%s() takes %d argument, but %d were given",
+                                ((String *) func->name)->buffer, func->arity, total_args);
+                    goto error;
+                }
+
+                if ((ret = MkCurrying(func, cu_frame->eval_stack - local_args, local_args)) == nullptr)
+                    goto error;
+
+                RoutineNewDefer(routine, ret);
+                Release(ret);
+
+                STACK_REWIND(local_args + 1); // +1 func it self
+                DISPATCH2();
             }
             TARGET_OP(DIV) {
                 BINARY_OP(routine, div, /);
@@ -566,11 +595,11 @@ ArObject *argon::vm::Eval(ArRoutine *routine) {
             TARGET_OP(IDIV) {
                 BINARY_OP(routine, idiv, '//');
             }
-            /*
-            TARGET_OP(IMPFRM) {
-            }
-            TARGET_OP(IMPMOD) {
-            }*/
+                /*
+                TARGET_OP(IMPFRM) {
+                }
+                TARGET_OP(IMPMOD) {
+                }*/
             TARGET_OP(INC) {
                 UNARY_OP(inc);
             }
@@ -750,9 +779,11 @@ ArObject *argon::vm::Eval(ArRoutine *routine) {
                     ret = PEEK1();
                 }
 
-                ret = FunctionNew((Code *) ret, ARG16,
+                auto tmp = StringNew("func"); // TODO: FIX THIS!
+                ret = FunctionNew(tmp, (Code *) ret, ARG16,
                                   ENUMBITMASK_ISTRUE(flags, argon::lang::MkFuncFlags::VARIADIC),
                                   enclosed);
+                Release(tmp);
 
                 if (ret == nullptr)
                     goto error;
@@ -906,6 +937,13 @@ ArObject *argon::vm::Eval(ArRoutine *routine) {
                 DISPATCH2();
             }
             TARGET_OP(RET) {
+                if (routine->defer != nullptr && routine->defer->frame == cu_frame->back) {
+                    if (cu_frame->stack_extra_base != cu_frame->eval_stack) {
+                        POP();
+                    }
+                    goto end_while;
+                }
+
                 if (cu_frame->stack_extra_base == cu_frame->eval_stack)
                     *cu_frame->back->eval_stack = ReturnNil();
                 else {
@@ -922,7 +960,7 @@ ArObject *argon::vm::Eval(ArRoutine *routine) {
             TARGET_OP(SHR) {
                 BINARY_OP(routine, shr, <<);
             }
-            /*TARGET_OP(SPWN){}*/
+                /*TARGET_OP(SPWN){}*/
             TARGET_OP(STATTR) {
                 // TODO: CHECK OutOfBound
                 ArObject *key = TupleGetItem(cu_code->statics, ARG32);
@@ -1026,17 +1064,40 @@ ArObject *argon::vm::Eval(ArRoutine *routine) {
                 ErrorFormat(&error_runtime_error, "unknown opcode: 0x%X", (unsigned char) (*cu_frame->instr_ptr));
         }
         error:
-        Release(ret);
-        assert(false);
+        STACK_REWIND(cu_frame->eval_stack - cu_frame->stack_extra_base);
+        break;
     }
 
     end_while:
 
     assert(cu_frame->stack_extra_base == cu_frame->eval_stack);
 
-    if (cu_frame->back != nullptr && cu_frame != first_frame) {
+    // DEFERRED
+    while (routine->defer != nullptr && routine->defer->frame == cu_frame) {
+        auto dfr_fn = (Function *) routine->defer->function;
+
+        routine->defer->panic = routine->panic;
+        routine->cu_defer = routine->defer;
+
+        if (!dfr_fn->native) {
+            auto dfr_frame = FrameNew(dfr_fn->code, cu_frame->globals, cu_frame->proxy_globals);
+            FillFrameForCall(dfr_frame, dfr_fn, nullptr, 0);
+            Release(Eval(routine, dfr_frame));
+            FrameDel(dfr_frame);
+            RoutineDelDefer(routine);
+        } else
+            Release(NativeCall(routine, dfr_fn, nullptr, 0));
+    }
+
+    if (routine->frame->back != nullptr && routine->frame != first_frame) {
         routine->frame = cu_frame->back;
         FrameDel(cu_frame);
+
+        if (RoutineIsPanicking(routine)) {
+            cu_frame = routine->frame;  // set cu_frame before jump to error
+            goto error;
+        }
+
         goto begin;
     }
 

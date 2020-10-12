@@ -18,6 +18,9 @@ Function *CloneFn(const Function *func) {
         } else
             fn->native_fn = func->native_fn;
 
+        IncRef(func->name);
+        fn->name = func->name;
+
         IncRef(func->currying);
         fn->currying = func->currying;
 
@@ -62,6 +65,7 @@ size_t function_hash(Function *self) {
 
 void function_cleanup(Function *fn) {
     Release(fn->code);
+    Release(fn->name);
     Release(fn->currying);
     Release(fn->enclosed);
     Release(fn->instance);
@@ -83,12 +87,15 @@ const TypeInfo argon::object::type_function_ = {
         (VoidUnaryOp) function_cleanup
 };
 
-Function *argon::object::FunctionNew(Code *code, unsigned short arity, bool variadic, List *enclosed) {
+Function *argon::object::FunctionNew(String *name, Code *code, unsigned short arity, bool variadic, List *enclosed) {
     auto fn = ArObjectNew<Function>(RCType::INLINE, &type_function_);
 
     if (fn != nullptr) {
         IncRef(code);
         fn->code = code;
+
+        IncRef(name);
+        fn->name = name;
         fn->currying = nullptr;
 
         IncRef(enclosed);
@@ -105,7 +112,14 @@ Function *argon::object::FunctionNew(Code *code, unsigned short arity, bool vari
 }
 
 Function *argon::object::FunctionNew(const FunctionNative *native) {
-    auto fn = FunctionNew(nullptr, native->arity, native->variadic, nullptr);
+    Function *fn;
+    String *name;
+
+    if ((name = StringNew(native->name)) == nullptr)
+        return nullptr;
+
+    fn = FunctionNew(name, nullptr, native->arity, native->variadic, nullptr);
+    Release(name);
 
     if (fn != nullptr) {
         fn->native_fn = native->func;
