@@ -59,6 +59,7 @@ const TypeInfo type_tuple_ = {
         tuple_hash,
         nullptr,
         nullptr,
+        nullptr,
         tuple_cleanup
 };
 

@@ -106,6 +106,7 @@ namespace argon::object {
         BoolBinOp equal;
         CompareOp compare;
         SizeTUnaryOp hash;
+        UnaryOp str;
 
         const OpSlots *ops;
 

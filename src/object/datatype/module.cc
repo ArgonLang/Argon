@@ -21,6 +21,7 @@ const TypeInfo type_module_ = {
         nullptr,
         nullptr,
         nullptr,
+        nullptr,
         nullptr
 };
 

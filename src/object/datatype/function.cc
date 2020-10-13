@@ -84,6 +84,7 @@ const TypeInfo argon::object::type_function_ = {
         (SizeTUnaryOp) function_hash,
         nullptr,
         nullptr,
+        nullptr,
         (VoidUnaryOp) function_cleanup
 };
 

@@ -38,6 +38,7 @@ const TypeInfo error_##type_name = {                                \
         nullptr,                                                    \
         nullptr,                                                    \
         nullptr,                                                    \
+        nullptr,                                                    \
         cleanup                                                     \
 }
 

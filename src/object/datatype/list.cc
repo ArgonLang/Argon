@@ -168,6 +168,7 @@ const TypeInfo argon::object::type_list_ = {
         list_equal,
         nullptr,
         list_hash,
+        nullptr,
         &list_ops,
         (Trace) list_trace,
         list_cleanup

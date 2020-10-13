@@ -10,6 +10,8 @@
 
 #include <object/arobject.h>
 
+#define AROBJECT_STR(obj)   ((argon::object::String *)obj->type->str(obj))
+
 namespace argon::object {
     struct String : public ArObject {
         unsigned char *buffer;

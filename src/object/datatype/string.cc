@@ -19,7 +19,7 @@ ArObject *string_add(ArObject *left, ArObject *right) {
         auto l = (String *) left;
         auto r = (String *) right;
 
-        if ((ret = StringNew(nullptr, 0)) != nullptr) {
+        if ((ret = StringNew(nullptr, l->len + r->len)) != nullptr) {
             ret->buffer = (unsigned char *) argon::memory::MemoryConcat(l->buffer, l->len, r->buffer, r->len);
 
             if (ret->buffer == nullptr) {
@@ -130,6 +130,11 @@ void string_cleanup(ArObject *obj) {
     argon::memory::Free(((String *) obj)->buffer);
 }
 
+String *string_str(String *self) {
+    IncRef(self);
+    return self;
+}
+
 const TypeInfo argon::object::type_string_ = {
         (const unsigned char *) "string",
         sizeof(String),
@@ -141,6 +146,7 @@ const TypeInfo argon::object::type_string_ = {
         string_equal,
         nullptr,
         string_hash,
+        (UnaryOp) string_str,
         &string_ops,
         nullptr,
         string_cleanup
@@ -157,7 +163,8 @@ String *argon::object::StringNew(const char *string, size_t len) {
             return (String *) argon::vm::Panic(OutOfMemoryError);
         }
 
-        memory::MemoryCopy(str->buffer, string, len);
+        if (string != nullptr)
+            memory::MemoryCopy(str->buffer, string, len);
 
         str->len = len;
         str->hash = 0;
