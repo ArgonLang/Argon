@@ -2,8 +2,8 @@
 //
 // Licensed under the Apache License v2.0
 
-#ifndef ARGON_LANG_COMPILER2_H_
-#define ARGON_LANG_COMPILER2_H_
+#ifndef ARGON_LANG_COMPILER_H_
+#define ARGON_LANG_COMPILER_H_
 
 #include <istream>
 
@@ -109,4 +109,4 @@ namespace argon::lang {
 
 } // namespace argon::lang
 
-#endif // !ARGON_LANG_COMPILER2_H_
+#endif // !ARGON_LANG_COMPILER_H_
