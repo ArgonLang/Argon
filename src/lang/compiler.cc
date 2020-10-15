@@ -1384,6 +1384,8 @@ Compiler::Compiler(argon::object::Map *statics_globals) {
         if ((this->statics_globals_ = MapNew()) == nullptr)
             throw std::bad_alloc();
     }
+
+    this->unit_ = nullptr;
 }
 
 Compiler::~Compiler() {
