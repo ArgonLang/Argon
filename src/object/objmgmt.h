@@ -35,6 +35,7 @@ namespace argon::object {
         if (obj != nullptr) {
             obj->ref_count = RefBits((unsigned char) RCType::GC);
             obj->type = type;
+            Track(obj); // Inform the GC to track the object
         } else argon::vm::Panic(OutOfMemoryError);
 
         return obj;

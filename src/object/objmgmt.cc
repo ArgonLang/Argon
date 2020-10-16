@@ -25,6 +25,7 @@ void argon::object::Release(ArObject *obj) {
             obj->type->cleanup(obj);
 
         if (obj->ref_count.IsGcObject()) {
+            UnTrack(obj);
             argon::memory::Free(GCGetHead(obj));
             return;
         }

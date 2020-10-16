@@ -13,8 +13,6 @@
 
 #define ARGON_OBJECT_GC_GENERATIONS 3
 
-// TODO: Implement support for other generations
-
 namespace argon::object {
 
     class alignas(ARGON_MEMORY_QUANTUM) GCHead {
@@ -57,34 +55,19 @@ namespace argon::object {
         size_t uncollected;
     };
 
-    class GC {
-        GCHead generation_[ARGON_OBJECT_GC_GENERATIONS] = {};
+    size_t Collect();
 
-        GCStats stats_[ARGON_OBJECT_GC_GENERATIONS] = {};
+    size_t Collect(unsigned short generation);
 
-        GCHead garbage_ = {};
+    void *GCNew(size_t len);
 
-        std::mutex track_lck_;
+    GCStats GetStats(unsigned short generation);
 
-        std::mutex garbage_lck_;
+    void Sweep();
 
-        void SearchRoots(unsigned short generation);
+    void Track(ArObject *obj);
 
-        void TraceRoots(GCHead *unreachable, unsigned short generation);
-
-    public:
-        GCStats GetStats(unsigned short generation);
-
-        void Collect();
-
-        void Collect(unsigned short generation);
-
-        void Sweep();
-
-        void Track(ArObject *obj);
-
-        void UnTrack(ArObject *obj);
-    };
+    void UnTrack(ArObject *obj);
 
     inline GCHead *GCGetHead(ArObject *obj) {
         return (GCHead *) (((unsigned char *) obj) - sizeof(GCHead));
@@ -95,8 +78,6 @@ namespace argon::object {
             return GCGetHead(obj)->IsTracked();
         return false;
     }
-
-    void *GCNew(size_t len);
 } // namespace argon::object
 
 
