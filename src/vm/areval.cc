@@ -30,10 +30,8 @@ ArObject *Binary(ArRoutine *routine, ArObject *l, ArObject *r, int offset) {
 
     if (lop != nullptr)
         result = lop(l, r);
-    if (rop != nullptr && result == nullptr && RoutineIsPanicking(routine)) {
-        Release(result);
+    if (rop != nullptr && result == nullptr && !RoutineIsPanicking(routine))
         result = rop(l, r);
-    }
 
     return result;
 #undef GET_BINARY_OP
@@ -289,14 +287,13 @@ ArObject *NativeCall(ArRoutine *routine, Function *function, ArObject **args, si
         raw = args;
 
         if (count < function->arity) {
-            if ((arguments = ListNew(function->arity)) == nullptr) {
-                return nullptr; // TODO: enomem
-            }
+            if ((arguments = ListNew(function->arity)) == nullptr)
+                return nullptr;
 
             if (function->currying != nullptr) {
                 if (!ListConcat(arguments, function->currying)) {
                     Release(arguments);
-                    return nullptr; // TODO: enomem
+                    return nullptr;
                 }
             }
 
@@ -421,7 +418,7 @@ ArObject *argon::vm::Eval(ArRoutine *routine) {
 
 #define BINARY_OP(routine, op, opchar)                                                          \
     if ((ret = Binary(routine, PEEK1(), TOP(), offsetof(OpSlots, op))) == nullptr) {            \
-        if (RoutineIsPanicking(routine)) {                                                      \
+        if (!RoutineIsPanicking(routine)) {                                                      \
             ErrorFormat(&error_type_error, "unsupported operand type '%s' for: '%s' and '%s'",  \
             #opchar, PEEK1()->type->name, TOP()->type->name);                                   \
         }                                                                                       \
@@ -472,7 +469,8 @@ ArObject *argon::vm::Eval(ArRoutine *routine) {
 
                 if (total_args < arity) {
                     if (total_args == 0) {
-                        // TODO error
+                        ErrorFormat(&error_type_error, "%s() takes %d argument, but 0 were given",
+                                    ((String *) func->name)->buffer, func->arity);
                         goto error;
                     }
 
@@ -1019,10 +1017,9 @@ ArObject *argon::vm::Eval(ArRoutine *routine) {
                 Release(cu_frame->locals[idx]);
                 cu_frame->locals[idx] = TOP();
                 cu_frame->eval_stack--;
-                DISPATCH();
+                DISPATCH2();
             }
             TARGET_OP(STSCOPE) {
-                // TODO: CHECK OutOfBound
                 ArObject *key = TupleGetItem(cu_code->statics, ARG32);
 
                 ret = LoadStoreScope(TOP(), key, PEEK1());

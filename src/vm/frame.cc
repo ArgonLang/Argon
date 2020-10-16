@@ -16,21 +16,21 @@ Frame *argon::vm::FrameNew(object::Code *code, object::Namespace *globals, objec
                                  (code->locals->len * sizeof(object::ArObject *)) +
                                  (code->enclosed->len * sizeof(object::ArObject *)));
 
-    assert(frame != nullptr); // TODO: NOMEM
+    if (frame != nullptr) {
+        IncRef(code);
+        IncRef(globals);
+        IncRef(proxy_globals);
 
-    IncRef(code);
-    IncRef(globals);
-    IncRef(proxy_globals);
-
-    frame->back = nullptr;
-    frame->globals = globals;
-    frame->proxy_globals = proxy_globals;
-    frame->instance = nullptr;
-    frame->code = code;
-    frame->instr_ptr = (unsigned char *) code->instr;
-    frame->eval_stack = (object::ArObject **) frame->stack_extra_base;
-    frame->locals = (ArObject **) (frame->stack_extra_base + (code->stack_sz * sizeof(object::ArObject *)));
-    frame->enclosed = (ArObject **) (frame->locals + (code->locals->len * sizeof(object::ArObject *)));
+        frame->back = nullptr;
+        frame->globals = globals;
+        frame->proxy_globals = proxy_globals;
+        frame->instance = nullptr;
+        frame->code = code;
+        frame->instr_ptr = (unsigned char *) code->instr;
+        frame->eval_stack = frame->stack_extra_base;
+        frame->locals = frame->stack_extra_base + code->stack_sz;
+        frame->enclosed = frame->locals + code->locals->len;
+    }
 
     return frame;
 }
