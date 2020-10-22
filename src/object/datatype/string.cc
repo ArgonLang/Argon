@@ -3,6 +3,7 @@
 // Licensed under the Apache License v2.0
 
 
+#include <object/objmgmt.h>
 #include "hash_magic.h"
 #include "map.h"
 #include "integer.h"

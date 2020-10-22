@@ -5,9 +5,10 @@
 #include <cassert>
 
 #include <memory/memory.h>
-#include "map.h"
+#include <object/objmgmt.h>
 #include "hash_magic.h"
 #include "string.h"
+#include "map.h"
 
 using namespace argon::object;
 using namespace argon::memory;
