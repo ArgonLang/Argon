@@ -9,7 +9,7 @@ using namespace argon::object;
 using namespace argon::memory;
 
 Function *CloneFn(const Function *func) {
-    auto fn = ArObjectNew<Function>(RCType::INLINE, &type_function_);
+    auto fn = ArObjectNewGC<Function>(&type_function_);
 
     if (fn != nullptr) {
         if (!func->native) {
@@ -29,6 +29,9 @@ Function *CloneFn(const Function *func) {
 
         IncRef(func->instance);
         fn->instance = func->instance;
+
+        IncRef(func->gns);
+        fn->gns = func->gns;
 
         fn->arity = func->arity;
         fn->variadic = func->variadic;
@@ -63,12 +66,17 @@ size_t function_hash(Function *self) {
     return (size_t) self;
 }
 
+void function_trace(Function *self, VoidUnaryOp trace) {
+    trace(self->gns);
+}
+
 void function_cleanup(Function *fn) {
     Release(fn->code);
     Release(fn->name);
     Release(fn->currying);
     Release(fn->enclosed);
     Release(fn->instance);
+    Release(fn->gns);
 }
 
 const TypeInfo argon::object::type_function_ = {
@@ -84,12 +92,13 @@ const TypeInfo argon::object::type_function_ = {
         (SizeTUnaryOp) function_hash,
         nullptr,
         nullptr,
-        nullptr,
+        (Trace) function_trace,
         (VoidUnaryOp) function_cleanup
 };
 
-Function *argon::object::FunctionNew(String *name, Code *code, unsigned short arity, bool variadic, List *enclosed) {
-    auto fn = ArObjectNew<Function>(RCType::INLINE, &type_function_);
+Function *argon::object::FunctionNew(Namespace *gns, String *name, Code *code, unsigned short arity, bool variadic,
+                                     List *enclosed) {
+    auto fn = ArObjectNewGC<Function>(&type_function_);
 
     if (fn != nullptr) {
         IncRef(code);
@@ -104,6 +113,9 @@ Function *argon::object::FunctionNew(String *name, Code *code, unsigned short ar
 
         fn->instance = nullptr;
 
+        IncRef(gns);
+        fn->gns = gns;
+
         fn->arity = arity;
         fn->variadic = variadic;
         fn->native = false;
@@ -112,14 +124,14 @@ Function *argon::object::FunctionNew(String *name, Code *code, unsigned short ar
     return fn;
 }
 
-Function *argon::object::FunctionNew(const FunctionNative *native) {
+Function *argon::object::FunctionNew(Namespace *gns, const FunctionNative *native) {
     Function *fn;
     String *name;
 
     if ((name = StringNew(native->name)) == nullptr)
         return nullptr;
 
-    fn = FunctionNew(name, nullptr, native->arity, native->variadic, nullptr);
+    fn = FunctionNew(gns, name, nullptr, native->arity, native->variadic, nullptr);
     Release(name);
 
     if (fn != nullptr) {

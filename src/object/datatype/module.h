@@ -11,11 +11,33 @@
 
 namespace argon::object {
     struct Module : ArObject {
-        Namespace *module_ns;
         String *name;
+        String *doc;
+
+        Namespace *module_ns;
     };
 
-    Module *ModuleNew(const std::string &name);
+    struct PropertyBulk {
+        const char *name;
+        union {
+            ArObject *obj;
+            struct FunctionNative *func; // Forward declaration (see function.h)
+        } prop;
+        bool is_func;
+        PropertyInfo info;
+    };
+
+    struct ModuleInit {
+        const char *name;
+        const char *doc;
+        PropertyBulk *bulk;
+    };
+
+    Module *ModuleNew(const std::string &name, const std::string &doc);
+
+    Module *ModuleNew(const ModuleInit *init);
+
+    bool ModuleAddObjects(Module *module, const PropertyBulk *bulk);
 
 } // namespace argon::object
 

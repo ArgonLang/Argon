@@ -17,7 +17,7 @@ using namespace argon::vm;
 using namespace argon::object;
 
 Context::Context() {
-    this->main = ModuleNew("main");
+    this->main = ModuleNew("main","main module"); // TODO: STUB
 }
 
 ArObject *Context::Eval(const std::string &source) {
