@@ -33,7 +33,7 @@ bool InsertID(Module *module, const std::string &id, ArObject *value) {
     if (key == nullptr)
         return false;
 
-    bool ok = NamespaceNewSymbol(module->module_ns, PropertyInfo(0), key, value);
+    bool ok = NamespaceNewSymbol(module->module_ns, PropertyInfo(PropertyType::CONST), key, value);
 
     Release(key);
     return ok;

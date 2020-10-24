@@ -892,7 +892,7 @@ ArObject *argon::vm::Eval(ArRoutine *routine) {
 
                 ret = TupleGetItem(cu_code->names, ARG16);
 
-                if (!NamespaceNewSymbol(map, PropertyInfo(ARG32 >> (unsigned char) 16), ret, TOP()))
+                if (!NamespaceNewSymbol(map, PropertyInfo((PropertyType)(ARG32 >> (unsigned char) 16)), ret, TOP()))
                     goto error;
 
                 Release(ret);
