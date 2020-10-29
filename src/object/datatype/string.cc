@@ -2,13 +2,16 @@
 //
 // Licensed under the Apache License v2.0
 
+#include <memory/memory.h>
 
 #include <object/objmgmt.h>
 #include "hash_magic.h"
 #include "map.h"
 #include "integer.h"
+
 #include "string.h"
 
+using namespace argon::memory;
 using namespace argon::object;
 
 static Map *intern;
@@ -153,41 +156,89 @@ const TypeInfo argon::object::type_string_ = {
         string_cleanup
 };
 
-String *argon::object::StringNew(const char *string, size_t len) {
+String *StringInit(size_t len, bool mkbuf) {
     auto str = ArObjectNew<String>(RCType::INLINE, &type_string_);
 
     if (str != nullptr) {
+        str->buffer = nullptr;
 
-        str->buffer = (unsigned char *) argon::memory::Alloc(len);
-        if (str->buffer == nullptr) {
-            Release(str);
-            return (String *) argon::vm::Panic(OutOfMemoryError);
+        if (mkbuf) {
+            // +1 is '\0'
+            if ((str->buffer = (unsigned char *) Alloc(len + 1)) == nullptr) {
+                argon::vm::Panic(OutOfMemoryError);
+                Release(str);
+                return nullptr;
+            }
+
+            // Set terminator
+            str->buffer[(len + 1) - 1] = 0x00;
         }
 
-        if (string != nullptr)
-            memory::MemoryCopy(str->buffer, string, len);
-
+        str->kind = StringKind::ASCII;
+        str->intern = false;
         str->len = len;
+        str->cp_len = len;
         str->hash = 0;
     }
 
     return str;
 }
 
-String *argon::object::StringIntern(const std::string &string) {
+void FillBuffer(String *dst, const unsigned char *buf, size_t len) {
+    StringKind kind = StringKind::ASCII;
+    size_t idx = 0;
+    size_t uidx = 0;
+
+    dst->cp_len = 0;
+
+    while (idx < len) {
+        dst->buffer[idx] = buf[idx];
+
+        if (buf[idx] >> (unsigned char) 7 == 0x0)
+            uidx += 1;
+        else if (buf[idx] >> (unsigned char) 5 == 0x6) {
+            kind = StringKind::UTF8_2;
+            uidx += 2;
+        } else if (buf[idx] >> (unsigned char) 4 == 0xE) {
+            kind = StringKind::UTF8_3;
+            uidx += 3;
+        } else if (buf[idx] >> (unsigned char) 3 == 0x1E) {
+            kind = StringKind::UTF8_4;
+            uidx += 4;
+        }
+
+        if (++idx == uidx)
+            dst->cp_len++;
+
+        if (kind > dst->kind)
+            dst->kind = kind;
+    }
+}
+
+String *argon::object::StringNew(const char *string, size_t len) {
+    auto str = StringInit(len, true);
+
+    if (str != nullptr && string != nullptr)
+        FillBuffer(str, (unsigned char *) string, len);
+
+    return str;
+}
+
+String *argon::object::StringIntern(const char *string, size_t len) {
     String *ret = nullptr;
 
     if (intern == nullptr) {
-        if ((intern = MapNew()) == nullptr)
-            return nullptr;
+        intern = MapNew();
+        // TODO: log!
     } else
-        ret = (String *) MapGetFrmStr(intern, string.c_str(), string.size());
+        ret = (String *) MapGetFrmStr(intern, string, len);
 
     if (ret == nullptr) {
-        if ((ret = StringNew(string)) != nullptr) {
-            if (!MapInsert(intern, ret, ret)) {
-                ret = nullptr;
-                Release(ret);
+        if ((ret = StringNew(string, len)) != nullptr) {
+            if (intern != nullptr) {
+                if (MapInsert(intern, ret, ret))
+                    ret->intern = true;
+                // TODO: log if false!
             }
         }
     }
