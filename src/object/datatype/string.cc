@@ -107,18 +107,6 @@ bool string_equal(ArObject *self, ArObject *other) {
     return false;
 }
 
-bool argon::object::StringEq(String *string, const unsigned char *c_str, size_t len) {
-    if (string->len != len)
-        return false;
-
-    for (size_t i = 0; i < string->len; i++) {
-        if (string->buffer[i] != c_str[i])
-            return false;
-    }
-
-    return true;
-}
-
 size_t string_hash(ArObject *obj) {
     auto self = (String *) obj;
     if (self->hash == 0)
@@ -177,22 +165,20 @@ String *StringInit(size_t len, bool mkbuf) {
         str->kind = StringKind::ASCII;
         str->intern = false;
         str->len = len;
-        str->cp_len = len;
+        str->cp_len = 0;
         str->hash = 0;
     }
 
     return str;
 }
 
-void FillBuffer(String *dst, const unsigned char *buf, size_t len) {
+void FillBuffer(String *dst, size_t offset, const unsigned char *buf, size_t len) {
     StringKind kind = StringKind::ASCII;
     size_t idx = 0;
     size_t uidx = 0;
 
-    dst->cp_len = 0;
-
     while (idx < len) {
-        dst->buffer[idx] = buf[idx];
+        dst->buffer[idx + offset] = buf[idx];
 
         if (buf[idx] >> (unsigned char) 7 == 0x0)
             uidx += 1;
@@ -219,7 +205,7 @@ String *argon::object::StringNew(const char *string, size_t len) {
     auto str = StringInit(len, true);
 
     if (str != nullptr && string != nullptr)
-        FillBuffer(str, (unsigned char *) string, len);
+        FillBuffer(str, 0, (unsigned char *) string, len);
 
     return str;
 }
@@ -245,3 +231,88 @@ String *argon::object::StringIntern(const char *string, size_t len) {
 
     return ret;
 }
+
+// Common Operations
+
+String *argon::object::StringConcat(String *left, String *right) {
+    String *ret = StringInit(left->len + right->len, true);
+
+    if (ret != nullptr) {
+        memory::MemoryCopy(ret->buffer, left->buffer, left->len);
+        memory::MemoryCopy(ret->buffer + left->len, right->buffer, right->len);
+
+        ret->kind = left->kind;
+        if (right->kind > left->kind)
+            ret->kind = right->kind;
+        ret->cp_len = left->cp_len + right->cp_len;
+    }
+
+    return ret;
+}
+
+bool argon::object::StringEq(String *string, const unsigned char *c_str, size_t len) {
+    if (string->len != len)
+        return false;
+
+    for (size_t i = 0; i < string->len; i++) {
+        if (string->buffer[i] != c_str[i])
+            return false;
+    }
+
+    return true;
+}
+
+String *argon::object::StringReplace(String *string, String *old, String *newval, arsize n) {
+    String *nstring;
+
+    size_t idx = 0;
+    size_t nidx = 0;
+    size_t newsz;
+
+    if (string_equal(string, old) || n == 0) {
+        IncRef(string);
+        return string;
+    }
+
+    // Compute replacements
+    n = support::Count(string->buffer, string->len, old->buffer, old->len, n);
+
+    newsz = (string->len + n * (newval->len - old->len));
+
+    // Allocate string
+    if ((nstring = StringInit(newsz, true)) == nullptr)
+        return nullptr;
+
+    long match;
+    while ((match = support::Find(string->buffer + idx, string->len - idx, old->buffer, old->len)) > -1) {
+        FillBuffer(nstring, nidx, string->buffer + idx, match);
+
+        idx += match + old->len;
+        nidx += match;
+
+        FillBuffer(nstring, nidx, newval->buffer, newval->len);
+        nidx += newval->len;
+
+        if (n > -1 && --n == 0)
+            break;
+    }
+    FillBuffer(nstring, nidx, string->buffer + idx, string->len - idx);
+
+    return nstring;
+}
+
+String *argon::object::StringSubs(String *string, size_t start, size_t end) {
+    String *ret;
+
+    if (start >= string->len || end >= string->len)
+        return nullptr;
+
+    if (end == 0)
+        end = string->len;
+
+    if ((ret = StringInit(end - start, true)) != nullptr)
+        FillBuffer(ret, 0, string->buffer + start, end - start);
+
+    return ret;
+}
+

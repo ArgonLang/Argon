@@ -9,6 +9,7 @@
 #include <cstring>
 
 #include <object/arobject.h>
+#include <object/datatype/support/bytesops.h>
 
 #define AROBJECT_STR(obj)   ((argon::object::String *)obj->type->str(obj))
 
@@ -54,7 +55,27 @@ namespace argon::object {
 
     inline String *StringIntern(const std::string &string) { return StringIntern(string.c_str(), string.length()); }
 
+    // Common Operations
+
+    String *StringConcat(String *left, String *right);
+
     bool StringEq(String *string, const unsigned char *c_str, size_t len);
+
+    inline arsize StringFind(String *string, String *pattern) {
+        return support::Find(string->buffer, string->len, pattern->buffer, pattern->len, false);
+    }
+
+    inline arsize StringRFind(String *string, String *pattern) {
+        return support::Find(string->buffer, string->len, pattern->buffer, pattern->len, true);
+    }
+
+    String *StringReplace(String *string, String *old, String *newval, arsize n);
+
+    inline String *StringReplaceAll(String *string, String *old, String *newval) {
+        return StringReplace(string, old, newval, -1);
+    }
+
+    String *StringSubs(String *string, size_t start, size_t end);
 }
 
 #endif // !ARGON_OBJECT_STRING_H_
