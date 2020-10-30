@@ -16,25 +16,66 @@ using namespace argon::object;
 
 static Map *intern;
 
-ArObject *string_add(ArObject *left, ArObject *right) {
-    String *ret;
+String *StringInit(size_t len, bool mkbuf) {
+    auto str = ArObjectNew<String>(RCType::INLINE, &type_string_);
 
-    if (left->type == right->type && left->type == &type_string_) {
-        auto l = (String *) left;
-        auto r = (String *) right;
+    if (str != nullptr) {
+        str->buffer = nullptr;
 
-        if ((ret = StringNew(nullptr, l->len + r->len)) != nullptr) {
-            ret->buffer = (unsigned char *) argon::memory::MemoryConcat(l->buffer, l->len, r->buffer, r->len);
-
-            if (ret->buffer == nullptr) {
+        if (mkbuf) {
+            // +1 is '\0'
+            if ((str->buffer = (unsigned char *) Alloc(len + 1)) == nullptr) {
                 argon::vm::Panic(OutOfMemoryError);
-                Release(ret);
-                ret = nullptr;
+                Release(str);
+                return nullptr;
             }
 
-            return ret;
+            // Set terminator
+            str->buffer[(len + 1) - 1] = 0x00;
         }
+
+        str->kind = StringKind::ASCII;
+        str->intern = false;
+        str->len = len;
+        str->cp_len = 0;
+        str->hash = 0;
     }
+
+    return str;
+}
+
+void FillBuffer(String *dst, size_t offset, const unsigned char *buf, size_t len) {
+    StringKind kind = StringKind::ASCII;
+    size_t idx = 0;
+    size_t uidx = 0;
+
+    while (idx < len) {
+        dst->buffer[idx + offset] = buf[idx];
+
+        if (buf[idx] >> (unsigned char) 7 == 0x0)
+            uidx += 1;
+        else if (buf[idx] >> (unsigned char) 5 == 0x6) {
+            kind = StringKind::UTF8_2;
+            uidx += 2;
+        } else if (buf[idx] >> (unsigned char) 4 == 0xE) {
+            kind = StringKind::UTF8_3;
+            uidx += 3;
+        } else if (buf[idx] >> (unsigned char) 3 == 0x1E) {
+            kind = StringKind::UTF8_4;
+            uidx += 4;
+        }
+
+        if (++idx == uidx)
+            dst->cp_len++;
+
+        if (kind > dst->kind)
+            dst->kind = kind;
+    }
+}
+
+ArObject *string_add(ArObject *left, ArObject *right) {
+    if (left->type == right->type && left->type == &type_string_)
+        return StringConcat((String *) left, (String *) right);
 
     return nullptr;
 }
@@ -50,11 +91,12 @@ ArObject *string_mul(ArObject *left, ArObject *right) {
     if (right->type == &type_integer_) {
         auto i = (Integer *) right;
 
-        auto ret = StringNew(nullptr, l->len * i->integer);
+        auto ret = StringInit(l->len * i->integer, true);
 
-        if (ret != nullptr)
+        if (ret != nullptr) {
             for (size_t times = 0; times < i->integer; times++)
-                argon::memory::MemoryCopy(ret->buffer + (l->len * times), l->buffer, l->len);
+                FillBuffer(ret, l->len * times, l->buffer, l->len);
+        }
 
         return ret;
     }
@@ -144,63 +186,6 @@ const TypeInfo argon::object::type_string_ = {
         string_cleanup
 };
 
-String *StringInit(size_t len, bool mkbuf) {
-    auto str = ArObjectNew<String>(RCType::INLINE, &type_string_);
-
-    if (str != nullptr) {
-        str->buffer = nullptr;
-
-        if (mkbuf) {
-            // +1 is '\0'
-            if ((str->buffer = (unsigned char *) Alloc(len + 1)) == nullptr) {
-                argon::vm::Panic(OutOfMemoryError);
-                Release(str);
-                return nullptr;
-            }
-
-            // Set terminator
-            str->buffer[(len + 1) - 1] = 0x00;
-        }
-
-        str->kind = StringKind::ASCII;
-        str->intern = false;
-        str->len = len;
-        str->cp_len = 0;
-        str->hash = 0;
-    }
-
-    return str;
-}
-
-void FillBuffer(String *dst, size_t offset, const unsigned char *buf, size_t len) {
-    StringKind kind = StringKind::ASCII;
-    size_t idx = 0;
-    size_t uidx = 0;
-
-    while (idx < len) {
-        dst->buffer[idx + offset] = buf[idx];
-
-        if (buf[idx] >> (unsigned char) 7 == 0x0)
-            uidx += 1;
-        else if (buf[idx] >> (unsigned char) 5 == 0x6) {
-            kind = StringKind::UTF8_2;
-            uidx += 2;
-        } else if (buf[idx] >> (unsigned char) 4 == 0xE) {
-            kind = StringKind::UTF8_3;
-            uidx += 3;
-        } else if (buf[idx] >> (unsigned char) 3 == 0x1E) {
-            kind = StringKind::UTF8_4;
-            uidx += 4;
-        }
-
-        if (++idx == uidx)
-            dst->cp_len++;
-
-        if (kind > dst->kind)
-            dst->kind = kind;
-    }
-}
-
 String *argon::object::StringNew(const char *string, size_t len) {
     auto str = StringInit(len, true);
 
@@ -234,6 +219,18 @@ String *argon::object::StringIntern(const char *string, size_t len) {
 
 // Common Operations
 
+bool argon::object::StringEq(String *string, const unsigned char *c_str, size_t len) {
+    if (string->len != len)
+        return false;
+
+    for (size_t i = 0; i < string->len; i++) {
+        if (string->buffer[i] != c_str[i])
+            return false;
+    }
+
+    return true;
+}
+
 String *argon::object::StringConcat(String *left, String *right) {
     String *ret = StringInit(left->len + right->len, true);
 
@@ -248,18 +245,6 @@ String *argon::object::StringConcat(String *left, String *right) {
     }
 
     return ret;
-}
-
-bool argon::object::StringEq(String *string, const unsigned char *c_str, size_t len) {
-    if (string->len != len)
-        return false;
-
-    for (size_t i = 0; i < string->len; i++) {
-        if (string->buffer[i] != c_str[i])
-            return false;
-    }
-
-    return true;
 }
 
 String *argon::object::StringReplace(String *string, String *old, String *newval, arsize n) {

@@ -57,9 +57,9 @@ namespace argon::object {
 
     // Common Operations
 
-    String *StringConcat(String *left, String *right);
-
     bool StringEq(String *string, const unsigned char *c_str, size_t len);
+
+    String *StringConcat(String *left, String *right);
 
     inline arsize StringFind(String *string, String *pattern) {
         return support::Find(string->buffer, string->len, pattern->buffer, pattern->len, false);
