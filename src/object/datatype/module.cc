@@ -2,14 +2,69 @@
 //
 // Licensed under the Apache License v2.0
 
-#include <string>
-
 #include "nil.h"
 #include "function.h"
+#include "error.h"
+
 #include "module.h"
 
 using namespace argon::object;
 using namespace argon::memory;
+
+ArObject *module_get_static_attr(Module *self, ArObject *key) {
+    PropertyInfo pinfo{};
+    ArObject *obj;
+
+    if ((obj = NamespaceGetValue(self->module_ns, key, &pinfo)) == nullptr) {
+        ErrorFormat(&error_attribute_error, "unknown attribute '%s' of module '%s'", ((String *) key)->buffer,
+                    self->name->buffer);
+        return nullptr;
+    }
+
+    if (!pinfo.IsPublic()) {
+        ErrorFormat(&error_access_violation, "access violation, member '%s' of module '%s' are private",
+                    ((String *) key)->buffer,
+                    ((String *) self->name)->buffer);
+        Release(obj);
+        return nullptr;
+    }
+
+    return obj;
+}
+
+bool module_set_static_attr(Module *self, ArObject *key, ArObject *value) {
+    PropertyInfo pinfo{};
+
+    if (!NamespaceContains(self->module_ns, key, &pinfo)) {
+        ErrorFormat(&error_attribute_error, "unknown attribute '%s' of module '%s'", ((String *) key)->buffer,
+                    self->name->buffer);
+        return false;
+    }
+
+    if (!pinfo.IsPublic()) {
+        ErrorFormat(&error_access_violation, "access violation, member '%s' of module '%s' are private",
+                    ((String *) key)->buffer, ((String *) self->name)->buffer);
+        return false;
+    }
+
+
+    if (pinfo.IsConstant()) {
+        ErrorFormat(&error_unassignable_variable, "unable to assign value to constant '%s::%s'",
+                    ((String *) self->name)->buffer, ((String *) key)->buffer);
+        return false;
+    }
+
+    NamespaceSetValue(self->module_ns, key, value);
+
+    return true;
+}
+
+const ObjectActions module_actions = {
+        nullptr,
+        (BinaryOp) module_get_static_attr,
+        nullptr,
+        (BoolTernOp) module_set_static_attr
+};
 
 const TypeInfo type_module_ = {
         (const unsigned char *) "module",
@@ -17,7 +72,7 @@ const TypeInfo type_module_ = {
         nullptr,
         nullptr,
         nullptr,
-        nullptr,
+        &module_actions,
         nullptr,
         nullptr,
         nullptr,
@@ -53,26 +108,43 @@ bool InitGlobals(Module *module) {
     return false;
 }
 
-Module *argon::object::ModuleNew(const std::string &name, const std::string &doc) {
+Module *argon::object::ModuleNew(String *name, String *doc) {
     auto module = ArObjectNew<Module>(RCType::INLINE, &type_module_);
 
     if (module != nullptr) {
-        if ((module->name = StringNew(name)) == nullptr)
-            goto error;
-
-        if ((module->doc = StringNew(doc)) == nullptr)
-            goto error;
+        IncRef(name);
+        module->name = name;
+        IncRef(doc);
+        module->doc = doc;
 
         // Initialize module globals
-        if (!InitGlobals(module))
-            goto error;
-
-        return module;
+        if (!InitGlobals(module)) {
+            Release(module);
+            return nullptr;
+        }
     }
 
-    error:
-    Release(module);
-    return nullptr;
+    return module;
+}
+
+Module *argon::object::ModuleNew(const char *name, const char *doc) {
+    Module *module;
+    String *arname;
+    String *ardoc;
+
+    if ((arname = StringNew(name)) == nullptr)
+        return nullptr;
+
+    if ((ardoc = StringNew(doc)) == nullptr) {
+        Release(arname);
+        return nullptr;
+    }
+
+    module = ModuleNew(arname, ardoc);
+    Release(arname);
+    Release(ardoc);
+
+    return module;
 }
 
 Module *argon::object::ModuleNew(const ModuleInit *init) {

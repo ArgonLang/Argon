@@ -33,11 +33,17 @@ namespace argon::object {
         PropertyBulk *bulk;
     };
 
-    Module *ModuleNew(const std::string &name, const std::string &doc);
+    Module *ModuleNew(String *name, String *doc);
+
+    Module *ModuleNew(const char *name, const char *doc);
 
     Module *ModuleNew(const ModuleInit *init);
 
     bool ModuleAddObjects(Module *module, const PropertyBulk *bulk);
+
+    inline bool ModuleAddProperty(Module *module, ArObject *key, ArObject *value, PropertyInfo info) {
+        return NamespaceNewSymbol(module->module_ns, info, key, value);
+    }
 
 } // namespace argon::object
 
