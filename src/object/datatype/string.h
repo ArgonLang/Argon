@@ -57,6 +57,8 @@ namespace argon::object {
 
     // Common Operations
 
+    inline bool StringEmpty(String *string) { return string->len == 0; }
+
     bool StringEq(String *string, const unsigned char *c_str, size_t len);
 
     String *StringConcat(String *left, String *right);
