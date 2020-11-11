@@ -85,7 +85,7 @@ namespace argon::vm {
 
     void RoutinePopPanic(ArRoutine *routine);
 
-    inline bool RoutineIsPanicking(ArRoutine *routine) { return routine->panic != nullptr; }
+    inline bool RoutineIsPanicking(ArRoutine *routine) { return routine != nullptr && routine->panic != nullptr; }
 
 } // namespace argon::vm
 

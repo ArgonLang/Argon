@@ -23,6 +23,9 @@ ArRoutine *argon::vm::RoutineNew(Frame *frame, ArRoutineStatus status) {
 }
 
 void argon::vm::RoutineDel(ArRoutine *routine) {
+    while (routine->panic != nullptr)
+        RoutinePopPanic(routine);
+
     FrameDel(routine->frame);
     Free(routine);
 }
