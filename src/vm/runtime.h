@@ -20,9 +20,11 @@ namespace argon::vm {
 
     void SetRoutineMain(ArRoutine *routine);
 
-    argon::object::ArObject *Panic(argon::object::ArObject *obj);
+    bool IsPanicking();
 
-    argon::object::ArObject *Recover();
+    argon::object::ArObject *GetLastError();
+
+    argon::object::ArObject *Panic(argon::object::ArObject *obj);
 }
 
 #endif //ARGON_VM_RUNTIME_H_

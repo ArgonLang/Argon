@@ -69,6 +69,7 @@ ArRoutineQueue routine_gq;
 // std::mutex gqr_lock;
 
 thread_local ArRoutine *routine_main = nullptr; // Main routine, this routine is created by calling Context::Eval
+thread_local argon::object::ArObject *last_error = nullptr;
 
 bool argon::vm::Initialize() {
     vcs_count = std::thread::hardware_concurrency();
@@ -98,6 +99,8 @@ bool argon::vm::Initialize() {
 
 bool argon::vm::Shutdown() {
     short attempt = 10;
+
+    should_stop = true;
 
     while (ost_count > 0 && attempt > 0) {
         std::this_thread::sleep_for(std::chrono::milliseconds(600));
@@ -134,25 +137,46 @@ Context *argon::vm::GetContext() {
     return nullptr;
 }
 
+bool argon::vm::IsPanicking() {
+    auto routine = GetRoutine();
+
+    if (routine == nullptr)
+        return last_error != nullptr;
+
+    return routine->panic != nullptr;
+}
+
+argon::object::ArObject *argon::vm::GetLastError() {
+    argon::object::ArObject *err = nullptr;
+    auto routine = GetRoutine();
+
+    if (routine == nullptr) {
+        err = last_error;
+        last_error = nullptr;
+        return err;
+    }
+
+    if (routine->panic != nullptr) {
+        // First, try to get error from active defer (if any)
+        if ((err = RoutineRecover(routine)) == nullptr) {
+            err = routine->panic->object;
+            argon::object::IncRef(err);
+            RoutinePopPanic(routine);
+        }
+    }
+
+    return err;
+}
+
 argon::object::ArObject *argon::vm::Panic(argon::object::ArObject *obj) {
     auto routine = GetRoutine();
 
     if (routine != nullptr)
         RoutineNewPanic(routine, obj);
-
-    return nullptr;
-}
-
-argon::object::ArObject *argon::vm::Recover() {
-    auto routine = GetRoutine();
-
-    if (routine != nullptr) {
-        if (routine->cu_defer != nullptr && routine->cu_defer->panic != nullptr) {
-            auto panic = routine->cu_defer->panic;
-            argon::object::IncRef(panic->object);
-            RoutinePopPanic(routine);
-            return panic->object;
-        }
+    else {
+        argon::object::Release(last_error);
+        argon::object::IncRef(obj);
+        last_error = obj;
     }
 
     return nullptr;
