@@ -594,11 +594,30 @@ ArObject *argon::vm::Eval(ArRoutine *routine) {
             TARGET_OP(IDIV) {
                 BINARY_OP(routine, idiv, '//');
             }
-                /*
-                TARGET_OP(IMPFRM) {
+            TARGET_OP(IMPFRM) {
+                auto attribute = (String *) TupleGetItem(cu_code->statics, ARG32);
+
+                if ((ret = LoadStoreScope(TOP(), attribute, nullptr)) == nullptr) {
+                    Release(attribute);
+                    goto error;
                 }
-                TARGET_OP(IMPMOD) {
-                }*/
+
+                Release(attribute);
+                PUSH(ret);
+                DISPATCH4();
+            }
+            TARGET_OP(IMPMOD) {
+                auto path = (String *) TupleGetItem(cu_code->statics, ARG32);
+
+                if ((ret = ImportModule(routine->context->import, path, nullptr)) == nullptr) {
+                    Release(path);
+                    goto error;
+                }
+
+                Release(path);
+                PUSH(ret);
+                DISPATCH4();
+            }
             TARGET_OP(INC) {
                 UNARY_OP(inc);
             }
@@ -892,7 +911,7 @@ ArObject *argon::vm::Eval(ArRoutine *routine) {
 
                 ret = TupleGetItem(cu_code->names, ARG16);
 
-                if (!NamespaceNewSymbol(map, PropertyInfo((PropertyType)(ARG32 >> (unsigned char) 16)), ret, TOP()))
+                if (!NamespaceNewSymbol(map, PropertyInfo((PropertyType) (ARG32 >> (unsigned char) 16)), ret, TOP()))
                     goto error;
 
                 Release(ret);

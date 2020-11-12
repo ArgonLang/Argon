@@ -17,7 +17,9 @@ using namespace argon::vm;
 using namespace argon::object;
 
 Context::Context() {
-    this->main = ModuleNew("main","main module"); // TODO: STUB
+    // TODO: STUB
+    this->main = ModuleNew("main", "main module");
+    this->import = ImportNew();
 }
 
 ArObject *Context::Eval(const std::string &source) {
@@ -33,7 +35,7 @@ ArObject *Context::Eval(const std::string &source) {
 
     SetRoutineMain(routine);
 
-    auto ret = argon::vm::Eval(routine);
+    auto ret = argon::vm::Eval(routine, frame);
 
     SetRoutineMain(nullptr);
 

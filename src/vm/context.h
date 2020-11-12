@@ -10,12 +10,14 @@
 #include <object/arobject.h>
 #include <object/datatype/module.h>
 
+#include <vm/import.h>
+
 namespace argon::vm {
 
     class Context {
-        argon::object::Module *main;
-
     public:
+        argon::object::Module *main;
+        argon::vm::Import *import;
 
         Context();
 
