@@ -67,6 +67,7 @@ const ObjectActions module_actions = {
 };
 
 const TypeInfo type_module_ = {
+        TYPEINFO_STATIC_INIT,
         (const unsigned char *) "module",
         sizeof(Module),
         nullptr,

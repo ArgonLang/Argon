@@ -2,9 +2,28 @@
 //
 // Licensed under the Apache License v2.0
 
+#include "arobject.h"
 #include "objmgmt.h"
 
 using namespace argon::object;
+
+const TypeInfo argon::object::type_dtype_ = {
+        TYPEINFO_STATIC_INIT,
+        (const unsigned char *) "datatype",
+        sizeof(TypeInfo),
+        nullptr,
+        nullptr,
+        nullptr,
+        nullptr,
+        nullptr,
+        nullptr,
+        nullptr,
+        nullptr,
+        nullptr,
+        nullptr,
+        nullptr,
+        nullptr
+};
 
 bool argon::object::IsTrue(const ArObject *obj) {
     if (IsSequence(obj) && obj->type->sequence_actions->length != nullptr)

@@ -170,6 +170,7 @@ String *string_str(String *self) {
 }
 
 const TypeInfo argon::object::type_string_ = {
+        TYPEINFO_STATIC_INIT,
         (const unsigned char *) "string",
         sizeof(String),
         nullptr,

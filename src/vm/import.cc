@@ -32,6 +32,7 @@ void impspec_cleanup(ImportSpec *self) {
 }
 
 const argon::object::TypeInfo type_import_spec_ = {
+        TYPEINFO_STATIC_INIT,
         (const unsigned char *) "import_spec",
         sizeof(ImportSpec),
         nullptr,

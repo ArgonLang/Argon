@@ -47,6 +47,7 @@ const SequenceActions tuple_actions{
 };
 
 const TypeInfo type_tuple_ = {
+        TYPEINFO_STATIC_INIT,
         (const unsigned char *) "tuple",
         sizeof(Tuple),
         nullptr,

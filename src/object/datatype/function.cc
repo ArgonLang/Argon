@@ -80,6 +80,7 @@ void function_cleanup(Function *fn) {
 }
 
 const TypeInfo argon::object::type_function_ = {
+        TYPEINFO_STATIC_INIT,
         (const unsigned char *) "function",
         sizeof(Function),
         nullptr,

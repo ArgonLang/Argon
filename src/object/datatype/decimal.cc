@@ -290,6 +290,7 @@ bool decimal_istrue(Decimal *self) {
 }
 
 const TypeInfo argon::object::type_decimal_ = {
+        TYPEINFO_STATIC_INIT,
         (const unsigned char *) "decimal",
         sizeof(Decimal),
         nullptr,

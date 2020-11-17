@@ -201,6 +201,7 @@ bool integer_istrue(Integer *self) {
 }
 
 const TypeInfo argon::object::type_integer_ = {
+        TYPEINFO_STATIC_INIT,
         (const unsigned char *) "integer",
         sizeof(Integer),
         &integer_actions,

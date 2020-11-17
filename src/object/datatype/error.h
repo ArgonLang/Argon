@@ -26,6 +26,7 @@ namespace argon::object {
 
 #define ERROR_NEW_TYPE(type_name, name, base, cleanup, obj_actions) \
 const TypeInfo error_##type_name = {                                \
+        TYPEINFO_STATIC_INIT,                                       \
         (const unsigned char *) #name,                              \
         sizeof(base),                                               \
         nullptr,                                                    \

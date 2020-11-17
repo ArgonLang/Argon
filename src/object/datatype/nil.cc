@@ -19,6 +19,7 @@ bool nil_istrue(ArObject *self) {
 }
 
 const TypeInfo type_nil_ = {
+        TYPEINFO_STATIC_INIT,
         (const unsigned char *) "nil",
         sizeof(Nil),
         nullptr,

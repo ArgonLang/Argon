@@ -86,6 +86,7 @@ void namespace_trace(Namespace *self, VoidUnaryOp trace) {
 }
 
 const TypeInfo type_namespace_ = {
+        TYPEINFO_STATIC_INIT,
         (const unsigned char *) "namespace",
         sizeof(Namespace),
         nullptr,

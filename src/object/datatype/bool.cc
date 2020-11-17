@@ -19,6 +19,7 @@ bool bool_istrue(Bool *self) {
 }
 
 const TypeInfo type_bool_ = {
+        TYPEINFO_STATIC_INIT,
         (const unsigned char *) "bool",
         sizeof(Bool),
         nullptr,

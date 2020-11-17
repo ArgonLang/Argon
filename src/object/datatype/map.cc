@@ -228,6 +228,7 @@ const MapActions map_actions{
 };
 
 const TypeInfo type_map_ = {
+        TYPEINFO_STATIC_INIT,
         (const unsigned char *) "map",
         sizeof(Map),
         nullptr,
