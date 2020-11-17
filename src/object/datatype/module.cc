@@ -66,7 +66,7 @@ const ObjectActions module_actions = {
         (BoolTernOp) module_set_static_attr
 };
 
-const TypeInfo type_module_ = {
+const TypeInfo argon::object::type_module_ = {
         TYPEINFO_STATIC_INIT,
         (const unsigned char *) "module",
         sizeof(Module),

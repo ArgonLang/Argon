@@ -18,7 +18,7 @@ bool bool_istrue(Bool *self) {
     return self->value;
 }
 
-const TypeInfo type_bool_ = {
+const TypeInfo argon::object::type_bool_ = {
         TYPEINFO_STATIC_INIT,
         (const unsigned char *) "bool",
         sizeof(Bool),

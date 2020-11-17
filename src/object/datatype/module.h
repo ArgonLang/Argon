@@ -33,6 +33,8 @@ namespace argon::object {
         PropertyBulk *bulk;
     };
 
+    extern const TypeInfo type_module_;
+
     Module *ModuleNew(String *name, String *doc);
 
     Module *ModuleNew(const char *name, const char *doc);

@@ -39,7 +39,7 @@ bool CheckSize(Namespace *ns) {
     for (size_t i = ns->cap; i < new_cap; i++)
         new_ns[i] = nullptr;
 
-    for (size_t i = 0; i < new_cap; i++) {
+    for (size_t i = 0; i < ns->cap; i++) {
         for (NsEntry *prev = nullptr, *cur = new_ns[i], *next; cur != nullptr; cur = next) {
             size_t hash = cur->key->type->hash(cur->key) % new_cap;
             next = cur->next;
@@ -49,8 +49,8 @@ bool CheckSize(Namespace *ns) {
                 continue;
             }
 
-            cur->next = new_ns[i];
-            new_ns[i] = cur->next;
+            cur->next = new_ns[hash];
+            new_ns[hash] = cur;
             if (prev != nullptr)
                 prev->next = next;
             else
@@ -85,7 +85,7 @@ void namespace_trace(Namespace *self, VoidUnaryOp trace) {
             trace(cursor->obj);
 }
 
-const TypeInfo type_namespace_ = {
+const TypeInfo argon::object::type_namespace_ = {
         TYPEINFO_STATIC_INIT,
         (const unsigned char *) "namespace",
         sizeof(Namespace),

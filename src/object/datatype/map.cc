@@ -65,7 +65,7 @@ bool CheckSize(Map *map) {
     for (size_t i = map->cap; i < new_cap; i++)
         new_map[i] = nullptr;
 
-    for (size_t i = 0; i < new_cap; i++) {
+    for (size_t i = 0; i < map->cap; i++) {
         for (MapEntry *prev = nullptr, *cur = new_map[i], *next; cur != nullptr; cur = next) {
             size_t hash = cur->key->type->hash(cur->key) % new_cap;
             next = cur->next;
@@ -75,8 +75,8 @@ bool CheckSize(Map *map) {
                 continue;
             }
 
-            cur->next = new_map[i];
-            new_map[i] = cur->next;
+            cur->next = new_map[hash];
+            new_map[hash] = cur;
             if (prev != nullptr)
                 prev->next = next;
             else
@@ -227,7 +227,7 @@ const MapActions map_actions{
         (BoolTernOp) argon::object::MapInsert
 };
 
-const TypeInfo type_map_ = {
+const TypeInfo argon::object::type_map_ = {
         TYPEINFO_STATIC_INIT,
         (const unsigned char *) "map",
         sizeof(Map),

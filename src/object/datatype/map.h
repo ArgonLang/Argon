@@ -32,6 +32,8 @@ namespace argon::object {
         size_t len;
     };
 
+    extern const TypeInfo type_map_;
+
     Map *MapNew();
 
     ArObject *MapGet(Map *map, ArObject *key);

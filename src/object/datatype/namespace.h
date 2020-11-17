@@ -78,6 +78,8 @@ namespace argon::object {
         size_t len;
     };
 
+    extern const TypeInfo type_namespace_;
+
     Namespace *NamespaceNew();
 
     bool NamespaceNewSymbol(Namespace *ns, PropertyInfo info, ArObject *key, ArObject *value);

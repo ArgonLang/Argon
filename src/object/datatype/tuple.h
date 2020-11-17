@@ -13,6 +13,8 @@ namespace argon::object {
         size_t len;
     };
 
+    extern const TypeInfo type_tuple_;
+
     Tuple *TupleNew(const ArObject *sequence);
 
     Tuple *TupleNew(size_t len);
