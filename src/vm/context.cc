@@ -20,6 +20,7 @@ Context::Context() {
     // TODO: STUB
     this->main = ModuleNew("main", "main module");
     this->import = ImportNew();
+    this->bltins = ImportModule(this->import, "builtins", nullptr);
 }
 
 ArObject *Context::Eval(const std::string &source) {

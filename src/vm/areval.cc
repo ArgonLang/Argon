@@ -736,7 +736,12 @@ ArObject *argon::vm::Eval(ArRoutine *routine) {
                 if (ret == nullptr && cu_frame->proxy_globals != nullptr)
                     ret = NamespaceGetValue(cu_frame->proxy_globals, key, nullptr);
 
+                // Check builtins
+                if (ret == nullptr)
+                    ret = NamespaceGetValue(GetContext()->bltins->module_ns, key, nullptr);
+
                 Release(key);
+
                 if (ret == nullptr) {
                     ErrorFormat(&error_undeclared_variable, "'%s' undeclared global variable",
                                 ((String *) key)->buffer);

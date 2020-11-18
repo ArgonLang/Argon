@@ -103,7 +103,6 @@ Module *SourceLoader(Import *import, ImportSpec *spec) {
             RoutineDel(routine);
         }
 
-
         if (IsPanicking()) {
             Release(module);
             module = nullptr;
@@ -124,7 +123,7 @@ struct Builtins {
 };
 
 ImportSpec *BuiltinsLocator(Import *import, String *name, String *package) {
-    static Builtins builtins[] = {};
+    static Builtins builtins[] = {{"builtins", argon::modules::BuiltinsNew}};
     ImportSpec *imp;
 
     for (auto &builtin : builtins) {
@@ -283,10 +282,11 @@ Module *argon::vm::ImportModule(Import *import, String *name, String *package) {
     // Call Locators
     ImportSpec *spec = nullptr;
     for (auto &locator : locators) {
-        if ((spec = locator(import, name, package)) == nullptr) {
-            if (IsPanicking())
-                break;
-        }
+        if ((spec = locator(import, name, package)) != nullptr)
+            break;
+
+        if (IsPanicking())
+            break;
     }
 
     if (spec == nullptr) {

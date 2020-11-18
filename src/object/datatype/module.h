@@ -9,6 +9,9 @@
 #include "namespace.h"
 #include "string.h"
 
+#define MODULE_BULK_EXPORT_TYPE(name, type) \
+    {name, {.obj=(ArObject *) &type}, false, PropertyInfo(PropertyType::CONST | PropertyType::PUBLIC)}
+
 namespace argon::object {
     struct Module : ArObject {
         String *name;
@@ -30,7 +33,7 @@ namespace argon::object {
     struct ModuleInit {
         const char *name;
         const char *doc;
-        PropertyBulk *bulk;
+        const PropertyBulk *bulk;
     };
 
     extern const TypeInfo type_module_;

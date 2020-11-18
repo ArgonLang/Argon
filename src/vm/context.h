@@ -17,6 +17,7 @@ namespace argon::vm {
     class Context {
     public:
         argon::object::Module *main;
+        argon::object::Module *bltins;
         argon::vm::Import *import;
 
         Context();

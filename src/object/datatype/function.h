@@ -10,6 +10,11 @@
 #include "namespace.h"
 #include "string.h"
 
+#define ARGON_FUNC_NATIVE(cname, name, doc, arity, variadic)        \
+ArObject *cname##_fn(Function *self, ArObject **argv);              \
+FunctionNative cname = {#name, doc, cname##_fn, arity, variadic};   \
+ArObject *cname##_fn(Function *self, ArObject **argv)
+
 namespace argon::object {
 
     using FunctionNativePtr = ArObject *(*)(struct Function *self, ArObject **argv);
