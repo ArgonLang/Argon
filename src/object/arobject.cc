@@ -7,6 +7,21 @@
 
 using namespace argon::object;
 
+bool dtype_istrue(ArObject *obj) {
+    return true;
+}
+
+bool dtype_equal(TypeInfo *left, TypeInfo *right) {
+    if (right->type != &type_dtype_)
+        return false;
+
+    return left == right;
+}
+
+size_t dtype_hash(ArObject *self) {
+    return (size_t) self; // returns memory pointer as size_t
+}
+
 const TypeInfo argon::object::type_dtype_ = {
         TYPEINFO_STATIC_INIT,
         (const unsigned char *) "datatype",
@@ -15,10 +30,10 @@ const TypeInfo argon::object::type_dtype_ = {
         nullptr,
         nullptr,
         nullptr,
+        dtype_istrue,
+        (BoolBinOp)dtype_equal,
         nullptr,
-        nullptr,
-        nullptr,
-        nullptr,
+        dtype_hash,
         nullptr,
         nullptr,
         nullptr,
