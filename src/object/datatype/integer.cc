@@ -219,6 +219,15 @@ const TypeInfo argon::object::type_integer_ = {
 };
 
 Integer *argon::object::IntegerNew(IntegerUnderlayer number) {
+    // Overflow check
+#if __WORDSIZE == 32
+    if (number > 0x7FFFFFFF)
+        return (Integer *) ErrorFormat(&error_overflow_error, "integer too large to be represented by signed C long");
+#elif __WORDSIZE == 64
+    if (number > 0x7FFFFFFFFFFFFFFF)
+        return (Integer *) ErrorFormat(&error_overflow_error, "integer too large to be represented by signed C long");
+#endif
+
     auto integer = ArObjectNew<Integer>(RCType::INLINE, &type_integer_);
 
     if (integer != nullptr)
