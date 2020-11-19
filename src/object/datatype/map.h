@@ -5,7 +5,7 @@
 #ifndef ARGON_OBJECT_MAP_H_
 #define ARGON_OBJECT_MAP_H_
 
-#include <object/objmgmt.h>
+#include <object/arobject.h>
 
 #define ARGON_OBJECT_MAP_INITIAL_SIZE   10
 #define ARGON_OBJECT_MAP_LOAD_FACTOR    0.75f
@@ -31,6 +31,8 @@ namespace argon::object {
         size_t cap;
         size_t len;
     };
+
+    extern const TypeInfo type_map_;
 
     Map *MapNew();
 

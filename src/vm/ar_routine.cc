@@ -7,13 +7,14 @@
 
 using namespace argon::vm;
 using namespace argon::memory;
+using namespace argon::object;
 
-ArRoutine *argon::vm::RoutineNew(Frame *frame, ArRoutineStatus status) {
+ArRoutine *argon::vm::RoutineNew(ArRoutineStatus status) {
     auto routine = (ArRoutine *) Alloc(sizeof(ArRoutine));
 
     if (routine != nullptr) {
         routine->next = nullptr;
-        routine->frame = frame;
+        routine->frame = nullptr;
         routine->defer = nullptr;
         routine->cu_defer = nullptr;
         routine->status = status;
@@ -22,12 +23,58 @@ ArRoutine *argon::vm::RoutineNew(Frame *frame, ArRoutineStatus status) {
     return routine;
 }
 
+ArRoutine *argon::vm::RoutineNew(Frame *frame, ArRoutineStatus status) {
+    auto routine = RoutineNew(status);
+
+    if (routine != nullptr) {
+        routine->next = nullptr;
+        routine->frame = frame;
+        routine->defer = nullptr;
+        routine->cu_defer = nullptr;
+    }
+
+    return routine;
+}
+
+ArObject *argon::vm::RoutineRecover(ArRoutine *routine) {
+    ArObject *err = nullptr;
+
+    if (routine != nullptr) {
+        if (routine->cu_defer != nullptr && routine->cu_defer->panic != nullptr) {
+            err = routine->cu_defer->panic->object;
+            IncRef(err);
+            assert(routine->panic == routine->cu_defer->panic);
+            routine->cu_defer->panic = nullptr;
+            RoutinePopPanic(routine);
+        }
+    }
+
+    return err;
+}
+
+void argon::vm::RoutineReset(ArRoutine *routine, ArRoutineStatus status) {
+    if (routine != nullptr) {
+        routine->next = nullptr;
+
+        if (routine->frame != nullptr)
+            FrameDel(routine->frame);
+        routine->frame = nullptr;
+
+        while (routine->panic != nullptr)
+            RoutinePopPanic(routine);
+
+        assert(routine->cu_defer == nullptr);
+
+        routine->status = status;
+    }
+}
+
 void argon::vm::RoutineDel(ArRoutine *routine) {
-    FrameDel(routine->frame);
+    RoutineReset(routine, ArRoutineStatus::RUNNABLE);
     Free(routine);
 }
 
-void argon::vm::RoutineNewDefer(ArRoutine *routine, argon::object::ArObject *func) {
+void argon::vm::RoutineNewDefer(ArRoutine *routine, ArObject *func) {
     auto defer = (Defer *) Alloc(sizeof(Defer));
 
     if (defer != nullptr) {
@@ -35,7 +82,7 @@ void argon::vm::RoutineNewDefer(ArRoutine *routine, argon::object::ArObject *fun
         routine->defer = defer;
 
         defer->frame = routine->frame;
-        argon::object::IncRef(func);
+        IncRef(func);
         defer->function = func;
         defer->panic = nullptr;
         return;
@@ -52,15 +99,15 @@ void argon::vm::RoutineDelDefer(ArRoutine *routine) {
     if (routine->cu_defer == defer)
         routine->cu_defer = nullptr;
 
-    argon::object::Release(defer->function);
+    Release(defer->function);
     argon::memory::Free(defer);
 }
 
-void argon::vm::RoutineNewPanic(ArRoutine *routine, argon::object::ArObject *object) {
+void argon::vm::RoutineNewPanic(ArRoutine *routine, ArObject *object) {
     auto panic = (struct Panic *) Alloc(sizeof(struct Panic));
 
     if (panic != nullptr) {
-        argon::object::IncRef(object);
+        IncRef(object);
 
         panic->panic = routine->panic;
         routine->panic = panic;
@@ -80,7 +127,7 @@ void argon::vm::RoutinePopPanic(ArRoutine *routine) {
     auto panic = routine->panic;
 
     if (panic != nullptr) {
-        argon::object::Release(panic->object);
+        Release(panic->object);
         routine->panic = panic->panic;
         argon::memory::Free(panic);
     }

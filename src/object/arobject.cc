@@ -2,9 +2,43 @@
 //
 // Licensed under the Apache License v2.0
 
+#include "arobject.h"
 #include "objmgmt.h"
 
 using namespace argon::object;
+
+bool dtype_istrue(ArObject *obj) {
+    return true;
+}
+
+bool dtype_equal(TypeInfo *left, TypeInfo *right) {
+    if (right->type != &type_dtype_)
+        return false;
+
+    return left == right;
+}
+
+size_t dtype_hash(ArObject *self) {
+    return (size_t) self; // returns memory pointer as size_t
+}
+
+const TypeInfo argon::object::type_dtype_ = {
+        TYPEINFO_STATIC_INIT,
+        (const unsigned char *) "datatype",
+        sizeof(TypeInfo),
+        nullptr,
+        nullptr,
+        nullptr,
+        nullptr,
+        dtype_istrue,
+        (BoolBinOp)dtype_equal,
+        nullptr,
+        dtype_hash,
+        nullptr,
+        nullptr,
+        nullptr,
+        nullptr
+};
 
 bool argon::object::IsTrue(const ArObject *obj) {
     if (IsSequence(obj) && obj->type->sequence_actions->length != nullptr)

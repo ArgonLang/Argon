@@ -158,6 +158,7 @@ const SequenceActions list_actions{
 };
 
 const TypeInfo argon::object::type_list_ = {
+        TYPEINFO_STATIC_INIT,
         (const unsigned char *) "list",
         sizeof(List),
         nullptr,

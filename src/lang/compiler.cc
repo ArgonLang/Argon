@@ -153,16 +153,18 @@ bool Compiler::VariableLookupCreate(const std::string &name, Symbol **out_sym) {
 }
 
 inline unsigned char AttrToFlags(bool pub, bool constant, bool weak, bool member) {
-    unsigned char flags = 0;
+    PropertyType flags{};
+
     if (pub)
-        flags |= ARGON_OBJECT_NS_PROP_PUB;
+        flags |= PropertyType::PUBLIC;
     if (constant)
-        flags |= ARGON_OBJECT_NS_PROP_CONST;
+        flags |= PropertyType::CONST;
     if (weak)
-        flags |= ARGON_OBJECT_NS_PROP_WEAK;
+        flags |= PropertyType::WEAK;
     if (member)
-        flags |= ARGON_OBJECT_NS_PROP_MEMBER;
-    return flags;
+        flags |= PropertyType::MEMBER;
+
+    return (unsigned char) flags;
 }
 
 unsigned int Compiler::CompileMember(const ast::Member *member, bool duplicate, bool emit_last) {
@@ -1323,7 +1325,7 @@ void Compiler::VariableNew(const std::string &name, bool emit, unsigned char fla
     Symbol *sym;
     bool inserted;
 
-    if ((flags & ARGON_OBJECT_NS_PROP_CONST) == ARGON_OBJECT_NS_PROP_CONST)
+    if (((PropertyType)flags & PropertyType::CONST) == PropertyType::CONST)
         type = SymbolType::CONSTANT;
 
     sym = this->unit_->symt.Insert(name, type, &inserted);

@@ -11,6 +11,8 @@ namespace argon::object {
     struct Nil : public ArObject {
     };
 
+    extern const TypeInfo type_nil_;
+
     extern Nil *NilVal;
 
     inline Nil *ReturnNil() {

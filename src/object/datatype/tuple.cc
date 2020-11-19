@@ -46,7 +46,8 @@ const SequenceActions tuple_actions{
         (BinaryOpArSize) argon::object::TupleGetItem
 };
 
-const TypeInfo type_tuple_ = {
+const TypeInfo argon::object::type_tuple_ = {
+        TYPEINFO_STATIC_INIT,
         (const unsigned char *) "tuple",
         sizeof(Tuple),
         nullptr,

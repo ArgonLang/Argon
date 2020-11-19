@@ -88,6 +88,7 @@ const ObjectActions instance_actions{
 };
 
 const TypeInfo argon::object::type_instance_ = {
+        TYPEINFO_STATIC_INIT,
         (const unsigned char *) "instance",
         sizeof(Instance),
         nullptr,

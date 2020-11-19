@@ -4,8 +4,9 @@
 
 #include <gtest/gtest.h>
 
-#include <object/datatype/map.h>
+#include <object/objmgmt.h>
 #include <object/datatype/string.h>
+#include <object/datatype/map.h>
 
 using namespace argon::object;
 

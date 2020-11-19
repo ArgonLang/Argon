@@ -18,7 +18,8 @@ bool nil_istrue(ArObject *self) {
     return false;
 }
 
-const TypeInfo type_nil_ = {
+const TypeInfo argon::object::type_nil_ = {
+        TYPEINFO_STATIC_INIT,
         (const unsigned char *) "nil",
         sizeof(Nil),
         nullptr,

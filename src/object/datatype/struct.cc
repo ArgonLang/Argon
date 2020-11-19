@@ -53,6 +53,7 @@ const ObjectActions struct_actions{
 };
 
 const TypeInfo argon::object::type_struct_ = {
+        TYPEINFO_STATIC_INIT,
         (const unsigned char *) "struct",
         sizeof(Struct),
         nullptr,

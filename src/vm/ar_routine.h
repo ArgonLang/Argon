@@ -71,9 +71,15 @@ namespace argon::vm {
         ArRoutineStatus status;
     };
 
+    ArRoutine *RoutineNew(ArRoutineStatus status);
+
     ArRoutine *RoutineNew(Frame *frame, ArRoutineStatus status);
 
     inline ArRoutine *RoutineNew(Frame *frame) { return RoutineNew(frame, ArRoutineStatus::RUNNABLE); }
+
+    argon::object::ArObject *RoutineRecover(ArRoutine *routine);
+
+    void RoutineReset(ArRoutine *routine, ArRoutineStatus status);
 
     void RoutineDel(ArRoutine *routine);
 
@@ -85,7 +91,7 @@ namespace argon::vm {
 
     void RoutinePopPanic(ArRoutine *routine);
 
-    inline bool RoutineIsPanicking(ArRoutine *routine) { return routine->panic != nullptr; }
+    inline bool RoutineIsPanicking(ArRoutine *routine) { return routine != nullptr && routine->panic != nullptr; }
 
 } // namespace argon::vm
 

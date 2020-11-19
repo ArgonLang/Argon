@@ -506,7 +506,7 @@ ArObject *argon::vm::Eval(ArRoutine *routine) {
                 }
 
                 // Argon Code
-                auto func_frame = FrameNew(func->code, cu_frame->globals, cu_frame->proxy_globals);
+                auto func_frame = FrameNew(func->code, func->gns, nullptr); // TODO: check proxy_globals
                 if (func_frame == nullptr)
                     goto error;
 
@@ -594,11 +594,30 @@ ArObject *argon::vm::Eval(ArRoutine *routine) {
             TARGET_OP(IDIV) {
                 BINARY_OP(routine, idiv, '//');
             }
-                /*
-                TARGET_OP(IMPFRM) {
+            TARGET_OP(IMPFRM) {
+                auto attribute = (String *) TupleGetItem(cu_code->statics, ARG32);
+
+                if ((ret = LoadStoreScope(TOP(), attribute, nullptr)) == nullptr) {
+                    Release(attribute);
+                    goto error;
                 }
-                TARGET_OP(IMPMOD) {
-                }*/
+
+                Release(attribute);
+                PUSH(ret);
+                DISPATCH4();
+            }
+            TARGET_OP(IMPMOD) {
+                auto path = (String *) TupleGetItem(cu_code->statics, ARG32);
+
+                if ((ret = ImportModule(routine->context->import, path, nullptr)) == nullptr) {
+                    Release(path);
+                    goto error;
+                }
+
+                Release(path);
+                PUSH(ret);
+                DISPATCH4();
+            }
             TARGET_OP(INC) {
                 UNARY_OP(inc);
             }
@@ -717,7 +736,12 @@ ArObject *argon::vm::Eval(ArRoutine *routine) {
                 if (ret == nullptr && cu_frame->proxy_globals != nullptr)
                     ret = NamespaceGetValue(cu_frame->proxy_globals, key, nullptr);
 
+                // Check builtins
+                if (ret == nullptr)
+                    ret = NamespaceGetValue(GetContext()->bltins->module_ns, key, nullptr);
+
                 Release(key);
+
                 if (ret == nullptr) {
                     ErrorFormat(&error_undeclared_variable, "'%s' undeclared global variable",
                                 ((String *) key)->buffer);
@@ -780,7 +804,7 @@ ArObject *argon::vm::Eval(ArRoutine *routine) {
                     name = (String *) PEEK2();
                 }
 
-                ret = FunctionNew(name, (Code *) ret, ARG16,
+                ret = FunctionNew(cu_frame->globals, name, (Code *) ret, ARG16,
                                   ENUMBITMASK_ISTRUE(flags, argon::lang::MkFuncFlags::VARIADIC),
                                   enclosed);
 
@@ -892,7 +916,7 @@ ArObject *argon::vm::Eval(ArRoutine *routine) {
 
                 ret = TupleGetItem(cu_code->names, ARG16);
 
-                if (!NamespaceNewSymbol(map, PropertyInfo(ARG32 >> (unsigned char) 16), ret, TOP()))
+                if (!NamespaceNewSymbol(map, PropertyInfo((PropertyType) (ARG32 >> (unsigned char) 16)), ret, TOP()))
                     goto error;
 
                 Release(ret);
@@ -1079,7 +1103,7 @@ ArObject *argon::vm::Eval(ArRoutine *routine) {
         routine->cu_defer = routine->defer;
 
         if (!dfr_fn->native) {
-            auto dfr_frame = FrameNew(dfr_fn->code, cu_frame->globals, cu_frame->proxy_globals);
+            auto dfr_frame = FrameNew(dfr_fn->code, dfr_fn->gns, nullptr); // TODO: check proxy_globals
             FillFrameForCall(dfr_frame, dfr_fn, nullptr, 0);
             Release(Eval(routine, dfr_frame));
             FrameDel(dfr_frame);

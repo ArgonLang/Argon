@@ -91,7 +91,12 @@ namespace argon::object {
         BoolTernOp set_static_attr;
     };
 
-    struct TypeInfo {
+    struct ArObject {
+        RefCount ref_count;
+        const struct TypeInfo *type;
+    };
+
+    struct TypeInfo : ArObject {
         const unsigned char *name;
         unsigned short size;
 
@@ -114,11 +119,9 @@ namespace argon::object {
         VoidUnaryOp cleanup;
     };
 
+    extern const TypeInfo type_dtype_;
 
-    struct ArObject {
-        RefCount ref_count;
-        const TypeInfo *type;
-    };
+#define TYPEINFO_STATIC_INIT    {{RefCount(RCType::STATIC)}, &type_dtype_}
 
 } // namespace argon::object
 

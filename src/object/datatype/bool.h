@@ -12,6 +12,8 @@ namespace argon::object {
         bool value;
     };
 
+    extern const TypeInfo type_bool_;
+
     extern Bool *True;
     extern Bool *False;
 

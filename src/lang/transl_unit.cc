@@ -3,6 +3,7 @@
 // Licensed under the Apache License v2.0
 
 #include <memory/memory.h>
+#include <object/objmgmt.h>
 
 #include "transl_unit.h"
 

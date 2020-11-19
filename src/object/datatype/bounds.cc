@@ -8,6 +8,7 @@ using namespace argon::object;
 using namespace argon::memory;
 
 const TypeInfo argon::object::type_bounds_ = {
+        TYPEINFO_STATIC_INIT,
         (const unsigned char *) "bounds",
         sizeof(Bounds),
         nullptr,

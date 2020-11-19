@@ -14,6 +14,7 @@ void trait_cleanup(Trait *self) {
 }
 
 const TypeInfo argon::object::type_trait_ = {
+        TYPEINFO_STATIC_INIT,
         (const unsigned char *) "trait",
         sizeof(Trait),
         nullptr,

@@ -7,7 +7,13 @@
 
 #include <object/arobject.h>
 #include "code.h"
+#include "namespace.h"
 #include "string.h"
+
+#define ARGON_FUNC_NATIVE(cname, name, doc, arity, variadic)        \
+ArObject *cname##_fn(Function *self, ArObject **argv);              \
+FunctionNative cname = {#name, doc, cname##_fn, arity, variadic};   \
+ArObject *cname##_fn(Function *self, ArObject **argv)
 
 namespace argon::object {
 
@@ -51,10 +57,13 @@ namespace argon::object {
         /* This pointer points to a structure instance (if and only if this function is a method) */
         ArObject *instance;
 
+        /* Pointer to the global namespace in which this function is declared */
+        Namespace *gns;
+
         /* Arity of the function, how many args accepts in input?! */
         unsigned short arity;
 
-        /* Is a variadic function? (func variadic(p1,p2,...p3))*/
+        /* Is a variadic function? (func variadic(p1,p2,...p3)) */
         bool variadic;
 
         /* This function is native? */
@@ -65,9 +74,10 @@ namespace argon::object {
 
     extern const TypeInfo type_function_;
 
-    Function *FunctionNew(String *name, Code *code, unsigned short arity, bool variadic, List *enclosed);
+    Function *
+    FunctionNew(Namespace *gns, String *name, Code *code, unsigned short arity, bool variadic, List *enclosed);
 
-    Function *FunctionNew(const FunctionNative *native);
+    Function *FunctionNew(Namespace *gns, const FunctionNative *native);
 
     Function *FunctionNew(const Function *func, List *currying);
 

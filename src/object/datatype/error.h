@@ -26,6 +26,7 @@ namespace argon::object {
 
 #define ERROR_NEW_TYPE(type_name, name, base, cleanup, obj_actions) \
 const TypeInfo error_##type_name = {                                \
+        TYPEINFO_STATIC_INIT,                                       \
         (const unsigned char *) #name,                              \
         sizeof(base),                                               \
         nullptr,                                                    \
@@ -61,6 +62,8 @@ ERROR_NEW_TYPE(type_name, name, ErrorStr, __error_str_cleanup, obj_actions)
     ERROR_STR_NEW_TYPE(scope_error, ScopeError, nullptr);
     ERROR_STR_NEW_TYPE(access_violation, AccessViolation, nullptr);
     ERROR_STR_NEW_TYPE(runtime_error, RuntimeError, nullptr);
+    ERROR_STR_NEW_TYPE(module_notfound, ModuleNotFound, nullptr);
+    ERROR_STR_NEW_TYPE(overflow_error, OverflowError, nullptr);
 
 #undef ERROR_STR_NEW_TYPE
 #undef ERROR_NEW_TYPE
