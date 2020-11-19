@@ -24,6 +24,38 @@
 
 using namespace argon::object;
 
+ARGON_FUNC_NATIVE(builtins_callable, callable, "Return true if argument appears callable, false otherwise.", 1, false) {
+    // This definition may be change in future
+    if (argv[0]->type == &type_function_)
+        return True;
+    return False;
+}
+
+ARGON_FUNC_NATIVE(builtins_len, len, "Returns the length of an object.", 1, false) {
+    size_t length;
+
+    if (IsSequence(argv[0]))
+        length = argv[0]->type->sequence_actions->length(argv[0]);
+    else if (IsMap(argv[0]))
+        length = argv[0]->type->map_actions->length(argv[0]);
+    else
+        return ErrorFormat(&error_type_error, "type '%s' has no len", argv[0]->type->name);
+
+    return IntegerNew(length);
+}
+
+ARGON_FUNC_NATIVE(builtins_panic, panic, "Stops normal execution of the current routine"
+                                         "and begins the panic sequence", 1, false) {
+    return argon::vm::Panic(argv[0]);
+}
+
+ARGON_FUNC_NATIVE(builtins_recover, recover, "Stops the panic state and returns the current panic object."
+                                             "This function must be called inside a defer, "
+                                             "if called outside, the panic sequence will not be interrupted "
+                                             "and the function will return nil.", 0, false) {
+    return ReturnNil(argon::vm::GetLastError());
+}
+
 ARGON_FUNC_NATIVE(builtins_type, type, "Returns type of the argument passed as parameter.", 1, false) {
     IncRef((ArObject *) argv[0]->type);
     return (ArObject *) argv[0]->type;
@@ -46,7 +78,13 @@ const PropertyBulk builtins_bulk[] = {
         MODULE_BULK_EXPORT_TYPE("struct", type_struct_),
         MODULE_BULK_EXPORT_TYPE("trait", type_trait_),
         MODULE_BULK_EXPORT_TYPE("tuple", type_tuple_),
-        {"type", {.func=&builtins_type}, true, PropertyInfo(PropertyType::CONST | PropertyType::PUBLIC)},
+
+        // Functions
+        MODULE_BULK_EXPORT_FUNCTION(builtins_callable),
+        MODULE_BULK_EXPORT_FUNCTION(builtins_len),
+        MODULE_BULK_EXPORT_FUNCTION(builtins_panic),
+        MODULE_BULK_EXPORT_FUNCTION(builtins_recover),
+        MODULE_BULK_EXPORT_FUNCTION(builtins_type),
         {nullptr, nullptr, false, PropertyInfo()} // Sentinel
 };
 

@@ -12,6 +12,9 @@
 #define MODULE_BULK_EXPORT_TYPE(name, type) \
     {name, {.obj=(ArObject *) &type}, false, PropertyInfo(PropertyType::CONST | PropertyType::PUBLIC)}
 
+#define MODULE_BULK_EXPORT_FUNCTION(fn_native)  \
+    {fn_native.name, {.func=&fn_native}, true, PropertyInfo(PropertyType::CONST | PropertyType::PUBLIC)}
+
 namespace argon::object {
     struct Module : ArObject {
         String *name;

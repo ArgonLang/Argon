@@ -43,8 +43,8 @@ ArObject *argon::vm::RoutineRecover(ArRoutine *routine) {
         if (routine->cu_defer != nullptr && routine->cu_defer->panic != nullptr) {
             err = routine->cu_defer->panic->object;
             IncRef(err);
-            routine->cu_defer->panic = nullptr;
             assert(routine->panic == routine->cu_defer->panic);
+            routine->cu_defer->panic = nullptr;
             RoutinePopPanic(routine);
         }
     }
