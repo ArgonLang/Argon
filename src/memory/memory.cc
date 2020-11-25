@@ -125,6 +125,14 @@ void *argon::memory::MemoryConcat(void *s1, size_t size1, void *s2, size_t size2
     return dst;
 }
 
+void *argon::memory::MemoryFind(const void *buf, unsigned char value, size_t size) {
+    for (size_t i = 0; i < size; i++) {
+        if (((unsigned char *) buf)[i] == value)
+            return (void *) (((unsigned char *) buf) + i);
+    }
+    return nullptr;
+}
+
 void *argon::memory::MemorySet(void *dest, int val, size_t size) {
     // 27/08/20 was a bad day... but did you really do IT? REALLY?!
     auto ptr = (unsigned char *) dest;

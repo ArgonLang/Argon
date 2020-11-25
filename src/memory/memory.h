@@ -43,6 +43,8 @@ namespace argon::memory {
 
     void *MemoryConcat(void *s1, size_t size1, void *s2, size_t size2);
 
+    void *MemoryFind(const void *buf, unsigned char value, size_t size);
+
     void *MemorySet(void *dest, int val, size_t size);
 
     inline void *MemoryZero(void *dest, size_t size) { return MemorySet(dest, 0x00, size); }
