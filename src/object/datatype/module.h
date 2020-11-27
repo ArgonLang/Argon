@@ -16,11 +16,18 @@
     {fn_native.name, {.func=&fn_native}, true, PropertyInfo(PropertyType::CONST | PropertyType::PUBLIC)}
 
 namespace argon::object {
+
+    using ModuleInitializeFn = bool (*)(struct Module *module);
+
+    using ModuleFinalizeFn = void (*)(struct Module *module);
+
     struct Module : ArObject {
         String *name;
         String *doc;
 
         Namespace *module_ns;
+
+        ModuleFinalizeFn finalize;
     };
 
     struct PropertyBulk {
@@ -36,7 +43,11 @@ namespace argon::object {
     struct ModuleInit {
         const char *name;
         const char *doc;
+
         const PropertyBulk *bulk;
+
+        ModuleInitializeFn initialize;
+        ModuleFinalizeFn finalize;
     };
 
     extern const TypeInfo type_module_;

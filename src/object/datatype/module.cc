@@ -123,6 +123,8 @@ Module *argon::object::ModuleNew(String *name, String *doc) {
             Release(module);
             return nullptr;
         }
+
+        module->finalize = nullptr;
     }
 
     return module;
@@ -167,6 +169,11 @@ Module *argon::object::ModuleNew(const ModuleInit *init) {
 
         if (!ModuleAddObjects(module, init->bulk))
             goto error;
+
+        if (init->initialize != nullptr && !init->initialize(module))
+            goto error;
+
+        module->finalize = init->finalize;
 
         return module;
     }

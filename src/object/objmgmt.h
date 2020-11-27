@@ -60,6 +60,11 @@ namespace argon::object {
 
     void Release(ArObject *obj);
 
+    inline void Release(ArObject **obj) {
+        Release(*obj);
+        *obj = nullptr;
+    }
+
 } // namespace argon::object
 
 #endif // !ARGON_OBJECT_OBJMGMT_H_
