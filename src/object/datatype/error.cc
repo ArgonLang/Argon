@@ -60,6 +60,29 @@ ArObject *argon::object::ErrorFormat(const TypeInfo *etype, const char *format, 
     return nullptr;
 }
 
+const TypeInfo *argon::object::ErrorFromErrno() {
+    switch (errno) {
+        case EPERM:
+            return &error_file_access;
+        case ENOENT:
+            return &error_file_exists;
+        case EINTR:
+            return &error_io_interrupted;
+        case EAGAIN:
+            return &error_io_blocking;
+        case EACCES:
+            return &error_file_access;
+        case EEXIST:
+            return &error_file_exists;
+        case EISDIR:
+            return &error_isa_directory;
+        case EPIPE:
+            return &error_io_broken_pipe;
+        default:
+            return &error_io;
+    }
+}
+
 void argon::object::__error_str_cleanup(ArObject *obj) { argon::memory::Free((char *) ((ErrorStr *) obj)->msg); }
 
 void argon::object::__error_error_cleanup(ArObject *obj) { Release(((Error *) obj)->obj); }

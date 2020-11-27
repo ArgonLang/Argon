@@ -24,6 +24,8 @@ namespace argon::object {
 
     ArObject *ErrorFormat(const TypeInfo *etype, const char *format, ...);
 
+    const TypeInfo *ErrorFromErrno();
+
 #define ERROR_NEW_TYPE(type_name, name, base, cleanup, obj_actions) \
 const TypeInfo error_##type_name = {                                \
         TYPEINFO_STATIC_INIT,                                       \
@@ -64,6 +66,17 @@ ERROR_NEW_TYPE(type_name, name, ErrorStr, __error_str_cleanup, obj_actions)
     ERROR_STR_NEW_TYPE(runtime_error, RuntimeError, nullptr);
     ERROR_STR_NEW_TYPE(module_notfound, ModuleNotFound, nullptr);
     ERROR_STR_NEW_TYPE(overflow_error, OverflowError, nullptr);
+
+    // IO
+    ERROR_STR_NEW_TYPE(io, IOError, nullptr);
+    ERROR_STR_NEW_TYPE(io_blocking, BlockingIOError, nullptr);
+    ERROR_STR_NEW_TYPE(io_broken_pipe, BrokenPipeError, nullptr);
+    ERROR_STR_NEW_TYPE(io_interrupted, InterruptedError, nullptr);
+
+    ERROR_STR_NEW_TYPE(isa_directory, IsADirectoryError, nullptr);
+    ERROR_STR_NEW_TYPE(file_exists, FileExistsError, nullptr);
+    ERROR_STR_NEW_TYPE(file_notfound, FileNotFound, nullptr);
+    ERROR_STR_NEW_TYPE(file_access, FileAccessError, nullptr);
 
 #undef ERROR_STR_NEW_TYPE
 #undef ERROR_NEW_TYPE
