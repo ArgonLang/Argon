@@ -3,8 +3,9 @@
 // Licensed under the Apache License v2.0
 
 #include <memory/memory.h>
+#include <vm/runtime.h>
 
-#include <object/objmgmt.h>
+#include "error.h"
 #include "integer.h"
 #include "list.h"
 
@@ -261,7 +262,7 @@ List *argon::object::ListNew() {
 }
 
 List *argon::object::ListNew(size_t cap) {
-    auto list = ArObjectNewGC<List>(&type_list_);
+    auto list = ArObjectGCNew<List>(&type_list_);
 
     if (list != nullptr) {
         list->objects = nullptr;

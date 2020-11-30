@@ -4,7 +4,7 @@
 
 #include <memory/memory.h>
 
-#include <object/objmgmt.h>
+#include <object/arobject.h>
 #include "hash_magic.h"
 #include "code.h"
 

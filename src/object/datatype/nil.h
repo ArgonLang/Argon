@@ -5,7 +5,7 @@
 #ifndef ARGON_OBJECT_NIL_H_
 #define ARGON_OBJECT_NIL_H_
 
-#include <object/objmgmt.h>
+#include <object/arobject.h>
 
 namespace argon::object {
     struct Nil : public ArObject {

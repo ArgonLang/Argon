@@ -5,7 +5,10 @@
 #include <cmath>
 #include <cassert>
 
+#include <vm/runtime.h>
+
 #include "hash_magic.h"
+#include "error.h"
 #include "integer.h"
 #include "decimal.h"
 #include "bool.h"

@@ -2,7 +2,7 @@
 //
 // Licensed under the Apache License v2.0
 
-#include <object/objmgmt.h>
+#include <object/arobject.h>
 #include "ar_routine.h"
 
 using namespace argon::vm;

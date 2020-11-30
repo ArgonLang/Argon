@@ -2,6 +2,8 @@
 //
 // Licensed under the Apache License v2.0
 
+#include <vm/runtime.h>
+
 #include <object/datatype/bool.h>
 #include <object/datatype/bounds.h>
 #include <object/datatype/code.h>

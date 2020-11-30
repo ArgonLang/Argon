@@ -2,6 +2,9 @@
 //
 // Licensed under the Apache License v2.0
 
+#include <vm/runtime.h>
+
+#include "error.h"
 #include "instance.h"
 #include "trait.h"
 #include "function.h"

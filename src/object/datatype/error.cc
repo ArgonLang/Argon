@@ -5,7 +5,7 @@
 #include <cstdarg>
 
 #include <vm/runtime.h>
-#include <object/objmgmt.h>
+
 #include "error.h"
 
 using namespace argon::object;

@@ -2,14 +2,14 @@
 //
 // Licensed under the Apache License v2.0
 
-#include <object/objmgmt.h>
+#include <object/arobject.h>
 #include "function.h"
 
 using namespace argon::object;
 using namespace argon::memory;
 
 Function *CloneFn(const Function *func) {
-    auto fn = ArObjectNewGC<Function>(&type_function_);
+    auto fn = ArObjectGCNew<Function>(&type_function_);
 
     if (fn != nullptr) {
         if (!func->native) {
@@ -99,7 +99,7 @@ const TypeInfo argon::object::type_function_ = {
 
 Function *argon::object::FunctionNew(Namespace *gns, String *name, Code *code, unsigned short arity, bool variadic,
                                      List *enclosed) {
-    auto fn = ArObjectNewGC<Function>(&type_function_);
+    auto fn = ArObjectGCNew<Function>(&type_function_);
 
     if (fn != nullptr) {
         IncRef(code);

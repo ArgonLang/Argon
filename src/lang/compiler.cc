@@ -9,6 +9,7 @@
 #include <object/datatype/integer.h>
 #include <object/datatype/decimal.h>
 #include <object/datatype/namespace.h>
+#include <object/datatype/string.h>
 
 #include "compiler_exception.h"
 #include "lang/parser.h"

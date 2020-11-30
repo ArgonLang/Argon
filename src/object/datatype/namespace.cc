@@ -129,7 +129,7 @@ void RemoveIterItem(Namespace *ns, NsEntry *entry) {
 }
 
 Namespace *argon::object::NamespaceNew() {
-    auto ns = ArObjectNewGC<Namespace>(&type_namespace_);
+    auto ns = ArObjectGCNew<Namespace>(&type_namespace_);
 
     if (ns != nullptr) {
         if ((ns->ns = (NsEntry **) Alloc(ARGON_OBJECT_NS_INITIAL_SIZE * sizeof(NsEntry *))) == nullptr) {

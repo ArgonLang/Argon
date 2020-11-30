@@ -4,7 +4,7 @@
 
 #include <object/datatype/integer.h>
 #include <object/datatype/function.h>
-#include <object/objmgmt.h>
+#include <object/arobject.h>
 
 #include "io.h"
 #include "iomodule.h"

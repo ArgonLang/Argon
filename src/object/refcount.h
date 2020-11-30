@@ -34,7 +34,7 @@ namespace argon::object {
         std::atomic_uintptr_t strong;
         std::atomic_uintptr_t weak;
 
-        class ArObject *object;
+        struct ArObject *object;
     };
 
     class RefBits {

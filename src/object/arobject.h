@@ -121,6 +121,46 @@ namespace argon::object {
 
     extern const TypeInfo type_dtype_;
 
+    inline bool IsNumber(const ArObject *obj) { return obj->type->number_actions != nullptr; }
+
+    inline bool IsSequence(const ArObject *obj) { return obj->type->sequence_actions != nullptr; }
+
+    inline bool AsIndex(const ArObject *obj) {
+        return obj->type->number_actions != nullptr && obj->type->number_actions->as_index;
+    }
+
+    inline bool IsMap(const ArObject *obj) { return obj->type->map_actions != nullptr; }
+
+    inline void IncRef(ArObject *obj) {
+        if (obj != nullptr)
+            obj->ref_count.IncStrong();
+    }
+
+    bool IsTrue(const ArObject *obj);
+
+    void Release(ArObject *obj);
+
+    inline void Release(ArObject **obj) {
+        Release(*obj);
+        *obj = nullptr;
+    }
+
+    ArObject *ArObjectNew(RCType rc, const TypeInfo *type);
+
+    ArObject *ArObjectGCNew(const TypeInfo *type);
+
+    template<typename T>
+    inline typename std::enable_if<std::is_base_of<ArObject, T>::value, T>::type *
+    ArObjectNew(RCType rc, const TypeInfo *type) {
+        return (T *) ArObjectNew(rc, type);
+    }
+
+    template<typename T>
+    inline typename std::enable_if<std::is_base_of<ArObject, T>::value, T>::type *
+    ArObjectGCNew(const TypeInfo *type) {
+        return (T *) ArObjectGCNew(type);
+    }
+
 #define TYPEINFO_STATIC_INIT    {{RefCount(RCType::STATIC)}, &type_dtype_}
 
 } // namespace argon::object

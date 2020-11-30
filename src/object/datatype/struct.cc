@@ -2,6 +2,8 @@
 //
 // Licensed under the Apache License v2.0
 
+#include "error.h"
+
 #include "struct.h"
 
 using namespace argon::object;

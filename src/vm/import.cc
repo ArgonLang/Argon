@@ -6,12 +6,14 @@
 
 #include <lang/compiler.h>
 
-#include <object/objmgmt.h>
+#include <object/arobject.h>
+#include <object/datatype/error.h>
 
 #include <modules/builtins.h>
+#include <modules/io/iomodule.h>
 
-#include <vm/frame.h>
-#include <vm/areval.h>
+#include "runtime.h"
+#include "areval.h"
 
 #include "import.h"
 
@@ -251,6 +253,7 @@ Import *argon::vm::ImportNew() {
     error:
     ImportDel(importer);
     return nullptr;
+#undef INIT_CONST_STR
 }
 
 void argon::vm::ImportDel(Import *import) {

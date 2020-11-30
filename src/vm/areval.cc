@@ -2,6 +2,8 @@
 //
 // Licensed under the Apache License v2.0
 
+#include "runtime.h"
+
 #include <object/datatype/bool.h>
 #include <object/datatype/error.h>
 #include <object/datatype/nil.h>
@@ -13,7 +15,7 @@
 #include <object/datatype/trait.h>
 #include <object/datatype/struct.h>
 #include <object/datatype/instance.h>
-#include <object/objmgmt.h>
+#include <object/arobject.h>
 
 #include <lang/opcodes.h>
 #include "areval.h"

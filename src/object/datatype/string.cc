@@ -3,8 +3,9 @@
 // Licensed under the Apache License v2.0
 
 #include <memory/memory.h>
+#include <vm/runtime.h>
 
-#include <object/objmgmt.h>
+#include "error.h"
 #include "hash_magic.h"
 #include "map.h"
 #include "integer.h"

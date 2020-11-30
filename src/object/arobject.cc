@@ -2,8 +2,12 @@
 //
 // Licensed under the Apache License v2.0
 
+#include <vm/runtime.h>
+#include <object/datatype/error.h>
+
+#include "gc.h"
+
 #include "arobject.h"
-#include "objmgmt.h"
 
 using namespace argon::object;
 
@@ -31,7 +35,7 @@ const TypeInfo argon::object::type_dtype_ = {
         nullptr,
         nullptr,
         dtype_istrue,
-        (BoolBinOp)dtype_equal,
+        (BoolBinOp) dtype_equal,
         nullptr,
         dtype_hash,
         nullptr,
@@ -66,4 +70,27 @@ void argon::object::Release(ArObject *obj) {
 
         argon::memory::Free(obj);
     }
+}
+
+ArObject *argon::object::ArObjectNew(RCType rc, const TypeInfo *type) {
+    auto obj = (ArObject *) memory::Alloc(type->size);
+
+    if (obj != nullptr) {
+        obj->ref_count = RefBits((unsigned char) rc);
+        obj->type = type;
+    } else argon::vm::Panic(OutOfMemoryError);
+
+    return obj;
+}
+
+ArObject *argon::object::ArObjectGCNew(const TypeInfo *type) {
+    auto obj = (ArObject *) GCNew(type->size);
+
+    if (obj != nullptr) {
+        obj->ref_count = RefBits((unsigned char) RCType::GC);
+        obj->type = type;
+        Track(obj); // Inform the GC to track the object
+    } else argon::vm::Panic(OutOfMemoryError);
+
+    return obj;
 }

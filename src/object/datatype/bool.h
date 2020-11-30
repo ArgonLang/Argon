@@ -5,7 +5,7 @@
 #ifndef ARGON_OBJECT_BOOL_H_
 #define ARGON_OBJECT_BOOL_H_
 
-#include <object/objmgmt.h>
+#include <object/arobject.h>
 
 namespace argon::object {
     struct Bool : public ArObject {

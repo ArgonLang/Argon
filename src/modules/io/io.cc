@@ -2,11 +2,16 @@
 //
 // Licensed under the Apache License v2.0
 
-#include <fcntl.h>
 #include <unistd.h>
-
-#include <object/objmgmt.h>
+#include <fcntl.h>
 #include <sys/stat.h>
+#include <cstring>
+#include <cerrno>
+
+#include <vm/runtime.h>
+
+#include <object/datatype/error.h>
+
 #include "io.h"
 
 using namespace argon::object;

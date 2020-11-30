@@ -5,7 +5,7 @@
 #include <cassert>
 
 #include <memory/memory.h>
-#include <object/objmgmt.h>
+#include <object/arobject.h>
 #include "hash_magic.h"
 #include "string.h"
 #include "map.h"
@@ -246,7 +246,7 @@ const TypeInfo argon::object::type_map_ = {
 };
 
 Map *argon::object::MapNew() {
-    auto map = ArObjectNewGC<Map>(&type_map_);
+    auto map = ArObjectGCNew<Map>(&type_map_);
     assert(map != nullptr);
 
 
