@@ -145,32 +145,6 @@ namespace argon::object {
 
     extern const TypeInfo type_dtype_;
 
-    inline bool IsNumber(const ArObject *obj) { return obj->type->number_actions != nullptr; }
-
-    inline bool IsSequence(const ArObject *obj) { return obj->type->sequence_actions != nullptr; }
-
-    inline bool AsIndex(const ArObject *obj) {
-        return obj->type->number_actions != nullptr && obj->type->number_actions->as_index;
-    }
-
-    inline bool IsMap(const ArObject *obj) { return obj->type->map_actions != nullptr; }
-
-    inline bool IsBufferable(const ArObject *obj) { return obj->type->buffer_actions != nullptr; }
-
-    inline void IncRef(ArObject *obj) {
-        if (obj != nullptr)
-            obj->ref_count.IncStrong();
-    }
-
-    bool IsTrue(const ArObject *obj);
-
-    void Release(ArObject *obj);
-
-    inline void Release(ArObject **obj) {
-        Release(*obj);
-        *obj = nullptr;
-    }
-
     ArObject *ArObjectNew(RCType rc, const TypeInfo *type);
 
     ArObject *ArObjectGCNew(const TypeInfo *type);
@@ -185,6 +159,39 @@ namespace argon::object {
     inline typename std::enable_if<std::is_base_of<ArObject, T>::value, T>::type *
     ArObjectGCNew(const TypeInfo *type) {
         return (T *) ArObjectGCNew(type);
+    }
+
+    bool BufferGet(ArObject *obj, ArBuffer *buffer, ArBufferFlags flags);
+
+    bool BufferSimpleFill(ArObject *obj, ArBuffer *buffer, ArBufferFlags flags, unsigned char *raw, size_t len,
+                          bool writable);
+
+    inline bool IsBufferable(const ArObject *obj) { return obj->type->buffer_actions != nullptr; }
+
+    inline bool AsIndex(const ArObject *obj) {
+        return obj->type->number_actions != nullptr && obj->type->number_actions->as_index;
+    }
+
+    inline bool IsMap(const ArObject *obj) { return obj->type->map_actions != nullptr; }
+
+    inline bool IsNumber(const ArObject *obj) { return obj->type->number_actions != nullptr; }
+
+    inline bool IsSequence(const ArObject *obj) { return obj->type->sequence_actions != nullptr; }
+
+    bool IsTrue(const ArObject *obj);
+
+    void BufferRelease(ArBuffer *buffer);
+
+    inline void IncRef(ArObject *obj) {
+        if (obj != nullptr)
+            obj->ref_count.IncStrong();
+    }
+
+    void Release(ArObject *obj);
+
+    inline void Release(ArObject **obj) {
+        Release(*obj);
+        *obj = nullptr;
     }
 
 #define TYPEINFO_STATIC_INIT    {{RefCount(RCType::STATIC)}, &type_dtype_}
