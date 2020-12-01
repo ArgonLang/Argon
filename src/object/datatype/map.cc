@@ -236,6 +236,7 @@ const TypeInfo argon::object::type_map_ = {
         &map_actions,
         nullptr,
         nullptr,
+        nullptr,
         map_equal,
         nullptr,
         map_hash,

@@ -34,6 +34,7 @@ const TypeInfo argon::object::type_dtype_ = {
         nullptr,
         nullptr,
         nullptr,
+        nullptr,
         dtype_istrue,
         (BoolBinOp) dtype_equal,
         nullptr,

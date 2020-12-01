@@ -48,6 +48,7 @@ const argon::object::TypeInfo type_import_spec_ = {
         nullptr,
         nullptr,
         nullptr,
+        nullptr,
         (VoidUnaryOp) impspec_cleanup
 };
 

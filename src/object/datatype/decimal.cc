@@ -300,6 +300,7 @@ const TypeInfo argon::object::type_decimal_ = {
         nullptr,
         nullptr,
         nullptr,
+        nullptr,
         (BoolUnaryOp) decimal_istrue,
         decimal_equal,
         decimal_compare,

@@ -42,6 +42,7 @@ const TypeInfo argon::modules::io::type_file_ = {
         nullptr,
         nullptr,
         nullptr,
+        nullptr,
         (BoolUnaryOp) file_istrue,
         (BoolBinOp) file_equal,
         nullptr,

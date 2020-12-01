@@ -26,6 +26,7 @@ const TypeInfo argon::object::type_nil_ = {
         nullptr,
         nullptr,
         nullptr,
+        nullptr,
         nil_istrue,
         nil_equal,
         nullptr,

@@ -88,6 +88,7 @@ const TypeInfo argon::object::type_function_ = {
         nullptr,
         nullptr,
         nullptr,
+        nullptr,
         function_equal,
         nullptr,
         (SizeTUnaryOp) function_hash,

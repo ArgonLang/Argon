@@ -2,6 +2,8 @@
 //
 // Licensed under the Apache License v2.0
 
+#include <type_traits>
+
 #ifndef ARGON_UTILS_ENUMBITMASK_H_
 #define ARGON_UTILS_ENUMBITMASK_H_
 

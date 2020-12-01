@@ -99,6 +99,7 @@ const TypeInfo argon::object::type_namespace_ = {
         nullptr,
         nullptr,
         nullptr,
+        nullptr,
         (Trace) namespace_trace,
         namespace_cleanup
 };

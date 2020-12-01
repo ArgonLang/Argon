@@ -204,6 +204,7 @@ const TypeInfo argon::object::type_integer_ = {
         TYPEINFO_STATIC_INIT,
         (const unsigned char *) "integer",
         sizeof(Integer),
+        nullptr,
         &integer_actions,
         nullptr,
         nullptr,

@@ -5,8 +5,9 @@
 #ifndef ARGON_OBJECT_AROBJECT_H_
 #define ARGON_OBJECT_AROBJECT_H_
 
-#include <atomic>
-#include <cstddef>
+#include <unistd.h>
+
+#include <utils/enum_bitmask.h>
 
 #include "refcount.h"
 
@@ -20,11 +21,11 @@ namespace argon::object {
         LEQ
     };
 
-    using arsize = long;
+    using arsize = ssize_t;
 
     using UnaryOp = struct ArObject *(*)(struct ArObject *);
     using BinaryOp = struct ArObject *(*)(struct ArObject *, struct ArObject *);
-    using TernaryOp = struct ArObject *(*)(struct ArObject *, struct ArObject *, struct ArObject *);
+    // using TernaryOp = struct ArObject *(*)(struct ArObject *, struct ArObject *, struct ArObject *);
     using CompareOp = struct ArObject *(*)(struct ArObject *, struct ArObject *, CompareMode);
     using BinaryOpArSize = struct ArObject *(*)(struct ArObject *, arsize);
 
@@ -91,6 +92,28 @@ namespace argon::object {
         BoolTernOp set_static_attr;
     };
 
+    enum class ArBufferFlags {
+        READ = 0x01,
+        WRITE = 0x02
+    };
+
+    struct ArBuffer {
+        unsigned char *buffer;
+        size_t len;
+
+        ArObject *obj;
+        ArBufferFlags flags;
+    };
+
+    using BufferGetFn = bool (*)(struct ArObject *obj, ArBuffer *buffer, ArBufferFlags flags);
+
+    using BufferRelFn = void (*)(ArBuffer *buffer);
+
+    struct BufferActions {
+        BufferGetFn get_buffer;
+        BufferRelFn rel_buffer;
+    };
+
     struct ArObject {
         RefCount ref_count;
         const struct TypeInfo *type;
@@ -101,10 +124,11 @@ namespace argon::object {
         unsigned short size;
 
         // Actions
+        const BufferActions *buffer_actions;
         const NumberActions *number_actions;
-        const SequenceActions *sequence_actions;
         const MapActions *map_actions;
         const ObjectActions *obj_actions;
+        const SequenceActions *sequence_actions;
 
         // Generic actions
         BoolUnaryOp is_true;
@@ -130,6 +154,8 @@ namespace argon::object {
     }
 
     inline bool IsMap(const ArObject *obj) { return obj->type->map_actions != nullptr; }
+
+    inline bool IsBufferable(const ArObject *obj) { return obj->type->buffer_actions != nullptr; }
 
     inline void IncRef(ArObject *obj) {
         if (obj != nullptr)
@@ -164,5 +190,7 @@ namespace argon::object {
 #define TYPEINFO_STATIC_INIT    {{RefCount(RCType::STATIC)}, &type_dtype_}
 
 } // namespace argon::object
+
+ENUMBITMASK_ENABLE(argon::object::ArBufferFlags);
 
 #endif // !ARGON_OBJECT_AROBJECT_H_
