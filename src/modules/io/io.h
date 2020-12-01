@@ -68,6 +68,8 @@ namespace argon::modules::io {
 
     ssize_t Write(File *file, unsigned char *buf, size_t count);
 
+    ssize_t WriteObject(File *file, argon::object::ArObject *obj);
+
     void Close(File *file);
 
 } // namespace argon::modules::io

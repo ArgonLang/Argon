@@ -378,6 +378,37 @@ ssize_t argon::modules::io::Write(File *file, unsigned char *buf, size_t count) 
     return write_os_wrap(file, buf, count);
 }
 
+ssize_t argon::modules::io::WriteObject(File *file, ArObject *obj) {
+    ArBuffer buffer = {};
+    ArObject *str;
+
+    if (IsBufferable(obj)) {
+        if (!BufferGet(obj, &buffer, ArBufferFlags::READ))
+            return -1;
+    } else {
+        if (obj->type->str == nullptr) {
+            ErrorFormat(&error_type_error,
+                        "'%s' object does not expose a buffer and does not implement a string representation",
+                        obj->type->name);
+            return -1;
+        }
+
+        if ((str = obj->type->str(obj)) == nullptr)
+            return -1;
+
+        if (!BufferGet(str, &buffer, ArBufferFlags::READ)) {
+            Release(str);
+            return -1;
+        }
+
+        Release(str);
+    }
+
+    ssize_t nbytes = Write(file, buffer.buffer, buffer.len);
+    BufferRelease(&buffer);
+    return nbytes;
+}
+
 void argon::modules::io::Close(File *file) {
     int err;
 
