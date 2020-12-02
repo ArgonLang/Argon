@@ -17,6 +17,7 @@ ArRoutine *argon::vm::RoutineNew(ArRoutineStatus status) {
         routine->frame = nullptr;
         routine->defer = nullptr;
         routine->cu_defer = nullptr;
+        routine->panic = nullptr;
         routine->status = status;
     }
 
@@ -26,12 +27,8 @@ ArRoutine *argon::vm::RoutineNew(ArRoutineStatus status) {
 ArRoutine *argon::vm::RoutineNew(Frame *frame, ArRoutineStatus status) {
     auto routine = RoutineNew(status);
 
-    if (routine != nullptr) {
-        routine->next = nullptr;
+    if (routine != nullptr)
         routine->frame = frame;
-        routine->defer = nullptr;
-        routine->cu_defer = nullptr;
-    }
 
     return routine;
 }

@@ -288,6 +288,7 @@ ArObject *NativeCall(ArRoutine *routine, Function *function, ArObject **args, si
     if (function->arity > 0) {
         raw = args;
 
+        /*
         if (count < function->arity) {
             if ((arguments = ListNew(function->arity)) == nullptr)
                 return nullptr;
@@ -307,6 +308,7 @@ ArObject *NativeCall(ArRoutine *routine, Function *function, ArObject **args, si
 
             raw = arguments->objects;
         }
+         */
     }
 
     auto res = function->native_fn(function, raw);
@@ -494,6 +496,7 @@ ArObject *argon::vm::Eval(ArRoutine *routine) {
                     if ((ret = RestElementToList(cu_frame->eval_stack - exceeded, exceeded)) == nullptr)
                         goto error;
 
+                    local_args -= exceeded - 1;
                     STACK_REWIND(exceeded - 1);
                     TOP_REPLACE(ret);
                 }
