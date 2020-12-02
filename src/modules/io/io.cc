@@ -83,7 +83,9 @@ bool argon::modules::io::Flush(File *file) {
     if (file->buffer.mode == FileBufferMode::NONE || file->buffer.wlen == 0)
         return true;
 
-    if (Isatty(file) || Seek(file, file->cur - file->buffer.len, FileWhence::START)) {
+    if (ENUMBITMASK_ISTRUE(file->mode, FileMode::_IS_TERM) ||
+        ENUMBITMASK_ISTRUE(file->mode, FileMode::_IS_PIPE) ||
+        Seek(file, file->cur - file->buffer.len, FileWhence::START)) {
         if (write_os_wrap(file, file->buffer.buf, file->buffer.wlen) >= 0) {
             file->buffer.cur = file->buffer.buf;
             file->buffer.len = 0;
@@ -96,8 +98,12 @@ bool argon::modules::io::Flush(File *file) {
 }
 
 bool argon::modules::io::Isatty(File *file) {
-    // Check errno ?!
-    return isatty(file->fd) != 0;
+    return ENUMBITMASK_ISTRUE(file->mode, FileMode::_IS_TERM);
+}
+
+bool argon::modules::io::IsSeekable(File *file) {
+    return !(ENUMBITMASK_ISTRUE(file->mode, FileMode::_IS_TERM) ||
+             ENUMBITMASK_ISTRUE(file->mode, FileMode::_IS_PIPE));
 }
 
 bool argon::modules::io::Seek(File *file, ssize_t offset, FileWhence whence) {
@@ -129,7 +135,7 @@ bool argon::modules::io::Seek(File *file, ssize_t offset, FileWhence whence) {
 size_t FindBestBufSize(File *file) {
     struct stat st{};
 
-    if (Isatty(file))
+    if (ENUMBITMASK_ISTRUE(file->mode, FileMode::_IS_TERM))
         return 4096;
 
     if (fstat(file->fd, &st) < 0)
@@ -216,11 +222,22 @@ File *argon::modules::io::FdOpen(int fd, FileMode mode) {
         file->buffer.len = 0;
         file->buffer.wlen = 0;
 
-        if (Isatty(file)) {
+        if (isatty(fd) != 0) {
+            file->mode |= FileMode::_IS_TERM;
             if (!SetBuffer(file, nullptr, 0, FileBufferMode::LINE)) {
                 Release(file);
                 return nullptr;
             }
+        } else {
+            struct stat st{};
+
+            if (fstat(file->fd, &st) < 0) {
+                Release(file);
+                return nullptr;
+            }
+
+            if (S_ISFIFO(st.st_mode))
+                file->mode |= FileMode::_IS_PIPE;
         }
     }
 

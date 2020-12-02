@@ -41,7 +41,8 @@ const PropertyBulk io_bulk[] = {
 
         MODULE_BULK_EXPORT_FUNCTION(io_create),
         MODULE_BULK_EXPORT_FUNCTION(io_open),
-        MODULE_BULK_EXPORT_FUNCTION(io_openfile)
+        MODULE_BULK_EXPORT_FUNCTION(io_openfile),
+        {nullptr, nullptr, false, PropertyInfo()} // Sentinel
 };
 
 bool IOInit(Module *module) {

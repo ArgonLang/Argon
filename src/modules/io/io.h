@@ -13,7 +13,11 @@ namespace argon::modules::io {
     enum class FileMode : unsigned char {
         READ = 1,
         WRITE = (unsigned char) 1 << (unsigned char) 1,
-        APPEND = (unsigned char) 1 << (unsigned char) 2
+        APPEND = (unsigned char) 1 << (unsigned char) 2,
+
+        // PRIVATE/NOT EXPORTED FIELDS
+        _IS_TERM = (unsigned char) 1 << (unsigned char) 3,
+        _IS_PIPE = (unsigned char) 1 << (unsigned char) 4
     };
 
     enum class FileBufferMode {
@@ -49,6 +53,8 @@ namespace argon::modules::io {
     bool Flush(File *file);
 
     bool Isatty(File *file);
+
+    bool IsSeekable(File *file);
 
     bool Seek(File *file, ssize_t offset, FileWhence whence);
 
