@@ -128,6 +128,15 @@ OpSlots string_ops{
         nullptr,
 };
 
+bool string_get_buffer(String *self, ArBuffer *buffer, ArBufferFlags flags) {
+    return BufferSimpleFill(self, buffer, flags, self->buffer, self->len, false);
+}
+
+BufferActions string_buffer = {
+        (BufferGetFn) string_get_buffer,
+        nullptr
+};
+
 bool string_equal(ArObject *self, ArObject *other) {
     if (self == other)
         return true;
@@ -174,7 +183,7 @@ const TypeInfo argon::object::type_string_ = {
         TYPEINFO_STATIC_INIT,
         (const unsigned char *) "string",
         sizeof(String),
-        nullptr,
+        &string_buffer,
         nullptr,
         nullptr,
         nullptr,
