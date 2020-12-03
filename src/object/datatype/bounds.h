@@ -18,6 +18,9 @@ namespace argon::object {
     extern const TypeInfo type_bounds_;
 
     Bounds *BoundsNew(arsize start, arsize stop, arsize step);
+
+    arsize BoundsIndex(Bounds *bound, size_t length, arsize *start, arsize *stop, arsize *step);
+
 } // namespace argon::object
 
 #endif // !ARGON_OBJECT_BOUNDS_H_

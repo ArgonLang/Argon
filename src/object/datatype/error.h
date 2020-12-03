@@ -68,6 +68,7 @@ ERROR_NEW_TYPE(type_name, name, ErrorStr, __error_str_cleanup, obj_actions)
     ERROR_STR_NEW_TYPE(module_notfound, ModuleNotFound, nullptr);
     ERROR_STR_NEW_TYPE(overflow_error, OverflowError, nullptr);
     ERROR_STR_NEW_TYPE(buffer_error, BufferError, nullptr);
+    ERROR_STR_NEW_TYPE(unicode_index, UnicodeIndexError, nullptr);
 
     // IO
     ERROR_STR_NEW_TYPE(io, IOError, nullptr);

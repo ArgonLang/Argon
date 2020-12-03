@@ -7,8 +7,9 @@
 
 #include "error.h"
 #include "hash_magic.h"
-#include "map.h"
+#include "bounds.h"
 #include "integer.h"
+#include "map.h"
 
 #include "string.h"
 
@@ -105,6 +106,14 @@ ArObject *string_mul(ArObject *left, ArObject *right) {
     return nullptr;
 }
 
+ArObject *string_inp_add(ArObject *left, ArObject *right) {
+    return string_add(left, right);
+}
+
+ArObject *string_inp_mul(ArObject *left, ArObject *right) {
+    return string_mul(left, right);
+}
+
 OpSlots string_ops{
         string_add,
         nullptr,
@@ -120,12 +129,12 @@ OpSlots string_ops{
         nullptr,
         nullptr,
         nullptr,
+        string_inp_add,
+        nullptr,
+        string_inp_mul,
         nullptr,
         nullptr,
-        nullptr,
-        nullptr,
-        nullptr,
-        nullptr,
+        nullptr
 };
 
 bool string_get_buffer(String *self, ArBuffer *buffer, ArBufferFlags flags) {
@@ -134,6 +143,58 @@ bool string_get_buffer(String *self, ArBuffer *buffer, ArBufferFlags flags) {
 
 BufferActions string_buffer = {
         (BufferGetFn) string_get_buffer,
+        nullptr
+};
+
+ArObject *string_get_item(String *self, arsize index) {
+    String *ret;
+
+    if (self->kind != StringKind::ASCII)
+        return ErrorFormat(&error_unicode_index, "unable to index a unicode string");
+
+    if (index >= self->len)
+        return ErrorFormat(&error_overflow_error, "string index out of range (len: %d, idx: %d)", self->len, index);
+
+    ret = StringIntern((const char *) self->buffer + index, 1);
+
+    return ret;
+}
+
+ArObject *string_get_slice(String *self, ArObject *bounds) {
+    auto b = (Bounds *) bounds;
+    String *ret;
+
+    arsize slice_len;
+    arsize start;
+    arsize stop;
+    arsize step;
+
+    if (self->kind != StringKind::ASCII)
+        return ErrorFormat(&error_unicode_index, "unable to slice a unicode string");
+
+    slice_len = BoundsIndex(b, self->len, &start, &stop, &step);
+
+    if ((ret = StringInit(slice_len, true)) == nullptr)
+        return nullptr;
+
+    ret->cp_len = slice_len;
+
+    if (step >= 0) {
+        for (size_t i = 0; start < stop; start += step)
+            ret->buffer[i++] = self->buffer[start];
+    } else {
+        for (size_t i = 0; stop < start; start += step)
+            ret->buffer[i++] = self->buffer[start];
+    }
+
+    return ret;
+}
+
+SequenceActions string_sequence = {
+        (SizeTUnaryOp) StringLen,
+        (BinaryOpArSize) string_get_item,
+        nullptr,
+        (BinaryOp) string_get_slice,
         nullptr
 };
 
@@ -187,7 +248,7 @@ const TypeInfo argon::object::type_string_ = {
         nullptr,
         nullptr,
         nullptr,
-        nullptr,
+        &string_sequence,
         (BoolUnaryOp) string_istrue,
         string_equal,
         nullptr,
@@ -241,6 +302,10 @@ bool argon::object::StringEq(String *string, const unsigned char *c_str, size_t 
     }
 
     return true;
+}
+
+size_t argon::object::StringLen(const String *str) {
+    return str->len;
 }
 
 String *argon::object::StringConcat(String *left, String *right) {

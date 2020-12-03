@@ -61,6 +61,8 @@ namespace argon::object {
 
     bool StringEq(String *string, const unsigned char *c_str, size_t len);
 
+    size_t StringLen(const String *str);
+
     String *StringConcat(String *left, String *right);
 
     inline arsize StringFind(String *string, String *pattern) {
