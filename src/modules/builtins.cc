@@ -26,14 +26,27 @@
 
 using namespace argon::object;
 
-ARGON_FUNC_NATIVE(builtins_callable, callable, "Return true if argument appears callable, false otherwise.", 1, false) {
+ARGON_FUNC_NATIVE(builtins_callable, callable,
+                  "Return true if argument appears callable, false otherwise."
+                  ""
+                  "- Parameter obj: object to check."
+                  "- Returns: true if object is callable, false otherwise.",
+                  1, false) {
     // This definition may be change in future
     if (argv[0]->type == &type_function_)
         return True;
     return False;
 }
 
-ARGON_FUNC_NATIVE(builtins_len, len, "Returns the length of an object.", 1, false) {
+ARGON_FUNC_NATIVE(builtins_len, len,
+                  "Returns the length of an object."
+                  ""
+                  "- Parameter obj: object to check."
+                  "- Returns: the length of the object."
+                  "- Panics:"
+                  "  - TypeError: object has no len."
+                  "  - OverflowError: object is too long.",
+                  1, false) {
     size_t length;
 
     if (IsSequence(argv[0]))
@@ -46,21 +59,96 @@ ARGON_FUNC_NATIVE(builtins_len, len, "Returns the length of an object.", 1, fals
     return IntegerNew(length);
 }
 
-ARGON_FUNC_NATIVE(builtins_panic, panic, "Stops normal execution of the current routine"
-                                         "and begins the panic sequence", 1, false) {
+ARGON_FUNC_NATIVE(builtins_panic, panic,
+                  "Stops normal execution of current ArRoutine."
+                  ""
+                  "When a function F calls panic, it's execution stops immediately, "
+                  "after that, any deferred function run in usual way, and then F returns to its caller."
+                  "To the caller, the invocation of function F behaves like a call to panic,"
+                  "terminating caller function and executing any deferred functions."
+                  "This behaviour continues until all function in the current ArRoutine have stopped."
+                  "At that point, the program terminated with a non-zero exit code."
+                  "You can control this termination sequence (panicking) using the built-in function recover."
+                  ""
+                  "- Parameter obj: an object that describe this error."
+                  "- Returns: this function does not return to the caller.",
+                  1, false) {
     return argon::vm::Panic(argv[0]);
 }
 
-ARGON_FUNC_NATIVE(builtins_recover, recover, "Stops the panic state and returns the current panic object."
-                                             "This function must be called inside a defer, "
-                                             "if called outside, the panic sequence will not be interrupted "
-                                             "and the function will return nil.", 0, false) {
+ARGON_FUNC_NATIVE(builtins_recover, recover,
+                  "Allows a program to manage behavior of panicking ArRoutine."
+                  ""
+                  "Executing a call to recover inside a deferred function stops"
+                  "the panicking sequence by restoring normal execution flow."
+                  "After that the function retrieve and returns the error value passed"
+                  "to the call of function panic."
+                  ""
+                  "# WARNING"
+                  "Calling this function outside of deferred function has no effect."
+                  ""
+                  "- Returns: argument supplied to panic call, or nil if ArRoutine is not panicking.",
+                  0, false) {
     return ReturnNil(argon::vm::GetLastError());
 }
 
-ARGON_FUNC_NATIVE(builtins_type, type, "Returns type of the argument passed as parameter.", 1, false) {
+ARGON_FUNC_NATIVE(builtins_type, type,
+                  "Returns type of the object passed as parameter."
+                  ""
+                  "- Parameter obj: object to get the type from."
+                  "- Returns: obj type.",
+                  1, false) {
     IncRef((ArObject *) argv[0]->type);
     return (ArObject *) argv[0]->type;
+}
+
+ARGON_FUNC_NATIVE(builtins_print, print,
+                  "Print objects to the stdout, separated by space."
+                  ""
+                  "- Parameters:"
+                  "     - ...obj: objects to print."
+                  "- Returns: nil",
+                  1, true) {
+    auto out = argon::vm::GetContext()->stdout;
+    List *variadic;
+
+    if (argv[0] != NilVal) {
+        variadic = (List *) argv[0];
+
+        if (variadic->type != &type_list_) {
+            return nullptr;
+        }
+
+        // TODO: use iterator!
+        for (size_t i = 0; i < variadic->len; i++) {
+            if (argon::modules::io::WriteObject(out, variadic->objects[i]) < 0)
+                return nullptr;
+        }
+    }
+
+    return ReturnNil();
+}
+
+ARGON_FUNC_NATIVE(builtins_println, println,
+                  "Same as print, but add new-line at the end."
+                  ""
+                  "- Parameters:"
+                  "     - ...obj: objects to print."
+                  "- Returns: nil"
+                  ""
+                  "# SEE"
+                  "- print.",
+                  1, true) {
+    ArObject *success = builtins_print_fn(self, argv);
+
+    if (success != nullptr) {
+        if (argon::modules::io::Write(argon::vm::GetContext()->stdout, (unsigned char *) "\n", 1) < 0) {
+            Release(success);
+            return nullptr;
+        }
+    }
+
+    return success;
 }
 
 const PropertyBulk builtins_bulk[] = {
@@ -85,6 +173,8 @@ const PropertyBulk builtins_bulk[] = {
         MODULE_BULK_EXPORT_FUNCTION(builtins_callable),
         MODULE_BULK_EXPORT_FUNCTION(builtins_len),
         MODULE_BULK_EXPORT_FUNCTION(builtins_panic),
+        MODULE_BULK_EXPORT_FUNCTION(builtins_print),
+        MODULE_BULK_EXPORT_FUNCTION(builtins_println),
         MODULE_BULK_EXPORT_FUNCTION(builtins_recover),
         MODULE_BULK_EXPORT_FUNCTION(builtins_type),
         {nullptr, nullptr, false, PropertyInfo()} // Sentinel

@@ -21,6 +21,9 @@ Context::Context() {
     this->main = ModuleNew("main", "main module");
     this->import = ImportNew();
     this->bltins = ImportModule(this->import, "builtins", nullptr);
+
+    this->stdout = argon::modules::io::FdOpen(fileno(::stdout), argon::modules::io::FileMode::WRITE);
+    argon::modules::io::SetBuffer(this->stdout, nullptr, 0, argon::modules::io::FileBufferMode::LINE);
 }
 
 ArObject *Context::Eval(const std::string &source) {

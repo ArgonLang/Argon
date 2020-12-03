@@ -10,6 +10,8 @@
 #include <object/arobject.h>
 #include <object/datatype/module.h>
 
+#include <modules/io/io.h>
+
 #include <vm/import.h>
 
 namespace argon::vm {
@@ -19,6 +21,8 @@ namespace argon::vm {
         argon::object::Module *main;
         argon::object::Module *bltins;
         argon::vm::Import *import;
+
+        argon::modules::io::File *stdout;
 
         Context();
 

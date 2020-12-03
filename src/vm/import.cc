@@ -126,7 +126,8 @@ struct Builtins {
 };
 
 ImportSpec *BuiltinsLocator(Import *import, String *name, String *package) {
-    static Builtins builtins[] = {{"builtins", argon::modules::BuiltinsNew}};
+    static Builtins builtins[] = {{"builtins", argon::modules::BuiltinsNew},
+                                  {"io",       argon::modules::io::IONew}};
     ImportSpec *imp;
 
     for (auto &builtin : builtins) {
