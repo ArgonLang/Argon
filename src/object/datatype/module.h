@@ -60,6 +60,8 @@ namespace argon::object {
 
     bool ModuleAddObjects(Module *module, const PropertyBulk *bulk);
 
+    bool ModuleAddProperty(Module *module, const char *key, ArObject *value, PropertyInfo info);
+
     inline bool ModuleAddProperty(Module *module, ArObject *key, ArObject *value, PropertyInfo info) {
         return NamespaceNewSymbol(module->module_ns, info, key, value);
     }

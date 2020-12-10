@@ -125,6 +125,8 @@ bool argon::vm::Shutdown() {
     }
 
     if (ost_count == 0) {
+        RoutineDel(routine_main);
+        ContextDel(context_main);
         argon::memory::FinalizeMemory();
         return true;
     }
@@ -152,7 +154,7 @@ Context *argon::vm::GetContext() {
 
     assert(routine != nullptr);
 
-    return nullptr;
+    return routine->context;
 }
 
 bool argon::vm::IsPanicking() {
