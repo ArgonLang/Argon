@@ -22,6 +22,7 @@
 #include <object/datatype/trait.h>
 #include <object/datatype/tuple.h>
 
+#include "io/io.h"
 #include "builtins.h"
 
 using namespace argon::object;
@@ -109,7 +110,7 @@ ARGON_FUNC_NATIVE(builtins_print, print,
                   "     - ...obj: objects to print."
                   "- Returns: nil",
                   1, true) {
-    auto out = argon::vm::GetContext()->stdout;
+    auto out = nullptr; // TODO: argon::vm::GetContext()->stdout;
     List *variadic;
 
     if (argv[0] != NilVal) {
@@ -142,7 +143,8 @@ ARGON_FUNC_NATIVE(builtins_println, println,
     ArObject *success = builtins_print_fn(self, argv);
 
     if (success != nullptr) {
-        if (argon::modules::io::Write(argon::vm::GetContext()->stdout, (unsigned char *) "\n", 1) < 0) {
+        // TODO: argon::vm::GetContext()->stdout
+        if (argon::modules::io::Write(nullptr, (unsigned char *) "\n", 1) < 0) {
             Release(success);
             return nullptr;
         }

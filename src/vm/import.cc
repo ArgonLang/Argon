@@ -259,6 +259,9 @@ Import *argon::vm::ImportNew() {
 }
 
 void argon::vm::ImportDel(Import *import) {
+    if (import == nullptr)
+        return;
+
     Release(import->modules);
     Release(import->paths);
 

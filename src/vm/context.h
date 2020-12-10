@@ -5,32 +5,24 @@
 #ifndef ARGON_VM_CONTEXT_H_
 #define ARGON_VM_CONTEXT_H_
 
-#include <iostream>
-
 #include <object/arobject.h>
 #include <object/datatype/module.h>
 
 #include <modules/io/io.h>
 
-#include <vm/import.h>
+#include "import.h"
 
 namespace argon::vm {
-
-    class Context {
-    public:
-        argon::object::Module *main;
+    struct Context {
         argon::object::Module *bltins;
-        argon::vm::Import *import;
+        argon::object::Module *runtime;
 
-        argon::modules::io::File *stdout;
-
-        Context();
-
-        argon::object::ArObject *Eval(const std::string &source);
-
-        argon::object::ArObject *Eval(std::string &source);
+        Import *import;
     };
 
+    Context *ContextNew();
+
+    void ContextDel(Context *context);
 }
 
 #endif // !ARGON_VM_CONTEXT_H_
