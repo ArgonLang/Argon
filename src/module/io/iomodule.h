@@ -7,8 +7,8 @@
 
 #include <object/datatype/module.h>
 
-namespace argon::modules::io {
+namespace argon::module::io {
     argon::object::Module *IONew();
-} // namespace argon::modules::io
+} // namespace argon::module::io
 
 #endif // !ARGON_MODULES_IO_IOMODULE_H_

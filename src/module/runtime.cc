@@ -8,7 +8,7 @@
 #include "runtime.h"
 
 using namespace argon::object;
-using namespace argon::modules;
+using namespace argon::module;
 
 bool InitFDs(io::File **in, io::File **out, io::File **err) {
     if ((*in = io::FdOpen(STDIN_FILENO, io::FileMode::READ)) == nullptr)
@@ -70,11 +70,11 @@ const ModuleInit module_runtime = {
         nullptr
 };
 
-Module *argon::modules::RuntimeNew() {
+Module *argon::module::RuntimeNew() {
     return ModuleNew(&module_runtime);
 }
 
-ArObject *argon::modules::RuntimeGetProperty(const char *key, const TypeInfo *info) {
+ArObject *argon::module::RuntimeGetProperty(const char *key, const TypeInfo *info) {
     auto str = StringIntern(key);
     ArObject *ret;
 

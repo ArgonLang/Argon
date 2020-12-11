@@ -9,9 +9,9 @@
 #include <object/arobject.h>
 #include <object/datatype/error.h>
 
-#include <modules/builtins.h>
-#include <modules/runtime.h>
-#include <modules/io/iomodule.h>
+#include <module/builtins.h>
+#include <module/runtime.h>
+#include <module/io/iomodule.h>
 
 #include "runtime.h"
 #include "areval.h"
@@ -127,9 +127,9 @@ struct Builtins {
 };
 
 ImportSpec *BuiltinsLocator(Import *import, String *name, String *package) {
-    static Builtins builtins[] = {{"builtins", argon::modules::BuiltinsNew},
-                                  {"io",       argon::modules::io::IONew},
-                                  {"runtime",  argon::modules::RuntimeNew}};
+    static Builtins builtins[] = {{"builtins", argon::module::BuiltinsNew},
+                                  {"io",       argon::module::io::IONew},
+                                  {"runtime",  argon::module::RuntimeNew}};
     ImportSpec *imp;
 
     for (auto &builtin : builtins) {

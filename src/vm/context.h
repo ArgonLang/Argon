@@ -8,7 +8,7 @@
 #include <object/arobject.h>
 #include <object/datatype/module.h>
 
-#include <modules/io/io.h>
+#include <module/io/io.h>
 
 #include "import.h"
 

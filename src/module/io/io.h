@@ -8,7 +8,7 @@
 #include <object/arobject.h>
 #include <utils/enum_bitmask.h>
 
-namespace argon::modules::io {
+namespace argon::module::io {
 
     enum class FileMode : unsigned char {
         READ = 1,
@@ -78,8 +78,8 @@ namespace argon::modules::io {
 
     void Close(File *file);
 
-} // namespace argon::modules::io
+} // namespace argon::module::io
 
-ENUMBITMASK_ENABLE(argon::modules::io::FileMode);
+ENUMBITMASK_ENABLE(argon::module::io::FileMode);
 
 #endif // !ARGON_MODULES_IO_IO_H_

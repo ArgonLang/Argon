@@ -7,7 +7,7 @@
 
 #include <object/datatype/module.h>
 
-namespace argon::modules {
+namespace argon::module {
     argon::object::Module *BuiltinsNew();
 }
 

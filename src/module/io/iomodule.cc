@@ -10,7 +10,7 @@
 #include "iomodule.h"
 
 using namespace argon::object;
-using namespace argon::modules::io;
+using namespace argon::module::io;
 
 ArObject *io_mode_read = nullptr;
 ArObject *io_mode_write = nullptr;
@@ -112,6 +112,6 @@ const ModuleInit module_io = {
         IOFinalize
 };
 
-argon::object::Module *argon::modules::io::IONew() {
+argon::object::Module *argon::module::io::IONew() {
     return ModuleNew(&module_io);
 }
