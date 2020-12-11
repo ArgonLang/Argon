@@ -10,6 +10,7 @@
 #include <object/datatype/error.h>
 
 #include <modules/builtins.h>
+#include <modules/runtime.h>
 #include <modules/io/iomodule.h>
 
 #include "runtime.h"
@@ -127,7 +128,8 @@ struct Builtins {
 
 ImportSpec *BuiltinsLocator(Import *import, String *name, String *package) {
     static Builtins builtins[] = {{"builtins", argon::modules::BuiltinsNew},
-                                  {"io",       argon::modules::io::IONew}};
+                                  {"io",       argon::modules::io::IONew},
+                                  {"runtime",  argon::modules::RuntimeNew}};
     ImportSpec *imp;
 
     for (auto &builtin : builtins) {

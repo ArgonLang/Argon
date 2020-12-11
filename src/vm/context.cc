@@ -21,6 +21,9 @@ Context *argon::vm::ContextNew() {
     if ((ctx->bltins = ImportModule(ctx->import, "builtins", nullptr)) == nullptr)
         goto error;
 
+    if ((ctx->runtime = ImportModule(ctx->import, "runtime", nullptr)) == nullptr)
+        goto error;
+
     return ctx;
 
     error:

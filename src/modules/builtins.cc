@@ -23,9 +23,11 @@
 #include <object/datatype/tuple.h>
 
 #include "io/io.h"
+#include "runtime.h"
 #include "builtins.h"
 
 using namespace argon::object;
+using namespace argon::modules;
 
 ARGON_FUNC_NATIVE(builtins_callable, callable,
                   "Return true if argument appears callable, false otherwise."
@@ -110,8 +112,11 @@ ARGON_FUNC_NATIVE(builtins_print, print,
                   "     - ...obj: objects to print."
                   "- Returns: nil",
                   1, true) {
-    auto out = nullptr; // TODO: argon::vm::GetContext()->stdout;
+    auto out = (io::File *) RuntimeGetProperty("stdout", &io::type_file_);
     List *variadic;
+
+    if (out == nullptr)
+        return nullptr;
 
     if (argv[0] != NilVal) {
         variadic = (List *) argv[0];
@@ -143,8 +148,12 @@ ARGON_FUNC_NATIVE(builtins_println, println,
     ArObject *success = builtins_print_fn(self, argv);
 
     if (success != nullptr) {
-        // TODO: argon::vm::GetContext()->stdout
-        if (argon::modules::io::Write(nullptr, (unsigned char *) "\n", 1) < 0) {
+        auto out = (io::File *) RuntimeGetProperty("stdout", &io::type_file_);
+
+        if (out == nullptr)
+            return nullptr;
+
+        if (argon::modules::io::Write(out, (unsigned char *) "\n", 1) < 0) {
             Release(success);
             return nullptr;
         }
