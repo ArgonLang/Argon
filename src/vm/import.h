@@ -55,6 +55,10 @@ namespace argon::vm {
 
     argon::object::ArObject *ImportPopLastError(Import *import);
 
+    argon::object::Module *ImportAddModule(Import *import, const char *name);
+
+    argon::object::Module *ImportAddModule(Import *import, argon::object::String *name);
+
     argon::object::Module *ImportModule(Import *import, argon::object::String *name, argon::object::String *package);
 
     argon::object::Module *ImportModule(Import *import, const char *name, const char *package);

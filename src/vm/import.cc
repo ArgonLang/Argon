@@ -282,6 +282,35 @@ bool argon::vm::ImportAddPath(Import *import, const char *path) {
     return ok;
 }
 
+argon::object::Module *argon::vm::ImportAddModule(Import *import, const char *name) {
+    Module *mod;
+    String *sname;
+
+    if ((sname = StringIntern(name)) == nullptr)
+        return nullptr;
+
+    mod = ImportAddModule(import, sname);
+    Release(sname);
+
+    return mod;
+}
+
+argon::object::Module *argon::vm::ImportAddModule(Import *import, argon::object::String *name) {
+    Module *mod;
+
+    if ((mod = (Module *) MapGet(import->modules, name)) != nullptr)
+        return mod;
+
+    // Create new empty module
+    if ((mod = ModuleNew(name, nullptr)) == nullptr)
+        return nullptr;
+
+    if (!MapInsert(import->modules, name, mod))
+        Release((ArObject **) &mod);
+
+    return mod;
+}
+
 Module *argon::vm::ImportModule(Import *import, String *name, String *package) {
     Module *mod;
 
