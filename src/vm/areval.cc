@@ -1088,6 +1088,31 @@ ArObject *argon::vm::Eval(ArRoutine *routine) {
                 TOP_REPLACE(BoolToArBool(false));
                 DISPATCH();
             }
+            TARGET_OP(UNPACK) {
+                auto len = ARG32;
+                ret = TOP();
+
+                if (!IsSequence(ret)) {
+                    ErrorFormat(&error_type_error, "unpacking expression was expecting a sequence not a '%s'",
+                                ret->type->name);
+                    goto error;
+                }
+
+                size_t s_len = ret->type->sequence_actions->length(ret);
+                if (s_len != len) {
+                    ErrorFormat(&error_value_error, "incompatible number of value to unpack (expected '%d' got '%d')",
+                                len, s_len);
+                    goto error;
+                }
+
+                cu_frame->eval_stack--;
+                while (len-- > 0) {
+                    PUSH(ret->type->sequence_actions->get_item(ret, len));
+                }
+
+                Release(ret);
+                DISPATCH4();
+            }
             default:
                 ErrorFormat(&error_runtime_error, "unknown opcode: 0x%X", (unsigned char) (*cu_frame->instr_ptr));
         }
