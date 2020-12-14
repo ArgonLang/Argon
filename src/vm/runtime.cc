@@ -187,10 +187,6 @@ argon::object::ArObject *argon::vm::Panic(argon::object::ArObject *obj) {
     return nullptr;
 }
 
-void argon::vm::SetRoutineMain(ArRoutine *routine) {
-    routine_main = routine;
-}
-
 void PushOSThread(OSThread *ost, OSThread **list) {
     if (*list == nullptr) {
         ost->next = nullptr;

@@ -18,8 +18,6 @@ namespace argon::vm {
 
     Context *GetContext();
 
-    void SetRoutineMain(ArRoutine *routine);
-
     bool IsPanicking();
 
     argon::object::ArObject *GetLastError();

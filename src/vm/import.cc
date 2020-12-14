@@ -92,20 +92,8 @@ Module *SourceLoader(Import *import, ImportSpec *spec) {
         auto module = ModuleNew((const char *) spec->name->buffer, "");
         Frame *frame = FrameNew(code, module->module_ns, nullptr);
 
-        if (GetRoutine() != nullptr) {
-            Release(Eval(GetRoutine(), frame));
-            FrameDel(frame);
-        } else {
-            auto routine = RoutineNew(frame);
-            SetRoutineMain(routine);
-            Release(Eval(routine, frame));
-            SetRoutineMain(nullptr);
-
-            if (routine->panic != nullptr)
-                Panic(routine->panic->object);
-
-            RoutineDel(routine);
-        }
+        Release(Eval(GetRoutine(), frame));
+        FrameDel(frame);
 
         if (IsPanicking()) {
             Release(module);
