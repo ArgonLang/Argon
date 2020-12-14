@@ -30,15 +30,33 @@ bool InitFDs(io::File **in, io::File **out, io::File **err) {
     return true;
 }
 
+bool GetOS(String **name) {
+#if defined(WIN32) || defined(_WIN32) || defined(__WIN32__) || defined(__NT__)
+    const char *os_name = "windows"
+#elif defined(__APPLE__)
+    const char *os_name = "darwin"
+#elif defined(__linux__)
+    const char *os_name = "linux";
+#elif defined(__unix__)
+    const char *os_name = "unix"
+#else
+    const char *os_name = "unknown"
+#endif
+
+    *name = StringIntern(os_name);
+    return *name != nullptr;
+}
+
 bool runtime_init(Module *module) {
 #define ADD_PROPERTY(name, object, pinfo)                       \
     if(!(ok=ModuleAddProperty(module, name, object, pinfo)))    \
         goto error;
 
-    bool ok;
+    String *os_name = nullptr;
     io::File *in;
     io::File *out;
     io::File *err;
+    bool ok;
 
     // Init IO
     if (!InitFDs(&in, &out, &err))
@@ -52,10 +70,16 @@ bool runtime_init(Module *module) {
     ADD_PROPERTY("stdout", out, PropertyInfo(PropertyType::PUBLIC));
     ADD_PROPERTY("stderr", err, PropertyInfo(PropertyType::PUBLIC));
 
+    if (!GetOS(&os_name))
+        goto error;
+
+    ADD_PROPERTY("os", os_name, PropertyInfo(PropertyType::PUBLIC | PropertyType::CONST));
+
     error:
     Release(in);
     Release(out);
     Release(err);
+    Release(os_name);
     return ok;
 
 #undef ADD_PROPERTY
