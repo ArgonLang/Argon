@@ -15,7 +15,7 @@
 #include "io.h"
 
 using namespace argon::object;
-using namespace argon::modules::io;
+using namespace argon::module::io;
 
 bool file_istrue(File *self) {
     return self->fd > -1;
@@ -34,7 +34,7 @@ void file_cleanup(File *self) {
     Close(self);
 }
 
-const TypeInfo argon::modules::io::type_file_ = {
+const TypeInfo argon::module::io::type_file_ = {
         TYPEINFO_STATIC_INIT,
         (const unsigned char *) "file",
         sizeof(File),
@@ -79,7 +79,7 @@ ssize_t write_os_wrap(File *file, const void *buf, size_t n) {
     return written;
 }
 
-bool argon::modules::io::Flush(File *file) {
+bool argon::module::io::Flush(File *file) {
     if (file->buffer.mode == FileBufferMode::NONE || file->buffer.wlen == 0)
         return true;
 
@@ -97,16 +97,16 @@ bool argon::modules::io::Flush(File *file) {
     return false;
 }
 
-bool argon::modules::io::Isatty(File *file) {
+bool argon::module::io::Isatty(File *file) {
     return ENUMBITMASK_ISTRUE(file->mode, FileMode::_IS_TERM);
 }
 
-bool argon::modules::io::IsSeekable(File *file) {
+bool argon::module::io::IsSeekable(File *file) {
     return !(ENUMBITMASK_ISTRUE(file->mode, FileMode::_IS_TERM) ||
              ENUMBITMASK_ISTRUE(file->mode, FileMode::_IS_PIPE));
 }
 
-bool argon::modules::io::Seek(File *file, ssize_t offset, FileWhence whence) {
+bool argon::module::io::Seek(File *file, ssize_t offset, FileWhence whence) {
     ssize_t pos;
     int _whence;
 
@@ -144,7 +144,7 @@ size_t FindBestBufSize(File *file) {
     return st.st_blksize > 8192 ? 8192 : st.st_blksize;
 }
 
-bool argon::modules::io::SetBuffer(File *file, unsigned char *buf, size_t cap, FileBufferMode mode) {
+bool argon::module::io::SetBuffer(File *file, unsigned char *buf, size_t cap, FileBufferMode mode) {
     bool ok = true;
 
     Flush(file);
@@ -180,7 +180,7 @@ bool argon::modules::io::SetBuffer(File *file, unsigned char *buf, size_t cap, F
     return ok;
 }
 
-File *argon::modules::io::Open(char *path, FileMode mode) {
+File *argon::module::io::Open(char *path, FileMode mode) {
     unsigned int omode = O_RDONLY;
     int fd;
 
@@ -207,7 +207,7 @@ File *argon::modules::io::Open(char *path, FileMode mode) {
     return file;
 }
 
-File *argon::modules::io::FdOpen(int fd, FileMode mode) {
+File *argon::module::io::FdOpen(int fd, FileMode mode) {
     auto file = ArObjectNew<File>(RCType::INLINE, &type_file_);
 
     if (file != nullptr) {
@@ -244,7 +244,7 @@ File *argon::modules::io::FdOpen(int fd, FileMode mode) {
     return file;
 }
 
-int argon::modules::io::GetFd(File *file) {
+int argon::module::io::GetFd(File *file) {
     Flush(file);
     return file->fd;
 }
@@ -309,14 +309,14 @@ ssize_t ReadFromBuffer(File *file, unsigned char *buf, size_t count) {
     return nbytes;
 }
 
-ssize_t argon::modules::io::Read(File *file, unsigned char *buf, size_t count) {
+ssize_t argon::module::io::Read(File *file, unsigned char *buf, size_t count) {
     if (file->buffer.mode != FileBufferMode::NONE)
         return ReadFromBuffer(file, buf, count);
 
     return read_os_wrap(file, buf, count);
 }
 
-ssize_t argon::modules::io::ReadLine(File *file, unsigned char *buf, size_t buf_len) {
+ssize_t argon::module::io::ReadLine(File *file, unsigned char *buf, size_t buf_len) {
     size_t n = 0;
     size_t len;
 
@@ -347,7 +347,7 @@ ssize_t argon::modules::io::ReadLine(File *file, unsigned char *buf, size_t buf_
     return 0;
 }
 
-size_t argon::modules::io::Tell(File *file) {
+size_t argon::module::io::Tell(File *file) {
     if (file->buffer.mode == FileBufferMode::NONE)
         return file->cur;
 
@@ -388,14 +388,14 @@ ssize_t WriteToBuffer(File *file, const unsigned char *buf, size_t count) {
     return writes;
 }
 
-ssize_t argon::modules::io::Write(File *file, unsigned char *buf, size_t count) {
+ssize_t argon::module::io::Write(File *file, unsigned char *buf, size_t count) {
     if (file->buffer.mode != FileBufferMode::NONE)
         return WriteToBuffer(file, buf, count);
 
     return write_os_wrap(file, buf, count);
 }
 
-ssize_t argon::modules::io::WriteObject(File *file, ArObject *obj) {
+ssize_t argon::module::io::WriteObject(File *file, ArObject *obj) {
     ArBuffer buffer = {};
     ArObject *str;
 
@@ -426,7 +426,7 @@ ssize_t argon::modules::io::WriteObject(File *file, ArObject *obj) {
     return nbytes;
 }
 
-void argon::modules::io::Close(File *file) {
+void argon::module::io::Close(File *file) {
     int err;
 
     if (file->fd < 0)

@@ -445,12 +445,8 @@ ast::NodeUptr Parser::Statement() {
             default:
                 throw SyntaxException("expected statement", this->currTk_);
         }
-    } else {
+    } else
         tmp = this->Expression();
-        start = tmp->start;
-        if (tmp->type != NodeType::ASSIGN)
-            tmp = std::make_unique<ast::Unary>(NodeType::EXPRESSION, std::move(tmp), start);
-    }
 
     if (label)
         return std::make_unique<Binary>(NodeType::LABEL, std::move(label), std::move(tmp));
@@ -757,7 +753,8 @@ ast::NodeUptr Parser::Expression() {
         return std::make_unique<Assignment>(kind, std::move(left), this->TestList());
     }
 
-    return left;
+    Pos start = left->start;
+    return std::make_unique<ast::Unary>(NodeType::EXPRESSION, std::move(left), start);
 }
 
 ast::NodeUptr Parser::TestList() {

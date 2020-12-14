@@ -53,7 +53,9 @@ namespace argon::vm {
         return argon::object::ListConcat(import->paths, list);
     }
 
-    argon::object::ArObject *ImportPopLastError(Import *import);
+    argon::object::Module *ImportAddModule(Import *import, const char *name);
+
+    argon::object::Module *ImportAddModule(Import *import, argon::object::String *name);
 
     argon::object::Module *ImportModule(Import *import, argon::object::String *name, argon::object::String *package);
 

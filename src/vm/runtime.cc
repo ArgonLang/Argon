@@ -68,8 +68,8 @@ std::atomic_uint vcs_idle_count = 0;        // IDLE VCore
 ArRoutineQueue routine_gq;
 // std::mutex gqr_lock;
 
-thread_local ArRoutine *routine_main = nullptr; // Main routine, this routine is created by calling Context::Eval
-thread_local argon::object::ArObject *last_error = nullptr;
+ArRoutine *routine_main = nullptr; // Main routine
+Context *context_main = nullptr; // Main context
 
 bool argon::vm::Initialize() {
     vcs_count = std::thread::hardware_concurrency();
@@ -83,10 +83,8 @@ bool argon::vm::Initialize() {
     argon::memory::InitializeMemory();
 
     // Initialize list of VCore
-    vcs = (VCore *) argon::memory::Alloc(sizeof(VCore) * vcs_count);
-
-    if (vcs == nullptr)
-        return false;
+    if ((vcs = (VCore *) argon::memory::Alloc(sizeof(VCore) * vcs_count)) == nullptr)
+        goto error;
 
     for (unsigned int i = 0; i < vcs_count; i++) {
         vcs[i].ost = nullptr;
@@ -94,7 +92,26 @@ bool argon::vm::Initialize() {
         vcs[i].status = VCoreStatus::IDLE;
     }
 
+    // Initialize Main Context
+    if ((context_main = ContextNew()) == nullptr)
+        goto error;
+
+    // Initialize Main ArRoutine
+    if ((routine_main = RoutineNew(ArRoutineStatus::RUNNABLE)) == nullptr)
+        goto error;
+
+    // Bind routine_main and context_main
+    routine_main->context = context_main;
+
     return true;
+
+    error:
+    RoutineDel(routine_main);
+    ContextDel(context_main);
+    if (vcs != nullptr)
+        argon::memory::Free(vcs);
+    argon::memory::FinalizeMemory();
+    return false;
 }
 
 bool argon::vm::Shutdown() {
@@ -108,6 +125,8 @@ bool argon::vm::Shutdown() {
     }
 
     if (ost_count == 0) {
+        RoutineDel(routine_main);
+        ContextDel(context_main);
         argon::memory::FinalizeMemory();
         return true;
     }
@@ -117,11 +136,13 @@ bool argon::vm::Shutdown() {
 
 ArRoutine *argon::vm::GetRoutine() {
     if (ost_local != nullptr) {
+        /*
         // We are into a spawned thread
         // If a new context was created from a native call into spawned thread,
         // returns routine_main instead ost_local->routine
         if (routine_main != nullptr)
             return routine_main;
+            */
         return ost_local->routine;
     }
 
@@ -131,17 +152,13 @@ ArRoutine *argon::vm::GetRoutine() {
 Context *argon::vm::GetContext() {
     ArRoutine *routine = GetRoutine();
 
-    if (routine != nullptr)
-        return routine->context;
+    assert(routine != nullptr);
 
-    return nullptr;
+    return routine->context;
 }
 
 bool argon::vm::IsPanicking() {
     auto routine = GetRoutine();
-
-    if (routine == nullptr)
-        return last_error != nullptr;
 
     return routine->panic != nullptr;
 }
@@ -149,12 +166,6 @@ bool argon::vm::IsPanicking() {
 argon::object::ArObject *argon::vm::GetLastError() {
     argon::object::ArObject *err = nullptr;
     auto routine = GetRoutine();
-
-    if (routine == nullptr) {
-        err = last_error;
-        last_error = nullptr;
-        return err;
-    }
 
     if (routine->panic != nullptr) {
         // First, try to get error from active defer (if any)
@@ -171,19 +182,9 @@ argon::object::ArObject *argon::vm::GetLastError() {
 argon::object::ArObject *argon::vm::Panic(argon::object::ArObject *obj) {
     auto routine = GetRoutine();
 
-    if (routine != nullptr)
-        RoutineNewPanic(routine, obj);
-    else {
-        argon::object::Release(last_error);
-        argon::object::IncRef(obj);
-        last_error = obj;
-    }
+    RoutineNewPanic(routine, obj);
 
     return nullptr;
-}
-
-void argon::vm::SetRoutineMain(ArRoutine *routine) {
-    routine_main = routine;
 }
 
 void PushOSThread(OSThread *ost, OSThread **list) {

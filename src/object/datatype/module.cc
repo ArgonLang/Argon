@@ -167,7 +167,7 @@ Module *argon::object::ModuleNew(const ModuleInit *init) {
         if (!InitGlobals(module))
             goto error;
 
-        if (!ModuleAddObjects(module, init->bulk))
+        if (init->bulk != nullptr && !ModuleAddObjects(module, init->bulk))
             goto error;
 
         if (init->initialize != nullptr && !init->initialize(module))
@@ -207,5 +207,16 @@ bool argon::object::ModuleAddObjects(Module *module, const PropertyBulk *bulk) {
             Release(obj);
     }
 
+    return ok;
+}
+
+bool argon::object::ModuleAddProperty(Module *module, const char *key, ArObject *value, PropertyInfo info) {
+    auto str = StringIntern(key);
+
+    if (str == nullptr)
+        return false;
+
+    bool ok = NamespaceNewSymbol(module->module_ns, info, str, value);
+    Release(str);
     return ok;
 }

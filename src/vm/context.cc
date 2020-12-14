@@ -2,48 +2,40 @@
 //
 // Licensed under the Apache License v2.0
 
-#include <sstream>
-
-#include <lang/compiler.h>
-#include "frame.h"
-#include "ar_routine.h"
-#include "runtime.h"
-#include "areval.h"
+#include <memory/memory.h>
 
 #include "context.h"
 
-using namespace argon::lang;
+using namespace argon::memory;
 using namespace argon::vm;
-using namespace argon::object;
 
-Context::Context() {
-    // TODO: STUB
-    this->main = ModuleNew("main", "main module");
-    this->import = ImportNew();
-    this->bltins = ImportModule(this->import, "builtins", nullptr);
+Context *argon::vm::ContextNew() {
+    Context *ctx;
 
-    this->stdout = argon::modules::io::FdOpen(fileno(::stdout), argon::modules::io::FileMode::WRITE);
-    argon::modules::io::SetBuffer(this->stdout, nullptr, 0, argon::modules::io::FileBufferMode::LINE);
+    if ((ctx = (Context *) Alloc(sizeof(Context))) == nullptr)
+        return nullptr;
+
+    if ((ctx->import = ImportNew()) == nullptr)
+        goto error;
+
+    if ((ctx->bltins = ImportModule(ctx->import, "builtins", nullptr)) == nullptr)
+        goto error;
+
+    if ((ctx->runtime = ImportModule(ctx->import, "runtime", nullptr)) == nullptr)
+        goto error;
+
+    return ctx;
+
+    error:
+    ContextDel(ctx);
+    return nullptr;
 }
 
-ArObject *Context::Eval(const std::string &source) {
-    auto src = std::istringstream(source);
+void argon::vm::ContextDel(Context *context) {
+    if (context == nullptr)
+        return;
 
-    Compiler compiler;
-    auto compiled = compiler.Compile(&src);
-
-    Frame *frame = FrameNew(compiled, this->main->module_ns, nullptr);
-    auto routine = RoutineNew(frame);
-
-    routine->context = this;
-
-    SetRoutineMain(routine);
-
-    auto ret = argon::vm::Eval(routine, frame);
-
-    SetRoutineMain(nullptr);
-
-    RoutineDel(routine);
-
-    return ret;
+    argon::object::Release(context->bltins);
+    ImportDel(context->import);
+    Free(context);
 }

@@ -9,8 +9,9 @@
 #include <object/arobject.h>
 #include <object/datatype/error.h>
 
-#include <modules/builtins.h>
-#include <modules/io/iomodule.h>
+#include <module/builtins.h>
+#include <module/runtime.h>
+#include <module/io/iomodule.h>
 
 #include "runtime.h"
 #include "areval.h"
@@ -91,20 +92,8 @@ Module *SourceLoader(Import *import, ImportSpec *spec) {
         auto module = ModuleNew((const char *) spec->name->buffer, "");
         Frame *frame = FrameNew(code, module->module_ns, nullptr);
 
-        if (GetRoutine() != nullptr) {
-            Release(Eval(GetRoutine(), frame));
-            FrameDel(frame);
-        } else {
-            auto routine = RoutineNew(frame);
-            SetRoutineMain(routine);
-            Release(Eval(routine, frame));
-            SetRoutineMain(nullptr);
-
-            if (routine->panic != nullptr)
-                Panic(routine->panic->object);
-
-            RoutineDel(routine);
-        }
+        Release(Eval(GetRoutine(), frame));
+        FrameDel(frame);
 
         if (IsPanicking()) {
             Release(module);
@@ -126,8 +115,9 @@ struct Builtins {
 };
 
 ImportSpec *BuiltinsLocator(Import *import, String *name, String *package) {
-    static Builtins builtins[] = {{"builtins", argon::modules::BuiltinsNew},
-                                  {"io",       argon::modules::io::IONew}};
+    static Builtins builtins[] = {{"builtins", argon::module::BuiltinsNew},
+                                  {"io",       argon::module::io::IONew},
+                                  {"runtime",  argon::module::RuntimeNew}};
     ImportSpec *imp;
 
     for (auto &builtin : builtins) {
@@ -259,6 +249,9 @@ Import *argon::vm::ImportNew() {
 }
 
 void argon::vm::ImportDel(Import *import) {
+    if (import == nullptr)
+        return;
+
     Release(import->modules);
     Release(import->paths);
 
@@ -275,6 +268,35 @@ bool argon::vm::ImportAddPath(Import *import, const char *path) {
     }
 
     return ok;
+}
+
+argon::object::Module *argon::vm::ImportAddModule(Import *import, const char *name) {
+    Module *mod;
+    String *sname;
+
+    if ((sname = StringIntern(name)) == nullptr)
+        return nullptr;
+
+    mod = ImportAddModule(import, sname);
+    Release(sname);
+
+    return mod;
+}
+
+argon::object::Module *argon::vm::ImportAddModule(Import *import, argon::object::String *name) {
+    Module *mod;
+
+    if ((mod = (Module *) MapGet(import->modules, name)) != nullptr)
+        return mod;
+
+    // Create new empty module
+    if ((mod = ModuleNew(name, nullptr)) == nullptr)
+        return nullptr;
+
+    if (!MapInsert(import->modules, name, mod))
+        Release((ArObject **) &mod);
+
+    return mod;
 }
 
 Module *argon::vm::ImportModule(Import *import, String *name, String *package) {

@@ -67,6 +67,9 @@ void argon::vm::RoutineReset(ArRoutine *routine, ArRoutineStatus status) {
 }
 
 void argon::vm::RoutineDel(ArRoutine *routine) {
+    if (routine == nullptr)
+        return;
+
     RoutineReset(routine, ArRoutineStatus::RUNNABLE);
     Free(routine);
 }
