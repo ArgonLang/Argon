@@ -349,6 +349,20 @@ void Compiler::CompileAssignment(const ast::Assignment *assign) {
                 this->unit_->DecStack(2);
                 break;
             }
+            case ast::NodeType::TUPLE: {
+                auto tuple = ast::CastNode<ast::List>(assign->assignee);
+
+                this->EmitOp4(OpCodes::UNPACK, tuple->expressions.size());
+                this->unit_->IncStack(tuple->expressions.size());
+
+                for (auto &expr : tuple->expressions) {
+                    if (expr->type != ast::NodeType::IDENTIFIER)
+                        throw InvalidSyntaxtException(
+                                "in unpacking expression, only identifiers must be present on the left");
+                    this->VariableStore(ast::CastNode<ast::Identifier>(expr)->value);
+                }
+                break;
+            }
             default:
                 assert(false);
         }
@@ -1326,7 +1340,7 @@ void Compiler::VariableNew(const std::string &name, bool emit, unsigned char fla
     Symbol *sym;
     bool inserted;
 
-    if (((PropertyType)flags & PropertyType::CONST) == PropertyType::CONST)
+    if (((PropertyType) flags & PropertyType::CONST) == PropertyType::CONST)
         type = SymbolType::CONSTANT;
 
     sym = this->unit_->symt.Insert(name, type, &inserted);

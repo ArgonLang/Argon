@@ -37,6 +37,7 @@ namespace argon::lang {
      *  STSCOPE:    4Bytes
      *  IMPMOD:     4Bytes
      *  IMPFRM:     4Bytes
+     *  UNPACK:     4Bytes
      */
 
     enum class OpCodes : unsigned char {
@@ -101,7 +102,8 @@ namespace argon::lang {
         STSUBSCR,
         SUB,
         SUBSCR,
-        TEST
+        TEST,
+        UNPACK
     };
 
     enum class OpCodeINITFlags : unsigned char {
