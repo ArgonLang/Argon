@@ -2,12 +2,14 @@
 //
 // Licensed under the Apache License v2.0
 
+#include "string.h"
+
 #include "bool.h"
 
 using namespace argon::object;
 
 bool bool_equal(ArObject *self, ArObject *other) {
-    return (other->type == self->type) && ((Bool *) other)->value;
+    return (other->type == self->type) && self == other;
 }
 
 size_t bool_hash(ArObject *obj) {
@@ -16,6 +18,10 @@ size_t bool_hash(ArObject *obj) {
 
 bool bool_istrue(Bool *self) {
     return self->value;
+}
+
+ArObject *bool_str(Bool *self) {
+    return StringIntern(self->value ? "true" : "false");
 }
 
 const TypeInfo argon::object::type_bool_ = {
@@ -31,7 +37,7 @@ const TypeInfo argon::object::type_bool_ = {
         bool_equal,
         nullptr,
         bool_hash,
-        nullptr,
+        (UnaryOp) bool_str,
         nullptr,
         nullptr,
         nullptr
