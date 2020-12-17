@@ -83,7 +83,7 @@ bool instance_setattr(Instance *self, ArObject *key, ArObject *value) {
     return NamespaceSetValue(self->properties, key, value);
 }
 
-const ObjectActions instance_actions{
+const ObjectSlots instance_actions{
         (BinaryOp) instance_getattr,
         nullptr,
         (BoolTernOp) instance_setattr,

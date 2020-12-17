@@ -141,12 +141,12 @@ bool string_get_buffer(String *self, ArBuffer *buffer, ArBufferFlags flags) {
     return BufferSimpleFill(self, buffer, flags, self->buffer, self->len, false);
 }
 
-BufferActions string_buffer = {
+BufferSlots string_buffer = {
         (BufferGetFn) string_get_buffer,
         nullptr
 };
 
-ArObject *string_get_item(String *self, arsize index) {
+ArObject *string_get_item(String *self, ArSSize index) {
     String *ret;
 
     if (self->kind != StringKind::ASCII)
@@ -164,10 +164,10 @@ ArObject *string_get_slice(String *self, ArObject *bounds) {
     auto b = (Bounds *) bounds;
     String *ret;
 
-    arsize slice_len;
-    arsize start;
-    arsize stop;
-    arsize step;
+    ArSSize slice_len;
+    ArSSize start;
+    ArSSize stop;
+    ArSSize step;
 
     if (self->kind != StringKind::ASCII)
         return ErrorFormat(&error_unicode_index, "unable to slice a unicode string");
@@ -190,7 +190,7 @@ ArObject *string_get_slice(String *self, ArObject *bounds) {
     return ret;
 }
 
-SequenceActions string_sequence = {
+SequenceSlots string_sequence = {
         (SizeTUnaryOp) StringLen,
         (BinaryOpArSize) string_get_item,
         nullptr,
@@ -324,7 +324,7 @@ String *argon::object::StringConcat(String *left, String *right) {
     return ret;
 }
 
-String *argon::object::StringReplace(String *string, String *old, String *newval, arsize n) {
+String *argon::object::StringReplace(String *string, String *old, String *newval, ArSSize n) {
     String *nstring;
 
     size_t idx = 0;

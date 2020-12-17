@@ -40,9 +40,9 @@ ArObject *Binary(ArRoutine *routine, ArObject *l, ArObject *r, int offset) {
 }
 
 ArObject *MkBounds(Frame *frame, unsigned short args) {
-    arsize step = 1;
-    arsize stop = 0;
-    arsize start;
+    ArSSize step = 1;
+    ArSSize stop = 0;
+    ArSSize start;
 
     ArObject *obj = *(frame->eval_stack - 1);
 

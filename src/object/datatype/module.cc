@@ -59,7 +59,7 @@ bool module_set_static_attr(Module *self, ArObject *key, ArObject *value) {
     return true;
 }
 
-const ObjectActions module_actions = {
+const ObjectSlots module_actions = {
         nullptr,
         (BinaryOp) module_get_static_attr,
         nullptr,

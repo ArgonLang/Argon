@@ -64,7 +64,7 @@ ArObject *list_mul(ArObject *self, ArObject *other) {
     return nullptr;
 }
 
-List *ShiftList(List *list, arsize pos) {
+List *ShiftList(List *list, ArSSize pos) {
     auto ret = ListNew(list->len);
 
     if (ret != nullptr) {
@@ -153,7 +153,7 @@ void list_trace(List *self, VoidUnaryOp trace) {
         trace(self->objects[i]);
 }
 
-const SequenceActions list_actions{
+const SequenceSlots list_actions{
         list_len,
         (BinaryOpArSize) argon::object::ListGetItem,
 };
@@ -177,7 +177,7 @@ const TypeInfo argon::object::type_list_ = {
         list_cleanup
 };
 
-ArObject *argon::object::ListGetItem(List *list, arsize i) {
+ArObject *argon::object::ListGetItem(List *list, ArSSize i) {
     ArObject *obj;
 
     if (i >= list->len)
@@ -247,7 +247,7 @@ bool argon::object::ListConcat(List *list, ArObject *sequence) {
     assert(false); // TODO: impl
 }
 
-void argon::object::ListRemove(List *list, arsize i) {
+void argon::object::ListRemove(List *list, ArSSize i) {
     if (i >= list->len)
         return;
 

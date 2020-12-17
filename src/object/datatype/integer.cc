@@ -124,11 +124,11 @@ ArObject *integer_dec(Integer *self) {
     return IntegerNew(self->integer - 1);
 }
 
-arsize integer_as_index(Integer *self) {
+ArSSize integer_as_index(Integer *self) {
     return self->integer;
 }
 
-const NumberActions integer_actions{
+const NumberSlots integer_actions{
         nullptr,
         (ArSizeUnaryOp) integer_as_index
 };

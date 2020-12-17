@@ -11,22 +11,19 @@
 
 using namespace argon::object;
 
-bool dtype_istrue(ArObject *obj) {
+bool type_istrue(ArObject *obj) {
     return true;
 }
 
-bool dtype_equal(TypeInfo *left, TypeInfo *right) {
-    if (right->type != &type_dtype_)
-        return false;
-
+bool type_equal(TypeInfo *left, TypeInfo *right) {
     return left == right;
 }
 
-size_t dtype_hash(ArObject *self) {
-    return (size_t) self; // returns memory pointer as size_t
+ArSize type_hash(ArObject *self) {
+    return (ArSize) self; // returns memory pointer as size_t
 }
 
-const TypeInfo argon::object::type_dtype_ = {
+const TypeInfo argon::object::type_type_ = {
         TYPEINFO_STATIC_INIT,
         (const unsigned char *) "datatype",
         sizeof(TypeInfo),
@@ -35,26 +32,15 @@ const TypeInfo argon::object::type_dtype_ = {
         nullptr,
         nullptr,
         nullptr,
-        dtype_istrue,
-        (BoolBinOp) dtype_equal,
+        type_istrue,
+        (BoolBinOp) type_equal,
         nullptr,
-        dtype_hash,
+        type_hash,
         nullptr,
         nullptr,
         nullptr,
         nullptr
 };
-
-ArObject *argon::object::ArObjectNew(RCType rc, const TypeInfo *type) {
-    auto obj = (ArObject *) memory::Alloc(type->size);
-
-    if (obj != nullptr) {
-        obj->ref_count = RefBits((unsigned char) rc);
-        obj->type = type;
-    } else argon::vm::Panic(OutOfMemoryError);
-
-    return obj;
-}
 
 ArObject *argon::object::ArObjectGCNew(const TypeInfo *type) {
     auto obj = (ArObject *) GCNew(type->size);
@@ -68,6 +54,17 @@ ArObject *argon::object::ArObjectGCNew(const TypeInfo *type) {
     return obj;
 }
 
+ArObject *argon::object::ArObjectNew(RCType rc, const TypeInfo *type) {
+    auto obj = (ArObject *) memory::Alloc(type->size);
+
+    if (obj != nullptr) {
+        obj->ref_count = RefBits((unsigned char) rc);
+        obj->type = type;
+    } else argon::vm::Panic(OutOfMemoryError);
+
+    return obj;
+}
+
 bool argon::object::BufferGet(ArObject *obj, ArBuffer *buffer, ArBufferFlags flags) {
     if (!IsBufferable(obj)) {
         ErrorFormat(&error_type_error, "bytes-like object is required, not '%s'", obj->type->name);
@@ -75,6 +72,16 @@ bool argon::object::BufferGet(ArObject *obj, ArBuffer *buffer, ArBufferFlags fla
     }
 
     return obj->type->buffer_actions->get_buffer(obj, buffer, flags);
+}
+
+void argon::object::BufferRelease(ArBuffer *buffer) {
+    if (buffer->obj == nullptr)
+        return;
+
+    if (buffer->obj->type->buffer_actions->rel_buffer != nullptr)
+        buffer->obj->type->buffer_actions->rel_buffer(buffer);
+
+    Release(&buffer->obj);
 }
 
 bool argon::object::BufferSimpleFill(ArObject *obj, ArBuffer *buffer, ArBufferFlags flags, unsigned char *raw,
@@ -106,16 +113,6 @@ bool argon::object::IsTrue(const ArObject *obj) {
     if (obj->type->is_true != nullptr)
         return obj->type->is_true((ArObject *) obj);
     return false;
-}
-
-void argon::object::BufferRelease(ArBuffer *buffer) {
-    if (buffer->obj == nullptr)
-        return;
-
-    if (buffer->obj->type->buffer_actions->rel_buffer != nullptr)
-        buffer->obj->type->buffer_actions->rel_buffer(buffer);
-
-    Release(&buffer->obj);
 }
 
 void argon::object::Release(ArObject *obj) {

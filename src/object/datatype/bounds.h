@@ -10,16 +10,16 @@
 namespace argon::object {
 
     struct Bounds : ArObject {
-        arsize start;
-        arsize stop;
-        arsize step;
+        ArSSize start;
+        ArSSize stop;
+        ArSSize step;
     };
 
     extern const TypeInfo type_bounds_;
 
-    Bounds *BoundsNew(arsize start, arsize stop, arsize step);
+    Bounds *BoundsNew(ArSSize start, ArSSize stop, ArSSize step);
 
-    arsize BoundsIndex(Bounds *bound, size_t length, arsize *start, arsize *stop, arsize *step);
+    ArSSize BoundsIndex(Bounds *bound, size_t length, ArSSize *start, ArSSize *stop, ArSSize *step);
 
 } // namespace argon::object
 

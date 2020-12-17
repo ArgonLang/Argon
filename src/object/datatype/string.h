@@ -65,15 +65,15 @@ namespace argon::object {
 
     String *StringConcat(String *left, String *right);
 
-    inline arsize StringFind(String *string, String *pattern) {
+    inline ArSSize StringFind(String *string, String *pattern) {
         return support::Find(string->buffer, string->len, pattern->buffer, pattern->len, false);
     }
 
-    inline arsize StringRFind(String *string, String *pattern) {
+    inline ArSSize StringRFind(String *string, String *pattern) {
         return support::Find(string->buffer, string->len, pattern->buffer, pattern->len, true);
     }
 
-    String *StringReplace(String *string, String *old, String *newval, arsize n);
+    String *StringReplace(String *string, String *old, String *newval, ArSSize n);
 
     inline String *StringReplaceAll(String *string, String *old, String *newval) {
         return StringReplace(string, old, newval, -1);

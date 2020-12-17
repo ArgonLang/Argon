@@ -47,7 +47,7 @@ ArObject *struct_get_static_attr(Struct *self, ArObject *key) {
     return obj;
 }
 
-const ObjectActions struct_actions{
+const ObjectSlots struct_actions{
         nullptr,
         (BinaryOp) struct_get_static_attr,
         nullptr,

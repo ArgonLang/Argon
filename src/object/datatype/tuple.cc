@@ -30,7 +30,7 @@ size_t tuple_len(ArObject *obj) {
     return ((Tuple *) obj)->len;
 }
 
-ArObject *argon::object::TupleGetItem(Tuple *tuple, arsize i) {
+ArObject *argon::object::TupleGetItem(Tuple *tuple, ArSSize i) {
     ArObject *obj = nullptr;
     if (i >= tuple->len) {
         assert(i >= tuple->len);
@@ -41,7 +41,7 @@ ArObject *argon::object::TupleGetItem(Tuple *tuple, arsize i) {
     return obj;
 }
 
-const SequenceActions tuple_actions{
+const SequenceSlots tuple_actions{
         tuple_len,
         (BinaryOpArSize) argon::object::TupleGetItem
 };

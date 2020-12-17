@@ -221,7 +221,7 @@ bool argon::object::MapContains(Map *map, ArObject *key) {
     return false;
 }
 
-const MapActions map_actions{
+const MapSlots map_actions{
         map_len,
         (BinaryOp) argon::object::MapGet,
         (BoolTernOp) argon::object::MapInsert

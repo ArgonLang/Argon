@@ -12,6 +12,11 @@
 #include "refcount.h"
 
 namespace argon::object {
+    enum class ArBufferFlags {
+        READ = 0x01,
+        WRITE = 0x02
+    };
+
     enum class CompareMode : unsigned char {
         EQ,
         NE,
@@ -21,22 +26,53 @@ namespace argon::object {
         LEQ
     };
 
-    using arsize = ssize_t;
+    using ArSize = size_t;
+    using ArSSize = ssize_t;
 
-    using UnaryOp = struct ArObject *(*)(struct ArObject *);
+    using ArSizeUnaryOp = ArSSize (*)(struct ArObject *);
     using BinaryOp = struct ArObject *(*)(struct ArObject *, struct ArObject *);
-    // using TernaryOp = struct ArObject *(*)(struct ArObject *, struct ArObject *, struct ArObject *);
-    using CompareOp = struct ArObject *(*)(struct ArObject *, struct ArObject *, CompareMode);
-    using BinaryOpArSize = struct ArObject *(*)(struct ArObject *, arsize);
-
-    using VoidUnaryOp = void (*)(struct ArObject *obj);
-    using Trace = void (*)(struct ArObject *, VoidUnaryOp);
-    using SizeTUnaryOp = size_t (*)(struct ArObject *);
-    using ArSizeUnaryOp = arsize (*)(struct ArObject *);
-    using BoolUnaryOp = bool (*)(struct ArObject *obj);
+    using BinaryOpArSize = struct ArObject *(*)(struct ArObject *, ArSSize);
     using BoolBinOp = bool (*)(struct ArObject *, struct ArObject *);
     using BoolTernOp = bool (*)(struct ArObject *, struct ArObject *, struct ArObject *);
-    using BoolTernOpArSize = bool (*)(struct ArObject *, struct ArObject *, arsize);
+    using BoolTernOpArSize = bool (*)(struct ArObject *, struct ArObject *, ArSSize);
+    using BoolUnaryOp = bool (*)(struct ArObject *obj);
+    using CompareOp = struct ArObject *(*)(struct ArObject *, struct ArObject *, CompareMode);
+    using SizeTUnaryOp = ArSize (*)(struct ArObject *);
+    using VoidUnaryOp = void (*)(struct ArObject *obj);
+    using UnaryOp = struct ArObject *(*)(struct ArObject *);
+
+    struct ArBuffer {
+        unsigned char *buffer;
+        ArSize len;
+
+        ArObject *obj;
+        ArBufferFlags flags;
+    };
+
+    using BufferGetFn = bool (*)(struct ArObject *obj, ArBuffer *buffer, ArBufferFlags flags);
+    using BufferRelFn = void (*)(ArBuffer *buffer);
+    struct BufferSlots {
+        BufferGetFn get_buffer;
+        BufferRelFn rel_buffer;
+    };
+
+    struct MapSlots {
+        SizeTUnaryOp length;
+        BinaryOp get_item;
+        BoolTernOp set_item;
+    };
+
+    struct NumberSlots {
+        UnaryOp as_number;
+        ArSizeUnaryOp as_index;
+    };
+
+    struct ObjectSlots {
+        BinaryOp get_attr;
+        BinaryOp get_static_attr;
+        BoolTernOp set_attr;
+        BoolTernOp set_static_attr;
+    };
 
     struct OpSlots {
         // Math
@@ -66,12 +102,7 @@ namespace argon::object {
         UnaryOp dec;
     };
 
-    struct NumberActions {
-        UnaryOp as_number;
-        ArSizeUnaryOp as_index;
-    };
-
-    struct SequenceActions {
+    struct SequenceSlots {
         SizeTUnaryOp length;
         BinaryOpArSize get_item;
         BoolTernOpArSize set_item;
@@ -79,56 +110,22 @@ namespace argon::object {
         BoolTernOp set_slice;
     };
 
-    struct MapActions {
-        SizeTUnaryOp length;
-        BinaryOp get_item;
-        BoolTernOp set_item;
-    };
-
-    struct ObjectActions {
-        BinaryOp get_attr;
-        BinaryOp get_static_attr;
-        BoolTernOp set_attr;
-        BoolTernOp set_static_attr;
-    };
-
-    enum class ArBufferFlags {
-        READ = 0x01,
-        WRITE = 0x02
-    };
-
-    struct ArBuffer {
-        unsigned char *buffer;
-        size_t len;
-
-        ArObject *obj;
-        ArBufferFlags flags;
-    };
-
-    using BufferGetFn = bool (*)(struct ArObject *obj, ArBuffer *buffer, ArBufferFlags flags);
-
-    using BufferRelFn = void (*)(ArBuffer *buffer);
-
-    struct BufferActions {
-        BufferGetFn get_buffer;
-        BufferRelFn rel_buffer;
-    };
-
     struct ArObject {
         RefCount ref_count;
         const struct TypeInfo *type;
     };
 
+    using Trace = void (*)(struct ArObject *, VoidUnaryOp);
     struct TypeInfo : ArObject {
         const unsigned char *name;
         unsigned short size;
 
         // Actions
-        const BufferActions *buffer_actions;
-        const NumberActions *number_actions;
-        const MapActions *map_actions;
-        const ObjectActions *obj_actions;
-        const SequenceActions *sequence_actions;
+        const BufferSlots *buffer_actions;
+        const NumberSlots *number_actions;
+        const MapSlots *map_actions;
+        const ObjectSlots *obj_actions;
+        const SequenceSlots *sequence_actions;
 
         // Generic actions
         BoolUnaryOp is_true;
@@ -143,17 +140,13 @@ namespace argon::object {
         VoidUnaryOp cleanup;
     };
 
-    extern const TypeInfo type_dtype_;
+    extern const TypeInfo type_type_;
 
-    ArObject *ArObjectNew(RCType rc, const TypeInfo *type);
+#define TYPEINFO_STATIC_INIT    {{RefCount(RCType::STATIC)}, &type_type_}
 
     ArObject *ArObjectGCNew(const TypeInfo *type);
 
-    template<typename T>
-    inline typename std::enable_if<std::is_base_of<ArObject, T>::value, T>::type *
-    ArObjectNew(RCType rc, const TypeInfo *type) {
-        return (T *) ArObjectNew(rc, type);
-    }
+    ArObject *ArObjectNew(RCType rc, const TypeInfo *type);
 
     template<typename T>
     inline typename std::enable_if<std::is_base_of<ArObject, T>::value, T>::type *
@@ -161,16 +154,31 @@ namespace argon::object {
         return (T *) ArObjectGCNew(type);
     }
 
-    bool BufferGet(ArObject *obj, ArBuffer *buffer, ArBufferFlags flags);
+    template<typename T>
+    inline typename std::enable_if<std::is_base_of<ArObject, T>::value, T>::type *
+    ArObjectNew(RCType rc, const TypeInfo *type) {
+        return (T *) ArObjectNew(rc, type);
+    }
 
-    bool BufferSimpleFill(ArObject *obj, ArBuffer *buffer, ArBufferFlags flags, unsigned char *raw, size_t len,
-                          bool writable);
-
-    inline bool IsBufferable(const ArObject *obj) { return obj->type->buffer_actions != nullptr; }
+    // Management functions
 
     inline bool AsIndex(const ArObject *obj) {
         return obj->type->number_actions != nullptr && obj->type->number_actions->as_index;
     }
+
+    bool BufferGet(ArObject *obj, ArBuffer *buffer, ArBufferFlags flags);
+
+    void BufferRelease(ArBuffer *buffer);
+
+    bool BufferSimpleFill(ArObject *obj, ArBuffer *buffer, ArBufferFlags flags, unsigned char *raw, ArSize len,
+                          bool writable);
+
+    inline void IncRef(ArObject *obj) {
+        if (obj != nullptr)
+            obj->ref_count.IncStrong();
+    }
+
+    inline bool IsBufferable(const ArObject *obj) { return obj->type->buffer_actions != nullptr; }
 
     inline bool IsMap(const ArObject *obj) { return obj->type->map_actions != nullptr; }
 
@@ -180,21 +188,12 @@ namespace argon::object {
 
     bool IsTrue(const ArObject *obj);
 
-    void BufferRelease(ArBuffer *buffer);
-
-    inline void IncRef(ArObject *obj) {
-        if (obj != nullptr)
-            obj->ref_count.IncStrong();
-    }
-
     void Release(ArObject *obj);
 
     inline void Release(ArObject **obj) {
         Release(*obj);
         *obj = nullptr;
     }
-
-#define TYPEINFO_STATIC_INIT    {{RefCount(RCType::STATIC)}, &type_dtype_}
 
 } // namespace argon::object
 

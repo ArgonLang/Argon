@@ -154,7 +154,7 @@ ImportSpec *CheckSource(String *base, String *mod_path, String *name) {
 
     if (ok) {
         // Extract origin package
-        arsize last_sep = StringRFind(file, path_sep);
+        ArSSize last_sep = StringRFind(file, path_sep);
         String *pkg = last_sep > -1 ? StringSubs(file, 0, last_sep + 1) : StringIntern("");
         if (pkg != nullptr) {
             imp = ImportSpecNew(name, pkg, file, SourceLoader);
@@ -178,7 +178,7 @@ ImportSpec *SourceLocator(Import *import, String *name, String *package) {
         return nullptr;
 
     // Extract module name
-    arsize last_sep = StringRFind(name, mod_sep);
+    ArSSize last_sep = StringRFind(name, mod_sep);
     if (last_sep > 0) {
         if ((mod_name = StringSubs(name, last_sep + mod_sep->len, 0)) == nullptr) {
             Release(mod_path);

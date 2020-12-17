@@ -26,7 +26,7 @@ const TypeInfo argon::object::type_bounds_ = {
 };
 
 
-Bounds *argon::object::BoundsNew(arsize start, arsize stop, arsize step) {
+Bounds *argon::object::BoundsNew(ArSSize start, ArSSize stop, ArSSize step) {
     auto bounds = ArObjectNew<Bounds>(RCType::INLINE, &type_bounds_);
 
     if (bounds != nullptr) {
@@ -38,7 +38,7 @@ Bounds *argon::object::BoundsNew(arsize start, arsize stop, arsize step) {
     return bounds;
 }
 
-arsize argon::object::BoundsIndex(Bounds *bound, size_t length, arsize *start, arsize *stop, arsize *step) {
+ArSSize argon::object::BoundsIndex(Bounds *bound, size_t length, ArSSize *start, ArSSize *stop, ArSSize *step) {
     *start = bound->start;
     *stop = bound->stop;
     *step = bound->step;

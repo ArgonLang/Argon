@@ -19,7 +19,7 @@ namespace argon::object {
 
     Tuple *TupleNew(size_t len);
 
-    ArObject *TupleGetItem(Tuple *tuple, arsize i);
+    ArObject *TupleGetItem(Tuple *tuple, ArSSize i);
 
     bool TupleInsertAt(Tuple *tuple, size_t idx, ArObject *obj);
 
