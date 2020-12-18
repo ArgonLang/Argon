@@ -19,6 +19,8 @@ namespace argon::object {
 
     Bounds *BoundsNew(ArSSize start, ArSSize stop, ArSSize step);
 
+    Bounds *BoundsNew(ArObject *start, ArObject *stop, ArObject *step);
+
     ArSSize BoundsIndex(Bounds *bound, size_t length, ArSSize *start, ArSSize *stop, ArSSize *step);
 
 } // namespace argon::object

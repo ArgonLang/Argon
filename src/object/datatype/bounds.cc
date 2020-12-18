@@ -2,6 +2,8 @@
 //
 // Licensed under the Apache License v2.0
 
+#include "error.h"
+
 #include "bounds.h"
 
 using namespace argon::object;
@@ -25,11 +27,13 @@ const TypeInfo argon::object::type_bounds_ = {
         nullptr
 };
 
-
 Bounds *argon::object::BoundsNew(ArSSize start, ArSSize stop, ArSSize step) {
-    auto bounds = ArObjectNew<Bounds>(RCType::INLINE, &type_bounds_);
+    Bounds *bounds;
 
-    if (bounds != nullptr) {
+    if (step == 0)
+        return (Bounds *) ErrorFormat(&error_value_error, "slice step cannot be 0");
+
+    if ((bounds = ArObjectNew<Bounds>(RCType::INLINE, &type_bounds_)) != nullptr) {
         bounds->start = start;
         bounds->stop = stop;
         bounds->step = step;
@@ -38,14 +42,37 @@ Bounds *argon::object::BoundsNew(ArSSize start, ArSSize stop, ArSSize step) {
     return bounds;
 }
 
+Bounds *argon::object::BoundsNew(ArObject *start, ArObject *stop, ArObject *step) {
+    ArSSize _step = 1;
+    ArSSize _stop = 0;
+    ArSSize _start;
+
+    if (step != nullptr) {
+        if (!AsIndex(step))
+            return (Bounds *) ErrorFormat(&error_type_error, "step parameter must be integer not '%s'",
+                                          step->type->name);
+        _step = step->type->number_actions->as_index(step);
+    }
+
+    if (stop != nullptr) {
+        if (!AsIndex(stop))
+            return (Bounds *) ErrorFormat(&error_type_error, "stop parameter must be integer not '%s'",
+                                          step->type->name);
+        _stop = stop->type->number_actions->as_index(stop);
+    }
+
+    if (!AsIndex(start))
+        return (Bounds *) ErrorFormat(&error_type_error, "start parameter must be integer not '%s'",
+                                      start->type->name);
+    _start = start->type->number_actions->as_index(start);
+
+    return BoundsNew(_start, _stop, _step);
+}
+
 ArSSize argon::object::BoundsIndex(Bounds *bound, size_t length, ArSSize *start, ArSSize *stop, ArSSize *step) {
     *start = bound->start;
     *stop = bound->stop;
     *step = bound->step;
-
-    assert(bound->step != 0);
-
-    // TODO: check overflow ?!
 
     // START
     if (bound->start < 0) {

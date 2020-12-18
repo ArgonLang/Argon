@@ -39,39 +39,6 @@ ArObject *Binary(ArRoutine *routine, ArObject *l, ArObject *r, int offset) {
 #undef GET_BINARY_OP
 }
 
-ArObject *MkBounds(Frame *frame, unsigned short args) {
-    ArSSize step = 1;
-    ArSSize stop = 0;
-    ArSSize start;
-
-    ArObject *obj = *(frame->eval_stack - 1);
-
-    if (args == 3) {
-        if (!AsIndex(obj))
-            return ErrorFormat(&error_type_error, "step parameter must be integer not '%s'", obj->type->name);
-
-        step = obj->type->number_actions->as_index(obj);
-        Release(*(--frame->eval_stack));
-        obj = *(frame->eval_stack - 1);
-    }
-
-    if (args >= 2) {
-        if (!AsIndex(obj))
-            return ErrorFormat(&error_type_error, "stop parameter must be integer not '%s'", obj->type->name);
-
-        stop = obj->type->number_actions->as_index(obj);
-        Release(*(--frame->eval_stack));
-        obj = *(frame->eval_stack - 1);
-    }
-
-    if (!AsIndex(obj))
-        return ErrorFormat(&error_type_error, "start parameter must be integer not '%s'", obj->type->name);
-
-    start = obj->type->number_actions->as_index(obj);
-
-    return BoundsNew(start, stop, step);
-}
-
 ArObject *MkCurrying(Function *fn_old, ArObject **args, size_t count) {
     List *currying = ListNew(count);
 
@@ -414,6 +381,7 @@ ArObject *argon::vm::Eval(ArRoutine *routine) {
 #define POP()       Release(*(--cu_frame->eval_stack))
 #define STACK_REWIND(offset) for(size_t i = offset; i>0; POP(), i--)
 #define TOP()       (*(cu_frame->eval_stack-1))
+#define TOP_BACK()  (*(--cu_frame->eval_stack))
 #define TOP_REPLACE(obj)                \
     Release(*(cu_frame->eval_stack-1)); \
     *(cu_frame->eval_stack-1)=obj
@@ -790,7 +758,23 @@ ArObject *argon::vm::Eval(ArRoutine *routine) {
                 BINARY_OP(routine, l_xor, ^);
             }
             TARGET_OP(MK_BOUNDS) {
-                if ((ret = MkBounds(cu_frame, ARG16)) == nullptr)
+                auto args = ARG16;
+                ArObject *step = nullptr;
+                ArObject *stop = nullptr;
+
+                if (args == 3) {
+                    step = TOP_BACK();
+                }
+
+                if (args >= 2) {
+                    stop = TOP_BACK();
+                }
+
+                ret = BoundsNew(TOP(), stop, step);
+                Release(step);
+                Release(stop);
+
+                if (ret == nullptr)
                     goto error;
 
                 TOP_REPLACE(ret);
@@ -1169,6 +1153,7 @@ ArObject *argon::vm::Eval(ArRoutine *routine) {
 #undef POP
 #undef STACK_REWIND
 #undef TOP
+#undef TOP_BACK
 #undef TOP_REPLACE
 #undef PEEK1
 #undef PEEK2
