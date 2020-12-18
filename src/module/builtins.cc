@@ -132,7 +132,7 @@ ARGON_FUNC_NATIVE(builtins_print, print,
         }
     }
 
-    return ReturnNil();
+    return NilVal;
 }
 
 ARGON_FUNC_NATIVE(builtins_println, println,

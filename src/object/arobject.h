@@ -63,7 +63,7 @@ namespace argon::object {
     };
 
     struct NumberSlots {
-        UnaryOp as_number;
+        UnaryOp as_integer;
         ArSizeUnaryOp as_index;
     };
 

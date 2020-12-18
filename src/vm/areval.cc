@@ -354,7 +354,7 @@ void FillFrameForCall(Frame *frame, Function *callable, ArObject **args, size_t 
 
     // If last parameter in variadic function is empty, fill it with NilVal
     if (callable->variadic && local_idx + 1 == callable->arity)
-        frame->locals[local_idx++] = ReturnNil();
+        frame->locals[local_idx++] = NilVal;
 
     assert(local_idx == callable->arity);
 
@@ -440,7 +440,7 @@ ArObject *argon::vm::Eval(ArRoutine *routine) {
     DISPATCH()
 
     // FUNCTION START
-    ArObject *last_popped = ReturnNil();
+    ArObject *last_popped = NilVal;
     Frame *first_frame = routine->frame;
 
     begin:
@@ -974,7 +974,7 @@ ArObject *argon::vm::Eval(ArRoutine *routine) {
                 }
 
                 if (cu_frame->stack_extra_base == cu_frame->eval_stack)
-                    *cu_frame->back->eval_stack = ReturnNil();
+                    *cu_frame->back->eval_stack = NilVal;
                 else {
                     *cu_frame->back->eval_stack = TOP();
                     cu_frame->eval_stack--;
