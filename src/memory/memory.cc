@@ -111,7 +111,7 @@ void *argon::memory::MemoryCopy(void *dest, const void *src, size_t size) {
     while (size--)
         *d++ = *s++;
 
-    return dest;
+    return d;
 }
 
 void *argon::memory::MemoryConcat(void *s1, size_t size1, void *s2, size_t size2) {
@@ -142,12 +142,17 @@ void *argon::memory::MemorySet(void *dest, int val, size_t size) {
 }
 
 void *argon::memory::Realloc(void *ptr, size_t size) {
-    Pool *pool = (Pool *) AlignDown(ptr, ARGON_MEMORY_PAGE_SIZE);
-    bool in_arenas = AddressInArenas(ptr);
-    size_t src_sz = 0;
-    void *tmp = nullptr;
+    Pool *pool;
+    void *tmp;
 
-    if (in_arenas) {
+    size_t src_sz;
+
+    if (ptr == nullptr)
+        return Alloc(size);
+
+    pool = (Pool *) AlignDown(ptr, ARGON_MEMORY_PAGE_SIZE);
+
+    if (AddressInArenas(ptr)) {
         if (SizeToPoolClass(pool->blocksz) >= SizeToPoolClass(size)) return ptr;
         src_sz = pool->blocksz;
     } else {
