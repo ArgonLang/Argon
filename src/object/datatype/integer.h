@@ -25,6 +25,8 @@ namespace argon::object {
 
     int IntegerCountBits(Integer *number);
 
+    int IntegerCountDigits(IntegerUnderlayer number, IntegerUnderlayer base);
+
 } // namespace argon::object
 
 #endif // !ARGON_OBJECT_INTEGER_H_

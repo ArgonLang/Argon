@@ -247,8 +247,6 @@ Integer *argon::object::IntegerNewFromString(const std::string &string, int base
 }
 
 int argon::object::IntegerCountBits(Integer *number) {
-    assert(number->type == &type_integer_);
-
     IntegerUnderlayer i = number->integer;
     int count = 0;
 
@@ -256,7 +254,18 @@ int argon::object::IntegerCountBits(Integer *number) {
 
     while (i) {
         count++;
-        i >>= 1;
+        i >>= 1u;
+    }
+
+    return count;
+}
+
+int argon::object::IntegerCountDigits(IntegerUnderlayer number, IntegerUnderlayer base) {
+    int count = 0;
+
+    while (number) {
+        count++;
+        number /= base;
     }
 
     return count;
