@@ -79,7 +79,7 @@ Token Scanner::ParseNumber() {
                 return this->ParseHex(start);
         }
 
-        if (!IsDigit(this->source_->peek()))
+        if (!IsDigit(this->source_->peek()) && this->source_->peek() != '.')
             return Token(TokenType::NUMBER, start, this->pos_, "0");
     }
 
