@@ -327,3 +327,90 @@ Decimal *argon::object::DecimalNewFromString(const std::string &string) {
 
     return decimal;
 }
+
+unsigned long argon::object::DecimalModf(DecimalUnderlayer value, unsigned long *frac, int precision) {
+    static int pow10[] = {1, 10, 100, 1000, 10000, 100000, 1000000, 10000000, 100000000, 1000000000};
+
+    IntegerUnderlayer intpart = value;
+    DecimalUnderlayer tmp;
+    DecimalUnderlayer diff;
+
+    // based on https://github.com/mpaland/printf (_ftoa)
+
+    if (std::isnan(value) || std::isinf(value)) {
+        *frac = 0;
+        return 0;
+    }
+
+    if (value < 0)
+        value = -value;
+
+    // Limit precision to 9
+    if (precision > 9)
+        precision = 9;
+
+    tmp = (value - intpart) * pow10[precision];
+    *frac = (unsigned long) tmp;
+    diff = tmp - *frac;
+
+    if (diff > 0.5) {
+        (*frac)++;
+        // handle rollover, e.g. 0.99 with precision = 1 is 1.0
+        if (*frac >= pow10[precision]) {
+            *frac = 0;
+            intpart++;
+        }
+    } else if (diff < 0.5) {
+
+    } else if ((*frac == 0U) || (*frac & 1U))
+        (*frac)++; // round up if odd OR last digit is 0
+
+    if (precision == 0U) {
+        diff = value - (DecimalUnderlayer) intpart;
+        if (diff >= 0.5 && ((unsigned long) intpart & 1U))
+            intpart++; // round up if exactly 0.5 and odd
+    }
+
+    return intpart;
+}
+
+unsigned long argon::object::DecimalFrexp10(DecimalUnderlayer value, unsigned long *frac, long *exp, int precision) {
+    int exp2;
+    double z;
+    double z2;
+
+    union {
+        double F;
+        uint64_t U;
+    } conv{};
+
+    // based on https://github.com/mpaland/printf (_etoa)
+    conv.F = value;
+
+    exp2 = (int) ((conv.U >> 52U) & 0x07FFU) - 1023;                // effectively log2
+    conv.U = (conv.U & ((1ULL << 52U) - 1U)) | (1023ULL << 52U);    // drop the exponent so conv.F is now in [1,2)
+
+    // now approximate log10 from the log2 integer part and an expansion of ln around 1.5
+    (*exp) = (int) (0.1760912590558 + exp2 * 0.301029995663981 + (conv.F - 1.5) * 0.289529654602168);
+
+    // now we want to compute 10^(expval) but we want to be sure it won't overflow
+    exp2 = (*exp) * 3.321928094887362 + 0.5;
+    z = (*exp) * 2.302585092994046 - exp2 * 0.6931471805599453;
+    z2 = z * z;
+    conv.U = (uint64_t) (exp2 + 1023) << 52U;
+
+    // compute exp(z) using continued fractions,
+    conv.F *= 1 + 2 * z / (2 - z + (z2 / (6 + (z2 / (10 + z2 / 14)))));
+
+    // correct for rounding errors
+    if (value < conv.F) {
+        (*exp)--;
+        conv.F /= 10;
+    }
+
+    // rescale the float value
+    if ((*exp))
+        value /= conv.F;
+
+    return DecimalModf(value, frac, precision);
+}

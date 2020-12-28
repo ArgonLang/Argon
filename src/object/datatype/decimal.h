@@ -5,8 +5,12 @@
 #ifndef ARGON_OBJECT_DECIMAL_H_
 #define ARGON_OBJECT_DECIMAL_H_
 
+#include <float.h>
+
 #include <string>
 #include <object/arobject.h>
+
+#include "integer.h"
 
 namespace argon::object {
 
@@ -16,11 +20,15 @@ namespace argon::object {
         DecimalUnderlayer decimal;
     };
 
+    extern const TypeInfo type_decimal_;
+
     Decimal *DecimalNew(DecimalUnderlayer number);
 
     Decimal *DecimalNewFromString(const std::string &string);
 
-    extern const TypeInfo type_decimal_;
+    unsigned long DecimalModf(DecimalUnderlayer value, unsigned long *frac, int precision);
+
+    unsigned long DecimalFrexp10(DecimalUnderlayer value, unsigned long *frac, long *exp, int precision);
 
 } // namespace argon::object
 
