@@ -2,6 +2,8 @@
 //
 // Licensed under the Apache License v2.0
 
+#include <cstdarg>
+
 #include <memory/memory.h>
 #include <vm/runtime.h>
 
@@ -281,6 +283,28 @@ String *argon::object::StringNew(const char *string, size_t len) {
 
     if (str != nullptr && string != nullptr)
         FillBuffer(str, 0, (unsigned char *) string, len);
+
+    return str;
+}
+
+String *argon::object::StringNewFormat(const char *string, ...) {
+    String *str;
+
+    int sz;
+    va_list args;
+
+    va_start (args, string);
+    sz = vsnprintf(nullptr, 0, string, args); // +1 is for '\0'
+    va_end(args);
+
+    if ((str = StringInit(sz, true)) == nullptr)
+        return nullptr;
+
+    str->cp_len = sz;
+
+    va_start(args, string);
+    vsnprintf((char *) str->buffer, sz, string, args);
+    va_end(args);
 
     return str;
 }

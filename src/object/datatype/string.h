@@ -79,6 +79,8 @@ namespace argon::object {
 
     inline String *StringNew(const std::string &string) { return StringNew(string.c_str(), string.length()); }
 
+    String *StringNewFormat(const char *string, ...);
+
     String *StringIntern(const char *string, size_t len);
 
     inline String *StringIntern(const char *str) { return StringIntern(str, strlen(str)); }
