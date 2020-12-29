@@ -21,10 +21,8 @@ bool bounds_equal(Bounds *self, ArObject *other) {
     if (self == other)
         return true;
 
-    if (other->type != self->type)
-        return false;
-
-    return self->start == o->start
+    return AR_SAME_TYPE(self, other)
+           && self->start == o->start
            && self->stop == o->stop
            && self->step == o->step;
 }
@@ -33,7 +31,7 @@ ArObject *bounds_compare(Bounds *self, ArObject *other, CompareMode mode) {
     auto *o = (Bounds *) other;
     bool val;
 
-    if (self->type != other->type)
+    if (!AR_SAME_TYPE(self, other))
         return nullptr;
 
     switch (mode) {
