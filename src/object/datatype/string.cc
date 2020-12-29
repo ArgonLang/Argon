@@ -8,6 +8,7 @@
 #include "error.h"
 #include "hash_magic.h"
 #include "bounds.h"
+#include "decimal.h"
 #include "integer.h"
 #include "map.h"
 
@@ -46,7 +47,7 @@ String *StringInit(size_t len, bool mkbuf) {
     return str;
 }
 
-void FillBuffer(String *dst, size_t offset, const unsigned char *buf, size_t len) {
+size_t FillBuffer(String *dst, size_t offset, const unsigned char *buf, size_t len) {
     StringKind kind = StringKind::ASCII;
     size_t idx = 0;
     size_t uidx = 0;
@@ -54,15 +55,15 @@ void FillBuffer(String *dst, size_t offset, const unsigned char *buf, size_t len
     while (idx < len) {
         dst->buffer[idx + offset] = buf[idx];
 
-        if (buf[idx] >> (unsigned char) 7 == 0x0)
+        if (buf[idx] >> 7u == 0x0)
             uidx += 1;
-        else if (buf[idx] >> (unsigned char) 5 == 0x6) {
+        else if (buf[idx] >> 5u == 0x6) {
             kind = StringKind::UTF8_2;
             uidx += 2;
-        } else if (buf[idx] >> (unsigned char) 4 == 0xE) {
+        } else if (buf[idx] >> 4u == 0xE) {
             kind = StringKind::UTF8_3;
             uidx += 3;
-        } else if (buf[idx] >> (unsigned char) 3 == 0x1E) {
+        } else if (buf[idx] >> 3u == 0x1E) {
             kind = StringKind::UTF8_4;
             uidx += 4;
         }
@@ -73,6 +74,29 @@ void FillBuffer(String *dst, size_t offset, const unsigned char *buf, size_t len
         if (kind > dst->kind)
             dst->kind = kind;
     }
+
+    return idx;
+}
+
+size_t StringSubStrLen(String *str, size_t offset, size_t graphemes) {
+    unsigned char *buf = str->buffer + offset;
+    unsigned char *end = str->buffer + str->len;
+
+    if (graphemes == 0)
+        return 0;
+
+    while (graphemes-- && buf < end) {
+        if (*buf >> 7u == 0x0)
+            buf += 1;
+        else if (*buf >> 5u == 0x6)
+            buf += 2;
+        else if (*buf >> 4u == 0xE)
+            buf += 3;
+        else if (*buf >> 3u == 0x1E)
+            buf += 4;
+    }
+
+    return buf - (str->buffer + offset);
 }
 
 ArObject *string_add(ArObject *left, ArObject *right) {
@@ -120,7 +144,7 @@ OpSlots string_ops{
         string_mul,
         nullptr,
         nullptr,
-        nullptr,
+        (BinaryOp) argon::object::StringFormat,
         nullptr,
         nullptr,
         nullptr,
@@ -290,6 +314,569 @@ String *argon::object::StringIntern(const char *string, size_t len) {
     return ret;
 }
 
+// String Formatter
+
+bool FmtResize(StringFormatter *fmt, size_t sum) {
+    unsigned char *tmp;
+
+    if (sum == 0)
+        return true;
+
+    if (fmt->dst.buffer == nullptr)
+        sum += 1;
+
+    if ((tmp = (unsigned char *) argon::memory::Realloc(fmt->dst.buffer, fmt->dst.len + sum)) != nullptr) {
+        if (fmt->dst.buffer != nullptr)
+            fmt->dst_idx = fmt->dst.len - 1;
+
+        fmt->dst.buffer = tmp;
+        fmt->dst.len += sum;
+        return true;
+    }
+
+    return false;
+}
+
+ArObject *FmtGetNextArg(StringFormatter *fmt) {
+    if (fmt->args->type == &type_tuple_) {
+        auto tp = ((Tuple *) fmt->args);
+
+        fmt->args_len = tp->len;
+
+        if (fmt->args_idx < tp->len)
+            return tp->objects[fmt->args_idx++];
+
+        goto not_enough;
+    }
+
+    fmt->args_len = 1;
+    if (fmt->args_idx++ == 0)
+        return fmt->args;
+
+    not_enough:
+    return ErrorFormat(&error_type_error, "not enough arguments for format string");
+}
+
+int FmtGetNextSpecifier(StringFormatter *fmt) {
+    unsigned char *buf = fmt->fmt.buf + fmt->fmt.idx;
+    size_t idx = 0;
+    size_t copy = 0;
+
+    while ((fmt->fmt.idx + idx) < fmt->fmt.len) {
+        if (buf[idx++] == '%') {
+
+            if ((fmt->fmt.idx + idx) == fmt->fmt.len) {
+                ErrorFormat(&error_value_error, "incomplete format specifier");
+                return -1;
+            }
+
+            if (buf[idx] != '%') {
+                fmt->nspec++;
+                break;
+            }
+
+            copy = ++idx;
+            continue;
+        }
+        copy++;
+    }
+
+    if (!FmtResize(fmt, copy))
+        return -1;
+
+    fmt->dst_idx += FillBuffer(&fmt->dst, fmt->dst_idx, buf, copy);
+    fmt->fmt.idx += idx;
+
+    return idx;
+}
+
+bool FmtParseOptionStar(StringFormatter *fmt, StringArg *arg, bool prec) {
+    auto num = (Integer *) FmtGetNextArg(fmt);
+    int opt;
+
+    if (num == nullptr || num->type != &type_integer_) {
+        ErrorFormat(&error_type_error, "* wants integer not '%s'", num->type->name);
+        return false;
+    }
+
+    opt = num->integer;
+
+    if (opt < 0) {
+        if (!prec)
+            arg->flags |= StringFormatFlags::LJUST;
+        opt = -opt;
+    }
+
+    if (!prec)
+        arg->width = opt;
+    else
+        arg->prec = opt;
+
+    return true;
+}
+
+void FmtParseOptions(StringFormatter *fmt, StringArg *arg) {
+    // Flags
+    fmt->fmt.idx--;
+    while (fmt->fmt.buf[fmt->fmt.idx++] >= 0) {
+        switch (fmt->fmt.buf[fmt->fmt.idx]) {
+            case '-':
+                arg->flags |= StringFormatFlags::LJUST;
+                continue;
+            case '+':
+                arg->flags |= StringFormatFlags::SIGN;
+                continue;
+            case ' ':
+                arg->flags |= StringFormatFlags::BLANK;
+                continue;
+            case '#':
+                arg->flags |= StringFormatFlags::ALT;
+                continue;
+            case '0':
+                arg->flags |= StringFormatFlags::ZERO;
+                continue;
+            default:
+                break;
+        }
+        break;
+    }
+
+    if (ENUMBITMASK_ISTRUE(arg->flags, StringFormatFlags::LJUST) &&
+        ENUMBITMASK_ISTRUE(arg->flags, StringFormatFlags::ZERO))
+        arg->flags &= ~StringFormatFlags::ZERO;
+
+    // Width
+    if (fmt->fmt.buf[fmt->fmt.idx] == '*') {
+        fmt->fmt.idx++;
+        if (!FmtParseOptionStar(fmt, arg, false))
+            return;
+    } else {
+        if (fmt->fmt.buf[fmt->fmt.idx] >= '0' && fmt->fmt.buf[fmt->fmt.idx] <= '9') {
+            arg->width = fmt->fmt.buf[fmt->fmt.idx++] - '0';
+
+            while (fmt->fmt.buf[fmt->fmt.idx] >= '0' && fmt->fmt.buf[fmt->fmt.idx] <= '9') {
+                arg->width = arg->width * 10 + (fmt->fmt.buf[fmt->fmt.idx] - '0');
+                fmt->fmt.idx++;
+            }
+        }
+    }
+
+    // Precision
+    arg->prec = -1;
+    if (fmt->fmt.buf[fmt->fmt.idx] == '.') {
+        fmt->fmt.idx++;
+        if (fmt->fmt.buf[fmt->fmt.idx] == '*') {
+            fmt->fmt.idx++;
+            if (!FmtParseOptionStar(fmt, arg, true))
+                return;
+        } else {
+            arg->prec = 0;
+            while (fmt->fmt.buf[fmt->fmt.idx] >= '0' && fmt->fmt.buf[fmt->fmt.idx] <= '9') {
+                arg->prec = arg->prec * 10 + (fmt->fmt.buf[fmt->fmt.idx] - '0');
+                fmt->fmt.idx++;
+            }
+        }
+    }
+}
+
+int FmtWrite(StringFormatter *fmt, StringArg *arg, const unsigned char *buf, size_t len) {
+    int width = 0;
+
+    if (arg->width > len) {
+        width = (int) (arg->width - len);
+        len += width;
+    }
+
+    if (!FmtResize(fmt, len))
+        return -1;
+
+    if (ENUMBITMASK_ISFALSE(arg->flags, StringFormatFlags::LJUST)) {
+        while (width--)
+            fmt->dst.buffer[fmt->dst_idx++] = ' ';
+    }
+
+    fmt->dst_idx += FillBuffer(&fmt->dst, fmt->dst_idx, buf, len);
+
+    return width;
+}
+
+int FmtNumberFormat(unsigned char *buf, int idx, int base, int width, bool upper, bool neg, StringFormatFlags flags) {
+    unsigned char *end;
+    unsigned char tmp;
+
+    if (ENUMBITMASK_ISTRUE(flags, StringFormatFlags::ZERO)) {
+        width = width > idx ? width - idx : 0;
+        while (width--)
+            buf[idx++] = '0';
+    }
+
+    if (ENUMBITMASK_ISTRUE(flags, StringFormatFlags::ALT)) {
+        if (base == 2)
+            buf[idx++] = upper ? 'B' : 'b';
+        else if (base == 8)
+            buf[idx++] = 'o';
+        else if (base == 16)
+            buf[idx++] = upper ? 'X' : 'x';
+
+        buf[idx++] = '0';
+    }
+
+    if (!neg) {
+        if (ENUMBITMASK_ISTRUE(flags, StringFormatFlags::SIGN))
+            buf[idx++] = '+';
+    } else
+        buf[idx++] = '-';
+
+    if (ENUMBITMASK_ISTRUE(flags, StringFormatFlags::BLANK))
+        buf[idx++] = ' ';
+
+    if (ENUMBITMASK_ISFALSE(flags, StringFormatFlags::LJUST)) {
+        width = width > idx ? width - idx : 0;
+        while (width--)
+            buf[idx++] = ' ';
+    }
+
+    // invert
+    end = buf + idx;
+    while (buf < end) {
+        tmp = *buf;
+        *buf++ = *(end - 1);
+        *--end = tmp;
+    }
+
+    return idx;
+}
+
+int FmtWriteNumber(unsigned char *buf, long num, int base, int prec, int width, bool upper, StringFormatFlags flags) {
+    static unsigned char l_case[] = "0123456789abcdef";
+    static unsigned char u_case[] = "0123456789ABCDEF";
+    unsigned char *p_case = upper ? u_case : l_case;
+    size_t idx = 0;
+    bool neg = false;
+
+    if (num < 0) {
+        num = -num;
+        neg = true;
+    }
+
+    while (num) {
+        buf[idx++] = p_case[num % base];
+        num /= base;
+    }
+
+    if (prec > idx) {
+        prec -= idx;
+        while (prec--)
+            buf[idx++] = '0';
+    }
+
+    return FmtNumberFormat(buf, idx, base, width, upper, neg, flags);
+}
+
+int FmtDecimal(StringFormatter *fmt, StringArg *arg, char specifier) {
+#define FMT_PRECISION_DEF   6
+    ArObject *obj;
+    DecimalUnderlayer num;
+
+    unsigned long intpart;
+    unsigned long frac;
+    long exp;
+
+    int bufsz;
+    int diff;
+    int prec;
+
+    bool upper = false;
+    bool sn = false;
+
+    if ((obj = FmtGetNextArg(fmt)) == nullptr)
+        return -1;
+
+    if (obj->type == &type_decimal_)
+        num = ((Decimal *) obj)->decimal;
+    else if (obj->type == &type_integer_)
+        num = ((Integer *) obj)->integer;
+    else {
+        ErrorFormat(&error_type_error, "%c requires real number not '%s'", fmt->fmt.buf[fmt->fmt.idx], obj->type->name);
+        return -1;
+    }
+
+    if (num != num) // check NaN
+        return FmtWrite(fmt, arg, (unsigned char *) "nan", 3);
+    else if (num > DBL_MAX)
+        return FmtWrite(fmt, arg, (unsigned char *) "+inf", 4);
+    else if (num < -DBL_MAX)
+        return FmtWrite(fmt, arg, (unsigned char *) "-inf", 4);
+
+    prec = arg->prec > -1 ? arg->prec : FMT_PRECISION_DEF;
+
+    switch (specifier) {
+        case 'E':
+            upper = true;
+        case 'e':
+            intpart = DecimalFrexp10(num, &frac, &exp, prec);
+            sn = true;
+            break;
+        case 'G':
+            upper = true;
+        case 'g':
+            intpart = DecimalFrexp10(num, &frac, &exp, prec);
+            sn = true;
+            if (num >= 1e-4 && num < 1e6) {
+                if (prec > exp)
+                    intpart = DecimalModf(num, &frac, prec - exp - 1);
+                else
+                    intpart = DecimalModf(num, &frac, 0);
+                sn = false;
+            }
+            break;
+        case 'F':
+        case 'f':
+            intpart = DecimalModf(num, &frac, prec);
+            break;
+        default:
+            assert(false);
+    }
+
+    bufsz = IntegerCountDigits(intpart, 10);
+
+    if (num < 0 || ENUMBITMASK_ISTRUE(arg->flags, StringFormatFlags::SIGN))
+        bufsz++;
+
+    if (ENUMBITMASK_ISTRUE(arg->flags, StringFormatFlags::BLANK))
+        bufsz++;
+
+    if (frac > 0) {
+        bufsz += IntegerCountDigits(frac, 10);
+        bufsz++; // '.'
+    }
+
+    if (sn) {
+        auto len = IntegerCountDigits(exp, 10);
+        if (len <= 1)
+            len += 2;
+        bufsz += len + 2; // [+|-][e|E]
+    }
+
+    bufsz += arg->width > bufsz ? arg->width - bufsz : 0;
+
+    if (!FmtResize(fmt, bufsz))
+        return -1;
+
+    diff = FmtWriteNumber(fmt->dst.buffer + fmt->dst_idx, (long) intpart, 10, arg->prec > -1 ? arg->prec : 0,
+                          arg->width, upper, arg->flags);
+
+    if (frac > 0) {
+        fmt->dst.buffer[diff++ + fmt->dst_idx] = '.';
+        diff += FmtWriteNumber(fmt->dst.buffer + fmt->dst_idx + diff, (long) frac, 10, 0, 0, false,
+                               (StringFormatFlags) 0);
+    }
+
+    if (sn) {
+        fmt->dst.buffer[diff++ + fmt->dst_idx] = upper ? 'E' : 'e';
+        diff += FmtWriteNumber(fmt->dst.buffer + fmt->dst_idx + diff, (long) exp, 10, 2, 0, false,
+                               StringFormatFlags::SIGN);
+    }
+
+    fmt->dst_idx += diff;
+    fmt->dst.cp_len += diff;
+
+    return bufsz - diff;
+#undef FMT_PRECISION_DEF
+}
+
+int FmtInteger(StringFormatter *fmt, StringArg *arg, int base, bool upper) {
+    ArObject *obj;
+
+    IntegerUnderlayer num;
+    int bufsz;
+    int diff;
+
+    if ((obj = FmtGetNextArg(fmt)) == nullptr)
+        return -1;
+
+    if (obj->type != &type_integer_) {
+        ErrorFormat(&error_type_error, "%c requires integer not '%s'", fmt->fmt.buf[fmt->fmt.idx], obj->type->name);
+        return -1;
+    }
+
+    num = ((Integer *) obj)->integer;
+    bufsz = IntegerCountDigits(num, base);
+
+    if (arg->prec > bufsz)
+        bufsz = arg->prec;
+
+    if (num < 0 || ENUMBITMASK_ISTRUE(arg->flags, StringFormatFlags::SIGN))
+        bufsz++;
+
+    if (ENUMBITMASK_ISTRUE(arg->flags, StringFormatFlags::ALT))
+        bufsz += 2;
+
+    if (ENUMBITMASK_ISTRUE(arg->flags, StringFormatFlags::BLANK))
+        bufsz++;
+
+    bufsz += arg->width > bufsz ? arg->width - bufsz : 0;
+
+    if (!FmtResize(fmt, bufsz))
+        return -1;
+
+    diff = FmtWriteNumber(fmt->dst.buffer + fmt->dst_idx, num, base,
+                          arg->prec > -1 ? arg->prec : 0,
+                          arg->width, upper, arg->flags);
+
+    fmt->dst_idx += diff;
+    fmt->dst.cp_len += diff;
+
+    return bufsz - diff;
+}
+
+int FmtChar(StringFormatter *fmt, StringArg *arg) {
+    unsigned char sequence[] = {0, 0, 0, 0};
+    ArObject *obj;
+    int len;
+
+    if ((obj = FmtGetNextArg(fmt)) == nullptr)
+        return -1;
+
+    if (obj->type == &type_string_) {
+        auto str = (String *) obj;
+        if (str->cp_len > 1) {
+            ErrorFormat(&error_type_error, "%c requires a single char not string");
+            return -1;
+        }
+        return FmtWrite(fmt, arg, str->buffer, str->len);
+    } else if (obj->type == &type_integer_) {
+        if ((len = StringIntToUTF8(((Integer *) obj)->integer, sequence)) == 0) {
+            ErrorFormat(&error_overflow_error, "%c arg not in range(0x110000)");
+            return -1;
+        }
+
+        return FmtWrite(fmt, arg, sequence, len);
+    }
+
+    ErrorFormat(&error_type_error, "%%c requires integer or char not '%s'", obj->type->name);
+    return -1;
+}
+
+int FmtString(StringFormatter *fmt, StringArg *arg) {
+    ArObject *obj;
+    String *str;
+    size_t len;
+    int ok;
+
+    if ((obj = FmtGetNextArg(fmt)) == nullptr)
+        return -1;
+
+    str = (String *) obj->type->str(obj);
+    len = str->len;
+
+    if (arg->prec > -1 && len > arg->prec) {
+        len = arg->prec;
+        if (str->kind != StringKind::ASCII)
+            len = StringSubStrLen(str, 0, len);
+    }
+
+    ok = FmtWrite(fmt, arg, str->buffer, len);
+    Release(str);
+
+    return ok;
+}
+
+bool FmtFormatArg(StringFormatter *fmt, StringArg *arg) {
+    auto op = fmt->fmt.buf[fmt->fmt.idx++];
+    int result = -1;
+
+    switch (op) {
+        case 's':
+            return FmtString(fmt, arg);
+        case 'b':
+            result = FmtInteger(fmt, arg, 2, false);
+            break;
+        case 'B':
+            result = FmtInteger(fmt, arg, 2, true);
+            break;
+        case 'o':
+            result = FmtInteger(fmt, arg, 8, false);
+            break;
+        case 'i':
+        case 'd':
+        case 'u':
+            arg->flags &= ~StringFormatFlags::ALT;
+            result = FmtInteger(fmt, arg, 10, false);
+            break;
+        case 'x':
+            result = FmtInteger(fmt, arg, 16, false);
+            break;
+        case 'X':
+            result = FmtInteger(fmt, arg, 16, true);
+            break;
+        case 'e':
+        case 'E':
+        case 'f':
+        case 'F':
+        case 'g':
+        case 'G':
+            result = FmtDecimal(fmt, arg, op);
+            break;
+        case 'c':
+            result = FmtChar(fmt, arg);
+            break;
+        default:
+            ErrorFormat(&error_value_error, "unsupported format character '%c' (0x%x)",
+                        (31 <= op && op <= 126 ? '?' : op), op);
+    }
+
+    if (result < 0)
+        return false;
+
+    if (ENUMBITMASK_ISTRUE(arg->flags, StringFormatFlags::LJUST)) {
+        fmt->dst.cp_len += result;
+        while (result--)
+            fmt->dst.buffer[fmt->dst_idx++] = ' ';
+    }
+
+    return true;
+}
+
+String *FmtFormatArgs(StringFormatter *fmt) {
+    StringArg arg = {};
+    String *str;
+
+    int ok;
+
+    argon::memory::MemoryZero(&fmt->dst, sizeof(String));
+
+    while ((ok = FmtGetNextSpecifier(fmt)) > 0) {
+        FmtParseOptions(fmt, &arg);
+
+        if (!FmtFormatArg(fmt, &arg))
+            goto error;
+    }
+
+    if (ok < 0)
+        goto error;
+
+    if (fmt->nspec < fmt->args_len) {
+        ErrorFormat(&error_type_error, "not all arguments converted during string formatting");
+        goto error;
+    }
+
+    // Convert StringFormatter embedded String to real String object
+    if ((str = StringInit(fmt->dst.len - 1, false)) != nullptr) {
+        str->buffer = fmt->dst.buffer;
+        str->buffer[str->len] = 0x00;
+        str->kind = fmt->dst.kind;
+        str->cp_len = fmt->dst.cp_len;
+        return str;
+    }
+
+    error:
+    if (fmt->dst.buffer != nullptr)
+        argon::memory::Free(fmt->dst.buffer);
+
+    return nullptr;
+}
+
 // Common Operations
 
 bool argon::object::StringEq(String *string, const unsigned char *c_str, size_t len) {
@@ -302,6 +889,30 @@ bool argon::object::StringEq(String *string, const unsigned char *c_str, size_t 
     }
 
     return true;
+}
+
+int argon::object::StringIntToUTF8(unsigned int glyph, unsigned char *buf) {
+    if (glyph < 0x80) {
+        *buf = glyph >> 0u & 0x7Fu;
+        return 1;
+    } else if (glyph < 0x0800) {
+        *buf++ = glyph >> 6u & 0x1Fu | 0xC0u;
+        *buf = glyph >> 0u & 0xBFu;
+        return 2;
+    } else if (glyph < 0x010000) {
+        *buf++ = glyph >> 12u & 0x0Fu | 0xE0u;
+        *buf++ = glyph >> 6u & 0x3Fu | 0x80u;
+        *buf = glyph >> 0u & 0x3Fu | 0x80u;
+        return 3;
+    } else if (glyph < 0x110000) {
+        *buf++ = glyph >> 18u & 0x07u | 0xF0u;
+        *buf++ = glyph >> 12u & 0x3Fu | 0x80u;
+        *buf++ = glyph >> 6u & 0x3Fu | 0x80u;
+        *buf = glyph >> 0u & 0x3Fu | 0x80u;
+        return 4;
+    }
+
+    return 0;
 }
 
 size_t argon::object::StringLen(const String *str) {
@@ -322,6 +933,28 @@ String *argon::object::StringConcat(String *left, String *right) {
     }
 
     return ret;
+}
+
+String *argon::object::StringCFormat(const char *fmt, ArObject *args) {
+    StringFormatter formatter = {};
+
+    formatter.fmt.buf = (unsigned char *) fmt;
+    formatter.fmt.len = strlen(fmt);
+
+    formatter.args = args;
+
+    return FmtFormatArgs(&formatter);
+}
+
+String *argon::object::StringFormat(String *fmt, ArObject *args) {
+    StringFormatter formatter = {};
+
+    formatter.fmt.buf = fmt->buffer;
+    formatter.fmt.len = fmt->len;
+
+    formatter.args = args;
+
+    return FmtFormatArgs(&formatter);
 }
 
 String *argon::object::StringReplace(String *string, String *old, String *newval, ArSSize n) {
@@ -365,15 +998,22 @@ String *argon::object::StringReplace(String *string, String *old, String *newval
 
 String *argon::object::StringSubs(String *string, size_t start, size_t end) {
     String *ret;
+    size_t len = end - start;
 
-    if (start >= string->len || end >= string->len)
+    if (start >= string->len)
         return nullptr;
 
-    if (end == 0)
+    if (end == 0 || end > string->len)
         end = string->len;
 
-    if ((ret = StringInit(end - start, true)) != nullptr)
-        FillBuffer(ret, 0, string->buffer + start, end - start);
+    if (start >= end)
+        return nullptr;
+
+    if (string->kind != StringKind::ASCII)
+        len = StringSubStrLen(string, start, end - start);
+
+    if ((ret = StringInit(len, true)) != nullptr)
+        FillBuffer(ret, 0, string->buffer + start, len);
 
     return ret;
 }

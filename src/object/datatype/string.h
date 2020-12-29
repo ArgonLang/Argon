@@ -8,12 +8,20 @@
 #include <string>
 #include <cstring>
 
+#include <utils/enum_bitmask.h>
+
 #include <object/arobject.h>
 #include <object/datatype/support/bytesops.h>
 
-#define AROBJECT_STR(obj)   ((argon::object::String *)obj->type->str(obj))
-
 namespace argon::object {
+    enum class StringFormatFlags {
+        LJUST = 0x01,
+        SIGN = 0x02,
+        BLANK = 0x04,
+        ALT = 0x08,
+        ZERO = 0x10
+    };
+
     enum class StringKind {
         ASCII,
         UTF8_2,
@@ -41,6 +49,28 @@ namespace argon::object {
         size_t hash;
     };
 
+    struct StringArg {
+        StringFormatFlags flags;
+        int prec;
+        int width;
+    };
+
+    struct StringFormatter {
+        struct {
+            unsigned char *buf;
+            size_t len;
+            size_t idx;
+        } fmt;
+
+        String dst;
+        size_t dst_idx;
+
+        ArObject *args;
+        size_t args_idx;
+        size_t args_len;
+        int nspec;
+    };
+
     extern const TypeInfo type_string_;
 
     String *StringNew(const char *string, size_t len);
@@ -61,9 +91,15 @@ namespace argon::object {
 
     bool StringEq(String *string, const unsigned char *c_str, size_t len);
 
+    int StringIntToUTF8(unsigned int glyph, unsigned char *buf);
+
     size_t StringLen(const String *str);
 
     String *StringConcat(String *left, String *right);
+
+    String *StringFormat(String *fmt, ArObject *args);
+
+    String *StringCFormat(const char *fmt, ArObject *args);
 
     inline ArSSize StringFind(String *string, String *pattern) {
         return support::Find(string->buffer, string->len, pattern->buffer, pattern->len, false);
@@ -81,5 +117,7 @@ namespace argon::object {
 
     String *StringSubs(String *string, size_t start, size_t end);
 }
+
+ENUMBITMASK_ENABLE(argon::object::StringFormatFlags);
 
 #endif // !ARGON_OBJECT_STRING_H_
