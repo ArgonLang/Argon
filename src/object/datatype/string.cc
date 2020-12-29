@@ -108,34 +108,25 @@ ArObject *string_add(ArObject *left, ArObject *right) {
 
 ArObject *string_mul(ArObject *left, ArObject *right) {
     auto l = (String *) left;
+    String *ret = nullptr;
 
+    IntegerUnderlayer times;
+
+    // int * str -> str * int
     if (left->type != &type_string_) {
         l = (String *) right;
         right = left;
     }
 
     if (right->type == &type_integer_) {
-        auto i = (Integer *) right;
-
-        auto ret = StringInit(l->len * i->integer, true);
-
-        if (ret != nullptr) {
-            for (size_t times = 0; times < i->integer; times++)
+        times = ((Integer *) right)->integer;
+        if ((ret = StringInit(l->len * times, true)) != nullptr) {
+            while (times--)
                 FillBuffer(ret, l->len * times, l->buffer, l->len);
         }
-
-        return ret;
     }
 
-    return nullptr;
-}
-
-ArObject *string_inp_add(ArObject *left, ArObject *right) {
-    return string_add(left, right);
-}
-
-ArObject *string_inp_mul(ArObject *left, ArObject *right) {
-    return string_mul(left, right);
+    return ret;
 }
 
 OpSlots string_ops{
@@ -153,9 +144,9 @@ OpSlots string_ops{
         nullptr,
         nullptr,
         nullptr,
-        string_inp_add,
+        string_add,
         nullptr,
-        string_inp_mul,
+        string_mul,
         nullptr,
         nullptr,
         nullptr
@@ -223,25 +214,27 @@ SequenceSlots string_sequence = {
 };
 
 bool string_equal(ArObject *self, ArObject *other) {
+    String *s;
+    String *o;
+
     if (self == other)
         return true;
 
-    if (self->type == other->type) {
-        auto s = (String *) self;
-        auto o = (String *) other;
+    if (self->type != other->type)
+        return false;
 
-        if (s->len != o->len)
+    s = (String *) self;
+    o = (String *) other;
+
+    if (s->cp_len != o->cp_len)
+        return false;
+
+    for (size_t i = 0; i < s->len; i++) {
+        if (s->buffer[i] != o->buffer[i])
             return false;
-
-        for (size_t i = 0; i < s->len; i++) {
-            if (s->buffer[i] != o->buffer[i])
-                return false;
-        }
-
-        return true;
     }
 
-    return false;
+    return true;
 }
 
 size_t string_hash(ArObject *obj) {
@@ -957,7 +950,7 @@ String *argon::object::StringFormat(String *fmt, ArObject *args) {
     return FmtFormatArgs(&formatter);
 }
 
-String *argon::object::StringReplace(String *string, String *old, String *newval, ArSSize n) {
+String *argon::object::StringReplace(String *string, String *old, String *nval, ArSSize n) {
     String *nstring;
 
     size_t idx = 0;
@@ -972,7 +965,7 @@ String *argon::object::StringReplace(String *string, String *old, String *newval
     // Compute replacements
     n = support::Count(string->buffer, string->len, old->buffer, old->len, n);
 
-    newsz = (string->len + n * (newval->len - old->len));
+    newsz = (string->len + n * (nval->len - old->len));
 
     // Allocate string
     if ((nstring = StringInit(newsz, true)) == nullptr)
@@ -985,8 +978,8 @@ String *argon::object::StringReplace(String *string, String *old, String *newval
         idx += match + old->len;
         nidx += match;
 
-        FillBuffer(nstring, nidx, newval->buffer, newval->len);
-        nidx += newval->len;
+        FillBuffer(nstring, nidx, nval->buffer, nval->len);
+        nidx += nval->len;
 
         if (n > -1 && --n == 0)
             break;
@@ -1017,4 +1010,3 @@ String *argon::object::StringSubs(String *string, size_t start, size_t end) {
 
     return ret;
 }
-

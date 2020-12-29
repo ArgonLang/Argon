@@ -109,10 +109,10 @@ namespace argon::object {
         return support::Find(string->buffer, string->len, pattern->buffer, pattern->len, true);
     }
 
-    String *StringReplace(String *string, String *old, String *newval, ArSSize n);
+    String *StringReplace(String *string, String *old, String *nval, ArSSize n);
 
-    inline String *StringReplaceAll(String *string, String *old, String *newval) {
-        return StringReplace(string, old, newval, -1);
+    inline String *StringReplaceAll(String *string, String *old, String *nval) {
+        return StringReplace(string, old, nval, -1);
     }
 
     String *StringSubs(String *string, size_t start, size_t end);
