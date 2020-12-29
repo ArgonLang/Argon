@@ -25,16 +25,41 @@ NumberSlots bool_nslots = {
         (ArSizeUnaryOp) bool_as_index
 };
 
+bool bool_is_true(Bool *self) {
+    return self->value;
+}
+
 bool bool_equal(ArObject *self, ArObject *other) {
-    return (other->type == self->type) && self == other;
+    return self == other;
+}
+
+ArObject *bool_compare(Bool *self, ArObject *other, CompareMode mode) {
+    IntegerUnderlayer l = self->value;
+    IntegerUnderlayer r;
+
+    if (AR_TYPEOF(other, type_bool_))
+        r = ((Bool *) other)->value;
+    else if (AR_TYPEOF(other, type_integer_))
+        r = ((Integer *) other)->integer;
+    else
+        return nullptr;
+
+    switch (mode) {
+        case CompareMode::GE:
+            return BoolToArBool(l > r);
+        case CompareMode::GEQ:
+            return BoolToArBool(l >= r);
+        case CompareMode::LE:
+            return BoolToArBool(l < r);
+        case CompareMode::LEQ:
+            return BoolToArBool(l <= r);
+        default:
+            assert(false);
+    }
 }
 
 size_t bool_hash(ArObject *obj) {
     return ((Bool *) obj)->value ? TRUE_AS_INT : FALSE_AS_INT;
-}
-
-bool bool_is_true(Bool *self) {
-    return self->value;
 }
 
 ArObject *bool_str(Bool *self) {
@@ -52,7 +77,7 @@ const TypeInfo argon::object::type_bool_ = {
         nullptr,
         (BoolUnaryOp) bool_is_true,
         bool_equal,
-        nullptr,
+        (CompareOp) bool_compare,
         bool_hash,
         (UnaryOp) bool_str,
         nullptr,
