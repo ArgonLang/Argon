@@ -3,11 +3,66 @@
 // Licensed under the Apache License v2.0
 
 #include "error.h"
+#include "bool.h"
+#include "string.h"
 
 #include "bounds.h"
 
 using namespace argon::object;
 using namespace argon::memory;
+
+bool bounds_is_true(ArObject *self) {
+    return true;
+}
+
+bool bounds_equal(Bounds *self, ArObject *other) {
+    auto *o = (Bounds *) other;
+
+    if (self == other)
+        return true;
+
+    if (other->type != self->type)
+        return false;
+
+    return self->start == o->start
+           && self->stop == o->stop
+           && self->step == o->step;
+}
+
+ArObject *bounds_compare(Bounds *self, ArObject *other, CompareMode mode) {
+    auto *o = (Bounds *) other;
+    bool val;
+
+    if (self->type != other->type)
+        return nullptr;
+
+    switch (mode) {
+        case CompareMode::GE:
+            val = self->start > o->start && self->stop > o->stop && self->step > o->step;
+            break;
+        case CompareMode::GEQ:
+            val = self->start >= o->start && self->stop >= o->stop && self->step >= o->step;
+            break;
+        case CompareMode::LE:
+            val = self->start < o->start && self->stop < o->stop && self->step < o->step;
+            break;
+        case CompareMode::LEQ:
+            val = self->start <= o->start && self->stop <= o->stop && self->step <= o->step;
+            break;
+        default:
+            assert(false);
+    }
+
+    return BoolToArBool(val);
+}
+
+size_t bounds_hash(ArObject *obj) {
+    return 0;
+}
+
+ArObject *bounds_str(Bounds *self) {
+    return StringNewFormat("bounds(%i,%i,%i)", self->start, self->stop, self->step);
+}
 
 const TypeInfo argon::object::type_bounds_ = {
         TYPEINFO_STATIC_INIT,
@@ -18,11 +73,11 @@ const TypeInfo argon::object::type_bounds_ = {
         nullptr,
         nullptr,
         nullptr,
-        nullptr,
-        nullptr,
-        nullptr,
-        nullptr,
-        nullptr,
+        bounds_is_true,
+        (BoolBinOp) bounds_equal,
+        (CompareOp) bounds_compare,
+        bounds_hash,
+        (UnaryOp) bounds_str,
         nullptr,
         nullptr
 };
