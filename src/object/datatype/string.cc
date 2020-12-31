@@ -294,13 +294,13 @@ String *argon::object::StringNewFormat(const char *string, ...) {
     va_list args;
 
     va_start (args, string);
-    sz = vsnprintf(nullptr, 0, string, args); // +1 is for '\0'
+    sz = vsnprintf(nullptr, 0, string, args) + 1; // +1 is for '\0'
     va_end(args);
 
-    if ((str = StringInit(sz, true)) == nullptr)
+    if ((str = StringInit(sz - 1, true)) == nullptr)
         return nullptr;
 
-    str->cp_len = sz;
+    str->cp_len = sz - 1;
 
     va_start(args, string);
     vsnprintf((char *) str->buffer, sz, string, args);
