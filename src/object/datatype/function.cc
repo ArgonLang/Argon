@@ -8,6 +8,73 @@
 using namespace argon::object;
 using namespace argon::memory;
 
+bool function_is_true(Function *self) {
+    return true;
+}
+
+bool function_equal(Function *self, ArObject *other) {
+    auto *o = (Function *) other;
+
+    if (self == other)
+        return true;
+
+    if (AR_TYPEOF(other, type_function_)) {
+        if (self->native_fn == o->native_fn) {
+            if (!self->native && !AR_EQUAL(self->code, o->code))
+                return false;
+
+            return self->instance == o->instance
+                   && AR_EQUAL(self->currying, o->currying)
+                   && AR_EQUAL(self->enclosed, o->enclosed);
+        }
+    }
+
+    return false;
+}
+
+size_t function_hash(Function *self) {
+    return (size_t) self;
+}
+
+ArObject *function_str(Function *self) {
+    // TODO: improve this: self->name->buffer
+    return StringNewFormat("<function %s at %p>", self->name->buffer, self);
+}
+
+void function_trace(Function *self, VoidUnaryOp trace) {
+    trace(self->currying);
+    trace(self->enclosed);
+    trace(self->gns);
+}
+
+void function_cleanup(Function *fn) {
+    Release(fn->code);
+    Release(fn->name);
+    Release(fn->currying);
+    Release(fn->enclosed);
+    Release(fn->instance);
+    Release(fn->gns);
+}
+
+const TypeInfo argon::object::type_function_ = {
+        TYPEINFO_STATIC_INIT,
+        (const unsigned char *) "function",
+        sizeof(Function),
+        nullptr,
+        nullptr,
+        nullptr,
+        nullptr,
+        nullptr,
+        (BoolUnaryOp) function_is_true,
+        (BoolBinOp) function_equal,
+        nullptr,
+        (SizeTUnaryOp) function_hash,
+        (UnaryOp) function_str,
+        nullptr,
+        (Trace) function_trace,
+        (VoidUnaryOp) function_cleanup
+};
+
 Function *CloneFn(const Function *func) {
     auto fn = ArObjectGCNew<Function>(&type_function_);
 
@@ -40,63 +107,6 @@ Function *CloneFn(const Function *func) {
 
     return fn;
 }
-
-bool function_equal(ArObject *self, ArObject *other) {
-    if (self->type != other->type)
-        return false;
-
-    if (self != other) {
-        auto l = (Function *) self;
-        auto r = (Function *) other;
-
-        if (l->native_fn == r->native_fn) {
-            if (!l->native && !l->code->type->equal(l->code, r->code))
-                return false;
-
-            return l->instance == r->instance &&
-                   l->currying->type->equal(l->currying, r->currying);
-        }
-
-        return false;
-    }
-    return true;
-}
-
-size_t function_hash(Function *self) {
-    return (size_t) self;
-}
-
-void function_trace(Function *self, VoidUnaryOp trace) {
-    trace(self->gns);
-}
-
-void function_cleanup(Function *fn) {
-    Release(fn->code);
-    Release(fn->name);
-    Release(fn->currying);
-    Release(fn->enclosed);
-    Release(fn->instance);
-    Release(fn->gns);
-}
-
-const TypeInfo argon::object::type_function_ = {
-        TYPEINFO_STATIC_INIT,
-        (const unsigned char *) "function",
-        sizeof(Function),
-        nullptr,
-        nullptr,
-        nullptr,
-        nullptr,
-        nullptr,
-        nullptr,
-        function_equal,
-        nullptr,
-        (SizeTUnaryOp) function_hash,
-        nullptr,
-        nullptr,
-        (Trace) function_trace,
-        (VoidUnaryOp) function_cleanup
-};
 
 Function *argon::object::FunctionNew(Namespace *gns, String *name, Code *code, unsigned short arity, bool variadic,
                                      List *enclosed) {

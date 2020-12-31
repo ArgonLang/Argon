@@ -146,6 +146,7 @@ namespace argon::object {
 #define AR_GET_TYPE(object)         ((object)->type)
 #define AR_TYPEOF(object, type)     (AR_GET_TYPE(object) == &(type))
 #define AR_SAME_TYPE(object, other) (AR_GET_TYPE(object) == AR_GET_TYPE(other))
+#define AR_EQUAL(object, other)     (AR_GET_TYPE(object)->equal(object, other))
 
     ArObject *ArObjectGCNew(const TypeInfo *type);
 
