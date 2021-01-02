@@ -147,6 +147,7 @@ namespace argon::object {
 #define AR_TYPEOF(object, type)     (AR_GET_TYPE(object) == &(type))
 #define AR_SAME_TYPE(object, other) (AR_GET_TYPE(object) == AR_GET_TYPE(other))
 #define AR_EQUAL(object, other)     (AR_GET_TYPE(object)->equal(object, other))
+#define AR_TYPE_NAME(object)        (AR_GET_TYPE(object)->name)
 
     ArObject *ArObjectGCNew(const TypeInfo *type);
 
@@ -176,6 +177,8 @@ namespace argon::object {
 
     bool BufferSimpleFill(ArObject *obj, ArBuffer *buffer, ArBufferFlags flags, unsigned char *raw, ArSize len,
                           bool writable);
+
+    ArSize Hash(ArObject *obj);
 
     inline void IncRef(ArObject *obj) {
         if (obj != nullptr)

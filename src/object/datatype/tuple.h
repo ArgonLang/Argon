@@ -7,6 +7,14 @@
 
 #include <object/arobject.h>
 
+#define TUPLE_RETURN(result, error)             \
+    {                                           \
+    ArObject *ret = TupleNew(result, error);    \
+    Release(result);                            \
+    Release(error);                             \
+    return ret;                                 \
+    }
+
 namespace argon::object {
     struct Tuple : ArObject {
         ArObject **objects;
@@ -15,11 +23,13 @@ namespace argon::object {
 
     extern const TypeInfo type_tuple_;
 
-    Tuple *TupleNew(const ArObject *sequence);
-
     Tuple *TupleNew(size_t len);
 
-    ArObject *TupleGetItem(Tuple *tuple, ArSSize i);
+    Tuple *TupleNew(const ArObject *sequence);
+
+    Tuple *TupleNew(ArObject *result, ArObject *error);
+
+    ArObject *TupleGetItem(Tuple *self, ArSSize i);
 
     bool TupleInsertAt(Tuple *tuple, size_t idx, ArObject *obj);
 

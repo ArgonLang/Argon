@@ -105,6 +105,14 @@ bool argon::object::BufferSimpleFill(ArObject *obj, ArBuffer *buffer, ArBufferFl
     return true;
 }
 
+ArSize argon::object::Hash(ArObject *obj) {
+    if (AR_GET_TYPE(obj)->hash != nullptr)
+        return AR_GET_TYPE(obj)->hash(obj);
+
+    ErrorFormat(&error_unhashable, "unhashable type: '%s'", AR_TYPE_NAME(obj));
+    return 0;
+}
+
 bool argon::object::IsTrue(const ArObject *obj) {
     if (IsSequence(obj) && obj->type->sequence_actions->length != nullptr)
         return obj->type->sequence_actions->length((ArObject *) obj) > 0;
