@@ -331,28 +331,73 @@ String *argon::object::StringIntern(const char *string, size_t len) {
     return ret;
 }
 
-// String Formatter
+// String Builder
 
-bool FmtResize(StringFormatter *fmt, size_t sum) {
+bool argon::object::StringBuilderResize(StringBuilder *sb, size_t len) {
     unsigned char *tmp;
 
-    if (sum == 0)
+    if (len == 0 || sb->w_idx + len < sb->str.len)
         return true;
 
-    if (fmt->dst.buffer == nullptr)
-        sum += 1;
+    if (sb->str.buffer == nullptr)
+        len += 1;
 
-    if ((tmp = (unsigned char *) argon::memory::Realloc(fmt->dst.buffer, fmt->dst.len + sum)) != nullptr) {
-        if (fmt->dst.buffer != nullptr)
-            fmt->dst_idx = fmt->dst.len - 1;
-
-        fmt->dst.buffer = tmp;
-        fmt->dst.len += sum;
+    if ((tmp = (unsigned char *) argon::memory::Realloc(sb->str.buffer, sb->str.len + len)) != nullptr) {
+        sb->str.buffer = tmp;
+        sb->str.len += len;
         return true;
     }
 
     return false;
 }
+
+int argon::object::StringBuilderRepeat(StringBuilder *sb, char chr, int times) {
+    if (!StringBuilderResize(sb, times))
+        return -1;
+
+    for (int i = 0; i < times; i++)
+        sb->str.buffer[sb->w_idx++] = chr;
+
+    sb->str.cp_len += times;
+
+    return times;
+}
+
+int argon::object::StringBuilderWrite(StringBuilder *sb, const unsigned char *buffer, size_t len, int overalloc) {
+    size_t wbytes;
+
+    if (!StringBuilderResize(sb, len + overalloc))
+        return -1;
+
+    wbytes = FillBuffer(&sb->str, sb->w_idx, buffer, len);
+    sb->w_idx += wbytes;
+
+    return wbytes;
+}
+
+String *argon::object::StringBuilderFinish(StringBuilder *sb) {
+    String *str;
+
+    if ((str = StringInit(sb->str.len - 1, false)) != nullptr) {
+        str->buffer = sb->str.buffer;
+        str->buffer[str->len] = 0x00;
+        str->kind = sb->str.kind;
+        str->cp_len = sb->str.cp_len;
+        return str;
+    }
+
+    // Release StringBuilder buffer
+    StringBuilderClean(sb);
+    return nullptr;
+}
+
+void argon::object::StringBuilderClean(StringBuilder *sb) {
+    if (sb->str.buffer != nullptr)
+        Free(sb->str.buffer);
+    MemoryZero(sb, sizeof(StringBuilder));
+}
+
+// String Formatter
 
 ArObject *FmtGetNextArg(StringFormatter *fmt) {
     if (fmt->args->type == &type_tuple_) {
@@ -398,10 +443,9 @@ int FmtGetNextSpecifier(StringFormatter *fmt) {
         copy++;
     }
 
-    if (!FmtResize(fmt, copy))
+    if (StringBuilderWrite(&fmt->builder, buf, copy) < 0)
         return -1;
 
-    fmt->dst_idx += FillBuffer(&fmt->dst, fmt->dst_idx, buf, copy);
     fmt->fmt.idx += idx;
 
     return idx;
@@ -429,6 +473,7 @@ bool FmtParseOptionStar(StringFormatter *fmt, StringArg *arg, bool prec) {
     else
         arg->prec = opt;
 
+    fmt->nspec++;
     return true;
 }
 
@@ -463,6 +508,7 @@ void FmtParseOptions(StringFormatter *fmt, StringArg *arg) {
         arg->flags &= ~StringFormatFlags::ZERO;
 
     // Width
+    arg->width = 0;
     if (fmt->fmt.buf[fmt->fmt.idx] == '*') {
         fmt->fmt.idx++;
         if (!FmtParseOptionStar(fmt, arg, false))
@@ -499,20 +545,16 @@ void FmtParseOptions(StringFormatter *fmt, StringArg *arg) {
 int FmtWrite(StringFormatter *fmt, StringArg *arg, const unsigned char *buf, size_t len) {
     int width = 0;
 
-    if (arg->width > len) {
+    if (arg->width > len)
         width = (int) (arg->width - len);
-        len += width;
-    }
 
-    if (!FmtResize(fmt, len))
+    if (!StringBuilderResize(&fmt->builder, len + width))
         return -1;
 
-    if (ENUMBITMASK_ISFALSE(arg->flags, StringFormatFlags::LJUST)) {
-        while (width--)
-            fmt->dst.buffer[fmt->dst_idx++] = ' ';
-    }
+    if (ENUMBITMASK_ISFALSE(arg->flags, StringFormatFlags::LJUST))
+        width -= StringBuilderRepeat(&fmt->builder, ' ', width);
 
-    fmt->dst_idx += FillBuffer(&fmt->dst, fmt->dst_idx, buf, len);
+    StringBuilderWrite(&fmt->builder, buf, len);
 
     return width;
 }
@@ -589,6 +631,8 @@ int FmtWriteNumber(unsigned char *buf, long num, int base, int prec, int width, 
 
     return FmtNumberFormat(buf, idx, base, width, upper, neg, flags);
 }
+
+#define SB_GET_BUFFER(sb)   (sb.str.buffer + sb.w_idx)
 
 int FmtDecimal(StringFormatter *fmt, StringArg *arg, char specifier) {
 #define FMT_PRECISION_DEF   6
@@ -677,26 +721,26 @@ int FmtDecimal(StringFormatter *fmt, StringArg *arg, char specifier) {
 
     bufsz += arg->width > bufsz ? arg->width - bufsz : 0;
 
-    if (!FmtResize(fmt, bufsz))
+    if (!StringBuilderResize(&fmt->builder, bufsz))
         return -1;
 
-    diff = FmtWriteNumber(fmt->dst.buffer + fmt->dst_idx, (long) intpart, 10, arg->prec > -1 ? arg->prec : 0,
+    diff = FmtWriteNumber(SB_GET_BUFFER(fmt->builder), (long) intpart, 10, arg->prec > -1 ? arg->prec : 0,
                           arg->width, upper, arg->flags);
 
     if (frac > 0) {
-        fmt->dst.buffer[diff++ + fmt->dst_idx] = '.';
-        diff += FmtWriteNumber(fmt->dst.buffer + fmt->dst_idx + diff, (long) frac, 10, 0, 0, false,
+        fmt->builder.str.buffer[diff++ + fmt->builder.w_idx] = '.';
+        diff += FmtWriteNumber(SB_GET_BUFFER(fmt->builder) + diff, (long) frac, 10, 0, 0, false,
                                (StringFormatFlags) 0);
     }
 
     if (sn) {
-        fmt->dst.buffer[diff++ + fmt->dst_idx] = upper ? 'E' : 'e';
-        diff += FmtWriteNumber(fmt->dst.buffer + fmt->dst_idx + diff, (long) exp, 10, 2, 0, false,
+        fmt->builder.str.buffer[diff++ + fmt->builder.w_idx] = upper ? 'E' : 'e';
+        diff += FmtWriteNumber(SB_GET_BUFFER(fmt->builder) + diff, (long) exp, 10, 2, 0, false,
                                StringFormatFlags::SIGN);
     }
 
-    fmt->dst_idx += diff;
-    fmt->dst.cp_len += diff;
+    fmt->builder.w_idx += diff;
+    fmt->builder.str.cp_len += diff;
 
     return bufsz - diff;
 #undef FMT_PRECISION_DEF
@@ -734,18 +778,19 @@ int FmtInteger(StringFormatter *fmt, StringArg *arg, int base, bool upper) {
 
     bufsz += arg->width > bufsz ? arg->width - bufsz : 0;
 
-    if (!FmtResize(fmt, bufsz))
+    if (!StringBuilderResize(&fmt->builder, bufsz))
         return -1;
 
-    diff = FmtWriteNumber(fmt->dst.buffer + fmt->dst_idx, num, base,
-                          arg->prec > -1 ? arg->prec : 0,
-                          arg->width, upper, arg->flags);
+    diff = FmtWriteNumber(SB_GET_BUFFER(fmt->builder), num, base, arg->prec > -1 ? arg->prec : 0, arg->width, upper,
+                          arg->flags);
 
-    fmt->dst_idx += diff;
-    fmt->dst.cp_len += diff;
+    fmt->builder.w_idx += diff;
+    fmt->builder.str.cp_len += diff;
 
     return bufsz - diff;
 }
+
+#undef SB_GET_BUFFER
 
 int FmtChar(StringFormatter *fmt, StringArg *arg) {
     unsigned char sequence[] = {0, 0, 0, 0};
@@ -805,7 +850,8 @@ bool FmtFormatArg(StringFormatter *fmt, StringArg *arg) {
 
     switch (op) {
         case 's':
-            return FmtString(fmt, arg);
+            result = FmtString(fmt, arg);
+            break;
         case 'b':
             result = FmtInteger(fmt, arg, 2, false);
             break;
@@ -846,11 +892,8 @@ bool FmtFormatArg(StringFormatter *fmt, StringArg *arg) {
     if (result < 0)
         return false;
 
-    if (ENUMBITMASK_ISTRUE(arg->flags, StringFormatFlags::LJUST)) {
-        fmt->dst.cp_len += result;
-        while (result--)
-            fmt->dst.buffer[fmt->dst_idx++] = ' ';
-    }
+    if (ENUMBITMASK_ISTRUE(arg->flags, StringFormatFlags::LJUST))
+        StringBuilderRepeat(&fmt->builder, ' ', result);
 
     return true;
 }
@@ -861,7 +904,7 @@ String *FmtFormatArgs(StringFormatter *fmt) {
 
     int ok;
 
-    argon::memory::MemoryZero(&fmt->dst, sizeof(String));
+    argon::memory::MemoryZero(&fmt->builder, sizeof(StringBuilder));
 
     while ((ok = FmtGetNextSpecifier(fmt)) > 0) {
         FmtParseOptions(fmt, &arg);
@@ -878,18 +921,11 @@ String *FmtFormatArgs(StringFormatter *fmt) {
         goto error;
     }
 
-    // Convert StringFormatter embedded String to real String object
-    if ((str = StringInit(fmt->dst.len - 1, false)) != nullptr) {
-        str->buffer = fmt->dst.buffer;
-        str->buffer[str->len] = 0x00;
-        str->kind = fmt->dst.kind;
-        str->cp_len = fmt->dst.cp_len;
-        return str;
-    }
+    return StringBuilderFinish(&fmt->builder);
 
     error:
-    if (fmt->dst.buffer != nullptr)
-        argon::memory::Free(fmt->dst.buffer);
+    if (fmt->builder.str.buffer != nullptr)
+        argon::memory::Free(fmt->builder.str.buffer);
 
     return nullptr;
 }

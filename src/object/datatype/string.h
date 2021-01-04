@@ -49,6 +49,11 @@ namespace argon::object {
         size_t hash;
     };
 
+    struct StringBuilder {
+        String str;
+        size_t w_idx;
+    };
+
     struct StringArg {
         StringFormatFlags flags;
         int prec;
@@ -62,8 +67,7 @@ namespace argon::object {
             size_t idx;
         } fmt;
 
-        String dst;
-        size_t dst_idx;
+        StringBuilder builder;
 
         ArObject *args;
         size_t args_idx;
@@ -72,6 +76,26 @@ namespace argon::object {
     };
 
     extern const TypeInfo type_string_;
+
+    bool StringBuilderResize(StringBuilder *sb, size_t len);
+
+    int StringBuilderRepeat(StringBuilder *sb, char chr, int times);
+
+    int StringBuilderWrite(StringBuilder *sb, const unsigned char *buffer, size_t len, int overalloc);
+
+    inline int StringBuilderWrite(StringBuilder *sb, const unsigned char *buffer, size_t len) {
+        return StringBuilderWrite(sb, buffer, len, 0);
+    }
+
+    inline int StringBuilderWrite(StringBuilder *sb, String *str, int overalloc) {
+        return StringBuilderWrite(sb, str->buffer, str->len, overalloc);
+    }
+
+    String *StringBuilderFinish(StringBuilder *sb);
+
+    void StringBuilderClean(StringBuilder *sb);
+
+    // String
 
     String *StringNew(const char *string, size_t len);
 
