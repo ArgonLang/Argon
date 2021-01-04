@@ -18,11 +18,11 @@ namespace argon::object {
 
     extern const TypeInfo type_list_;
 
-    List *ListNew();
-
     List *ListNew(size_t cap);
 
     List *ListNew(const ArObject *sequence);
+
+    inline List *ListNew() { return ListNew(ARGON_OBJECT_LIST_INITIAL_CAP); }
 
     bool ListAppend(List *list, ArObject *obj);
 

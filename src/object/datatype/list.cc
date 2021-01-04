@@ -8,60 +8,100 @@
 #include "error.h"
 #include "integer.h"
 #include "list.h"
+#include "bounds.h"
 
 using namespace argon::object;
 using namespace argon::memory;
 
-ArObject *list_add(List *self, ArObject *other) {
-    if (self->type == other->type) {
-        auto o = (List *) other;
-        auto res = ListNew(self->len + o->len);
-        size_t i = 0;
-
-        if (res != nullptr) {
-            for (; i < self->len; i++) {
-                IncRef(self->objects[i]);
-                res->objects[i] = self->objects[i];
-            }
-
-            for (; i < self->len + o->len; i++) {
-                IncRef(o->objects[i - self->len]);
-                res->objects[i] = o->objects[i - self->len];
-            }
-
-            res->len = self->len + o->len;
-        }
-
-        return res;
-    }
-
-    return nullptr;
+size_t list_len(ArObject *obj) {
+    return ((List *) obj)->len;
 }
 
-ArObject *list_mul(ArObject *self, ArObject *other) {
-    auto list = (List *) self;
+ArObject *argon::object::ListGetItem(List *self, ArSSize i) {
+    ArObject *obj;
 
-    if (self->type != &type_list_) {
-        list = (List *) other;
-        other = self;
+    if (i < self->len) {
+        obj = self->objects[i];
+        IncRef(obj);
+        return obj;
     }
 
-    if (other->type == &type_integer_) {
-        auto res = ListNew(list->len * ((Integer *) other)->integer);
+    return ErrorFormat(&error_overflow_error, "list index out of range (len: %d, idx: %d)", self->len, index);
+}
 
-        if (res != nullptr) {
-            for (size_t i = 0; i < res->cap; i++) {
-                IncRef(list->objects[i % list->len]);
-                res->objects[i] = list->objects[i % list->len];
-            }
+bool list_set_item(List *self, ArObject *obj, ArSSize index) {
+    if (index < self->len) {
+        Release(self->objects[index]);
+        IncRef(obj);
+        self->objects[index] = obj;
+        return true;
+    }
 
-            res->len = res->cap;
+    ErrorFormat(&error_overflow_error, "list index out of range (len: %d, idx: %d)", self->len, index);
+    return false;
+}
+
+ArObject *list_get_slice(List *self, Bounds *bounds) {
+    ArObject *tmp;
+    List *ret;
+
+    ArSSize slice_len;
+    ArSSize start;
+    ArSSize stop;
+    ArSSize step;
+
+    slice_len = BoundsIndex(bounds, self->len, &start, &stop, &step);
+
+    if ((ret = ListNew(slice_len)) == nullptr)
+        return nullptr;
+
+    if (step >= 0) {
+        for (size_t i = 0; start < stop; start += step) {
+            tmp = self->objects[start];
+            IncRef(tmp);
+            ret->objects[i++] = tmp;
         }
-
-        return res;
+    } else {
+        for (size_t i = 0; stop < start; start += step) {
+            tmp = self->objects[start];
+            IncRef(tmp);
+            ret->objects[i++] = tmp;
+        }
     }
 
-    return nullptr;
+    self->len = slice_len;
+
+    return ret;
+}
+
+bool list_set_slice(List *self, Bounds *bounds, ArObject *obj) {
+    return false;
+}
+
+const SequenceSlots list_actions{
+        list_len,
+        (BinaryOpArSize) argon::object::ListGetItem,
+        (BoolTernOpArSize) list_set_item,
+        (BinaryOp) list_get_slice,
+        (BoolTernOp) list_set_slice
+};
+
+bool CheckSize(List *list, size_t count) {
+    ArObject **tmp;
+    size_t len = count > 1 ? list->cap + count : list->cap + (list->cap / 2);
+
+    if (list->len + count > list->cap) {
+        if (list->objects == nullptr)
+            len = ARGON_OBJECT_LIST_INITIAL_CAP;
+
+        if ((tmp = (ArObject **) Realloc(list->objects, len * sizeof(void *))) == nullptr)
+            return false;
+
+        list->objects = tmp;
+        list->cap = len;
+    }
+
+    return true;
 }
 
 List *ShiftList(List *list, ArSSize pos) {
@@ -78,15 +118,110 @@ List *ShiftList(List *list, ArSSize pos) {
     return ret;
 }
 
-ArObject *list_shl(ArObject *self, ArObject *other) {
-    if (self->type == &type_list_ && other->type == &type_integer_)
-        return ShiftList((List *) self, -((Integer *) other)->integer);
+ArObject *list_add(ArObject *left, ArObject *right) {
+    auto *l = (List *) left;
+    auto *r = (List *) right;
+    List *list = nullptr;
+
+    if (AR_SAME_TYPE(l, r)) {
+        if ((list = ListNew(l->len + r->len)) != nullptr) {
+            size_t i = 0;
+
+            // copy from left (self)
+            for (; i < l->len; i++) {
+                IncRef(l->objects[i]);
+                list->objects[i] = l->objects[i];
+            }
+
+            // copy from right (other)
+            for (; i < l->len + r->len; i++) {
+                IncRef(r->objects[i - l->len]);
+                list->objects[i] = r->objects[i - l->len];
+            }
+
+            list->len = l->len + r->len;
+        }
+    }
+
+    return list;
+}
+
+ArObject *list_mul(ArObject *left, ArObject *right) {
+    auto *list = (List *) left;
+    auto *num = (Integer *) right;
+    List *ret = nullptr;
+
+    if (!AR_TYPEOF(list, type_list_)) {
+        list = (List *) right;
+        num = (Integer *) left;
+    }
+
+    if (AR_TYPEOF(num, type_integer_)) {
+        if ((ret = ListNew(list->len * ((Integer *) num)->integer)) != nullptr) {
+            for (size_t i = 0; i < ret->cap; i++) {
+                IncRef(list->objects[i % list->len]);
+                ret->objects[i] = list->objects[i % list->len];
+            }
+
+            ret->len = ret->cap;
+        }
+    }
+
+    return ret;
+}
+
+ArObject *list_shl(ArObject *left, ArObject *right) {
+    if (AR_TYPEOF(left, type_list_) && AR_TYPEOF(right, type_integer_))
+        return ShiftList((List *) left, -((Integer *) right)->integer);
+
     return nullptr;
 }
 
-ArObject *list_shr(ArObject *self, ArObject *other) {
-    if (self->type == &type_list_ && other->type == &type_integer_)
-        return ShiftList((List *) self, ((Integer *) other)->integer);
+ArObject *list_shr(ArObject *left, ArObject *right) {
+    if (AR_TYPEOF(left, type_list_) && AR_TYPEOF(right, type_integer_))
+        return ShiftList((List *) left, ((Integer *) right)->integer);
+
+    return nullptr;
+}
+
+ArObject *list_inp_add(ArObject *left, ArObject *right) {
+    if (AR_SAME_TYPE(left, right)) {
+        if (ListConcat((List *) left, right)) {
+            IncRef(left);
+            return left;
+        }
+    }
+
+    return nullptr;
+}
+
+ArObject *list_inp_mul(ArObject *left, ArObject *right) {
+    auto *list = (List *) left;
+    auto *num = (Integer *) right;
+    size_t nlen;
+
+    if (!AR_TYPEOF(list, type_list_)) {
+        list = (List *) right;
+        num = (Integer *) left;
+    }
+
+    if (AR_TYPEOF(num, type_integer_)) {
+        nlen = list->len * (num->integer - 1);
+
+        if (!CheckSize(list, nlen))
+            return nullptr;
+
+        for (size_t i = list->len; i < nlen; i++) {
+            IncRef(list->objects[i % list->len]);
+            list->objects[i] = list->objects[i % list->len];
+        }
+
+        list->len += nlen;
+
+        IncRef(list);
+        return list;
+    }
+
     return nullptr;
 }
 
@@ -105,13 +240,17 @@ OpSlots list_ops{
         list_shl,
         list_shr,
         nullptr,
+        list_inp_add,
         nullptr,
-        nullptr,
-        nullptr,
+        list_inp_mul,
         nullptr,
         nullptr,
         nullptr
 };
+
+bool list_is_true(List *self) {
+    return self->len > 0;
+}
 
 bool list_equal(ArObject *self, ArObject *other) {
     if (self == other)
@@ -134,18 +273,8 @@ bool list_equal(ArObject *self, ArObject *other) {
     return false;
 }
 
-size_t list_hash(ArObject *obj) {
-    return 0;
-}
-
-size_t list_len(ArObject *obj) {
-    return ((List *) obj)->len;
-}
-
-void list_cleanup(ArObject *obj) {
-    auto list = (List *) obj;
-    for (size_t i = 0; i < list->len; i++)
-        Release(list->objects[i]);
+ArObject *list_str(List *self) {
+    return nullptr;
 }
 
 void list_trace(List *self, VoidUnaryOp trace) {
@@ -153,10 +282,12 @@ void list_trace(List *self, VoidUnaryOp trace) {
         trace(self->objects[i]);
 }
 
-const SequenceSlots list_actions{
-        list_len,
-        (BinaryOpArSize) argon::object::ListGetItem,
-};
+void list_cleanup(List *self) {
+    for (size_t i = 0; i < self->len; i++)
+        Release(self->objects[i]);
+
+    Free(self->objects);
+}
 
 const TypeInfo argon::object::type_list_ = {
         TYPEINFO_STATIC_INIT,
@@ -167,99 +298,32 @@ const TypeInfo argon::object::type_list_ = {
         nullptr,
         nullptr,
         &list_actions,
-        nullptr,
+        (BoolUnaryOp) list_is_true,
         list_equal,
         nullptr,
-        list_hash,
         nullptr,
+        (UnaryOp) list_str,
         &list_ops,
         (Trace) list_trace,
-        list_cleanup
+        (VoidUnaryOp) list_cleanup
 };
 
-ArObject *argon::object::ListGetItem(List *list, ArSSize i) {
-    ArObject *obj;
+template<typename T>
+List *ListClone(T *t) {
+    // Simple hack to avoid to write two identical function (one for List and another for Tuple)
+    // List and Tuple structures have the same field names.
+    List *list;
 
-    if (i >= list->len)
+    if ((list = ListNew(t->len)) == nullptr)
         return nullptr;
 
-    obj = list->objects[i];
-    IncRef(obj);
-    return obj;
-}
-
-bool CheckSize(List *list, size_t count) {
-    ArObject **tmp;
-
-    if (list->len + count > list->cap) {
-
-        if (list->objects != nullptr) {
-            if (count > 1)
-                tmp = (ArObject **) Realloc(list->objects, (list->cap + count) * sizeof(ArObject *));
-            else
-                tmp = (ArObject **) Realloc(list->objects, (list->cap + (list->cap / 2)) * sizeof(ArObject *));
-        } else {
-            if (count > 1)
-                tmp = (ArObject **) Alloc(count * sizeof(ArObject *));
-            else
-                tmp = (ArObject **) Alloc(ARGON_OBJECT_LIST_INITIAL_CAP * sizeof(ArObject *));
-        }
-
-
-        if (tmp == nullptr)
-            return false;
-
-        list->objects = tmp;
-        list->cap += list->cap / 2;
+    for (size_t i = 0; i < t->len; i++) {
+        IncRef(t->objects[i]);
+        list->objects[i] = t->objects[i];
     }
 
-    return true;
-}
-
-bool argon::object::ListAppend(List *list, ArObject *obj) {
-    if (!CheckSize(list, 1)) {
-        assert(false);
-        return false;
-    }
-    IncRef(obj);
-    list->objects[list->len] = obj;
-    list->len++;
-    return true;
-}
-
-bool argon::object::ListConcat(List *list, ArObject *sequence) {
-    if (IsSequence(sequence)) {
-        if (sequence->type == &type_list_) {
-            auto other = (List *) sequence;
-
-            if (!CheckSize(list, other->len))
-                return false;
-
-            for (size_t i = 0; i < other->len; i++) {
-                IncRef(other->objects[i]);
-                list->objects[list->len + i] = other->objects[i];
-            }
-
-            list->len += other->len;
-            return true;
-        }
-    }
-    assert(false); // TODO: impl
-}
-
-void argon::object::ListRemove(List *list, ArSSize i) {
-    if (i >= list->len)
-        return;
-
-    Release(list->objects[i]);
-    for (size_t idx = i + 1; idx < list->len; idx++)
-        list->objects[idx - 1] = list->objects[idx];
-
-    list->len--;
-}
-
-List *argon::object::ListNew() {
-    return ListNew(ARGON_OBJECT_LIST_INITIAL_CAP);
+    list->len = t->len;
+    return list;
 }
 
 List *argon::object::ListNew(size_t cap) {
@@ -269,8 +333,7 @@ List *argon::object::ListNew(size_t cap) {
         list->objects = nullptr;
 
         if (cap > 0) {
-            list->objects = (ArObject **) Alloc(cap * sizeof(ArObject *));
-            if (list->objects == nullptr) {
+            if ((list->objects = (ArObject **) Alloc(cap * sizeof(void *))) == nullptr) {
                 Release(list);
                 return (List *) argon::vm::Panic(OutOfMemoryError);
             }
@@ -284,28 +347,54 @@ List *argon::object::ListNew(size_t cap) {
 }
 
 List *argon::object::ListNew(const ArObject *sequence) {
-    List *list;
-    ArObject *tmp;
-
     if (IsSequence(sequence)) {
-        if (sequence->type == &type_list_) {
-            // List clone
-            auto other = (List *) sequence;
-
-            if ((list = ListNew(other->len)) == nullptr)
-                return nullptr;
-
-            for (size_t i = 0; i < other->len; i++) {
-                tmp = (ArObject *) other->objects[i];
-                IncRef(tmp);
-                list->objects[i] = tmp;
-            }
-
-            list->len = other->len;
-
-            return list;
-        }
+        if (AR_TYPEOF(sequence, type_list_))
+            return ListClone((List *) sequence);
+        else if (AR_TYPEOF(sequence, type_tuple_))
+            return ListClone((Tuple *) sequence);
     }
 
-    return (List *) ErrorFormat(&error_not_implemented, "no viable conversion from '%s' to List", sequence->type->name);
+    ErrorFormat(&error_not_implemented, "no viable conversion from '%s' to list", AR_TYPE_NAME(sequence));
+    return nullptr;
+}
+
+bool argon::object::ListAppend(List *list, ArObject *obj) {
+    if (!CheckSize(list, 1))
+        return false;
+
+    IncRef(obj);
+    list->objects[list->len++] = obj;
+    return true;
+}
+
+bool argon::object::ListConcat(List *list, ArObject *sequence) {
+    auto *o = (List *) sequence;
+
+    if (AR_SAME_TYPE(list, sequence)) {
+        if (!CheckSize(list, o->len))
+            return false;
+
+        for (size_t i = 0; i < o->len; i++) {
+            IncRef(o->objects[i]);
+            list->objects[list->len + i] = o->objects[i];
+        }
+
+        list->len += o->len;
+        return true;
+    }
+
+    return false;
+}
+
+void argon::object::ListRemove(List *list, ArSSize i) {
+    if (i >= list->len)
+        return;
+
+    Release(list->objects[i]);
+
+    // Move items back
+    for (size_t idx = i + 1; idx < list->len; idx++)
+        list->objects[idx - 1] = list->objects[idx];
+
+    list->len--;
 }
