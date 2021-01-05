@@ -29,7 +29,7 @@ ArObject *argon::object::TupleGetItem(Tuple *self, ArSSize i) {
         return obj;
     }
 
-    return ErrorFormat(&error_overflow_error, "tuple index out of range (len: %d, idx: %d)", self->len, index);
+    return ErrorFormat(&error_overflow_error, "tuple index out of range (len: %d, idx: %d)", self->len, i);
 }
 
 ArObject *tuple_get_slice(Tuple *self, Bounds *bounds) {

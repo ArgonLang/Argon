@@ -26,7 +26,7 @@ ArObject *argon::object::ListGetItem(List *self, ArSSize i) {
         return obj;
     }
 
-    return ErrorFormat(&error_overflow_error, "list index out of range (len: %d, idx: %d)", self->len, index);
+    return ErrorFormat(&error_overflow_error, "list index out of range (len: %d, idx: %d)", self->len, i);
 }
 
 bool list_set_item(List *self, ArObject *obj, ArSSize index) {
