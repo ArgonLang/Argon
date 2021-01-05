@@ -112,6 +112,35 @@ size_t tuple_hash(Tuple *self) {
 }
 
 ArObject *tuple_str(Tuple *self) {
+    StringBuilder sb = {};
+    String *tmp = nullptr;
+
+    if (StringBuilderWrite(&sb, (unsigned char *) "(", 1, self->len == 0 ? 1 : 0) < 0)
+        goto error;
+
+    for (size_t i = 0; i < self->len; i++) {
+        if ((tmp = (String *) ToString(self->objects[i])) == nullptr)
+            goto error;
+
+        if (StringBuilderWrite(&sb, tmp, i + 1 < self->len ? 2 : 1) < 0)
+            goto error;
+
+        if (i + 1 < self->len) {
+            if (StringBuilderWrite(&sb, (unsigned char *) ", ", 2) < 0)
+                goto error;
+        }
+
+        Release(tmp);
+    }
+
+    if (StringBuilderWrite(&sb, (unsigned char *) ")", 1) < 0)
+        goto error;
+
+    return StringBuilderFinish(&sb);
+
+    error:
+    Release(tmp);
+    StringBuilderClean(&sb);
     return nullptr;
 }
 

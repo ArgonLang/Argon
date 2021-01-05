@@ -180,6 +180,8 @@ namespace argon::object {
 
     ArSize Hash(ArObject *obj);
 
+    ArObject *ToString(ArObject*obj);
+
     inline void IncRef(ArObject *obj) {
         if (obj != nullptr)
             obj->ref_count.IncStrong();

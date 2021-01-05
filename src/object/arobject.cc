@@ -113,6 +113,13 @@ ArSize argon::object::Hash(ArObject *obj) {
     return 0;
 }
 
+ArObject * argon::object::ToString(ArObject *obj) {
+    if (AR_GET_TYPE(obj)->str != nullptr)
+        return AR_GET_TYPE(obj)->str(obj);
+
+    return ErrorFormat(&error_runtime_error, "unimplemented slot 'str' for object '%s'", AR_TYPE_NAME(obj));
+}
+
 bool argon::object::IsTrue(const ArObject *obj) {
     if (IsSequence(obj) && obj->type->sequence_actions->length != nullptr)
         return obj->type->sequence_actions->length((ArObject *) obj) > 0;
