@@ -93,7 +93,12 @@ void *argon::memory::Alloc(size_t size) noexcept {
 }
 
 void argon::memory::Free(void *ptr) {
-    Pool *pool = (Pool *) AlignDown(ptr, ARGON_MEMORY_PAGE_SIZE);
+    Pool *pool;
+
+    if (ptr == nullptr)
+        return;
+
+    pool = (Pool *) AlignDown(ptr, ARGON_MEMORY_PAGE_SIZE);
 
     if (AddressInArenas(ptr)) {
         size_t clazz = SizeToPoolClass(pool->blocksz);
