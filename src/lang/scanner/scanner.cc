@@ -387,9 +387,11 @@ Token Scanner::NextToken() {
             case '"':
                 this->GetCh();
                 return this->ParseString(start, false);
-            case '#':
+            case '#': {
                 this->GetCh();
-                return Token(TokenType::INLINE_COMMENT, start, this->pos_, this->ParseComment(true));
+                auto comment = this->ParseComment(true);
+                return Token(TokenType::INLINE_COMMENT, start, this->pos_, comment);
+            }
             case '%':
                 this->GetCh();
                 return Token(TokenType::PERCENT, start, this->pos_, "");
@@ -465,7 +467,8 @@ Token Scanner::NextToken() {
                 }
                 if (this->source_->peek() == '*') {
                     this->GetCh();
-                    return Token(TokenType::COMMENT, start, this->pos_, this->ParseComment(false));
+                    auto comment = this->ParseComment(false);
+                    return Token(TokenType::COMMENT, start, this->pos_, comment);
                 }
                 return Token(TokenType::SLASH, start, this->pos_, "");
             case ':':
