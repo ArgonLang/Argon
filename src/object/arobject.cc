@@ -106,14 +106,21 @@ bool argon::object::BufferSimpleFill(ArObject *obj, ArBuffer *buffer, ArBufferFl
 }
 
 ArSize argon::object::Hash(ArObject *obj) {
-    if (AR_GET_TYPE(obj)->hash != nullptr)
+    if (IsHashable(obj))
         return AR_GET_TYPE(obj)->hash(obj);
-
-    ErrorFormat(&error_unhashable, "unhashable type: '%s'", AR_TYPE_NAME(obj));
     return 0;
 }
 
-ArObject * argon::object::ToString(ArObject *obj) {
+bool argon::object::IsHashable(ArObject *obj) {
+    if (AR_GET_TYPE(obj)->hash == nullptr) {
+        ErrorFormat(&error_unhashable, "unhashable type: '%s'", AR_TYPE_NAME(obj));
+        return false;
+    }
+
+    return true;
+}
+
+ArObject *argon::object::ToString(ArObject *obj) {
     if (AR_GET_TYPE(obj)->str != nullptr)
         return AR_GET_TYPE(obj)->str(obj);
 

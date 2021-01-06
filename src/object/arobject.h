@@ -180,7 +180,9 @@ namespace argon::object {
 
     ArSize Hash(ArObject *obj);
 
-    ArObject *ToString(ArObject*obj);
+    bool IsHashable(ArObject *obj);
+
+    ArObject *ToString(ArObject *obj);
 
     inline void IncRef(ArObject *obj) {
         if (obj != nullptr)
