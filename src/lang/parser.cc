@@ -543,8 +543,10 @@ ast::NodeUptr Parser::ForStmt() {
     if (!this->Match(TokenType::SEMICOLON)) {
         if (this->Match(TokenType::VAR))
             init = this->VarDecl(false);
-        else
-            init = this->Expression();
+        else {
+            auto expr = this->Expression();
+            init = std::move(CastNode<Unary>(expr)->expr);
+        }
     }
 
     if (this->Match(TokenType::IN)) {
