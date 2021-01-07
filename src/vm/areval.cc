@@ -18,6 +18,7 @@
 #include <object/arobject.h>
 
 #include <lang/opcodes.h>
+#include <object/datatype/set.h>
 #include "areval.h"
 
 using namespace argon::vm;
@@ -843,7 +844,21 @@ ArObject *argon::vm::Eval(ArRoutine *routine) {
                 DISPATCH4();
             }
             TARGET_OP(MK_SET) {
+                auto args = ARG32;
 
+                if((ret = SetNew())== nullptr)
+                    goto error;
+
+                // Fill set
+                for (ArObject **cursor = cu_frame->eval_stack - args; cursor != cu_frame->eval_stack; cursor++) {
+                    if (!SetAdd((Set *) ret, *cursor))
+                        goto error;
+                    Release(*cursor);
+                }
+
+                cu_frame->eval_stack -= args;
+                PUSH(ret);
+                DISPATCH4();
             }
             TARGET_OP(MK_STRUCT) {
                 auto args = ARG16;

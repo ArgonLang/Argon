@@ -24,7 +24,7 @@ bool HMapResize(HMap *hmap) {
     if (new_map == nullptr)
         return false;
 
-    MemoryZero(new_map + hmap->cap, (new_cap-hmap->cap) * sizeof(void *));
+    MemoryZero(new_map + hmap->cap, (new_cap - hmap->cap) * sizeof(void *));
 
     for (size_t i = 0; i < hmap->cap; i++) {
         for (HEntry *prev = nullptr, *cur = new_map[i], *next; cur != nullptr; cur = next) {
@@ -154,7 +154,10 @@ void argon::object::HMapFinalize(HMap *hmap, HMapCleanFn clean_fn) {
     for (HEntry *cur = hmap->iter_begin; cur != nullptr; cur = tmp) {
         tmp = cur->iter_next;
         Release(cur->key);
-        clean_fn(cur);
+
+        if (clean_fn != nullptr)
+            clean_fn(cur);
+
         Free(cur);
     }
 
