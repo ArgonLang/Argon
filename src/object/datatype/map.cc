@@ -11,7 +11,6 @@
 #include "map.h"
 
 using namespace argon::object;
-using namespace argon::memory;
 
 size_t map_len(Map *self) {
     return self->hmap.len;
@@ -76,10 +75,67 @@ bool map_is_true(Map *self) {
 }
 
 bool map_equal(Map *self, ArObject *other) {
-    return false;
+    auto *o = (Map *) other;
+    MapEntry *cursor;
+    MapEntry *tmp;
+
+    if (self == other)
+        return true;
+
+    if (!AR_SAME_TYPE(self, other))
+        return false;
+
+    for (cursor = (MapEntry *) self->hmap.iter_begin; cursor != nullptr; cursor = (MapEntry *) cursor->iter_next) {
+        if ((tmp = (MapEntry *) HMapLookup(&o->hmap, cursor->key)) == nullptr || !AR_EQUAL(cursor->value, tmp->value))
+            return false;
+    }
+
+    return true;
 }
 
 ArObject *map_str(Map *self) {
+    StringBuilder sb = {};
+    String *tmp = nullptr;
+
+    MapEntry *cursor;
+
+    if (StringBuilderWrite(&sb, (unsigned char *) "{", 1, self->hmap.len == 0 ? 1 : 0) < 0)
+        goto error;
+
+    for (cursor = (MapEntry *) self->hmap.iter_begin; cursor != nullptr; cursor = (MapEntry *) cursor->iter_next) {
+        if ((tmp = (String *) ToString(cursor->key)) == nullptr)
+            goto error;
+
+        if (StringBuilderWrite(&sb, tmp, 2) < 0)
+            goto error;
+
+        if (StringBuilderWrite(&sb, (unsigned char *) ": ", 2) < 0)
+            goto error;
+
+        Release(tmp);
+
+        if ((tmp = (String *) ToString(cursor->value)) == nullptr)
+            goto error;
+
+        if (StringBuilderWrite(&sb, tmp, cursor->iter_next != nullptr ? 2 : 1) < 0)
+            goto error;
+
+        Release(tmp);
+
+        if (cursor->iter_next != nullptr) {
+            if (StringBuilderWrite(&sb, (unsigned char *) ", ", 2) < 0)
+                goto error;
+        }
+    }
+
+    if (StringBuilderWrite(&sb, (unsigned char *) "}", 1) < 0)
+        goto error;
+
+    return StringBuilderFinish(&sb);
+
+    error:
+    Release(tmp);
+    StringBuilderClean(&sb);
     return nullptr;
 }
 
@@ -129,11 +185,11 @@ const TypeInfo argon::object::type_map_ = {
         &map_actions,
         nullptr,
         nullptr,
-        nullptr,
+        (BoolUnaryOp) map_is_true,
         (BoolBinOp) map_equal,
         nullptr,
         nullptr,
-        nullptr,
+        (UnaryOp) map_str,
         nullptr,
         (Trace) map_trace,
         (VoidUnaryOp) map_cleanup
