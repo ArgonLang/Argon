@@ -9,6 +9,139 @@
 
 using namespace argon::object;
 
+ArObject *set_sub(ArObject *left, ArObject *right) {
+    // difference
+    auto *l = (Set *) left;
+    auto *r = (Set *) right;
+    Set *res;
+
+    if (!AR_SAME_TYPE(left, right))
+        return nullptr;
+
+    if ((res = SetNew()) == nullptr)
+        return nullptr;
+
+    for (HEntry *cursor = l->set.iter_begin; cursor != nullptr; cursor = cursor->iter_next) {
+        if (HMapLookup(&r->set, cursor->key) == nullptr) {
+            if (!SetAdd(res, cursor->key)) {
+                Release(res);
+                return nullptr;
+            }
+        }
+    }
+
+    return res;
+}
+
+ArObject *set_and(ArObject *left, ArObject *right) {
+    // intersection
+    auto *l = (Set *) left;
+    auto *r = (Set *) right;
+    Set *res;
+
+    if (!AR_SAME_TYPE(left, right))
+        return nullptr;
+
+    if ((res = SetNew()) == nullptr)
+        return nullptr;
+
+    for (HEntry *cursor = l->set.iter_begin; cursor != nullptr; cursor = cursor->iter_next) {
+        if (HMapLookup(&r->set, cursor->key) != nullptr) {
+            if (!SetAdd(res, cursor->key)) {
+                Release(res);
+                return nullptr;
+            }
+        }
+    }
+
+    return res;
+}
+
+ArObject *set_or(ArObject *left, ArObject *right) {
+    // union
+    auto *l = (Set *) left;
+    auto *r = (Set *) right;
+    Set *res;
+
+    if (!AR_SAME_TYPE(left, right))
+        return nullptr;
+
+    if ((res = SetNew()) == nullptr)
+        return nullptr;
+
+    for (HEntry *cursor = l->set.iter_begin; cursor != nullptr; cursor = cursor->iter_next) {
+        if (!SetAdd(res, cursor->key)) {
+            Release(res);
+            return nullptr;
+        }
+    }
+
+    for (HEntry *cursor = r->set.iter_begin; cursor != nullptr; cursor = cursor->iter_next) {
+        if (!SetAdd(res, cursor->key)) {
+            Release(res);
+            return nullptr;
+        }
+    }
+
+    return res;
+}
+
+ArObject *set_xor(ArObject *left, ArObject *right) {
+    // symmetric difference
+    auto *l = (Set *) left;
+    auto *r = (Set *) right;
+    Set *res;
+
+    if (!AR_SAME_TYPE(left, right))
+        return nullptr;
+
+    if ((res = SetNew()) == nullptr)
+        return nullptr;
+
+    for (HEntry *cursor = l->set.iter_begin; cursor != nullptr; cursor = cursor->iter_next) {
+        if (HMapLookup(&r->set, cursor->key) == nullptr) {
+            if (!SetAdd(res, cursor->key)) {
+                Release(res);
+                return nullptr;
+            }
+        }
+    }
+
+    for (HEntry *cursor = r->set.iter_begin; cursor != nullptr; cursor = cursor->iter_next) {
+        if (HMapLookup(&l->set, cursor->key) == nullptr) {
+            if (!SetAdd(res, cursor->key)) {
+                Release(res);
+                return nullptr;
+            }
+        }
+    }
+
+    return res;
+}
+
+const OpSlots set_ops = {
+        nullptr,
+        set_sub,
+        nullptr,
+        nullptr,
+        nullptr,
+        nullptr,
+        nullptr,
+        nullptr,
+        set_and,
+        set_or,
+        set_xor,
+        nullptr,
+        nullptr,
+        nullptr,
+        nullptr,
+        set_sub,
+        nullptr,
+        nullptr,
+        nullptr,
+        nullptr
+};
+
 bool set_is_true(Set *self) {
     return self->set.len > 0;
 }
@@ -81,7 +214,7 @@ const TypeInfo argon::object::type_set_ = {
         nullptr,
         nullptr,
         (UnaryOp) set_str,
-        nullptr,
+        &set_ops,
         nullptr,
         (VoidUnaryOp) set_cleanup
 };
@@ -123,4 +256,3 @@ bool argon::object::SetAdd(Set *set, ArObject *value) {
 
     return true;
 }
-
