@@ -86,7 +86,7 @@ Struct *argon::object::StructNew(String *name, Namespace *names, List *mro) {
 
         // Looking into 'names' and counts the number of instantiable properties.
         stru->properties_count = 0;
-        for (NsEntry *cur = names->iter_begin; cur != nullptr; cur = cur->iter_next) {
+        for (auto *cur = (NsEntry *) names->hmap.iter_begin; cur != nullptr; cur = (NsEntry *) cur->iter_next) {
             if (cur->info.IsMember() && !cur->info.IsConstant()) stru->properties_count++;
         }
     }

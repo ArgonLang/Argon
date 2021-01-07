@@ -89,7 +89,7 @@ bool InsertID(Module *module, const std::string &id, ArObject *value) {
     if (key == nullptr)
         return false;
 
-    bool ok = NamespaceNewSymbol(module->module_ns, PropertyInfo(PropertyType::CONST), key, value);
+    bool ok = NamespaceNewSymbol(module->module_ns, key, value, PropertyInfo(PropertyType::CONST));
 
     Release(key);
     return ok;
@@ -201,7 +201,7 @@ bool argon::object::ModuleAddObjects(Module *module, const PropertyBulk *bulk) {
             return false;
 
         // Object
-        ok = NamespaceNewSymbol(module->module_ns, cursor->info, key, obj);
+        ok = NamespaceNewSymbol(module->module_ns, key, obj, cursor->info);
         Release(key);
         if (cursor->is_func)
             Release(obj);
@@ -216,7 +216,7 @@ bool argon::object::ModuleAddProperty(Module *module, const char *key, ArObject 
     if (str == nullptr)
         return false;
 
-    bool ok = NamespaceNewSymbol(module->module_ns, info, str, value);
+    bool ok = NamespaceNewSymbol(module->module_ns, str, value, info);
     Release(str);
     return ok;
 }

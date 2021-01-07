@@ -2,87 +2,75 @@
 //
 // Licensed under the Apache License v2.0
 
-#include "namespace.h"
+#include <vm/runtime.h>
+
 #include "nil.h"
+#include "error.h"
+#include "namespace.h"
 
 using namespace argon::object;
-using namespace argon::memory;
 
-void FreeOrReplace(NsEntry *entry, ArObject *value) {
+void SetValueToEntry(NsEntry *entry, ArObject *value) {
     if (entry->info.IsWeak()) {
-        entry->ref.DecWeak();
-        if (value != nullptr)
-            entry->ref = value->ref_count.IncWeak();
-        return;
-    }
-
-    Release(entry->obj);
-    if (value != nullptr) {
+        entry->weak.DecWeak();
+        entry->weak = value->ref_count.IncWeak();
+    } else {
+        Release(entry->value);
         IncRef(value);
-        entry->obj = value;
+        entry->value = value;
     }
 }
 
-bool CheckSize(Namespace *ns) {
-    NsEntry **new_ns;
-    size_t new_cap;
+void ReleaseEntryValue(NsEntry *entry, bool release_key) {
+    if (release_key)
+        Release(entry->key);
 
-    if (((float) ns->len + 1) / ns->cap < ARGON_OBJECT_NS_LOAD_FACTOR)
+    if (entry->info.IsWeak())
+        entry->weak.DecWeak();
+    else
+        Release(entry->value);
+}
+
+bool namespace_is_true(Namespace *self) {
+    return self->hmap.len > 0;
+}
+
+bool namespace_equal(Namespace *self, ArObject *other) {
+    auto *o = (Namespace *) other;
+    NsEntry *tmp;
+
+    if (self == other)
         return true;
 
-    new_cap = ns->cap + (ns->cap / ARGON_OBJECT_NS_MUL_FACTOR);
-
-    new_ns = (NsEntry **) Realloc(ns->ns, new_cap * sizeof(NsEntry *));
-    if (new_ns == nullptr)
+    if (!AR_SAME_TYPE(self, other))
         return false;
 
-    for (size_t i = ns->cap; i < new_cap; i++)
-        new_ns[i] = nullptr;
-
-    for (size_t i = 0; i < ns->cap; i++) {
-        for (NsEntry *prev = nullptr, *cur = new_ns[i], *next; cur != nullptr; cur = next) {
-            size_t hash = cur->key->type->hash(cur->key) % new_cap;
-            next = cur->next;
-
-            if (hash == i) {
-                prev = cur;
-                continue;
-            }
-
-            cur->next = new_ns[hash];
-            new_ns[hash] = cur;
-            if (prev != nullptr)
-                prev->next = next;
-            else
-                new_ns[i] = next;
-        }
+    for (auto *cursor = (NsEntry *) self->hmap.iter_begin; cursor != nullptr; cursor = (NsEntry *) cursor->iter_next) {
+        if ((tmp = (NsEntry *) HMapLookup(&o->hmap, cursor->key)) == nullptr || !AR_EQUAL(cursor->value, tmp->value))
+            return false;
     }
-
-    ns->ns = new_ns;
-    ns->cap = new_cap;
 
     return true;
 }
 
-void namespace_cleanup(ArObject *obj) {
-    auto map = (Namespace *) obj;
+ArObject *namespace_str(Namespace *str) {
+    return nullptr;
+}
 
-    for (size_t i = 0; i < map->cap; i++) {
-        NsEntry *next;
-        for (NsEntry *cursor = map->ns[i]; cursor != nullptr; cursor = next) {
-            next = cursor->next;
-            FreeOrReplace(cursor, nullptr);
-            Free(cursor);
-        }
-    }
+void namespace_cleanup(Namespace *self) {
+    HMapFinalize(&self->hmap, [](HEntry *entry) {
+        auto *nse = (NsEntry *) entry;
 
-    Free(map->ns);
+        if (nse->info.IsWeak())
+            nse->weak.DecWeak();
+        else
+            Release(nse->value);
+    });
 }
 
 void namespace_trace(Namespace *self, VoidUnaryOp trace) {
-    for (size_t i = 0; i < self->cap; i++)
-        for (NsEntry *cursor = self->ns[i]; cursor != nullptr; cursor = cursor->next)
-            trace(cursor->obj);
+    for (auto *cur = (NsEntry *) self->hmap.iter_begin; cur != nullptr; cur = (NsEntry *) cur->iter_next)
+        trace(cur->value);
 }
 
 const TypeInfo argon::object::type_namespace_ = {
@@ -94,169 +82,153 @@ const TypeInfo argon::object::type_namespace_ = {
         nullptr,
         nullptr,
         nullptr,
+        (BoolUnaryOp) namespace_is_true,
+        (BoolBinOp) namespace_equal,
         nullptr,
         nullptr,
-        nullptr,
-        nullptr,
-        nullptr,
+        (UnaryOp)namespace_str,
         nullptr,
         (Trace) namespace_trace,
-        namespace_cleanup
+        (VoidUnaryOp) namespace_cleanup
 };
-
-void AppendIterItem(Namespace *ns, NsEntry *entry) {
-    if (ns->iter_begin == nullptr) {
-        ns->iter_begin = entry;
-        ns->iter_end = entry;
-        return;
-    }
-
-    entry->iter_next = nullptr;
-    entry->iter_prev = ns->iter_end;
-    ns->iter_end->iter_next = entry;
-    ns->iter_end = entry;
-}
-
-void RemoveIterItem(Namespace *ns, NsEntry *entry) {
-    if (entry->iter_prev != nullptr)
-        entry->iter_prev->iter_next = entry->iter_next;
-    else
-        ns->iter_begin = entry->iter_next;
-
-    if (entry->iter_next != nullptr)
-        entry->iter_next->iter_prev = entry->iter_prev;
-    else
-        ns->iter_end = entry->iter_prev;
-}
 
 Namespace *argon::object::NamespaceNew() {
     auto ns = ArObjectGCNew<Namespace>(&type_namespace_);
 
     if (ns != nullptr) {
-        if ((ns->ns = (NsEntry **) Alloc(ARGON_OBJECT_NS_INITIAL_SIZE * sizeof(NsEntry *))) == nullptr) {
-            Release(ns);
-            return nullptr;
-        }
-
-        ns->iter_begin = nullptr;
-        ns->iter_end = nullptr;
-        ns->cap = ARGON_OBJECT_NS_INITIAL_SIZE;
-        ns->len = 0;
-
-        for (size_t i = 0; i < ns->cap; i++)
-            ns->ns[i] = nullptr;
+        if (!HMapInit(&ns->hmap))
+            Release((ArObject **) &ns);
     }
 
     return ns;
 }
 
-bool argon::object::NamespaceNewSymbol(Namespace *ns, PropertyInfo info, ArObject *key, ArObject *value) {
+bool argon::object::NamespaceNewSymbol(Namespace *ns, ArObject *key, ArObject *value, PropertyInfo info) {
     NsEntry *entry;
-    size_t index;
 
-    if (!CheckSize(ns))
+    if (!IsHashable(key))
         return false;
 
-    index = key->type->hash(key) % ns->cap;
-    for (entry = ns->ns[index]; entry != nullptr; entry = entry->next) {
-        if (key->type->equal(key, entry->key)) {
-            FreeOrReplace(entry, nullptr); // Release value
-            break;
-        }
-    }
-
-    if (entry == nullptr) {
-        entry = (NsEntry *) Alloc(sizeof(NsEntry));
-        assert(entry != nullptr);// TODO: nomem
-
-        IncRef(key);
-        entry->key = key;
-
-        entry->next = ns->ns[index];
-        ns->ns[index] = entry;
-
-        AppendIterItem(ns, entry);
-
-        ns->len++;
-    }
-
-    entry->info = info;
-
-    if (entry->info.IsWeak()) {
-        entry->ref = value->ref_count.IncWeak();
+    if ((entry = (NsEntry *) HMapLookup(&ns->hmap, key)) != nullptr) {
+        SetValueToEntry(entry, value);
         return true;
     }
 
-    IncRef(value);
-    entry->obj = value;
+    if ((entry = HMapFindOrAllocNode<NsEntry>(&ns->hmap)) == nullptr) {
+        argon::vm::Panic(OutOfMemoryError);
+        return false;
+    }
+
+    entry->info = info;
+    IncRef(key);
+    entry->key = key;
+
+    if (!entry->info.IsWeak()) {
+        IncRef(value);
+        entry->value = value;
+    } else
+        entry->weak = value->ref_count.IncWeak();
+
+    if (!HMapInsert(&ns->hmap, entry)) {
+        ReleaseEntryValue(entry, true);
+        HMapEntryToFreeNode(&ns->hmap, entry);
+        argon::vm::Panic(OutOfMemoryError);
+        return false;
+    }
+
+    return true;
+}
+
+bool argon::object::NamespaceNewSymbol(Namespace *ns, const char *key, ArObject *value, PropertyInfo info) {
+    auto *entry = (NsEntry *) HMapLookup(&ns->hmap, key);
+    String *skey;
+
+    if (entry != nullptr) {
+        SetValueToEntry(entry, value);
+        return true;
+    }
+
+    if ((entry = HMapFindOrAllocNode<NsEntry>(&ns->hmap)) == nullptr) {
+        argon::vm::Panic(OutOfMemoryError);
+        return false;
+    }
+
+    if ((skey = StringIntern(key)) == nullptr) {
+        HMapEntryToFreeNode(&ns->hmap, entry);
+        return false;
+    }
+
+    entry->info = info;
+    entry->key = skey;
+
+    if (!entry->info.IsWeak()) {
+        IncRef(value);
+        entry->value = value;
+    } else
+        entry->weak = value->ref_count.IncWeak();
+
+    if (!HMapInsert(&ns->hmap, entry)) {
+        ReleaseEntryValue(entry, true);
+        HMapEntryToFreeNode(&ns->hmap, entry);
+        argon::vm::Panic(OutOfMemoryError);
+        return false;
+    }
+
     return true;
 }
 
 bool argon::object::NamespaceSetValue(Namespace *ns, ArObject *key, ArObject *value) {
-    size_t index = key->type->hash(key) % ns->cap;
+    NsEntry *entry;
 
-    for (NsEntry *cur = ns->ns[index]; cur != nullptr; cur = cur->next) {
-        if (key->type->equal(key, cur->key)) {
-            FreeOrReplace(cur, value);
-            return true;
-        }
+    if (!IsHashable(key))
+        return false;
+
+    if ((entry = (NsEntry *) HMapLookup(&ns->hmap, key)) != nullptr) {
+        SetValueToEntry(entry, value);
+        return true;
     }
 
     return false;
 }
 
 bool argon::object::NamespaceContains(Namespace *ns, ArObject *key, PropertyInfo *info) {
-    size_t index = key->type->hash(key) % ns->cap;
+    NsEntry *entry;
 
-    for (NsEntry *cur = ns->ns[index]; cur != nullptr; cur = cur->next)
-        if (key->type->equal(key, cur->key)) {
-            if (info != nullptr)
-                *info = cur->info;
-            return true;
-        }
+    if ((entry = (NsEntry *) HMapLookup(&ns->hmap, key)) != nullptr) {
+        if (info != nullptr)
+            *info = entry->info;
+
+        return true;
+    }
 
     return false;
 }
 
 ArObject *argon::object::NamespaceGetValue(Namespace *ns, ArObject *key, PropertyInfo *info) {
-    size_t index = key->type->hash(key) % ns->cap;
+    NsEntry *entry;
 
-    for (NsEntry *cur = ns->ns[index]; cur != nullptr; cur = cur->next) {
-        if (key->type->equal(key, cur->key)) {
-            if (info != nullptr)
-                *info = cur->info;
+    if ((entry = (NsEntry *) HMapLookup(&ns->hmap, key)) != nullptr) {
+        if (info != nullptr)
+            *info = entry->info;
 
-            if (cur->info.IsWeak())
-                return ReturnNil(cur->ref.GetObject());
-            else {
-                IncRef(cur->obj);
-                return cur->obj;
-            }
-        }
+        if (entry->info.IsWeak())
+            return ReturnNil(entry->weak.GetObject());
+
+        IncRef(entry->value);
+        return entry->value;
     }
 
     return nullptr;
 }
 
-void argon::object::NamespaceRemove(Namespace *ns, ArObject *key) {
-    size_t index = key->type->hash(key) % ns->cap;
+bool argon::object::NamespaceRemove(Namespace *ns, ArObject *key) {
+    NsEntry *entry;
 
-    NsEntry *prev = nullptr;
-    for (NsEntry *cur = ns->ns[index]; cur != nullptr; cur = cur->next) {
-        if (key->type->equal(key, cur->key)) {
-            Release(cur->key);
-            FreeOrReplace(cur, nullptr);
-            RemoveIterItem(ns, cur);
-
-            if (prev == nullptr)
-                ns->ns[index] = cur->next;
-            else
-                prev->next = cur->next;
-
-            Free(cur);
-            ns->len--;
-            break;
-        }
-        prev = cur;
+    if ((entry = (NsEntry *) HMapRemove(&ns->hmap, key)) != nullptr) {
+        ReleaseEntryValue(entry, true);
+        HMapEntryToFreeNode(&ns->hmap, entry);
+        return true;
     }
+
+    return false;
 }

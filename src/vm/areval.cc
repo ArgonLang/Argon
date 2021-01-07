@@ -122,7 +122,7 @@ ArObject *InstantiateStruct(ArRoutine *routine, Struct *base, ArObject **values,
 
     if (!key_pair) {
         size_t index = 0;
-        for (NsEntry *cur = base->names->iter_begin; cur != nullptr; cur = cur->iter_next) {
+        for (auto *cur = (NsEntry *) base->names->hmap.iter_begin; cur != nullptr; cur = (NsEntry *) cur->iter_next) {
             if (cur->info.IsMember() && !cur->info.IsConstant()) {
                 ArObject *value;
 
@@ -132,7 +132,7 @@ ArObject *InstantiateStruct(ArRoutine *routine, Struct *base, ArObject **values,
                 } else
                     value = NamespaceGetValue(base->names, cur->key, nullptr);
 
-                bool ok = NamespaceNewSymbol(instance_ns, cur->info, cur->key, value);
+                bool ok = NamespaceNewSymbol(instance_ns, cur->key, value, cur->info);
                 Release(value);
 
                 if (!ok) {
@@ -143,9 +143,9 @@ ArObject *InstantiateStruct(ArRoutine *routine, Struct *base, ArObject **values,
         }
     } else {
         // Load default values
-        for (NsEntry *cur = base->names->iter_begin; cur != nullptr; cur = cur->iter_next) {
+        for (auto *cur = (NsEntry *) base->names->hmap.iter_begin; cur != nullptr; cur = (NsEntry *) cur->iter_next) {
             if (cur->info.IsMember())
-                if (!NamespaceNewSymbol(instance_ns, cur->info, cur->key, cur->obj)) {
+                if (!NamespaceNewSymbol(instance_ns, cur->key, cur->value, cur->info)) {
                     Release(instance_ns);
                     return nullptr;
                 }
@@ -905,7 +905,7 @@ ArObject *argon::vm::Eval(ArRoutine *routine) {
 
                 ret = TupleGetItem(cu_code->names, ARG16);
 
-                if (!NamespaceNewSymbol(map, PropertyInfo((PropertyType) (ARG32 >> (unsigned char) 16)), ret, TOP()))
+                if (!NamespaceNewSymbol(map, ret, TOP(), PropertyInfo((PropertyType) (ARG32 >> (unsigned char) 16))))
                     goto error;
 
                 Release(ret);
