@@ -1237,7 +1237,8 @@ ast::NodeUptr Parser::ParseMapOrSet() {
                 this->EatTerm(false, TokenType::SEMICOLON);
                 ms->AddExpression(this->Test());
             } while (this->MatchEat(TokenType::COMMA, true));
-        }
+        } else
+            ms->AddExpression(std::move(key));
     }
 
     ms->end = this->currTk_.end;
