@@ -628,10 +628,10 @@ ArObject *argon::vm::Eval(ArRoutine *routine) {
                 BINARY_OP(routine, inp_div, /=);
             }
             TARGET_OP(IPMUL) {
-                BINARY_OP(routine, inp_add, *=);
+                BINARY_OP(routine, inp_mul, *=);
             }
             TARGET_OP(IPSUB) {
-                BINARY_OP(routine, inp_add, -=);
+                BINARY_OP(routine, inp_sub, -=);
             }
             TARGET_OP(JF) {
                 // JUMP FALSE
