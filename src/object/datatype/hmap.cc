@@ -24,7 +24,7 @@ bool HMapResize(HMap *hmap) {
     if (new_map == nullptr)
         return false;
 
-    MemoryZero(new_map, hmap->cap * sizeof(void *));
+    MemoryZero(new_map + hmap->cap, (new_cap-hmap->cap) * sizeof(void *));
 
     for (size_t i = 0; i < hmap->cap; i++) {
         for (HEntry *prev = nullptr, *cur = new_map[i], *next; cur != nullptr; cur = next) {
