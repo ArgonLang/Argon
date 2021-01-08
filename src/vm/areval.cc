@@ -25,11 +25,16 @@ using namespace argon::vm;
 using namespace argon::object;
 
 ArObject *Binary(ArRoutine *routine, ArObject *l, ArObject *r, int offset) {
-#define GET_BINARY_OP(struct, offset) *((BinaryOp *) (((unsigned char *) struct) + offset))
-    BinaryOp lop = GET_BINARY_OP(l->type->ops, offset);
-    BinaryOp rop = GET_BINARY_OP(r->type->ops, offset);
-
+#define GET_BINARY_OP(struct, offset) *((BinaryOp *) (((unsigned char *) (struct)) + (offset)))
+    BinaryOp lop = nullptr;
+    BinaryOp rop = nullptr;
     ArObject *result = nullptr;
+
+    if (AR_GET_TYPE(l)->ops != nullptr)
+        lop = GET_BINARY_OP(l->type->ops, offset);
+
+    if (AR_GET_TYPE(r)->ops != nullptr)
+        rop = GET_BINARY_OP(r->type->ops, offset);
 
     if (lop != nullptr)
         result = lop(l, r);
@@ -846,7 +851,7 @@ ArObject *argon::vm::Eval(ArRoutine *routine) {
             TARGET_OP(MK_SET) {
                 auto args = ARG32;
 
-                if((ret = SetNew())== nullptr)
+                if ((ret = SetNew()) == nullptr)
                     goto error;
 
                 // Fill set
