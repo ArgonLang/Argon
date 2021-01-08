@@ -39,6 +39,8 @@ namespace argon::memory {
         Free(obj);
     }
 
+    int MemoryCompare(const void *ptr1, const void *ptr2, size_t num);
+
     void *MemoryCopy(void *dest, const void *src, size_t size);
 
     void *MemoryConcat(void *s1, size_t size1, void *s2, size_t size2);

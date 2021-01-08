@@ -109,6 +109,18 @@ void argon::memory::Free(void *ptr) {
     } else ::operator delete(GetRealMemoryPtr(ptr));
 }
 
+int argon::memory::MemoryCompare(const void *ptr1, const void *ptr2, size_t num) {
+    auto *p1 = (const unsigned char *) ptr1;
+    auto *p2 = (const unsigned char *) ptr2;
+
+    do {
+        if (*p1++ != *p2++)
+            return *--p1 - *--p2;
+    } while (--num != 0);
+
+    return 0;
+}
+
 void *argon::memory::MemoryCopy(void *dest, const void *src, size_t size) {
     auto d = (unsigned char *) dest;
     auto s = (const unsigned char *) src;
