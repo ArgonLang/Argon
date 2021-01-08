@@ -9,11 +9,11 @@
 
 #include "error.h"
 #include "hash_magic.h"
+#include "bool.h"
 #include "bounds.h"
 #include "decimal.h"
 #include "integer.h"
 #include "map.h"
-
 #include "string.h"
 
 using namespace argon::memory;
@@ -47,6 +47,21 @@ String *StringInit(size_t len, bool mkbuf) {
     }
 
     return str;
+}
+
+int StringCompare(String *self, String *other) {
+    size_t idx1 = 0;
+    size_t idx2 = 0;
+
+    unsigned char c1;
+    unsigned char c2;
+
+    do {
+        c1 = self->buffer[idx1++];
+        c2 = other->buffer[idx2++];
+    } while (c1 == c2 && idx1 < self->len && idx2 < other->len);
+
+    return c1 - c2;
 }
 
 size_t FillBuffer(String *dst, size_t offset, const unsigned char *buf, size_t len) {
@@ -101,6 +116,15 @@ size_t StringSubStrLen(String *str, size_t offset, size_t graphemes) {
     return buf - (str->buffer + offset);
 }
 
+bool string_get_buffer(String *self, ArBuffer *buffer, ArBufferFlags flags) {
+    return BufferSimpleFill(self, buffer, flags, self->buffer, self->len, false);
+}
+
+BufferSlots string_buffer = {
+        (BufferGetFn) string_get_buffer,
+        nullptr
+};
+
 ArObject *string_add(ArObject *left, ArObject *right) {
     if (left->type == right->type && left->type == &type_string_)
         return StringConcat((String *) left, (String *) right);
@@ -154,20 +178,18 @@ OpSlots string_ops{
         nullptr
 };
 
-bool string_get_buffer(String *self, ArBuffer *buffer, ArBufferFlags flags) {
-    return BufferSimpleFill(self, buffer, flags, self->buffer, self->len, false);
+size_t argon::object::StringLen(const String *str) {
+    return str->len;
 }
-
-BufferSlots string_buffer = {
-        (BufferGetFn) string_get_buffer,
-        nullptr
-};
 
 ArObject *string_get_item(String *self, ArSSize index) {
     String *ret;
 
     if (self->kind != StringKind::ASCII)
         return ErrorFormat(&error_unicode_index, "unable to index a unicode string");
+
+    if (index < 0)
+        index = self->len + index;
 
     if (index >= self->len)
         return ErrorFormat(&error_overflow_error, "string index out of range (len: %d, idx: %d)", self->len, index);
@@ -215,9 +237,12 @@ SequenceSlots string_sequence = {
         nullptr
 };
 
-bool string_equal(ArObject *self, ArObject *other) {
-    String *s;
-    String *o;
+bool string_is_true(String *self) {
+    return self->len > 0;
+}
+
+bool string_equal(String *self, ArObject *other) {
+    auto *o = (String *) other;
 
     if (self == other)
         return true;
@@ -225,38 +250,78 @@ bool string_equal(ArObject *self, ArObject *other) {
     if (self->type != other->type)
         return false;
 
-    s = (String *) self;
-    o = (String *) other;
-
-    if (s->cp_len != o->cp_len)
+    if (self->cp_len != o->cp_len)
         return false;
 
-    for (size_t i = 0; i < s->len; i++) {
-        if (s->buffer[i] != o->buffer[i])
+    for (size_t i = 0; i < self->len; i++) {
+        if (self->buffer[i] != o->buffer[i])
             return false;
     }
 
     return true;
 }
 
-size_t string_hash(ArObject *obj) {
-    auto self = (String *) obj;
+ArObject *string_compare(String *self, ArObject *other, CompareMode mode) {
+    int left = 0;
+    int right = 0;
+    int res;
+
+    if (!AR_SAME_TYPE(self, other))
+        return nullptr;
+
+    if (self != other) {
+        res = StringCompare(self, (String *) other);
+        if (res < 0)
+            left = -1;
+        else if (res > 0)
+            right = -1;
+    }
+
+    switch (mode) {
+        case CompareMode::GE:
+            return BoolToArBool(left > right);
+        case CompareMode::GEQ:
+            return BoolToArBool(left >= right);
+        case CompareMode::LE:
+            return BoolToArBool(left < right);
+        case CompareMode::LEQ:
+            return BoolToArBool(left <= right);
+        default:
+            assert(false);
+    }
+
+    return nullptr;
+}
+
+size_t string_hash(String *self) {
     if (self->hash == 0)
         self->hash = HashBytes(self->buffer, self->len);
+
     return self->hash;
 }
 
-bool string_istrue(String *self) {
-    return self->len > 0;
-}
-
-void string_cleanup(ArObject *obj) {
-    argon::memory::Free(((String *) obj)->buffer);
-}
-
 String *string_str(String *self) {
-    IncRef(self);
-    return self;
+    StringBuilder sb = {};
+    size_t len = self->len + 1;
+
+    if (StringBuilderWrite(&sb, (unsigned char *) "\"", 1, len) < 0)
+        goto error;
+
+    if (StringBuilderWrite(&sb, self->buffer, self->len) < 0)
+        goto error;
+
+    if (StringBuilderWrite(&sb, (unsigned char *) "\"", 1) < 0)
+        goto error;
+
+    return StringBuilderFinish(&sb);
+
+    error:
+    StringBuilderClean(&sb);
+    return nullptr;
+}
+
+void string_cleanup(String *self) {
+    argon::memory::Free(self->buffer);
 }
 
 const TypeInfo argon::object::type_string_ = {
@@ -268,14 +333,14 @@ const TypeInfo argon::object::type_string_ = {
         nullptr,
         nullptr,
         &string_sequence,
-        (BoolUnaryOp) string_istrue,
-        string_equal,
-        nullptr,
-        string_hash,
+        (BoolUnaryOp) string_is_true,
+        (BoolBinOp) string_equal,
+        (CompareOp) string_compare,
+        (SizeTUnaryOp) string_hash,
         (UnaryOp) string_str,
         &string_ops,
         nullptr,
-        string_cleanup
+        (VoidUnaryOp) string_cleanup
 };
 
 String *argon::object::StringNew(const char *string, size_t len) {
@@ -632,7 +697,7 @@ int FmtWriteNumber(unsigned char *buf, long num, int base, int prec, int width, 
     return FmtNumberFormat(buf, idx, base, width, upper, neg, flags);
 }
 
-#define SB_GET_BUFFER(sb)   (sb.str.buffer + sb.w_idx)
+#define SB_GET_BUFFER(sb)   ((sb).str.buffer + (sb).w_idx)
 
 int FmtDecimal(StringFormatter *fmt, StringArg *arg, char specifier) {
 #define FMT_PRECISION_DEF   6
@@ -966,10 +1031,6 @@ int argon::object::StringIntToUTF8(unsigned int glyph, unsigned char *buf) {
     }
 
     return 0;
-}
-
-size_t argon::object::StringLen(const String *str) {
-    return str->len;
 }
 
 String *argon::object::StringConcat(String *left, String *right) {
