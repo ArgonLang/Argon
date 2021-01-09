@@ -20,16 +20,19 @@ size_t tuple_len(Tuple *self) {
     return self->len;
 }
 
-ArObject *argon::object::TupleGetItem(Tuple *self, ArSSize i) {
+ArObject *argon::object::TupleGetItem(Tuple *self, ArSSize index) {
     ArObject *obj;
 
-    if (i < self->len) {
-        obj = self->objects[i];
+    if (index < 0)
+        index = self->len + index;
+
+    if (index < self->len) {
+        obj = self->objects[index];
         IncRef(obj);
         return obj;
     }
 
-    return ErrorFormat(&error_overflow_error, "tuple index out of range (len: %d, idx: %d)", self->len, i);
+    return ErrorFormat(&error_overflow_error, "tuple index out of range (len: %d, idx: %d)", self->len, index);
 }
 
 ArObject *tuple_get_slice(Tuple *self, Bounds *bounds) {

@@ -17,16 +17,19 @@ size_t list_len(ArObject *obj) {
     return ((List *) obj)->len;
 }
 
-ArObject *argon::object::ListGetItem(List *self, ArSSize i) {
+ArObject *argon::object::ListGetItem(List *self, ArSSize index) {
     ArObject *obj;
 
-    if (i < self->len) {
-        obj = self->objects[i];
+    if (index < 0)
+        index = self->len + index;
+
+    if (index < self->len) {
+        obj = self->objects[index];
         IncRef(obj);
         return obj;
     }
 
-    return ErrorFormat(&error_overflow_error, "list index out of range (len: %d, idx: %d)", self->len, i);
+    return ErrorFormat(&error_overflow_error, "list index out of range (len: %d, idx: %d)", self->len, index);
 }
 
 bool list_set_item(List *self, ArObject *obj, ArSSize index) {
