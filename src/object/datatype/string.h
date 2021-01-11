@@ -79,6 +79,8 @@ namespace argon::object {
 
     bool StringBuilderResize(StringBuilder *sb, size_t len);
 
+    bool StringBuilderResizeAscii(StringBuilder *sb, const unsigned char *buffer, size_t len, int overalloc);
+
     int StringBuilderRepeat(StringBuilder *sb, char chr, int times);
 
     int StringBuilderWrite(StringBuilder *sb, const unsigned char *buffer, size_t len, int overalloc);
@@ -90,6 +92,8 @@ namespace argon::object {
     inline int StringBuilderWrite(StringBuilder *sb, String *str, int overalloc) {
         return StringBuilderWrite(sb, str->buffer, str->len, overalloc);
     }
+
+    int StringBuilderWriteAscii(StringBuilder *sb, const unsigned char *buffer, size_t len);
 
     String *StringBuilderFinish(StringBuilder *sb);
 

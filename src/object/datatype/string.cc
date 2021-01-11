@@ -413,7 +413,33 @@ bool argon::object::StringBuilderResize(StringBuilder *sb, size_t len) {
         return true;
     }
 
+    argon::vm::Panic(OutOfMemoryError);
     return false;
+}
+
+bool
+argon::object::StringBuilderResizeAscii(StringBuilder *sb, const unsigned char *buffer, size_t len, int overalloc) {
+    size_t str_len = overalloc;
+
+    for (size_t i = 0; i < len; i++) {
+        switch (buffer[i]) {
+            case '"':
+            case '\\':
+            case '\t':
+            case '\n':
+            case '\r':
+                str_len += 2; // \C
+                break;
+            default:
+                if (buffer[i] < ' ' || buffer[i] > 0x7F) {
+                    str_len += 4;
+                    break;
+                }
+                str_len++;
+        }
+    }
+
+    return StringBuilderResize(sb, str_len);
 }
 
 int argon::object::StringBuilderRepeat(StringBuilder *sb, char chr, int times) {
@@ -438,6 +464,52 @@ int argon::object::StringBuilderWrite(StringBuilder *sb, const unsigned char *bu
     sb->w_idx += wbytes;
 
     return wbytes;
+}
+
+int argon::object::StringBuilderWriteAscii(StringBuilder *sb, const unsigned char *buffer, size_t len) {
+    static unsigned char hex[] = "0123456789abcdef";
+    unsigned char *start = sb->str.buffer + sb->w_idx;
+    unsigned char *buf = sb->str.buffer + sb->w_idx;
+
+    for (size_t i = 0; i < len; i++) {
+        if (buf - start > sb->str.len - sb->w_idx)
+            return -1;
+
+        switch (buffer[i]) {
+            case '"':
+                *buf++ = '\\';
+                *buf++ = '"';
+                break;
+            case '\\':
+                *buf++ = '\\';
+                break;
+            case '\t':
+                *buf++ = '\\';
+                *buf++ = 't';
+                break;
+            case '\n':
+                *buf++ = '\\';
+                *buf++ = 'n';
+                break;
+            case '\r':
+                *buf++ = '\\';
+                *buf++ = 'r';
+                break;
+            default:
+                if (buffer[i] < ' ' || buffer[i] > 0x7F) {
+                    *buf++ = '\\';
+                    *buf++ = 'x';
+                    *buf++ = hex[(buffer[i] & 0xF0) >> 4];
+                    *buf++ = hex[(buffer[i] & 0x0F)];
+                    break;
+                }
+                *buf++ = buffer[i];
+        }
+    }
+
+    sb->str.cp_len += buf - start;
+    sb->w_idx += buf - start;
+    return len;
 }
 
 String *argon::object::StringBuilderFinish(StringBuilder *sb) {
@@ -624,7 +696,8 @@ int FmtWrite(StringFormatter *fmt, StringArg *arg, const unsigned char *buf, siz
     return width;
 }
 
-int FmtNumberFormat(unsigned char *buf, int idx, int base, int width, bool upper, bool neg, StringFormatFlags flags) {
+int
+FmtNumberFormat(unsigned char *buf, int idx, int base, int width, bool upper, bool neg, StringFormatFlags flags) {
     unsigned char *end;
     unsigned char tmp;
 
@@ -671,7 +744,8 @@ int FmtNumberFormat(unsigned char *buf, int idx, int base, int width, bool upper
     return idx;
 }
 
-int FmtWriteNumber(unsigned char *buf, long num, int base, int prec, int width, bool upper, StringFormatFlags flags) {
+int
+FmtWriteNumber(unsigned char *buf, long num, int base, int prec, int width, bool upper, StringFormatFlags flags) {
     static unsigned char l_case[] = "0123456789abcdef";
     static unsigned char u_case[] = "0123456789ABCDEF";
     unsigned char *p_case = upper ? u_case : l_case;
@@ -723,7 +797,8 @@ int FmtDecimal(StringFormatter *fmt, StringArg *arg, char specifier) {
     else if (obj->type == &type_integer_)
         num = ((Integer *) obj)->integer;
     else {
-        ErrorFormat(&error_type_error, "%c requires real number not '%s'", fmt->fmt.buf[fmt->fmt.idx], obj->type->name);
+        ErrorFormat(&error_type_error, "%c requires real number not '%s'", fmt->fmt.buf[fmt->fmt.idx],
+                    obj->type->name);
         return -1;
     }
 
