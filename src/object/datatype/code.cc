@@ -51,23 +51,24 @@ void code_cleanup(Code *self) {
 
 const TypeInfo argon::object::type_code_ = {
         TYPEINFO_STATIC_INIT,
-        (const unsigned char *) "code",
+        "code",
+        nullptr,
         sizeof(Code),
         nullptr,
+        (VoidUnaryOp) code_cleanup,
         nullptr,
         nullptr,
-        nullptr,
-        nullptr,
-        code_is_true,
         (BoolBinOp) code_equal,
-        nullptr,
+        code_is_true,
         (SizeTUnaryOp) code_hash,
         (UnaryOp) code_str,
         nullptr,
         nullptr,
-        (VoidUnaryOp) code_cleanup
+        nullptr,
+        nullptr,
+        nullptr,
+        nullptr
 };
-
 
 Code *argon::object::CodeNew(const unsigned char *instr,
                              unsigned int instr_sz,

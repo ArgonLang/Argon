@@ -92,21 +92,23 @@ const ObjectSlots instance_actions{
 
 const TypeInfo argon::object::type_instance_ = {
         TYPEINFO_STATIC_INIT,
-        (const unsigned char *) "instance",
+        "instance",
+        nullptr,
         sizeof(Instance),
+        nullptr,
+        (VoidUnaryOp) instance_cleanup,
+        nullptr,
+        nullptr,
+        nullptr,
+        nullptr,
+        nullptr,
+        nullptr,
         nullptr,
         nullptr,
         nullptr,
         &instance_actions,
         nullptr,
-        nullptr,
-        nullptr,
-        nullptr,
-        nullptr,
-        nullptr,
-        nullptr,
-        nullptr,
-        (VoidUnaryOp) instance_cleanup
+        nullptr
 };
 
 Instance *argon::object::InstanceNew(Struct *base, Namespace *properties) {

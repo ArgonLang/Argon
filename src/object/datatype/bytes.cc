@@ -223,21 +223,23 @@ void bytes_cleanup(Bytes *self) {
 
 const TypeInfo argon::object::type_bytes_ = {
         TYPEINFO_STATIC_INIT,
-        (const unsigned char *) "bytes",
+        "bytes",
+        nullptr,
         sizeof(Bytes),
+        nullptr,
+        (VoidUnaryOp) bytes_cleanup,
+        nullptr,
+        (CompareOp) bytes_compare,
+        (BoolBinOp) bytes_equal,
+        (BoolUnaryOp) bytes_is_true,
+        (SizeTUnaryOp) bytes_hash,
+        (UnaryOp) bytes_str,
         nullptr,
         nullptr,
         nullptr,
         nullptr,
         &bytes_sequence,
-        (BoolUnaryOp) bytes_is_true,
-        (BoolBinOp) bytes_equal,
-        (CompareOp) bytes_compare,
-        (SizeTUnaryOp) bytes_hash,
-        (UnaryOp) bytes_str,
         &bytes_ops,
-        nullptr,
-        (VoidUnaryOp) bytes_cleanup
 };
 
 Bytes *argon::object::BytesNew(size_t len) {

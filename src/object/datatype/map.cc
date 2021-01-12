@@ -178,21 +178,23 @@ bool argon::object::MapRemove(Map *map, ArObject *key) {
 
 const TypeInfo argon::object::type_map_ = {
         TYPEINFO_STATIC_INIT,
-        (const unsigned char *) "map",
+        "map",
+        nullptr,
         sizeof(Map),
         nullptr,
+        (VoidUnaryOp) map_cleanup,
+        (Trace) map_trace,
+        nullptr,
+        (BoolBinOp) map_equal,
+        (BoolUnaryOp) map_is_true,
+        nullptr,
+        (UnaryOp) map_str,
         nullptr,
         &map_actions,
         nullptr,
         nullptr,
-        (BoolUnaryOp) map_is_true,
-        (BoolBinOp) map_equal,
         nullptr,
-        nullptr,
-        (UnaryOp) map_str,
-        nullptr,
-        (Trace) map_trace,
-        (VoidUnaryOp) map_cleanup
+        nullptr
 };
 
 Map *argon::object::MapNew() {

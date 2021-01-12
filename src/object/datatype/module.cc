@@ -96,18 +96,21 @@ ArObject *module_str(Module *self) {
 
 const TypeInfo argon::object::type_module_ = {
         TYPEINFO_STATIC_INIT,
-        (const unsigned char *) "module",
+        "module",
+        nullptr,
         sizeof(Module),
         nullptr,
         nullptr,
         nullptr,
-        &module_oslots,
         nullptr,
-        module_is_true,
         (BoolBinOp) module_equal,
-        nullptr,
+        module_is_true,
         nullptr,
         (UnaryOp) module_str,
+        nullptr,
+        nullptr,
+        nullptr,
+        &module_oslots,
         nullptr,
         nullptr
 };

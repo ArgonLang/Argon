@@ -75,21 +75,23 @@ void namespace_trace(Namespace *self, VoidUnaryOp trace) {
 
 const TypeInfo argon::object::type_namespace_ = {
         TYPEINFO_STATIC_INIT,
-        (const unsigned char *) "namespace",
+        "namespace",
+        nullptr,
         sizeof(Namespace),
         nullptr,
-        nullptr,
-        nullptr,
-        nullptr,
-        nullptr,
-        (BoolUnaryOp) namespace_is_true,
-        (BoolBinOp) namespace_equal,
-        nullptr,
-        nullptr,
-        (UnaryOp)namespace_str,
-        nullptr,
+        (VoidUnaryOp) namespace_cleanup,
         (Trace) namespace_trace,
-        (VoidUnaryOp) namespace_cleanup
+        nullptr,
+        (BoolBinOp) namespace_equal,
+        (BoolUnaryOp) namespace_is_true,
+        nullptr,
+        (UnaryOp) namespace_str,
+        nullptr,
+        nullptr,
+        nullptr,
+        nullptr,
+        nullptr,
+        nullptr
 };
 
 Namespace *argon::object::NamespaceNew() {

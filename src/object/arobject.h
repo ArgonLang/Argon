@@ -117,27 +117,51 @@ namespace argon::object {
 
     using Trace = void (*)(struct ArObject *, VoidUnaryOp);
     struct TypeInfo : ArObject {
-        const unsigned char *name;
-        unsigned short size;
+        const char *name;
+        const char *doc;
+        const unsigned short size;
 
-        // Actions
-        const BufferSlots *buffer_actions;
-        const NumberSlots *number_actions;
-        const MapSlots *map_actions;
-        const ObjectSlots *obj_actions;
-        const SequenceSlots *sequence_actions;
+        /* Object constructor */
+        UnaryOp ctor;
 
-        // Generic actions
-        BoolUnaryOp is_true;
-        BoolBinOp equal;
+        /* Object destructor */
+        VoidUnaryOp cleanup;
+
+        /* GC trace method */
+        Trace trace;
+
+        /* Make this object comparable */
         CompareOp compare;
+
+        /* Make this object comparable for equality */
+        BoolBinOp equal;
+
+        /* Return object truthiness */
+        BoolUnaryOp is_true;
+
+        /* Return object hash */
         SizeTUnaryOp hash;
+
+        /* Return string object representation */
         UnaryOp str;
 
-        const OpSlots *ops;
+        /* Pointer to BufferSlots structure relevant only if the object implements bufferable behavior */
+        const BufferSlots *buffer_actions;
 
-        Trace trace;
-        VoidUnaryOp cleanup;
+        /* Pointer to MapSlots structure relevant only if the object implements mapping behavior */
+        const MapSlots *map_actions;
+
+        /* Pointer to NumberSlots structure relevant only if the object implements numeric behavior */
+        const NumberSlots *number_actions;
+
+        /* Pointer to ObjectSlots structure relevant only if the object implements instance like behavior */
+        const ObjectSlots *obj_actions;
+
+        /* Pointer to SequenceSlots structure relevant only if the object implements sequence behavior */
+        const SequenceSlots *sequence_actions;
+
+        /* Pointer to OpSlots structure that contains the common operations for an object */
+        const OpSlots *ops;
     };
 
     extern const TypeInfo type_type_;

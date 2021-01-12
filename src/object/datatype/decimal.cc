@@ -342,21 +342,23 @@ ArObject *decimal_str(Decimal *self) {
 
 const TypeInfo argon::object::type_decimal_ = {
         TYPEINFO_STATIC_INIT,
-        (const unsigned char *) "decimal",
+        "decimal",
+        nullptr,
         sizeof(Decimal),
+        nullptr,
+        nullptr,
+        nullptr,
+        (CompareOp) decimal_compare,
+        (BoolBinOp) decimal_equal,
+        (BoolUnaryOp) decimal_is_true,
+        (SizeTUnaryOp) decimal_hash,
+        (UnaryOp) decimal_str,
+        nullptr,
         nullptr,
         &decimal_nslots,
         nullptr,
         nullptr,
-        nullptr,
-        (BoolUnaryOp) decimal_is_true,
-        (BoolBinOp) decimal_equal,
-        (CompareOp) decimal_compare,
-        (SizeTUnaryOp) decimal_hash,
-        (UnaryOp) decimal_str,
-        &decimal_ops,
-        nullptr,
-        nullptr
+        &decimal_ops
 };
 
 Decimal *argon::object::DecimalNew(DecimalUnderlayer number) {

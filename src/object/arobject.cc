@@ -11,11 +11,11 @@
 
 using namespace argon::object;
 
-bool type_istrue(ArObject *obj) {
+bool type_is_true(ArObject *obj) {
     return true;
 }
 
-bool type_equal(TypeInfo *left, TypeInfo *right) {
+bool type_equal(ArObject *left, ArObject *right) {
     return left == right;
 }
 
@@ -25,17 +25,19 @@ ArSize type_hash(ArObject *self) {
 
 const TypeInfo argon::object::type_type_ = {
         TYPEINFO_STATIC_INIT,
-        (const unsigned char *) "datatype",
-        sizeof(TypeInfo),
+        "datatype",
+        nullptr,
+        0,
         nullptr,
         nullptr,
         nullptr,
         nullptr,
-        nullptr,
-        type_istrue,
-        (BoolBinOp) type_equal,
-        nullptr,
+        type_equal,
+        type_is_true,
         type_hash,
+        nullptr,
+        nullptr,
+        nullptr,
         nullptr,
         nullptr,
         nullptr,

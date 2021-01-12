@@ -29,21 +29,23 @@ namespace argon::object {
 #define ERROR_NEW_TYPE(type_name, name, base, cleanup, obj_actions) \
 const TypeInfo error_##type_name = {                                \
         TYPEINFO_STATIC_INIT,                                       \
-        (const unsigned char *) #name,                              \
+        #name,                                                      \
+        nullptr,                                                    \
         sizeof(base),                                               \
+        nullptr,                                                    \
+        cleanup,                                                    \
+        nullptr,                                                    \
+        nullptr,                                                    \
+        nullptr,                                                    \
+        nullptr,                                                    \
+        nullptr,                                                    \
+        nullptr,                                                    \
         nullptr,                                                    \
         nullptr,                                                    \
         nullptr,                                                    \
         obj_actions,                                                \
         nullptr,                                                    \
-        nullptr,                                                    \
-        nullptr,                                                    \
-        nullptr,                                                    \
-        nullptr,                                                    \
-        nullptr,                                                    \
-        nullptr,                                                    \
-        nullptr,                                                    \
-        cleanup                                                     \
+        nullptr                                                     \
 }
 
 #define ERROR_STR_NEW_TYPE(type_name, name, obj_actions)                        \

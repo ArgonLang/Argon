@@ -36,21 +36,23 @@ void file_cleanup(File *self) {
 
 const TypeInfo argon::module::io::type_file_ = {
         TYPEINFO_STATIC_INIT,
-        (const unsigned char *) "file",
+        "file",
+        nullptr,
         sizeof(File),
         nullptr,
+        (VoidUnaryOp) file_cleanup,
         nullptr,
         nullptr,
-        nullptr,
-        nullptr,
-        (BoolUnaryOp) file_istrue,
         (BoolBinOp) file_equal,
+        (BoolUnaryOp) file_istrue,
         nullptr,
         nullptr,
         nullptr,
         nullptr,
         nullptr,
-        (VoidUnaryOp) file_cleanup
+        nullptr,
+        nullptr,
+        nullptr
 };
 
 ssize_t read_os_wrap(File *file, void *buf, size_t nbytes) {

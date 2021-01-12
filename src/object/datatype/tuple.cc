@@ -156,21 +156,23 @@ void tuple_cleanup(Tuple *self) {
 
 const TypeInfo argon::object::type_tuple_ = {
         TYPEINFO_STATIC_INIT,
-        (const unsigned char *) "tuple",
+        "tuple",
+        nullptr,
         sizeof(Tuple),
+        nullptr,
+        (VoidUnaryOp) tuple_cleanup,
+        nullptr,
+        nullptr,
+        (BoolBinOp) tuple_equal,
+        (BoolUnaryOp) tuple_is_true,
+        (SizeTUnaryOp) tuple_hash,
+        (UnaryOp) tuple_str,
         nullptr,
         nullptr,
         nullptr,
         nullptr,
         &tuple_sequence,
-        (BoolUnaryOp) tuple_is_true,
-        (BoolBinOp) tuple_equal,
-        nullptr,
-        (SizeTUnaryOp) tuple_hash,
-        (UnaryOp) tuple_str,
-        nullptr,
-        nullptr,
-        (VoidUnaryOp) tuple_cleanup
+        nullptr
 };
 
 Tuple *argon::object::TupleNew(size_t len) {

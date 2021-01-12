@@ -64,18 +64,21 @@ ArObject *bounds_str(Bounds *self) {
 
 const TypeInfo argon::object::type_bounds_ = {
         TYPEINFO_STATIC_INIT,
-        (const unsigned char *) "bounds",
+        "bounds",
+        nullptr,
         sizeof(Bounds),
         nullptr,
         nullptr,
         nullptr,
-        nullptr,
-        nullptr,
-        bounds_is_true,
-        (BoolBinOp) bounds_equal,
         (CompareOp) bounds_compare,
+        (BoolBinOp) bounds_equal,
+        bounds_is_true,
         bounds_hash,
         (UnaryOp) bounds_str,
+        nullptr,
+        nullptr,
+        nullptr,
+        nullptr,
         nullptr,
         nullptr
 };

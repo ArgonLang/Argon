@@ -26,21 +26,23 @@ ArObject *nil_str(ArObject *self) {
 
 const TypeInfo argon::object::type_nil_ = {
         TYPEINFO_STATIC_INIT,
-        (const unsigned char *) "nil",
+        "nil",
+        nullptr,
         sizeof(Nil),
         nullptr,
         nullptr,
         nullptr,
         nullptr,
-        nullptr,
-        nil_is_true,
         nil_equal,
-        nullptr,
+        nil_is_true,
         nil_hash,
         nil_str,
         nullptr,
         nullptr,
         nullptr,
+        nullptr,
+        nullptr,
+        nullptr
 };
 
 Nil NilDef{{RefCount(RCType::STATIC), &type_nil_}};

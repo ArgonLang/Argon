@@ -58,21 +58,23 @@ void function_cleanup(Function *fn) {
 
 const TypeInfo argon::object::type_function_ = {
         TYPEINFO_STATIC_INIT,
-        (const unsigned char *) "function",
+        "function",
+        nullptr,
         sizeof(Function),
         nullptr,
+        (VoidUnaryOp) function_cleanup,
+        (Trace) function_trace,
         nullptr,
-        nullptr,
-        nullptr,
-        nullptr,
-        (BoolUnaryOp) function_is_true,
         (BoolBinOp) function_equal,
-        nullptr,
+        (BoolUnaryOp) function_is_true,
         (SizeTUnaryOp) function_hash,
         (UnaryOp) function_str,
         nullptr,
-        (Trace) function_trace,
-        (VoidUnaryOp) function_cleanup
+        nullptr,
+        nullptr,
+        nullptr,
+        nullptr,
+        nullptr
 };
 
 Function *CloneFn(const Function *func) {

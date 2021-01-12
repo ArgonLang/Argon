@@ -202,21 +202,23 @@ void set_cleanup(Set *self) {
 
 const TypeInfo argon::object::type_set_ = {
         TYPEINFO_STATIC_INIT,
-        (const unsigned char *) "set",
+        "set",
+        nullptr,
         sizeof(Set),
         nullptr,
+        (VoidUnaryOp) set_cleanup,
         nullptr,
         nullptr,
-        nullptr,
-        nullptr,
-        (BoolUnaryOp) set_is_true,
         (BoolBinOp) set_equal,
-        nullptr,
+        (BoolUnaryOp) set_is_true,
         nullptr,
         (UnaryOp) set_str,
-        &set_ops,
         nullptr,
-        (VoidUnaryOp) set_cleanup
+        nullptr,
+        nullptr,
+        nullptr,
+        nullptr,
+        &set_ops
 };
 
 Set *argon::object::SetNew() {

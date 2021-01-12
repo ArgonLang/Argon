@@ -177,21 +177,23 @@ ArObject *integer_str(Integer *self) {
 
 const TypeInfo argon::object::type_integer_ = {
         TYPEINFO_STATIC_INIT,
-        (const unsigned char *) "integer",
+        "integer",
+        nullptr,
         sizeof(Integer),
+        nullptr,
+        nullptr,
+        nullptr,
+        (CompareOp) integer_compare,
+        (BoolBinOp) integer_equal,
+        (BoolUnaryOp) integer_is_true,
+        integer_hash,
+        (UnaryOp) integer_str,
+        nullptr,
         nullptr,
         &integer_nslots,
         nullptr,
         nullptr,
-        nullptr,
-        (BoolUnaryOp) integer_is_true,
-        (BoolBinOp) integer_equal,
-        (CompareOp) integer_compare,
-        integer_hash,
-        (UnaryOp) integer_str,
-        &integer_ops,
-        nullptr,
-        nullptr
+        &integer_ops
 };
 
 Integer *argon::object::IntegerNew(IntegerUnderlayer number) {

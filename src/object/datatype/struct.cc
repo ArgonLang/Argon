@@ -56,21 +56,23 @@ const ObjectSlots struct_actions{
 
 const TypeInfo argon::object::type_struct_ = {
         TYPEINFO_STATIC_INIT,
-        (const unsigned char *) "struct",
+        "struct",
+        nullptr,
         sizeof(Struct),
+        nullptr,
+        (VoidUnaryOp) struct_cleanup,
+        nullptr,
+        nullptr,
+        nullptr,
+        nullptr,
+        nullptr,
+        nullptr,
         nullptr,
         nullptr,
         nullptr,
         &struct_actions,
         nullptr,
-        nullptr,
-        nullptr,
-        nullptr,
-        nullptr,
-        nullptr,
-        nullptr,
-        nullptr,
-        (VoidUnaryOp) struct_cleanup
+        nullptr
 };
 
 Struct *argon::object::StructNew(String *name, Namespace *names, List *mro) {

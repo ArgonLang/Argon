@@ -36,9 +36,11 @@ void impspec_cleanup(ImportSpec *self) {
 
 const argon::object::TypeInfo type_import_spec_ = {
         TYPEINFO_STATIC_INIT,
-        (const unsigned char *) "import_spec",
+        "import_spec",
+        nullptr,
         sizeof(ImportSpec),
         nullptr,
+        (VoidUnaryOp) impspec_cleanup,
         nullptr,
         nullptr,
         nullptr,
@@ -50,7 +52,7 @@ const argon::object::TypeInfo type_import_spec_ = {
         nullptr,
         nullptr,
         nullptr,
-        (VoidUnaryOp) impspec_cleanup
+        nullptr
 };
 
 ImportSpec *argon::vm::ImportSpecNew(String *name, String *path, String *origin, LoaderPtr loader) {

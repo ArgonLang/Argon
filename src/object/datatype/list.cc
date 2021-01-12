@@ -325,21 +325,23 @@ void list_cleanup(List *self) {
 
 const TypeInfo argon::object::type_list_ = {
         TYPEINFO_STATIC_INIT,
-        (const unsigned char *) "list",
+        "list",
+        nullptr,
         sizeof(List),
+        nullptr,
+        (VoidUnaryOp) list_cleanup,
+        (Trace) list_trace,
+        nullptr,
+        list_equal,
+        (BoolUnaryOp) list_is_true,
+        nullptr,
+        (UnaryOp) list_str,
         nullptr,
         nullptr,
         nullptr,
         nullptr,
         &list_actions,
-        (BoolUnaryOp) list_is_true,
-        list_equal,
-        nullptr,
-        nullptr,
-        (UnaryOp) list_str,
-        &list_ops,
-        (Trace) list_trace,
-        (VoidUnaryOp) list_cleanup
+        &list_ops
 };
 
 template<typename T>

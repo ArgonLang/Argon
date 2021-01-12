@@ -326,21 +326,23 @@ void string_cleanup(String *self) {
 
 const TypeInfo argon::object::type_string_ = {
         TYPEINFO_STATIC_INIT,
-        (const unsigned char *) "string",
+        "string",
+        nullptr,
         sizeof(String),
+        nullptr,
+        (VoidUnaryOp) string_cleanup,
+        nullptr,
+        (CompareOp) string_compare,
+        (BoolBinOp) string_equal,
+        (BoolUnaryOp) string_is_true,
+        (SizeTUnaryOp) string_hash,
+        (UnaryOp) string_str,
         &string_buffer,
         nullptr,
         nullptr,
         nullptr,
         &string_sequence,
-        (BoolUnaryOp) string_is_true,
-        (BoolBinOp) string_equal,
-        (CompareOp) string_compare,
-        (SizeTUnaryOp) string_hash,
-        (UnaryOp) string_str,
-        &string_ops,
-        nullptr,
-        (VoidUnaryOp) string_cleanup
+        &string_ops
 };
 
 String *argon::object::StringNew(const char *string, size_t len) {
