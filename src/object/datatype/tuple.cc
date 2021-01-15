@@ -179,16 +179,19 @@ Tuple *argon::object::TupleNew(size_t len) {
     auto tuple = ArObjectNew<Tuple>(RCType::INLINE, &type_tuple_);
 
     if (tuple != nullptr) {
+        tuple->objects = nullptr;
         tuple->len = len;
 
-        if ((tuple->objects = (ArObject **) argon::memory::Alloc(len * sizeof(void *))) == nullptr) {
-            Release(tuple);
-            return nullptr;
-        }
+        if (len > 0) {
+            if ((tuple->objects = (ArObject **) argon::memory::Alloc(len * sizeof(void *))) == nullptr) {
+                Release(tuple);
+                return nullptr;
+            }
 
-        for (size_t i = 0; i < len; i++) {
-            IncRef(NilVal);
-            tuple->objects[i] = NilVal;
+            for (size_t i = 0; i < len; i++) {
+                IncRef(NilVal);
+                tuple->objects[i] = NilVal;
+            }
         }
     }
 
@@ -200,7 +203,7 @@ Tuple *argon::object::TupleNew(const ArObject *sequence) {
     ArObject *tmp;
 
     if (IsSequence(sequence)) {
-        if ((tuple = ArObjectNew<Tuple>(RCType::INLINE, &type_tuple_)) == nullptr)
+        if ((tuple = TupleNew((size_t)0)) == nullptr)
             return nullptr;
 
         if (AR_TYPEOF(sequence, type_list_)) {
