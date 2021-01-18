@@ -66,8 +66,10 @@ argon::object::Code *Compiler::CompileFunction(const ast::Function *func) {
     for (auto &param : func->params) {
         auto id = ast::CastNode<ast::Identifier>(param);
         this->VariableNew(id->value, false, 0);
-        if (id->rest_element)
+        if (id->rest_element) {
             fun_flags = MkFuncFlags::VARIADIC;
+            p_count--;
+        }
     }
 
     this->CompileCode(func->body);

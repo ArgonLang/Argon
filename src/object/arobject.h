@@ -38,6 +38,7 @@ namespace argon::object {
     using BoolUnaryOp = bool (*)(struct ArObject *obj);
     using CompareOp = struct ArObject *(*)(struct ArObject *, struct ArObject *, CompareMode);
     using SizeTUnaryOp = ArSize (*)(struct ArObject *);
+    using VariadicOp = struct ArObject *(*)(struct ArObject **, ArSize);
     using VoidUnaryOp = void (*)(struct ArObject *obj);
     using UnaryOp = struct ArObject *(*)(struct ArObject *);
 
@@ -122,7 +123,7 @@ namespace argon::object {
         const unsigned short size;
 
         /* Object constructor */
-        UnaryOp ctor;
+        VariadicOp ctor;
 
         /* Object destructor */
         VoidUnaryOp cleanup;

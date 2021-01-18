@@ -64,6 +64,25 @@ ARGON_FUNC_NATIVE(builtins_len, len,
     return IntegerNew(length);
 }
 
+ARGON_FUNC_NATIVE(builtins_new, new,
+                  "Invoke datatype constructor."
+                  ""
+                  "- Parameters:"
+                  "     - type: datatype of which to invoke the constructor."
+                  "     - ...args: see datatype constructor."
+                  "- Returns: new object of type 'type'."
+                  "- Panics:"
+                  "     - TypeError: invalid type."
+                  "     - ???: see datatype constructor.",
+                  1, true) {
+    auto *info = (TypeInfo *) argv[0];
+
+    if (!AR_TYPEOF(argv[0], type_type_))
+        return ErrorFormat(&error_type_error, "expected datatype, found '%s'", AR_TYPE_NAME(argv[0]));
+
+    return info->ctor(argv + 1, count - 1);
+}
+
 ARGON_FUNC_NATIVE(builtins_panic, panic,
                   "Stops normal execution of current ArRoutine."
                   ""
@@ -113,23 +132,18 @@ ARGON_FUNC_NATIVE(builtins_print, print,
                   "- Parameters:"
                   "     - ...obj: objects to print."
                   "- Returns: nil",
-                  1, true) {
+                  0, true) {
     auto out = (io::File *) RuntimeGetProperty("stdout", &io::type_file_);
-    List *variadic;
+    size_t i = 0;
 
     if (out == nullptr)
         return nullptr;
 
-    if (argv[0] != NilVal) {
-        variadic = (List *) argv[0];
-
-        if (variadic->type != &type_list_) {
+    while (i < count) {
+        if (argon::module::io::WriteObject(out, argv[i++]) < 0)
             return nullptr;
-        }
-
-        // TODO: use iterator!
-        for (size_t i = 0; i < variadic->len; i++) {
-            if (argon::module::io::WriteObject(out, variadic->objects[i]) < 0)
+        if (i < count) {
+            if (argon::module::io::Write(out, (unsigned char *) " ", 1) < 0)
                 return nullptr;
         }
     }
@@ -146,8 +160,8 @@ ARGON_FUNC_NATIVE(builtins_println, println,
                   ""
                   "# SEE"
                   "- print.",
-                  1, true) {
-    ArObject *success = builtins_print_fn(self, argv);
+                  0, true) {
+    ArObject *success = builtins_print_fn(self, argv, count);
 
     if (success != nullptr) {
         auto out = (io::File *) RuntimeGetProperty("stdout", &io::type_file_);
@@ -187,6 +201,7 @@ const PropertyBulk builtins_bulk[] = {
         // Functions
         MODULE_BULK_EXPORT_FUNCTION(builtins_callable),
         MODULE_BULK_EXPORT_FUNCTION(builtins_len),
+        MODULE_BULK_EXPORT_FUNCTION(builtins_new),
         MODULE_BULK_EXPORT_FUNCTION(builtins_panic),
         MODULE_BULK_EXPORT_FUNCTION(builtins_print),
         MODULE_BULK_EXPORT_FUNCTION(builtins_println),
