@@ -116,10 +116,24 @@ void argon::vm::RoutineNewPanic(ArRoutine *routine, ArObject *object) {
         panic->recovered = false;
         panic->aborted = false;
 
-        if (routine->cu_defer != nullptr) {
-            routine->cu_defer->panic->aborted = true;
-            routine->cu_defer->panic = nullptr;
-        }
+        if (routine->cu_defer != nullptr)
+            if (routine->cu_defer->panic != nullptr) {
+                /* It is possible that a defer function is running without any panic event:
+                 *
+                 * e.g.
+                 * defer ()=> {
+                 *      defer () =>{
+                 *          ...
+                 *      }()
+                 *      ...
+                 * }()
+                 *
+                 * In this case, the internal defer is normally executed at the end of the first defer,
+                 * as you can see in the example above, there is no panic event (normal exit).
+                 */
+                routine->cu_defer->panic->aborted = true;
+                routine->cu_defer->panic = nullptr;
+            }
     }
 }
 
