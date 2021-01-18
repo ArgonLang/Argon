@@ -5,6 +5,7 @@
 #include "integer.h"
 #include "string.h"
 
+#include "error.h"
 #include "bool.h"
 
 #define FALSE_AS_INT    0
@@ -24,6 +25,16 @@ NumberSlots bool_nslots = {
         (UnaryOp) bool_as_integer,
         (ArSizeUnaryOp) bool_as_index
 };
+
+ArObject *bool_ctor(ArObject **args, ArSize count) {
+    if (!VariadicCheckPositional("bool", count, 0, 1))
+        return nullptr;
+
+    if (count == 1)
+        return BoolToArBool(IsTrue(*args));
+
+    return False;
+}
 
 bool bool_is_true(Bool *self) {
     return self->value;
@@ -71,7 +82,7 @@ const TypeInfo argon::object::type_bool_ = {
         "bool",
         nullptr,
         sizeof(Bool),
-        nullptr,
+        bool_ctor,
         nullptr,
         nullptr,
         (CompareOp) bool_compare,

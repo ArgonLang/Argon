@@ -107,6 +107,20 @@ bool argon::object::BufferSimpleFill(ArObject *obj, ArBuffer *buffer, ArBufferFl
     return true;
 }
 
+bool argon::object::VariadicCheckPositional(const char *name, int nargs, int min, int max) {
+    if (nargs < min) {
+        ErrorFormat(&error_type_error, "%s expected %s%d argument%s, got %d", name, (min == max ? "" : "at least "),
+                    min, min == 1 ? "" : "s", nargs);
+        return false;
+    } else if (nargs > max) {
+        ErrorFormat(&error_type_error, "%s expected %s%d argument%s, got %d", name, (min == max ? "" : "at most "),
+                    max, max == 1 ? "" : "s", nargs);
+        return false;
+    }
+
+    return true;
+}
+
 ArSize argon::object::Hash(ArObject *obj) {
     if (IsHashable(obj))
         return AR_GET_TYPE(obj)->hash(obj);

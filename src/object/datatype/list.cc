@@ -251,6 +251,16 @@ OpSlots list_ops{
         nullptr
 };
 
+ArObject *list_ctor(ArObject **args, ArSize count) {
+    if (!VariadicCheckPositional("list", count, 0, 1))
+        return nullptr;
+
+    if (count == 1)
+        return ListNew(*args);
+
+    return ListNew();
+}
+
 bool list_is_true(List *self) {
     return self->len > 0;
 }
@@ -328,7 +338,7 @@ const TypeInfo argon::object::type_list_ = {
         "list",
         nullptr,
         sizeof(List),
-        nullptr,
+        list_ctor,
         (VoidUnaryOp) list_cleanup,
         (Trace) list_trace,
         nullptr,

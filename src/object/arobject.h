@@ -203,6 +203,8 @@ namespace argon::object {
     bool BufferSimpleFill(ArObject *obj, ArBuffer *buffer, ArBufferFlags flags, unsigned char *raw, ArSize len,
                           bool writable);
 
+    bool VariadicCheckPositional(const char *name, int nargs, int min, int max);
+
     ArSize Hash(ArObject *obj);
 
     bool IsHashable(ArObject *obj);

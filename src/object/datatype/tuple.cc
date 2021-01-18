@@ -74,6 +74,16 @@ const SequenceSlots tuple_sequence{
         nullptr
 };
 
+ArObject *tuple_ctor(ArObject **args, ArSize count) {
+    if (!VariadicCheckPositional("tuple", count, 0, 1))
+        return nullptr;
+
+    if (count == 1)
+        return TupleNew(*args);
+
+    return TupleNew((size_t) 0);
+}
+
 bool tuple_is_true(Tuple *self) {
     return self->len > 0;
 }
@@ -159,7 +169,7 @@ const TypeInfo argon::object::type_tuple_ = {
         "tuple",
         nullptr,
         sizeof(Tuple),
-        nullptr,
+        tuple_ctor,
         (VoidUnaryOp) tuple_cleanup,
         nullptr,
         nullptr,
@@ -174,6 +184,22 @@ const TypeInfo argon::object::type_tuple_ = {
         &tuple_sequence,
         nullptr
 };
+
+template<typename T>
+Tuple *TupleClone(T *t) {
+    Tuple *tuple;
+
+    if ((tuple = TupleNew(t->len)) == nullptr)
+        return nullptr;
+
+    for (size_t i = 0; i < t->len; i++) {
+        IncRef(t->objects[i]);
+        tuple->objects[i] = t->objects[i];
+    }
+
+    tuple->len = t->len;
+    return tuple;
+}
 
 Tuple *argon::object::TupleNew(size_t len) {
     auto tuple = ArObjectNew<Tuple>(RCType::INLINE, &type_tuple_);
@@ -199,40 +225,13 @@ Tuple *argon::object::TupleNew(size_t len) {
 }
 
 Tuple *argon::object::TupleNew(const ArObject *sequence) {
-    Tuple *tuple = nullptr;
-    ArObject *tmp;
-
     if (IsSequence(sequence)) {
-        if ((tuple = TupleNew((size_t)0)) == nullptr)
-            return nullptr;
-
-        if (AR_TYPEOF(sequence, type_list_)) {
-            // List FAST-PATH
-            auto list = (List *) sequence;
-
-            if (list->len > 0) {
-                tuple->objects = (ArObject **) argon::memory::Alloc(list->len * sizeof(void *));
-
-                if (tuple->objects == nullptr) {
-                    Release(tuple);
-                    return nullptr;
-                }
-
-                auto other = (const ArObject **) list->objects;
-                for (size_t i = 0; i < list->len; i++) {
-                    tmp = (ArObject *) other[i];
-                    IncRef(tmp);
-                    tuple->objects[i] = tmp;
-                }
-
-                tuple->len = list->len;
-            }
-
-            return tuple;
-        }
+        if (AR_TYPEOF(sequence, type_list_))
+            return TupleClone((List *) sequence);
+        else if (AR_TYPEOF(sequence, type_tuple_))
+            return TupleClone((Tuple *) sequence);
     }
 
-    Release((ArObject **) &tuple);
     ErrorFormat(&error_not_implemented, "no viable conversion from '%s' to tuple", AR_TYPE_NAME(sequence));
     return nullptr;
 }

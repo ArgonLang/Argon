@@ -237,6 +237,16 @@ SequenceSlots string_sequence = {
         nullptr
 };
 
+ArObject *string_ctor(ArObject **args, ArSize count) {
+    if (!VariadicCheckPositional("str", count, 0, 1))
+        return nullptr;
+
+    if (count == 1)
+        return ToString(*args);
+
+    return StringIntern((char *) "");
+}
+
 bool string_is_true(String *self) {
     return self->len > 0;
 }
@@ -329,7 +339,7 @@ const TypeInfo argon::object::type_string_ = {
         "string",
         nullptr,
         sizeof(String),
-        nullptr,
+        string_ctor,
         (VoidUnaryOp) string_cleanup,
         nullptr,
         (CompareOp) string_compare,
