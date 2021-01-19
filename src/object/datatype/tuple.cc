@@ -181,6 +181,9 @@ const TypeInfo argon::object::type_tuple_ = {
         nullptr,
         nullptr,
         nullptr,
+        nullptr,
+        nullptr,
+        nullptr,
         &tuple_sequence,
         nullptr
 };

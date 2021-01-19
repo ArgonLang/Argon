@@ -52,6 +52,9 @@ const TypeInfo argon::module::io::type_file_ = {
         nullptr,
         nullptr,
         nullptr,
+        nullptr,
+        nullptr,
+        nullptr,
         nullptr
 };
 

@@ -43,6 +43,8 @@ const TypeInfo error_##type_name = {                                \
         nullptr,                                                    \
         nullptr,                                                    \
         nullptr,                                                    \
+        nullptr,                                                    \
+        nullptr,                                                    \
         obj_actions,                                                \
         nullptr,                                                    \
         nullptr                                                     \

@@ -218,6 +218,9 @@ const TypeInfo argon::object::type_set_ = {
         nullptr,
         nullptr,
         nullptr,
+        nullptr,
+        nullptr,
+        nullptr,
         &set_ops
 };
 

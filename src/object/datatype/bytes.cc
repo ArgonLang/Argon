@@ -238,6 +238,9 @@ const TypeInfo argon::object::type_bytes_ = {
         nullptr,
         nullptr,
         nullptr,
+        nullptr,
+        nullptr,
+        nullptr,
         &bytes_sequence,
         &bytes_ops,
 };

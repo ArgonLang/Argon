@@ -57,6 +57,13 @@ namespace argon::object {
         BufferRelFn rel_buffer;
     };
 
+    struct IteratorSlots {
+        BoolUnaryOp has_next;
+        UnaryOp next;
+        UnaryOp peek;
+        VoidUnaryOp reset;
+    };
+
     struct MapSlots {
         SizeTUnaryOp length;
         BinaryOp get_item;
@@ -122,32 +129,41 @@ namespace argon::object {
         const char *doc;
         const unsigned short size;
 
-        /* Object constructor */
+        /* Datatype constructor */
         VariadicOp ctor;
 
-        /* Object destructor */
+        /* Datatype destructor */
         VoidUnaryOp cleanup;
 
         /* GC trace method */
         Trace trace;
 
-        /* Make this object comparable */
+        /* Make this datatype comparable */
         CompareOp compare;
 
-        /* Make this object comparable for equality */
+        /* Make this datatype comparable for equality */
         BoolBinOp equal;
 
-        /* Return object truthiness */
+        /* Return datatype truthiness */
         BoolUnaryOp is_true;
 
-        /* Return object hash */
+        /* Return datatype hash */
         SizeTUnaryOp hash;
 
-        /* Return string object representation */
+        /* Return string datatype representation */
         UnaryOp str;
+
+        /* Returns an iterator for this datatype */
+        UnaryOp iter_get;
+
+        /* Returns a reverse iterator for this datatype */
+        UnaryOp iter_rget;
 
         /* Pointer to BufferSlots structure relevant only if the object implements bufferable behavior */
         const BufferSlots *buffer_actions;
+
+        /* Pointer to IteratorSlots structure relevant only if this datatype is an iterator */
+        const IteratorSlots *iterator_actions;
 
         /* Pointer to MapSlots structure relevant only if the object implements mapping behavior */
         const MapSlots *map_actions;
@@ -217,6 +233,10 @@ namespace argon::object {
     }
 
     inline bool IsBufferable(const ArObject *obj) { return obj->type->buffer_actions != nullptr; }
+
+    inline bool IsIterable(const ArObject *obj) { return AR_GET_TYPE(obj)->iter_get != nullptr; }
+
+    inline bool IsIterableReversed(const ArObject *obj) { return AR_GET_TYPE(obj)->iter_rget != nullptr; }
 
     inline bool IsMap(const ArObject *obj) { return obj->type->map_actions != nullptr; }
 

@@ -70,6 +70,9 @@ const TypeInfo argon::object::type_struct_ = {
         nullptr,
         nullptr,
         nullptr,
+        nullptr,
+        nullptr,
+        nullptr,
         &struct_actions,
         nullptr,
         nullptr

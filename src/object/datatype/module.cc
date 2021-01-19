@@ -110,6 +110,9 @@ const TypeInfo argon::object::type_module_ = {
         nullptr,
         nullptr,
         nullptr,
+        nullptr,
+        nullptr,
+        nullptr,
         &module_oslots,
         nullptr,
         nullptr
