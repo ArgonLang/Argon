@@ -176,7 +176,7 @@ ArObject *InstantiateStruct(ArRoutine *routine, Struct *base, ArObject **values,
 ArObject *Subscript(ArObject *obj, ArObject *idx, ArObject *set) {
     ArObject *ret = nullptr;
 
-    if (IsMap(obj)) {
+    if (AsMap(obj)) {
         if (set == nullptr) {
             if ((ret = obj->type->map_actions->get_item(obj, idx)) == nullptr)
                 return nullptr;
@@ -184,7 +184,7 @@ ArObject *Subscript(ArObject *obj, ArObject *idx, ArObject *set) {
             if (!obj->type->map_actions->set_item(obj, idx, set))
                 return False;
         }
-    } else if (IsSequence(obj)) {
+    } else if (AsSequence(obj)) {
         if (AsIndex(idx)) {
             if (set == nullptr) {
                 ret = obj->type->sequence_actions->get_item(obj, idx->type->number_actions->as_index(idx));
@@ -1110,7 +1110,7 @@ ArObject *argon::vm::Eval(ArRoutine *routine) {
                 auto len = ARG32;
                 ret = TOP();
 
-                if (!IsSequence(ret)) {
+                if (!AsSequence(ret)) {
                     ErrorFormat(&error_type_error, "unpacking expression was expecting a sequence not a '%s'",
                                 ret->type->name);
                     goto error;

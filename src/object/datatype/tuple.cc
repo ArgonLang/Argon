@@ -228,7 +228,7 @@ Tuple *argon::object::TupleNew(size_t len) {
 }
 
 Tuple *argon::object::TupleNew(const ArObject *sequence) {
-    if (IsSequence(sequence)) {
+    if (AsSequence(sequence)) {
         if (AR_TYPEOF(sequence, type_list_))
             return TupleClone((List *) sequence);
         else if (AR_TYPEOF(sequence, type_tuple_))

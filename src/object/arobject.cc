@@ -136,6 +136,20 @@ bool argon::object::IsHashable(ArObject *obj) {
     return true;
 }
 
+ArObject *argon::object::IteratorGet(const ArObject *obj) {
+    if (!IsIterable(obj))
+        return ErrorFormat(&error_type_error, "'%s' is not iterable", AR_TYPE_NAME(obj));
+
+    return AR_GET_TYPE(obj)->iter_get((ArObject *) obj);
+}
+
+ArObject *argon::object::IteratorGetReversed(const ArObject *obj) {
+    if (!IsIterableReversed(obj))
+        return ErrorFormat(&error_type_error, "'%s' is not reverse iterable", AR_TYPE_NAME(obj));
+
+    return AR_GET_TYPE(obj)->iter_rget((ArObject *) obj);
+}
+
 ArObject *argon::object::ToString(ArObject *obj) {
     if (AR_GET_TYPE(obj)->str != nullptr)
         return AR_GET_TYPE(obj)->str(obj);
@@ -143,14 +157,14 @@ ArObject *argon::object::ToString(ArObject *obj) {
     return ErrorFormat(&error_runtime_error, "unimplemented slot 'str' for object '%s'", AR_TYPE_NAME(obj));
 }
 
-bool argon::object::IsTrue(const ArObject *obj) {
-    if (IsSequence(obj) && obj->type->sequence_actions->length != nullptr)
-        return obj->type->sequence_actions->length((ArObject *) obj) > 0;
-    else if (IsMap(obj) && obj->type->map_actions->length != nullptr)
-        return obj->type->map_actions->length((ArObject *) obj) > 0;
-    if (obj->type->is_true != nullptr)
-        return obj->type->is_true((ArObject *) obj);
-    return false;
+ArSSize argon::object::Length(const ArObject *obj) {
+    if (AsSequence(obj) && AR_GET_TYPE(obj)->sequence_actions->length != nullptr)
+        return AR_GET_TYPE(obj)->sequence_actions->length((ArObject *) obj);
+    else if (AsMap(obj) && AR_GET_TYPE(obj)->map_actions->length != nullptr)
+        return AR_GET_TYPE(obj)->map_actions->length((ArObject *) obj);
+
+    ErrorFormat(&error_type_error, "'%s' has no len", AR_TYPE_NAME(obj));
+    return -1;
 }
 
 void argon::object::Release(ArObject *obj) {

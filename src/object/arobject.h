@@ -206,11 +206,50 @@ namespace argon::object {
         return (T *) ArObjectNew(rc, type);
     }
 
-    // Management functions
+    ArObject *IteratorGet(const ArObject *obj);
+
+    ArObject *IteratorGetReversed(const ArObject *obj);
+
+    ArObject *ToString(ArObject *obj);
+
+    template<typename T>
+    inline typename std::enable_if<std::is_base_of<ArObject, T>::value, T>::type *IncRef(T *obj) {
+        if (obj != nullptr)
+            obj->ref_count.IncStrong();
+        return obj;
+    }
+
+    ArSize Hash(ArObject *obj);
+
+    ArSSize Length(const ArObject *obj);
 
     inline bool AsIndex(const ArObject *obj) {
-        return obj->type->number_actions != nullptr && obj->type->number_actions->as_index;
+        return AR_GET_TYPE(obj)->number_actions != nullptr
+               && AR_GET_TYPE(obj)->number_actions->as_index;
     }
+
+    inline bool AsInteger(const ArObject *obj) {
+        return AR_GET_TYPE(obj)->number_actions != nullptr
+               && AR_GET_TYPE(obj)->number_actions->as_integer != nullptr;
+    }
+
+    inline bool AsMap(const ArObject *obj) { return AR_GET_TYPE(obj)->map_actions != nullptr; }
+
+    inline bool AsNumber(const ArObject *obj) { return AR_GET_TYPE(obj)->number_actions != nullptr; }
+
+    inline bool AsSequence(const ArObject *obj) { return AR_GET_TYPE(obj)->sequence_actions != nullptr; }
+
+    bool IsHashable(ArObject *obj);
+
+    inline bool IsBufferable(const ArObject *obj) { return AR_GET_TYPE(obj)->buffer_actions != nullptr; }
+
+    inline bool IsIterable(const ArObject *obj) { return AR_GET_TYPE(obj)->iter_get != nullptr; }
+
+    inline bool IsIterableReversed(const ArObject *obj) { return AR_GET_TYPE(obj)->iter_rget != nullptr; }
+
+    inline bool IsIterator(const ArObject *obj) { return AR_GET_TYPE(obj)->iterator_actions != nullptr; }
+
+    inline bool IsTrue(const ArObject *obj) { return AR_GET_TYPE(obj)->is_true((ArObject *) obj); }
 
     bool BufferGet(ArObject *obj, ArBuffer *buffer, ArBufferFlags flags);
 
@@ -220,31 +259,6 @@ namespace argon::object {
                           bool writable);
 
     bool VariadicCheckPositional(const char *name, int nargs, int min, int max);
-
-    ArSize Hash(ArObject *obj);
-
-    bool IsHashable(ArObject *obj);
-
-    ArObject *ToString(ArObject *obj);
-
-    inline void IncRef(ArObject *obj) {
-        if (obj != nullptr)
-            obj->ref_count.IncStrong();
-    }
-
-    inline bool IsBufferable(const ArObject *obj) { return obj->type->buffer_actions != nullptr; }
-
-    inline bool IsIterable(const ArObject *obj) { return AR_GET_TYPE(obj)->iter_get != nullptr; }
-
-    inline bool IsIterableReversed(const ArObject *obj) { return AR_GET_TYPE(obj)->iter_rget != nullptr; }
-
-    inline bool IsMap(const ArObject *obj) { return obj->type->map_actions != nullptr; }
-
-    inline bool IsNumber(const ArObject *obj) { return obj->type->number_actions != nullptr; }
-
-    inline bool IsSequence(const ArObject *obj) { return obj->type->sequence_actions != nullptr; }
-
-    bool IsTrue(const ArObject *obj);
 
     void Release(ArObject *obj);
 

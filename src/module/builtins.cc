@@ -54,9 +54,9 @@ ARGON_FUNC_NATIVE(builtins_len, len,
                   1, false) {
     size_t length;
 
-    if (IsSequence(argv[0]))
+    if (AsSequence(argv[0]))
         length = argv[0]->type->sequence_actions->length(argv[0]);
-    else if (IsMap(argv[0]))
+    else if (AsMap(argv[0]))
         length = argv[0]->type->map_actions->length(argv[0]);
     else
         return ErrorFormat(&error_type_error, "type '%s' has no len", argv[0]->type->name);
