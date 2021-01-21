@@ -189,6 +189,11 @@ namespace argon::object {
 #define AR_SAME_TYPE(object, other) (AR_GET_TYPE(object) == AR_GET_TYPE(other))
 #define AR_EQUAL(object, other)     (AR_GET_TYPE(object)->equal(object, other))
 #define AR_TYPE_NAME(object)        (AR_GET_TYPE(object)->name)
+#define AR_ITERATOR_SLOT(object)    (AR_GET_TYPE(object)->iterator_actions)
+#define AR_MAP_SLOT(object)         (AR_GET_TYPE(object)->map_actions)
+#define AR_NUMBER_SLOT(object)      (AR_GET_TYPE(object)->number_actions)
+#define AR_OBJECT_SLOT(object)      (AR_GET_TYPE(object)->obj_actions)
+#define AR_SEQUENCE_SLOT(object)    (AR_GET_TYPE(object)->sequence_actions)
 
     ArObject *ArObjectGCNew(const TypeInfo *type);
 
@@ -209,6 +214,8 @@ namespace argon::object {
     ArObject *IteratorGet(const ArObject *obj);
 
     ArObject *IteratorGetReversed(const ArObject *obj);
+
+    ArObject *IteratorNext(ArObject *iterator);
 
     ArObject *ToString(ArObject *obj);
 

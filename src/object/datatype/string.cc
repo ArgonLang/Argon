@@ -13,6 +13,7 @@
 #include "bounds.h"
 #include "decimal.h"
 #include "integer.h"
+#include "iterator.h"
 #include "map.h"
 #include "string.h"
 
@@ -20,6 +21,72 @@ using namespace argon::memory;
 using namespace argon::object;
 
 static Map *intern;
+
+size_t StringSubStrLen(String *str, size_t offset, size_t graphemes) {
+    unsigned char *buf = str->buffer + offset;
+    unsigned char *end = str->buffer + str->len;
+
+    if (graphemes == 0)
+        return 0;
+
+    while (graphemes-- && buf < end) {
+        if (*buf >> 7u == 0x0)
+            buf += 1;
+        else if (*buf >> 5u == 0x6)
+            buf += 2;
+        else if (*buf >> 4u == 0xE)
+            buf += 3;
+        else if (*buf >> 3u == 0x1E)
+            buf += 4;
+    }
+
+    return buf - (str->buffer + offset);
+}
+
+// STRING ITERATOR
+
+bool str_iter_has_next(Iterator *self) {
+    if (self->reversed)
+        return self->index > 0;
+
+    return self->index < ((String *) self->obj)->len;
+}
+
+ArObject *str_iter_next(Iterator *self) {
+    unsigned char *buf = ((String *) self->obj)->buffer + self->index;
+    ArObject *ret = nullptr;
+
+    int len = 1;
+
+    if (!str_iter_has_next(self))
+        return nullptr;
+
+    if (!self->reversed)
+        len = StringSubStrLen((String *) self->obj, self->index, 1);
+    else {
+        buf--;
+        while (buf > ((String *) self->obj)->buffer && *buf >> 6 == 0x2) {
+            buf--;
+            len++;
+        }
+    }
+
+    if ((ret = StringIntern((const char *) buf, len)) != nullptr)
+        self->index += self->reversed ? -len : len;
+
+    return ret;
+}
+
+ArObject *str_iter_peek(Iterator *self) {
+    auto idx = self->index;
+    auto ret = str_iter_next(self);
+
+    self->index = idx;
+
+    return ret;
+}
+
+ITERATOR_NEW_DEFAULT(str_iterator, (BoolUnaryOp) str_iter_has_next, (UnaryOp) str_iter_next, (UnaryOp) str_iter_peek);
 
 String *StringInit(size_t len, bool mkbuf) {
     auto str = ArObjectNew<String>(RCType::INLINE, &type_string_);
@@ -93,27 +160,6 @@ size_t FillBuffer(String *dst, size_t offset, const unsigned char *buf, size_t l
     }
 
     return idx;
-}
-
-size_t StringSubStrLen(String *str, size_t offset, size_t graphemes) {
-    unsigned char *buf = str->buffer + offset;
-    unsigned char *end = str->buffer + str->len;
-
-    if (graphemes == 0)
-        return 0;
-
-    while (graphemes-- && buf < end) {
-        if (*buf >> 7u == 0x0)
-            buf += 1;
-        else if (*buf >> 5u == 0x6)
-            buf += 2;
-        else if (*buf >> 4u == 0xE)
-            buf += 3;
-        else if (*buf >> 3u == 0x1E)
-            buf += 4;
-    }
-
-    return buf - (str->buffer + offset);
 }
 
 bool string_get_buffer(String *self, ArBuffer *buffer, ArBufferFlags flags) {
@@ -330,6 +376,14 @@ String *string_str(String *self) {
     return nullptr;
 }
 
+ArObject *string_iter_get(String *self) {
+    return IteratorNew(&type_str_iterator_, self, false);
+}
+
+ArObject *string_iter_rget(String *self) {
+    return IteratorNew(&type_str_iterator_, self, true);
+}
+
 void string_cleanup(String *self) {
     argon::memory::Free(self->buffer);
 }
@@ -347,8 +401,8 @@ const TypeInfo argon::object::type_string_ = {
         (BoolUnaryOp) string_is_true,
         (SizeTUnaryOp) string_hash,
         (UnaryOp) string_str,
-        nullptr,
-        nullptr,
+        (UnaryOp) string_iter_get,
+        (UnaryOp) string_iter_rget,
         &string_buffer,
         nullptr,
         nullptr,
