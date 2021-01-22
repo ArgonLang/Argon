@@ -43,6 +43,28 @@ ARGON_FUNC_NATIVE(builtins_callable, callable,
     return False;
 }
 
+ARGON_FUNC_NATIVE(builtins_hasnext, hasnext,
+                  "Return true if the iterator has more elements."
+                  ""
+                  "- Parameter iterator: iterator object."
+                  "- Returns: true if the iterator has more elements, false otherwise.",
+                  1, false) {
+    return BoolToArBool(AR_ITERATOR_SLOT(*argv)->has_next(*argv));
+}
+
+ARGON_FUNC_NATIVE(builtins_iter, iter,
+                  "Return an iterator object."
+                  ""
+                  "- Parameter obj: iterable object."
+                  "- Returns: new iterator."
+                  "- Panic TypeError: object is not iterable."
+                  ""
+                  "# SEE"
+                  "- riter: to obtain a reverse iterator.",
+                  1, false) {
+    return IteratorGet(*argv);
+}
+
 ARGON_FUNC_NATIVE(builtins_len, len,
                   "Returns the length of an object."
                   ""
@@ -62,6 +84,18 @@ ARGON_FUNC_NATIVE(builtins_len, len,
         return ErrorFormat(&error_type_error, "type '%s' has no len", argv[0]->type->name);
 
     return IntegerNew(length);
+}
+
+ARGON_FUNC_NATIVE(builtins_next, next,
+                  "Retrieve the next item from the iterator."
+                  ""
+                  "- Parameter iterator: iterator object."
+                  "- Returns: object."
+                  "- Panics:"
+                  "     - TypeError: invalid iterator."
+                  "     - ExhaustedIteratorError: reached the end of the collection.",
+                  1, false) {
+    return IteratorNext(*argv);
 }
 
 ARGON_FUNC_NATIVE(builtins_new, new,
@@ -114,6 +148,19 @@ ARGON_FUNC_NATIVE(builtins_recover, recover,
                   "- Returns: argument supplied to panic call, or nil if ArRoutine is not panicking.",
                   0, false) {
     return ReturnNil(argon::vm::GetLastError());
+}
+
+ARGON_FUNC_NATIVE(builtins_riter, riter,
+                  "Return an reverse iterator object."
+                  ""
+                  "- Parameter obj: iterable object."
+                  "- Returns: new reverse iterator."
+                  "- Panic TypeError: object is not iterable."
+                  ""
+                  "# SEE"
+                  "- iter: to obtain an iterator.",
+                  1, false) {
+    return IteratorGetReversed(*argv);
 }
 
 ARGON_FUNC_NATIVE(builtins_type, type,
@@ -200,12 +247,16 @@ const PropertyBulk builtins_bulk[] = {
 
         // Functions
         MODULE_BULK_EXPORT_FUNCTION(builtins_callable),
+        MODULE_BULK_EXPORT_FUNCTION(builtins_iter),
+        MODULE_BULK_EXPORT_FUNCTION(builtins_hasnext),
         MODULE_BULK_EXPORT_FUNCTION(builtins_len),
+        MODULE_BULK_EXPORT_FUNCTION(builtins_next),
         MODULE_BULK_EXPORT_FUNCTION(builtins_new),
         MODULE_BULK_EXPORT_FUNCTION(builtins_panic),
         MODULE_BULK_EXPORT_FUNCTION(builtins_print),
         MODULE_BULK_EXPORT_FUNCTION(builtins_println),
         MODULE_BULK_EXPORT_FUNCTION(builtins_recover),
+        MODULE_BULK_EXPORT_FUNCTION(builtins_riter),
         MODULE_BULK_EXPORT_FUNCTION(builtins_type),
         {nullptr, nullptr, false, PropertyInfo()} // Sentinel
 };
