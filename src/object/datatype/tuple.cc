@@ -11,6 +11,7 @@
 #include "error.h"
 #include "list.h"
 #include "nil.h"
+#include "iterator.h"
 #include "string.h"
 #include "tuple.h"
 
@@ -157,6 +158,14 @@ ArObject *tuple_str(Tuple *self) {
     return nullptr;
 }
 
+ArObject *tuple_iter_get(List *self) {
+    return IteratorNew(self, false);
+}
+
+ArObject *tuple_iter_rget(List *self) {
+    return IteratorNew(self, true);
+}
+
 void tuple_cleanup(Tuple *self) {
     for (size_t i = 0; i < self->len; i++)
         Release(self->objects[i]);
@@ -177,8 +186,8 @@ const TypeInfo argon::object::type_tuple_ = {
         (BoolUnaryOp) tuple_is_true,
         (SizeTUnaryOp) tuple_hash,
         (UnaryOp) tuple_str,
-        nullptr,
-        nullptr,
+        (UnaryOp)tuple_iter_get,
+        (UnaryOp)tuple_iter_rget,
         nullptr,
         nullptr,
         nullptr,

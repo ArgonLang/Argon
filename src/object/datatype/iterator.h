@@ -23,10 +23,10 @@ const TypeInfo type_##name##_ = {                                       \
         (VoidUnaryOp)(cleanup),                                         \
         nullptr,                                                        \
         nullptr,                                                        \
+        (BoolBinOp) IteratorEqual,                                      \
         nullptr,                                                        \
         nullptr,                                                        \
-        nullptr,                                                        \
-        nullptr,                                                        \
+        (UnaryOp) argon::object::IteratorStr,                           \
         nullptr,                                                        \
         nullptr,                                                        \
         nullptr,                                                        \
@@ -38,7 +38,7 @@ const TypeInfo type_##name##_ = {                                       \
 }
 
 #define ITERATOR_NEW_DEFAULT(name, has_next, next, peek) \
-ITERATOR_NEW(name, nullptr, argon::object::IteratorCleanup, has_next, next, peek, IteratorReset)
+ITERATOR_NEW(name, nullptr, argon::object::IteratorCleanup, has_next, next, peek, argon::object::IteratorReset)
 
 namespace argon::object {
 
@@ -49,9 +49,19 @@ namespace argon::object {
         bool reversed;
     };
 
+    extern const TypeInfo type_iterator_;
+
     Iterator *IteratorNew(const TypeInfo *type, ArObject *iterable, bool reversed);
 
+    inline Iterator *IteratorNew(ArObject *iterable, bool reversed) {
+        return IteratorNew(&type_iterator_, iterable, reversed);
+    }
+
+    bool IteratorEqual(Iterator *iterator, ArObject *other);
+
     inline void IteratorCleanup(Iterator *iterator) { Release(iterator->obj); }
+
+    ArObject *IteratorStr(Iterator *iterator);
 
     void IteratorReset(Iterator *iterator);
 

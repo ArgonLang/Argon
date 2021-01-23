@@ -7,6 +7,7 @@
 
 #include "error.h"
 #include "integer.h"
+#include "iterator.h"
 #include "list.h"
 #include "bounds.h"
 
@@ -321,6 +322,14 @@ ArObject *list_str(List *self) {
     return nullptr;
 }
 
+ArObject *list_iter_get(List *self) {
+    return IteratorNew(self, false);
+}
+
+ArObject *list_iter_rget(List *self) {
+    return IteratorNew(self, true);
+}
+
 void list_trace(List *self, VoidUnaryOp trace) {
     for (size_t i = 0; i < self->len; i++)
         trace(self->objects[i]);
@@ -346,8 +355,8 @@ const TypeInfo argon::object::type_list_ = {
         (BoolUnaryOp) list_is_true,
         nullptr,
         (UnaryOp) list_str,
-        nullptr,
-        nullptr,
+        (UnaryOp) list_iter_get,
+        (UnaryOp) list_iter_rget,
         nullptr,
         nullptr,
         nullptr,
