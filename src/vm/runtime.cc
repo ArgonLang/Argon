@@ -92,12 +92,12 @@ bool argon::vm::Initialize() {
         vcs[i].status = VCoreStatus::IDLE;
     }
 
-    // Initialize Main Context
-    if ((context_main = ContextNew()) == nullptr)
-        goto error;
-
     // Initialize Main ArRoutine
     if ((routine_main = RoutineNew(ArRoutineStatus::RUNNABLE)) == nullptr)
+        goto error;
+
+    // Initialize Main Context
+    if ((context_main = ContextNew()) == nullptr)
         goto error;
 
     // Bind routine_main and context_main
