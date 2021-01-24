@@ -19,10 +19,7 @@ size_t map_len(Map *self) {
 ArObject *argon::object::MapGet(Map *map, ArObject *key) {
     MapEntry *entry;
 
-    if (!IsHashable(key))
-        return nullptr;
-
-    if ((entry = (MapEntry *) HMapLookup(&map->hmap, key))) {
+    if ((entry = (MapEntry *) HMapLookup(&map->hmap, key)) != nullptr) {
         IncRef(entry->value);
         return entry->value;
     }
@@ -33,9 +30,6 @@ ArObject *argon::object::MapGet(Map *map, ArObject *key) {
 bool argon::object::MapInsert(Map *map, ArObject *key, ArObject *value) {
     MapEntry *entry;
 
-    if (!IsHashable(key))
-        return false;
-
     if ((entry = (MapEntry *) HMapLookup(&map->hmap, key)) != nullptr) {
         Release(entry->value);
         IncRef(value);
@@ -43,10 +37,12 @@ bool argon::object::MapInsert(Map *map, ArObject *key, ArObject *value) {
         return true;
     }
 
-    if ((entry = HMapFindOrAllocNode<MapEntry>(&map->hmap)) == nullptr) {
-        argon::vm::Panic(OutOfMemoryError);
+    // Check for UnashableError
+    if (argon::vm::IsPanicking())
         return false;
-    }
+
+    if ((entry = HMapFindOrAllocNode<MapEntry>(&map->hmap)) == nullptr)
+        return false;
 
     IncRef(key);
     entry->key = key;
@@ -57,7 +53,6 @@ bool argon::object::MapInsert(Map *map, ArObject *key, ArObject *value) {
         Release(key);
         Release(value);
         HMapEntryToFreeNode(&map->hmap, entry);
-        argon::vm::Panic(OutOfMemoryError);
         return false;
     }
 
@@ -163,9 +158,6 @@ ArObject *argon::object::MapGetFrmStr(Map *map, const char *key, size_t len) {
 
 bool argon::object::MapRemove(Map *map, ArObject *key) {
     MapEntry *entry;
-
-    if (!IsHashable(key))
-        return false;
 
     if ((entry = (MapEntry *) HMapRemove(&map->hmap, key)) != nullptr) {
         Release(entry->key);

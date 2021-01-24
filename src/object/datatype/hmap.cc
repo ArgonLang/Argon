@@ -2,12 +2,22 @@
 //
 // Licensed under the Apache License v2.0
 
+#include <vm/runtime.h>
+
+#include "error.h"
 #include "hash_magic.h"
 #include "string.h"
 #include "hmap.h"
 
 using namespace argon::memory;
 using namespace argon::object;
+
+#define CHECK_HASHABLE(obj, ret)                                                        \
+do {                                                                                    \
+if(!IsHashable(obj)) {                                                                  \
+    ErrorFormat(&error_unhashable, "unhashable type: '%s'", AR_TYPE_NAME(obj));  \
+    return ret;                                                                         \
+}} while(false)
 
 bool HMapResize(HMap *hmap) {
     HEntry **new_map;
@@ -21,8 +31,10 @@ bool HMapResize(HMap *hmap) {
 
     new_map = (HEntry **) Realloc(hmap->map, new_cap * sizeof(void *));
 
-    if (new_map == nullptr)
+    if (new_map == nullptr) {
+        argon::vm::Panic(OutOfMemoryError);
         return false;
+    }
 
     MemoryZero(new_map + hmap->cap, (new_cap - hmap->cap) * sizeof(void *));
 
@@ -101,6 +113,8 @@ bool argon::object::HMapInsert(HMap *hmap, HEntry *entry) {
     if (!HMapResize(hmap))
         return false;
 
+    CHECK_HASHABLE(entry->key, false);
+
     index = Hash(entry->key) % hmap->cap;
 
     entry->next = hmap->map[index];
@@ -112,8 +126,11 @@ bool argon::object::HMapInsert(HMap *hmap, HEntry *entry) {
 }
 
 HEntry *argon::object::HMapLookup(HMap *hmap, ArObject *key) {
-    // You MUST check if key is hashable before call this function
-    size_t index = Hash(key) % hmap->cap;
+    size_t index;
+
+    CHECK_HASHABLE(key, nullptr);
+
+    index = Hash(key) % hmap->cap;
 
     for (HEntry *cur = hmap->map[index]; cur != nullptr; cur = cur->next)
         if (AR_EQUAL(key, cur->key))
@@ -135,7 +152,11 @@ HEntry *argon::object::HMapLookup(HMap *hmap, const char *key, size_t len) {
 }
 
 HEntry *argon::object::HMapRemove(HMap *hmap, ArObject *key) {
-    size_t index = Hash(key) % hmap->cap;
+    size_t index;
+
+    CHECK_HASHABLE(key, nullptr);
+
+    index = Hash(key) % hmap->cap;
 
     for (HEntry *cur = hmap->map[index]; cur != nullptr; cur = cur->next) {
         if (AR_EQUAL(key, cur->key)) {
@@ -168,3 +189,5 @@ void argon::object::HMapFinalize(HMap *hmap, HMapCleanFn clean_fn) {
 
     Free(hmap->map);
 }
+
+#undef CHECK_HASHABLE

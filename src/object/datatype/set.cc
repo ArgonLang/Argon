@@ -238,16 +238,15 @@ Set *argon::object::SetNew() {
 bool argon::object::SetAdd(Set *set, ArObject *value) {
     HEntry *entry;
 
-    if (!IsHashable(value))
-        return false;
-
     if (HMapLookup(&set->set, value) != nullptr)
         return true;
 
-    if ((entry = HMapFindOrAllocNode<HEntry>(&set->set)) == nullptr) {
-        argon::vm::Panic(OutOfMemoryError);
+    // Check for UnashableError
+    if(argon::vm::IsPanicking())
         return false;
-    }
+
+    if ((entry = HMapFindOrAllocNode<HEntry>(&set->set)) == nullptr)
+        return false;
 
     IncRef(value);
     entry->key = value;
@@ -255,7 +254,6 @@ bool argon::object::SetAdd(Set *set, ArObject *value) {
     if (!HMapInsert(&set->set, entry)) {
         Release(value);
         HMapEntryToFreeNode(&set->set, entry);
-        argon::vm::Panic(OutOfMemoryError);
         return false;
     }
 

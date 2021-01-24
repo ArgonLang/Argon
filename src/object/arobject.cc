@@ -127,15 +127,6 @@ ArSize argon::object::Hash(ArObject *obj) {
     return 0;
 }
 
-bool argon::object::IsHashable(ArObject *obj) {
-    if (AR_GET_TYPE(obj)->hash == nullptr) {
-        ErrorFormat(&error_unhashable, "unhashable type: '%s'", AR_TYPE_NAME(obj));
-        return false;
-    }
-
-    return true;
-}
-
 ArObject *argon::object::IteratorGet(const ArObject *obj) {
     if (!IsIterable(obj))
         return ErrorFormat(&error_type_error, "'%s' is not iterable", AR_TYPE_NAME(obj));

@@ -246,7 +246,7 @@ namespace argon::object {
 
     inline bool AsSequence(const ArObject *obj) { return AR_GET_TYPE(obj)->sequence_actions != nullptr; }
 
-    bool IsHashable(ArObject *obj);
+    inline bool IsHashable(const ArObject *obj) { return AR_GET_TYPE(obj)->hash != nullptr; }
 
     inline bool IsBufferable(const ArObject *obj) { return AR_GET_TYPE(obj)->buffer_actions != nullptr; }
 
