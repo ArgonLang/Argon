@@ -287,8 +287,12 @@ ArObject *string_ctor(ArObject **args, ArSize count) {
     if (!VariadicCheckPositional("str", count, 0, 1))
         return nullptr;
 
-    if (count == 1)
+    if (count == 1){
+        if(AR_TYPEOF(*args, type_string_))
+            return IncRef(*args);
+
         return ToString(*args);
+    }
 
     return StringIntern((char *) "");
 }
@@ -628,7 +632,6 @@ ArObject *FmtGetNextArg(StringFormatter *fmt) {
 int FmtGetNextSpecifier(StringFormatter *fmt) {
     unsigned char *buf = fmt->fmt.buf + fmt->fmt.idx;
     size_t idx = 0;
-    size_t copy = 0;
 
     while ((fmt->fmt.idx + idx) < fmt->fmt.len) {
         if (buf[idx++] == '%') {
@@ -640,21 +643,20 @@ int FmtGetNextSpecifier(StringFormatter *fmt) {
 
             if (buf[idx] != '%') {
                 fmt->nspec++;
+                fmt->fmt.idx++;
+                idx--;
                 break;
             }
-
-            copy = ++idx;
-            continue;
+            idx++;
         }
-        copy++;
     }
 
-    if (StringBuilderWrite(&fmt->builder, buf, copy) < 0)
+    if (StringBuilderWrite(&fmt->builder, buf, idx) < 0)
         return -1;
 
     fmt->fmt.idx += idx;
 
-    return idx;
+    return fmt->fmt.idx!=fmt->fmt.len;
 }
 
 bool FmtParseOptionStar(StringFormatter *fmt, StringArg *arg, bool prec) {
