@@ -36,7 +36,7 @@ namespace argon::object {
         const char *name;
         union {
             ArObject *obj;
-            struct FunctionNative *func; // Forward declaration (see function.h)
+            NativeFunc *func;
         } prop;
         bool is_func;
         PropertyInfo info;

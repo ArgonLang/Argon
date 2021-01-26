@@ -11,30 +11,11 @@
 #include "string.h"
 
 #define ARGON_FUNC_NATIVE(cname, name, doc, arity, variadic)            \
-ArObject *cname##_fn(Function *self, ArObject **argv, size_t count);    \
-FunctionNative cname = {#name, doc, cname##_fn, arity, variadic};       \
-ArObject *cname##_fn(Function *self, ArObject **argv, size_t count)
+ArObject *cname##_fn(ArObject *self, ArObject **argv, ArSize count);    \
+NativeFunc cname = {#name, doc, cname##_fn, arity, variadic};           \
+ArObject *cname##_fn(ArObject *self, ArObject **argv, ArSize count)
 
 namespace argon::object {
-
-    using FunctionNativePtr = ArObject *(*)(struct Function *self, ArObject **argv, size_t count);
-
-    struct FunctionNative {
-        /* Name of native function (this name will be exposed to Argon) */
-        const char *name;
-
-        /* Documentation of native function (this doc will be exposed to Argon) */
-        const char *doc;
-
-        /* Pointer to native code */
-        FunctionNativePtr func;
-
-        /* Arity of the function, how many args accepts in input?! */
-        unsigned short arity;
-
-        /* Is a variadic function? (func variadic(p1,p2,...p3))*/
-        bool variadic;
-    };
 
     struct Function : ArObject {
         union {
@@ -42,7 +23,7 @@ namespace argon::object {
             Code *code;
 
             /* Pointer to structure that contains native code */
-            FunctionNativePtr native_fn;
+            NativeFuncPtr native_fn;
         };
 
         /* Function name */
@@ -77,7 +58,7 @@ namespace argon::object {
     Function *
     FunctionNew(Namespace *gns, String *name, Code *code, unsigned short arity, bool variadic, List *enclosed);
 
-    Function *FunctionNew(Namespace *gns, const FunctionNative *native);
+    Function *FunctionNew(Namespace *gns, const NativeFunc *native);
 
     Function *FunctionNew(const Function *func, List *currying);
 

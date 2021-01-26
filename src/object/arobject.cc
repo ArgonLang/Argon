@@ -67,6 +67,55 @@ ArObject *argon::object::ArObjectNew(RCType rc, const TypeInfo *type) {
     return obj;
 }
 
+ArObject *argon::object::IteratorGet(const ArObject *obj) {
+    if (!IsIterable(obj))
+        return ErrorFormat(&error_type_error, "'%s' is not iterable", AR_TYPE_NAME(obj));
+
+    return AR_GET_TYPE(obj)->iter_get((ArObject *) obj);
+}
+
+ArObject *argon::object::IteratorGetReversed(const ArObject *obj) {
+    if (!IsIterableReversed(obj))
+        return ErrorFormat(&error_type_error, "'%s' is not reverse iterable", AR_TYPE_NAME(obj));
+
+    return AR_GET_TYPE(obj)->iter_rget((ArObject *) obj);
+}
+
+ArObject *argon::object::IteratorNext(ArObject *iterator) {
+    ArObject *ret;
+
+    if (!IsIterator(iterator))
+        return ErrorFormat(&error_type_error, "expected an iterator not '%s'", AR_TYPE_NAME(iterator));
+
+    if ((ret = AR_ITERATOR_SLOT(iterator)->next(iterator)) == nullptr)
+        ErrorFormat(&error_exhausted_iterator, "reached the end of the collection");
+
+    return ret;
+}
+
+ArObject *argon::object::ToString(ArObject *obj) {
+    if (AR_GET_TYPE(obj)->str != nullptr)
+        return AR_GET_TYPE(obj)->str(obj);
+
+    return ErrorFormat(&error_runtime_error, "unimplemented slot 'str' for object '%s'", AR_TYPE_NAME(obj));
+}
+
+ArSize argon::object::Hash(ArObject *obj) {
+    if (IsHashable(obj))
+        return AR_GET_TYPE(obj)->hash(obj);
+    return 0;
+}
+
+ArSSize argon::object::Length(const ArObject *obj) {
+    if (AsSequence(obj) && AR_GET_TYPE(obj)->sequence_actions->length != nullptr)
+        return AR_GET_TYPE(obj)->sequence_actions->length((ArObject *) obj);
+    else if (AsMap(obj) && AR_GET_TYPE(obj)->map_actions->length != nullptr)
+        return AR_GET_TYPE(obj)->map_actions->length((ArObject *) obj);
+
+    ErrorFormat(&error_type_error, "'%s' has no len", AR_TYPE_NAME(obj));
+    return -1;
+}
+
 bool argon::object::BufferGet(ArObject *obj, ArBuffer *buffer, ArBufferFlags flags) {
     if (!IsBufferable(obj)) {
         ErrorFormat(&error_type_error, "bytes-like object is required, not '%s'", obj->type->name);
@@ -74,16 +123,6 @@ bool argon::object::BufferGet(ArObject *obj, ArBuffer *buffer, ArBufferFlags fla
     }
 
     return obj->type->buffer_actions->get_buffer(obj, buffer, flags);
-}
-
-void argon::object::BufferRelease(ArBuffer *buffer) {
-    if (buffer->obj == nullptr)
-        return;
-
-    if (buffer->obj->type->buffer_actions->rel_buffer != nullptr)
-        buffer->obj->type->buffer_actions->rel_buffer(buffer);
-
-    Release(&buffer->obj);
 }
 
 bool argon::object::BufferSimpleFill(ArObject *obj, ArBuffer *buffer, ArBufferFlags flags, unsigned char *raw,
@@ -121,53 +160,14 @@ bool argon::object::VariadicCheckPositional(const char *name, int nargs, int min
     return true;
 }
 
-ArSize argon::object::Hash(ArObject *obj) {
-    if (IsHashable(obj))
-        return AR_GET_TYPE(obj)->hash(obj);
-    return 0;
-}
+void argon::object::BufferRelease(ArBuffer *buffer) {
+    if (buffer->obj == nullptr)
+        return;
 
-ArObject *argon::object::IteratorGet(const ArObject *obj) {
-    if (!IsIterable(obj))
-        return ErrorFormat(&error_type_error, "'%s' is not iterable", AR_TYPE_NAME(obj));
+    if (buffer->obj->type->buffer_actions->rel_buffer != nullptr)
+        buffer->obj->type->buffer_actions->rel_buffer(buffer);
 
-    return AR_GET_TYPE(obj)->iter_get((ArObject *) obj);
-}
-
-ArObject *argon::object::IteratorGetReversed(const ArObject *obj) {
-    if (!IsIterableReversed(obj))
-        return ErrorFormat(&error_type_error, "'%s' is not reverse iterable", AR_TYPE_NAME(obj));
-
-    return AR_GET_TYPE(obj)->iter_rget((ArObject *) obj);
-}
-
-ArObject *argon::object::IteratorNext(ArObject *iterator) {
-    ArObject *ret;
-
-    if (!IsIterator(iterator))
-        return ErrorFormat(&error_type_error, "expected an iterator not '%s'", AR_TYPE_NAME(iterator));
-
-    if ((ret = AR_ITERATOR_SLOT(iterator)->next(iterator)) == nullptr)
-        ErrorFormat(&error_exhausted_iterator, "reached the end of the collection");
-
-    return ret;
-}
-
-ArObject *argon::object::ToString(ArObject *obj) {
-    if (AR_GET_TYPE(obj)->str != nullptr)
-        return AR_GET_TYPE(obj)->str(obj);
-
-    return ErrorFormat(&error_runtime_error, "unimplemented slot 'str' for object '%s'", AR_TYPE_NAME(obj));
-}
-
-ArSSize argon::object::Length(const ArObject *obj) {
-    if (AsSequence(obj) && AR_GET_TYPE(obj)->sequence_actions->length != nullptr)
-        return AR_GET_TYPE(obj)->sequence_actions->length((ArObject *) obj);
-    else if (AsMap(obj) && AR_GET_TYPE(obj)->map_actions->length != nullptr)
-        return AR_GET_TYPE(obj)->map_actions->length((ArObject *) obj);
-
-    ErrorFormat(&error_type_error, "'%s' has no len", AR_TYPE_NAME(obj));
-    return -1;
+    Release(&buffer->obj);
 }
 
 void argon::object::Release(ArObject *obj) {

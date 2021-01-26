@@ -183,6 +183,24 @@ namespace argon::object {
 
     extern const TypeInfo type_type_;
 
+    using NativeFuncPtr = ArObject *(*)(ArObject *self, ArObject **argv, ArSize count);
+    struct NativeFunc {
+        /* Name of native function (this name will be exposed to Argon) */
+        const char *name;
+
+        /* Documentation of native function (this doc will be exposed to Argon) */
+        const char *doc;
+
+        /* Pointer to native code */
+        NativeFuncPtr func;
+
+        /* Arity of the function, how many args accepts in input?! */
+        unsigned short arity;
+
+        /* Is a variadic function? (func variadic(p1,p2,...p3))*/
+        bool variadic;
+    };
+
 #define TYPEINFO_STATIC_INIT        {{RefCount(RCType::STATIC)}, &type_type_}
 #define AR_GET_TYPE(object)         ((object)->type)
 #define AR_TYPEOF(object, type)     (AR_GET_TYPE(object) == &(type))
@@ -260,12 +278,12 @@ namespace argon::object {
 
     bool BufferGet(ArObject *obj, ArBuffer *buffer, ArBufferFlags flags);
 
-    void BufferRelease(ArBuffer *buffer);
-
     bool BufferSimpleFill(ArObject *obj, ArBuffer *buffer, ArBufferFlags flags, unsigned char *raw, ArSize len,
                           bool writable);
 
     bool VariadicCheckPositional(const char *name, int nargs, int min, int max);
+
+    void BufferRelease(ArBuffer *buffer);
 
     void Release(ArObject *obj);
 

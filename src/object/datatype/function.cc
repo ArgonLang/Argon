@@ -140,7 +140,7 @@ Function *argon::object::FunctionNew(Namespace *gns, String *name, Code *code, u
     return fn;
 }
 
-Function *argon::object::FunctionNew(Namespace *gns, const FunctionNative *native) {
+Function *argon::object::FunctionNew(Namespace *gns, const NativeFunc *native) {
     Function *fn;
     String *name;
 
