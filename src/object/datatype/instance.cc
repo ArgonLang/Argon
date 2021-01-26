@@ -84,6 +84,7 @@ bool instance_setattr(Instance *self, ArObject *key, ArObject *value) {
 }
 
 const ObjectSlots instance_actions{
+        nullptr,
         (BinaryOp) instance_getattr,
         nullptr,
         (BoolTernOp) instance_setattr,

@@ -51,6 +51,7 @@ const ObjectSlots struct_actions{
         nullptr,
         (BinaryOp) struct_get_static_attr,
         nullptr,
+        nullptr,
         nullptr
 };
 

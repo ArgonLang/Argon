@@ -50,6 +50,24 @@ namespace argon::object {
         ArBufferFlags flags;
     };
 
+    using NativeFuncPtr = ArObject *(*)(ArObject *self, ArObject **argv, ArSize count);
+    struct NativeFunc {
+        /* Name of native function (this name will be exposed to Argon) */
+        const char *name;
+
+        /* Documentation of native function (this doc will be exposed to Argon) */
+        const char *doc;
+
+        /* Pointer to native code */
+        NativeFuncPtr func;
+
+        /* Arity of the function, how many args accepts in input?! */
+        unsigned short arity;
+
+        /* Is a variadic function? (func variadic(p1,p2,...p3))*/
+        bool variadic;
+    };
+
     using BufferGetFn = bool (*)(struct ArObject *obj, ArBuffer *buffer, ArBufferFlags flags);
     using BufferRelFn = void (*)(ArBuffer *buffer);
     struct BufferSlots {
@@ -76,6 +94,8 @@ namespace argon::object {
     };
 
     struct ObjectSlots {
+        const NativeFunc *methods;
+
         BinaryOp get_attr;
         BinaryOp get_static_attr;
         BoolTernOp set_attr;
@@ -179,27 +199,12 @@ namespace argon::object {
 
         /* Pointer to OpSlots structure that contains the common operations for an object */
         const OpSlots *ops;
+
+        /* Pointer to dynamically allocated namespace that contains relevant type methods (if any, nullptr otherwise) */
+        ArObject *tp_map;
     };
 
     extern const TypeInfo type_type_;
-
-    using NativeFuncPtr = ArObject *(*)(ArObject *self, ArObject **argv, ArSize count);
-    struct NativeFunc {
-        /* Name of native function (this name will be exposed to Argon) */
-        const char *name;
-
-        /* Documentation of native function (this doc will be exposed to Argon) */
-        const char *doc;
-
-        /* Pointer to native code */
-        NativeFuncPtr func;
-
-        /* Arity of the function, how many args accepts in input?! */
-        unsigned short arity;
-
-        /* Is a variadic function? (func variadic(p1,p2,...p3))*/
-        bool variadic;
-    };
 
 #define TYPEINFO_STATIC_INIT        {{RefCount(RCType::STATIC)}, &type_type_}
 #define AR_GET_TYPE(object)         ((object)->type)
@@ -275,6 +280,8 @@ namespace argon::object {
     inline bool IsIterator(const ArObject *obj) { return AR_GET_TYPE(obj)->iterator_actions != nullptr; }
 
     inline bool IsTrue(const ArObject *obj) { return AR_GET_TYPE(obj)->is_true((ArObject *) obj); }
+
+    bool TypeInit(TypeInfo *info);
 
     bool BufferGet(ArObject *obj, ArBuffer *buffer, ArBufferFlags flags);
 

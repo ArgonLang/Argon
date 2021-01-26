@@ -7,6 +7,7 @@
 #include <condition_variable>
 
 #include <object/arobject.h>
+#include <object/setup.h>
 
 #include "areval.h"
 #include "routine_queue.h"
@@ -95,6 +96,8 @@ bool argon::vm::Initialize() {
     // Initialize Main ArRoutine
     if ((routine_main = RoutineNew(ArRoutineStatus::RUNNABLE)) == nullptr)
         goto error;
+
+    object::TypesInit();
 
     // Initialize Main Context
     if ((context_main = ContextNew()) == nullptr)

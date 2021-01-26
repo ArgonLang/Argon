@@ -4,6 +4,7 @@
 
 #include <vm/runtime.h>
 #include <object/datatype/error.h>
+#include <object/datatype/function.h>
 
 #include "gc.h"
 
@@ -23,6 +24,25 @@ ArSize type_hash(ArObject *self) {
     return (ArSize) self; // returns memory pointer as size_t
 }
 
+ArObject *datatype_get_static_attr(TypeInfo *self, ArObject *key) {
+    PropertyInfo pinfo{};
+    ArObject *obj;
+
+    if ((obj = NamespaceGetValue((Namespace *) self->tp_map, key, &pinfo)) == nullptr)
+        return nullptr;
+
+    return obj;
+}
+
+const ObjectSlots datatype_object = {
+        nullptr,
+        nullptr,
+        (BinaryOp) datatype_get_static_attr,
+        nullptr,
+        nullptr
+
+};
+
 const TypeInfo argon::object::type_type_ = {
         TYPEINFO_STATIC_INIT,
         "datatype",
@@ -39,6 +59,10 @@ const TypeInfo argon::object::type_type_ = {
         nullptr,
         nullptr,
         nullptr,
+        nullptr,
+        nullptr,
+        nullptr,
+        &datatype_object,
         nullptr,
         nullptr,
         nullptr
@@ -142,6 +166,38 @@ bool argon::object::BufferSimpleFill(ArObject *obj, ArBuffer *buffer, ArBufferFl
     IncRef(obj);
     buffer->obj = obj;
     buffer->flags = flags;
+
+    return true;
+}
+
+bool argon::object::TypeInit(TypeInfo *info) {
+    Function *fn;
+
+    assert(info->tp_map == nullptr);
+
+    if (info->obj_actions == nullptr || info->obj_actions->methods == nullptr)
+        return true;
+
+    // Build namespace
+    if ((info->tp_map = NamespaceNew()) == nullptr)
+        return false;
+
+    // Push methods
+    for (const NativeFunc *method = info->obj_actions->methods; method->name != nullptr; method++) {
+        if ((fn = FunctionNew(nullptr, method)) == nullptr) {
+            Release(&info->tp_map);
+            return false;
+        }
+
+        if (!NamespaceNewSymbol((Namespace *) info->tp_map, fn->name, fn,
+                                PropertyInfo(PropertyType::PUBLIC | PropertyType::CONST))) {
+            Release(fn);
+            Release(&info->tp_map);
+            return false;
+        }
+
+        Release(fn);
+    }
 
     return true;
 }
