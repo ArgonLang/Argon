@@ -240,6 +240,8 @@ namespace argon::object {
 
     ArObject *IteratorNext(ArObject *iterator);
 
+    ArObject *PropertyGet(const ArObject *obj, const ArObject *key, bool member);
+
     ArObject *ToString(ArObject *obj);
 
     template<typename T>
@@ -280,6 +282,8 @@ namespace argon::object {
     inline bool IsIterator(const ArObject *obj) { return AR_GET_TYPE(obj)->iterator_actions != nullptr; }
 
     inline bool IsTrue(const ArObject *obj) { return AR_GET_TYPE(obj)->is_true((ArObject *) obj); }
+
+    bool PropertySet(ArObject *obj, ArObject *key, ArObject *value, bool member);
 
     bool TypeInit(TypeInfo *info);
 

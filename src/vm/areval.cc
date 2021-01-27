@@ -214,46 +214,6 @@ ArObject *Subscript(ArObject *obj, ArObject *idx, ArObject *set) {
     return ret;
 }
 
-ArObject *LoadStoreAttribute(ArObject *obj, ArObject *key, ArObject *set) {
-    ArObject *ret = nullptr;
-
-
-    if (obj->type->obj_actions == nullptr || ((set != nullptr && obj->type->obj_actions->set_attr == nullptr) ||
-                                              obj->type->obj_actions->get_attr == nullptr)) {
-        ErrorFormat(&error_attribute_error, "'%s' object is unable to use the attribute(.) operator", obj->type->name);
-        return set != nullptr ? False : nullptr;
-    }
-
-    if (set == nullptr)
-        ret = obj->type->obj_actions->get_attr(obj, key);
-    else {
-        if (!obj->type->obj_actions->set_attr(obj, key, set))
-            return False;
-    }
-
-    return ret;
-}
-
-ArObject *LoadStoreScope(ArObject *obj, ArObject *key, ArObject *set) {
-    ArObject *ret = nullptr;
-
-
-    if (obj->type->obj_actions == nullptr || ((set != nullptr && obj->type->obj_actions->set_static_attr == nullptr) ||
-                                              obj->type->obj_actions->get_static_attr == nullptr)) {
-        ErrorFormat(&error_attribute_error, "'%s' object is unable to use scope(::) operator", obj->type->name);
-        return set != nullptr ? False : nullptr;
-    }
-
-    if (set == nullptr)
-        ret = obj->type->obj_actions->get_static_attr(obj, key);
-    else {
-        if (!obj->type->obj_actions->set_static_attr(obj, key, set))
-            return False;
-    }
-
-    return ret;
-}
-
 ArObject *NativeCall(ArRoutine *routine, Function *function, ArObject **args, size_t count) {
     List *arguments = nullptr;
     ArObject **raw = args;
@@ -589,7 +549,7 @@ ArObject *argon::vm::Eval(ArRoutine *routine) {
             TARGET_OP(IMPFRM) {
                 auto attribute = (String *) TupleGetItem(cu_code->statics, ARG32);
 
-                if ((ret = LoadStoreScope(TOP(), attribute, nullptr)) == nullptr) {
+                if ((ret = PropertyGet(TOP(), attribute, false)) == nullptr) {
                     Release(attribute);
                     goto error;
                 }
@@ -702,7 +662,7 @@ ArObject *argon::vm::Eval(ArRoutine *routine) {
                 // TODO: CHECK OutOfBound
                 ArObject *key = TupleGetItem(cu_code->statics, ARG32);
 
-                if ((ret = LoadStoreAttribute(TOP(), key, nullptr)) == nullptr) {
+                if ((ret = PropertyGet(TOP(), key, true)) == nullptr) {
                     Release(key);
                     goto error;
                 }
@@ -756,7 +716,7 @@ ArObject *argon::vm::Eval(ArRoutine *routine) {
                 // TODO: CHECK OutOfBound
                 ArObject *key = TupleGetItem(cu_code->statics, ARG32);
 
-                if ((ret = LoadStoreScope(TOP(), key, nullptr)) == nullptr) {
+                if ((ret = PropertyGet(TOP(), key, false)) == nullptr) {
                     Release(key);
                     goto error;
                 }
@@ -1012,8 +972,7 @@ ArObject *argon::vm::Eval(ArRoutine *routine) {
                 // TODO: CHECK OutOfBound
                 ArObject *key = TupleGetItem(cu_code->statics, ARG32);
 
-                ret = LoadStoreAttribute(TOP(), key, PEEK1());
-                if (ret == False) {
+                if (!PropertySet(TOP(), key, PEEK1(), true)) {
                     Release(key);
                     goto error;
                 }
@@ -1069,8 +1028,7 @@ ArObject *argon::vm::Eval(ArRoutine *routine) {
             TARGET_OP(STSCOPE) {
                 ArObject *key = TupleGetItem(cu_code->statics, ARG32);
 
-                ret = LoadStoreScope(TOP(), key, PEEK1());
-                if (ret == False) {
+                if (!PropertySet(TOP(), key, PEEK1(), false)) {
                     Release(key);
                     goto error;
                 }

@@ -24,25 +24,6 @@ ArSize type_hash(ArObject *self) {
     return (ArSize) self; // returns memory pointer as size_t
 }
 
-ArObject *datatype_get_static_attr(TypeInfo *self, ArObject *key) {
-    PropertyInfo pinfo{};
-    ArObject *obj;
-
-    if ((obj = NamespaceGetValue((Namespace *) self->tp_map, key, &pinfo)) == nullptr)
-        return nullptr;
-
-    return obj;
-}
-
-const ObjectSlots datatype_object = {
-        nullptr,
-        nullptr,
-        (BinaryOp) datatype_get_static_attr,
-        nullptr,
-        nullptr
-
-};
-
 const TypeInfo argon::object::type_type_ = {
         TYPEINFO_STATIC_INIT,
         "datatype",
@@ -62,7 +43,7 @@ const TypeInfo argon::object::type_type_ = {
         nullptr,
         nullptr,
         nullptr,
-        &datatype_object,
+        nullptr,
         nullptr,
         nullptr,
         nullptr
@@ -113,6 +94,43 @@ ArObject *argon::object::IteratorNext(ArObject *iterator) {
 
     if ((ret = AR_ITERATOR_SLOT(iterator)->next(iterator)) == nullptr)
         ErrorFormat(&error_exhausted_iterator, "reached the end of the collection");
+
+    return ret;
+}
+
+ArObject *argon::object::PropertyGet(const ArObject *obj, const ArObject *key, bool member) {
+    PropertyInfo pinfo{};
+    ArObject *ret = nullptr;
+    TypeInfo *type;
+
+    if (AR_OBJECT_SLOT(obj) != nullptr) {
+        if (member) {
+            if (AR_OBJECT_SLOT(obj)->get_attr != nullptr)
+                ret = AR_OBJECT_SLOT(obj)->get_attr((ArObject *) obj, (ArObject *) key);
+        } else {
+            if (AR_OBJECT_SLOT(obj)->get_static_attr != nullptr)
+                ret = AR_OBJECT_SLOT(obj)->get_static_attr((ArObject *) obj, (ArObject *) key);
+        }
+    }
+
+    if (ret == nullptr && !argon::vm::IsPanicking()) {
+        type = AR_TYPEOF(obj, type_type_) ? (TypeInfo *) obj : (TypeInfo *) AR_GET_TYPE(obj);
+
+        if (type->tp_map != nullptr) {
+            ret = NamespaceGetValue((Namespace *) type->tp_map, (ArObject *) key, &pinfo);
+            if (ret == nullptr)
+                return ErrorFormat(&error_attribute_error, "unknown attribute '%s' for type '%s'",
+                                   ((String *) key)->buffer, type->name);
+
+            if (member && !pinfo.IsMember()) {
+                Release(&ret);
+                ErrorFormat(&error_attribute_error,
+                            "unable to access to static attribute '%s' from instance of type '%s'",
+                            ((String *) key)->buffer, type->name);
+            }
+        } else
+            ErrorFormat(&error_attribute_error, "type '%s' has no attributes", type->name);
+    }
 
     return ret;
 }
@@ -168,6 +186,25 @@ bool argon::object::BufferSimpleFill(ArObject *obj, ArBuffer *buffer, ArBufferFl
     buffer->flags = flags;
 
     return true;
+}
+
+bool argon::object::PropertySet(ArObject *obj, ArObject *key, ArObject *value, bool member) {
+    if (member) {
+        if (AR_OBJECT_SLOT(obj) == nullptr || AR_OBJECT_SLOT(obj)->set_attr == nullptr) {
+            ErrorFormat(&error_attribute_error, "'%s' object is unable to use attribute(.) operator",
+                        AR_TYPE_NAME(obj));
+            return false;
+        }
+
+        return AR_OBJECT_SLOT(obj)->set_attr(obj, key, value);
+    }
+
+    if (AR_OBJECT_SLOT(obj) == nullptr || AR_OBJECT_SLOT(obj)->set_static_attr == nullptr) {
+        ErrorFormat(&error_scope_error, "'%s' object is unable to use scope(::) operator", AR_TYPE_NAME(obj));
+        return false;
+    }
+
+    return AR_OBJECT_SLOT(obj)->set_static_attr(obj, key, value);
 }
 
 bool argon::object::TypeInit(TypeInfo *info) {
