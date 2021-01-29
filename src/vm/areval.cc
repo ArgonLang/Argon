@@ -129,7 +129,7 @@ ArObject *InstantiateStruct(ArRoutine *routine, Struct *base, ArObject **values,
     if (!key_pair) {
         size_t index = 0;
         for (auto *cur = (NsEntry *) base->names->hmap.iter_begin; cur != nullptr; cur = (NsEntry *) cur->iter_next) {
-            if (cur->info.IsMember() && !cur->info.IsConstant()) {
+            if (!cur->info.IsStatic() && !cur->info.IsConstant()) {
                 ArObject *value;
 
                 if (index < count) {
@@ -150,7 +150,7 @@ ArObject *InstantiateStruct(ArRoutine *routine, Struct *base, ArObject **values,
     } else {
         // Load default values
         for (auto *cur = (NsEntry *) base->names->hmap.iter_begin; cur != nullptr; cur = (NsEntry *) cur->iter_next) {
-            if (cur->info.IsMember())
+            if (!cur->info.IsStatic())
                 if (!NamespaceNewSymbol(instance_ns, cur->key, cur->value, cur->info)) {
                     Release(instance_ns);
                     return nullptr;

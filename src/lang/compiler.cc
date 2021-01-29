@@ -166,8 +166,8 @@ inline unsigned char AttrToFlags(bool pub, bool constant, bool weak, bool member
         flags |= PropertyType::CONST;
     if (weak)
         flags |= PropertyType::WEAK;
-    if (member)
-        flags |= PropertyType::MEMBER;
+    if (!member)
+        flags |= PropertyType::STATIC;
 
     return (unsigned char) flags;
 }

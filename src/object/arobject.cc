@@ -122,7 +122,7 @@ ArObject *argon::object::PropertyGet(const ArObject *obj, const ArObject *key, b
                 return ErrorFormat(&error_attribute_error, "unknown attribute '%s' for type '%s'",
                                    ((String *) key)->buffer, type->name);
 
-            if (member && !pinfo.IsMember()) {
+            if (member && pinfo.IsStatic()) {
                 Release(&ret);
                 ErrorFormat(&error_attribute_error,
                             "unable to access to static attribute '%s' from instance of type '%s'",

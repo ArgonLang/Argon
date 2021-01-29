@@ -26,7 +26,7 @@ ArObject *instance_getattr(Instance *self, ArObject *key) {
     if (obj == nullptr) {
         // Search in parent
         obj = NamespaceGetValue(self->base->names, key, &pinfo);
-        if (obj == nullptr || (pinfo.IsConstant() && !pinfo.IsMember())) {
+        if (obj == nullptr || (pinfo.IsConstant() && pinfo.IsStatic())) {
             Release(obj);
 
             // Search in parent MRO!
@@ -34,7 +34,7 @@ ArObject *instance_getattr(Instance *self, ArObject *key) {
                 for (size_t i = 0; i < self->base->impls->len; i++) {
                     auto trait = (Trait *) self->base->impls->objects[i];
                     obj = NamespaceGetValue(trait->names, key, &pinfo);
-                    if (obj != nullptr && pinfo.IsMember())
+                    if (obj != nullptr && !pinfo.IsStatic())
                         break;
                 }
             }
@@ -55,7 +55,7 @@ ArObject *instance_getattr(Instance *self, ArObject *key) {
         return nullptr;
     }
 
-    if (obj->type == &type_function_ && (pinfo.IsConstant() && pinfo.IsMember())) {
+    if (obj->type == &type_function_ && (pinfo.IsConstant() && !pinfo.IsStatic())) {
         auto tmp = FunctionNew((Function *) obj, self);
         Release(obj);
         obj = tmp;
