@@ -275,7 +275,7 @@ void FillFrameForCall(Frame *frame, Function *callable, ArObject **args, size_t 
         frame->locals[local_idx++] = args[i];
 
     // If last parameter in variadic function is empty, fill it with NilVal
-    if (callable->variadic && local_idx < callable->arity + 1)
+    if (callable->IsVariadic() && local_idx < callable->arity + 1)
         frame->locals[local_idx++] = NilVal;
 
     // assert(local_idx == callable->arity); or assert(local_idx == callable->arity+1); if variadic
@@ -412,13 +412,13 @@ ArObject *argon::vm::Eval(ArRoutine *routine) {
                     TOP_REPLACE(ret);
                     DISPATCH2();
                 } else if (total_args > func->arity) {
-                    if (!func->variadic) {
+                    if (!func->IsVariadic()) {
                         ErrorFormat(&error_type_error, "%s() takes %d argument, but %d were given",
                                     ((String *) func->name)->buffer, func->arity, total_args);
                         goto error;
                     }
 
-                    if (!func->native) {
+                    if (!func->IsNative()) {
                         if ((ret = RestElementToList(cu_frame->eval_stack - exceeded, exceeded)) == nullptr)
                             goto error;
 
@@ -428,7 +428,7 @@ ArObject *argon::vm::Eval(ArRoutine *routine) {
                     }
                 }
 
-                if (func->native) {
+                if (func->IsNative()) {
                     if ((ret = NativeCall(routine, func, cu_frame->eval_stack - local_args, local_args)) == nullptr)
                         goto error;
 
@@ -502,13 +502,13 @@ ArObject *argon::vm::Eval(ArRoutine *routine) {
                                 ((String *) func->name)->buffer, func->arity, total_args);
                     goto error;
                 } else if (total_args > func->arity) {
-                    if (!func->variadic) {
+                    if (!func->IsVariadic()) {
                         ErrorFormat(&error_type_error, "%s() takes %d argument, but %d were given",
                                     ((String *) func->name)->buffer, func->arity, total_args);
                         goto error;
                     }
 
-                    if (!func->native) {
+                    if (!func->IsNative()) {
                         if ((ret = RestElementToList(cu_frame->eval_stack - exceeded, exceeded)) == nullptr)
                             goto error;
 
@@ -761,26 +761,24 @@ ArObject *argon::vm::Eval(ArRoutine *routine) {
                 DISPATCH2();
             }
             TARGET_OP(MK_FUNC) {
-                auto flags = (argon::lang::MkFuncFlags) argon::lang::I32ExtractFlag(cu_frame->instr_ptr);
+                auto flags = (FunctionType) argon::lang::I32ExtractFlag(cu_frame->instr_ptr);
                 auto name = (String *) PEEK1();
                 List *enclosed = nullptr;
 
                 ret = TOP();
 
-                if (ENUMBITMASK_ISTRUE(flags, argon::lang::MkFuncFlags::CLOSURE)) {
+                if (ENUMBITMASK_ISTRUE(flags, FunctionType::CLOSURE)) {
                     enclosed = (List *) TOP();
                     ret = PEEK1();
                     name = (String *) PEEK2();
                 }
 
-                ret = FunctionNew(cu_frame->globals, name, (Code *) ret, ARG16,
-                                  ENUMBITMASK_ISTRUE(flags, argon::lang::MkFuncFlags::VARIADIC),
-                                  enclosed);
+                ret = FunctionNew(cu_frame->globals, name, nullptr, (Code *) ret, enclosed, ARG16,flags);
 
                 if (ret == nullptr)
                     goto error;
 
-                if (ENUMBITMASK_ISTRUE(flags, argon::lang::MkFuncFlags::CLOSURE))
+                if (ENUMBITMASK_ISTRUE(flags, FunctionType::CLOSURE))
                     POP();
 
                 POP();
@@ -1108,7 +1106,7 @@ ArObject *argon::vm::Eval(ArRoutine *routine) {
         routine->defer->panic = routine->panic;
         routine->cu_defer = routine->defer;
 
-        if (!dfr_fn->native) {
+        if (!dfr_fn->IsNative()) {
             auto dfr_frame = FrameNew(dfr_fn->code, dfr_fn->gns, nullptr); // TODO: check proxy_globals
             FillFrameForCall(dfr_frame, dfr_fn, nullptr, 0);
             Release(Eval(routine, dfr_frame));

@@ -110,15 +110,6 @@ namespace argon::lang {
         LIST = 0,
         DICT = 1
     };
-
-    enum class MkFuncFlags : unsigned char {
-        PLAIN = 0,
-        VARIADIC = 1,
-        CLOSURE = (unsigned char) 1 << (unsigned char) 1
-    };
-
 } // namespace lang
-
-ENUMBITMASK_ENABLE(argon::lang::MkFuncFlags);
 
 #endif // !ARGON_LANG_OPCODES_H_

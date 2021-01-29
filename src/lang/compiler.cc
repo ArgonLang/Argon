@@ -8,6 +8,7 @@
 #include <object/datatype/bool.h>
 #include <object/datatype/bytes.h>
 #include <object/datatype/integer.h>
+#include <object/datatype/function.h>
 #include <object/datatype/decimal.h>
 #include <object/datatype/namespace.h>
 #include <object/datatype/string.h>
@@ -48,7 +49,7 @@ argon::object::Code *Compiler::Assemble() {
 }
 
 argon::object::Code *Compiler::CompileFunction(const ast::Function *func) {
-    MkFuncFlags fun_flags = MkFuncFlags::PLAIN;
+    FunctionType fun_flags{};
     unsigned short p_count = func->params.size();
     Code *fu_code;
 
@@ -67,7 +68,7 @@ argon::object::Code *Compiler::CompileFunction(const ast::Function *func) {
         auto id = ast::CastNode<ast::Identifier>(param);
         this->VariableNew(id->value, false, 0);
         if (id->rest_element) {
-            fun_flags = MkFuncFlags::VARIADIC;
+            fun_flags = FunctionType::VARIADIC;
             p_count--;
         }
     }
@@ -100,7 +101,7 @@ argon::object::Code *Compiler::CompileFunction(const ast::Function *func) {
         }
         this->unit_->DecStack(fu_code->enclosed->len);
         this->EmitOp4(OpCodes::MK_LIST, fu_code->enclosed->len);
-        fun_flags |= MkFuncFlags::CLOSURE;
+        fun_flags |= FunctionType::CLOSURE;
     }
 
     this->EmitOp4Flags(OpCodes::MK_FUNC, (unsigned char) fun_flags, p_count);
