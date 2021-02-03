@@ -186,8 +186,8 @@ const TypeInfo argon::object::type_tuple_ = {
         (BoolUnaryOp) tuple_is_true,
         (SizeTUnaryOp) tuple_hash,
         (UnaryOp) tuple_str,
-        (UnaryOp)tuple_iter_get,
-        (UnaryOp)tuple_iter_rget,
+        (UnaryOp) tuple_iter_get,
+        (UnaryOp) tuple_iter_rget,
         nullptr,
         nullptr,
         nullptr,
@@ -237,15 +237,32 @@ Tuple *argon::object::TupleNew(size_t len) {
 }
 
 Tuple *argon::object::TupleNew(const ArObject *sequence) {
+    Tuple *tuple;
+    ArObject *ret;
+    ArSize idx = 0;
+
     if (AsSequence(sequence)) {
+        // FAST PATH
         if (AR_TYPEOF(sequence, type_list_))
             return TupleClone((List *) sequence);
         else if (AR_TYPEOF(sequence, type_tuple_))
             return TupleClone((Tuple *) sequence);
+
+        // Generic sequence
+        if ((tuple = TupleNew((size_t) AR_SEQUENCE_SLOT(sequence)->length((ArObject *) sequence))) == nullptr)
+            return nullptr;
+
+        while (idx < tuple->len) {
+            ret = AR_SEQUENCE_SLOT(sequence)->get_item((ArObject *) sequence, idx);
+            TupleInsertAt(tuple, idx++, ret);
+            Release(ret);
+        }
+
+        return tuple;
     }
 
-    ErrorFormat(&error_not_implemented, "no viable conversion from '%s' to tuple", AR_TYPE_NAME(sequence));
-    return nullptr;
+    return (Tuple *) ErrorFormat(&error_not_implemented, "no viable conversion from '%s' to tuple",
+                                 AR_TYPE_NAME(sequence));
 }
 
 Tuple *argon::object::TupleNew(ArObject *result, ArObject *error) {

@@ -19,16 +19,11 @@ size_t list_len(ArObject *obj) {
 }
 
 ArObject *argon::object::ListGetItem(List *self, ArSSize index) {
-    ArObject *obj;
-
     if (index < 0)
         index = self->len + index;
 
-    if (index < self->len) {
-        obj = self->objects[index];
-        IncRef(obj);
-        return obj;
-    }
+    if (index < self->len)
+        return IncRef(self->objects[index]);
 
     return ErrorFormat(&error_overflow_error, "list index out of range (len: %d, idx: %d)", self->len, index);
 }
@@ -36,8 +31,7 @@ ArObject *argon::object::ListGetItem(List *self, ArSSize index) {
 bool list_set_item(List *self, ArObject *obj, ArSSize index) {
     if (index < self->len) {
         Release(self->objects[index]);
-        IncRef(obj);
-        self->objects[index] = obj;
+        self->objects[index] = IncRef(obj);
         return true;
     }
 
@@ -73,7 +67,7 @@ ArObject *list_get_slice(List *self, Bounds *bounds) {
         }
     }
 
-    self->len = slice_len;
+    ret->len = slice_len;
 
     return ret;
 }
@@ -405,23 +399,39 @@ List *argon::object::ListNew(size_t cap) {
 }
 
 List *argon::object::ListNew(const ArObject *sequence) {
+    List *list;
+    ArObject *ret;
+    ArSize idx = 0;
+
     if (AsSequence(sequence)) {
+        // FAST PATH
         if (AR_TYPEOF(sequence, type_list_))
             return ListClone((List *) sequence);
         else if (AR_TYPEOF(sequence, type_tuple_))
             return ListClone((Tuple *) sequence);
+
+        // Generic sequence
+        if ((list = ListNew((size_t) AR_SEQUENCE_SLOT(sequence)->length((ArObject *) sequence))) == nullptr)
+            return nullptr;
+
+        while (idx < list->cap) {
+            ret = AR_SEQUENCE_SLOT(sequence)->get_item((ArObject *) sequence, idx++);
+            ListAppend(list, ret);
+            Release(ret);
+        }
+
+        return list;
     }
 
-    ErrorFormat(&error_not_implemented, "no viable conversion from '%s' to list", AR_TYPE_NAME(sequence));
-    return nullptr;
+    return (List *) ErrorFormat(&error_not_implemented, "no viable conversion from '%s' to list",
+                                AR_TYPE_NAME(sequence));
 }
 
 bool argon::object::ListAppend(List *list, ArObject *obj) {
     if (!CheckSize(list, 1))
         return false;
 
-    IncRef(obj);
-    list->objects[list->len++] = obj;
+    list->objects[list->len++] = IncRef(obj);
     return true;
 }
 

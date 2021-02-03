@@ -142,15 +142,10 @@ ArObject *argon::object::IteratorGetReversed(const ArObject *obj) {
 }
 
 ArObject *argon::object::IteratorNext(ArObject *iterator) {
-    ArObject *ret;
-
     if (!IsIterator(iterator))
         return ErrorFormat(&error_type_error, "expected an iterator not '%s'", AR_TYPE_NAME(iterator));
 
-    if ((ret = AR_ITERATOR_SLOT(iterator)->next(iterator)) == nullptr)
-        ErrorFormat(&error_exhausted_iterator, "reached the end of the collection");
-
-    return ret;
+    return AR_ITERATOR_SLOT(iterator)->next(iterator);
 }
 
 ArObject *argon::object::ToString(ArObject *obj) {

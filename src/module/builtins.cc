@@ -95,7 +95,12 @@ ARGON_FUNC_NATIVE(builtins_next, next,
                   "     - TypeError: invalid iterator."
                   "     - ExhaustedIteratorError: reached the end of the collection.",
                   1, false) {
-    return IteratorNext(*argv);
+    ArObject *ret = IteratorNext(*argv);
+
+    if (ret == nullptr)
+        return ErrorFormat(&error_exhausted_iterator, "reached the end of the collection");
+
+    return ret;
 }
 
 ARGON_FUNC_NATIVE(builtins_new, new,
