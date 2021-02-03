@@ -139,6 +139,16 @@ void map_trace(Map *self, VoidUnaryOp trace) {
         trace(cur->value);
 }
 
+ArObject *map_ctor(ArObject **args, ArSize count) {
+    if (!VariadicCheckPositional("map", count, 0, 1))
+        return nullptr;
+
+    if (count == 1)
+        return MapNewFromIterable((const ArObject *) *args);
+
+    return MapNew();
+}
+
 void map_cleanup(Map *self) {
     HMapFinalize(&self->hmap, [](HEntry *entry) {
         Release(((MapEntry *) entry)->value);
@@ -173,7 +183,7 @@ const TypeInfo argon::object::type_map_ = {
         "map",
         nullptr,
         sizeof(Map),
-        nullptr,
+        map_ctor,
         (VoidUnaryOp) map_cleanup,
         (Trace) map_trace,
         nullptr,
@@ -200,5 +210,50 @@ Map *argon::object::MapNew() {
             Release((ArObject **) &map);
     }
 
+    return map;
+}
+
+Map *argon::object::MapNewFromIterable(const ArObject *iterable) {
+    ArObject *iter;
+    ArObject *key;
+    ArObject *value;
+    Map *map;
+
+    bool ok;
+
+    if (!IsIterable(iterable))
+        return (Map*)ErrorFormat(&error_type_error, "'%s' is not iterable", AR_TYPE_NAME(iterable));
+
+    if ((map = MapNew()) == nullptr)
+        return nullptr;
+
+    if ((iter = IteratorGet(iterable)) == nullptr) {
+        Release(map);
+        return nullptr;
+    }
+
+    while (true) {
+        if ((key = IteratorNext(iter)) == nullptr)
+            break;
+
+        if ((value = IteratorNext(iter)) == nullptr) {
+            Release(key);
+            Release(iter);
+            Release(map);
+            return (Map*)ErrorFormat(&error_value_error, "map update require an iterable object of even length");
+        }
+
+        ok = MapInsert(map, key, value);
+        Release(key);
+        Release(value);
+
+        if (!ok) {
+            Release(iter);
+            Release(map);
+            return nullptr;
+        }
+    }
+
+    Release(iter);
     return map;
 }

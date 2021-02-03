@@ -196,6 +196,16 @@ ArObject *set_str(Set *self) {
     return nullptr;
 }
 
+ArObject *set_ctor(ArObject **args, ArSize count) {
+    if (!VariadicCheckPositional("set", count, 0, 1))
+        return nullptr;
+
+    if (count == 1)
+        return SetNewFromIterable((const ArObject *) *args);
+
+    return SetNew();
+}
+
 void set_cleanup(Set *self) {
     HMapFinalize(&self->set, nullptr);
 }
@@ -205,7 +215,7 @@ const TypeInfo argon::object::type_set_ = {
         "set",
         nullptr,
         sizeof(Set),
-        nullptr,
+        set_ctor,
         (VoidUnaryOp) set_cleanup,
         nullptr,
         nullptr,
@@ -235,6 +245,36 @@ Set *argon::object::SetNew() {
     return set;
 }
 
+Set *argon::object::SetNewFromIterable(const ArObject *iterable) {
+    ArObject *iter;
+    ArObject *ret;
+    Set *set;
+
+    if (!IsIterable(iterable))
+        return (Set*)ErrorFormat(&error_type_error, "'%s' is not iterable", AR_TYPE_NAME(iterable));
+
+    if ((set = SetNew()) == nullptr)
+        return nullptr;
+
+    if ((iter = IteratorGet(iterable)) == nullptr) {
+        Release(set);
+        return nullptr;
+    }
+
+    while ((ret = IteratorNext(iter)) != nullptr) {
+        if (!SetAdd(set, ret)) {
+            Release(iter);
+            Release(set);
+            Release(ret);
+            return nullptr;
+        }
+        Release(ret);
+    }
+
+    Release(iter);
+    return set;
+}
+
 bool argon::object::SetAdd(Set *set, ArObject *value) {
     HEntry *entry;
 
@@ -242,7 +282,7 @@ bool argon::object::SetAdd(Set *set, ArObject *value) {
         return true;
 
     // Check for UnashableError
-    if(argon::vm::IsPanicking())
+    if (argon::vm::IsPanicking())
         return false;
 
     if ((entry = HMapFindOrAllocNode<HEntry>(&set->set)) == nullptr)

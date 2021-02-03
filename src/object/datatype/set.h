@@ -18,6 +18,8 @@ namespace argon::object {
 
     Set *SetNew();
 
+    Set *SetNewFromIterable(const ArObject *iterable);
+
     bool SetAdd(Set *set, ArObject *value);
 
 } // namespace argon::object

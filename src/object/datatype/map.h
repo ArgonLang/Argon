@@ -22,6 +22,8 @@ namespace argon::object {
 
     Map *MapNew();
 
+    Map *MapNewFromIterable(const ArObject *iterable);
+
     ArObject *MapGet(Map *map, ArObject *key);
 
     ArObject *MapGetFrmStr(Map *map, const char *key, size_t len);
