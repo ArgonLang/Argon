@@ -52,7 +52,6 @@ void function_cleanup(Function *fn) {
     Release(fn->name);
     Release(fn->currying);
     Release(fn->enclosed);
-    Release(fn->instance);
     Release(fn->gns);
 }
 
@@ -155,18 +154,6 @@ Function *argon::object::FunctionNew(const Function *func, List *currying) {
     if (fn != nullptr) {
         Release(fn->currying);
         fn->currying = IncRef(currying);
-    }
-
-    return fn;
-}
-
-Function *argon::object::FunctionNew(const Function *func, ArObject *instance) {
-    auto fn = CloneFn(func);
-
-    if (fn != nullptr) {
-        Release(fn->instance); // Actually I expect it to be nullptr!
-        IncRef(instance);
-        fn->instance = instance;
     }
 
     return fn;

@@ -72,6 +72,17 @@ ArObject *argon::object::ArObjectNew(RCType rc, const TypeInfo *type) {
     return obj;
 }
 
+ArObject *argon::object::InstanceGetMethod(const ArObject *instance, const ArObject *key, bool *is_meth) {
+    ArObject *ret;
+
+    if ((ret = PropertyGet(instance, key, true)) != nullptr) {
+        if (is_meth != nullptr)
+            *is_meth = AR_TYPEOF(ret, type_function_) && ((Function *) ret)->IsMethod();
+    }
+
+    return ret;
+}
+
 ArObject *argon::object::IteratorGet(const ArObject *obj) {
     if (!IsIterable(obj))
         return ErrorFormat(&error_type_error, "'%s' is not iterable", AR_TYPE_NAME(obj));
@@ -98,39 +109,27 @@ ArObject *argon::object::IteratorNext(ArObject *iterator) {
     return ret;
 }
 
-ArObject *argon::object::PropertyGet(const ArObject *obj, const ArObject *key, bool member) {
-    PropertyInfo pinfo{};
-    ArObject *ret = nullptr;
-    TypeInfo *type;
+ArObject *argon::object::PropertyGet(const ArObject *obj, const ArObject *key, bool instance) {
+    const TypeInfo *type = AR_TYPEOF(obj, type_type_) ? (TypeInfo *) obj : AR_GET_TYPE(obj);
+    ArObject *ret;
 
-    if (AR_OBJECT_SLOT(obj) != nullptr) {
-        if (member) {
-            if (AR_OBJECT_SLOT(obj)->get_attr != nullptr)
-                ret = AR_OBJECT_SLOT(obj)->get_attr((ArObject *) obj, (ArObject *) key);
-        } else {
-            if (AR_OBJECT_SLOT(obj)->get_static_attr != nullptr)
-                ret = AR_OBJECT_SLOT(obj)->get_static_attr((ArObject *) obj, (ArObject *) key);
-        }
+    if (AR_GET_TYPE(obj)->obj_actions != nullptr) {
+        if (AR_OBJECT_SLOT(obj)->get_attr != nullptr)
+            return AR_OBJECT_SLOT(obj)->get_attr((ArObject *) obj, (ArObject *) key);
+
+        if (!instance && AR_OBJECT_SLOT(obj)->get_static_attr != nullptr)
+            return AR_OBJECT_SLOT(obj)->get_static_attr((ArObject *) obj, (ArObject *) key);
     }
 
-    if (ret == nullptr && !argon::vm::IsPanicking()) {
-        type = AR_TYPEOF(obj, type_type_) ? (TypeInfo *) obj : (TypeInfo *) AR_GET_TYPE(obj);
+    if (!AR_IS_TYPE_INSTANCE(obj) && instance)
+        return ErrorFormat(&error_type_error, "object is not an instance of type '%s'", type->name);
 
-        if (type->tp_map != nullptr) {
-            ret = NamespaceGetValue((Namespace *) type->tp_map, (ArObject *) key, &pinfo);
-            if (ret == nullptr)
-                return ErrorFormat(&error_attribute_error, "unknown attribute '%s' for type '%s'",
-                                   ((String *) key)->buffer, type->name);
+    if (type->tp_map == nullptr)
+        return ErrorFormat(&error_attribute_error, "type '%s' has no attributes", type->name);
 
-            if (member && pinfo.IsStatic()) {
-                Release(&ret);
-                ErrorFormat(&error_attribute_error,
-                            "unable to access to static attribute '%s' from instance of type '%s'",
-                            ((String *) key)->buffer, type->name);
-            }
-        } else
-            ErrorFormat(&error_attribute_error, "type '%s' has no attributes", type->name);
-    }
+    if ((ret = NamespaceGetValue((Namespace *) type->tp_map, (ArObject *) key, nullptr)) == nullptr)
+        return ErrorFormat(&error_attribute_error, "unknown attribute '%s' for type '%s'",
+                           ((String *) key)->buffer, type->name);
 
     return ret;
 }
@@ -208,6 +207,7 @@ bool argon::object::PropertySet(ArObject *obj, ArObject *key, ArObject *value, b
 }
 
 bool argon::object::TypeInit(TypeInfo *info) {
+    static PropertyType meth_flags = PropertyType::PUBLIC | PropertyType::CONST;
     Function *fn;
 
     assert(info->tp_map == nullptr);
@@ -226,8 +226,9 @@ bool argon::object::TypeInit(TypeInfo *info) {
             return false;
         }
 
-        if (!NamespaceNewSymbol((Namespace *) info->tp_map, fn->name, fn,
-                                PropertyInfo(PropertyType::PUBLIC | PropertyType::CONST))) {
+        fn->flags |= FunctionType::METHOD;
+
+        if (!NamespaceNewSymbol((Namespace *) info->tp_map, fn->name, fn, PropertyInfo(meth_flags))) {
             Release(fn);
             Release(&info->tp_map);
             return false;

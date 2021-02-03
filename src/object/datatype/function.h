@@ -45,8 +45,9 @@ namespace argon::object {
         /* List that contains captured variables in a closure */
         List *enclosed;
 
-        /* This pointer points to a structure instance (if and only if this function is a method) */
+        /* This pointer points to a structure instance (if and only if this function is a method)
         ArObject *instance;
+         */
 
         /* Pointer to the global namespace in which this function is declared */
         Namespace *gns;

@@ -55,12 +55,6 @@ ArObject *instance_getattr(Instance *self, ArObject *key) {
         return nullptr;
     }
 
-    if (obj->type == &type_function_ && (pinfo.IsConstant() && !pinfo.IsStatic())) {
-        auto tmp = FunctionNew((Function *) obj, self);
-        Release(obj);
-        obj = tmp;
-    }
-
     return obj;
 }
 

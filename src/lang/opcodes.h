@@ -69,6 +69,7 @@ namespace argon::lang {
         LDENC,
         LDGBL,
         LDLC,
+        LDMETH,
         LDSCOPE,
         LOR,
         LSTATIC,

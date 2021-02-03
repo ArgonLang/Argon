@@ -59,6 +59,7 @@ argon::object::Code *Compiler::CompileFunction(const ast::Function *func) {
     if (!func->id.empty()) {
         if (this->unit_->prev->scope == TUScope::STRUCT || this->unit_->prev->scope == TUScope::TRAIT) {
             this->VariableNew("self", false, 0);
+            fun_flags |= FunctionType::METHOD;
             p_count++;
         }
     }
@@ -522,15 +523,22 @@ void Compiler::CompileBranch(const ast::If *stmt) {
 
 void Compiler::CompileCall(const ast::Call *call, OpCodes code) {
     auto stack_sz = this->unit_->stack.current;
+    unsigned short params = call->args.size();
 
-    this->CompileCode(call->callee);
+    if (call->callee->type == ast::NodeType::MEMBER) {
+        auto idx = this->CompileMember(ast::CastNode<ast::Member>(call->callee), false, false);
+        this->EmitOp4(OpCodes::LDMETH, idx);
+        this->unit_->IncStack();
+        params++;
+    } else
+        this->CompileCode(call->callee);
 
     for (auto &arg : call->args)
         this->CompileCode(arg);
 
     this->unit_->DecStack(this->unit_->stack.current - stack_sz);
 
-    this->EmitOp2(code, call->args.size()); // CALL, DFR, SPWN
+    this->EmitOp2(code, params); // CALL, DFR, SPWN
 
     this->unit_->IncStack();
 }

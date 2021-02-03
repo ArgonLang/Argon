@@ -73,9 +73,13 @@ ArObject *prefix##name##_fn(ArObject *self, ArObject **argv, ArSize count);     
 NativeFunc prefix##name##_ = {#name, doc, prefix##name##_fn, arity, variadic};  \
 ArObject *prefix##name##_fn(ArObject *self, ArObject **argv, ArSize count)
 
-#define ARGON_FUNCTION(name, doc, arity, variadic)          ARGON_FUNCTION5(,name, doc, arity, variadic)
+#define ARGON_FUNCTION(name, doc, arity, variadic)  ARGON_FUNCTION5(,name, doc, arity, variadic)
+#define ARGON_METHOD(name, doc, arity, variadic)    ARGON_FUNCTION5(,name, doc, (arity)+1, variadic)
+
 #define ARGON_CALL_FUNC5(prefix, name, self, argv, count)   prefix##name##_fn(self, argv, count)
 #define ARGON_CALL_FUNC(name, self, argv, count)            ARGON_CALL_FUNC5(,name,self,argv,count)
+
+#define ARGON_METHOD_SENTINEL   {nullptr, nullptr, nullptr, 0, false}
 
     using BufferGetFn = bool (*)(struct ArObject *obj, ArBuffer *buffer, ArBufferFlags flags);
     using BufferRelFn = void (*)(ArBuffer *buffer);
@@ -221,6 +225,7 @@ ArObject *prefix##name##_fn(ArObject *self, ArObject **argv, ArSize count)
 #define AR_SAME_TYPE(object, other) (AR_GET_TYPE(object) == AR_GET_TYPE(other))
 #define AR_EQUAL(object, other)     (AR_GET_TYPE(object)->equal(object, other))
 #define AR_TYPE_NAME(object)        (AR_GET_TYPE(object)->name)
+#define AR_IS_TYPE_INSTANCE(object) (AR_GET_TYPE(object) != &type_type_)
 #define AR_ITERATOR_SLOT(object)    (AR_GET_TYPE(object)->iterator_actions)
 #define AR_MAP_SLOT(object)         (AR_GET_TYPE(object)->map_actions)
 #define AR_NUMBER_SLOT(object)      (AR_GET_TYPE(object)->number_actions)
@@ -243,13 +248,15 @@ ArObject *prefix##name##_fn(ArObject *self, ArObject **argv, ArSize count)
         return (T *) ArObjectNew(rc, type);
     }
 
+    ArObject *InstanceGetMethod(const ArObject *instance, const ArObject *key, bool *is_meth);
+
     ArObject *IteratorGet(const ArObject *obj);
 
     ArObject *IteratorGetReversed(const ArObject *obj);
 
     ArObject *IteratorNext(ArObject *iterator);
 
-    ArObject *PropertyGet(const ArObject *obj, const ArObject *key, bool member);
+    ArObject *PropertyGet(const ArObject *obj, const ArObject *key, bool instance);
 
     ArObject *ToString(ArObject *obj);
 
