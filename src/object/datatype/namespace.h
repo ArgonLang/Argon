@@ -12,10 +12,10 @@
 
 namespace argon::object {
     enum class PropertyType : unsigned char {
-        CONST = 0x01,
-        PUBLIC = 0x01 << 1,
-        MEMBER = 0x01 << 2,
-        WEAK = 0x01 << 3
+        STATIC = 1,
+        CONST = 1 << 1,
+        PUBLIC = 1 << 2,
+        WEAK = 1 << 3
     };
 }
 
@@ -37,20 +37,20 @@ namespace argon::object {
             return *this;
         }
 
-        [[nodiscard]] bool IsPublic() const {
-            return (this->flags_ & PropertyType::PUBLIC) == PropertyType::PUBLIC;
-        }
-
         [[nodiscard]] bool IsConstant() const {
-            return (this->flags_ & PropertyType::CONST) == PropertyType::CONST;
+            return ENUMBITMASK_ISTRUE(this->flags_, PropertyType::CONST);
         };
 
-        [[nodiscard]] bool IsWeak() const {
-            return (this->flags_ & PropertyType::WEAK) == PropertyType::WEAK;
+        [[nodiscard]] bool IsPublic() const {
+            return ENUMBITMASK_ISTRUE(this->flags_, PropertyType::PUBLIC);
         }
 
-        [[nodiscard]] bool IsMember() const {
-            return (this->flags_ & PropertyType::MEMBER) == PropertyType::MEMBER;
+        [[nodiscard]] bool IsStatic() const {
+            return ENUMBITMASK_ISTRUE(this->flags_, PropertyType::STATIC);
+        }
+
+        [[nodiscard]] bool IsWeak() const {
+            return ENUMBITMASK_ISTRUE(this->flags_, PropertyType::WEAK);
         }
     };
 

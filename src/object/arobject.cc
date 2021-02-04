@@ -4,9 +4,9 @@
 
 #include <vm/runtime.h>
 #include <object/datatype/error.h>
+#include <object/datatype/function.h>
 
 #include "gc.h"
-
 #include "arobject.h"
 
 using namespace argon::object;
@@ -41,6 +41,10 @@ const TypeInfo argon::object::type_type_ = {
         nullptr,
         nullptr,
         nullptr,
+        nullptr,
+        nullptr,
+        nullptr,
+        nullptr,
         nullptr
 };
 
@@ -67,64 +71,15 @@ ArObject *argon::object::ArObjectNew(RCType rc, const TypeInfo *type) {
     return obj;
 }
 
-bool argon::object::BufferGet(ArObject *obj, ArBuffer *buffer, ArBufferFlags flags) {
-    if (!IsBufferable(obj)) {
-        ErrorFormat(&error_type_error, "bytes-like object is required, not '%s'", obj->type->name);
-        return false;
+ArObject *argon::object::InstanceGetMethod(const ArObject *instance, const ArObject *key, bool *is_meth) {
+    ArObject *ret;
+
+    if ((ret = PropertyGet(instance, key, true)) != nullptr) {
+        if (is_meth != nullptr)
+            *is_meth = AR_TYPEOF(ret, type_function_) && ((Function *) ret)->IsMethod();
     }
 
-    return obj->type->buffer_actions->get_buffer(obj, buffer, flags);
-}
-
-void argon::object::BufferRelease(ArBuffer *buffer) {
-    if (buffer->obj == nullptr)
-        return;
-
-    if (buffer->obj->type->buffer_actions->rel_buffer != nullptr)
-        buffer->obj->type->buffer_actions->rel_buffer(buffer);
-
-    Release(&buffer->obj);
-}
-
-bool argon::object::BufferSimpleFill(ArObject *obj, ArBuffer *buffer, ArBufferFlags flags, unsigned char *raw,
-                                     size_t len, bool writable) {
-    if (buffer == nullptr) {
-        ErrorFormat(&error_buffer_error, "bad call to BufferSimpleFill, buffer == nullptr");
-        return false;
-    }
-
-    if (ENUMBITMASK_ISTRUE(flags, ArBufferFlags::WRITE) && !writable) {
-        ErrorFormat(&error_buffer_error, "buffer of object '%s' is not writable", obj->type->name);
-        return false;
-    }
-
-    buffer->buffer = raw;
-    buffer->len = len;
-    IncRef(obj);
-    buffer->obj = obj;
-    buffer->flags = flags;
-
-    return true;
-}
-
-bool argon::object::VariadicCheckPositional(const char *name, int nargs, int min, int max) {
-    if (nargs < min) {
-        ErrorFormat(&error_type_error, "%s expected %s%d argument%s, got %d", name, (min == max ? "" : "at least "),
-                    min, min == 1 ? "" : "s", nargs);
-        return false;
-    } else if (nargs > max) {
-        ErrorFormat(&error_type_error, "%s expected %s%d argument%s, got %d", name, (min == max ? "" : "at most "),
-                    max, max == 1 ? "" : "s", nargs);
-        return false;
-    }
-
-    return true;
-}
-
-ArSize argon::object::Hash(ArObject *obj) {
-    if (IsHashable(obj))
-        return AR_GET_TYPE(obj)->hash(obj);
-    return 0;
+    return ret;
 }
 
 ArObject *argon::object::IteratorGet(const ArObject *obj) {
@@ -148,11 +103,42 @@ ArObject *argon::object::IteratorNext(ArObject *iterator) {
     return AR_ITERATOR_SLOT(iterator)->next(iterator);
 }
 
+ArObject *argon::object::PropertyGet(const ArObject *obj, const ArObject *key, bool instance) {
+    const TypeInfo *type = AR_TYPEOF(obj, type_type_) ? (TypeInfo *) obj : AR_GET_TYPE(obj);
+    ArObject *ret;
+
+    if (AR_GET_TYPE(obj)->obj_actions != nullptr) {
+        if (AR_OBJECT_SLOT(obj)->get_attr != nullptr)
+            return AR_OBJECT_SLOT(obj)->get_attr((ArObject *) obj, (ArObject *) key);
+
+        if (!instance && AR_OBJECT_SLOT(obj)->get_static_attr != nullptr)
+            return AR_OBJECT_SLOT(obj)->get_static_attr((ArObject *) obj, (ArObject *) key);
+    }
+
+    if (!AR_IS_TYPE_INSTANCE(obj) && instance)
+        return ErrorFormat(&error_type_error, "object is not an instance of type '%s'", type->name);
+
+    if (type->tp_map == nullptr)
+        return ErrorFormat(&error_attribute_error, "type '%s' has no attributes", type->name);
+
+    if ((ret = NamespaceGetValue((Namespace *) type->tp_map, (ArObject *) key, nullptr)) == nullptr)
+        return ErrorFormat(&error_attribute_error, "unknown attribute '%s' for type '%s'",
+                           ((String *) key)->buffer, type->name);
+
+    return ret;
+}
+
 ArObject *argon::object::ToString(ArObject *obj) {
     if (AR_GET_TYPE(obj)->str != nullptr)
         return AR_GET_TYPE(obj)->str(obj);
 
     return ErrorFormat(&error_runtime_error, "unimplemented slot 'str' for object '%s'", AR_TYPE_NAME(obj));
+}
+
+ArSize argon::object::Hash(ArObject *obj) {
+    if (IsHashable(obj))
+        return AR_GET_TYPE(obj)->hash(obj);
+    return 0;
 }
 
 ArSSize argon::object::Length(const ArObject *obj) {
@@ -163,6 +149,113 @@ ArSSize argon::object::Length(const ArObject *obj) {
 
     ErrorFormat(&error_type_error, "'%s' has no len", AR_TYPE_NAME(obj));
     return -1;
+}
+
+bool argon::object::BufferGet(ArObject *obj, ArBuffer *buffer, ArBufferFlags flags) {
+    if (!IsBufferable(obj)) {
+        ErrorFormat(&error_type_error, "bytes-like object is required, not '%s'", obj->type->name);
+        return false;
+    }
+
+    return obj->type->buffer_actions->get_buffer(obj, buffer, flags);
+}
+
+bool argon::object::BufferSimpleFill(ArObject *obj, ArBuffer *buffer, ArBufferFlags flags, unsigned char *raw,
+                                     size_t len, bool writable) {
+    if (buffer == nullptr) {
+        ErrorFormat(&error_buffer_error, "bad call to BufferSimpleFill, buffer == nullptr");
+        return false;
+    }
+
+    if (ENUMBITMASK_ISTRUE(flags, ArBufferFlags::WRITE) && !writable) {
+        ErrorFormat(&error_buffer_error, "buffer of object '%s' is not writable", obj->type->name);
+        return false;
+    }
+
+    buffer->buffer = raw;
+    buffer->len = len;
+    IncRef(obj);
+    buffer->obj = obj;
+    buffer->flags = flags;
+
+    return true;
+}
+
+bool argon::object::PropertySet(ArObject *obj, ArObject *key, ArObject *value, bool member) {
+    if (member) {
+        if (AR_OBJECT_SLOT(obj) == nullptr || AR_OBJECT_SLOT(obj)->set_attr == nullptr) {
+            ErrorFormat(&error_attribute_error, "'%s' object is unable to use attribute(.) operator",
+                        AR_TYPE_NAME(obj));
+            return false;
+        }
+
+        return AR_OBJECT_SLOT(obj)->set_attr(obj, key, value);
+    }
+
+    if (AR_OBJECT_SLOT(obj) == nullptr || AR_OBJECT_SLOT(obj)->set_static_attr == nullptr) {
+        ErrorFormat(&error_scope_error, "'%s' object is unable to use scope(::) operator", AR_TYPE_NAME(obj));
+        return false;
+    }
+
+    return AR_OBJECT_SLOT(obj)->set_static_attr(obj, key, value);
+}
+
+bool argon::object::TypeInit(TypeInfo *info) {
+    static PropertyType meth_flags = PropertyType::PUBLIC | PropertyType::CONST;
+    Function *fn;
+
+    assert(info->tp_map == nullptr);
+
+    if (info->obj_actions == nullptr || info->obj_actions->methods == nullptr)
+        return true;
+
+    // Build namespace
+    if ((info->tp_map = NamespaceNew()) == nullptr)
+        return false;
+
+    // Push methods
+    for (const NativeFunc *method = info->obj_actions->methods; method->name != nullptr; method++) {
+        if ((fn = FunctionNew(nullptr, method)) == nullptr) {
+            Release(&info->tp_map);
+            return false;
+        }
+
+        fn->flags |= FunctionType::METHOD;
+
+        if (!NamespaceNewSymbol((Namespace *) info->tp_map, fn->name, fn, PropertyInfo(meth_flags))) {
+            Release(fn);
+            Release(&info->tp_map);
+            return false;
+        }
+
+        Release(fn);
+    }
+
+    return true;
+}
+
+bool argon::object::VariadicCheckPositional(const char *name, int nargs, int min, int max) {
+    if (nargs < min) {
+        ErrorFormat(&error_type_error, "%s expected %s%d argument%s, got %d", name, (min == max ? "" : "at least "),
+                    min, min == 1 ? "" : "s", nargs);
+        return false;
+    } else if (nargs > max) {
+        ErrorFormat(&error_type_error, "%s expected %s%d argument%s, got %d", name, (min == max ? "" : "at most "),
+                    max, max == 1 ? "" : "s", nargs);
+        return false;
+    }
+
+    return true;
+}
+
+void argon::object::BufferRelease(ArBuffer *buffer) {
+    if (buffer->obj == nullptr)
+        return;
+
+    if (buffer->obj->type->buffer_actions->rel_buffer != nullptr)
+        buffer->obj->type->buffer_actions->rel_buffer(buffer);
+
+    Release(&buffer->obj);
 }
 
 void argon::object::Release(ArObject *obj) {

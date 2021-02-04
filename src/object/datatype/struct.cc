@@ -27,7 +27,7 @@ ArObject *struct_get_static_attr(Struct *self, ArObject *key) {
         return nullptr;
     }
 
-    if (pinfo.IsMember()) {
+    if (!pinfo.IsStatic()) {
         ErrorFormat(&error_access_violation,
                     "in order to access to non const member '%s' an instance of '%s' is required",
                     ((String *) key)->buffer,
@@ -48,6 +48,7 @@ ArObject *struct_get_static_attr(Struct *self, ArObject *key) {
 }
 
 const ObjectSlots struct_actions{
+        nullptr,
         nullptr,
         (BinaryOp) struct_get_static_attr,
         nullptr,
@@ -92,7 +93,7 @@ Struct *argon::object::StructNew(String *name, Namespace *names, List *mro) {
         // Looking into 'names' and counts the number of instantiable properties.
         stru->properties_count = 0;
         for (auto *cur = (NsEntry *) names->hmap.iter_begin; cur != nullptr; cur = (NsEntry *) cur->iter_next) {
-            if (cur->info.IsMember() && !cur->info.IsConstant()) stru->properties_count++;
+            if (!cur->info.IsStatic() && !cur->info.IsConstant()) stru->properties_count++;
         }
     }
 

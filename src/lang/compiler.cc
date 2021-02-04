@@ -8,6 +8,7 @@
 #include <object/datatype/bool.h>
 #include <object/datatype/bytes.h>
 #include <object/datatype/integer.h>
+#include <object/datatype/function.h>
 #include <object/datatype/decimal.h>
 #include <object/datatype/namespace.h>
 #include <object/datatype/string.h>
@@ -48,7 +49,7 @@ argon::object::Code *Compiler::Assemble() {
 }
 
 argon::object::Code *Compiler::CompileFunction(const ast::Function *func) {
-    MkFuncFlags fun_flags = MkFuncFlags::PLAIN;
+    FunctionType fun_flags{};
     unsigned short p_count = func->params.size();
     Code *fu_code;
 
@@ -58,6 +59,7 @@ argon::object::Code *Compiler::CompileFunction(const ast::Function *func) {
     if (!func->id.empty()) {
         if (this->unit_->prev->scope == TUScope::STRUCT || this->unit_->prev->scope == TUScope::TRAIT) {
             this->VariableNew("self", false, 0);
+            fun_flags |= FunctionType::METHOD;
             p_count++;
         }
     }
@@ -67,7 +69,7 @@ argon::object::Code *Compiler::CompileFunction(const ast::Function *func) {
         auto id = ast::CastNode<ast::Identifier>(param);
         this->VariableNew(id->value, false, 0);
         if (id->rest_element) {
-            fun_flags = MkFuncFlags::VARIADIC;
+            fun_flags = FunctionType::VARIADIC;
             p_count--;
         }
     }
@@ -100,7 +102,7 @@ argon::object::Code *Compiler::CompileFunction(const ast::Function *func) {
         }
         this->unit_->DecStack(fu_code->enclosed->len);
         this->EmitOp4(OpCodes::MK_LIST, fu_code->enclosed->len);
-        fun_flags |= MkFuncFlags::CLOSURE;
+        fun_flags |= FunctionType::CLOSURE;
     }
 
     this->EmitOp4Flags(OpCodes::MK_FUNC, (unsigned char) fun_flags, p_count);
@@ -165,8 +167,8 @@ inline unsigned char AttrToFlags(bool pub, bool constant, bool weak, bool member
         flags |= PropertyType::CONST;
     if (weak)
         flags |= PropertyType::WEAK;
-    if (member)
-        flags |= PropertyType::MEMBER;
+    if (!member)
+        flags |= PropertyType::STATIC;
 
     return (unsigned char) flags;
 }
@@ -521,15 +523,22 @@ void Compiler::CompileBranch(const ast::If *stmt) {
 
 void Compiler::CompileCall(const ast::Call *call, OpCodes code) {
     auto stack_sz = this->unit_->stack.current;
+    unsigned short params = call->args.size();
 
-    this->CompileCode(call->callee);
+    if (call->callee->type == ast::NodeType::MEMBER) {
+        auto idx = this->CompileMember(ast::CastNode<ast::Member>(call->callee), false, false);
+        this->EmitOp4(OpCodes::LDMETH, idx);
+        this->unit_->IncStack();
+        params++;
+    } else
+        this->CompileCode(call->callee);
 
     for (auto &arg : call->args)
         this->CompileCode(arg);
 
     this->unit_->DecStack(this->unit_->stack.current - stack_sz);
 
-    this->EmitOp2(code, call->args.size()); // CALL, DFR, SPWN
+    this->EmitOp2(code, params); // CALL, DFR, SPWN
 
     this->unit_->IncStack();
 }

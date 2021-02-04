@@ -50,6 +50,37 @@ namespace argon::object {
         ArBufferFlags flags;
     };
 
+    using NativeFuncPtr = ArObject *(*)(ArObject *self, ArObject **argv, ArSize count);
+    struct NativeFunc {
+        /* Name of native function (this name will be exposed to Argon) */
+        const char *name;
+
+        /* Documentation of native function (this doc will be exposed to Argon) */
+        const char *doc;
+
+        /* Pointer to native code */
+        NativeFuncPtr func;
+
+        /* Arity of the function, how many args accepts in input?! */
+        unsigned short arity;
+
+        /* Is a variadic function? (func variadic(p1,p2,...p3))*/
+        bool variadic;
+    };
+
+#define ARGON_FUNCTION5(prefix, name, doc, arity, variadic)                     \
+ArObject *prefix##name##_fn(ArObject *self, ArObject **argv, ArSize count);     \
+NativeFunc prefix##name##_ = {#name, doc, prefix##name##_fn, arity, variadic};  \
+ArObject *prefix##name##_fn(ArObject *self, ArObject **argv, ArSize count)
+
+#define ARGON_FUNCTION(name, doc, arity, variadic)  ARGON_FUNCTION5(,name, doc, arity, variadic)
+#define ARGON_METHOD(name, doc, arity, variadic)    ARGON_FUNCTION5(,name, doc, (arity)+1, variadic)
+
+#define ARGON_CALL_FUNC5(prefix, name, self, argv, count)   prefix##name##_fn(self, argv, count)
+#define ARGON_CALL_FUNC(name, self, argv, count)            ARGON_CALL_FUNC5(,name,self,argv,count)
+
+#define ARGON_METHOD_SENTINEL   {nullptr, nullptr, nullptr, 0, false}
+
     using BufferGetFn = bool (*)(struct ArObject *obj, ArBuffer *buffer, ArBufferFlags flags);
     using BufferRelFn = void (*)(ArBuffer *buffer);
     struct BufferSlots {
@@ -76,6 +107,8 @@ namespace argon::object {
     };
 
     struct ObjectSlots {
+        const NativeFunc *methods;
+
         BinaryOp get_attr;
         BinaryOp get_static_attr;
         BoolTernOp set_attr;
@@ -179,6 +212,9 @@ namespace argon::object {
 
         /* Pointer to OpSlots structure that contains the common operations for an object */
         const OpSlots *ops;
+
+        /* Pointer to dynamically allocated namespace that contains relevant type methods (if any, nullptr otherwise) */
+        ArObject *tp_map;
     };
 
     extern const TypeInfo type_type_;
@@ -189,6 +225,7 @@ namespace argon::object {
 #define AR_SAME_TYPE(object, other) (AR_GET_TYPE(object) == AR_GET_TYPE(other))
 #define AR_EQUAL(object, other)     (AR_GET_TYPE(object)->equal(object, other))
 #define AR_TYPE_NAME(object)        (AR_GET_TYPE(object)->name)
+#define AR_IS_TYPE_INSTANCE(object) (AR_GET_TYPE(object) != &type_type_)
 #define AR_ITERATOR_SLOT(object)    (AR_GET_TYPE(object)->iterator_actions)
 #define AR_MAP_SLOT(object)         (AR_GET_TYPE(object)->map_actions)
 #define AR_NUMBER_SLOT(object)      (AR_GET_TYPE(object)->number_actions)
@@ -211,11 +248,15 @@ namespace argon::object {
         return (T *) ArObjectNew(rc, type);
     }
 
+    ArObject *InstanceGetMethod(const ArObject *instance, const ArObject *key, bool *is_meth);
+
     ArObject *IteratorGet(const ArObject *obj);
 
     ArObject *IteratorGetReversed(const ArObject *obj);
 
     ArObject *IteratorNext(ArObject *iterator);
+
+    ArObject *PropertyGet(const ArObject *obj, const ArObject *key, bool instance);
 
     ArObject *ToString(ArObject *obj);
 
@@ -258,14 +299,18 @@ namespace argon::object {
 
     inline bool IsTrue(const ArObject *obj) { return AR_GET_TYPE(obj)->is_true((ArObject *) obj); }
 
-    bool BufferGet(ArObject *obj, ArBuffer *buffer, ArBufferFlags flags);
+    bool PropertySet(ArObject *obj, ArObject *key, ArObject *value, bool member);
 
-    void BufferRelease(ArBuffer *buffer);
+    bool TypeInit(TypeInfo *info);
+
+    bool BufferGet(ArObject *obj, ArBuffer *buffer, ArBufferFlags flags);
 
     bool BufferSimpleFill(ArObject *obj, ArBuffer *buffer, ArBufferFlags flags, unsigned char *raw, ArSize len,
                           bool writable);
 
     bool VariadicCheckPositional(const char *name, int nargs, int min, int max);
+
+    void BufferRelease(ArBuffer *buffer);
 
     void Release(ArObject *obj);
 

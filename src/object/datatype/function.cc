@@ -20,10 +20,10 @@ bool function_equal(Function *self, ArObject *other) {
 
     if (AR_TYPEOF(other, type_function_)) {
         if (self->native_fn == o->native_fn) {
-            if (!self->native && !AR_EQUAL(self->code, o->code))
+            if (!self->IsNative() && !AR_EQUAL(self->code, o->code))
                 return false;
 
-            return self->instance == o->instance
+            return self->flags == o->flags
                    && AR_EQUAL(self->currying, o->currying)
                    && AR_EQUAL(self->enclosed, o->enclosed);
         }
@@ -52,7 +52,6 @@ void function_cleanup(Function *fn) {
     Release(fn->name);
     Release(fn->currying);
     Release(fn->enclosed);
-    Release(fn->instance);
     Release(fn->gns);
 }
 
@@ -76,84 +75,75 @@ const TypeInfo argon::object::type_function_ = {
         nullptr,
         nullptr,
         nullptr,
+        nullptr,
+        nullptr,
         nullptr
 };
+
 
 Function *CloneFn(const Function *func) {
     auto fn = ArObjectGCNew<Function>(&type_function_);
 
     if (fn != nullptr) {
-        if (!func->native) {
-            IncRef(func->code);
-            fn->code = func->code;
-        } else
+        if (!func->IsNative())
+            fn->code = IncRef(func->code);
+        else
             fn->native_fn = func->native_fn;
 
-        IncRef(func->name);
-        fn->name = func->name;
-
-        IncRef(func->currying);
-        fn->currying = func->currying;
-
-        IncRef(func->enclosed);
-        fn->enclosed = func->enclosed;
-
-        IncRef(func->instance);
-        fn->instance = func->instance;
-
-        IncRef(func->gns);
-        fn->gns = func->gns;
-
+        fn->name = IncRef(func->name);
+        fn->doc = IncRef(func->doc);
+        fn->currying = IncRef(func->currying);
+        fn->enclosed = IncRef(func->enclosed);
+        fn->gns = IncRef(func->gns);
         fn->arity = func->arity;
-        fn->variadic = func->variadic;
-        fn->native = func->native;
+        fn->flags = func->flags;
     }
 
     return fn;
 }
 
-Function *argon::object::FunctionNew(Namespace *gns, String *name, Code *code, unsigned short arity, bool variadic,
-                                     List *enclosed) {
+Function *
+argon::object::FunctionNew(Namespace *gns, String *name, String *doc, Code *code, List *enclosed, unsigned short arity,
+                           FunctionType flags) {
     auto fn = ArObjectGCNew<Function>(&type_function_);
 
     if (fn != nullptr) {
-        IncRef(code);
-        fn->code = code;
-
-        IncRef(name);
-        fn->name = name;
+        fn->code = IncRef(code);
+        fn->name = IncRef(name);
+        fn->doc = IncRef(doc);
         fn->currying = nullptr;
-
-        IncRef(enclosed);
-        fn->enclosed = enclosed;
-
-        fn->instance = nullptr;
-
-        IncRef(gns);
-        fn->gns = gns;
-
+        fn->enclosed = IncRef(enclosed);
+        fn->gns = IncRef(gns);
         fn->arity = arity;
-        fn->variadic = variadic;
-        fn->native = false;
+        fn->flags = flags;
     }
 
     return fn;
 }
 
-Function *argon::object::FunctionNew(Namespace *gns, const FunctionNative *native) {
+Function *argon::object::FunctionNew(Namespace *gns, const NativeFunc *native) {
+    FunctionType flags = FunctionType::NATIVE;
     Function *fn;
     String *name;
+    String *doc;
 
     if ((name = StringNew(native->name)) == nullptr)
         return nullptr;
 
-    fn = FunctionNew(gns, name, nullptr, native->arity, native->variadic, nullptr);
-    Release(name);
-
-    if (fn != nullptr) {
-        fn->native_fn = native->func;
-        fn->native = true;
+    if ((doc = StringNew(native->doc)) == nullptr) {
+        Release(name);
+        return nullptr;
     }
+
+    if (native->variadic)
+        flags |= FunctionType::VARIADIC;
+
+    fn = FunctionNew(gns, name, nullptr, nullptr, nullptr, native->arity, flags);
+    Release(name);
+    Release(doc);
+
+    if (fn != nullptr)
+        fn->native_fn = native->func;
 
     return fn;
 }
@@ -163,20 +153,7 @@ Function *argon::object::FunctionNew(const Function *func, List *currying) {
 
     if (fn != nullptr) {
         Release(fn->currying);
-        IncRef(currying);
-        fn->currying = currying;
-    }
-
-    return fn;
-}
-
-Function *argon::object::FunctionNew(const Function *func, ArObject *instance) {
-    auto fn = CloneFn(func);
-
-    if (fn != nullptr) {
-        Release(fn->instance); // Actually I expect it to be nullptr!
-        IncRef(instance);
-        fn->instance = instance;
+        fn->currying = IncRef(currying);
     }
 
     return fn;

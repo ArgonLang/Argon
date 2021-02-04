@@ -45,6 +45,8 @@ int argon::vm::Main(int argc, char **argv) {
     return 0;
 }
 
+#include <iostream>
+
 ArObject *argon::vm::EvalString(const std::string &str) {
     ArObject *res;
     Code *code;
