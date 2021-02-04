@@ -7,6 +7,7 @@
 #include "bool.h"
 #include "error.h"
 #include "integer.h"
+#include "iterator.h"
 #include "string.h"
 #include "hash_magic.h"
 #include "bytes.h"
@@ -217,6 +218,14 @@ ArObject *bytes_str(Bytes *self) {
     return StringBuilderFinish(&sb);
 }
 
+ArObject *bytes_iter_get(Bytes *self) {
+    return IteratorNew(self, false);
+}
+
+ArObject *bytes_iter_rget(Bytes *self) {
+    return IteratorNew(self, true);
+}
+
 void bytes_cleanup(Bytes *self) {
     Free(self->buffer);
 }
@@ -234,8 +243,8 @@ const TypeInfo argon::object::type_bytes_ = {
         (BoolUnaryOp) bytes_is_true,
         (SizeTUnaryOp) bytes_hash,
         (UnaryOp) bytes_str,
-        nullptr,
-        nullptr,
+        (UnaryOp)bytes_iter_get,
+        (UnaryOp)bytes_iter_rget,
         nullptr,
         nullptr,
         nullptr,
