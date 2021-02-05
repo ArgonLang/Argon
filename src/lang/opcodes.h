@@ -68,6 +68,7 @@ namespace argon::lang {
         LDATTR,
         LDENC,
         LDGBL,
+        LDITER, // LOAD ITERATOR
         LDLC,
         LDMETH,
         LDSCOPE,
@@ -85,6 +86,7 @@ namespace argon::lang {
         MOD,
         MUL,
         NEG,
+        NJE,    // NEXT_OR_JUMP_END
         NGV,    // NEW_GLOBAL_VARIABLE
         NLV,    // NEW_LOCAL_VARIABLE
         NOT,

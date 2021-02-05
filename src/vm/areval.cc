@@ -720,6 +720,13 @@ ArObject *argon::vm::Eval(ArRoutine *routine) {
                 PUSH(ret);
                 DISPATCH4();
             }
+            TARGET_OP(LDITER) {
+                if ((ret = IteratorGet(TOP())) == nullptr)
+                    goto error;
+
+                TOP_REPLACE(ret);
+                DISPATCH();
+            }
             TARGET_OP(LDLC) {
                 // TODO: CHECK OutOfBound
                 auto idx = ARG16;
@@ -929,6 +936,15 @@ ArObject *argon::vm::Eval(ArRoutine *routine) {
             }
             TARGET_OP(NEG) {
                 UNARY_OP(neg);
+            }
+            TARGET_OP(NJE) {
+                if ((ret = IteratorNext(TOP())) == nullptr) {
+                    POP();
+                    JUMPTO(ARG32);
+                }
+
+                PUSH(ret);
+                DISPATCH4();
             }
             TARGET_OP(NGV) {
                 // TODO: CHECK OutOfBound

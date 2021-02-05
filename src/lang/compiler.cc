@@ -358,6 +358,8 @@ void Compiler::CompileAssignment(const ast::Assignment *assign) {
                 auto tuple = ast::CastNode<ast::List>(assign->assignee);
 
                 this->EmitOp4(OpCodes::UNPACK, tuple->expressions.size());
+                this->unit_->DecStack();
+
                 this->unit_->IncStack(tuple->expressions.size());
 
                 for (auto &expr : tuple->expressions) {
@@ -643,10 +645,9 @@ void Compiler::CompileCode(const ast::NodeUptr &node) {
         TARGET_TYPE(FOR)
             this->CompileForLoop(ast::CastNode<ast::For>(node), "");
             break;
-            /*
         TARGET_TYPE(FOR_IN)
+            this->CompileForInLoop(ast::CastNode<ast::For>(node), "");
             break;
-             */
         TARGET_TYPE(FUNC) {
             auto func = ast::CastNode<ast::Function>(node);
             this->CompileFunction(func);
@@ -685,6 +686,9 @@ void Compiler::CompileCode(const ast::NodeUptr &node) {
             if (label->right->type == ast::NodeType::LOOP)
                 this->CompileLoop(ast::CastNode<ast::Loop>(label->right),
                                   ast::CastNode<ast::Identifier>(label->left)->value);
+            else if (label->right->type == ast::NodeType::FOR_IN)
+                this->CompileForInLoop(ast::CastNode<ast::For>(label->right),
+                                       ast::CastNode<ast::Identifier>(label->left)->value);
             else if (label->right->type == ast::NodeType::FOR)
                 this->CompileForLoop(ast::CastNode<ast::For>(label->right),
                                      ast::CastNode<ast::Identifier>(label->left)->value);
@@ -913,6 +917,55 @@ void Compiler::CompileForLoop(const ast::For *loop, const std::string &name) {
     this->CompileJump(OpCodes::JMP, meta->begin);
 
     this->unit_->LBlockEnd();
+
+    this->unit_->symt.ExitSub();
+}
+
+void Compiler::CompileForInLoop(const ast::For *loop, const std::string &name) {
+    LBlockMeta *meta;
+
+    this->unit_->symt.EnterSub();
+
+    this->CompileCode(loop->test);
+
+    this->EmitOp(OpCodes::LDITER);
+
+    meta = this->unit_->LBlockBegin(name, true);
+
+    this->CompileJump(OpCodes::NJE, meta->end);
+    this->unit_->BlockAsNextNew();
+
+    this->unit_->IncStack();
+
+    // ASSIGN
+
+    if (loop->init->type == ast::NodeType::IDENTIFIER)
+        this->VariableStore(ast::CastNode<ast::Identifier>(loop->init)->value);
+    else if (loop->init->type == ast::NodeType::TUPLE) {
+        auto tuple = ast::CastNode<ast::List>(loop->init);
+
+        this->EmitOp4(OpCodes::UNPACK, tuple->expressions.size());
+        this->unit_->DecStack();
+
+        this->unit_->IncStack(tuple->expressions.size());
+
+        for (auto &expr : tuple->expressions) {
+            if (expr->type != ast::NodeType::IDENTIFIER)
+                throw InvalidSyntaxtException(
+                        "in unpacking expression, only identifiers must be present on the left");
+            this->VariableStore(ast::CastNode<ast::Identifier>(expr)->value);
+        }
+    }
+
+    // EOL
+
+    this->CompileCode(loop->body);
+
+    this->CompileJump(OpCodes::JMP, meta->begin);
+
+    this->unit_->LBlockEnd();
+
+    this->unit_->DecStack();
 
     this->unit_->symt.ExitSub();
 }
