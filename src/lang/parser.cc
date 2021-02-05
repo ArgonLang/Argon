@@ -569,7 +569,7 @@ ast::NodeUptr Parser::ForStmt() {
         this->Eat(TokenType::SEMICOLON, "expected ; after test condition");
         inc = this->Expression();
     } else
-        test = this->Expression();
+        test = this->Test();
 
     return std::make_unique<For>(type, std::move(init), std::move(test), std::move(inc), this->Block(), start);
 }

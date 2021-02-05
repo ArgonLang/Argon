@@ -29,7 +29,7 @@
 | \<defer_stmt\>       | 'defer' \<test\>                                             |
 | \<return_stmt\>      | 'return' \<testlist\>                                        |
 | \<jmp_stmt\>         | ('break' \| 'continue' \| 'goto') [%IDENTIFIER%] \| 'fallthrough' |
-| \<for_stmt\>         | 'for' (<br />[\<var_decl\> \| \<expression\>] ';' \<test\> ';' \<test\><br />\| %IDENTIFIER% (',' %IDENTIFIER%)* 'in' \<expression\><br />) \<block\> |
+| \<for_stmt\>         | 'for' (<br />[\<var_decl\> \| \<expression\>] ';' \<test\> ';' \<test\><br />\| %IDENTIFIER% (',' %IDENTIFIER%)* 'in' \<test\><br />) \<block\> |
 | \<loop_stmt\>        | 'loop' [\<test\>] \<block\>                                  |
 | \<if_stmt\>          | 'if' \<test\> \<block\> [('elif' \<test\> \<block\>)* 'else' \<block\>] |
 | \<switch_stmt\>      | 'switch' [\<test\>] '{' \<switch_case\>* '}'                 |
