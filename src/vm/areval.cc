@@ -219,8 +219,13 @@ ArObject *NativeCall(Function *function, ArObject **args, size_t count) {
     List *arguments = nullptr;
     ArObject *ret;
 
-    if (args != nullptr && function->IsMethod()) {
+    if (count > 0 && function->IsMethod()) {
         instance = *args;
+
+        if (AR_GET_TYPE(instance) != function->base)
+            return ErrorFormat(&error_type_error, "method '%s' for type '%s' doesn't apply to '%s' type",
+                               function->name->buffer, function->base->name, AR_TYPE_NAME(instance));
+
         args++;
         count--;
     }

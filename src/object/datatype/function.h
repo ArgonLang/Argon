@@ -45,9 +45,8 @@ namespace argon::object {
         /* List that contains captured variables in a closure */
         List *enclosed;
 
-        /* This pointer points to a structure instance (if and only if this function is a method)
-        ArObject *instance;
-         */
+        /* This pointer points to TypeInfo of the DataType in which this method was declared */
+        TypeInfo *base;
 
         /* Pointer to the global namespace in which this function is declared */
         Namespace *gns;
@@ -84,9 +83,9 @@ namespace argon::object {
 
     Function *FunctionNew(Namespace *gns, const NativeFunc *native);
 
-    Function *FunctionNew(const Function *func, List *currying);
+    Function *FunctionMethodNew(Namespace *gns, TypeInfo *type, const NativeFunc *native);
 
-    Function *FunctionNew(const Function *func, ArObject *instance);
+    Function *FunctionNew(const Function *func, List *currying);
 
 } // namespace argon::object
 

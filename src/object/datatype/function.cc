@@ -52,6 +52,7 @@ void function_cleanup(Function *fn) {
     Release(fn->name);
     Release(fn->currying);
     Release(fn->enclosed);
+    Release(fn->base);
     Release(fn->gns);
 }
 
@@ -94,6 +95,7 @@ Function *CloneFn(const Function *func) {
         fn->doc = IncRef(func->doc);
         fn->currying = IncRef(func->currying);
         fn->enclosed = IncRef(func->enclosed);
+        fn->base = IncRef(func->base);
         fn->gns = IncRef(func->gns);
         fn->arity = func->arity;
         fn->flags = func->flags;
@@ -113,6 +115,7 @@ argon::object::FunctionNew(Namespace *gns, String *name, String *doc, Code *code
         fn->doc = IncRef(doc);
         fn->currying = nullptr;
         fn->enclosed = IncRef(enclosed);
+        fn->base = nullptr;
         fn->gns = IncRef(gns);
         fn->arity = arity;
         fn->flags = flags;
@@ -144,6 +147,17 @@ Function *argon::object::FunctionNew(Namespace *gns, const NativeFunc *native) {
 
     if (fn != nullptr)
         fn->native_fn = native->func;
+
+    return fn;
+}
+
+Function *argon::object::FunctionMethodNew(Namespace *gns, TypeInfo *type, const NativeFunc *native) {
+    Function *fn = FunctionNew(gns, native);
+
+    if (fn != nullptr) {
+        fn->base = IncRef(type);
+        fn->flags |= FunctionType::METHOD;
+    }
 
     return fn;
 }

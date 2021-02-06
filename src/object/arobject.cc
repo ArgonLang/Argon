@@ -215,12 +215,10 @@ bool argon::object::TypeInit(TypeInfo *info) {
 
     // Push methods
     for (const NativeFunc *method = info->obj_actions->methods; method->name != nullptr; method++) {
-        if ((fn = FunctionNew(nullptr, method)) == nullptr) {
+        if ((fn = FunctionMethodNew(nullptr, info, method)) == nullptr) {
             Release(&info->tp_map);
             return false;
         }
-
-        fn->flags |= FunctionType::METHOD;
 
         if (!NamespaceNewSymbol((Namespace *) info->tp_map, fn->name, fn, PropertyInfo(meth_flags))) {
             Release(fn);
