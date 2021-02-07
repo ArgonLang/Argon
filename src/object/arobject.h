@@ -73,8 +73,9 @@ ArObject *prefix##name##_fn(ArObject *self, ArObject **argv, ArSize count);     
 NativeFunc prefix##name##_ = {#name, doc, prefix##name##_fn, arity, variadic};  \
 ArObject *prefix##name##_fn(ArObject *self, ArObject **argv, ArSize count)
 
-#define ARGON_FUNCTION(name, doc, arity, variadic)  ARGON_FUNCTION5(,name, doc, arity, variadic)
-#define ARGON_METHOD(name, doc, arity, variadic)    ARGON_FUNCTION5(,name, doc, (arity)+1, variadic)
+#define ARGON_FUNCTION(name, doc, arity, variadic)          ARGON_FUNCTION5(,name, doc, arity, variadic)
+#define ARGON_METHOD5(prefix, name, doc, arity, variadic)   ARGON_FUNCTION5(prefix, name, doc, (arity)+1, variadic)
+#define ARGON_METHOD(name, doc, arity, variadic)            ARGON_FUNCTION5(,name, doc, (arity)+1, variadic)
 
 #define ARGON_CALL_FUNC5(prefix, name, self, argv, count)   prefix##name##_fn(self, argv, count)
 #define ARGON_CALL_FUNC(name, self, argv, count)            ARGON_CALL_FUNC5(,name,self,argv,count)

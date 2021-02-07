@@ -1,6 +1,7 @@
 cmake_minimum_required(VERSION 3.7)
 
 set(SRC
+        datatype/option.cc
         datatype/iterator.cc
         datatype/set.cc
         datatype/bytes.cc
