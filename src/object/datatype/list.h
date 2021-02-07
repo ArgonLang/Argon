@@ -28,6 +28,8 @@ namespace argon::object {
 
     bool ListConcat(List *list, ArObject *sequence);
 
+    void ListClear(List *list);
+
     void ListRemove(List *list, ArSSize i);
 
     ArObject *ListGetItem(List *list, ArSSize i);

@@ -9,7 +9,9 @@
 #include "integer.h"
 #include "iterator.h"
 #include "list.h"
+#include "option.h"
 #include "bounds.h"
+#include "bool.h"
 
 using namespace argon::object;
 using namespace argon::memory;
@@ -29,6 +31,9 @@ ArObject *argon::object::ListGetItem(List *self, ArSSize index) {
 }
 
 bool list_set_item(List *self, ArObject *obj, ArSSize index) {
+    if (index < 0)
+        index = self->len + index;
+
     if (index < self->len) {
         Release(self->objects[index]);
         self->objects[index] = IncRef(obj);
@@ -246,6 +251,172 @@ OpSlots list_ops{
         nullptr
 };
 
+ARGON_METHOD5(list_, append,
+              "Add an item to the end of the list."
+              ""
+              "- Parameter obj: object to insert."
+              "- Returns: list itself.", 1, false) {
+    if (!ListAppend((List *) self, *argv))
+        return nullptr;
+
+    return IncRef(self);
+}
+
+ARGON_METHOD5(list_, clear,
+              "Remove all items from the list."
+              ""
+              "- Returns: list itself.", 0, false) {
+    ListClear((List *) self);
+    return IncRef(self);
+}
+
+ARGON_METHOD5(list_, extend,
+              "Extend the list by appending all the items from the iterable."
+              ""
+              "- Parameter iterable: an iterable object."
+              "- Returns: list itself."
+              "- Panic TypeError: object is not iterable.", 1, false) {
+    ArObject *iter;
+    ArObject *obj;
+
+    if ((iter = IteratorGet(*argv)) == nullptr)
+        return nullptr;
+
+    while ((obj = IteratorNext(iter)) != nullptr) {
+        if (!ListAppend((List *) self, obj)) {
+            Release(obj);
+            Release(iter);
+            return nullptr;
+        }
+        Release(obj);
+    }
+
+    Release(iter);
+    return IncRef(self);
+}
+
+ARGON_METHOD5(list_, find,
+              "Find an item into the list and returns its position."
+              ""
+              "- Parameter obj: object to search."
+              "- Returns: index if the object was found into the list, -1 otherwise.", 1, false) {
+    auto *list = (List *) self;
+
+    for (ArSize i = 0; i < list->len; i++) {
+        if (AR_EQUAL(list->objects[i], *argv))
+            return IntegerNew(i);
+    }
+
+    return IntegerNew(-1);
+}
+
+ARGON_METHOD5(list_, insert,
+              "Insert an item at a given position."
+              ""
+              "- Parameters:"
+              "  - index: index of the element before which to insert."
+              "  - obj: object to insert."
+              "- Returns: list itself."
+              "- Panic TypeError: 'index' cannot be interpreted as an integer.", 2, false) {
+    auto *list = (List *) self;
+    ArSize idx;
+
+    if (!AsNumber(argv[0]) || AR_NUMBER_SLOT(argv[0])->as_index == nullptr)
+        return ErrorFormat(&error_type_error, "'%s' cannot be interpreted as an integer", AR_TYPE_NAME(argv[0]));
+
+    idx = idx = AR_NUMBER_SLOT(argv[0])->as_index(argv[0]);
+
+    if (idx > list->len)
+        return ARGON_CALL_FUNC5(list_, append, list, argv + 1, 1);
+
+    if (!list_set_item(list, argv[1], idx))
+        return nullptr;
+
+    return IncRef(list);
+}
+
+ARGON_METHOD5(list_, pop,
+              "Remove and returns the item at the end of the list."
+              ""
+              "- Returns: Option<?>", 0, false) {
+    auto *list = (List *) self;
+    ArObject *obj;
+
+    if (list->len > 0) {
+        obj = OptionNew(list->objects[list->len - 1]);
+        Release(list->objects[--list->len]);
+        return obj;
+    }
+
+    return OptionNew();
+}
+
+ARGON_METHOD5(list_, remove,
+              "Remove the first item from the list whose value is equal to obj."
+              ""
+              "- Parameter obj: object to delete."
+              "- Returns: true if obj was found and deleted, false otherwise.", 1, false) {
+    auto *list = (List *) self;
+    ArObject *ret = False;
+
+    for (ArSize i = 0; i < list->len; i++) {
+        if (AR_EQUAL(list->objects[i], argv[0])) {
+            Release(list->objects[i]);
+            list->len--;
+
+            // move objects back
+            for (ArSize j = i; j < list->len; j++)
+                list->objects[j] = list->objects[j + 1];
+
+            ret = True;
+            break;
+        }
+    }
+
+    return IncRef(ret);
+}
+
+ARGON_METHOD5(list_, reverse,
+              "Reverse the elements of the list in place."
+              ""
+              "- Returns: list itself.", 0, false) {
+    auto *list = (List *) self;
+    ArSize si = list->len - 1;
+    ArSize li = 0;
+
+    ArObject *tmp;
+
+    if (list->len > 1) {
+        while (li < si) {
+            tmp = list->objects[li];
+            list->objects[li++] = list->objects[si];
+            list->objects[si--] = tmp;
+        }
+    }
+
+    return IncRef(self);
+}
+
+const NativeFunc list_methods[] = {
+        list_append_,
+        list_clear_,
+        list_extend_,
+        list_find_,
+        list_insert_,
+        list_pop_,
+        list_remove_,
+        list_reverse_,
+        ARGON_METHOD_SENTINEL
+};
+
+const ObjectSlots list_obj = {
+        list_methods,
+        nullptr,
+        nullptr,
+        nullptr,
+        nullptr
+};
+
 ArObject *list_ctor(ArObject **args, ArSize count) {
     if (!VariadicCheckPositional("list", count, 0, 1))
         return nullptr;
@@ -355,9 +526,10 @@ const TypeInfo argon::object::type_list_ = {
         nullptr,
         nullptr,
         nullptr,
-        nullptr,
+        &list_obj,
         &list_actions,
-        &list_ops
+        &list_ops,
+        nullptr
 };
 
 template<typename T>
@@ -452,6 +624,16 @@ bool argon::object::ListConcat(List *list, ArObject *sequence) {
     }
 
     return false;
+}
+
+void argon::object::ListClear(List *list) {
+    if (list->len == 0)
+        return;
+
+    while (list->len) {
+        list->len--;
+        Release(list->objects[list->len]);
+    }
 }
 
 void argon::object::ListRemove(List *list, ArSSize i) {

@@ -11,6 +11,7 @@
 #include "error.h"
 #include "list.h"
 #include "nil.h"
+#include "integer.h"
 #include "iterator.h"
 #include "string.h"
 #include "tuple.h"
@@ -72,6 +73,34 @@ const SequenceSlots tuple_sequence{
         (BinaryOpArSize) argon::object::TupleGetItem,
         nullptr,
         (BinaryOp) tuple_get_slice,
+        nullptr
+};
+
+ARGON_METHOD5(tuple_, find,
+              "Find an item into the tuple and returns its position."
+              ""
+              "- Parameter obj: object to search."
+              "- Returns: index if the object was found into the tuple, -1 otherwise.", 1, false) {
+    auto *tuple = (Tuple *) self;
+
+    for (ArSize i = 0; i < tuple->len; i++) {
+        if (AR_EQUAL(tuple->objects[i], *argv))
+            return IntegerNew(i);
+    }
+
+    return IntegerNew(-1);
+}
+
+const NativeFunc tuple_methods[] = {
+        tuple_find_,
+        ARGON_METHOD_SENTINEL
+};
+
+const ObjectSlots tuple_obj = {
+        tuple_methods,
+        nullptr,
+        nullptr,
+        nullptr,
         nullptr
 };
 
@@ -192,7 +221,7 @@ const TypeInfo argon::object::type_tuple_ = {
         nullptr,
         nullptr,
         nullptr,
-        nullptr,
+        &tuple_obj,
         &tuple_sequence,
         nullptr
 };
