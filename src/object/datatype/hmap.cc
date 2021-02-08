@@ -86,6 +86,9 @@ void RemoveIterItem(HMap *hmap, HEntry *entry) {
         entry->iter_next->iter_prev = entry->iter_prev;
     else
         hmap->iter_end = entry->iter_prev;
+
+    entry->iter_next = nullptr;
+    entry->iter_prev = nullptr;
 }
 
 bool argon::object::HMapInit(HMap *hmap) {
@@ -188,6 +191,12 @@ void argon::object::HMapFinalize(HMap *hmap, HMapCleanFn clean_fn) {
     }
 
     Free(hmap->map);
+}
+
+void argon::object::HMapRemove(HMap *hmap, HEntry *entry) {
+    RemoveIterItem(hmap, entry);
+    HMapEntryToFreeNode(hmap, entry);
+    hmap->len--;
 }
 
 #undef CHECK_HASHABLE

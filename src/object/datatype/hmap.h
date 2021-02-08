@@ -75,6 +75,8 @@ namespace argon::object {
 
     void HMapFinalize(HMap *hmap, HMapCleanFn clean_fn);
 
+    void HMapRemove(HMap *hmap, HEntry *entry);
+
 } // namespace argon::object
 
 #endif // !ARGON_OBJECT_HMAP_H_

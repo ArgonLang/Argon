@@ -142,6 +142,32 @@ const OpSlots set_ops = {
         nullptr
 };
 
+ARGON_METHOD5(set_, add, "", 1, false) {
+    if (!SetAdd((Set *) self, argv[0]))
+        return nullptr;
+
+    return IncRef(self);
+}
+
+ARGON_METHOD5(set_, clear, "", 0, false) {
+    SetClear((Set *) self);
+    return IncRef(self);
+}
+
+const NativeFunc set_methods[] = {
+        set_add_,
+        set_clear_,
+        ARGON_METHOD_SENTINEL
+};
+
+const ObjectSlots set_obj = {
+        set_methods,
+        nullptr,
+        nullptr,
+        nullptr,
+        nullptr
+};
+
 bool set_is_true(Set *self) {
     return self->set.len > 0;
 }
@@ -229,9 +255,10 @@ const TypeInfo argon::object::type_set_ = {
         nullptr,
         nullptr,
         nullptr,
+        &set_obj,
         nullptr,
-        nullptr,
-        &set_ops
+        &set_ops,
+        nullptr
 };
 
 Set *argon::object::SetNew() {
@@ -251,7 +278,7 @@ Set *argon::object::SetNewFromIterable(const ArObject *iterable) {
     Set *set;
 
     if (!IsIterable(iterable))
-        return (Set*)ErrorFormat(&error_type_error, "'%s' is not iterable", AR_TYPE_NAME(iterable));
+        return (Set *) ErrorFormat(&error_type_error, "'%s' is not iterable", AR_TYPE_NAME(iterable));
 
     if ((set = SetNew()) == nullptr)
         return nullptr;
@@ -298,4 +325,13 @@ bool argon::object::SetAdd(Set *set, ArObject *value) {
     }
 
     return true;
+}
+
+void argon::object::SetClear(Set *set) {
+    HEntry *tmp;
+
+    for (HEntry *cursor = set->set.iter_begin; cursor != nullptr; cursor = tmp) {
+        tmp = cursor->iter_next;
+        HMapRemove(&set->set, cursor);
+    }
 }
