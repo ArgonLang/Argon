@@ -142,21 +142,171 @@ const OpSlots set_ops = {
         nullptr
 };
 
-ARGON_METHOD5(set_, add, "", 1, false) {
+ARGON_METHOD5(set_, add,
+              "Adds an element to the set."
+              ""
+              "- Parameter obj: Element to add."
+              "- Returns: set itself.", 1, false) {
     if (!SetAdd((Set *) self, argv[0]))
         return nullptr;
 
     return IncRef(self);
 }
 
-ARGON_METHOD5(set_, clear, "", 0, false) {
+ARGON_METHOD5(set_, clear,
+              "Removes all the elements from the set."
+              ""
+              "- Returns: set itself.", 0, false) {
     SetClear((Set *) self);
+    return IncRef(self);
+}
+
+ARGON_METHOD5(set_, diff,
+              "Removes the items in this set that are also included in another set(s)"
+              ""
+              "- Parameters:"
+              "     ...sets: another sets."
+              "- Returns: set itself.", 0, true) {
+    auto *set = (Set *) self;
+    HEntry *tmp;
+
+    for (ArSize idx = 0; idx < count; idx++) {
+        if (!AR_SAME_TYPE(self, argv[idx]))
+            return ErrorFormat(&error_type_error, "set::diff() expect type Set not '%s'", AR_TYPE_NAME(argv[idx]));
+    }
+
+    for (ArSize idx = 0; idx < count; idx++) {
+        for (HEntry *cursor = set->set.iter_begin; cursor != nullptr; cursor = tmp) {
+            tmp = cursor->iter_next;
+            if (HMapLookup(&((Set *) argv[idx])->set, cursor->key) != nullptr) {
+                Release(cursor->key);
+                HMapRemove(&set->set, cursor);
+            }
+        }
+    }
+
+    return IncRef(self);
+}
+
+ARGON_METHOD5(set_, discard,
+              "Remove the specified item."
+              ""
+              "- Parameter obj: object to remove from set."
+              "- Returns: set itself.", 0, true) {
+    auto *set = (Set *) self;
+    HEntry *tmp;
+
+    for (ArSize idx = 0; idx < count; idx++) {
+        if ((tmp = HMapLookup(&set->set, argv[idx])) != nullptr) {
+            Release(tmp->key);
+            HMapRemove(&set->set, tmp);
+            continue;
+        }
+
+        // Check for UnashableError
+        if (argon::vm::IsPanicking())
+            return nullptr;
+    }
+
+    return IncRef(self);
+}
+
+ARGON_METHOD5(set_, intersect,
+              "Removes the items in this set that are not present in other, specified set(s)"
+              ""
+              "- Parameters:"
+              "     ...sets: another sets."
+              "- Returns: set itself.", 0, true) {
+    auto *set = (Set *) self;
+    HEntry *tmp;
+
+    for (ArSize idx = 0; idx < count; idx++) {
+        if (!AR_SAME_TYPE(self, argv[idx]))
+            return ErrorFormat(&error_type_error, "set::intersect() expect type Set not '%s'", AR_TYPE_NAME(argv[idx]));
+    }
+
+    for (ArSize idx = 0; idx < count; idx++) {
+        for (HEntry *cursor = set->set.iter_begin; cursor != nullptr; cursor = tmp) {
+            tmp = cursor->iter_next;
+            if (HMapLookup(&((Set *) argv[idx])->set, cursor->key) == nullptr) {
+                Release(cursor->key);
+                HMapRemove(&set->set, cursor);
+            }
+        }
+    }
+
+    return IncRef(self);
+}
+
+ARGON_METHOD5(set_, symdiff,
+              "Inserts the symmetric differences from this set and another."
+              ""
+              "- Parameters:"
+              "     ...sets: another sets."
+              "- Returns: set itself.", 0, true) {
+    auto *set = (Set *) self;
+    HEntry *tmp;
+
+    for (ArSize idx = 0; idx < count; idx++) {
+        if (!AR_SAME_TYPE(self, argv[idx]))
+            return ErrorFormat(&error_type_error, "set::symdiff() expect type Set not '%s'", AR_TYPE_NAME(argv[idx]));
+    }
+
+    for (ArSize idx = 0; idx < count; idx++) {
+        auto *other = (Set *) argv[idx];
+
+        for (HEntry *cursor = set->set.iter_begin; cursor != nullptr; cursor = tmp) {
+            tmp = cursor->iter_next;
+            if (HMapLookup(&other->set, cursor->key) != nullptr) {
+                Release(cursor->key);
+                HMapRemove(&set->set, cursor);
+            }
+        }
+
+        for (HEntry *cursor = other->set.iter_begin; cursor != nullptr; cursor = cursor->iter_next) {
+            if (HMapLookup(&set->set, cursor->key) == nullptr) {
+                if (!SetAdd(set, cursor->key))
+                    return nullptr;
+            }
+        }
+    }
+
+    return IncRef(self);
+}
+
+ARGON_METHOD5(set_, update,
+              "Update the set with the union of this set and others."
+              ""
+              "- Parameters:"
+              "     ...sets: another sets."
+              "- Returns: set itself.", 0, true) {
+    auto *set = (Set *) self;
+
+    for (ArSize idx = 0; idx < count; idx++) {
+        if (!AR_SAME_TYPE(self, argv[idx]))
+            return ErrorFormat(&error_type_error, "set::update() expect type Set not '%s'", AR_TYPE_NAME(argv[idx]));
+    }
+
+    for (ArSize idx = 0; idx < count; idx++) {
+        auto *other = (Set *) argv[idx];
+
+        for (HEntry *cursor = other->set.iter_begin; cursor != nullptr; cursor = cursor->iter_next) {
+            if (!SetAdd(set, cursor->key))
+                return nullptr;
+        }
+    }
+
     return IncRef(self);
 }
 
 const NativeFunc set_methods[] = {
         set_add_,
         set_clear_,
+        set_diff_,
+        set_discard_,
+        set_intersect_,
+        set_symdiff_,
+        set_update_,
         ARGON_METHOD_SENTINEL
 };
 
@@ -332,6 +482,7 @@ void argon::object::SetClear(Set *set) {
 
     for (HEntry *cursor = set->set.iter_begin; cursor != nullptr; cursor = tmp) {
         tmp = cursor->iter_next;
+        Release(cursor->key);
         HMapRemove(&set->set, cursor);
     }
 }
