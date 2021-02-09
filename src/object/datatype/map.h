@@ -32,6 +32,8 @@ namespace argon::object {
 
     bool MapRemove(Map *map, ArObject *key);
 
+    void MapClear(Map *map);
+
 } // namespace argon::object
 
 #endif // !ARGON_OBJECT_MAP_H_

@@ -4,10 +4,11 @@
 
 #include <vm/runtime.h>
 
-#include <object/arobject.h>
-
-#include "hash_magic.h"
 #include "error.h"
+#include "hash_magic.h"
+#include "list.h"
+#include "option.h"
+#include "tuple.h"
 #include "map.h"
 
 using namespace argon::object;
@@ -63,6 +64,124 @@ const MapSlots map_actions{
         (SizeTUnaryOp) map_len,
         (BinaryOp) argon::object::MapGet,
         (BoolTernOp) argon::object::MapInsert
+};
+
+ARGON_METHOD5(map_, clear,
+              "Removes all the elements from the map."
+              ""
+              "- Returns: map itself.", 0, false) {
+    MapClear((Map *) self);
+    return IncRef(self);
+}
+
+ARGON_METHOD5(map_, get,
+              "Returns the value of the specified key."
+              ""
+              "- Parameter key: map key."
+              "- Returns: Option<?>.", 1, false) {
+    MapEntry *entry;
+
+    if ((entry = (MapEntry *) HMapLookup(&((Map *) self)->hmap, argv[0])) == nullptr) {
+        if (argon::vm::IsPanicking())
+            return nullptr;
+
+        return OptionNew();
+    }
+
+    return OptionNew(entry->value);
+}
+
+ARGON_METHOD5(map_, items,
+              "Returns a list containing a tuple for each key value pair."
+              ""
+              "- Returns: list containing a tuple for each key value pair.", 0, false) {
+    auto *map = ((Map *) self);
+    List *ret;
+    Tuple *tmp;
+
+    if ((ret = ListNew(map->hmap.len)) != nullptr) {
+        for (auto *cur = (MapEntry *) map->hmap.iter_begin; cur != nullptr; cur = (MapEntry *) cur->iter_next) {
+            if ((tmp = TupleNew(2)) == nullptr) {
+                Release(ret);
+                return nullptr;
+            }
+
+            TupleInsertAt(tmp, 0, cur->key);
+            TupleInsertAt(tmp, 1, cur->value);
+
+            ListAppend(ret, tmp);
+            Release(tmp);
+        }
+    }
+
+    return ret;
+}
+
+ARGON_METHOD5(map_, keys,
+              "Returns a list containing the map's keys."
+              ""
+              "- Returns: list containing the map's keys", 0, false) {
+    auto *map = ((Map *) self);
+    List *ret;
+
+    if ((ret = ListNew(map->hmap.len)) != nullptr) {
+        for (auto *cur = (MapEntry *) map->hmap.iter_begin; cur != nullptr; cur = (MapEntry *) cur->iter_next)
+            ListAppend(ret, cur->key);
+    }
+
+    return ret;
+}
+
+ARGON_METHOD5(map_, pop,
+              "Removes the element with the specified key."
+              ""
+              "- Parameter key: map key."
+              "- Returns: Option<?>.", 1, false) {
+    auto *map = ((Map *) self);
+    MapEntry *entry;
+    Option *ret;
+
+    if ((entry = (MapEntry *) HMapRemove(&map->hmap, argv[0])) != nullptr) {
+        ret = OptionNew(entry->value);
+        Release(entry->key);
+        Release(entry->value);
+        HMapEntryToFreeNode(&map->hmap, entry);
+        return ret;
+    }
+
+    return OptionNew();
+}
+
+ARGON_METHOD5(map_, values, "Returns a list of all the values in the map."
+                            ""
+                            "- Returns: list of all the values in the map.", 0, false) {
+    auto *map = ((Map *) self);
+    List *ret;
+
+    if ((ret = ListNew(map->hmap.len)) != nullptr) {
+        for (auto *cur = (MapEntry *) map->hmap.iter_begin; cur != nullptr; cur = (MapEntry *) cur->iter_next)
+            ListAppend(ret, cur->value);
+    }
+
+    return ret;
+}
+
+const NativeFunc map_methods[] = {
+        map_clear_,
+        map_get_,
+        map_items_,
+        map_keys_,
+        map_pop_,
+        map_values_,
+        ARGON_METHOD_SENTINEL
+};
+
+const ObjectSlots map_obj = {
+        map_methods,
+        nullptr,
+        nullptr,
+        nullptr,
+        nullptr
 };
 
 bool map_is_true(Map *self) {
@@ -197,7 +316,7 @@ const TypeInfo argon::object::type_map_ = {
         nullptr,
         &map_actions,
         nullptr,
-        nullptr,
+        &map_obj,
         nullptr,
         nullptr
 };
@@ -222,7 +341,7 @@ Map *argon::object::MapNewFromIterable(const ArObject *iterable) {
     bool ok;
 
     if (!IsIterable(iterable))
-        return (Map*)ErrorFormat(&error_type_error, "'%s' is not iterable", AR_TYPE_NAME(iterable));
+        return (Map *) ErrorFormat(&error_type_error, "'%s' is not iterable", AR_TYPE_NAME(iterable));
 
     if ((map = MapNew()) == nullptr)
         return nullptr;
@@ -240,7 +359,7 @@ Map *argon::object::MapNewFromIterable(const ArObject *iterable) {
             Release(key);
             Release(iter);
             Release(map);
-            return (Map*)ErrorFormat(&error_value_error, "map update require an iterable object of even length");
+            return (Map *) ErrorFormat(&error_value_error, "map update require an iterable object of even length");
         }
 
         ok = MapInsert(map, key, value);
@@ -256,4 +375,15 @@ Map *argon::object::MapNewFromIterable(const ArObject *iterable) {
 
     Release(iter);
     return map;
+}
+
+void argon::object::MapClear(Map *map) {
+    MapEntry *tmp;
+
+    for (auto *cur = (MapEntry *) map->hmap.iter_begin; cur != nullptr; cur = tmp) {
+        tmp = (MapEntry *) cur->iter_next;
+        Release(cur->key);
+        Release(cur->value);
+        HMapRemove(&map->hmap, cur);
+    }
 }

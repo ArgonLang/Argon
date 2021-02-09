@@ -4,6 +4,7 @@
 
 #include <object/datatype/list.h>
 #include <object/datatype/option.h>
+#include <object/datatype/map.h>
 #include <object/datatype/set.h>
 #include <object/datatype/tuple.h>
 
@@ -20,6 +21,7 @@ bool argon::object::TypesInit() {
     INIT_TYPE(type_list_);
     INIT_TYPE(type_option_);
     INIT_TYPE(type_tuple_);
+    INIT_TYPE(type_map_);
     INIT_TYPE(type_set_);
 
     return true;
