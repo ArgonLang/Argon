@@ -283,12 +283,176 @@ SequenceSlots string_sequence = {
         nullptr
 };
 
+ARGON_METHOD5(str_, count,
+              "Returns the number of times a specified value occurs in a string."
+              ""
+              "- Parameter str: The string to value to search for."
+              "- Returns: number of times a specified value appears in the string.", 1, false) {
+    auto *str = (String *) self;
+    auto *pattern = (String *) argv[0];
+    ArSSize n;
+
+    if (!AR_TYPEOF(argv[0], type_string_))
+        return ErrorFormat(&error_type_error, "str::count() expected string not '%s'", AR_TYPE_NAME(argv[0]));
+
+    n = support::Count(str->buffer, str->len, pattern->buffer, pattern->len, -1);
+
+    return IntegerNew(n);
+}
+
+ARGON_METHOD5(str_, endswith,
+              "Returns true if the string ends with the specified value."
+              ""
+              "- Parameter str: The value to check if the string ends with."
+              "- Returns: true if the string ends with the specified value, false otherwise.", 1, false) {
+    auto *str = (String *) self;
+    auto *pattern = (String *) argv[0];
+    ArSSize n;
+
+    if (!AR_TYPEOF(argv[0], type_string_))
+        return ErrorFormat(&error_type_error, "str::endswith() expected string not '%s'", AR_TYPE_NAME(argv[0]));
+
+    n = str->len - pattern->len;
+    if (n >= 0 && MemoryCompare(str->buffer + n, pattern->buffer, pattern->len) == 0)
+        return IncRef(True);
+
+    return IncRef(False);
+}
+
+ARGON_METHOD5(str_, find,
+              "Searches the string for a specified value and returns the position of where it was found."
+              ""
+              "- Parameter str: The value to search for."
+              "- Returns: index of the first position, -1 otherwise."
+              ""
+              "# SEE"
+              "- rfind: Same as find, but returns the index of the last position.", 1, false) {
+    auto *str = (String *) self;
+    auto *pattern = (String *) argv[0];
+    ArSSize n;
+
+    if (!AR_TYPEOF(argv[0], type_string_))
+        return ErrorFormat(&error_type_error, "str::find() expected string not '%s'", AR_TYPE_NAME(argv[0]));
+
+    n = StringFind(str, pattern);
+
+    return IntegerNew(n);
+}
+
+ARGON_METHOD5(str_, replace,
+              "Returns a string where a specified value is replaced with a specified value."
+              ""
+              "- Parameters:"
+              " - old: the string to search for."
+              " - new: the string to replace the old value with."
+              " - count: A number specifying how many occurrences of the old value you want to replace."
+              " To replace all occurrence use count = -1."
+              "- Returns: string where a specified value is replaced.", 3, false) {
+    auto *str = (String *) self;
+    ArSSize n;
+
+    if (!AR_TYPEOF(argv[0], type_string_))
+        return ErrorFormat(&error_type_error, "str::replace() first parameter expected string not '%s'",
+                           AR_TYPE_NAME(argv[0]));
+
+    if (!AR_TYPEOF(argv[1], type_string_))
+        return ErrorFormat(&error_type_error, "str::replace() second parameter expected string not '%s'",
+                           AR_TYPE_NAME(argv[1]));
+
+    if (!AR_TYPEOF(argv[2], type_integer_))
+        return ErrorFormat(&error_type_error, "str::replace() third parameter expected integer not '%s'",
+                           AR_TYPE_NAME(argv[2]));
+
+    n = ((Integer *) argv[2])->integer;
+
+    return StringReplace(str, (String *) argv[0], (String *) argv[1], n);
+}
+
+ARGON_METHOD5(str_, rfind,
+              "Searches the string for a specified value and returns the last position of where it was found."
+              ""
+              "- Parameter str: The value to search for."
+              "- Returns: index of the last position, -1 otherwise."
+              ""
+              "# SEE"
+              "- find: Same as rfind, but returns the index of the first position.", 1, false) {
+    auto *str = (String *) self;
+    auto *pattern = (String *) argv[0];
+    ArSSize n;
+
+    if (!AR_TYPEOF(argv[0], type_string_))
+        return ErrorFormat(&error_type_error, "str::rfind() expected string not '%s'", AR_TYPE_NAME(argv[0]));
+
+    n = StringRFind(str, pattern);
+
+    return IntegerNew(n);
+}
+
+ARGON_METHOD5(str_, join,
+              "Joins the elements of an iterable to the end of the string."
+              ""
+              "- Parameter iterable: Any iterable object where all the returned values are strings."
+              "- Returns: new string where all items in an iterable are joined into one string.", 1, false) {
+    StringBuilder builder = {};
+    auto *str = (String *) self;
+    String *tmp;
+    ArObject *iter;
+
+    ArSize idx = 0;
+
+    if ((iter = IteratorGet(argv[0])) == nullptr)
+        return nullptr;
+
+    while ((tmp = (String *) IteratorNext(iter)) != nullptr) {
+        if (!AR_TYPEOF(tmp, type_string_)) {
+            ErrorFormat(&error_type_error, "sequence item %i: expected string not '%s'", idx, AR_TYPE_NAME(tmp));
+            goto error;
+        }
+
+        if (idx > 0 && StringBuilderWrite(&builder, str->buffer, str->len, tmp->len) < 0)
+            goto error;
+
+        if (StringBuilderWrite(&builder, tmp->buffer, tmp->len) < 0)
+            goto error;
+
+        Release(tmp);
+        idx++;
+    }
+
+    Release(iter);
+    return StringBuilderFinish(&builder);
+
+    error:
+    Release(tmp);
+    Release(iter);
+    StringBuilderClean(&builder);
+    return nullptr;
+}
+
+const NativeFunc str_methods[] = {
+        str_count_,
+        str_endswith_,
+        str_find_,
+        str_replace_,
+        str_rfind_,
+        str_join_,
+        ARGON_METHOD_SENTINEL
+};
+
+const ObjectSlots str_obj = {
+        str_methods,
+        nullptr,
+        nullptr,
+        nullptr,
+        nullptr
+};
+
 ArObject *string_ctor(ArObject **args, ArSize count) {
     if (!VariadicCheckPositional("str", count, 0, 1))
         return nullptr;
 
-    if (count == 1){
-        if(AR_TYPEOF(*args, type_string_))
+    if (count == 1) {
+        if (AR_TYPEOF(*args, type_string_))
             return IncRef(*args);
 
         return ToString(*args);
@@ -411,7 +575,7 @@ const TypeInfo argon::object::type_string_ = {
         nullptr,
         nullptr,
         nullptr,
-        nullptr,
+        &str_obj,
         &string_sequence,
         &string_ops
 };
@@ -656,7 +820,7 @@ int FmtGetNextSpecifier(StringFormatter *fmt) {
 
     fmt->fmt.idx += idx;
 
-    return fmt->fmt.idx!=fmt->fmt.len;
+    return fmt->fmt.idx != fmt->fmt.len;
 }
 
 bool FmtParseOptionStar(StringFormatter *fmt, StringArg *arg, bool prec) {

@@ -7,6 +7,7 @@
 #include <object/datatype/map.h>
 #include <object/datatype/set.h>
 #include <object/datatype/tuple.h>
+#include <object/datatype/string.h>
 
 #include "arobject.h"
 #include "setup.h"
@@ -23,6 +24,7 @@ bool argon::object::TypesInit() {
     INIT_TYPE(type_tuple_);
     INIT_TYPE(type_map_);
     INIT_TYPE(type_set_);
+    INIT_TYPE(type_string_);
 
     return true;
 #undef INIT_TYPE
