@@ -56,7 +56,7 @@ long argon::object::support::Find(const unsigned char *buf, size_t blen, const u
                 ok = true;
             }
         }
-        cursor--;
+        cursor -= plen-1;;
     } else {
         cursor = (blen - 1) - (plen - 1);
 
