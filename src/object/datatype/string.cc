@@ -304,7 +304,10 @@ ARGON_METHOD5(str_, endswith,
               "Returns true if the string ends with the specified value."
               ""
               "- Parameter str: The value to check if the string ends with."
-              "- Returns: true if the string ends with the specified value, false otherwise.", 1, false) {
+              "- Returns: true if the string ends with the specified value, false otherwise."
+              ""
+              "# SEE"
+              "- startswith: Returns true if the string starts with the specified value.", 1, false) {
     auto *str = (String *) self;
     auto *pattern = (String *) argv[0];
     ArSSize n;
@@ -429,6 +432,107 @@ ARGON_METHOD5(str_, join,
     return nullptr;
 }
 
+ARGON_METHOD5(str_, split,
+              "Splits the string at the specified separator, and returns a list."
+              ""
+              "- Parameters:"
+              " - separator: specifies the separator to use when splitting the string."
+              " - maxsplit: specifies how many splits to do.", 2, false) {
+    auto *str = (String *) self;
+    auto *pattern = (String *) argv[0];
+    String *tmp;
+    List *ret;
+
+    ArSize idx = 0;
+    ArSSize end;
+    ArSSize msplit;
+    ArSSize counter = 0;
+
+    if (!AR_TYPEOF(argv[0], type_string_))
+        return ErrorFormat(&error_type_error, "str::split() expected string not '%s'", AR_TYPE_NAME(argv[0]));
+
+    if (!AR_TYPEOF(argv[1], type_integer_))
+        return ErrorFormat(&error_type_error, "str::split() expected integer not '%s'", AR_TYPE_NAME(argv[1]));
+
+    msplit = ((Integer *) argv[1])->integer;
+
+    if ((ret = ListNew()) == nullptr)
+        return nullptr;
+
+    if (msplit != 0) {
+        while ((end = support::Find(str->buffer + idx, str->len - idx, pattern->buffer, pattern->len)) >= 0) {
+            if ((tmp = StringNew((const char *) str->buffer + idx, end)) == nullptr)
+                goto error;
+
+            idx += end + pattern->len;
+
+            if (!ListAppend(ret, tmp))
+                goto error;
+
+            Release(tmp);
+
+            if (msplit > -1 && ++counter >= msplit)
+                break;
+        }
+    }
+
+    if (str->len - idx > 0) {
+        if ((tmp = StringNew((const char *) str->buffer + idx, str->len - idx)) == nullptr)
+            goto error;
+
+        if (!ListAppend(ret, tmp))
+            goto error;
+
+        Release(tmp);
+    }
+
+    return ret;
+
+    error:
+    Release(tmp);
+    Release(ret);
+    return nullptr;
+}
+
+ARGON_METHOD5(str_, startswith,
+              "Returns true if the string starts with the specified value."
+              ""
+              "- Parameter str: The value to check if the string starts with."
+              "- Returns: true if the string starts with the specified value, false otherwise."
+              ""
+              "# SEE"
+              "- endswith: Returns true if the string ends with the specified value.", 1, false) {
+    auto *str = (String *) self;
+    auto *pattern = (String *) argv[0];
+    ArSSize n;
+
+    if (!AR_TYPEOF(argv[0], type_string_))
+        return ErrorFormat(&error_type_error, "str::startswith() expected string not '%s'", AR_TYPE_NAME(argv[0]));
+
+    n = str->len - pattern->len;
+    if (n >= 0 && MemoryCompare(str->buffer, pattern->buffer, pattern->len) == 0)
+        return IncRef(True);
+
+    return IncRef(False);
+}
+
+ARGON_METHOD5(str_, trim,
+              "Returns a new string stripped of whitespace from both ends."
+              ""
+              "- Returns: new string without whitespace.", 0, false) {
+    auto *str = (String *) self;
+    ArSize start = 0;
+    ArSize end = str->len;
+
+    while (str->buffer[start] == 0x09 || str->buffer[start] == 0x20)
+        start++;
+
+    while (str->buffer[end - 1] == 0x09 || str->buffer[end - 1] == 0x20)
+        end--;
+
+    return StringNew((const char *) str->buffer + start, end - start);
+}
+
 const NativeFunc str_methods[] = {
         str_count_,
         str_endswith_,
@@ -436,6 +540,9 @@ const NativeFunc str_methods[] = {
         str_replace_,
         str_rfind_,
         str_join_,
+        str_split_,
+        str_startswith_,
+        str_trim_,
         ARGON_METHOD_SENTINEL
 };
 
@@ -751,6 +858,9 @@ int argon::object::StringBuilderWriteAscii(StringBuilder *sb, const unsigned cha
 
 String *argon::object::StringBuilderFinish(StringBuilder *sb) {
     String *str;
+
+    if (sb->str.len == 0)
+        return StringIntern((const char *) "");
 
     if ((str = StringInit(sb->str.len - 1, false)) != nullptr) {
         str->buffer = sb->str.buffer;
