@@ -1100,7 +1100,8 @@ FmtWriteNumber(unsigned char *buf, long num, int base, int prec, int width, bool
     if (num < 0) {
         num = -num;
         neg = true;
-    }
+    } else if (num == 0)
+        buf[idx++] = '0';
 
     while (num) {
         buf[idx++] = p_case[num % base];

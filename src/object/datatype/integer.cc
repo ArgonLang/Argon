@@ -243,6 +243,9 @@ int argon::object::IntegerCountBits(Integer *number) {
 int argon::object::IntegerCountDigits(IntegerUnderlayer number, IntegerUnderlayer base) {
     int count = 0;
 
+    if (number == 0)
+        return 1;
+
     while (number) {
         count++;
         number /= base;
