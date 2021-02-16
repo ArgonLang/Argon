@@ -9,6 +9,64 @@
 
 using namespace argon::object;
 
+ArObject *set_iter_next(HMapIterator *iter) {
+    ArObject *obj;
+
+    if (iter->current == nullptr)
+        return nullptr;
+
+    if (iter->used != iter->map->len)
+        return ErrorFormat(&error_runtime_error, "Set changed size during iteration");
+
+    obj = iter->current->key;
+
+    iter->current = iter->reversed ? iter->current->iter_prev : iter->current->iter_next;
+
+    return IncRef(obj);
+}
+
+ArObject *set_iter_peak(HMapIterator *iter) {
+    if (iter->current == nullptr)
+        return nullptr;
+
+    if (iter->used != iter->map->len)
+        return ErrorFormat(&error_runtime_error, "Set changed size during iteration");
+
+    return IncRef(iter->current->key);
+}
+
+const IteratorSlots set_iterop = {
+        (BoolUnaryOp) HMapIteratorHasNext,
+        (UnaryOp) set_iter_next,
+        (UnaryOp) set_iter_peak,
+        (VoidUnaryOp) HMapIteratorReset
+};
+
+const TypeInfo type_set_iterator_ = {
+        TYPEINFO_STATIC_INIT,
+        "set_iterator",
+        nullptr,
+        sizeof(HMapIterator),
+        nullptr,
+        (VoidUnaryOp) HMapIteratorCleanup,
+        (Trace) HMapIteratorTrace,
+        nullptr,
+        (BoolBinOp)HMapIteratorEqual,
+        (BoolUnaryOp) HMapIteratorHasNext,
+        nullptr,
+        (UnaryOp) HMapIteratorStr,
+        nullptr,
+        nullptr,
+        nullptr,
+        &set_iterop,
+        nullptr,
+        nullptr,
+        nullptr,
+        nullptr,
+        nullptr,
+        nullptr
+};
+
 ArObject *set_sub(ArObject *left, ArObject *right) {
     // difference
     auto *l = (Set *) left;
@@ -372,6 +430,14 @@ ArObject *set_str(Set *self) {
     return nullptr;
 }
 
+ArObject *set_iter_get(Set *self) {
+    return HMapIteratorNew(&type_set_iterator_, self, &self->set, false);
+}
+
+ArObject *set_iter_rget(Set *self) {
+    return HMapIteratorNew(&type_set_iterator_, self, &self->set, true);
+}
+
 ArObject *set_ctor(ArObject **args, ArSize count) {
     if (!VariadicCheckPositional("set", count, 0, 1))
         return nullptr;
@@ -399,8 +465,8 @@ const TypeInfo argon::object::type_set_ = {
         (BoolUnaryOp) set_is_true,
         nullptr,
         (UnaryOp) set_str,
-        nullptr,
-        nullptr,
+        (UnaryOp) set_iter_get,
+        (UnaryOp) set_iter_rget,
         nullptr,
         nullptr,
         nullptr,

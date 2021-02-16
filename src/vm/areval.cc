@@ -944,6 +944,9 @@ ArObject *argon::vm::Eval(ArRoutine *routine) {
             }
             TARGET_OP(NJE) {
                 if ((ret = IteratorNext(TOP())) == nullptr) {
+                    if(RoutineIsPanicking(routine))
+                        goto error;
+
                     POP();
                     JUMPTO(ARG32);
                 }

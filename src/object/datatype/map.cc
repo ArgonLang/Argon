@@ -13,6 +13,73 @@
 
 using namespace argon::object;
 
+ArObject *map_iter_next(HMapIterator *iter) {
+    Tuple *ret;
+
+    if (iter->current == nullptr)
+        return nullptr;
+
+    if (iter->used != iter->map->len)
+        return ErrorFormat(&error_runtime_error, "Map changed size during iteration");
+
+    if ((ret = TupleNew(2)) != nullptr) {
+        TupleInsertAt(ret, 0, iter->current->key);
+        TupleInsertAt(ret, 1, ((MapEntry *) iter->current)->value);
+        iter->current = iter->reversed ? iter->current->iter_prev : iter->current->iter_next;
+    }
+
+    return ret;
+}
+
+ArObject *map_iter_peak(HMapIterator *iter) {
+    Tuple *ret;
+
+    if (iter->current == nullptr)
+        return nullptr;
+
+    if (iter->used != iter->map->len)
+        return ErrorFormat(&error_runtime_error, "Map changed size during iteration");
+
+    if ((ret = TupleNew(2)) != nullptr) {
+        TupleInsertAt(ret, 0, iter->current->key);
+        TupleInsertAt(ret, 1, ((MapEntry *) iter->current)->value);
+    }
+
+    return ret;
+}
+
+const IteratorSlots map_iterop = {
+        (BoolUnaryOp) HMapIteratorHasNext,
+        (UnaryOp) map_iter_next,
+        (UnaryOp) map_iter_peak,
+        (VoidUnaryOp) HMapIteratorReset
+};
+
+const TypeInfo type_map_iterator_ = {
+        TYPEINFO_STATIC_INIT,
+        "map_iterator",
+        nullptr,
+        sizeof(HMapIterator),
+        nullptr,
+        (VoidUnaryOp) HMapIteratorCleanup,
+        (Trace) HMapIteratorTrace,
+        nullptr,
+        (BoolBinOp) HMapIteratorEqual,
+        (BoolUnaryOp) HMapIteratorHasNext,
+        nullptr,
+        (UnaryOp) HMapIteratorStr,
+        nullptr,
+        nullptr,
+        nullptr,
+        &map_iterop,
+        nullptr,
+        nullptr,
+        nullptr,
+        nullptr,
+        nullptr,
+        nullptr
+};
+
 size_t map_len(Map *self) {
     return self->hmap.len;
 }
@@ -253,6 +320,14 @@ ArObject *map_str(Map *self) {
     return nullptr;
 }
 
+ArObject *map_iter_get(Map *self) {
+    return HMapIteratorNew(&type_map_iterator_, self, &self->hmap, false);
+}
+
+ArObject *map_iter_rget(Map *self) {
+    return HMapIteratorNew(&type_map_iterator_, self, &self->hmap, true);
+}
+
 void map_trace(Map *self, VoidUnaryOp trace) {
     for (auto *cur = (MapEntry *) self->hmap.iter_begin; cur != nullptr; cur = (MapEntry *) cur->iter_next)
         trace(cur->value);
@@ -310,8 +385,8 @@ const TypeInfo argon::object::type_map_ = {
         (BoolUnaryOp) map_is_true,
         nullptr,
         (UnaryOp) map_str,
-        nullptr,
-        nullptr,
+        (UnaryOp) map_iter_get,
+        (UnaryOp) map_iter_rget,
         nullptr,
         nullptr,
         &map_actions,

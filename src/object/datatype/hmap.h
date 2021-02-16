@@ -38,6 +38,32 @@ namespace argon::object {
         size_t len;
     };
 
+    struct HMapIterator : ArObject {
+        ArObject *obj;
+
+        HMap *map;
+        HEntry *current;
+
+        size_t used;
+        bool reversed;
+    };
+
+    ArObject *HMapIteratorNew(const TypeInfo *type, ArObject *iterable, HMap *map, bool reversed);
+
+    ArObject *HMapIteratorStr(HMapIterator *self);
+
+    bool HMapIteratorEqual(HMapIterator *self, ArObject *other);
+
+    inline bool HMapIteratorHasNext(HMapIterator *iter) { return iter->current != nullptr; }
+
+    inline void HMapIteratorReset(HMapIterator *iter) {
+        iter->current = iter->reversed ? iter->map->iter_end : iter->map->iter_begin;
+    }
+
+    inline void HMapIteratorTrace(HMapIterator *iter, VoidUnaryOp trace) { trace(iter->obj); }
+
+    inline void HMapIteratorCleanup(HMapIterator *iter) { Release(&iter->obj); }
+
     bool HMapInit(HMap *hmap);
 
     bool HMapInsert(HMap *hmap, HEntry *entry);

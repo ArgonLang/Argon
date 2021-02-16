@@ -199,4 +199,34 @@ void argon::object::HMapRemove(HMap *hmap, HEntry *entry) {
     hmap->len--;
 }
 
+ArObject *argon::object::HMapIteratorNew(const TypeInfo *type, ArObject *iterable, HMap *map, bool reversed) {
+    auto iter = ArObjectGCNew<HMapIterator>(type);
+
+    if (iter != nullptr) {
+        iter->obj = IncRef(iterable);
+        iter->map = map;
+        iter->current = reversed ? iter->map->iter_end : iter->map->iter_begin;
+        iter->used = map->len;
+        iter->reversed = reversed;
+    }
+
+    return iter;
+}
+
+bool argon::object::HMapIteratorEqual(HMapIterator *self, ArObject *other) {
+    auto *o = (HMapIterator *) other;
+
+    if (self == other)
+        return true;
+
+    if (!AR_SAME_TYPE(self, other))
+        return false;
+
+    return self->reversed == o->reversed && AR_EQUAL(self->obj, o->obj);
+}
+
+ArObject * argon::object::HMapIteratorStr(HMapIterator *self) {
+    return StringNewFormat("<%s @%p>", AR_TYPE_NAME(self), self);
+}
+
 #undef CHECK_HASHABLE
