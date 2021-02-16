@@ -84,8 +84,8 @@ namespace argon::object {
         T *entry;
 
         if (hmap->free_node == nullptr) {
-            entry = (T *) argon::memory::Alloc(sizeof(T));
-            argon::memory::MemoryZero(entry, sizeof(T));
+            if ((entry = (T *) argon::memory::Alloc(sizeof(T))) != nullptr)
+                argon::memory::MemoryZero(entry, sizeof(T));
             return entry;
         }
 
