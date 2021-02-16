@@ -187,14 +187,23 @@ ARGON_FUNCTION(print,
                "- Returns: nil",
                0, true) {
     auto out = (io::File *) RuntimeGetProperty("stdout", &io::type_file_);
+    ArObject *str;
     size_t i = 0;
 
     if (out == nullptr)
         return nullptr;
 
     while (i < count) {
-        if (argon::module::io::WriteObject(out, argv[i++]) < 0)
+        if ((str = ToString(argv[i++])) == nullptr)
             return nullptr;
+
+        if (argon::module::io::WriteObject(out, str) < 0) {
+            Release(str);
+            return nullptr;
+        }
+
+        Release(str);
+
         if (i < count) {
             if (argon::module::io::Write(out, (unsigned char *) " ", 1) < 0)
                 return nullptr;
