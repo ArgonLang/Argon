@@ -51,7 +51,7 @@ const TypeInfo type_set_iterator_ = {
         (VoidUnaryOp) HMapIteratorCleanup,
         (Trace) HMapIteratorTrace,
         nullptr,
-        (BoolBinOp)HMapIteratorEqual,
+        (BoolBinOp) HMapIteratorEqual,
         (BoolUnaryOp) HMapIteratorHasNext,
         nullptr,
         (UnaryOp) HMapIteratorStr,
@@ -452,6 +452,11 @@ void set_cleanup(Set *self) {
     HMapFinalize(&self->set, nullptr);
 }
 
+void set_trace(Set *self, VoidUnaryOp trace) {
+    for (auto *cur = self->set.iter_begin; cur != nullptr; cur = cur->iter_next)
+        trace(cur->key);
+}
+
 const TypeInfo argon::object::type_set_ = {
         TYPEINFO_STATIC_INIT,
         "set",
@@ -459,7 +464,7 @@ const TypeInfo argon::object::type_set_ = {
         sizeof(Set),
         set_ctor,
         (VoidUnaryOp) set_cleanup,
-        nullptr,
+        (Trace) set_trace,
         nullptr,
         (BoolBinOp) set_equal,
         (BoolUnaryOp) set_is_true,
