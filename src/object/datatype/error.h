@@ -29,21 +29,25 @@ namespace argon::object {
 #define ERROR_NEW_TYPE(type_name, name, base, cleanup, obj_actions) \
 const TypeInfo error_##type_name = {                                \
         TYPEINFO_STATIC_INIT,                                       \
-        (const unsigned char *) #name,                              \
+        #name,                                                      \
+        nullptr,                                                    \
         sizeof(base),                                               \
+        nullptr,                                                    \
+        cleanup,                                                    \
+        nullptr,                                                    \
+        nullptr,                                                    \
+        nullptr,                                                    \
+        nullptr,                                                    \
+        nullptr,                                                    \
+        nullptr,                                                    \
+        nullptr,                                                    \
+        nullptr,                                                    \
         nullptr,                                                    \
         nullptr,                                                    \
         nullptr,                                                    \
         obj_actions,                                                \
         nullptr,                                                    \
-        nullptr,                                                    \
-        nullptr,                                                    \
-        nullptr,                                                    \
-        nullptr,                                                    \
-        nullptr,                                                    \
-        nullptr,                                                    \
-        nullptr,                                                    \
-        cleanup                                                     \
+        nullptr                                                     \
 }
 
 #define ERROR_STR_NEW_TYPE(type_name, name, obj_actions)                        \
@@ -60,6 +64,7 @@ ERROR_NEW_TYPE(type_name, name, ErrorStr, __error_str_cleanup, obj_actions)
     ERROR_STR_NEW_TYPE(type_error, TypeError, nullptr);
     ERROR_STR_NEW_TYPE(value_error, ValueError, nullptr);
     ERROR_STR_NEW_TYPE(not_implemented, NotImplemented, nullptr);
+    ERROR_STR_NEW_TYPE(unhashable, UnhashableError, nullptr);
     ERROR_STR_NEW_TYPE(undeclared_variable, UndeclaredVariable, nullptr);
     ERROR_STR_NEW_TYPE(unassignable_variable, UnassignableVariable, nullptr);
     ERROR_STR_NEW_TYPE(attribute_error, AttributeError, nullptr);
@@ -70,6 +75,7 @@ ERROR_NEW_TYPE(type_name, name, ErrorStr, __error_str_cleanup, obj_actions)
     ERROR_STR_NEW_TYPE(overflow_error, OverflowError, nullptr);
     ERROR_STR_NEW_TYPE(buffer_error, BufferError, nullptr);
     ERROR_STR_NEW_TYPE(unicode_index, UnicodeIndexError, nullptr);
+    ERROR_STR_NEW_TYPE(exhausted_iterator, ExhaustedIteratorError, nullptr);
 
     // IO
     ERROR_STR_NEW_TYPE(io, IOError, nullptr);

@@ -7,34 +7,22 @@
 
 #include <object/arobject.h>
 
-#define ARGON_OBJECT_MAP_INITIAL_SIZE   10
-#define ARGON_OBJECT_MAP_LOAD_FACTOR    0.75f
-#define ARGON_OBJECT_MAP_MUL_FACTOR     (ARGON_OBJECT_MAP_LOAD_FACTOR * 2)
+#include "hmap.h"
 
 namespace argon::object {
-    struct MapEntry {
-        MapEntry *next = nullptr;
-
-        MapEntry *iter_next = nullptr;
-        MapEntry *iter_prev = nullptr;
-
-        ArObject *key = nullptr;
-        ArObject *value = nullptr;
+    struct MapEntry : HEntry {
+        ArObject *value;
     };
 
     struct Map : ArObject {
-        MapEntry **map;
-        MapEntry *free_node;
-        MapEntry *iter_begin;
-        MapEntry *iter_end;
-
-        size_t cap;
-        size_t len;
+        HMap hmap;
     };
 
     extern const TypeInfo type_map_;
 
     Map *MapNew();
+
+    Map *MapNewFromIterable(const ArObject *iterable);
 
     ArObject *MapGet(Map *map, ArObject *key);
 
@@ -42,9 +30,9 @@ namespace argon::object {
 
     bool MapInsert(Map *map, ArObject *key, ArObject *value);
 
-    void MapRemove(Map *map, ArObject *key);
+    bool MapRemove(Map *map, ArObject *key);
 
-    bool MapContains(Map *map, ArObject *key);
+    void MapClear(Map *map);
 
 } // namespace argon::object
 

@@ -9,11 +9,13 @@
 #include "namespace.h"
 #include "string.h"
 
+#define MODULE_ATTRIBUTE_PUB_CONST  PropertyInfo(PropertyType::CONST | PropertyType::PUBLIC)
+
 #define MODULE_BULK_EXPORT_TYPE(name, type) \
-    {name, {.obj=(ArObject *) &type}, false, PropertyInfo(PropertyType::CONST | PropertyType::PUBLIC)}
+    {name, {.obj=(ArObject *) &(type)}, false, MODULE_ATTRIBUTE_PUB_CONST}
 
 #define MODULE_BULK_EXPORT_FUNCTION(fn_native)  \
-    {fn_native.name, {.func=&fn_native}, true, PropertyInfo(PropertyType::CONST | PropertyType::PUBLIC)}
+    {(fn_native).name, {.func=&(fn_native)}, true, MODULE_ATTRIBUTE_PUB_CONST}
 
 namespace argon::object {
 
@@ -34,7 +36,7 @@ namespace argon::object {
         const char *name;
         union {
             ArObject *obj;
-            struct FunctionNative *func; // Forward declaration (see function.h)
+            NativeFunc *func;
         } prop;
         bool is_func;
         PropertyInfo info;
@@ -60,10 +62,12 @@ namespace argon::object {
 
     bool ModuleAddObjects(Module *module, const PropertyBulk *bulk);
 
-    bool ModuleAddProperty(Module *module, const char *key, ArObject *value, PropertyInfo info);
-
     inline bool ModuleAddProperty(Module *module, ArObject *key, ArObject *value, PropertyInfo info) {
-        return NamespaceNewSymbol(module->module_ns, info, key, value);
+        return NamespaceNewSymbol(module->module_ns, key, value, info);
+    }
+
+    inline bool ModuleAddProperty(Module *module, const char *key, ArObject *value, PropertyInfo info) {
+        return NamespaceNewSymbol(module->module_ns, key, value, info);
     }
 
 } // namespace argon::object

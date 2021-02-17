@@ -15,16 +15,8 @@ namespace argon::object {
 
     extern Nil *NilVal;
 
-    inline Nil *ReturnNil() {
-        IncRef(NilVal);
-        return NilVal;
-    }
-
     inline ArObject *ReturnNil(const ArObject *obj) {
-        if (obj != nullptr)
-            return (ArObject *) obj;
-        IncRef(NilVal);
-        return NilVal;
+        return obj != nullptr ? (ArObject *) obj : NilVal;
     }
 
 } // namespace argon::object

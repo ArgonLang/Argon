@@ -24,24 +24,24 @@ ArObject *io_seek_mode_start = nullptr;
 ArObject *io_seek_mode_cur = nullptr;
 ArObject *io_seek_mode_end = nullptr;
 
-ARGON_FUNC_NATIVE(io_create, create, "", 1, false) {
+ARGON_FUNCTION( create, "", 1, false) {
     return nullptr;
 }
 
-ARGON_FUNC_NATIVE(io_open, open, "", 1, false) {
+ARGON_FUNCTION( open, "", 1, false) {
     return nullptr;
 }
 
-ARGON_FUNC_NATIVE(io_openfile, openfile, "", 2, false) {
+ARGON_FUNCTION( openfile, "", 2, false) {
     return nullptr;
 }
 
 const PropertyBulk io_bulk[] = {
         MODULE_BULK_EXPORT_TYPE("file", type_file_),
 
-        MODULE_BULK_EXPORT_FUNCTION(io_create),
-        MODULE_BULK_EXPORT_FUNCTION(io_open),
-        MODULE_BULK_EXPORT_FUNCTION(io_openfile),
+        MODULE_BULK_EXPORT_FUNCTION(create_),
+        MODULE_BULK_EXPORT_FUNCTION(open_),
+        MODULE_BULK_EXPORT_FUNCTION(openfile_),
         {nullptr, nullptr, false, PropertyInfo()} // Sentinel
 };
 

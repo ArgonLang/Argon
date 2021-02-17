@@ -6,63 +6,71 @@
 
 #include <object/arobject.h>
 #include "hash_magic.h"
+#include "string.h"
 #include "code.h"
 
 using namespace argon::memory;
 using namespace argon::object;
 
-bool code_equal(ArObject *self, ArObject *other) {
-    if (self != other) {
-        if (self->type != other->type || ((Code *) self)->instr_sz != ((Code *) other)->instr_sz)
-            return false;
+bool code_is_true(ArObject *self) {
+    return true;
+}
 
-        for (size_t i = 0; i < ((Code *) self)->instr_sz; i++) {
-            if (((Code *) self)->instr[i] != ((Code *) other)->instr[i])
-                return false;
-        }
+bool code_equal(Code *self, ArObject *other) {
+    if (self == other)
+        return true;
+
+    if (!AR_SAME_TYPE(self, other) || self->instr_sz != ((Code *) other)->instr_sz)
+        return false;
+
+    for (size_t i = 0; i < self->instr_sz; i++) {
+        if (self->instr[i] != ((Code *) other)->instr[i])
+            return false;
     }
 
     return true;
 }
 
-size_t code_hash(ArObject *obj) {
-    auto code = (Code *) obj;
-    if (code->hash == 0)
-        code->hash = HashBytes(code->instr, code->instr_sz);
-    return code->hash;
+size_t code_hash(Code *self) {
+    if (self->hash == 0)
+        self->hash = HashBytes(self->instr, self->instr_sz);
+
+    return self->hash;
 }
 
-bool code_istrue(ArObject *self) {
-    return true;
+ArObject *code_str(ArObject *self) {
+    return StringNewFormat("<code at %p>", self);
 }
 
-void code_cleanup(ArObject *obj) {
-    auto code = (Code *) obj;
-    Free((void *) code->instr);
-    Release(code->statics);
-    Release(code->names);
-    Release(code->locals);
+void code_cleanup(Code *self) {
+    Release(self->statics);
+    Release(self->names);
+    Release(self->locals);
+    Free((void *) self->instr);
 }
 
 const TypeInfo argon::object::type_code_ = {
         TYPEINFO_STATIC_INIT,
-        (const unsigned char *) "code",
+        "code",
+        nullptr,
         sizeof(Code),
         nullptr,
+        (VoidUnaryOp) code_cleanup,
+        nullptr,
+        nullptr,
+        (BoolBinOp) code_equal,
+        code_is_true,
+        (SizeTUnaryOp) code_hash,
+        (UnaryOp) code_str,
         nullptr,
         nullptr,
         nullptr,
         nullptr,
-        code_istrue,
-        code_equal,
-        nullptr,
-        code_hash,
         nullptr,
         nullptr,
         nullptr,
-        code_cleanup
+        nullptr
 };
-
 
 Code *argon::object::CodeNew(const unsigned char *instr,
                              unsigned int instr_sz,

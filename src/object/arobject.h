@@ -12,6 +12,11 @@
 #include "refcount.h"
 
 namespace argon::object {
+    enum class ArBufferFlags {
+        READ = 0x01,
+        WRITE = 0x02
+    };
+
     enum class CompareMode : unsigned char {
         EQ,
         NE,
@@ -21,22 +26,95 @@ namespace argon::object {
         LEQ
     };
 
-    using arsize = ssize_t;
+    using ArSize = size_t;
+    using ArSSize = ssize_t;
 
-    using UnaryOp = struct ArObject *(*)(struct ArObject *);
+    using ArSizeUnaryOp = ArSSize (*)(struct ArObject *);
     using BinaryOp = struct ArObject *(*)(struct ArObject *, struct ArObject *);
-    // using TernaryOp = struct ArObject *(*)(struct ArObject *, struct ArObject *, struct ArObject *);
-    using CompareOp = struct ArObject *(*)(struct ArObject *, struct ArObject *, CompareMode);
-    using BinaryOpArSize = struct ArObject *(*)(struct ArObject *, arsize);
-
-    using VoidUnaryOp = void (*)(struct ArObject *obj);
-    using Trace = void (*)(struct ArObject *, VoidUnaryOp);
-    using SizeTUnaryOp = size_t (*)(struct ArObject *);
-    using ArSizeUnaryOp = arsize (*)(struct ArObject *);
-    using BoolUnaryOp = bool (*)(struct ArObject *obj);
+    using BinaryOpArSize = struct ArObject *(*)(struct ArObject *, ArSSize);
     using BoolBinOp = bool (*)(struct ArObject *, struct ArObject *);
     using BoolTernOp = bool (*)(struct ArObject *, struct ArObject *, struct ArObject *);
-    using BoolTernOpArSize = bool (*)(struct ArObject *, struct ArObject *, arsize);
+    using BoolTernOpArSize = bool (*)(struct ArObject *, struct ArObject *, ArSSize);
+    using BoolUnaryOp = bool (*)(struct ArObject *obj);
+    using CompareOp = struct ArObject *(*)(struct ArObject *, struct ArObject *, CompareMode);
+    using SizeTUnaryOp = ArSize (*)(struct ArObject *);
+    using VariadicOp = struct ArObject *(*)(struct ArObject **, ArSize);
+    using VoidUnaryOp = void (*)(struct ArObject *obj);
+    using UnaryOp = struct ArObject *(*)(struct ArObject *);
+
+    struct ArBuffer {
+        unsigned char *buffer;
+        ArSize len;
+
+        ArObject *obj;
+        ArBufferFlags flags;
+    };
+
+    using NativeFuncPtr = ArObject *(*)(ArObject *self, ArObject **argv, ArSize count);
+    struct NativeFunc {
+        /* Name of native function (this name will be exposed to Argon) */
+        const char *name;
+
+        /* Documentation of native function (this doc will be exposed to Argon) */
+        const char *doc;
+
+        /* Pointer to native code */
+        NativeFuncPtr func;
+
+        /* Arity of the function, how many args accepts in input?! */
+        unsigned short arity;
+
+        /* Is a variadic function? (func variadic(p1,p2,...p3))*/
+        bool variadic;
+    };
+
+#define ARGON_FUNCTION5(prefix, name, doc, arity, variadic)                     \
+ArObject *prefix##name##_fn(ArObject *self, ArObject **argv, ArSize count);     \
+NativeFunc prefix##name##_ = {#name, doc, prefix##name##_fn, arity, variadic};  \
+ArObject *prefix##name##_fn(ArObject *self, ArObject **argv, ArSize count)
+
+#define ARGON_FUNCTION(name, doc, arity, variadic)          ARGON_FUNCTION5(,name, doc, arity, variadic)
+#define ARGON_METHOD5(prefix, name, doc, arity, variadic)   ARGON_FUNCTION5(prefix, name, doc, (arity)+1, variadic)
+#define ARGON_METHOD(name, doc, arity, variadic)            ARGON_FUNCTION5(,name, doc, (arity)+1, variadic)
+
+#define ARGON_CALL_FUNC5(prefix, name, self, argv, count)   prefix##name##_fn(self, argv, count)
+#define ARGON_CALL_FUNC(name, self, argv, count)            ARGON_CALL_FUNC5(,name,self,argv,count)
+
+#define ARGON_METHOD_SENTINEL   {nullptr, nullptr, nullptr, 0, false}
+
+    using BufferGetFn = bool (*)(struct ArObject *obj, ArBuffer *buffer, ArBufferFlags flags);
+    using BufferRelFn = void (*)(ArBuffer *buffer);
+    struct BufferSlots {
+        BufferGetFn get_buffer;
+        BufferRelFn rel_buffer;
+    };
+
+    struct IteratorSlots {
+        BoolUnaryOp has_next;
+        UnaryOp next;
+        UnaryOp peek;
+        VoidUnaryOp reset;
+    };
+
+    struct MapSlots {
+        SizeTUnaryOp length;
+        BinaryOp get_item;
+        BoolTernOp set_item;
+    };
+
+    struct NumberSlots {
+        UnaryOp as_integer;
+        ArSizeUnaryOp as_index;
+    };
+
+    struct ObjectSlots {
+        const NativeFunc *methods;
+
+        BinaryOp get_attr;
+        BinaryOp get_static_attr;
+        BoolTernOp set_attr;
+        BoolTernOp set_static_attr;
+    };
 
     struct OpSlots {
         // Math
@@ -66,12 +144,7 @@ namespace argon::object {
         UnaryOp dec;
     };
 
-    struct NumberActions {
-        UnaryOp as_number;
-        ArSizeUnaryOp as_index;
-    };
-
-    struct SequenceActions {
+    struct SequenceSlots {
         SizeTUnaryOp length;
         BinaryOpArSize get_item;
         BoolTernOpArSize set_item;
@@ -79,81 +152,90 @@ namespace argon::object {
         BoolTernOp set_slice;
     };
 
-    struct MapActions {
-        SizeTUnaryOp length;
-        BinaryOp get_item;
-        BoolTernOp set_item;
-    };
-
-    struct ObjectActions {
-        BinaryOp get_attr;
-        BinaryOp get_static_attr;
-        BoolTernOp set_attr;
-        BoolTernOp set_static_attr;
-    };
-
-    enum class ArBufferFlags {
-        READ = 0x01,
-        WRITE = 0x02
-    };
-
-    struct ArBuffer {
-        unsigned char *buffer;
-        size_t len;
-
-        ArObject *obj;
-        ArBufferFlags flags;
-    };
-
-    using BufferGetFn = bool (*)(struct ArObject *obj, ArBuffer *buffer, ArBufferFlags flags);
-
-    using BufferRelFn = void (*)(ArBuffer *buffer);
-
-    struct BufferActions {
-        BufferGetFn get_buffer;
-        BufferRelFn rel_buffer;
-    };
-
     struct ArObject {
         RefCount ref_count;
         const struct TypeInfo *type;
     };
 
+    using Trace = void (*)(struct ArObject *, VoidUnaryOp);
     struct TypeInfo : ArObject {
-        const unsigned char *name;
-        unsigned short size;
+        const char *name;
+        const char *doc;
+        const unsigned short size;
 
-        // Actions
-        const BufferActions *buffer_actions;
-        const NumberActions *number_actions;
-        const MapActions *map_actions;
-        const ObjectActions *obj_actions;
-        const SequenceActions *sequence_actions;
+        /* Datatype constructor */
+        VariadicOp ctor;
 
-        // Generic actions
-        BoolUnaryOp is_true;
-        BoolBinOp equal;
+        /* Datatype destructor */
+        VoidUnaryOp cleanup;
+
+        /* GC trace method */
+        Trace trace;
+
+        /* Make this datatype comparable */
         CompareOp compare;
+
+        /* Make this datatype comparable for equality */
+        BoolBinOp equal;
+
+        /* Return datatype truthiness */
+        BoolUnaryOp is_true;
+
+        /* Return datatype hash */
         SizeTUnaryOp hash;
+
+        /* Return string datatype representation */
         UnaryOp str;
 
+        /* Returns an iterator for this datatype */
+        UnaryOp iter_get;
+
+        /* Returns a reverse iterator for this datatype */
+        UnaryOp iter_rget;
+
+        /* Pointer to BufferSlots structure relevant only if the object implements bufferable behavior */
+        const BufferSlots *buffer_actions;
+
+        /* Pointer to IteratorSlots structure relevant only if this datatype is an iterator */
+        const IteratorSlots *iterator_actions;
+
+        /* Pointer to MapSlots structure relevant only if the object implements mapping behavior */
+        const MapSlots *map_actions;
+
+        /* Pointer to NumberSlots structure relevant only if the object implements numeric behavior */
+        const NumberSlots *number_actions;
+
+        /* Pointer to ObjectSlots structure relevant only if the object implements instance like behavior */
+        const ObjectSlots *obj_actions;
+
+        /* Pointer to SequenceSlots structure relevant only if the object implements sequence behavior */
+        const SequenceSlots *sequence_actions;
+
+        /* Pointer to OpSlots structure that contains the common operations for an object */
         const OpSlots *ops;
 
-        Trace trace;
-        VoidUnaryOp cleanup;
+        /* Pointer to dynamically allocated namespace that contains relevant type methods (if any, nullptr otherwise) */
+        ArObject *tp_map;
     };
 
-    extern const TypeInfo type_dtype_;
+    extern const TypeInfo type_type_;
 
-    ArObject *ArObjectNew(RCType rc, const TypeInfo *type);
+#define TYPEINFO_STATIC_INIT        {{RefCount(RCType::STATIC)}, &type_type_}
+#define AR_GET_TYPE(object)         ((object)->type)
+#define AR_TYPEOF(object, type)     (AR_GET_TYPE(object) == &(type))
+#define AR_SAME_TYPE(object, other) (AR_GET_TYPE(object) == AR_GET_TYPE(other))
+#define AR_EQUAL(object, other)     (AR_GET_TYPE(object)->equal(object, other))
+#define AR_TYPE_NAME(object)        (AR_GET_TYPE(object)->name)
+#define AR_IS_TYPE_INSTANCE(object) (AR_GET_TYPE(object) != &type_type_)
+#define AR_ITERATOR_SLOT(object)    (AR_GET_TYPE(object)->iterator_actions)
+#define AR_MAP_SLOT(object)         (AR_GET_TYPE(object)->map_actions)
+#define AR_NUMBER_SLOT(object)      (AR_GET_TYPE(object)->number_actions)
+#define AR_OBJECT_SLOT(object)      (AR_GET_TYPE(object)->obj_actions)
+#define AR_SEQUENCE_SLOT(object)    (AR_GET_TYPE(object)->sequence_actions)
 
     ArObject *ArObjectGCNew(const TypeInfo *type);
 
-    template<typename T>
-    inline typename std::enable_if<std::is_base_of<ArObject, T>::value, T>::type *
-    ArObjectNew(RCType rc, const TypeInfo *type) {
-        return (T *) ArObjectNew(rc, type);
-    }
+    ArObject *ArObjectNew(RCType rc, const TypeInfo *type);
 
     template<typename T>
     inline typename std::enable_if<std::is_base_of<ArObject, T>::value, T>::type *
@@ -161,31 +243,75 @@ namespace argon::object {
         return (T *) ArObjectGCNew(type);
     }
 
-    bool BufferGet(ArObject *obj, ArBuffer *buffer, ArBufferFlags flags);
-
-    bool BufferSimpleFill(ArObject *obj, ArBuffer *buffer, ArBufferFlags flags, unsigned char *raw, size_t len,
-                          bool writable);
-
-    inline bool IsBufferable(const ArObject *obj) { return obj->type->buffer_actions != nullptr; }
-
-    inline bool AsIndex(const ArObject *obj) {
-        return obj->type->number_actions != nullptr && obj->type->number_actions->as_index;
+    template<typename T>
+    inline typename std::enable_if<std::is_base_of<ArObject, T>::value, T>::type *
+    ArObjectNew(RCType rc, const TypeInfo *type) {
+        return (T *) ArObjectNew(rc, type);
     }
 
-    inline bool IsMap(const ArObject *obj) { return obj->type->map_actions != nullptr; }
+    ArObject *InstanceGetMethod(const ArObject *instance, const ArObject *key, bool *is_meth);
 
-    inline bool IsNumber(const ArObject *obj) { return obj->type->number_actions != nullptr; }
+    ArObject *IteratorGet(const ArObject *obj);
 
-    inline bool IsSequence(const ArObject *obj) { return obj->type->sequence_actions != nullptr; }
+    ArObject *IteratorGetReversed(const ArObject *obj);
 
-    bool IsTrue(const ArObject *obj);
+    ArObject *IteratorNext(ArObject *iterator);
 
-    void BufferRelease(ArBuffer *buffer);
+    ArObject *PropertyGet(const ArObject *obj, const ArObject *key, bool instance);
 
-    inline void IncRef(ArObject *obj) {
+    ArObject *ToString(ArObject *obj);
+
+    template<typename T>
+    inline typename std::enable_if<std::is_base_of<ArObject, T>::value, T>::type *IncRef(T *obj) {
         if (obj != nullptr)
             obj->ref_count.IncStrong();
+        return obj;
     }
+
+    ArSize Hash(ArObject *obj);
+
+    ArSSize Length(const ArObject *obj);
+
+    inline bool AsIndex(const ArObject *obj) {
+        return AR_GET_TYPE(obj)->number_actions != nullptr
+               && AR_GET_TYPE(obj)->number_actions->as_index;
+    }
+
+    inline bool AsInteger(const ArObject *obj) {
+        return AR_GET_TYPE(obj)->number_actions != nullptr
+               && AR_GET_TYPE(obj)->number_actions->as_integer != nullptr;
+    }
+
+    inline bool AsMap(const ArObject *obj) { return AR_GET_TYPE(obj)->map_actions != nullptr; }
+
+    inline bool AsNumber(const ArObject *obj) { return AR_GET_TYPE(obj)->number_actions != nullptr; }
+
+    inline bool AsSequence(const ArObject *obj) { return AR_GET_TYPE(obj)->sequence_actions != nullptr; }
+
+    inline bool IsHashable(const ArObject *obj) { return AR_GET_TYPE(obj)->hash != nullptr; }
+
+    inline bool IsBufferable(const ArObject *obj) { return AR_GET_TYPE(obj)->buffer_actions != nullptr; }
+
+    inline bool IsIterable(const ArObject *obj) { return AR_GET_TYPE(obj)->iter_get != nullptr; }
+
+    inline bool IsIterableReversed(const ArObject *obj) { return AR_GET_TYPE(obj)->iter_rget != nullptr; }
+
+    inline bool IsIterator(const ArObject *obj) { return AR_GET_TYPE(obj)->iterator_actions != nullptr; }
+
+    inline bool IsTrue(const ArObject *obj) { return AR_GET_TYPE(obj)->is_true((ArObject *) obj); }
+
+    bool PropertySet(ArObject *obj, ArObject *key, ArObject *value, bool member);
+
+    bool TypeInit(TypeInfo *info);
+
+    bool BufferGet(ArObject *obj, ArBuffer *buffer, ArBufferFlags flags);
+
+    bool BufferSimpleFill(ArObject *obj, ArBuffer *buffer, ArBufferFlags flags, unsigned char *raw, ArSize len,
+                          bool writable);
+
+    bool VariadicCheckPositional(const char *name, int nargs, int min, int max);
+
+    void BufferRelease(ArBuffer *buffer);
 
     void Release(ArObject *obj);
 
@@ -193,8 +319,6 @@ namespace argon::object {
         Release(*obj);
         *obj = nullptr;
     }
-
-#define TYPEINFO_STATIC_INIT    {{RefCount(RCType::STATIC)}, &type_dtype_}
 
 } // namespace argon::object
 

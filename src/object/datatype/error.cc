@@ -3,6 +3,7 @@
 // Licensed under the Apache License v2.0
 
 #include <cstdarg>
+#include <cerrno>
 
 #include <vm/runtime.h>
 

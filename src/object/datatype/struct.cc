@@ -27,7 +27,7 @@ ArObject *struct_get_static_attr(Struct *self, ArObject *key) {
         return nullptr;
     }
 
-    if (pinfo.IsMember()) {
+    if (!pinfo.IsStatic()) {
         ErrorFormat(&error_access_violation,
                     "in order to access to non const member '%s' an instance of '%s' is required",
                     ((String *) key)->buffer,
@@ -47,7 +47,8 @@ ArObject *struct_get_static_attr(Struct *self, ArObject *key) {
     return obj;
 }
 
-const ObjectActions struct_actions{
+const ObjectSlots struct_actions{
+        nullptr,
         nullptr,
         (BinaryOp) struct_get_static_attr,
         nullptr,
@@ -56,21 +57,26 @@ const ObjectActions struct_actions{
 
 const TypeInfo argon::object::type_struct_ = {
         TYPEINFO_STATIC_INIT,
-        (const unsigned char *) "struct",
+        "struct",
+        nullptr,
         sizeof(Struct),
+        nullptr,
+        (VoidUnaryOp) struct_cleanup,
+        nullptr,
+        nullptr,
+        nullptr,
+        nullptr,
+        nullptr,
+        nullptr,
+        nullptr,
+        nullptr,
+        nullptr,
         nullptr,
         nullptr,
         nullptr,
         &struct_actions,
         nullptr,
-        nullptr,
-        nullptr,
-        nullptr,
-        nullptr,
-        nullptr,
-        nullptr,
-        nullptr,
-        (VoidUnaryOp) struct_cleanup
+        nullptr
 };
 
 Struct *argon::object::StructNew(String *name, Namespace *names, List *mro) {
@@ -86,8 +92,8 @@ Struct *argon::object::StructNew(String *name, Namespace *names, List *mro) {
 
         // Looking into 'names' and counts the number of instantiable properties.
         stru->properties_count = 0;
-        for (NsEntry *cur = names->iter_begin; cur != nullptr; cur = cur->iter_next) {
-            if (cur->info.IsMember() && !cur->info.IsConstant()) stru->properties_count++;
+        for (auto *cur = (NsEntry *) names->hmap.iter_begin; cur != nullptr; cur = (NsEntry *) cur->iter_next) {
+            if (!cur->info.IsStatic() && !cur->info.IsConstant()) stru->properties_count++;
         }
     }
 

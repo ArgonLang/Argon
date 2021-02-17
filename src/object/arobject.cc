@@ -4,46 +4,61 @@
 
 #include <vm/runtime.h>
 #include <object/datatype/error.h>
+#include <object/datatype/function.h>
 
 #include "gc.h"
-
 #include "arobject.h"
 
 using namespace argon::object;
 
-bool dtype_istrue(ArObject *obj) {
+bool type_is_true(ArObject *obj) {
     return true;
 }
 
-bool dtype_equal(TypeInfo *left, TypeInfo *right) {
-    if (right->type != &type_dtype_)
-        return false;
-
+bool type_equal(ArObject *left, ArObject *right) {
     return left == right;
 }
 
-size_t dtype_hash(ArObject *self) {
-    return (size_t) self; // returns memory pointer as size_t
+ArSize type_hash(ArObject *self) {
+    return (ArSize) self; // returns memory pointer as size_t
 }
 
-const TypeInfo argon::object::type_dtype_ = {
+const TypeInfo argon::object::type_type_ = {
         TYPEINFO_STATIC_INIT,
-        (const unsigned char *) "datatype",
-        sizeof(TypeInfo),
+        "datatype",
+        nullptr,
+        0,
+        nullptr,
+        nullptr,
+        nullptr,
+        nullptr,
+        type_equal,
+        type_is_true,
+        type_hash,
         nullptr,
         nullptr,
         nullptr,
         nullptr,
         nullptr,
-        dtype_istrue,
-        (BoolBinOp) dtype_equal,
         nullptr,
-        dtype_hash,
+        nullptr,
         nullptr,
         nullptr,
         nullptr,
         nullptr
 };
+
+ArObject *argon::object::ArObjectGCNew(const TypeInfo *type) {
+    auto obj = (ArObject *) GCNew(type->size);
+
+    if (obj != nullptr) {
+        obj->ref_count = RefBits((unsigned char) RCType::GC);
+        obj->type = type;
+        Track(obj); // Inform the GC to track the object
+    } else argon::vm::Panic(OutOfMemoryError);
+
+    return obj;
+}
 
 ArObject *argon::object::ArObjectNew(RCType rc, const TypeInfo *type) {
     auto obj = (ArObject *) memory::Alloc(type->size);
@@ -56,16 +71,84 @@ ArObject *argon::object::ArObjectNew(RCType rc, const TypeInfo *type) {
     return obj;
 }
 
-ArObject *argon::object::ArObjectGCNew(const TypeInfo *type) {
-    auto obj = (ArObject *) GCNew(type->size);
+ArObject *argon::object::InstanceGetMethod(const ArObject *instance, const ArObject *key, bool *is_meth) {
+    ArObject *ret;
 
-    if (obj != nullptr) {
-        obj->ref_count = RefBits((unsigned char) RCType::GC);
-        obj->type = type;
-        Track(obj); // Inform the GC to track the object
-    } else argon::vm::Panic(OutOfMemoryError);
+    if ((ret = PropertyGet(instance, key, true)) != nullptr) {
+        if (is_meth != nullptr)
+            *is_meth = AR_TYPEOF(ret, type_function_) && ((Function *) ret)->IsMethod();
+    }
 
-    return obj;
+    return ret;
+}
+
+ArObject *argon::object::IteratorGet(const ArObject *obj) {
+    if (!IsIterable(obj))
+        return ErrorFormat(&error_type_error, "'%s' is not iterable", AR_TYPE_NAME(obj));
+
+    return AR_GET_TYPE(obj)->iter_get((ArObject *) obj);
+}
+
+ArObject *argon::object::IteratorGetReversed(const ArObject *obj) {
+    if (!IsIterableReversed(obj))
+        return ErrorFormat(&error_type_error, "'%s' is not reverse iterable", AR_TYPE_NAME(obj));
+
+    return AR_GET_TYPE(obj)->iter_rget((ArObject *) obj);
+}
+
+ArObject *argon::object::IteratorNext(ArObject *iterator) {
+    if (!IsIterator(iterator))
+        return ErrorFormat(&error_type_error, "expected an iterator not '%s'", AR_TYPE_NAME(iterator));
+
+    return AR_ITERATOR_SLOT(iterator)->next(iterator);
+}
+
+ArObject *argon::object::PropertyGet(const ArObject *obj, const ArObject *key, bool instance) {
+    const TypeInfo *type = AR_TYPEOF(obj, type_type_) ? (TypeInfo *) obj : AR_GET_TYPE(obj);
+    ArObject *ret;
+
+    if (AR_GET_TYPE(obj)->obj_actions != nullptr) {
+        if (AR_OBJECT_SLOT(obj)->get_attr != nullptr)
+            return AR_OBJECT_SLOT(obj)->get_attr((ArObject *) obj, (ArObject *) key);
+
+        if (!instance && AR_OBJECT_SLOT(obj)->get_static_attr != nullptr)
+            return AR_OBJECT_SLOT(obj)->get_static_attr((ArObject *) obj, (ArObject *) key);
+    }
+
+    if (!AR_IS_TYPE_INSTANCE(obj) && instance)
+        return ErrorFormat(&error_type_error, "object is not an instance of type '%s'", type->name);
+
+    if (type->tp_map == nullptr)
+        return ErrorFormat(&error_attribute_error, "type '%s' has no attributes", type->name);
+
+    if ((ret = NamespaceGetValue((Namespace *) type->tp_map, (ArObject *) key, nullptr)) == nullptr)
+        return ErrorFormat(&error_attribute_error, "unknown attribute '%s' for type '%s'",
+                           ((String *) key)->buffer, type->name);
+
+    return ret;
+}
+
+ArObject *argon::object::ToString(ArObject *obj) {
+    if (AR_GET_TYPE(obj)->str != nullptr)
+        return AR_GET_TYPE(obj)->str(obj);
+
+    return ErrorFormat(&error_runtime_error, "unimplemented slot 'str' for object '%s'", AR_TYPE_NAME(obj));
+}
+
+ArSize argon::object::Hash(ArObject *obj) {
+    if (IsHashable(obj))
+        return AR_GET_TYPE(obj)->hash(obj);
+    return 0;
+}
+
+ArSSize argon::object::Length(const ArObject *obj) {
+    if (AsSequence(obj) && AR_GET_TYPE(obj)->sequence_actions->length != nullptr)
+        return AR_GET_TYPE(obj)->sequence_actions->length((ArObject *) obj);
+    else if (AsMap(obj) && AR_GET_TYPE(obj)->map_actions->length != nullptr)
+        return AR_GET_TYPE(obj)->map_actions->length((ArObject *) obj);
+
+    ErrorFormat(&error_type_error, "'%s' has no len", AR_TYPE_NAME(obj));
+    return -1;
 }
 
 bool argon::object::BufferGet(ArObject *obj, ArBuffer *buffer, ArBufferFlags flags) {
@@ -98,14 +181,69 @@ bool argon::object::BufferSimpleFill(ArObject *obj, ArBuffer *buffer, ArBufferFl
     return true;
 }
 
-bool argon::object::IsTrue(const ArObject *obj) {
-    if (IsSequence(obj) && obj->type->sequence_actions->length != nullptr)
-        return obj->type->sequence_actions->length((ArObject *) obj) > 0;
-    else if (IsMap(obj) && obj->type->map_actions->length != nullptr)
-        return obj->type->map_actions->length((ArObject *) obj) > 0;
-    if (obj->type->is_true != nullptr)
-        return obj->type->is_true((ArObject *) obj);
-    return false;
+bool argon::object::PropertySet(ArObject *obj, ArObject *key, ArObject *value, bool member) {
+    if (member) {
+        if (AR_OBJECT_SLOT(obj) == nullptr || AR_OBJECT_SLOT(obj)->set_attr == nullptr) {
+            ErrorFormat(&error_attribute_error, "'%s' object is unable to use attribute(.) operator",
+                        AR_TYPE_NAME(obj));
+            return false;
+        }
+
+        return AR_OBJECT_SLOT(obj)->set_attr(obj, key, value);
+    }
+
+    if (AR_OBJECT_SLOT(obj) == nullptr || AR_OBJECT_SLOT(obj)->set_static_attr == nullptr) {
+        ErrorFormat(&error_scope_error, "'%s' object is unable to use scope(::) operator", AR_TYPE_NAME(obj));
+        return false;
+    }
+
+    return AR_OBJECT_SLOT(obj)->set_static_attr(obj, key, value);
+}
+
+bool argon::object::TypeInit(TypeInfo *info) {
+    static PropertyType meth_flags = PropertyType::PUBLIC | PropertyType::CONST;
+    Function *fn;
+
+    assert(info->tp_map == nullptr);
+
+    if (info->obj_actions == nullptr || info->obj_actions->methods == nullptr)
+        return true;
+
+    // Build namespace
+    if ((info->tp_map = NamespaceNew()) == nullptr)
+        return false;
+
+    // Push methods
+    for (const NativeFunc *method = info->obj_actions->methods; method->name != nullptr; method++) {
+        if ((fn = FunctionMethodNew(nullptr, info, method)) == nullptr) {
+            Release(&info->tp_map);
+            return false;
+        }
+
+        if (!NamespaceNewSymbol((Namespace *) info->tp_map, fn->name, fn, PropertyInfo(meth_flags))) {
+            Release(fn);
+            Release(&info->tp_map);
+            return false;
+        }
+
+        Release(fn);
+    }
+
+    return true;
+}
+
+bool argon::object::VariadicCheckPositional(const char *name, int nargs, int min, int max) {
+    if (nargs < min) {
+        ErrorFormat(&error_type_error, "%s expected %s%d argument%s, got %d", name, (min == max ? "" : "at least "),
+                    min, min == 1 ? "" : "s", nargs);
+        return false;
+    } else if (nargs > max) {
+        ErrorFormat(&error_type_error, "%s expected %s%d argument%s, got %d", name, (min == max ? "" : "at most "),
+                    max, max == 1 ? "" : "s", nargs);
+        return false;
+    }
+
+    return true;
 }
 
 void argon::object::BufferRelease(ArBuffer *buffer) {

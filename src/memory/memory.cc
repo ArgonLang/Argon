@@ -93,7 +93,12 @@ void *argon::memory::Alloc(size_t size) noexcept {
 }
 
 void argon::memory::Free(void *ptr) {
-    Pool *pool = (Pool *) AlignDown(ptr, ARGON_MEMORY_PAGE_SIZE);
+    Pool *pool;
+
+    if (ptr == nullptr)
+        return;
+
+    pool = (Pool *) AlignDown(ptr, ARGON_MEMORY_PAGE_SIZE);
 
     if (AddressInArenas(ptr)) {
         size_t clazz = SizeToPoolClass(pool->blocksz);
@@ -104,6 +109,18 @@ void argon::memory::Free(void *ptr) {
     } else ::operator delete(GetRealMemoryPtr(ptr));
 }
 
+int argon::memory::MemoryCompare(const void *ptr1, const void *ptr2, size_t num) {
+    auto *p1 = (const unsigned char *) ptr1;
+    auto *p2 = (const unsigned char *) ptr2;
+
+    do {
+        if (*p1++ != *p2++)
+            return *--p1 - *--p2;
+    } while (--num != 0);
+
+    return 0;
+}
+
 void *argon::memory::MemoryCopy(void *dest, const void *src, size_t size) {
     auto d = (unsigned char *) dest;
     auto s = (const unsigned char *) src;
@@ -111,7 +128,7 @@ void *argon::memory::MemoryCopy(void *dest, const void *src, size_t size) {
     while (size--)
         *d++ = *s++;
 
-    return dest;
+    return d;
 }
 
 void *argon::memory::MemoryConcat(void *s1, size_t size1, void *s2, size_t size2) {
@@ -142,12 +159,17 @@ void *argon::memory::MemorySet(void *dest, int val, size_t size) {
 }
 
 void *argon::memory::Realloc(void *ptr, size_t size) {
-    Pool *pool = (Pool *) AlignDown(ptr, ARGON_MEMORY_PAGE_SIZE);
-    bool in_arenas = AddressInArenas(ptr);
-    size_t src_sz = 0;
-    void *tmp = nullptr;
+    Pool *pool;
+    void *tmp;
 
-    if (in_arenas) {
+    size_t src_sz;
+
+    if (ptr == nullptr)
+        return Alloc(size);
+
+    pool = (Pool *) AlignDown(ptr, ARGON_MEMORY_PAGE_SIZE);
+
+    if (AddressInArenas(ptr)) {
         if (SizeToPoolClass(pool->blocksz) >= SizeToPoolClass(size)) return ptr;
         src_sz = pool->blocksz;
     } else {

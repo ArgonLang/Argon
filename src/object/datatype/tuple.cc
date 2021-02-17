@@ -3,126 +3,322 @@
 // Licensed under the Apache License v2.0
 
 #include <cassert>
-#include "tuple.h"
-#include "list.h"
-#include "nil.h"
 
+#include <vm/runtime.h>
 #include <memory/memory.h>
 
+#include "bounds.h"
+#include "error.h"
+#include "list.h"
+#include "nil.h"
+#include "integer.h"
+#include "iterator.h"
+#include "string.h"
+#include "tuple.h"
+
 using namespace argon::object;
-using namespace argon::memory;
 
-bool tuple_equal(ArObject *self, ArObject *other) {
-    return false;
+size_t tuple_len(Tuple *self) {
+    return self->len;
 }
 
-size_t tuple_hash(ArObject *obj) {
-    return 0;
-}
+ArObject *argon::object::TupleGetItem(Tuple *self, ArSSize index) {
+    ArObject *obj;
 
-void tuple_cleanup(ArObject *obj) {
-    auto tuple = (Tuple *) obj;
-    for (size_t i = 0; i < tuple->len; i++)
-        Release(tuple->objects[i]);
-}
+    if (index < 0)
+        index = self->len + index;
 
-size_t tuple_len(ArObject *obj) {
-    return ((Tuple *) obj)->len;
-}
-
-ArObject *argon::object::TupleGetItem(Tuple *tuple, arsize i) {
-    ArObject *obj = nullptr;
-    if (i >= tuple->len) {
-        assert(i >= tuple->len);
-        return nullptr;
+    if (index < self->len) {
+        obj = self->objects[index];
+        IncRef(obj);
+        return obj;
     }
-    obj = tuple->objects[i];
-    IncRef(obj);
-    return obj;
+
+    return ErrorFormat(&error_overflow_error, "tuple index out of range (len: %d, idx: %d)", self->len, index);
 }
 
-const SequenceActions tuple_actions{
-        tuple_len,
-        (BinaryOpArSize) argon::object::TupleGetItem
+ArObject *tuple_get_slice(Tuple *self, Bounds *bounds) {
+    ArObject *tmp;
+    Tuple *ret;
+
+    ArSSize slice_len;
+    ArSSize start;
+    ArSSize stop;
+    ArSSize step;
+
+    slice_len = BoundsIndex(bounds, self->len, &start, &stop, &step);
+
+    if ((ret = TupleNew(slice_len)) == nullptr)
+        return nullptr;
+
+    if (step >= 0) {
+        for (size_t i = 0; start < stop; start += step) {
+            tmp = self->objects[start];
+            IncRef(tmp);
+            ret->objects[i++] = tmp;
+        }
+    } else {
+        for (size_t i = 0; stop < start; start += step) {
+            tmp = self->objects[start];
+            IncRef(tmp);
+            ret->objects[i++] = tmp;
+        }
+    }
+
+    return ret;
+}
+
+const SequenceSlots tuple_sequence{
+        (SizeTUnaryOp) tuple_len,
+        (BinaryOpArSize) argon::object::TupleGetItem,
+        nullptr,
+        (BinaryOp) tuple_get_slice,
+        nullptr
 };
+
+ARGON_METHOD5(tuple_, find,
+              "Find an item into the tuple and returns its position."
+              ""
+              "- Parameter obj: object to search."
+              "- Returns: index if the object was found into the tuple, -1 otherwise.", 1, false) {
+    auto *tuple = (Tuple *) self;
+
+    for (ArSize i = 0; i < tuple->len; i++) {
+        if (AR_EQUAL(tuple->objects[i], *argv))
+            return IntegerNew(i);
+    }
+
+    return IntegerNew(-1);
+}
+
+const NativeFunc tuple_methods[] = {
+        tuple_find_,
+        ARGON_METHOD_SENTINEL
+};
+
+const ObjectSlots tuple_obj = {
+        tuple_methods,
+        nullptr,
+        nullptr,
+        nullptr,
+        nullptr
+};
+
+ArObject *tuple_ctor(ArObject **args, ArSize count) {
+    if (!VariadicCheckPositional("tuple", count, 0, 1))
+        return nullptr;
+
+    if (count == 1)
+        return TupleNew(*args);
+
+    return TupleNew((size_t) 0);
+}
+
+bool tuple_is_true(Tuple *self) {
+    return self->len > 0;
+}
+
+bool tuple_equal(Tuple *self, ArObject *other) {
+    auto *o = (Tuple *) other;
+
+    if (self != other) {
+        if (!AR_SAME_TYPE(self, other) || self->len != o->len)
+            return false;
+
+        for (size_t i = 0; i < self->len; i++) {
+            if (!AR_EQUAL(self->objects[i], o->objects[i]))
+                return false;
+        }
+    }
+
+    return true;
+}
+
+size_t tuple_hash(Tuple *self) {
+    unsigned long result = 1;
+    ArObject *obj;
+    size_t hash;
+
+    if (self->len == 0)
+        return 0;
+
+    for (size_t i = 0; i < self->len; i++) {
+        obj = self->objects[i];
+
+        if ((hash = Hash(obj)) == 0 && argon::vm::IsPanicking())
+            return 0;
+
+        result = 31 * result + hash;
+    }
+
+    return result;
+}
+
+ArObject *tuple_str(Tuple *self) {
+    StringBuilder sb = {};
+    String *tmp = nullptr;
+
+    if (StringBuilderWrite(&sb, (unsigned char *) "(", 1, self->len == 0 ? 1 : 0) < 0)
+        goto error;
+
+    for (size_t i = 0; i < self->len; i++) {
+        if ((tmp = (String *) ToString(self->objects[i])) == nullptr)
+            goto error;
+
+        if (StringBuilderWrite(&sb, tmp, i + 1 < self->len ? 2 : 1) < 0)
+            goto error;
+
+        if (i + 1 < self->len) {
+            if (StringBuilderWrite(&sb, (unsigned char *) ", ", 2) < 0)
+                goto error;
+        }
+
+        Release(tmp);
+    }
+
+    if (StringBuilderWrite(&sb, (unsigned char *) ")", 1) < 0)
+        goto error;
+
+    return StringBuilderFinish(&sb);
+
+    error:
+    Release(tmp);
+    StringBuilderClean(&sb);
+    return nullptr;
+}
+
+ArObject *tuple_iter_get(List *self) {
+    return IteratorNew(self, false);
+}
+
+ArObject *tuple_iter_rget(List *self) {
+    return IteratorNew(self, true);
+}
+
+void tuple_cleanup(Tuple *self) {
+    for (size_t i = 0; i < self->len; i++)
+        Release(self->objects[i]);
+
+    argon::memory::Free(self->objects);
+}
 
 const TypeInfo argon::object::type_tuple_ = {
         TYPEINFO_STATIC_INIT,
-        (const unsigned char *) "tuple",
+        "tuple",
+        nullptr,
         sizeof(Tuple),
+        tuple_ctor,
+        (VoidUnaryOp) tuple_cleanup,
+        nullptr,
+        nullptr,
+        (BoolBinOp) tuple_equal,
+        (BoolUnaryOp) tuple_is_true,
+        (SizeTUnaryOp) tuple_hash,
+        (UnaryOp) tuple_str,
+        (UnaryOp) tuple_iter_get,
+        (UnaryOp) tuple_iter_rget,
         nullptr,
         nullptr,
         nullptr,
         nullptr,
-        &tuple_actions,
-        nullptr,
-        tuple_equal,
-        nullptr,
-        tuple_hash,
-        nullptr,
-        nullptr,
-        nullptr,
-        tuple_cleanup
+        &tuple_obj,
+        &tuple_sequence,
+        nullptr
 };
+
+template<typename T>
+Tuple *TupleClone(T *t) {
+    Tuple *tuple;
+
+    if ((tuple = TupleNew(t->len)) == nullptr)
+        return nullptr;
+
+    for (size_t i = 0; i < t->len; i++) {
+        IncRef(t->objects[i]);
+        tuple->objects[i] = t->objects[i];
+    }
+
+    tuple->len = t->len;
+    return tuple;
+}
 
 Tuple *argon::object::TupleNew(size_t len) {
     auto tuple = ArObjectNew<Tuple>(RCType::INLINE, &type_tuple_);
 
     if (tuple != nullptr) {
+        tuple->objects = nullptr;
         tuple->len = len;
 
-        if ((tuple->objects = (ArObject **) Alloc(len * sizeof(ArObject *))) == nullptr) {
-            Release(tuple);
-            return nullptr;
-        }
+        if (len > 0) {
+            if ((tuple->objects = (ArObject **) argon::memory::Alloc(len * sizeof(void *))) == nullptr) {
+                Release(tuple);
+                return nullptr;
+            }
 
-        for (size_t i = 0; i < len; i++) {
-            IncRef(NilVal);
-            tuple->objects[i] = NilVal;
+            for (size_t i = 0; i < len; i++) {
+                IncRef(NilVal);
+                tuple->objects[i] = NilVal;
+            }
         }
-
     }
 
     return tuple;
 }
 
 Tuple *argon::object::TupleNew(const ArObject *sequence) {
-    auto tuple = ArObjectNew<Tuple>(RCType::INLINE, &type_tuple_);
-    ArObject *tmp;
+    Tuple *tuple;
+    ArObject *ret;
+    ArSize idx = 0;
 
-    assert(tuple != nullptr);
+    if (AsSequence(sequence)) {
+        // FAST PATH
+        if (AR_TYPEOF(sequence, type_list_))
+            return TupleClone((List *) sequence);
+        else if (AR_TYPEOF(sequence, type_tuple_))
+            return TupleClone((Tuple *) sequence);
 
-    if (IsSequence(sequence)) {
-        if (sequence->type == &type_list_) {
-            // List FAST-PATH
-            auto list = (List *) sequence;
-            tuple->len = list->len;
+        // Generic sequence
+        if ((tuple = TupleNew((size_t) AR_SEQUENCE_SLOT(sequence)->length((ArObject *) sequence))) == nullptr)
+            return nullptr;
 
-            if (list->len > 0) {
-                tuple->objects = (ArObject **) Alloc(list->len * sizeof(ArObject *));
-                assert(tuple->objects != nullptr);
-
-                auto other_buf = (const ArObject **) list->objects;
-                for (size_t i = 0; i < list->len; i++) {
-                    tmp = (ArObject *) other_buf[i];
-                    IncRef(tmp);
-                    tuple->objects[i] = tmp;
-                }
-            }
-            return tuple;
+        while (idx < tuple->len) {
+            ret = AR_SEQUENCE_SLOT(sequence)->get_item((ArObject *) sequence, idx);
+            TupleInsertAt(tuple, idx++, ret);
+            Release(ret);
         }
 
-        // TODO: implement generics
-        assert(false);
+        return tuple;
     }
 
-    return tuple;
+    return (Tuple *) ErrorFormat(&error_not_implemented, "no viable conversion from '%s' to tuple",
+                                 AR_TYPE_NAME(sequence));
+}
+
+Tuple *argon::object::TupleNew(ArObject *result, ArObject *error) {
+    Tuple *tuple;
+
+    if ((tuple = TupleNew(2)) != nullptr) {
+        if (result == nullptr) {
+            IncRef(NilVal);
+            result = NilVal;
+        }
+
+        if (error == nullptr) {
+            IncRef(NilVal);
+            error = NilVal;
+        }
+
+        TupleInsertAt(tuple, 0, result);
+        TupleInsertAt(tuple, 1, error);
+        return tuple;
+    }
+
+    return nullptr;
 }
 
 bool argon::object::TupleInsertAt(Tuple *tuple, size_t idx, ArObject *obj) {
     if (idx >= tuple->len)
         return false;
-
 
     Release(tuple->objects[idx]);
 

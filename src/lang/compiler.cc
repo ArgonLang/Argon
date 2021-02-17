@@ -6,7 +6,9 @@
 
 #include <object/datatype/nil.h>
 #include <object/datatype/bool.h>
+#include <object/datatype/bytes.h>
 #include <object/datatype/integer.h>
+#include <object/datatype/function.h>
 #include <object/datatype/decimal.h>
 #include <object/datatype/namespace.h>
 #include <object/datatype/string.h>
@@ -47,7 +49,7 @@ argon::object::Code *Compiler::Assemble() {
 }
 
 argon::object::Code *Compiler::CompileFunction(const ast::Function *func) {
-    MkFuncFlags fun_flags = MkFuncFlags::PLAIN;
+    FunctionType fun_flags{};
     unsigned short p_count = func->params.size();
     Code *fu_code;
 
@@ -57,6 +59,7 @@ argon::object::Code *Compiler::CompileFunction(const ast::Function *func) {
     if (!func->id.empty()) {
         if (this->unit_->prev->scope == TUScope::STRUCT || this->unit_->prev->scope == TUScope::TRAIT) {
             this->VariableNew("self", false, 0);
+            fun_flags |= FunctionType::METHOD;
             p_count++;
         }
     }
@@ -65,8 +68,10 @@ argon::object::Code *Compiler::CompileFunction(const ast::Function *func) {
     for (auto &param : func->params) {
         auto id = ast::CastNode<ast::Identifier>(param);
         this->VariableNew(id->value, false, 0);
-        if (id->rest_element)
-            fun_flags = MkFuncFlags::VARIADIC;
+        if (id->rest_element) {
+            fun_flags = FunctionType::VARIADIC;
+            p_count--;
+        }
     }
 
     this->CompileCode(func->body);
@@ -97,7 +102,7 @@ argon::object::Code *Compiler::CompileFunction(const ast::Function *func) {
         }
         this->unit_->DecStack(fu_code->enclosed->len);
         this->EmitOp4(OpCodes::MK_LIST, fu_code->enclosed->len);
-        fun_flags |= MkFuncFlags::CLOSURE;
+        fun_flags |= FunctionType::CLOSURE;
     }
 
     this->EmitOp4Flags(OpCodes::MK_FUNC, (unsigned char) fun_flags, p_count);
@@ -162,8 +167,8 @@ inline unsigned char AttrToFlags(bool pub, bool constant, bool weak, bool member
         flags |= PropertyType::CONST;
     if (weak)
         flags |= PropertyType::WEAK;
-    if (member)
-        flags |= PropertyType::MEMBER;
+    if (!member)
+        flags |= PropertyType::STATIC;
 
     return (unsigned char) flags;
 }
@@ -353,6 +358,8 @@ void Compiler::CompileAssignment(const ast::Assignment *assign) {
                 auto tuple = ast::CastNode<ast::List>(assign->assignee);
 
                 this->EmitOp4(OpCodes::UNPACK, tuple->expressions.size());
+                this->unit_->DecStack();
+
                 this->unit_->IncStack(tuple->expressions.size());
 
                 for (auto &expr : tuple->expressions) {
@@ -518,15 +525,22 @@ void Compiler::CompileBranch(const ast::If *stmt) {
 
 void Compiler::CompileCall(const ast::Call *call, OpCodes code) {
     auto stack_sz = this->unit_->stack.current;
+    unsigned short params = call->args.size();
 
-    this->CompileCode(call->callee);
+    if (call->callee->type == ast::NodeType::MEMBER) {
+        auto idx = this->CompileMember(ast::CastNode<ast::Member>(call->callee), false, false);
+        this->EmitOp4(OpCodes::LDMETH, idx);
+        this->unit_->IncStack();
+        params++;
+    } else
+        this->CompileCode(call->callee);
 
     for (auto &arg : call->args)
         this->CompileCode(arg);
 
     this->unit_->DecStack(this->unit_->stack.current - stack_sz);
 
-    this->EmitOp2(code, call->args.size()); // CALL, DFR, SPWN
+    this->EmitOp2(code, params); // CALL, DFR, SPWN
 
     this->unit_->IncStack();
 }
@@ -631,10 +645,9 @@ void Compiler::CompileCode(const ast::NodeUptr &node) {
         TARGET_TYPE(FOR)
             this->CompileForLoop(ast::CastNode<ast::For>(node), "");
             break;
-            /*
         TARGET_TYPE(FOR_IN)
+            this->CompileForInLoop(ast::CastNode<ast::For>(node), "");
             break;
-             */
         TARGET_TYPE(FUNC) {
             auto func = ast::CastNode<ast::Function>(node);
             this->CompileFunction(func);
@@ -673,6 +686,9 @@ void Compiler::CompileCode(const ast::NodeUptr &node) {
             if (label->right->type == ast::NodeType::LOOP)
                 this->CompileLoop(ast::CastNode<ast::Loop>(label->right),
                                   ast::CastNode<ast::Identifier>(label->left)->value);
+            else if (label->right->type == ast::NodeType::FOR_IN)
+                this->CompileForInLoop(ast::CastNode<ast::For>(label->right),
+                                       ast::CastNode<ast::Identifier>(label->left)->value);
             else if (label->right->type == ast::NodeType::FOR)
                 this->CompileForLoop(ast::CastNode<ast::For>(label->right),
                                      ast::CastNode<ast::Identifier>(label->left)->value);
@@ -905,6 +921,55 @@ void Compiler::CompileForLoop(const ast::For *loop, const std::string &name) {
     this->unit_->symt.ExitSub();
 }
 
+void Compiler::CompileForInLoop(const ast::For *loop, const std::string &name) {
+    LBlockMeta *meta;
+
+    this->unit_->symt.EnterSub();
+
+    this->CompileCode(loop->test);
+
+    this->EmitOp(OpCodes::LDITER);
+
+    meta = this->unit_->LBlockBegin(name, true);
+
+    this->CompileJump(OpCodes::NJE, meta->end);
+    this->unit_->BlockAsNextNew();
+
+    this->unit_->IncStack();
+
+    // ASSIGN
+
+    if (loop->init->type == ast::NodeType::IDENTIFIER)
+        this->VariableStore(ast::CastNode<ast::Identifier>(loop->init)->value);
+    else if (loop->init->type == ast::NodeType::TUPLE) {
+        auto tuple = ast::CastNode<ast::List>(loop->init);
+
+        this->EmitOp4(OpCodes::UNPACK, tuple->expressions.size());
+        this->unit_->DecStack();
+
+        this->unit_->IncStack(tuple->expressions.size());
+
+        for (auto &expr : tuple->expressions) {
+            if (expr->type != ast::NodeType::IDENTIFIER)
+                throw InvalidSyntaxtException(
+                        "in unpacking expression, only identifiers must be present on the left");
+            this->VariableStore(ast::CastNode<ast::Identifier>(expr)->value);
+        }
+    }
+
+    // EOL
+
+    this->CompileCode(loop->body);
+
+    this->CompileJump(OpCodes::JMP, meta->begin);
+
+    this->unit_->LBlockEnd();
+
+    this->unit_->DecStack();
+
+    this->unit_->symt.ExitSub();
+}
+
 void Compiler::CompileImport(const ast::Import *import) {
     ast::ImportName *path;
     unsigned int idx;
@@ -978,10 +1043,10 @@ void Compiler::CompileLiteral(const ast::Literal *literal) {
             obj = StringNew(literal->value);
             break;
         case scanner::TokenType::BYTE_STRING:
-            assert(false); // TODO: BYTE_STRING
+            obj = BytesNew(literal->value);
             break;
         case scanner::TokenType::RAW_STRING:
-            assert(false);// TODO: RAW_STRING
+            obj = StringNew(literal->value);
             break;
         case scanner::TokenType::DECIMAL:
             obj = DecimalNewFromString(literal->value);

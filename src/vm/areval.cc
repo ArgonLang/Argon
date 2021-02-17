@@ -18,17 +18,23 @@
 #include <object/arobject.h>
 
 #include <lang/opcodes.h>
+#include <object/datatype/set.h>
 #include "areval.h"
 
 using namespace argon::vm;
 using namespace argon::object;
 
 ArObject *Binary(ArRoutine *routine, ArObject *l, ArObject *r, int offset) {
-#define GET_BINARY_OP(struct, offset) *((BinaryOp *) (((unsigned char *) struct) + offset))
-    BinaryOp lop = GET_BINARY_OP(l->type->ops, offset);
-    BinaryOp rop = GET_BINARY_OP(r->type->ops, offset);
-
+#define GET_BINARY_OP(struct, offset) *((BinaryOp *) (((unsigned char *) (struct)) + (offset)))
+    BinaryOp lop = nullptr;
+    BinaryOp rop = nullptr;
     ArObject *result = nullptr;
+
+    if (AR_GET_TYPE(l)->ops != nullptr)
+        lop = GET_BINARY_OP(l->type->ops, offset);
+
+    if (AR_GET_TYPE(r)->ops != nullptr)
+        rop = GET_BINARY_OP(r->type->ops, offset);
 
     if (lop != nullptr)
         result = lop(l, r);
@@ -37,39 +43,6 @@ ArObject *Binary(ArRoutine *routine, ArObject *l, ArObject *r, int offset) {
 
     return result;
 #undef GET_BINARY_OP
-}
-
-ArObject *MkBounds(Frame *frame, unsigned short args) {
-    arsize step = 1;
-    arsize stop = 0;
-    arsize start;
-
-    ArObject *obj = *(frame->eval_stack - 1);
-
-    if (args == 3) {
-        if (!AsIndex(obj))
-            return ErrorFormat(&error_type_error, "step parameter must be integer not '%s'", obj->type->name);
-
-        step = obj->type->number_actions->as_index(obj);
-        Release(*(--frame->eval_stack));
-        obj = *(frame->eval_stack - 1);
-    }
-
-    if (args >= 2) {
-        if (!AsIndex(obj))
-            return ErrorFormat(&error_type_error, "stop parameter must be integer not '%s'", obj->type->name);
-
-        stop = obj->type->number_actions->as_index(obj);
-        Release(*(--frame->eval_stack));
-        obj = *(frame->eval_stack - 1);
-    }
-
-    if (!AsIndex(obj))
-        return ErrorFormat(&error_type_error, "start parameter must be integer not '%s'", obj->type->name);
-
-    start = obj->type->number_actions->as_index(obj);
-
-    return BoundsNew(start, stop, step);
 }
 
 ArObject *MkCurrying(Function *fn_old, ArObject **args, size_t count) {
@@ -155,8 +128,8 @@ ArObject *InstantiateStruct(ArRoutine *routine, Struct *base, ArObject **values,
 
     if (!key_pair) {
         size_t index = 0;
-        for (NsEntry *cur = base->names->iter_begin; cur != nullptr; cur = cur->iter_next) {
-            if (cur->info.IsMember() && !cur->info.IsConstant()) {
+        for (auto *cur = (NsEntry *) base->names->hmap.iter_begin; cur != nullptr; cur = (NsEntry *) cur->iter_next) {
+            if (!cur->info.IsStatic() && !cur->info.IsConstant()) {
                 ArObject *value;
 
                 if (index < count) {
@@ -165,7 +138,7 @@ ArObject *InstantiateStruct(ArRoutine *routine, Struct *base, ArObject **values,
                 } else
                     value = NamespaceGetValue(base->names, cur->key, nullptr);
 
-                bool ok = NamespaceNewSymbol(instance_ns, cur->info, cur->key, value);
+                bool ok = NamespaceNewSymbol(instance_ns, cur->key, value, cur->info);
                 Release(value);
 
                 if (!ok) {
@@ -176,9 +149,9 @@ ArObject *InstantiateStruct(ArRoutine *routine, Struct *base, ArObject **values,
         }
     } else {
         // Load default values
-        for (NsEntry *cur = base->names->iter_begin; cur != nullptr; cur = cur->iter_next) {
-            if (cur->info.IsMember())
-                if (!NamespaceNewSymbol(instance_ns, cur->info, cur->key, cur->obj)) {
+        for (auto *cur = (NsEntry *) base->names->hmap.iter_begin; cur != nullptr; cur = (NsEntry *) cur->iter_next) {
+            if (!cur->info.IsStatic())
+                if (!NamespaceNewSymbol(instance_ns, cur->key, cur->value, cur->info)) {
                     Release(instance_ns);
                     return nullptr;
                 }
@@ -203,7 +176,7 @@ ArObject *InstantiateStruct(ArRoutine *routine, Struct *base, ArObject **values,
 ArObject *Subscript(ArObject *obj, ArObject *idx, ArObject *set) {
     ArObject *ret = nullptr;
 
-    if (IsMap(obj)) {
+    if (AsMap(obj)) {
         if (set == nullptr) {
             if ((ret = obj->type->map_actions->get_item(obj, idx)) == nullptr)
                 return nullptr;
@@ -211,7 +184,7 @@ ArObject *Subscript(ArObject *obj, ArObject *idx, ArObject *set) {
             if (!obj->type->map_actions->set_item(obj, idx, set))
                 return False;
         }
-    } else if (IsSequence(obj)) {
+    } else if (AsSequence(obj)) {
         if (AsIndex(idx)) {
             if (set == nullptr) {
                 ret = obj->type->sequence_actions->get_item(obj, idx->type->number_actions->as_index(idx));
@@ -241,80 +214,46 @@ ArObject *Subscript(ArObject *obj, ArObject *idx, ArObject *set) {
     return ret;
 }
 
-ArObject *LoadStoreAttribute(ArObject *obj, ArObject *key, ArObject *set) {
-    ArObject *ret = nullptr;
-
-
-    if (obj->type->obj_actions == nullptr || ((set != nullptr && obj->type->obj_actions->set_attr == nullptr) ||
-                                              obj->type->obj_actions->get_attr == nullptr)) {
-        ErrorFormat(&error_attribute_error, "'%s' object is unable to use the attribute(.) operator", obj->type->name);
-        return set != nullptr ? False : nullptr;
-    }
-
-    if (set == nullptr)
-        ret = obj->type->obj_actions->get_attr(obj, key);
-    else {
-        if (!obj->type->obj_actions->set_attr(obj, key, set))
-            return False;
-    }
-
-    return ret;
-}
-
-ArObject *LoadStoreScope(ArObject *obj, ArObject *key, ArObject *set) {
-    ArObject *ret = nullptr;
-
-
-    if (obj->type->obj_actions == nullptr || ((set != nullptr && obj->type->obj_actions->set_static_attr == nullptr) ||
-                                              obj->type->obj_actions->get_static_attr == nullptr)) {
-        ErrorFormat(&error_attribute_error, "'%s' object is unable to use scope(::) operator", obj->type->name);
-        return set != nullptr ? False : nullptr;
-    }
-
-    if (set == nullptr)
-        ret = obj->type->obj_actions->get_static_attr(obj, key);
-    else {
-        if (!obj->type->obj_actions->set_static_attr(obj, key, set))
-            return False;
-    }
-
-    return ret;
-}
-
-ArObject *NativeCall(ArRoutine *routine, Function *function, ArObject **args, size_t count) {
+ArObject *NativeCall(Function *function, ArObject **args, size_t count) {
+    ArObject *instance = nullptr;
     List *arguments = nullptr;
-    ArObject **raw = nullptr;
+    ArObject *ret;
+
+    if (count > 0 && function->IsMethod()) {
+        instance = *args;
+
+        if (AR_GET_TYPE(instance) != function->base)
+            return ErrorFormat(&error_type_error, "method '%s' for type '%s' doesn't apply to '%s' type",
+                               function->name->buffer, function->base->name, AR_TYPE_NAME(instance));
+
+        args++;
+        count--;
+    }
 
     if (function->arity > 0) {
-        raw = args;
-
-        /*
-        if (count < function->arity) {
-            if ((arguments = ListNew(function->arity)) == nullptr)
-                return nullptr;
-
-            if (function->currying != nullptr) {
-                if (!ListConcat(arguments, function->currying)) {
-                    Release(arguments);
+        if (function->currying != nullptr) {
+            if (args != nullptr && count > 0) {
+                if ((arguments = ListNew(function->currying->len + count)) == nullptr)
                     return nullptr;
-                }
+
+                ListConcat(arguments, function->currying);
+
+                for (size_t i = 0; i < count; i++)
+                    ListAppend(arguments, args[i]);
+
+                args = arguments->objects;
+                count = arguments->len;
+            } else {
+                args = function->currying->objects;
+                count = function->currying->len;
             }
-
-            for (size_t i = 0; i < count; i++)
-                ListAppend(arguments, args[i]);
-
-            if (function->variadic && arguments->len + 1 == function->arity)
-                ListAppend(arguments, NilVal);
-
-            raw = arguments->objects;
         }
-         */
     }
 
-    auto res = function->native_fn(function, raw);
+    ret = function->native_fn(instance, args, count);
     Release(arguments);
 
-    return res;
+    return ret;
 }
 
 ArObject *RestElementToList(ArObject **args, size_t count) {
@@ -335,13 +274,6 @@ ArObject *RestElementToList(ArObject **args, size_t count) {
 void FillFrameForCall(Frame *frame, Function *callable, ArObject **args, size_t count) {
     size_t local_idx = 0;
 
-    // If method, first parameter must be an instance
-    if (callable->instance != nullptr) {
-        frame->instance = callable->instance;
-        frame->locals[local_idx++] = callable->instance;
-        IncRef(callable->instance);
-    }
-
     // Push currying args
     if (callable->currying != nullptr) {
         for (size_t i = 0; i < callable->currying->len; i++)
@@ -352,17 +284,46 @@ void FillFrameForCall(Frame *frame, Function *callable, ArObject **args, size_t 
     for (size_t i = 0; i < count; i++)
         frame->locals[local_idx++] = args[i];
 
-    // If last parameter in variadic function is empty, fill it with NilVal
-    if (callable->variadic && local_idx + 1 == callable->arity)
-        frame->locals[local_idx++] = ReturnNil();
+    // If method, set frame->instance
+    if (callable->IsMethod())
+        frame->instance = frame->locals[0];
 
-    assert(local_idx == callable->arity);
+    // If last parameter in variadic function is empty, fill it with NilVal
+    if (callable->IsVariadic() && local_idx < callable->arity + 1)
+        frame->locals[local_idx++] = NilVal;
+
+    // assert(local_idx == callable->arity); or assert(local_idx == callable->arity+1); if variadic
 
     // Fill with enclosed args
     if (callable->enclosed != nullptr) {
         for (size_t i = 0; i < callable->enclosed->len; i++)
             frame->enclosed[i] = ListGetItem(callable->enclosed, i);
     }
+}
+
+Function *PrepareCall(Frame *frame, unsigned short *offset, unsigned short *largs,
+                      unsigned short *targs, unsigned short *exceeded) {
+    Function *fn;
+
+    *offset = argon::lang::I16Arg(frame->instr_ptr);
+    *largs = *offset;
+
+    fn = (Function *) *(frame->eval_stack - *offset - 1);
+
+    if (AR_TYPEOF(fn, type_function_)) {
+        if (*largs > 0 && *(frame->eval_stack - *largs) == nullptr)
+            (*largs)--;
+
+        *targs = *largs;
+        if (fn->currying != nullptr)
+            (*targs) += fn->currying->len;
+
+        *exceeded = (*targs) - fn->arity;
+        return fn;
+    }
+
+    ErrorFormat(&error_type_error, "'%s' object is not callable", AR_TYPE_NAME(fn));
+    return nullptr;
 }
 
 ArObject *argon::vm::Eval(ArRoutine *routine, Frame *frame) {
@@ -414,6 +375,7 @@ ArObject *argon::vm::Eval(ArRoutine *routine) {
 #define POP()       Release(*(--cu_frame->eval_stack))
 #define STACK_REWIND(offset) for(size_t i = offset; i>0; POP(), i--)
 #define TOP()       (*(cu_frame->eval_stack-1))
+#define TOP_BACK()  (*(--cu_frame->eval_stack))
 #define TOP_REPLACE(obj)                \
     Release(*(cu_frame->eval_stack-1)); \
     *(cu_frame->eval_stack-1)=obj
@@ -422,7 +384,7 @@ ArObject *argon::vm::Eval(ArRoutine *routine) {
 
 #define BINARY_OP(routine, op, opchar)                                                          \
     if ((ret = Binary(routine, PEEK1(), TOP(), offsetof(OpSlots, op))) == nullptr) {            \
-        if (!RoutineIsPanicking(routine)) {                                                      \
+        if (!RoutineIsPanicking(routine)) {                                                     \
             ErrorFormat(&error_type_error, "unsupported operand type '%s' for: '%s' and '%s'",  \
             #opchar, PEEK1()->type->name, TOP()->type->name);                                   \
         }                                                                                       \
@@ -440,7 +402,7 @@ ArObject *argon::vm::Eval(ArRoutine *routine) {
     DISPATCH()
 
     // FUNCTION START
-    ArObject *last_popped = ReturnNil();
+    ArObject *last_popped = NilVal;
     Frame *first_frame = routine->frame;
 
     begin:
@@ -455,23 +417,17 @@ ArObject *argon::vm::Eval(ArRoutine *routine) {
                 BINARY_OP(routine, add, +);
             }
             TARGET_OP(CALL) {
-                auto local_args = ARG16;
-                auto func = (Function *) *(cu_frame->eval_stack - local_args - 1);
-                unsigned short total_args = local_args;
-                unsigned short arity = func->arity;
+                unsigned short stack_offset;
+                unsigned short local_args;
+                unsigned short total_args;
+                unsigned short exceeded;
+                Function *func;
+                Frame *fn_frame;
 
-                if (func->type != &type_function_) {
-                    ErrorFormat(&error_type_error, "'%s' object is not callable", func->type->name);
+                if ((func = PrepareCall(cu_frame, &stack_offset, &local_args, &total_args, &exceeded)) == nullptr)
                     goto error;
-                }
 
-                if (func->instance != nullptr) total_args++;
-
-                if (func->currying != nullptr) total_args += func->currying->len;
-
-                if (func->variadic) arity--;
-
-                if (total_args < arity) {
+                if (total_args < func->arity) {
                     if (total_args == 0) {
                         ErrorFormat(&error_type_error, "%s() takes %d argument, but 0 were given",
                                     ((String *) func->name)->buffer, func->arity);
@@ -481,49 +437,50 @@ ArObject *argon::vm::Eval(ArRoutine *routine) {
                     if ((ret = MkCurrying(func, cu_frame->eval_stack - local_args, local_args)) == nullptr)
                         goto error;
 
-                    STACK_REWIND(local_args);
+                    STACK_REWIND(stack_offset);
                     TOP_REPLACE(ret);
                     DISPATCH2();
-                } else if (total_args > arity) {
-                    unsigned short exceeded = total_args - arity;
-
-                    if (!func->variadic) {
+                } else if (total_args > func->arity) {
+                    if (!func->IsVariadic()) {
                         ErrorFormat(&error_type_error, "%s() takes %d argument, but %d were given",
                                     ((String *) func->name)->buffer, func->arity, total_args);
                         goto error;
                     }
 
-                    if ((ret = RestElementToList(cu_frame->eval_stack - exceeded, exceeded)) == nullptr)
-                        goto error;
+                    if (!func->IsNative()) {
+                        if ((ret = RestElementToList(cu_frame->eval_stack - exceeded, exceeded)) == nullptr)
+                            goto error;
 
-                    local_args -= exceeded - 1;
-                    STACK_REWIND(exceeded - 1);
-                    TOP_REPLACE(ret);
+                        local_args -= exceeded - 1;
+                        stack_offset -= exceeded - 1;
+                        STACK_REWIND(exceeded - 1);
+                        TOP_REPLACE(ret);
+                    }
                 }
 
-                if (func->native) {
-                    if ((ret = NativeCall(routine, func, cu_frame->eval_stack - local_args, local_args)) == nullptr)
+                if (func->IsNative()) {
+                    if ((ret = NativeCall(func, cu_frame->eval_stack - stack_offset, stack_offset)) == nullptr)
                         goto error;
 
-                    STACK_REWIND(local_args);
+                    STACK_REWIND(stack_offset);
                     TOP_REPLACE(ret);
                     DISPATCH2();
                 }
 
                 // Argon Code
-                auto func_frame = FrameNew(func->code, func->gns, nullptr); // TODO: check proxy_globals
-                if (func_frame == nullptr)
+                // TODO: check proxy_globals
+                if ((fn_frame = FrameNew(func->code, func->gns, nullptr)) == nullptr)
                     goto error;
 
-                FillFrameForCall(func_frame, func, cu_frame->eval_stack - local_args, local_args);
-                cu_frame->eval_stack -= local_args;
+                FillFrameForCall(fn_frame, func, cu_frame->eval_stack - local_args, local_args);
+                cu_frame->eval_stack -= stack_offset;
 
                 POP(); // pop function!
 
                 // Invoke:
                 cu_frame->instr_ptr += sizeof(argon::lang::Instr16);
-                func_frame->back = cu_frame;
-                routine->frame = func_frame;
+                fn_frame->back = cu_frame;
+                routine->frame = fn_frame;
                 goto begin;
             }
             TARGET_OP(CMP) {
@@ -551,24 +508,35 @@ ArObject *argon::vm::Eval(ArRoutine *routine) {
                 UNARY_OP(dec);
             }
             TARGET_OP(DFR) {
-                auto local_args = ARG16;
-                auto func = (Function *) *(cu_frame->eval_stack - local_args - 1);
-                unsigned short total_args = local_args;
-                unsigned short arity = func->arity;
+                unsigned short stack_offset;
+                unsigned short local_args;
+                unsigned short total_args;
+                unsigned short exceeded;
+                Function *func;
 
-                if (func->type != &type_function_) {
-                    ErrorFormat(&error_type_error, "'%s' object is not callable", func->type->name);
+                if ((func = PrepareCall(cu_frame, &stack_offset, &local_args, &total_args, &exceeded)) == nullptr)
                     goto error;
-                }
 
-                if (func->variadic) arity--;
-
-                if (func->instance != nullptr) total_args++;
-
-                if (arity != total_args) {
+                if (total_args < func->arity) {
                     ErrorFormat(&error_type_error, "%s() takes %d argument, but %d were given",
                                 ((String *) func->name)->buffer, func->arity, total_args);
                     goto error;
+                } else if (total_args > func->arity) {
+                    if (!func->IsVariadic()) {
+                        ErrorFormat(&error_type_error, "%s() takes %d argument, but %d were given",
+                                    ((String *) func->name)->buffer, func->arity, total_args);
+                        goto error;
+                    }
+
+                    if (!func->IsNative()) {
+                        if ((ret = RestElementToList(cu_frame->eval_stack - exceeded, exceeded)) == nullptr)
+                            goto error;
+
+                        local_args -= exceeded - 1;
+                        stack_offset -= exceeded - 1;
+                        STACK_REWIND(exceeded - 1);
+                        TOP_REPLACE(ret);
+                    }
                 }
 
                 if ((ret = MkCurrying(func, cu_frame->eval_stack - local_args, local_args)) == nullptr)
@@ -577,7 +545,7 @@ ArObject *argon::vm::Eval(ArRoutine *routine) {
                 RoutineNewDefer(routine, ret);
                 Release(ret);
 
-                STACK_REWIND(local_args + 1); // +1 func it self
+                STACK_REWIND(stack_offset + 1); // +1 func it self
                 DISPATCH2();
                 // MISS YOU E.V.
             }
@@ -602,7 +570,7 @@ ArObject *argon::vm::Eval(ArRoutine *routine) {
             TARGET_OP(IMPFRM) {
                 auto attribute = (String *) TupleGetItem(cu_code->statics, ARG32);
 
-                if ((ret = LoadStoreScope(TOP(), attribute, nullptr)) == nullptr) {
+                if ((ret = PropertyGet(TOP(), attribute, false)) == nullptr) {
                     Release(attribute);
                     goto error;
                 }
@@ -659,10 +627,10 @@ ArObject *argon::vm::Eval(ArRoutine *routine) {
                 BINARY_OP(routine, inp_div, /=);
             }
             TARGET_OP(IPMUL) {
-                BINARY_OP(routine, inp_add, *=);
+                BINARY_OP(routine, inp_mul, *=);
             }
             TARGET_OP(IPSUB) {
-                BINARY_OP(routine, inp_add, -=);
+                BINARY_OP(routine, inp_sub, -=);
             }
             TARGET_OP(JF) {
                 // JUMP FALSE
@@ -715,10 +683,11 @@ ArObject *argon::vm::Eval(ArRoutine *routine) {
                 // TODO: CHECK OutOfBound
                 ArObject *key = TupleGetItem(cu_code->statics, ARG32);
 
-                if ((ret = LoadStoreAttribute(TOP(), key, nullptr)) == nullptr) {
+                if ((ret = PropertyGet(TOP(), key, true)) == nullptr) {
                     Release(key);
                     goto error;
                 }
+
                 Release(key);
 
                 TOP_REPLACE(ret);
@@ -756,6 +725,13 @@ ArObject *argon::vm::Eval(ArRoutine *routine) {
                 PUSH(ret);
                 DISPATCH4();
             }
+            TARGET_OP(LDITER) {
+                if ((ret = IteratorGet(TOP())) == nullptr)
+                    goto error;
+
+                TOP_REPLACE(ret);
+                DISPATCH();
+            }
             TARGET_OP(LDLC) {
                 // TODO: CHECK OutOfBound
                 auto idx = ARG16;
@@ -764,11 +740,35 @@ ArObject *argon::vm::Eval(ArRoutine *routine) {
                 PUSH(cu_frame->locals[idx]);
                 DISPATCH2();
             }
+            TARGET_OP(LDMETH) {
+                // TODO: CHECK OutOfBound
+                ArObject *key = TupleGetItem(cu_code->statics, ARG32);
+                ArObject *instance = TOP();
+                bool meth_found;
+
+                ret = InstanceGetMethod(instance, key, &meth_found);
+                Release(key);
+
+                if (ret == nullptr)
+                    goto error;
+
+                if (meth_found) {
+                    // |method|self|arg1|arg2|....
+                    *(cu_frame->eval_stack - 1) = ret;
+                    PUSH(instance);
+                } else {
+                    // |method|nullptr|arg1|arg2|....
+                    TOP_REPLACE(ret);
+                    PUSH(nullptr);
+                }
+
+                DISPATCH4();
+            }
             TARGET_OP(LDSCOPE) {
                 // TODO: CHECK OutOfBound
                 ArObject *key = TupleGetItem(cu_code->statics, ARG32);
 
-                if ((ret = LoadStoreScope(TOP(), key, nullptr)) == nullptr) {
+                if ((ret = PropertyGet(TOP(), key, false)) == nullptr) {
                     Release(key);
                     goto error;
                 }
@@ -790,33 +790,47 @@ ArObject *argon::vm::Eval(ArRoutine *routine) {
                 BINARY_OP(routine, l_xor, ^);
             }
             TARGET_OP(MK_BOUNDS) {
-                if ((ret = MkBounds(cu_frame, ARG16)) == nullptr)
+                auto args = ARG16;
+                ArObject *step = nullptr;
+                ArObject *stop = nullptr;
+
+                if (args == 3) {
+                    step = TOP_BACK();
+                }
+
+                if (args >= 2) {
+                    stop = TOP_BACK();
+                }
+
+                ret = BoundsNew(TOP(), stop, step);
+                Release(step);
+                Release(stop);
+
+                if (ret == nullptr)
                     goto error;
 
                 TOP_REPLACE(ret);
                 DISPATCH2();
             }
             TARGET_OP(MK_FUNC) {
-                auto flags = (argon::lang::MkFuncFlags) argon::lang::I32ExtractFlag(cu_frame->instr_ptr);
+                auto flags = (FunctionType) argon::lang::I32ExtractFlag(cu_frame->instr_ptr);
                 auto name = (String *) PEEK1();
                 List *enclosed = nullptr;
 
                 ret = TOP();
 
-                if (ENUMBITMASK_ISTRUE(flags, argon::lang::MkFuncFlags::CLOSURE)) {
+                if (ENUMBITMASK_ISTRUE(flags, FunctionType::CLOSURE)) {
                     enclosed = (List *) TOP();
                     ret = PEEK1();
                     name = (String *) PEEK2();
                 }
 
-                ret = FunctionNew(cu_frame->globals, name, (Code *) ret, ARG16,
-                                  ENUMBITMASK_ISTRUE(flags, argon::lang::MkFuncFlags::VARIADIC),
-                                  enclosed);
+                ret = FunctionNew(cu_frame->globals, name, nullptr, (Code *) ret, enclosed, ARG16, flags);
 
                 if (ret == nullptr)
                     goto error;
 
-                if (ENUMBITMASK_ISTRUE(flags, argon::lang::MkFuncFlags::CLOSURE))
+                if (ENUMBITMASK_ISTRUE(flags, FunctionType::CLOSURE))
                     POP();
 
                 POP();
@@ -859,7 +873,21 @@ ArObject *argon::vm::Eval(ArRoutine *routine) {
                 DISPATCH4();
             }
             TARGET_OP(MK_SET) {
+                auto args = ARG32;
 
+                if ((ret = SetNew()) == nullptr)
+                    goto error;
+
+                // Fill set
+                for (ArObject **cursor = cu_frame->eval_stack - args; cursor != cu_frame->eval_stack; cursor++) {
+                    if (!SetAdd((Set *) ret, *cursor))
+                        goto error;
+                    Release(*cursor);
+                }
+
+                cu_frame->eval_stack -= args;
+                PUSH(ret);
+                DISPATCH4();
             }
             TARGET_OP(MK_STRUCT) {
                 auto args = ARG16;
@@ -914,6 +942,18 @@ ArObject *argon::vm::Eval(ArRoutine *routine) {
             TARGET_OP(NEG) {
                 UNARY_OP(neg);
             }
+            TARGET_OP(NJE) {
+                if ((ret = IteratorNext(TOP())) == nullptr) {
+                    if(RoutineIsPanicking(routine))
+                        goto error;
+
+                    POP();
+                    JUMPTO(ARG32);
+                }
+
+                PUSH(ret);
+                DISPATCH4();
+            }
             TARGET_OP(NGV) {
                 // TODO: CHECK OutOfBound
                 auto map = cu_frame->proxy_globals != nullptr ?
@@ -921,7 +961,7 @@ ArObject *argon::vm::Eval(ArRoutine *routine) {
 
                 ret = TupleGetItem(cu_code->names, ARG16);
 
-                if (!NamespaceNewSymbol(map, PropertyInfo((PropertyType) (ARG32 >> (unsigned char) 16)), ret, TOP()))
+                if (!NamespaceNewSymbol(map, ret, TOP(), PropertyInfo((PropertyType) (ARG32 >> (unsigned char) 16))))
                     goto error;
 
                 Release(ret);
@@ -966,7 +1006,7 @@ ArObject *argon::vm::Eval(ArRoutine *routine) {
                 DISPATCH2();
             }
             TARGET_OP(RET) {
-                if (routine->defer != nullptr && routine->defer->frame == cu_frame->back) {
+                if (routine->cu_defer != nullptr) {
                     if (cu_frame->stack_extra_base != cu_frame->eval_stack) {
                         POP();
                     }
@@ -974,7 +1014,7 @@ ArObject *argon::vm::Eval(ArRoutine *routine) {
                 }
 
                 if (cu_frame->stack_extra_base == cu_frame->eval_stack)
-                    *cu_frame->back->eval_stack = ReturnNil();
+                    *cu_frame->back->eval_stack = NilVal;
                 else {
                     *cu_frame->back->eval_stack = TOP();
                     cu_frame->eval_stack--;
@@ -994,8 +1034,7 @@ ArObject *argon::vm::Eval(ArRoutine *routine) {
                 // TODO: CHECK OutOfBound
                 ArObject *key = TupleGetItem(cu_code->statics, ARG32);
 
-                ret = LoadStoreAttribute(TOP(), key, PEEK1());
-                if (ret == False) {
+                if (!PropertySet(TOP(), key, PEEK1(), true)) {
                     Release(key);
                     goto error;
                 }
@@ -1051,8 +1090,7 @@ ArObject *argon::vm::Eval(ArRoutine *routine) {
             TARGET_OP(STSCOPE) {
                 ArObject *key = TupleGetItem(cu_code->statics, ARG32);
 
-                ret = LoadStoreScope(TOP(), key, PEEK1());
-                if (ret == False) {
+                if (!PropertySet(TOP(), key, PEEK1(), false)) {
                     Release(key);
                     goto error;
                 }
@@ -1092,7 +1130,7 @@ ArObject *argon::vm::Eval(ArRoutine *routine) {
                 auto len = ARG32;
                 ret = TOP();
 
-                if (!IsSequence(ret)) {
+                if (!AsSequence(ret)) {
                     ErrorFormat(&error_type_error, "unpacking expression was expecting a sequence not a '%s'",
                                 ret->type->name);
                     goto error;
@@ -1132,14 +1170,14 @@ ArObject *argon::vm::Eval(ArRoutine *routine) {
         routine->defer->panic = routine->panic;
         routine->cu_defer = routine->defer;
 
-        if (!dfr_fn->native) {
+        if (!dfr_fn->IsNative()) {
             auto dfr_frame = FrameNew(dfr_fn->code, dfr_fn->gns, nullptr); // TODO: check proxy_globals
             FillFrameForCall(dfr_frame, dfr_fn, nullptr, 0);
             Release(Eval(routine, dfr_frame));
             FrameDel(dfr_frame);
             RoutineDelDefer(routine);
         } else
-            Release(NativeCall(routine, dfr_fn, nullptr, 0));
+            Release(NativeCall(dfr_fn, nullptr, 0));
     }
 
     if (routine->frame->back != nullptr && routine->frame != first_frame) {
@@ -1169,6 +1207,7 @@ ArObject *argon::vm::Eval(ArRoutine *routine) {
 #undef POP
 #undef STACK_REWIND
 #undef TOP
+#undef TOP_BACK
 #undef TOP_REPLACE
 #undef PEEK1
 #undef PEEK2

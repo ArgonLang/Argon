@@ -543,8 +543,10 @@ ast::NodeUptr Parser::ForStmt() {
     if (!this->Match(TokenType::SEMICOLON)) {
         if (this->Match(TokenType::VAR))
             init = this->VarDecl(false);
-        else
-            init = this->Expression();
+        else {
+            auto expr = this->Expression();
+            init = std::move(CastNode<Unary>(expr)->expr);
+        }
     }
 
     if (this->Match(TokenType::IN)) {
@@ -567,7 +569,7 @@ ast::NodeUptr Parser::ForStmt() {
         this->Eat(TokenType::SEMICOLON, "expected ; after test condition");
         inc = this->Expression();
     } else
-        test = this->Expression();
+        test = this->Test();
 
     return std::make_unique<For>(type, std::move(init), std::move(test), std::move(inc), this->Block(), start);
 }
@@ -1235,7 +1237,8 @@ ast::NodeUptr Parser::ParseMapOrSet() {
                 this->EatTerm(false, TokenType::SEMICOLON);
                 ms->AddExpression(this->Test());
             } while (this->MatchEat(TokenType::COMMA, true));
-        }
+        } else
+            ms->AddExpression(std::move(key));
     }
 
     ms->end = this->currTk_.end;

@@ -55,6 +55,8 @@ namespace argon::lang {
 
         void CompileForLoop(const ast::For *loop, const std::string &name);
 
+        void CompileForInLoop(const ast::For *loop, const std::string &name);
+
         void CompileImport(const ast::Import *import);
 
         void CompileImportFrom(const ast::Import *import);

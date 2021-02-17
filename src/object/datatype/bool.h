@@ -18,12 +18,7 @@ namespace argon::object {
     extern Bool *False;
 
     inline ArObject *BoolToArBool(bool value) {
-        if (value) {
-            IncRef(True);
-            return True;
-        }
-        IncRef(False);
-        return False;
+        return value ? True : False; // IncRef is useless, True & False are static!
     }
 
 } // namespace argon::object

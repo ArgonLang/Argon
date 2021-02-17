@@ -36,21 +36,26 @@ void file_cleanup(File *self) {
 
 const TypeInfo argon::module::io::type_file_ = {
         TYPEINFO_STATIC_INIT,
-        (const unsigned char *) "file",
+        "file",
+        nullptr,
         sizeof(File),
         nullptr,
+        (VoidUnaryOp) file_cleanup,
         nullptr,
         nullptr,
-        nullptr,
-        nullptr,
-        (BoolUnaryOp) file_istrue,
         (BoolBinOp) file_equal,
+        (BoolUnaryOp) file_istrue,
         nullptr,
         nullptr,
         nullptr,
         nullptr,
         nullptr,
-        (VoidUnaryOp) file_cleanup
+        nullptr,
+        nullptr,
+        nullptr,
+        nullptr,
+        nullptr,
+        nullptr
 };
 
 ssize_t read_os_wrap(File *file, void *buf, size_t nbytes) {
@@ -397,29 +402,9 @@ ssize_t argon::module::io::Write(File *file, unsigned char *buf, size_t count) {
 
 ssize_t argon::module::io::WriteObject(File *file, ArObject *obj) {
     ArBuffer buffer = {};
-    ArObject *str;
 
-    if (IsBufferable(obj)) {
-        if (!BufferGet(obj, &buffer, ArBufferFlags::READ))
-            return -1;
-    } else {
-        if (obj->type->str == nullptr) {
-            ErrorFormat(&error_type_error,
-                        "'%s' object does not expose a buffer and does not implement a string representation",
-                        obj->type->name);
-            return -1;
-        }
-
-        if ((str = obj->type->str(obj)) == nullptr)
-            return -1;
-
-        if (!BufferGet(str, &buffer, ArBufferFlags::READ)) {
-            Release(str);
-            return -1;
-        }
-
-        Release(str);
-    }
+    if(!IsBufferable(obj) || !BufferGet(obj, &buffer, ArBufferFlags::READ))
+        return -1;
 
     ssize_t nbytes = Write(file, buffer.buffer, buffer.len);
     BufferRelease(&buffer);

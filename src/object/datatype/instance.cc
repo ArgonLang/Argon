@@ -26,7 +26,7 @@ ArObject *instance_getattr(Instance *self, ArObject *key) {
     if (obj == nullptr) {
         // Search in parent
         obj = NamespaceGetValue(self->base->names, key, &pinfo);
-        if (obj == nullptr || (pinfo.IsConstant() && !pinfo.IsMember())) {
+        if (obj == nullptr || (pinfo.IsConstant() && pinfo.IsStatic())) {
             Release(obj);
 
             // Search in parent MRO!
@@ -34,7 +34,7 @@ ArObject *instance_getattr(Instance *self, ArObject *key) {
                 for (size_t i = 0; i < self->base->impls->len; i++) {
                     auto trait = (Trait *) self->base->impls->objects[i];
                     obj = NamespaceGetValue(trait->names, key, &pinfo);
-                    if (obj != nullptr && pinfo.IsMember())
+                    if (obj != nullptr && !pinfo.IsStatic())
                         break;
                 }
             }
@@ -53,12 +53,6 @@ ArObject *instance_getattr(Instance *self, ArObject *key) {
                     ((String *) self->base->name)->buffer);
         Release(obj);
         return nullptr;
-    }
-
-    if (obj->type == &type_function_ && (pinfo.IsConstant() && pinfo.IsMember())) {
-        auto tmp = FunctionNew((Function *) obj, self);
-        Release(obj);
-        obj = tmp;
     }
 
     return obj;
@@ -83,7 +77,8 @@ bool instance_setattr(Instance *self, ArObject *key, ArObject *value) {
     return NamespaceSetValue(self->properties, key, value);
 }
 
-const ObjectActions instance_actions{
+const ObjectSlots instance_actions{
+        nullptr,
         (BinaryOp) instance_getattr,
         nullptr,
         (BoolTernOp) instance_setattr,
@@ -92,21 +87,26 @@ const ObjectActions instance_actions{
 
 const TypeInfo argon::object::type_instance_ = {
         TYPEINFO_STATIC_INIT,
-        (const unsigned char *) "instance",
+        "instance",
+        nullptr,
         sizeof(Instance),
+        nullptr,
+        (VoidUnaryOp) instance_cleanup,
+        nullptr,
+        nullptr,
+        nullptr,
+        nullptr,
+        nullptr,
+        nullptr,
+        nullptr,
+        nullptr,
+        nullptr,
         nullptr,
         nullptr,
         nullptr,
         &instance_actions,
         nullptr,
-        nullptr,
-        nullptr,
-        nullptr,
-        nullptr,
-        nullptr,
-        nullptr,
-        nullptr,
-        (VoidUnaryOp) instance_cleanup
+        nullptr
 };
 
 Instance *argon::object::InstanceNew(Struct *base, Namespace *properties) {

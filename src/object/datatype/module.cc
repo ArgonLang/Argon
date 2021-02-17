@@ -2,29 +2,31 @@
 //
 // Licensed under the Apache License v2.0
 
-#include "nil.h"
-#include "function.h"
 #include "error.h"
-
+#include "function.h"
 #include "module.h"
 
 using namespace argon::object;
-using namespace argon::memory;
 
 ArObject *module_get_static_attr(Module *self, ArObject *key) {
-    PropertyInfo pinfo{};
+    auto *skey = (String *) key;
+
+    PropertyInfo info{};
     ArObject *obj;
 
-    if ((obj = NamespaceGetValue(self->module_ns, key, &pinfo)) == nullptr) {
-        ErrorFormat(&error_attribute_error, "unknown attribute '%s' of module '%s'", ((String *) key)->buffer,
-                    self->name->buffer);
+    if (!AR_TYPEOF(key, type_string_)) {
+        ErrorFormat(&error_type_error, "expected property name, found '%s'", AR_TYPE_NAME(key));
         return nullptr;
     }
 
-    if (!pinfo.IsPublic()) {
-        ErrorFormat(&error_access_violation, "access violation, member '%s' of module '%s' are private",
-                    ((String *) key)->buffer,
-                    ((String *) self->name)->buffer);
+    if ((obj = NamespaceGetValue(self->module_ns, key, &info)) == nullptr) {
+        ErrorFormat(&error_attribute_error, "unknown attribute '%s' of module '%s'", skey->buffer, self->name->buffer);
+        return nullptr;
+    }
+
+    if (!info.IsPublic()) {
+        ErrorFormat(&error_access_violation, "access violation, member '%s' of module '%s' are private", skey->buffer,
+                    self->name->buffer);
         Release(obj);
         return nullptr;
     }
@@ -33,24 +35,29 @@ ArObject *module_get_static_attr(Module *self, ArObject *key) {
 }
 
 bool module_set_static_attr(Module *self, ArObject *key, ArObject *value) {
+    auto *skey = (String *) key;
+
     PropertyInfo pinfo{};
 
+    if (!AR_TYPEOF(key, type_string_)) {
+        ErrorFormat(&error_type_error, "expected property name, found '%s'", AR_TYPE_NAME(key));
+        return false;
+    }
+
     if (!NamespaceContains(self->module_ns, key, &pinfo)) {
-        ErrorFormat(&error_attribute_error, "unknown attribute '%s' of module '%s'", ((String *) key)->buffer,
-                    self->name->buffer);
+        ErrorFormat(&error_attribute_error, "unknown attribute '%s' of module '%s'", skey->buffer, self->name->buffer);
         return false;
     }
 
     if (!pinfo.IsPublic()) {
-        ErrorFormat(&error_access_violation, "access violation, member '%s' of module '%s' are private",
-                    ((String *) key)->buffer, ((String *) self->name)->buffer);
+        ErrorFormat(&error_access_violation, "access violation, member '%s' of module '%s' are private", skey->buffer,
+                    self->name->buffer);
         return false;
     }
 
-
     if (pinfo.IsConstant()) {
-        ErrorFormat(&error_unassignable_variable, "unable to assign value to constant '%s::%s'",
-                    ((String *) self->name)->buffer, ((String *) key)->buffer);
+        ErrorFormat(&error_unassignable_variable, "unable to assign value to constant '%s::%s'", self->name->buffer,
+                    skey->buffer);
         return false;
     }
 
@@ -59,54 +66,83 @@ bool module_set_static_attr(Module *self, ArObject *key, ArObject *value) {
     return true;
 }
 
-const ObjectActions module_actions = {
+const ObjectSlots module_oslots = {
         nullptr,
         (BinaryOp) module_get_static_attr,
         nullptr,
         (BoolTernOp) module_set_static_attr
 };
 
+bool module_is_true(ArObject *self) {
+    return true;
+}
+
+bool module_equal(Module *self, ArObject *other) {
+    auto *o = (Module *) other;
+
+    if (self == other)
+        return true;
+
+    if (!AR_SAME_TYPE(self, other))
+        return false;
+
+    return AR_EQUAL(self->name, o->name)
+           && AR_EQUAL(self->doc, o->doc);
+}
+
+ArObject *module_str(Module *self) {
+    return StringCFormat("<module '%s'>", self->name);
+}
+
 const TypeInfo argon::object::type_module_ = {
         TYPEINFO_STATIC_INIT,
-        (const unsigned char *) "module",
+        "module",
+        nullptr,
         sizeof(Module),
         nullptr,
         nullptr,
         nullptr,
-        &module_actions,
+        nullptr,
+        (BoolBinOp) module_equal,
+        module_is_true,
+        nullptr,
+        (UnaryOp) module_str,
         nullptr,
         nullptr,
         nullptr,
         nullptr,
         nullptr,
+        nullptr,
+        &module_oslots,
         nullptr,
         nullptr
 };
 
-bool InsertID(Module *module, const std::string &id, ArObject *value) {
-    ArObject *key = StringIntern(id);
+bool InsertID(Module *module, const char *id, ArObject *value) {
+    ArObject *key;
+    bool ok = false;
 
-    if (key == nullptr)
-        return false;
+    if ((key = StringIntern(id)) != nullptr) {
+        ok = NamespaceNewSymbol(module->module_ns, key, value, PropertyInfo(PropertyType::CONST));
+        Release(key);
+    }
 
-    bool ok = NamespaceNewSymbol(module->module_ns, PropertyInfo(PropertyType::CONST), key, value);
-
-    Release(key);
     return ok;
 }
 
 bool InitGlobals(Module *module) {
+#define ADD_ID(name, obj)               \
+    if(!InsertID(module, name, (obj)))  \
+        return false
+
     if ((module->module_ns = NamespaceNew()) != nullptr) {
-        if (!InsertID(module, "__name", module->name))
-            return false;
-
-        if (!InsertID(module, "__doc", module->doc))
-            return false;
-
+        ADD_ID("__name", module->name);
+        ADD_ID("__doc", module->doc);
         return true;
     }
 
     return false;
+#undef ADD_ID
 }
 
 Module *argon::object::ModuleNew(String *name, String *doc) {
@@ -131,16 +167,19 @@ Module *argon::object::ModuleNew(String *name, String *doc) {
 }
 
 Module *argon::object::ModuleNew(const char *name, const char *doc) {
-    Module *module;
+    String *ardoc = nullptr;
     String *arname;
-    String *ardoc;
+
+    Module *module;
 
     if ((arname = StringNew(name)) == nullptr)
         return nullptr;
 
-    if ((ardoc = StringNew(doc)) == nullptr) {
-        Release(arname);
-        return nullptr;
+    if (doc != nullptr) {
+        if ((ardoc = StringNew(doc)) == nullptr) {
+            Release(arname);
+            return nullptr;
+        }
     }
 
     module = ModuleNew(arname, ardoc);
@@ -151,22 +190,9 @@ Module *argon::object::ModuleNew(const char *name, const char *doc) {
 }
 
 Module *argon::object::ModuleNew(const ModuleInit *init) {
-    auto module = ArObjectNew<Module>(RCType::INLINE, &type_module_);
+    auto module = ModuleNew(init->name, init->doc);
 
     if (module != nullptr) {
-        if ((module->name = StringNew(init->name)) == nullptr)
-            goto error;
-
-        module->doc = nullptr;
-        if (init->doc != nullptr) {
-            if ((module->doc = StringNew(init->doc)) == nullptr)
-                goto error;
-        }
-
-        // Initialize module globals
-        if (!InitGlobals(module))
-            goto error;
-
         if (init->bulk != nullptr && !ModuleAddObjects(module, init->bulk))
             goto error;
 
@@ -184,11 +210,13 @@ Module *argon::object::ModuleNew(const ModuleInit *init) {
 }
 
 bool argon::object::ModuleAddObjects(Module *module, const PropertyBulk *bulk) {
-    ArObject *key;
     bool ok = true;
 
+    ArObject *obj;
+    ArObject *key;
+
     for (const PropertyBulk *cursor = bulk; cursor->name != nullptr && ok; cursor++) {
-        ArObject *obj = cursor->prop.obj;
+        obj = cursor->prop.obj;
 
         if (cursor->is_func) {
             if ((obj = FunctionNew(module->module_ns, cursor->prop.func)) == nullptr) {
@@ -197,26 +225,18 @@ bool argon::object::ModuleAddObjects(Module *module, const PropertyBulk *bulk) {
             }
         }
 
-        if ((key = StringNew(cursor->name)) == nullptr)
+        if ((key = StringNew(cursor->name)) == nullptr) {
+            if (cursor->is_func)
+                Release(obj);
             return false;
+        }
 
         // Object
-        ok = NamespaceNewSymbol(module->module_ns, cursor->info, key, obj);
+        ok = NamespaceNewSymbol(module->module_ns, key, obj, cursor->info);
         Release(key);
         if (cursor->is_func)
             Release(obj);
     }
 
-    return ok;
-}
-
-bool argon::object::ModuleAddProperty(Module *module, const char *key, ArObject *value, PropertyInfo info) {
-    auto str = StringIntern(key);
-
-    if (str == nullptr)
-        return false;
-
-    bool ok = NamespaceNewSymbol(module->module_ns, info, str, value);
-    Release(str);
     return ok;
 }

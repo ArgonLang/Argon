@@ -15,9 +15,11 @@ void trait_cleanup(Trait *self) {
 
 const TypeInfo argon::object::type_trait_ = {
         TYPEINFO_STATIC_INIT,
-        (const unsigned char *) "trait",
+        "trait",
+        nullptr,
         sizeof(Trait),
         nullptr,
+        (VoidUnaryOp) trait_cleanup,
         nullptr,
         nullptr,
         nullptr,
@@ -29,7 +31,9 @@ const TypeInfo argon::object::type_trait_ = {
         nullptr,
         nullptr,
         nullptr,
-        (VoidUnaryOp) trait_cleanup
+        nullptr,
+        nullptr,
+        nullptr
 };
 
 Trait *argon::object::TraitNew(String *name, Namespace *names, List *mro) {

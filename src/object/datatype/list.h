@@ -18,19 +18,21 @@ namespace argon::object {
 
     extern const TypeInfo type_list_;
 
-    List *ListNew();
-
     List *ListNew(size_t cap);
 
     List *ListNew(const ArObject *sequence);
+
+    inline List *ListNew() { return ListNew(ARGON_OBJECT_LIST_INITIAL_CAP); }
 
     bool ListAppend(List *list, ArObject *obj);
 
     bool ListConcat(List *list, ArObject *sequence);
 
-    void ListRemove(List *list, arsize i);
+    void ListClear(List *list);
 
-    ArObject *ListGetItem(List *list, arsize i);
+    void ListRemove(List *list, ArSSize i);
+
+    ArObject *ListGetItem(List *list, ArSSize i);
 
 } // namespace argon::object
 
