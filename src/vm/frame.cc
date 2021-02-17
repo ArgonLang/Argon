@@ -11,10 +11,8 @@ using namespace argon::object;
 using namespace argon::memory;
 
 Frame *argon::vm::FrameNew(object::Code *code, object::Namespace *globals, object::Namespace *proxy_globals) {
-    auto frame = (Frame *) Alloc(sizeof(Frame) +
-                                 (code->stack_sz * sizeof(object::ArObject *)) +
-                                 (code->locals->len * sizeof(object::ArObject *)) +
-                                 (code->enclosed->len * sizeof(object::ArObject *)));
+    ArSize slots = code->stack_sz + code->locals->len + code->enclosed->len;
+    auto *frame = (Frame *) Alloc(sizeof(Frame) + (slots * sizeof(void *)));
 
     if (frame != nullptr) {
         IncRef(code);
@@ -30,6 +28,11 @@ Frame *argon::vm::FrameNew(object::Code *code, object::Namespace *globals, objec
         frame->eval_stack = frame->stack_extra_base;
         frame->locals = frame->stack_extra_base + code->stack_sz;
         frame->enclosed = frame->locals + code->locals->len;
+
+        // Set locals/enclosed slots to nullptr
+        slots -= code->stack_sz;
+        while (slots-- > 0)
+            frame->locals[slots] = nullptr;
     }
 
     return frame;

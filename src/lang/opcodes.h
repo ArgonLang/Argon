@@ -23,7 +23,6 @@ namespace argon::lang {
      *  OpCode size
      *
      *  NGV:        4Bytes
-     *  NLV:        2Bytes
      *  LDLC:       2Bytes
      *  STLC:       2Bytes
      *  LDENC:      2Bytes
@@ -88,7 +87,7 @@ namespace argon::lang {
         NEG,
         NJE,    // NEXT_OR_JUMP_END
         NGV,    // NEW_GLOBAL_VARIABLE
-        NLV,    // NEW_LOCAL_VARIABLE
+        //NLV,    // NEW_LOCAL_VARIABLE
         NOT,
         POP,
         POS,

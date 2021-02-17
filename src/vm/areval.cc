@@ -968,15 +968,6 @@ ArObject *argon::vm::Eval(ArRoutine *routine) {
                 POP();
                 DISPATCH4();
             }
-            TARGET_OP(NLV) {
-                // TODO: CHECK OutOfBound
-                auto idx = ARG16;
-
-                IncRef(TOP());
-                cu_frame->locals[idx] = TOP();
-                POP();
-                DISPATCH2();
-            }
             TARGET_OP(NOT) {
                 ret = True;
                 if (IsTrue(TOP()))

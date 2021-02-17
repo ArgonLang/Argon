@@ -1420,7 +1420,7 @@ void Compiler::VariableNew(const std::string &name, bool emit, unsigned char fla
     } else {
         dest = this->unit_->locals;
         if (emit) {
-            this->EmitOp2(OpCodes::NLV, dest->len);
+            this->EmitOp2(OpCodes::STLC, dest->len);
             this->unit_->DecStack();
         }
     }
