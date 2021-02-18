@@ -943,8 +943,8 @@ ast::NodeUptr Parser::UnaryExpr(bool first) {
 
 ast::NodeUptr Parser::AtomExpr() {
     auto left = this->ParseAtom();
-    Pos start = left->start;
-    Pos end = 0;
+    Pos end;
+    unsigned short safe;
 
     do {
         end = left->end;
@@ -957,7 +957,14 @@ ast::NodeUptr Parser::AtomExpr() {
 
         switch (this->currTk_.type) {
             case TokenType::LEFT_ROUND:
+                // Fix for expression like: a?.b(a)
+                // "Call" with at least one arg invoke ParseArgument that invoke Test method.
+                // Into this method "this->safe_" will be decremented, obviously this behavior is not correct!
+                // This ugly fix correct this behaviour, but it is only temporary, rewrite this shit as soon as possible!
+                safe = this->safe_;
+                this->safe_ = 0;
                 left = this->ParseArguments(std::move(left));
+                this->safe_ = safe;
                 break;
             case TokenType::LEFT_SQUARE:
                 left = std::make_unique<Binary>(NodeType::SUBSCRIPT, std::move(left), this->ParseSubscript());
