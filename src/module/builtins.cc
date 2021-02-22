@@ -53,6 +53,43 @@ ARGON_FUNCTION(hasnext,
     return BoolToArBool(AR_ITERATOR_SLOT(*argv)->has_next(*argv));
 }
 
+ARGON_FUNCTION(input,
+               "Allowing user input."
+               ""
+               "- Parameter prompt: string representing a default message before the input."
+               "- Returns: string containing user input.", 1, false) {
+    auto in = (io::File *) RuntimeGetProperty("stdin", &io::type_file_);
+    auto out = (io::File *) RuntimeGetProperty("stdout", &io::type_file_);
+    unsigned char *line = nullptr;
+    ArObject *str = nullptr;
+    ArSSize len;
+
+    if (in == nullptr || out == nullptr)
+        goto error;
+
+    if ((str = ToString(argv[0])) == nullptr)
+        goto error;
+
+    if (argon::module::io::WriteObject(out, str) < 0)
+        goto error;
+
+    argon::module::io::Flush(out);
+    Release(str);
+    Release(out);
+
+    if ((len = io::ReadLine(in, &line, 0)) < 0)
+        goto error;
+
+    Release(in);
+    return StringNewBufferOwnership(line, len);
+
+    error:
+    Release(in);
+    Release(out);
+    Release(str);
+    return nullptr;
+}
+
 ARGON_FUNCTION(iter,
                "Return an iterator object."
                ""
@@ -263,6 +300,7 @@ const PropertyBulk builtins_bulk[] = {
 
         // Functions
         MODULE_BULK_EXPORT_FUNCTION(callable_),
+        MODULE_BULK_EXPORT_FUNCTION(input_),
         MODULE_BULK_EXPORT_FUNCTION(iter_),
         MODULE_BULK_EXPORT_FUNCTION(hasnext_),
         MODULE_BULK_EXPORT_FUNCTION(len_),
