@@ -107,6 +107,8 @@ namespace argon::object {
 
     inline String *StringNew(const std::string &string) { return StringNew(string.c_str(), string.length()); }
 
+    String *StringNewBufferOwnership(unsigned char *buffer, size_t len);
+
     String *StringNewFormat(const char *string, ...);
 
     String *StringIntern(const char *string, size_t len);

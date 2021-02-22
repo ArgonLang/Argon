@@ -632,6 +632,7 @@ size_t string_hash(String *self) {
 }
 
 String *string_str(String *self) {
+    /*
     StringBuilder sb = {};
     size_t len = self->len + 1;
 
@@ -649,6 +650,9 @@ String *string_str(String *self) {
     error:
     StringBuilderClean(&sb);
     return nullptr;
+     */
+
+    return IncRef(self);
 }
 
 ArObject *string_iter_get(String *self) {
@@ -692,6 +696,22 @@ String *argon::object::StringNew(const char *string, size_t len) {
 
     if (str != nullptr && string != nullptr)
         FillBuffer(str, 0, (unsigned char *) string, len);
+
+    return str;
+}
+
+String *argon::object::StringNewBufferOwnership(unsigned char *buffer, size_t len) {
+    String *str;
+
+    if (buffer == nullptr || len == 0) {
+        memory::Free(buffer); // if buffer != nullptr, but len == 0
+        return StringIntern("");
+    }
+
+    if ((str = StringInit(len, false)) != nullptr) {
+        str->buffer = (unsigned char *) buffer;
+        FillBuffer(str, 0, (unsigned char *) buffer, len);
+    }
 
     return str;
 }
