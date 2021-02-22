@@ -68,7 +68,7 @@ namespace argon::module::io {
 
     ssize_t Read(File *file, unsigned char *buf, size_t count);
 
-    ssize_t ReadLine(File *file, unsigned char *buf, size_t buf_len);
+    ssize_t ReadLine(File *file, unsigned char **buf, size_t buf_len);
 
     size_t Tell(File *file);
 

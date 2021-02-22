@@ -321,35 +321,64 @@ ssize_t argon::module::io::Read(File *file, unsigned char *buf, size_t count) {
     return read_os_wrap(file, buf, count);
 }
 
-ssize_t argon::module::io::ReadLine(File *file, unsigned char *buf, size_t buf_len) {
+ssize_t argon::module::io::ReadLine(File *file, unsigned char **buf, size_t buf_len) {
+    unsigned char *line = *buf;
+    unsigned char *idx;
+    size_t allocated = 1;
     size_t n = 0;
     size_t len;
 
     bool found = false;
 
-    unsigned char *idx;
+    if (*buf != nullptr && buf_len == 0)
+        return 0;
 
-    while (n != buf_len - 1 && !found) {
-        FillBuffer(file); // check for EOF!
+    while (n < buf_len - 1 && !found) {
+        if (FillBuffer(file) < 0)
+            goto error;
 
-        len = file->buffer.buf + file->buffer.len - file->buffer.cur;
+        if((len = file->buffer.buf + file->buffer.len - file->buffer.cur)==0)
+            break;
 
-        if (len > buf_len - 1)
-            len = buf_len - 1;
+        if (buf_len > 0 && len > (buf_len - 1) - n)
+            len = (buf_len - 1) - n;
 
         if ((idx = (unsigned char *) argon::memory::MemoryFind(file->buffer.cur, '\n', len)) != nullptr) {
-            idx++;
             len = idx - file->buffer.cur;
             found = true;
         }
 
-        argon::memory::MemoryCopy(buf, file->buffer.cur, len);
-        file->buffer.cur += len;
+        if (*buf == nullptr) {
+            allocated += n + len;
+            if ((idx = (unsigned char *) argon::memory::Realloc(line, allocated)) == nullptr) {
+                argon::vm::Panic(OutOfMemoryError);
+                goto error;
+            }
+            line = idx;
+        }
+
+        argon::memory::MemoryCopy(line + n, file->buffer.cur, len);
         n += len;
+
+        if (found)
+            len++;
+
+        file->buffer.cur += len;
     }
 
-    buf[n] = '\0';
-    return 0;
+    if (line != nullptr)
+        line[n] = '\0';
+
+    if (*buf == nullptr)
+        *buf = line;
+
+    return n;
+
+    error:
+    if (*buf == nullptr)
+        memory::Free(line);
+
+    return -1;
 }
 
 size_t argon::module::io::Tell(File *file) {
@@ -403,7 +432,7 @@ ssize_t argon::module::io::Write(File *file, unsigned char *buf, size_t count) {
 ssize_t argon::module::io::WriteObject(File *file, ArObject *obj) {
     ArBuffer buffer = {};
 
-    if(!IsBufferable(obj) || !BufferGet(obj, &buffer, ArBufferFlags::READ))
+    if (!IsBufferable(obj) || !BufferGet(obj, &buffer, ArBufferFlags::READ))
         return -1;
 
     ssize_t nbytes = Write(file, buffer.buffer, buffer.len);
