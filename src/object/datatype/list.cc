@@ -455,8 +455,11 @@ bool list_equal(ArObject *self, ArObject *other) {
 ArObject *list_str(List *self) {
     StringBuilder sb = {};
     String *tmp = nullptr;
+    int rec;
 
-    // TODO: check for infinite recursion
+    if ((rec = TrackRecursive(self)) != 0)
+        return rec > 0 ? StringIntern("[...]") : nullptr;
+
 
     if (StringBuilderWrite(&sb, (unsigned char *) "[", 1, self->len == 0 ? 1 : 0) < 0)
         goto error;
@@ -479,11 +482,13 @@ ArObject *list_str(List *self) {
     if (StringBuilderWrite(&sb, (unsigned char *) "]", 1) < 0)
         goto error;
 
+    UntrackRecursive(self);
     return StringBuilderFinish(&sb);
 
     error:
     Release(tmp);
     StringBuilderClean(&sb);
+    UntrackRecursive(self);
     return nullptr;
 }
 

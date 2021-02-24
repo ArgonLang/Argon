@@ -64,6 +64,9 @@ namespace argon::vm {
         /* Pointer to object that describe actual routine panic (if any...) */
         struct Panic *panic;
 
+        /* Store object references in a function that which can become recursive (e.g. list_str, map_str...) */
+        argon::object::List *references;
+
         /* Context in which this routine was created */
         Context *context;
 

@@ -311,6 +311,10 @@ ArObject *prefix##name##_fn(ArObject *self, ArObject **argv, ArSize count)
 
     bool VariadicCheckPositional(const char *name, int nargs, int min, int max);
 
+    int TrackRecursive(ArObject *obj);
+
+    void UntrackRecursive(ArObject *obj);
+
     void BufferRelease(ArBuffer *buffer);
 
     void Release(ArObject *obj);

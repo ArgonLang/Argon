@@ -400,6 +400,10 @@ bool set_equal(Set *self, ArObject *other) {
 ArObject *set_str(Set *self) {
     StringBuilder sb = {};
     String *tmp = nullptr;
+    int rec;
+
+    if ((rec = TrackRecursive(self)) != 0)
+        return rec > 0 ? StringIntern("{...}") : nullptr;
 
     if (StringBuilderWrite(&sb, (unsigned char *) "{", 1, self->set.len == 0 ? 1 : 0) < 0)
         goto error;
@@ -422,11 +426,13 @@ ArObject *set_str(Set *self) {
     if (StringBuilderWrite(&sb, (unsigned char *) "}", 1) < 0)
         goto error;
 
+    UntrackRecursive(self);
     return StringBuilderFinish(&sb);
 
     error:
     Release(tmp);
     StringBuilderClean(&sb);
+    UntrackRecursive(self);
     return nullptr;
 }
 

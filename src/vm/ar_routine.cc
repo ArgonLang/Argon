@@ -18,6 +18,12 @@ ArRoutine *argon::vm::RoutineNew(ArRoutineStatus status) {
         routine->defer = nullptr;
         routine->cu_defer = nullptr;
         routine->panic = nullptr;
+
+        if ((routine->references = ListNew()) == nullptr) {
+            Free(routine);
+            return nullptr;
+        }
+
         routine->status = status;
     }
 
@@ -60,6 +66,8 @@ void argon::vm::RoutineReset(ArRoutine *routine, ArRoutineStatus status) {
         while (routine->panic != nullptr)
             RoutinePopPanic(routine);
 
+        ListClear(routine->references);
+
         assert(routine->cu_defer == nullptr);
 
         routine->status = status;
@@ -71,6 +79,7 @@ void argon::vm::RoutineDel(ArRoutine *routine) {
         return;
 
     RoutineReset(routine, ArRoutineStatus::RUNNABLE);
+    Release(routine->references);
     Free(routine);
 }
 

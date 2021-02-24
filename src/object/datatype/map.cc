@@ -277,8 +277,11 @@ bool map_equal(Map *self, ArObject *other) {
 ArObject *map_str(Map *self) {
     StringBuilder sb = {};
     String *tmp = nullptr;
-
     MapEntry *cursor;
+    int rec;
+
+    if ((rec = TrackRecursive(self)) != 0)
+        return rec > 0 ? StringIntern("{...}") : nullptr;
 
     if (StringBuilderWrite(&sb, (unsigned char *) "{", 1, self->hmap.len == 0 ? 1 : 0) < 0)
         goto error;
@@ -312,11 +315,13 @@ ArObject *map_str(Map *self) {
     if (StringBuilderWrite(&sb, (unsigned char *) "}", 1) < 0)
         goto error;
 
+    UntrackRecursive(self);
     return StringBuilderFinish(&sb);
 
     error:
     Release(tmp);
     StringBuilderClean(&sb);
+    UntrackRecursive(self);
     return nullptr;
 }
 

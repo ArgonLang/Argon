@@ -246,6 +246,36 @@ bool argon::object::VariadicCheckPositional(const char *name, int nargs, int min
     return true;
 }
 
+int argon::object::TrackRecursive(ArObject *obj) {
+    auto routine = vm::GetRoutine();
+    List *references = routine->references;
+
+    // search ref on list
+    if (references->len > 0) {
+        if (references->objects[references->len - 1] == obj)
+            return 1;
+
+        for (ArSize i = 0; i < references->len - 1; i++)
+            if (references->objects[i] == obj)
+                return 1;
+    }
+
+    // not found, push it!
+    if (!ListAppend(references, obj))
+        return -1;
+
+    return 0;
+}
+
+void argon::object::UntrackRecursive(ArObject *obj) {
+    auto routine = vm::GetRoutine();
+    List *references = routine->references;
+
+    assert(references->objects[references->len - 1] == obj);
+
+    ListRemove(references, references->len - 1);
+}
+
 void argon::object::BufferRelease(ArBuffer *buffer) {
     if (buffer->obj == nullptr)
         return;
