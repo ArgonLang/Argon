@@ -136,7 +136,6 @@ bool argon::object::NamespaceNewSymbol(Namespace *ns, ArObject *key, ArObject *v
     if (!HMapInsert(&ns->hmap, entry)) {
         ReleaseEntryValue(entry, true);
         HMapEntryToFreeNode(&ns->hmap, entry);
-        argon::vm::Panic(OutOfMemoryError);
         return false;
     }
 
@@ -174,7 +173,6 @@ bool argon::object::NamespaceNewSymbol(Namespace *ns, const char *key, ArObject 
     if (!HMapInsert(&ns->hmap, entry)) {
         ReleaseEntryValue(entry, true);
         HMapEntryToFreeNode(&ns->hmap, entry);
-        argon::vm::Panic(OutOfMemoryError);
         return false;
     }
 

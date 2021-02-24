@@ -97,8 +97,10 @@ bool CheckSize(List *list, size_t count) {
         if (list->objects == nullptr)
             len = ARGON_OBJECT_LIST_INITIAL_CAP;
 
-        if ((tmp = (ArObject **) Realloc(list->objects, len * sizeof(void *))) == nullptr)
+        if ((tmp = (ArObject **) Realloc(list->objects, len * sizeof(void *))) == nullptr) {
+            argon::vm::Panic(OutOfMemoryError);
             return false;
+        }
 
         list->objects = tmp;
         list->cap = len;

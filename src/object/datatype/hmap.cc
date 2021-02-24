@@ -107,6 +107,7 @@ bool argon::object::HMapInit(HMap *hmap) {
         return true;
     }
 
+    argon::vm::Panic(OutOfMemoryError);
     return false;
 }
 
