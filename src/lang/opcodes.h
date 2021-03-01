@@ -112,6 +112,14 @@ namespace argon::lang {
         LIST = 0,
         DICT = 1
     };
+
+    enum class OpCodeCallFlags : unsigned char {
+        METHOD = 1,
+        SPREAD = 1 << 1
+    };
+
 } // namespace lang
+
+ENUMBITMASK_ENABLE(argon::lang::OpCodeCallFlags);
 
 #endif // !ARGON_LANG_OPCODES_H_

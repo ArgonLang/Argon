@@ -69,7 +69,7 @@ argon::object::Code *Compiler::CompileFunction(const ast::Function *func) {
         auto id = ast::CastNode<ast::Identifier>(param);
         this->VariableNew(id->value, false, 0);
         if (id->rest_element) {
-            fun_flags = FunctionType::VARIADIC;
+            fun_flags |= FunctionType::VARIADIC;
             p_count--;
         }
     }
@@ -526,21 +526,29 @@ void Compiler::CompileBranch(const ast::If *stmt) {
 void Compiler::CompileCall(const ast::Call *call, OpCodes code) {
     auto stack_sz = this->unit_->stack.current;
     unsigned short params = call->args.size();
+    OpCodeCallFlags flags{};
 
     if (call->callee->type == ast::NodeType::MEMBER) {
         auto idx = this->CompileMember(ast::CastNode<ast::Member>(call->callee), false, false);
         this->EmitOp4(OpCodes::LDMETH, idx);
         this->unit_->IncStack();
         params++;
+        flags |= OpCodeCallFlags::METHOD;
     } else
         this->CompileCode(call->callee);
 
-    for (auto &arg : call->args)
+    for (auto &arg : call->args) {
+        if (arg->type == ast::NodeType::ELLIPSIS) {
+            this->CompileCode(ast::CastNode<ast::Unary>(arg)->expr);
+            flags |= OpCodeCallFlags::SPREAD;
+            continue;
+        }
         this->CompileCode(arg);
+    }
 
     this->unit_->DecStack(this->unit_->stack.current - stack_sz);
 
-    this->EmitOp2(code, params); // CALL, DFR, SPWN
+    this->EmitOp4Flags(code, (unsigned char) flags, params); // CALL, DFR, SPWN
 
     this->unit_->IncStack();
 }
