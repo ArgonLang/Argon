@@ -91,7 +91,7 @@ const SequenceSlots list_actions{
 
 bool CheckSize(List *list, size_t count) {
     ArObject **tmp;
-    size_t len = count > 1 ? list->cap + count : list->cap + (list->cap / 2);
+    size_t len = count > 1 ? list->cap + count : (list->cap + 1) + ((list->cap + 1) / 2);
 
     if (list->len + count > list->cap) {
         if (list->objects == nullptr)
@@ -548,13 +548,23 @@ List *ListClone(T *t) {
     if ((list = ListNew(t->len)) == nullptr)
         return nullptr;
 
-    for (size_t i = 0; i < t->len; i++) {
-        IncRef(t->objects[i]);
-        list->objects[i] = t->objects[i];
-    }
+    for (size_t i = 0; i < t->len; i++)
+        list->objects[i] = IncRef(t->objects[i]);
 
     list->len = t->len;
     return list;
+}
+
+template<typename T>
+bool ListConcat(List *base, T *t) {
+    if (!CheckSize(base, t->len))
+        return false;
+
+    for (size_t i = 0; i < t->len; i++)
+        base->objects[i] = IncRef(t->objects[i]);
+
+    base->len += t->len;
+    return true;
 }
 
 List *argon::object::ListNew(size_t cap) {
@@ -615,22 +625,28 @@ bool argon::object::ListAppend(List *list, ArObject *obj) {
 }
 
 bool argon::object::ListConcat(List *list, ArObject *sequence) {
-    auto *o = (List *) sequence;
+    ArObject *tmp;
+    ArObject *iter;
 
-    if (AR_SAME_TYPE(list, sequence)) {
-        if (!CheckSize(list, o->len))
+    if (AR_SAME_TYPE(list, sequence))
+        return ::ListConcat < List > (list, (List *) sequence);
+    else if (AR_TYPEOF(sequence, type_tuple_))
+        return ::ListConcat < Tuple > (list, (Tuple *) sequence);
+
+    if ((iter = IteratorGet(sequence)) == nullptr)
+        return false;
+
+    while ((tmp = IteratorNext(iter)) != nullptr) {
+        if (!ListAppend(list, tmp)) {
+            Release(tmp);
+            Release(iter);
             return false;
-
-        for (size_t i = 0; i < o->len; i++) {
-            IncRef(o->objects[i]);
-            list->objects[list->len + i] = o->objects[i];
         }
-
-        list->len += o->len;
-        return true;
+        Release(tmp);
     }
 
-    return false;
+    Release(iter);
+    return true;
 }
 
 void argon::object::ListClear(List *list) {
