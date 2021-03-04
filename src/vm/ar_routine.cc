@@ -43,12 +43,10 @@ ArObject *argon::vm::RoutineRecover(ArRoutine *routine) {
     ArObject *err = nullptr;
 
     if (routine != nullptr) {
-        if (routine->cu_defer != nullptr && routine->cu_defer->panic != nullptr) {
-            err = routine->cu_defer->panic->object;
-            IncRef(err);
-            assert(routine->panic == routine->cu_defer->panic);
-            routine->cu_defer->panic = nullptr;
-            RoutinePopPanic(routine);
+        if (routine->panic != nullptr) {
+            err = IncRef(routine->panic->object);
+            while (routine->panic != nullptr)
+                RoutinePopPanic(routine);
         }
     }
 
@@ -91,58 +89,39 @@ void argon::vm::RoutineNewDefer(ArRoutine *routine, ArObject *func) {
         routine->defer = defer;
 
         defer->frame = routine->frame;
-        IncRef(func);
-        defer->function = func;
-        defer->panic = nullptr;
+        defer->function = IncRef(func);
         return;
     }
 
     assert(false);
 }
 
-void argon::vm::RoutineDelDefer(ArRoutine *routine) {
-    auto defer = routine->defer;
+void argon::vm::RoutinePopDefer(ArRoutine *routine) {
+    Defer *defer;
 
-    routine->defer = defer->defer;
+    if ((defer = routine->defer) != nullptr) {
+        if (routine->cu_defer == defer)
+            routine->cu_defer = nullptr;
 
-    if (routine->cu_defer == defer)
-        routine->cu_defer = nullptr;
-
-    Release(defer->function);
-    argon::memory::Free(defer);
+        routine->defer = defer->defer;
+        Release(defer->function);
+        argon::memory::Free(defer);
+    }
 }
 
 void argon::vm::RoutineNewPanic(ArRoutine *routine, ArObject *object) {
     auto panic = (struct Panic *) Alloc(sizeof(struct Panic));
 
     if (panic != nullptr) {
-        IncRef(object);
+        if (routine->panic != nullptr)
+            routine->panic->aborted = true;
 
         panic->panic = routine->panic;
         routine->panic = panic;
 
-        panic->object = object;
+        panic->object = IncRef(object);
         panic->recovered = false;
         panic->aborted = false;
-
-        if (routine->cu_defer != nullptr)
-            if (routine->cu_defer->panic != nullptr) {
-                /* It is possible that a defer function is running without any panic event:
-                 *
-                 * e.g.
-                 * defer ()=> {
-                 *      defer () =>{
-                 *          ...
-                 *      }()
-                 *      ...
-                 * }()
-                 *
-                 * In this case, the internal defer is normally executed at the end of the first defer,
-                 * as you can see in the example above, there is no panic event (normal exit).
-                 */
-                routine->cu_defer->panic->aborted = true;
-                routine->cu_defer->panic = nullptr;
-            }
     }
 }
 

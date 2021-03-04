@@ -37,6 +37,9 @@ namespace argon::vm {
         /* Enclosing scope (If Any) */
         object::ArObject **enclosed;
 
+        /* Value to be returned at the end of execution of this frame */
+        object::ArObject *return_value;
+
         /* At the end of each frame there is allocated space for(in this order): eval_stack + local_variables */
         object::ArObject *stack_extra_base[];
     };

@@ -43,9 +43,6 @@ namespace argon::vm {
 
         /* Pointer to function object */
         argon::object::ArObject *function;
-
-        /* Pointer to panic object (if any) */
-        struct Panic *panic;
     };
 
     struct ArRoutine {
@@ -88,7 +85,7 @@ namespace argon::vm {
 
     void RoutineNewDefer(ArRoutine *routine, argon::object::ArObject *func);
 
-    void RoutineDelDefer(ArRoutine *routine);
+    void RoutinePopDefer(ArRoutine *routine);
 
     void RoutineNewPanic(ArRoutine *routine, argon::object::ArObject *object);
 

@@ -170,14 +170,8 @@ argon::object::ArObject *argon::vm::GetLastError() {
     argon::object::ArObject *err = nullptr;
     auto routine = GetRoutine();
 
-    if (routine->panic != nullptr) {
-        // First, try to get error from active defer (if any)
-        if ((err = RoutineRecover(routine)) == nullptr) {
-            err = routine->panic->object;
-            argon::object::IncRef(err);
-            RoutinePopPanic(routine);
-        }
-    }
+    if (routine != nullptr && routine->panic != nullptr)
+        err = RoutineRecover(routine);
 
     return err;
 }

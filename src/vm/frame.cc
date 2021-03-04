@@ -15,19 +15,16 @@ Frame *argon::vm::FrameNew(object::Code *code, object::Namespace *globals, objec
     auto *frame = (Frame *) Alloc(sizeof(Frame) + (slots * sizeof(void *)));
 
     if (frame != nullptr) {
-        IncRef(code);
-        IncRef(globals);
-        IncRef(proxy_globals);
-
         frame->back = nullptr;
-        frame->globals = globals;
-        frame->proxy_globals = proxy_globals;
+        frame->globals = IncRef(globals);
+        frame->proxy_globals = IncRef(proxy_globals);
         frame->instance = nullptr;
-        frame->code = code;
+        frame->code = IncRef(code);
         frame->instr_ptr = (unsigned char *) code->instr;
         frame->eval_stack = frame->stack_extra_base;
         frame->locals = frame->stack_extra_base + code->stack_sz;
         frame->enclosed = frame->locals + code->locals->len;
+        frame->return_value = nullptr;
 
         // Set locals/enclosed slots to nullptr
         slots -= code->stack_sz;
@@ -54,6 +51,7 @@ void argon::vm::FrameDel(Frame *frame) {
     Release(code);
     Release(frame->globals);
     Release(frame->proxy_globals);
+    Release(frame->return_value);
     // Do not release frame->instance, because it's point to frame->locals[0]
     Free(frame);
 }

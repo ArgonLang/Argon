@@ -414,6 +414,33 @@ bool CheckVariadic(CallHelper *helper) {
     return true;
 }
 
+bool ExecDefer(ArRoutine *routine) {
+    Function *func;
+    Frame *frame;
+
+    while (routine->defer != nullptr && routine->defer->frame == routine->frame) {
+        func = (Function *) routine->defer->function;
+        routine->cu_defer = routine->defer;
+
+        if (!func->IsNative()) {
+            // TODO: check proxy_globals
+            if ((frame = FrameNew(func->code, func->gns, nullptr)) == nullptr)
+                return false;
+
+            FillFrameForCall(frame, func, nullptr, 0);
+
+            frame->back = routine->frame;
+            routine->frame = frame;
+            return true;
+        }
+
+        Release(NativeCall(func, nullptr, 0));
+        RoutinePopDefer(routine);
+    }
+
+    return false;
+}
+
 ArObject *argon::vm::Eval(ArRoutine *routine, Frame *frame) {
     ArObject *ret;
 
@@ -1051,22 +1078,10 @@ ArObject *argon::vm::Eval(ArRoutine *routine) {
                 DISPATCH2();
             }
             TARGET_OP(RET) {
-                if (routine->cu_defer != nullptr) {
-                    if (cu_frame->stack_extra_base != cu_frame->eval_stack) {
-                        POP();
-                    }
-                    goto end_while;
-                }
+                if (cu_frame->stack_extra_base != cu_frame->eval_stack)
+                    cu_frame->return_value = TOP_BACK();
 
-                if (cu_frame->stack_extra_base == cu_frame->eval_stack)
-                    *cu_frame->back->eval_stack = NilVal;
-                else {
-                    *cu_frame->back->eval_stack = TOP();
-                    cu_frame->eval_stack--;
-                }
-
-                cu_frame->back->eval_stack++;
-                goto end_while;
+                DISPATCH();
             }
             TARGET_OP(SHL) {
                 BINARY_OP(routine, shl, >>);
@@ -1204,37 +1219,40 @@ ArObject *argon::vm::Eval(ArRoutine *routine) {
         break;
     }
 
-    end_while:
-
     assert(cu_frame->stack_extra_base == cu_frame->eval_stack);
 
-    // DEFERRED
-    while (routine->defer != nullptr && routine->defer->frame == cu_frame) {
-        auto dfr_fn = (Function *) routine->defer->function;
+    // Disabled frame stack to prevent a deferred function from writing a return value.
+    cu_frame->eval_stack = nullptr;
 
-        routine->defer->panic = routine->panic;
-        routine->cu_defer = routine->defer;
+    while (true) {
+        if (ExecDefer(routine))
+            goto begin;
 
-        if (!dfr_fn->IsNative()) {
-            auto dfr_frame = FrameNew(dfr_fn->code, dfr_fn->gns, nullptr); // TODO: check proxy_globals
-            FillFrameForCall(dfr_frame, dfr_fn, nullptr, 0);
-            Release(Eval(routine, dfr_frame));
-            FrameDel(dfr_frame);
-            RoutineDelDefer(routine);
-        } else
-            Release(NativeCall(dfr_fn, nullptr, 0));
-    }
+        if (routine->frame->back == nullptr || routine->frame == first_frame)
+            break;
 
-    if (routine->frame->back != nullptr && routine->frame != first_frame) {
         routine->frame = cu_frame->back;
-        FrameDel(cu_frame);
 
-        if (RoutineIsPanicking(routine)) {
-            cu_frame = routine->frame;  // set cu_frame before jump to error
-            goto error;
+        if (routine->frame->eval_stack != nullptr) {
+            ret = NilVal;
+
+            if (cu_frame->return_value != nullptr)
+                ret = cu_frame->return_value;
+
+            *routine->frame->eval_stack = IncRef(ret);
+            routine->frame->eval_stack++;
+            FrameDel(cu_frame);
+
+            if (RoutineIsPanicking(routine)) {
+                cu_frame = routine->frame;  // set cu_frame before jump to error
+                goto error;
+            }
+
+            goto begin;
         }
 
-        goto begin;
+        cu_frame = routine->frame;  // set cu_frame before execute another defer
+        RoutinePopDefer(routine);
     }
 
     return last_popped;
