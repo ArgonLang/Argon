@@ -121,6 +121,8 @@ namespace argon::object {
 
     inline bool StringEmpty(String *string) { return string->len == 0; }
 
+    bool StringEndsWith(String *string, String *pattern);
+
     bool StringEq(String *string, const unsigned char *c_str, size_t len);
 
     int StringIntToUTF8(unsigned int glyph, unsigned char *buf);

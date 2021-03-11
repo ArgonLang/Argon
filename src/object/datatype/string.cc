@@ -310,16 +310,11 @@ ARGON_METHOD5(str_, endswith,
               "- startswith: Returns true if the string starts with the specified value.", 1, false) {
     auto *str = (String *) self;
     auto *pattern = (String *) argv[0];
-    ArSSize n;
 
     if (!AR_TYPEOF(argv[0], type_string_))
         return ErrorFormat(&error_type_error, "str::endswith() expected string not '%s'", AR_TYPE_NAME(argv[0]));
 
-    n = str->len - pattern->len;
-    if (n >= 0 && MemoryCompare(str->buffer + n, pattern->buffer, pattern->len) == 0)
-        return IncRef(True);
-
-    return IncRef(False);
+    return BoolToArBool(StringEndsWith(str, pattern));
 }
 
 ARGON_METHOD5(str_, find,
@@ -1438,6 +1433,16 @@ String *FmtFormatArgs(StringFormatter *fmt) {
 
 // Common Operations
 
+bool argon::object::StringEndsWith(String *string, String *pattern) {
+    ArSSize n;
+
+    n = string->len - pattern->len;
+    if (n >= 0 && MemoryCompare(string->buffer + n, pattern->buffer, pattern->len) == 0)
+        return true;
+
+    return false;
+}
+
 bool argon::object::StringEq(String *string, const unsigned char *c_str, size_t len) {
     if (string->len != len)
         return false;
@@ -1553,7 +1558,7 @@ String *argon::object::StringReplace(String *string, String *old, String *nval, 
 
 String *argon::object::StringSubs(String *string, size_t start, size_t end) {
     String *ret;
-    size_t len = end - start;
+    size_t len;
 
     if (start >= string->len)
         return nullptr;
@@ -1563,6 +1568,8 @@ String *argon::object::StringSubs(String *string, size_t start, size_t end) {
 
     if (start >= end)
         return nullptr;
+
+    len = end - start;
 
     if (string->kind != StringKind::ASCII)
         len = StringSubStrLen(string, start, end - start);
