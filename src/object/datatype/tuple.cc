@@ -322,7 +322,10 @@ bool argon::object::TupleInsertAt(Tuple *tuple, size_t idx, ArObject *obj) {
 
     Release(tuple->objects[idx]);
 
-    IncRef(obj);
-    tuple->objects[idx] = obj;
+    if (obj == nullptr)
+        obj = NilVal;
+
+    tuple->objects[idx] = IncRef(obj);
+
     return true;
 }
