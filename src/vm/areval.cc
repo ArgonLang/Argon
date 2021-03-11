@@ -68,6 +68,29 @@ bool GetMRO(ArRoutine *routine, List **mro, Trait **impls, size_t count) {
     return true;
 }
 
+ArObject *ImportModule(ArRoutine *routine, String *name) {
+    ImportSpec *spec;
+    String *key;
+    String *path;
+    Module *module;
+
+    if ((key = StringIntern("__spec")) == nullptr)
+        return nullptr;
+
+    spec = (ImportSpec *) NamespaceGetValue(routine->frame->globals, key, nullptr);
+
+    path = nullptr;
+    if (!IsNull(spec))
+        path = spec->path;
+
+    module = ImportModule(routine->context->import, name, path);
+
+    Release(spec);
+    Release(key);
+
+    return module;
+}
+
 ArObject *MkConstruct(ArRoutine *routine, Code *code, String *name, Trait **impls, size_t count, bool is_trait) {
     ArObject *ret;
     Namespace *ns;
@@ -663,7 +686,7 @@ ArObject *argon::vm::Eval(ArRoutine *routine) {
             TARGET_OP(IMPMOD) {
                 auto path = (String *) TupleGetItem(cu_code->statics, ARG32);
 
-                if ((ret = ImportModule(routine->context->import, path, nullptr)) == nullptr) {
+                if ((ret = ::ImportModule(routine, path)) == nullptr) {
                     Release(path);
                     goto error;
                 }

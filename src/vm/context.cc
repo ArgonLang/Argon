@@ -18,10 +18,10 @@ Context *argon::vm::ContextNew() {
     if ((ctx->import = ImportNew()) == nullptr)
         goto error;
 
-    if ((ctx->bltins = ImportModule(ctx->import, "builtins", nullptr)) == nullptr)
+    if ((ctx->bltins = ImportModule(ctx->import, "builtins")) == nullptr)
         goto error;
 
-    if ((ctx->runtime = ImportModule(ctx->import, "runtime", nullptr)) == nullptr)
+    if ((ctx->runtime = ImportModule(ctx->import, "runtime")) == nullptr)
         goto error;
 
     return ctx;
@@ -36,6 +36,6 @@ void argon::vm::ContextDel(Context *context) {
         return;
 
     argon::object::Release(context->bltins);
-    ImportDel(context->import);
+    Release(context->import);
     Free(context);
 }
