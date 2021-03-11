@@ -5,6 +5,7 @@
 #include <vm/runtime.h>
 #include <object/datatype/error.h>
 #include <object/datatype/function.h>
+#include <object/datatype/nil.h>
 
 #include "gc.h"
 #include "arobject.h"
@@ -179,6 +180,13 @@ bool argon::object::BufferSimpleFill(ArObject *obj, ArBuffer *buffer, ArBufferFl
     buffer->flags = flags;
 
     return true;
+}
+
+bool argon::object::IsNull(const ArObject *obj) {
+    if (obj == nullptr)
+        return true;
+
+    return AR_TYPEOF(obj, type_nil_);
 }
 
 bool argon::object::PropertySet(ArObject *obj, ArObject *key, ArObject *value, bool member) {
