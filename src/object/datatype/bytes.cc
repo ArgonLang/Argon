@@ -16,6 +16,15 @@
 using namespace argon::object;
 using namespace argon::memory;
 
+bool bytes_get_buffer(Bytes *self, ArBuffer *buffer, ArBufferFlags flags) {
+    return BufferSimpleFill(self, buffer, flags, self->buffer, self->len, false);
+}
+
+const BufferSlots bytes_buffer = {
+        (BufferGetFn)bytes_get_buffer,
+        nullptr
+};
+
 ArSize bytes_len(Bytes *self) {
     return self->len;
 }
@@ -243,15 +252,16 @@ const TypeInfo argon::object::type_bytes_ = {
         (BoolUnaryOp) bytes_is_true,
         (SizeTUnaryOp) bytes_hash,
         (UnaryOp) bytes_str,
-        (UnaryOp)bytes_iter_get,
-        (UnaryOp)bytes_iter_rget,
-        nullptr,
+        (UnaryOp) bytes_iter_get,
+        (UnaryOp) bytes_iter_rget,
+        &bytes_buffer,
         nullptr,
         nullptr,
         nullptr,
         nullptr,
         &bytes_sequence,
         &bytes_ops,
+        nullptr
 };
 
 Bytes *argon::object::BytesNew(size_t len) {
