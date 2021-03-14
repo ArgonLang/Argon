@@ -7,6 +7,7 @@
 #include <object/datatype/bool.h>
 #include <object/datatype/bounds.h>
 #include <object/datatype/bytes.h>
+#include <object/datatype/bytestream.h>
 #include <object/datatype/code.h>
 #include <object/datatype/decimal.h>
 #include <object/datatype/error.h>
@@ -281,6 +282,7 @@ const PropertyBulk builtins_bulk[] = {
         MODULE_BULK_EXPORT_TYPE("bool", type_bool_),
         MODULE_BULK_EXPORT_TYPE("bounds", type_bounds_),
         MODULE_BULK_EXPORT_TYPE("bytes", type_bytes_),
+        MODULE_BULK_EXPORT_TYPE("bytestream", type_bytestream_),
         MODULE_BULK_EXPORT_TYPE("code", type_code_),
         MODULE_BULK_EXPORT_TYPE("decimal", type_decimal_),
         MODULE_BULK_EXPORT_TYPE("func", type_function_),

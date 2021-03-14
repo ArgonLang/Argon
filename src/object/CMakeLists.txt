@@ -5,6 +5,7 @@ set(SRC
         datatype/iterator.cc
         datatype/set.cc
         datatype/bytes.cc
+        datatype/bytestream.cc
         datatype/hmap.cc
         datatype/integer.cc
         datatype/decimal.cc
