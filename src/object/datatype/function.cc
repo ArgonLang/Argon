@@ -48,7 +48,9 @@ void function_trace(Function *self, VoidUnaryOp trace) {
 }
 
 void function_cleanup(Function *fn) {
-    Release(fn->code);
+    if (!fn->IsNative())
+        Release(fn->code);
+
     Release(fn->name);
     Release(fn->currying);
     Release(fn->enclosed);
