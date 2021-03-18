@@ -1253,6 +1253,8 @@ void Compiler::CompileSwitch(const ast::Switch *stmt, const std::string &name) {
         ltest = defcase->flow.next;
     } else {
         this->unit_->bb.current = ltest;
+        if(!as_if)
+            this->EmitOp(OpCodes::POP);
         this->CompileJump(OpCodes::JMP, block->end);
     }
 
