@@ -1104,7 +1104,7 @@ ArObject *argon::vm::Eval(ArRoutine *routine) {
                 if (cu_frame->stack_extra_base != cu_frame->eval_stack)
                     cu_frame->return_value = TOP_BACK();
 
-                DISPATCH();
+                goto end_function;
             }
             TARGET_OP(SHL) {
                 BINARY_OP(routine, shl, >>);
@@ -1241,6 +1241,8 @@ ArObject *argon::vm::Eval(ArRoutine *routine) {
         STACK_REWIND(cu_frame->eval_stack - cu_frame->stack_extra_base);
         break;
     }
+
+    end_function:
 
     assert(cu_frame->stack_extra_base == cu_frame->eval_stack);
 
