@@ -275,36 +275,6 @@ ArObject *RestElementToList(ArObject **args, size_t count) {
     return rest;
 }
 
-void FillFrameForCall(Frame *frame, Function *callable, ArObject **args, size_t count) {
-    size_t local_idx = 0;
-
-    // Push currying args
-    if (callable->currying != nullptr) {
-        for (size_t i = 0; i < callable->currying->len; i++)
-            frame->locals[local_idx++] = ListGetItem(callable->currying, i);
-    }
-
-    // Fill with stack args
-    for (size_t i = 0; i < count; i++)
-        frame->locals[local_idx++] = IncRef(args[i]);
-
-    // If method, set frame->instance
-    if (callable->IsMethod())
-        frame->instance = frame->locals[0];
-
-    // If last parameter in variadic function is empty, fill it with NilVal
-    if (callable->IsVariadic() && local_idx < callable->arity + 1)
-        frame->locals[local_idx++] = NilVal;
-
-    // assert(local_idx == callable->arity); or assert(local_idx == callable->arity+1); if variadic
-
-    // Fill with enclosed args
-    if (callable->enclosed != nullptr) {
-        for (size_t i = 0; i < callable->enclosed->len; i++)
-            frame->enclosed[i] = ListGetItem(callable->enclosed, i);
-    }
-}
-
 struct CallHelper {
     Frame *frame;
     Function *func;
@@ -450,7 +420,7 @@ bool ExecDefer(ArRoutine *routine) {
             if ((frame = FrameNew(func->code, func->gns, nullptr)) == nullptr)
                 return false;
 
-            FillFrameForCall(frame, func, nullptr, 0);
+            FrameFillForCall(frame, func, nullptr, 0);
 
             frame->back = routine->frame;
             routine->frame = frame;
@@ -590,7 +560,7 @@ ArObject *argon::vm::Eval(ArRoutine *routine) {
                     goto error;
                 }
 
-                FillFrameForCall(fn_frame, helper.func, helper.params, helper.local_args);
+                FrameFillForCall(fn_frame, helper.func, helper.params, helper.local_args);
                 ClearCall(&helper);
 
                 // Invoke:
@@ -798,11 +768,10 @@ ArObject *argon::vm::Eval(ArRoutine *routine) {
                 DISPATCH4();
             }
             TARGET_OP(LDENC) {
-                // TODO: CHECK OutOfBound
-                auto idx = ARG16;
+                if ((ret = ListGetItem(cu_frame->enclosed, ARG16)) == nullptr)
+                    goto error;
 
-                IncRef(cu_frame->enclosed[idx]);
-                PUSH(cu_frame->enclosed[idx]);
+                PUSH(ret);
                 DISPATCH2();
             }
             TARGET_OP(LDGBL) {
@@ -1128,12 +1097,10 @@ ArObject *argon::vm::Eval(ArRoutine *routine) {
                 DISPATCH4();
             }
             TARGET_OP(STENC) {
-                // TODO: CHECK OutOfBound
-                auto idx = ARG16;
+                if (!ListSetItem(cu_frame->enclosed, TOP(), ARG16))
+                    goto error;
 
-                Release(cu_frame->enclosed[idx]);
-                cu_frame->enclosed[idx] = TOP();
-                cu_frame->eval_stack--;
+                POP();
                 DISPATCH2();
             }
             TARGET_OP(STGBL) {

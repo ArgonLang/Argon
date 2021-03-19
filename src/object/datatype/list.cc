@@ -30,7 +30,7 @@ ArObject *argon::object::ListGetItem(List *self, ArSSize index) {
     return ErrorFormat(&error_overflow_error, "list index out of range (len: %d, idx: %d)", self->len, index);
 }
 
-bool list_set_item(List *self, ArObject *obj, ArSSize index) {
+bool argon::object::ListSetItem(List *self, ArObject *obj, ArSSize index) {
     if (index < 0)
         index = self->len + index;
 
@@ -84,7 +84,7 @@ bool list_set_slice(List *self, Bounds *bounds, ArObject *obj) {
 const SequenceSlots list_actions{
         list_len,
         (BinaryOpArSize) argon::object::ListGetItem,
-        (BoolTernOpArSize) list_set_item,
+        (BoolTernOpArSize) argon::object::ListSetItem,
         (BinaryOp) list_get_slice,
         (BoolTernOp) list_set_slice
 };
@@ -331,7 +331,7 @@ ARGON_METHOD5(list_, insert,
     if (idx > list->len)
         return ARGON_CALL_FUNC5(list_, append, list, argv + 1, 1);
 
-    if (!list_set_item(list, argv[1], idx))
+    if (!ListSetItem(list, argv[1], idx))
         return nullptr;
 
     return IncRef(list);

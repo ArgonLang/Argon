@@ -5,8 +5,10 @@
 #ifndef ARGON_VM_FRAME_H_
 #define ARGON_VM_FRAME_H_
 
-#include <object/datatype/namespace.h>
 #include <object/datatype/code.h>
+#include <object/datatype/function.h>
+#include <object/datatype/list.h>
+#include <object/datatype/namespace.h>
 
 namespace argon::vm {
     struct Frame {
@@ -35,7 +37,7 @@ namespace argon::vm {
         object::ArObject **locals;
 
         /* Enclosing scope (If Any) */
-        object::ArObject **enclosed;
+        object::List *enclosed;
 
         /* Value to be returned at the end of execution of this frame */
         object::ArObject *return_value;
@@ -44,9 +46,11 @@ namespace argon::vm {
         object::ArObject *stack_extra_base[];
     };
 
-    Frame *FrameNew(object::Code *code, object::Namespace *globals, object::Namespace *proxy_globals);
+    Frame *FrameNew(object::Code *code,object::Namespace *globals, object::Namespace *proxy_globals);
 
     void FrameDel(Frame *frame);
+
+    void FrameFillForCall(Frame *frame, object::Function *callable, object::ArObject **argv, object::ArSize argc);
 
 } // namespace argon::vm
 
