@@ -64,25 +64,25 @@ bool IOInit(Module *module) {
     INIT_CONST_STR(io_mode_read, "O_READ");
     INIT_CONST_STR(io_mode_write, "O_WRITE");
     INIT_CONST_STR(io_mode_append, "O_APPEND");
-    INIT_OBJ(IntegerNew, io_mode_read, (IntegerUnderlayer) FileMode::READ);
-    INIT_OBJ(IntegerNew, io_mode_write, (IntegerUnderlayer) FileMode::WRITE);
-    INIT_OBJ(IntegerNew, io_mode_append, (IntegerUnderlayer) FileMode::APPEND);
+    INIT_OBJ(IntegerNew, io_mode_read, (IntegerUnderlying) FileMode::READ);
+    INIT_OBJ(IntegerNew, io_mode_write, (IntegerUnderlying) FileMode::WRITE);
+    INIT_OBJ(IntegerNew, io_mode_append, (IntegerUnderlying) FileMode::APPEND);
 
     // FileBufferMode
     INIT_CONST_STR(io_buf_mode_none, "BUF_NONE");
     INIT_CONST_STR(io_buf_mode_line, "BUF_LINE");
     INIT_CONST_STR(io_buf_mode_block, "BUF_BLOCK");
-    INIT_OBJ(IntegerNew, io_buf_mode_none, (IntegerUnderlayer) FileBufferMode::NONE);
-    INIT_OBJ(IntegerNew, io_buf_mode_line, (IntegerUnderlayer) FileBufferMode::LINE);
-    INIT_OBJ(IntegerNew, io_buf_mode_block, (IntegerUnderlayer) FileBufferMode::BLOCK);
+    INIT_OBJ(IntegerNew, io_buf_mode_none, (IntegerUnderlying) FileBufferMode::NONE);
+    INIT_OBJ(IntegerNew, io_buf_mode_line, (IntegerUnderlying) FileBufferMode::LINE);
+    INIT_OBJ(IntegerNew, io_buf_mode_block, (IntegerUnderlying) FileBufferMode::BLOCK);
 
     // FileWhence
     INIT_CONST_STR(io_seek_mode_start, "SEEK_START");
     INIT_CONST_STR(io_seek_mode_cur, "SEEK_CUR");
     INIT_CONST_STR(io_seek_mode_end, "SEEK_END");
-    INIT_OBJ(IntegerNew, io_seek_mode_start, (IntegerUnderlayer) FileWhence::START);
-    INIT_OBJ(IntegerNew, io_seek_mode_cur, (IntegerUnderlayer) FileWhence::CUR);
-    INIT_OBJ(IntegerNew, io_seek_mode_end, (IntegerUnderlayer) FileWhence::END);
+    INIT_OBJ(IntegerNew, io_seek_mode_start, (IntegerUnderlying) FileWhence::START);
+    INIT_OBJ(IntegerNew, io_seek_mode_cur, (IntegerUnderlying) FileWhence::CUR);
+    INIT_OBJ(IntegerNew, io_seek_mode_end, (IntegerUnderlying) FileWhence::END);
 
     return true;
 

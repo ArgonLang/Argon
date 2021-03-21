@@ -23,16 +23,16 @@ using namespace argon::object;
         return nullptr;
 
 #define SIMPLE_OP(left, right, op)  \
-    DecimalUnderlayer l;            \
-    DecimalUnderlayer r;            \
+    DecimalUnderlying l;            \
+    DecimalUnderlying r;            \
                                     \
     CONVERT_DOUBLE(left, l);        \
     CONVERT_DOUBLE(right, r);       \
                                     \
     return DecimalNew(l op r)
 
-bool ConvertToDouble(ArObject *obj, DecimalUnderlayer *decimal) {
-    DecimalUnderlayer ipart;
+bool ConvertToDouble(ArObject *obj, DecimalUnderlying *decimal) {
+    DecimalUnderlying ipart;
     int exp;
 
     if (AR_TYPEOF(obj, type_integer_)) {
@@ -49,7 +49,7 @@ bool ConvertToDouble(ArObject *obj, DecimalUnderlayer *decimal) {
 }
 
 ArObject *decimal_as_integer(Decimal *self) {
-    IntegerUnderlayer num;
+    IntegerUnderlying num;
     unsigned long exp;
 
     if (std::isinf(self->decimal))
@@ -85,8 +85,8 @@ ArObject *decimal_mul(ArObject *left, ArObject *right) {
 #undef SIMPLE_OP
 
 ArObject *decimal_div(ArObject *left, ArObject *right) {
-    DecimalUnderlayer l;
-    DecimalUnderlayer r;
+    DecimalUnderlying l;
+    DecimalUnderlying r;
 
     CONVERT_DOUBLE(left, l);
     CONVERT_DOUBLE(right, r);
@@ -98,11 +98,11 @@ ArObject *decimal_div(ArObject *left, ArObject *right) {
 }
 
 ArObject *decimal_idiv(ArObject *left, ArObject *right) {
-    DecimalUnderlayer l;
-    DecimalUnderlayer r;
-    DecimalUnderlayer mod;
-    DecimalUnderlayer div;
-    DecimalUnderlayer floord;
+    DecimalUnderlying l;
+    DecimalUnderlying r;
+    DecimalUnderlying mod;
+    DecimalUnderlying div;
+    DecimalUnderlying floord;
 
     CONVERT_DOUBLE(left, l);
     CONVERT_DOUBLE(right, r);
@@ -124,9 +124,9 @@ ArObject *decimal_idiv(ArObject *left, ArObject *right) {
 }
 
 ArObject *decimal_mod(ArObject *left, ArObject *right) {
-    DecimalUnderlayer l;
-    DecimalUnderlayer r;
-    DecimalUnderlayer mod;
+    DecimalUnderlying l;
+    DecimalUnderlying r;
+    DecimalUnderlying mod;
 
     CONVERT_DOUBLE(left, l);
     CONVERT_DOUBLE(right, r);
@@ -193,10 +193,10 @@ bool decimal_is_true(Decimal *self) {
 }
 
 ArObject *decimal_compare(Decimal *self, ArObject *other, CompareMode mode) {
-    DecimalUnderlayer l = self->decimal;
-    DecimalUnderlayer r;
+    DecimalUnderlying l = self->decimal;
+    DecimalUnderlying r;
 
-    IntegerUnderlayer integer;
+    IntegerUnderlying integer;
 
     if (AR_TYPEOF(other, type_decimal_))
         r = ((Decimal *) other)->decimal;
@@ -230,13 +230,13 @@ ArObject *decimal_compare(Decimal *self, ArObject *other, CompareMode mode) {
                         double intpart, fractpart;
                         fractpart = modf(l, &intpart);
 
-                        if ((IntegerUnderlayer) intpart == ((Integer *) other)->integer) {
+                        if ((IntegerUnderlying) intpart == ((Integer *) other)->integer) {
                             l = r = 1;
                             if (fractpart > 0.0)
                                 l++;
                             else if (fractpart < 0.0)
                                 l--;
-                        } else if ((IntegerUnderlayer) intpart > ((Integer *) other)->integer) {
+                        } else if ((IntegerUnderlying) intpart > ((Integer *) other)->integer) {
                             l = 2.0;
                             r = 1.0;
                         } else {
@@ -364,7 +364,7 @@ const TypeInfo argon::object::type_decimal_ = {
         &decimal_ops
 };
 
-Decimal *argon::object::DecimalNew(DecimalUnderlayer number) {
+Decimal *argon::object::DecimalNew(DecimalUnderlying number) {
     auto decimal = ArObjectNew<Decimal>(RCType::INLINE, &type_decimal_);
     if (decimal != nullptr)
         decimal->decimal = number;
@@ -381,12 +381,12 @@ Decimal *argon::object::DecimalNewFromString(const std::string &string) {
     return decimal;
 }
 
-unsigned long argon::object::DecimalModf(DecimalUnderlayer value, unsigned long *frac, int precision) {
+unsigned long argon::object::DecimalModf(DecimalUnderlying value, unsigned long *frac, int precision) {
     static int pow10[] = {1, 10, 100, 1000, 10000, 100000, 1000000, 10000000, 100000000, 1000000000};
 
-    IntegerUnderlayer intpart = value;
-    DecimalUnderlayer tmp;
-    DecimalUnderlayer diff;
+    IntegerUnderlying intpart = value;
+    DecimalUnderlying tmp;
+    DecimalUnderlying diff;
 
     // based on https://github.com/mpaland/printf (_ftoa)
 
@@ -419,7 +419,7 @@ unsigned long argon::object::DecimalModf(DecimalUnderlayer value, unsigned long 
         (*frac)++; // round up if odd OR last digit is 0
 
     if (precision == 0U) {
-        diff = value - (DecimalUnderlayer) intpart;
+        diff = value - (DecimalUnderlying) intpart;
         if (diff >= 0.5 && ((unsigned long) intpart & 1U))
             intpart++; // round up if exactly 0.5 and odd
     }
@@ -427,7 +427,7 @@ unsigned long argon::object::DecimalModf(DecimalUnderlayer value, unsigned long 
     return intpart;
 }
 
-unsigned long argon::object::DecimalFrexp10(DecimalUnderlayer value, unsigned long *frac, long *exp, int precision) {
+unsigned long argon::object::DecimalFrexp10(DecimalUnderlying value, unsigned long *frac, long *exp, int precision) {
     int exp2;
     double z;
     double z2;

@@ -261,7 +261,7 @@ unsigned int Compiler::PushStatic(const std::string &value, bool store, bool emi
 
 unsigned int Compiler::PushStatic(ArObject *obj, bool store, bool emit) {
     ArObject *tmp = nullptr;
-    IntegerUnderlayer idx = -1;
+    IntegerUnderlying idx = -1;
 
     IncRef(obj);
 

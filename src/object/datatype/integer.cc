@@ -58,7 +58,20 @@ ArObject *integer_div(ArObject *left, ArObject *right) {
 }
 
 ArObject *integer_mod(ArObject *left, ArObject *right) {
-    SIMPLE_OP(left, right, %);
+    IntegerUnderlying l;
+    IntegerUnderlying r;
+    IntegerUnderlying ans;
+
+    CHECK_INTEGER(left, right);
+
+    l = ((Integer *) left)->integer;
+    r = ((Integer *) right)->integer;
+
+    ans = l % r;
+    if (ans < 0)
+        ans += r;
+
+    return IntegerNew(ans);
 }
 
 ArObject *integer_pos(Integer *self) {
@@ -144,8 +157,8 @@ bool integer_equal(Integer *self, ArObject *other) {
 }
 
 ArObject *integer_compare(Integer *self, ArObject *other, CompareMode mode) {
-    IntegerUnderlayer left = self->integer;
-    IntegerUnderlayer right;
+    IntegerUnderlying left = self->integer;
+    IntegerUnderlying right;
 
     if (AR_SAME_TYPE(self, other)) {
         right = ((Integer *) other)->integer;
@@ -199,7 +212,7 @@ const TypeInfo argon::object::type_integer_ = {
         &integer_ops
 };
 
-Integer *argon::object::IntegerNew(IntegerUnderlayer number) {
+Integer *argon::object::IntegerNew(IntegerUnderlying number) {
     // Overflow check
 #if __WORDSIZE == 32
     if (number > 0x7FFFFFFF)
@@ -227,7 +240,7 @@ Integer *argon::object::IntegerNewFromString(const std::string &string, int base
 }
 
 int argon::object::IntegerCountBits(Integer *number) {
-    IntegerUnderlayer i = number->integer;
+    IntegerUnderlying i = number->integer;
     int count = 0;
 
     if (i < 0)i *= -1;
@@ -240,7 +253,7 @@ int argon::object::IntegerCountBits(Integer *number) {
     return count;
 }
 
-int argon::object::IntegerCountDigits(IntegerUnderlayer number, IntegerUnderlayer base) {
+int argon::object::IntegerCountDigits(IntegerUnderlying number, IntegerUnderlying base) {
     int count = 0;
 
     if (number == 0)

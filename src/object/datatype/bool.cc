@@ -45,8 +45,8 @@ bool bool_equal(ArObject *self, ArObject *other) {
 }
 
 ArObject *bool_compare(Bool *self, ArObject *other, CompareMode mode) {
-    IntegerUnderlayer l = self->value;
-    IntegerUnderlayer r;
+    IntegerUnderlying l = self->value;
+    IntegerUnderlying r;
 
     if (AR_TYPEOF(other, type_bool_))
         r = ((Bool *) other)->value;

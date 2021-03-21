@@ -11,21 +11,21 @@
 
 namespace argon::object {
 
-    using IntegerUnderlayer = long;
+    using IntegerUnderlying = long;
 
     struct Integer : ArObject {
-        IntegerUnderlayer integer;
+        IntegerUnderlying integer;
     };
 
     extern const TypeInfo type_integer_;
 
-    Integer *IntegerNew(IntegerUnderlayer number);
+    Integer *IntegerNew(IntegerUnderlying number);
 
     Integer *IntegerNewFromString(const std::string &string, int base);
 
     int IntegerCountBits(Integer *number);
 
-    int IntegerCountDigits(IntegerUnderlayer number, IntegerUnderlayer base);
+    int IntegerCountDigits(IntegerUnderlying number, IntegerUnderlying base);
 
 } // namespace argon::object
 

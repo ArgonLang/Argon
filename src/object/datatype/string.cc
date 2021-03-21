@@ -182,7 +182,7 @@ ArObject *string_mul(ArObject *left, ArObject *right) {
     auto l = (String *) left;
     String *ret = nullptr;
 
-    IntegerUnderlayer times;
+    IntegerUnderlying times;
 
     // int * str -> str * int
     if (left->type != &type_string_) {
@@ -1137,7 +1137,7 @@ FmtWriteNumber(unsigned char *buf, long num, int base, int prec, int width, bool
 int FmtDecimal(StringFormatter *fmt, StringArg *arg, char specifier) {
 #define FMT_PRECISION_DEF   6
     ArObject *obj;
-    DecimalUnderlayer num;
+    DecimalUnderlying num;
 
     unsigned long intpart;
     unsigned long frac;
@@ -1250,7 +1250,7 @@ int FmtDecimal(StringFormatter *fmt, StringArg *arg, char specifier) {
 int FmtInteger(StringFormatter *fmt, StringArg *arg, int base, bool upper) {
     ArObject *obj;
 
-    IntegerUnderlayer num;
+    IntegerUnderlying num;
     int bufsz;
     int diff;
 
