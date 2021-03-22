@@ -1,0 +1,16 @@
+// This source file is part of the Argon project.
+//
+// Licensed under the Apache License v2.0
+
+#ifndef ARGON_VERSION_H_
+#define ARGON_VERSION_H_
+
+#define AR_RELEASE_LEVEL    "@AR_RELEASE_LEVEL@"
+
+#define AR_MAJOR            @AR_MAJOR@
+#define AR_MINOR            @AR_MINOR@
+#define AR_PATCH            @AR_PATCH@
+
+#define AR_VERSION          "@AR_VERSION@"
+
+#endif // !ARGON_VERSION_H_

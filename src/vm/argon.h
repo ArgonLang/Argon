@@ -8,6 +8,7 @@
 #include <object/arobject.h>
 
 #include "runtime.h"
+#include "version.h"
 
 namespace argon::vm {
 

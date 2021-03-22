@@ -1,5 +1,7 @@
 cmake_minimum_required(VERSION 3.7)
 
+configure_file("version.h.in" "${CMAKE_CURRENT_SOURCE_DIR}/version.h")
+
 set(SRC argon.cc areval.cc frame.cc ar_routine.cc routine_queue.cc runtime.cc context.cc import.cc)
 list(TRANSFORM SRC PREPEND ${CMAKE_CURRENT_LIST_DIR}/)
 target_sources(argon PRIVATE ${SRC})
