@@ -73,6 +73,10 @@ const ObjectSlots module_oslots = {
         (BoolTernOp) module_set_static_attr
 };
 
+ArObject *module_str(Module *self) {
+    return StringCFormat("<module '%s'>", self->name);
+}
+
 bool module_is_true(ArObject *self) {
     return true;
 }
@@ -90,8 +94,12 @@ bool module_equal(Module *self, ArObject *other) {
            && AR_EQUAL(self->doc, o->doc);
 }
 
-ArObject *module_str(Module *self) {
-    return StringCFormat("<module '%s'>", self->name);
+void module_trace(Module *self, VoidUnaryOp trace) {
+    trace(self->module_ns);
+}
+
+void module_cleanup(Module *self) {
+    Release(self->module_ns);
 }
 
 const TypeInfo argon::object::type_module_ = {
@@ -100,8 +108,8 @@ const TypeInfo argon::object::type_module_ = {
         nullptr,
         sizeof(Module),
         nullptr,
-        nullptr,
-        nullptr,
+        (VoidUnaryOp) module_cleanup,
+        (Trace) module_trace,
         nullptr,
         (BoolBinOp) module_equal,
         module_is_true,
@@ -146,13 +154,11 @@ bool InitGlobals(Module *module) {
 }
 
 Module *argon::object::ModuleNew(String *name, String *doc) {
-    auto module = ArObjectNew<Module>(RCType::INLINE, &type_module_);
+    auto module = ArObjectGCNew<Module>(&type_module_);
 
     if (module != nullptr) {
-        IncRef(name);
-        module->name = name;
-        IncRef(doc);
-        module->doc = doc;
+        module->name = IncRef(name);
+        module->doc = IncRef(doc);
 
         // Initialize module globals
         if (!InitGlobals(module)) {
