@@ -21,7 +21,7 @@ bool bytes_get_buffer(Bytes *self, ArBuffer *buffer, ArBufferFlags flags) {
 }
 
 const BufferSlots bytes_buffer = {
-        (BufferGetFn)bytes_get_buffer,
+        (BufferGetFn) bytes_get_buffer,
         nullptr
 };
 
@@ -174,6 +174,21 @@ bool bytes_equal(Bytes *self, ArObject *other) {
     return MemoryCompare(self->buffer, o->buffer, self->len) == 0;
 }
 
+ArObject *bytes_ctor(ArObject **args, ArSize count) {
+    IntegerUnderlying size = 0;
+
+    if (!VariadicCheckPositional("bytes", count, 0, 1))
+        return nullptr;
+
+    if (count == 1) {
+        if (!AR_TYPEOF(*args, type_integer_))
+            return BytesNew(*args);
+        size = ((Integer *) *args)->integer;
+    }
+
+    return BytesNew(size);
+}
+
 ArObject *bytes_compare(Bytes *self, ArObject *other, CompareMode mode) {
     auto *o = (Bytes *) other;
     int left = 0;
@@ -244,7 +259,7 @@ const TypeInfo argon::object::type_bytes_ = {
         "bytes",
         nullptr,
         sizeof(Bytes),
-        nullptr,
+        bytes_ctor,
         (VoidUnaryOp) bytes_cleanup,
         nullptr,
         (CompareOp) bytes_compare,
