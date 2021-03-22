@@ -3,6 +3,7 @@
 // Licensed under the Apache License v2.0
 
 #include <sstream>
+#include <fstream>
 
 #include <lang/compiler.h>
 
@@ -45,7 +46,20 @@ int argon::vm::Main(int argc, char **argv) {
     return 0;
 }
 
-#include <iostream>
+argon::object::ArObject *argon::vm::EvalFile(const char *file) {
+    ArObject *res;
+    Code *code;
+    lang::Compiler compiler;
+
+    std::ifstream in(file, std::ifstream::in);
+
+    code = compiler.Compile(&in);
+
+    res = EvalCode(code, nullptr);
+
+    Release(code);
+    return res;
+}
 
 ArObject *argon::vm::EvalString(const std::string &str) {
     ArObject *res;
@@ -65,6 +79,7 @@ ArObject *argon::vm::EvalString(const std::string &str) {
 
 ArObject *argon::vm::EvalCode(Code *code, Namespace *globals, Tuple *args) {
     ArObject *res = nullptr;
+    ArObject *err;
     Frame *frame;
 
     // TODO: set command args!
@@ -74,7 +89,10 @@ ArObject *argon::vm::EvalCode(Code *code, Namespace *globals, Tuple *args) {
 
     if ((frame = FrameNew(code, globals, nullptr)) != nullptr) {
         res = Eval(GetRoutine(), frame);
-        //FrameDel(frame);
+        if ((err = GetLastError()) != nullptr) {
+            Release(res);
+            res = err;
+        }
         RoutineReset(GetRoutine(), ArRoutineStatus::RUNNABLE);
     }
 
