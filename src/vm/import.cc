@@ -179,15 +179,24 @@ ARGON_FUNCTION5(import_, builtins_loader,
                 "   - import: import instance."
                 "   - spec: ImportSpec instance describing what to load."
                 "- Returns: new module.", 2, false) {
+    auto *import = (Import*)argv[0];
     auto *spec = (ImportSpec *) argv[1];
     Module *module;
+
+    if (!AR_TYPEOF(import, type_import_))
+        return ErrorFormat(&error_type_error, "expected Import as first arg, found '%s'", AR_TYPE_NAME(import));
 
     if (!AR_TYPEOF(spec, type_import_spec_))
         return ErrorFormat(&error_type_error, "expected ImportSpec as second arg, found '%s'", AR_TYPE_NAME(spec));
 
     module = spec->initfn();
 
-    if (!ModuleAddProperty(module, "__spec", spec, MODULE_ATTRIBUTE_PUB_CONST))
+    if (!ModuleAddProperty(module, "__spec", spec, MODULE_ATTRIBUTE_PUB_CONST)) {
+        Release(module);
+        return nullptr;
+    }
+
+    if (!MapInsert(import->modules, spec->name, module))
         Release((ArObject **) &module);
 
     return module;
@@ -200,12 +209,16 @@ ARGON_FUNCTION5(import_, source_loader,
                 "   - import: import instance."
                 "   - spec: ImportSpec instance describing what to load."
                 "- Returns: new module.", 2, false) {
+    auto *import = (Import*) argv[0];
     auto *spec = (ImportSpec *) argv[1];
     Code *code = nullptr;
     Module *module = nullptr;
     Frame *frame;
     argon::lang::Compiler compiler;
     std::filebuf infile;
+
+    if (!AR_TYPEOF(import, type_import_))
+        return ErrorFormat(&error_type_error, "expected Import as first arg, found '%s'", AR_TYPE_NAME(import));
 
     if (!AR_TYPEOF(spec, type_import_spec_))
         return ErrorFormat(&error_type_error, "expected ImportSpec as second arg, found '%s'", AR_TYPE_NAME(spec));
@@ -223,6 +236,9 @@ ARGON_FUNCTION5(import_, source_loader,
         if (!ModuleAddProperty(module, "__spec", spec, MODULE_ATTRIBUTE_PUB_CONST))
             goto error;
 
+        if (!MapInsert(import->modules, spec->name, module))
+            goto error;
+
         if ((frame = FrameNew(code, module->module_ns, nullptr)) == nullptr)
             goto error;
 
@@ -238,6 +254,7 @@ ARGON_FUNCTION5(import_, source_loader,
     error:
     Release(code);
     Release(module);
+    MapRemove(import->modules, spec->name);
     return nullptr;
 }
 
@@ -733,11 +750,7 @@ argon::object::Module *argon::vm::ImportModule(Import *import, String *name, Str
     if ((spec = Locate(import, name, package)) == nullptr)
         return (Module *) ErrorFormat(&error_module_notfound, "No module named '%s'", name->buffer);
 
-    if ((module = Load(import, spec)) != nullptr) {
-        // Fill cache, IF FAIL, delete the newly loaded module!
-        if (!MapInsert(import->modules, name, module))
-            Release((ArObject **) &module);
-    }
+    module = Load(import, spec);
 
     Release(spec);
     return module;
