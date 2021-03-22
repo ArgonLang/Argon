@@ -61,6 +61,10 @@ ArObject *argon::object::ErrorFormat(const TypeInfo *etype, const char *format, 
     return nullptr;
 }
 
+ArObject * argon::object::__error_str(ErrorStr *self) {
+    return StringNew(self->msg);
+}
+
 const TypeInfo *argon::object::ErrorFromErrno() {
     switch (errno) {
         case EPERM:

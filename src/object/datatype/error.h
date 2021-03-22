@@ -24,9 +24,11 @@ namespace argon::object {
 
     ArObject *ErrorFormat(const TypeInfo *etype, const char *format, ...);
 
+    ArObject *__error_str(ErrorStr *self);
+
     const TypeInfo *ErrorFromErrno();
 
-#define ERROR_NEW_TYPE(type_name, name, base, cleanup, obj_actions) \
+#define ERROR_NEW_TYPE(type_name, name, base, err_str, cleanup, obj_actions) \
 const TypeInfo error_##type_name = {                                \
         TYPEINFO_STATIC_INIT,                                       \
         #name,                                                      \
@@ -39,7 +41,7 @@ const TypeInfo error_##type_name = {                                \
         nullptr,                                                    \
         nullptr,                                                    \
         nullptr,                                                    \
-        nullptr,                                                    \
+        (UnaryOp)err_str,                                           \
         nullptr,                                                    \
         nullptr,                                                    \
         nullptr,                                                    \
@@ -51,10 +53,10 @@ const TypeInfo error_##type_name = {                                \
 }
 
 #define ERROR_STR_NEW_TYPE(type_name, name, obj_actions)                        \
-ERROR_NEW_TYPE(type_name, name, ErrorStr, __error_str_cleanup, obj_actions)
+ERROR_NEW_TYPE(type_name, name, ErrorStr,__error_str, __error_str_cleanup, obj_actions)
 
     // Generic error that can encapsulate any ArObject
-    ERROR_NEW_TYPE(error, error, Error, __error_error_cleanup, nullptr);
+    ERROR_NEW_TYPE(error, error, Error, nullptr, __error_error_cleanup, nullptr);
 
     // ArithmeticErrors
     ERROR_STR_NEW_TYPE(zero_division_error, ZeroDivisionError, nullptr);
