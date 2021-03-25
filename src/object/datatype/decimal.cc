@@ -19,8 +19,8 @@ using namespace argon::object;
 #define CONVERT_DOUBLE(object, dbl)             \
     if(AR_TYPEOF(object, type_decimal_))        \
         (dbl) = ((Decimal*)(object))->decimal;  \
-    else if(!ConvertToDouble(object, &(dbl)))   \
-        return nullptr;
+    else if(!AR_TYPEOF(object, type_integer_) || !DecimalCanConvertFromInt(((Integer*)object), &dbl)) \
+        return nullptr
 
 #define SIMPLE_OP(left, right, op)  \
     DecimalUnderlying l;            \
@@ -30,23 +30,6 @@ using namespace argon::object;
     CONVERT_DOUBLE(right, r);       \
                                     \
     return DecimalNew(l op r)
-
-bool ConvertToDouble(ArObject *obj, DecimalUnderlying *decimal) {
-    DecimalUnderlying ipart;
-    int exp;
-
-    if (AR_TYPEOF(obj, type_integer_)) {
-        ipart = frexp(((Integer *) obj)->integer, &exp);
-        if (exp > DBL_MAX_EXP) {
-            ErrorFormat(&error_overflow_error, "integer too large to convert to decimal");
-            return false;
-        }
-        *decimal = ldexp(ipart, exp);
-        return true;
-    }
-
-    return false;
-}
 
 ArObject *decimal_as_integer(Decimal *self) {
     IntegerUnderlying num;
@@ -81,8 +64,6 @@ ArObject *decimal_sub(ArObject *left, ArObject *right) {
 ArObject *decimal_mul(ArObject *left, ArObject *right) {
     SIMPLE_OP(left, right, *);
 }
-
-#undef SIMPLE_OP
 
 ArObject *decimal_div(ArObject *left, ArObject *right) {
     DecimalUnderlying l;
@@ -275,6 +256,9 @@ bool decimal_equal(Decimal *self, ArObject *other) {
     if (self == other)
         return true;
 
+    if(!AR_TYPEOF(other, type_integer_) || !AR_TYPEOF(other, type_decimal_))
+        return false;
+
     if ((eq = (Bool *) decimal_compare(self, other, CompareMode::EQ)) == True) {
         Release(eq);
         return true;
@@ -381,6 +365,20 @@ Decimal *argon::object::DecimalNewFromString(const std::string &string) {
     return decimal;
 }
 
+bool argon::object::DecimalCanConvertFromInt(IntegerUnderlying integer, DecimalUnderlying *decimal) {
+    DecimalUnderlying ipart;
+    int exp;
+
+    ipart = frexp(integer, &exp);
+    if (exp > DBL_MAX_EXP) {
+        ErrorFormat(&error_overflow_error, "integer too large to convert to decimal");
+        return false;
+    }
+
+    *decimal = ldexp(ipart, exp);
+    return true;
+}
+
 unsigned long argon::object::DecimalModf(DecimalUnderlying value, unsigned long *frac, int precision) {
     static int pow10[] = {1, 10, 100, 1000, 10000, 100000, 1000000, 10000000, 100000000, 1000000000};
 
@@ -468,4 +466,13 @@ unsigned long argon::object::DecimalFrexp10(DecimalUnderlying value, unsigned lo
     return DecimalModf(value, frac, precision);
 }
 
+#define DECIMAL_TYPE(sname, export_name, value)                     \
+Decimal sname {{RefCount(RCType::STATIC), &type_decimal_}, value};  \
+Decimal *export_name = &sname
+
+DECIMAL_TYPE(DecimalNaN, argon::object::NaN, NAN);
+DECIMAL_TYPE(DecimalInf, argon::object::Inf, INFINITY);
+
+#undef DECIMAL_TYPE
+#undef SIMPLE_OP
 #undef CONVERT_DOUBLE

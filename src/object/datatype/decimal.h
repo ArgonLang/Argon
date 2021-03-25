@@ -22,9 +22,19 @@ namespace argon::object {
 
     extern const TypeInfo type_decimal_;
 
+    extern Decimal *NaN;
+
+    extern Decimal *Inf;
+
     Decimal *DecimalNew(DecimalUnderlying number);
 
     Decimal *DecimalNewFromString(const std::string &string);
+
+    bool DecimalCanConvertFromInt(IntegerUnderlying integer, DecimalUnderlying *decimal);
+
+    inline bool DecimalCanConvertFromInt(Integer *integer, DecimalUnderlying *decimal) {
+        return DecimalCanConvertFromInt(integer->integer, decimal);
+    }
 
     unsigned long DecimalModf(DecimalUnderlying value, unsigned long *frac, int precision);
 
