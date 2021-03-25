@@ -12,23 +12,27 @@
 
 using namespace argon::object;
 
-bool type_is_true(ArObject *obj) {
+bool type_is_true(ArObject *self) {
     return true;
 }
 
-bool type_equal(ArObject *left, ArObject *right) {
-    return left == right;
+bool type_equal(ArObject *self, ArObject *other) {
+    return self == other;
 }
 
 ArSize type_hash(ArObject *self) {
     return (ArSize) self; // returns memory pointer as size_t
 }
 
+ArObject *type_str(ArObject *self) {
+    return StringNew(((TypeInfo *) self)->name);
+}
+
 const TypeInfo argon::object::type_type_ = {
         TYPEINFO_STATIC_INIT,
         "datatype",
         nullptr,
-        0,
+        sizeof(TypeInfo),
         nullptr,
         nullptr,
         nullptr,
@@ -36,7 +40,7 @@ const TypeInfo argon::object::type_type_ = {
         type_equal,
         type_is_true,
         type_hash,
-        nullptr,
+        type_str,
         nullptr,
         nullptr,
         nullptr,
