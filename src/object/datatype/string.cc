@@ -1225,8 +1225,7 @@ int FmtDecimal(StringFormatter *fmt, StringArg *arg, char specifier) {
     if (!StringBuilderResize(&fmt->builder, bufsz))
         return -1;
 
-    diff = FmtWriteNumber(SB_GET_BUFFER(fmt->builder), (long) intpart, 10, arg->prec > -1 ? arg->prec : 0,
-                          arg->width, upper, arg->flags);
+    diff = FmtWriteNumber(SB_GET_BUFFER(fmt->builder), (long) intpart, 10, 0, arg->width, upper, arg->flags);
 
     if (frac > 0) {
         fmt->builder.str.buffer[diff++ + fmt->builder.w_idx] = '.';
