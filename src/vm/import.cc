@@ -7,8 +7,9 @@
 #include <lang/compiler.h>
 
 #include <module/builtins.h>
-#include <module/runtime.h>
 #include <module/io/iomodule.h>
+#include <module/math.h>
+#include <module/runtime.h>
 
 #include <object/datatype/error.h>
 #include <object/datatype/nil.h>
@@ -179,7 +180,7 @@ ARGON_FUNCTION5(import_, builtins_loader,
                 "   - import: import instance."
                 "   - spec: ImportSpec instance describing what to load."
                 "- Returns: new module.", 2, false) {
-    auto *import = (Import*)argv[0];
+    auto *import = (Import *) argv[0];
     auto *spec = (ImportSpec *) argv[1];
     Module *module;
 
@@ -209,7 +210,7 @@ ARGON_FUNCTION5(import_, source_loader,
                 "   - import: import instance."
                 "   - spec: ImportSpec instance describing what to load."
                 "- Returns: new module.", 2, false) {
-    auto *import = (Import*) argv[0];
+    auto *import = (Import *) argv[0];
     auto *spec = (ImportSpec *) argv[1];
     Code *code = nullptr;
     Module *module = nullptr;
@@ -298,8 +299,9 @@ ARGON_FUNCTION5(import_, builtins_locator,
                 "   - package: nil."
                 "- Returns: ImportSpec instance if module was found, otherwise nil.", 3, false) {
     static Builtins builtins[] = {{"builtins", argon::module::BuiltinsNew},
-                                  {"io",       argon::module::io::IONew},
-                                  {"runtime",  argon::module::RuntimeNew}};
+                                  {"io", argon::module::io::IONew},
+                                  {"math", argon::module::MathNew},
+                                  {"runtime", argon::module::RuntimeNew}};
     ImportSpec *spec = nullptr;
     Import *import;
     Function *loader;
@@ -554,7 +556,7 @@ Import *argon::vm::ImportNew() {
         TupleInsertAt(imp->extensions,2, StringIntern(".dll"));
 #elif defined(__APPLE__)
         ADD_PATH_SEP("/");
-        TupleInsertAt(imp->extensions,2, StringIntern(".dylib"));
+        TupleInsertAt(imp->extensions, 2, StringIntern(".dylib"));
 #else
         ADD_PATH_SEP("/");
         TupleInsertAt(imp->extensions, 2, StringIntern(".so"));
