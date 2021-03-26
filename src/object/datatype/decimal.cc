@@ -256,8 +256,14 @@ bool decimal_equal(Decimal *self, ArObject *other) {
     if (self == other)
         return true;
 
-    if(!AR_TYPEOF(other, type_integer_) || !AR_TYPEOF(other, type_decimal_))
+    if (!AR_TYPEOF(other, type_integer_) && !AR_TYPEOF(other, type_decimal_))
         return false;
+
+    if (isnan(self->decimal)) {
+        if (AR_TYPEOF(other, type_decimal_) && isnan(((Decimal *) other)->decimal))
+            return true;
+        return false;
+    }
 
     if ((eq = (Bool *) decimal_compare(self, other, CompareMode::EQ)) == True) {
         Release(eq);
