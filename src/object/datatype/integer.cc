@@ -150,10 +150,12 @@ bool integer_equal(Integer *self, ArObject *other) {
     if (self == other)
         return true;
 
-    if (!AR_TYPEOF(self, type_integer_) || !AR_TYPEOF(other, type_integer_))
-        return false;
+    if (AR_TYPEOF(other, type_decimal_))
+        return AR_EQUAL(other, self);
+    else if (AR_TYPEOF(other, type_integer_))
+        return self->integer == ((Integer *) other)->integer;
 
-    return self->integer == ((Integer *) other)->integer;
+    return false;
 }
 
 ArObject *integer_compare(Integer *self, ArObject *other, CompareMode mode) {
