@@ -7,6 +7,7 @@
 #include "nil.h"
 #include "error.h"
 #include "namespace.h"
+#include "bool.h"
 
 using namespace argon::object;
 
@@ -53,6 +54,27 @@ bool namespace_equal(Namespace *self, ArObject *other) {
     return true;
 }
 
+ArObject *namespace_compare(Namespace *self, ArObject *other, CompareMode mode) {
+    auto *o = (Namespace *) other;
+    MapEntry *cursor;
+    MapEntry *tmp;
+
+    if (!AR_SAME_TYPE(self, other) || mode != CompareMode::EQ)
+        return nullptr;
+
+    if (self != other) {
+        for (cursor = (MapEntry *) self->hmap.iter_begin; cursor != nullptr; cursor = (MapEntry *) cursor->iter_next) {
+            if ((tmp = (MapEntry *) HMapLookup(&o->hmap, cursor->key)) == nullptr)
+                return BoolToArBool(false);
+
+            if (!Equal(cursor->value, tmp->value))
+                return BoolToArBool(false);
+        }
+    }
+
+    return BoolToArBool(true);
+}
+
 ArObject *namespace_str(Namespace *str) {
     return nullptr;
 }
@@ -81,7 +103,7 @@ const TypeInfo argon::object::type_namespace_ = {
         nullptr,
         (VoidUnaryOp) namespace_cleanup,
         (Trace) namespace_trace,
-        nullptr,
+        (CompareOp) namespace_compare,
         (BoolBinOp) namespace_equal,
         (BoolUnaryOp) namespace_is_true,
         nullptr,

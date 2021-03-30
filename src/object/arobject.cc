@@ -3,6 +3,7 @@
 // Licensed under the Apache License v2.0
 
 #include <vm/runtime.h>
+#include <object/datatype/bool.h>
 #include <object/datatype/error.h>
 #include <object/datatype/function.h>
 #include <object/datatype/nil.h>
@@ -133,6 +134,42 @@ ArObject *argon::object::PropertyGet(const ArObject *obj, const ArObject *key, b
     return ret;
 }
 
+ArObject *argon::object::RichCompare(const ArObject *obj, const ArObject *other, CompareMode mode) {
+    static const CompareMode reverse[] = {CompareMode::EQ, CompareMode::NE, CompareMode::LE,
+                                          CompareMode::LEQ, CompareMode::GE, CompareMode::GEQ};
+    static const char *str_mode[] = {"==", "!=", ">", ">=", "<", "<="};
+
+    ArObject *result = nullptr;
+    bool ne = false;
+
+    if (mode == CompareMode::NE) {
+        mode = CompareMode::EQ;
+        ne = true;
+    }
+
+    if (AR_GET_TYPE(obj)->compare != nullptr)
+        result = AR_GET_TYPE(obj)->compare((ArObject *) obj, (ArObject *) other, mode);
+
+    if (result == nullptr && AR_GET_TYPE(other)->compare != nullptr)
+        result = AR_GET_TYPE(other)->compare((ArObject *) other, (ArObject *) obj, reverse[(int) mode]);
+
+    if (result == nullptr) {
+        if (mode == CompareMode::EQ)
+            return IncRef(False);
+
+        return ErrorFormat(&error_not_implemented, "operator '%s' not supported between instance of '%s' and '%s'",
+                           str_mode[(int) mode], AR_TYPE_NAME(obj), AR_TYPE_NAME(other));
+    }
+
+    if (ne) {
+        ne = !ArBoolToBool((Bool *) result);
+        Release(result);
+        result = BoolToArBool(ne);
+    }
+
+    return result;
+}
+
 ArObject *argon::object::ToString(ArObject *obj) {
     if (AR_GET_TYPE(obj)->str != nullptr)
         return AR_GET_TYPE(obj)->str(obj);
@@ -184,6 +221,14 @@ bool argon::object::BufferSimpleFill(ArObject *obj, ArBuffer *buffer, ArBufferFl
     buffer->flags = flags;
 
     return true;
+}
+
+bool argon::object::Equal(const ArObject *obj, const ArObject *other) {
+    ArObject *rich = RichCompare(obj, other, CompareMode::EQ);
+    bool result = ArBoolToBool((Bool *) rich);
+
+    Release(rich);
+    return result;
 }
 
 bool argon::object::IsNull(const ArObject *obj) {

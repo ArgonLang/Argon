@@ -4,6 +4,7 @@
 
 #include <vm/runtime.h>
 
+#include "bool.h"
 #include "error.h"
 #include "hash_magic.h"
 #include "list.h"
@@ -274,6 +275,27 @@ bool map_equal(Map *self, ArObject *other) {
     return true;
 }
 
+ArObject *map_compare(Map *self, ArObject *other, CompareMode mode) {
+    auto *o = (Map *) other;
+    MapEntry *cursor;
+    MapEntry *tmp;
+
+    if (!AR_SAME_TYPE(self, other) || mode != CompareMode::EQ)
+        return nullptr;
+
+    if (self != other) {
+        for (cursor = (MapEntry *) self->hmap.iter_begin; cursor != nullptr; cursor = (MapEntry *) cursor->iter_next) {
+            if ((tmp = (MapEntry *) HMapLookup(&o->hmap, cursor->key)) == nullptr)
+                return BoolToArBool(false);
+
+            if (!Equal(cursor->value, tmp->value))
+                return BoolToArBool(false);
+        }
+    }
+
+    return BoolToArBool(true);
+}
+
 ArObject *map_str(Map *self) {
     StringBuilder sb = {};
     String *tmp = nullptr;
@@ -385,7 +407,7 @@ const TypeInfo argon::object::type_map_ = {
         map_ctor,
         (VoidUnaryOp) map_cleanup,
         (Trace) map_trace,
-        nullptr,
+        (CompareOp) map_compare,
         (BoolBinOp) map_equal,
         (BoolUnaryOp) map_is_true,
         nullptr,

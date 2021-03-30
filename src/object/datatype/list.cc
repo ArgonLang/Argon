@@ -454,6 +454,25 @@ bool list_equal(ArObject *self, ArObject *other) {
     return false;
 }
 
+ArObject *list_compare(List *self, ArObject *other, CompareMode mode) {
+    if (!AR_SAME_TYPE(self, other) || mode != CompareMode::EQ)
+        return nullptr;
+
+    if (self != other) {
+        auto l1 = (List *) self;
+        auto l2 = (List *) other;
+
+        if (l1->len != l2->len)
+            return BoolToArBool(false);
+
+        for (size_t i = 0; i < l1->len; i++)
+            if (!l1->objects[i]->type->equal(l1->objects[i], l2->objects[i]))
+                return BoolToArBool(false);
+    }
+
+    return BoolToArBool(true);
+}
+
 ArObject *list_str(List *self) {
     StringBuilder sb = {};
     String *tmp = nullptr;
@@ -522,7 +541,7 @@ const TypeInfo argon::object::type_list_ = {
         list_ctor,
         (VoidUnaryOp) list_cleanup,
         (Trace) list_trace,
-        nullptr,
+        (CompareOp) list_compare,
         list_equal,
         (BoolUnaryOp) list_is_true,
         nullptr,

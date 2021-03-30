@@ -48,6 +48,9 @@ ArObject *bool_compare(Bool *self, ArObject *other, CompareMode mode) {
     IntegerUnderlying l = self->value;
     IntegerUnderlying r;
 
+    if (self == other && mode == CompareMode::EQ)
+        return BoolToArBool(true);
+
     if (AR_TYPEOF(other, type_bool_))
         r = ((Bool *) other)->value;
     else if (AR_TYPEOF(other, type_integer_))
@@ -55,18 +58,7 @@ ArObject *bool_compare(Bool *self, ArObject *other, CompareMode mode) {
     else
         return nullptr;
 
-    switch (mode) {
-        case CompareMode::GE:
-            return BoolToArBool(l > r);
-        case CompareMode::GEQ:
-            return BoolToArBool(l >= r);
-        case CompareMode::LE:
-            return BoolToArBool(l < r);
-        case CompareMode::LEQ:
-            return BoolToArBool(l <= r);
-        default:
-            assert(false);
-    }
+    ARGON_RICH_COMPARE_CASES(l, r, mode)
 }
 
 size_t bool_hash(ArObject *obj) {

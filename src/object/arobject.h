@@ -18,13 +18,30 @@ namespace argon::object {
     };
 
     enum class CompareMode : unsigned char {
-        EQ,
-        NE,
-        GE,
-        GEQ,
-        LE,
-        LEQ
+        EQ = 0,
+        NE = 1,
+        GE = 2,
+        GEQ = 3,
+        LE = 4,
+        LEQ = 5
     };
+
+#define ARGON_RICH_COMPARE_CASES(a, b, mode)    \
+    switch (mode) {                             \
+        case CompareMode::EQ:                   \
+            return BoolToArBool(a == b);        \
+        case CompareMode::NE:                   \
+            assert(false);                      \
+            break;                              \
+        case CompareMode::GE:                   \
+            return BoolToArBool(a > b);         \
+        case CompareMode::GEQ:                  \
+            return BoolToArBool(a >= b);        \
+        case CompareMode::LE:                   \
+            return BoolToArBool(a < b);         \
+        case CompareMode::LEQ:                  \
+            return BoolToArBool(a <= b);        \
+    }
 
     using ArSize = size_t;
     using ArSSize = ssize_t;
@@ -259,6 +276,8 @@ ArObject *prefix##name##_fn(ArObject *self, ArObject **argv, ArSize count)
 
     ArObject *PropertyGet(const ArObject *obj, const ArObject *key, bool instance);
 
+    ArObject *RichCompare(const ArObject *obj, const ArObject *other, CompareMode mode);
+
     ArObject *ToString(ArObject *obj);
 
     template<typename T>
@@ -287,6 +306,8 @@ ArObject *prefix##name##_fn(ArObject *self, ArObject **argv, ArSize count)
     inline bool AsNumber(const ArObject *obj) { return AR_GET_TYPE(obj)->number_actions != nullptr; }
 
     inline bool AsSequence(const ArObject *obj) { return AR_GET_TYPE(obj)->sequence_actions != nullptr; }
+
+    bool Equal(const ArObject *obj, const ArObject *other);
 
     inline bool IsHashable(const ArObject *obj) { return AR_GET_TYPE(obj)->hash != nullptr; }
 

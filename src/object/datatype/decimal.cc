@@ -179,6 +179,9 @@ ArObject *decimal_compare(Decimal *self, ArObject *other, CompareMode mode) {
 
     IntegerUnderlying integer;
 
+    if (self == other && mode == CompareMode::EQ)
+        return BoolToArBool(true);
+
     if (AR_TYPEOF(other, type_decimal_))
         r = ((Decimal *) other)->decimal;
     else if (AR_TYPEOF(other, type_integer_)) {
@@ -228,26 +231,9 @@ ArObject *decimal_compare(Decimal *self, ArObject *other, CompareMode mode) {
                 }
             }
         } else r = .0;
-    } else
-        return ErrorFormat(&error_type_error,
-                           "unsupported operation between type '%s' and type '%s'",
-                           self->type->name,
-                           other->type->name);
-
-    switch (mode) {
-        case CompareMode::EQ:
-            return BoolToArBool(l == r);
-        case CompareMode::GE:
-            return BoolToArBool(l > r);
-        case CompareMode::GEQ:
-            return BoolToArBool(l >= r);
-        case CompareMode::LE:
-            return BoolToArBool(l < r);
-        case CompareMode::LEQ:
-            return BoolToArBool(l <= r);
-        default:
-            assert(false); // Never get here!
     }
+
+    ARGON_RICH_COMPARE_CASES(l, r, mode)
 }
 
 bool decimal_equal(Decimal *self, ArObject *other) {

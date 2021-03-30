@@ -4,6 +4,7 @@
 
 #include <vm/runtime.h>
 
+#include "bool.h"
 #include "error.h"
 #include "set.h"
 
@@ -397,6 +398,22 @@ bool set_equal(Set *self, ArObject *other) {
     return true;
 }
 
+ArObject *set_compare(Set *self, ArObject *other, CompareMode mode) {
+    auto *o = (Set *) other;
+
+    if (!AR_SAME_TYPE(self, other) || mode != CompareMode::EQ)
+        return nullptr;
+
+    if (self != other) {
+        for (HEntry *cursor = self->set.iter_begin; cursor != nullptr; cursor = cursor->iter_next) {
+            if (HMapLookup(&o->set, cursor->key) == nullptr)
+                return BoolToArBool(false);
+        }
+    }
+
+    return BoolToArBool(true);
+}
+
 ArObject *set_str(Set *self) {
     StringBuilder sb = {};
     String *tmp = nullptr;
@@ -471,7 +488,7 @@ const TypeInfo argon::object::type_set_ = {
         set_ctor,
         (VoidUnaryOp) set_cleanup,
         (Trace) set_trace,
-        nullptr,
+        (CompareOp) set_compare,
         (BoolBinOp) set_equal,
         (BoolUnaryOp) set_is_true,
         nullptr,

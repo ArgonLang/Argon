@@ -10,6 +10,7 @@
 
 #include <vm/runtime.h>
 
+#include <object/datatype/bool.h>
 #include <object/datatype/error.h>
 
 #include "io.h"
@@ -19,6 +20,16 @@ using namespace argon::module::io;
 
 bool file_istrue(File *self) {
     return self->fd > -1;
+}
+
+ArObject *file_compare(File *self, ArObject *other, CompareMode mode) {
+    if (!AR_SAME_TYPE(self, other) || mode != CompareMode::EQ)
+        return nullptr;
+
+    if (self != other)
+        return BoolToArBool(self->fd == ((File *) other)->fd);
+
+    return BoolToArBool(true);
 }
 
 bool file_equal(File *self, ArObject *other) {
@@ -42,7 +53,7 @@ const TypeInfo argon::module::io::type_file_ = {
         nullptr,
         (VoidUnaryOp) file_cleanup,
         nullptr,
-        nullptr,
+        (CompareOp) file_compare,
         (BoolBinOp) file_equal,
         (BoolUnaryOp) file_istrue,
         nullptr,
@@ -337,7 +348,7 @@ ssize_t argon::module::io::ReadLine(File *file, unsigned char **buf, size_t buf_
         if (FillBuffer(file) < 0)
             goto error;
 
-        if((len = file->buffer.buf + file->buffer.len - file->buffer.cur)==0)
+        if ((len = file->buffer.buf + file->buffer.len - file->buffer.cur) == 0)
             break;
 
         if (buf_len > 0 && len > (buf_len - 1) - n)

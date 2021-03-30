@@ -5,6 +5,7 @@
 #include <memory/memory.h>
 
 #include <object/arobject.h>
+#include "bool.h"
 #include "hash_magic.h"
 #include "string.h"
 #include "code.h"
@@ -29,6 +30,28 @@ bool code_equal(Code *self, ArObject *other) {
     }
 
     return true;
+}
+
+ArObject *code_compare(Code *self, ArObject *other, CompareMode mode) {
+    bool equal = false;
+
+    if (self == other && mode == CompareMode::EQ)
+        return BoolToArBool(true);
+
+    if (!AR_SAME_TYPE(self, other) || mode != CompareMode::EQ)
+        return nullptr;
+
+    if (self->instr_sz == ((Code *) other)->instr_sz) {
+        equal = true;
+        for (size_t i = 0; i < self->instr_sz; i++) {
+            if (self->instr[i] != ((Code *) other)->instr[i]) {
+                equal = false;
+                break;
+            }
+        }
+    }
+
+    return BoolToArBool(equal);
 }
 
 size_t code_hash(Code *self) {
@@ -57,7 +80,7 @@ const TypeInfo argon::object::type_code_ = {
         nullptr,
         (VoidUnaryOp) code_cleanup,
         nullptr,
-        nullptr,
+        (CompareOp) code_compare,
         (BoolBinOp) code_equal,
         code_is_true,
         (SizeTUnaryOp) code_hash,

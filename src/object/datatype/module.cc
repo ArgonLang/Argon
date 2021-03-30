@@ -2,6 +2,7 @@
 //
 // Licensed under the Apache License v2.0
 
+#include "bool.h"
 #include "error.h"
 #include "function.h"
 #include "module.h"
@@ -94,6 +95,20 @@ bool module_equal(Module *self, ArObject *other) {
            && AR_EQUAL(self->doc, o->doc);
 }
 
+ArObject *module_compare(Module *self, ArObject *other, CompareMode mode) {
+    auto *o = (Module *) other;
+
+    if (!AR_SAME_TYPE(self, other) || mode != CompareMode::EQ)
+        return nullptr;
+
+    if (self != other) {
+        if (Equal(self->name, o->name) && Equal(self->doc, o->doc))
+            return BoolToArBool(true);
+    }
+
+    return BoolToArBool(false);
+}
+
 void module_trace(Module *self, VoidUnaryOp trace) {
     trace(self->module_ns);
 }
@@ -110,7 +125,7 @@ const TypeInfo argon::object::type_module_ = {
         nullptr,
         (VoidUnaryOp) module_cleanup,
         (Trace) module_trace,
-        nullptr,
+        (CompareOp) module_compare,
         (BoolBinOp) module_equal,
         module_is_true,
         nullptr,

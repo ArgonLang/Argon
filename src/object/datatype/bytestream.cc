@@ -276,20 +276,13 @@ ArObject *bytestream_compare(ByteStream *self, ArObject *other, CompareMode mode
             left = -1;
         else if (res > 0)
             right = -1;
+        else if (self->len < o->len)
+            left = -1;
+        else if (self->len > o->len)
+            right = -1;
     }
 
-    switch (mode) {
-        case CompareMode::GE:
-            return BoolToArBool(left > right);
-        case CompareMode::GEQ:
-            return BoolToArBool(left >= right);
-        case CompareMode::LE:
-            return BoolToArBool(left < right);
-        case CompareMode::LEQ:
-            return BoolToArBool(left <= right);
-        default:
-            assert(false);
-    }
+    ARGON_RICH_COMPARE_CASES(left, right, mode)
 }
 
 bool bytestream_is_true(ByteStream *self) {

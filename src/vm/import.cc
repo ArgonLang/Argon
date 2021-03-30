@@ -11,6 +11,7 @@
 #include <module/math.h>
 #include <module/runtime.h>
 
+#include <object/datatype/bool.h>
 #include <object/datatype/error.h>
 #include <object/datatype/nil.h>
 
@@ -32,10 +33,23 @@ bool import_spec_equal(ImportSpec *self, ArObject *other) {
         return true;
 
     return AR_SAME_TYPE(self, other)
-           && AR_EQUAL(self->name, o->name)
-           && AR_EQUAL(self->path, o->path)
-           && AR_EQUAL(self->origin, o->origin)
-           && AR_EQUAL(self->loader, o->loader);
+           && Equal(self->name, o->name)
+           && Equal(self->path, o->path)
+           && Equal(self->origin, o->origin)
+           && Equal(self->loader, o->loader);
+}
+
+ArObject *import_spec_compare(ImportSpec *self, ArObject *other, CompareMode mode) {
+    auto *o = (ImportSpec *) other;
+
+    if (!AR_SAME_TYPE(self, other) || mode != CompareMode::EQ)
+        return nullptr;
+
+    if (self == other)
+        return BoolToArBool(true);
+
+    return BoolToArBool(Equal(self->name, o->name) && Equal(self->path, o->path) &&
+                        Equal(self->origin, o->origin) && Equal(self->loader, o->loader));
 }
 
 ArObject *import_spec_str(ImportSpec *self) {
@@ -72,7 +86,7 @@ const argon::object::TypeInfo argon::vm::type_import_spec_ = {
         nullptr,
         (VoidUnaryOp) import_spec_cleanup,
         nullptr,
-        nullptr,
+        (CompareOp) import_spec_compare,
         (BoolBinOp) import_spec_equal,
         import_spec_is_true,
         nullptr,
@@ -299,9 +313,9 @@ ARGON_FUNCTION5(import_, builtins_locator,
                 "   - package: nil."
                 "- Returns: ImportSpec instance if module was found, otherwise nil.", 3, false) {
     static Builtins builtins[] = {{"builtins", argon::module::BuiltinsNew},
-                                  {"io", argon::module::io::IONew},
-                                  {"math", argon::module::MathNew},
-                                  {"runtime", argon::module::RuntimeNew}};
+                                  {"io",       argon::module::io::IONew},
+                                  {"math",     argon::module::MathNew},
+                                  {"runtime",  argon::module::RuntimeNew}};
     ImportSpec *spec = nullptr;
     Import *import;
     Function *loader;

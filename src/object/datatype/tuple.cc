@@ -7,6 +7,7 @@
 #include <vm/runtime.h>
 #include <memory/memory.h>
 
+#include "bool.h"
 #include "bounds.h"
 #include "error.h"
 #include "list.h"
@@ -134,6 +135,25 @@ bool tuple_equal(Tuple *self, ArObject *other) {
     return true;
 }
 
+ArObject *tuple_compare(Tuple *self, ArObject *other, CompareMode mode) {
+    if (!AR_SAME_TYPE(self, other) || mode != CompareMode::EQ)
+        return nullptr;
+
+    if (self != other) {
+        auto t1 = (Tuple *) self;
+        auto t2 = (Tuple *) other;
+
+        if (t1->len != t2->len)
+            return BoolToArBool(false);
+
+        for (size_t i = 0; i < t1->len; i++)
+            if (!t1->objects[i]->type->equal(t1->objects[i], t2->objects[i]))
+                return BoolToArBool(false);
+    }
+
+    return BoolToArBool(true);
+}
+
 size_t tuple_hash(Tuple *self) {
     unsigned long result = 1;
     ArObject *obj;
@@ -210,7 +230,7 @@ const TypeInfo argon::object::type_tuple_ = {
         tuple_ctor,
         (VoidUnaryOp) tuple_cleanup,
         nullptr,
-        nullptr,
+        (CompareOp) tuple_compare,
         (BoolBinOp) tuple_equal,
         (BoolUnaryOp) tuple_is_true,
         (SizeTUnaryOp) tuple_hash,

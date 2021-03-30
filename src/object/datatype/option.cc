@@ -2,6 +2,7 @@
 //
 // Licensed under the Apache License v2.0
 
+#include "bool.h"
 #include "error.h"
 #include "string.h"
 
@@ -66,6 +67,21 @@ void option_cleanup(Option *self) {
     Release(self->some);
 }
 
+ArObject *option_compare(Option *self, ArObject *other, CompareMode mode) {
+    auto *o = (Option *) other;
+
+    if (!AR_SAME_TYPE(self, other) || mode != CompareMode::EQ)
+        return nullptr;
+
+    if (self == other || self->some == o->some)
+        return BoolToArBool(true);
+
+    if (self->some != nullptr && o->some != nullptr)
+        return RichCompare(self->some, o->some, CompareMode::EQ);
+
+    return BoolToArBool(false);
+}
+
 bool option_equal(Option *self, ArObject *other) {
     auto *o = (Option *) other;
 
@@ -97,7 +113,7 @@ const TypeInfo argon::object::type_option_ = {
         option_ctor,
         (VoidUnaryOp) option_cleanup,
         nullptr,
-        nullptr,
+        (CompareOp) option_compare,
         (BoolBinOp) option_equal,
         (BoolUnaryOp) option_is_true,
         nullptr,

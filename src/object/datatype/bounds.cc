@@ -31,10 +31,16 @@ ArObject *bounds_compare(Bounds *self, ArObject *other, CompareMode mode) {
     auto *o = (Bounds *) other;
     bool val;
 
+    if (self == other && mode == CompareMode::EQ)
+        return BoolToArBool(true);
+
     if (!AR_SAME_TYPE(self, other))
         return nullptr;
 
     switch (mode) {
+        case CompareMode::EQ:
+            val = self->start == o->start && self->stop == o->stop && self->step == o->step;
+            break;
         case CompareMode::GE:
             val = self->start > o->start && self->stop > o->stop && self->step > o->step;
             break;

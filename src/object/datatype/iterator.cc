@@ -2,6 +2,7 @@
 //
 // Licensed under the Apache License v2.0
 
+#include "bool.h"
 #include "error.h"
 #include "string.h"
 #include "iterator.h"
@@ -70,6 +71,13 @@ bool argon::object::IteratorEqual(Iterator *iterator, ArObject *other) {
            && AR_EQUAL(iterator->obj, o->obj);
 }
 
+ArObject *iterator_compare(Iterator *iterator, ArObject *other, CompareMode mode) {
+    if (!AR_SAME_TYPE(iterator, other) || mode != CompareMode::EQ)
+        return nullptr;
+
+    return BoolToArBool(IteratorEqual(iterator, other));
+}
+
 const TypeInfo argon::object::type_iterator_ = {
         TYPEINFO_STATIC_INIT,
         "iterator",
@@ -78,7 +86,7 @@ const TypeInfo argon::object::type_iterator_ = {
         nullptr,
         (VoidUnaryOp) IteratorCleanup,
         nullptr,
-        nullptr,
+        (CompareOp) iterator_compare,
         (BoolBinOp) IteratorEqual,
         (BoolUnaryOp) iterator_has_next,
         nullptr,

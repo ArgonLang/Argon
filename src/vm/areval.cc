@@ -570,22 +570,9 @@ ArObject *argon::vm::Eval(ArRoutine *routine) {
                 goto begin;
             }
             TARGET_OP(CMP) {
-                auto mode = (CompareMode) ARG16;
-                auto left = PEEK1();
+                if ((ret = RichCompare(PEEK1(), TOP(), (CompareMode) ARG16)) == nullptr)
+                    goto error;
 
-                if (mode == CompareMode::EQ)
-                    ret = BoolToArBool(left->type->equal(left, TOP()));
-                else if (mode == CompareMode::NE)
-                    ret = BoolToArBool(!left->type->equal(left, TOP()));
-                else {
-                    if (left->type->compare == nullptr) {
-                        ErrorFormat(&error_not_implemented,
-                                    "'%s' does not support any comparison operator",
-                                    left->type->name);
-                        goto error;
-                    }
-                    ret = left->type->compare(left, TOP(), mode);
-                }
                 POP();
                 TOP_REPLACE(ret);
                 DISPATCH2();

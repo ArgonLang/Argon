@@ -3,6 +3,7 @@
 // Licensed under the Apache License v2.0
 
 #include <object/arobject.h>
+#include "bool.h"
 #include "function.h"
 
 using namespace argon::object;
@@ -30,6 +31,28 @@ bool function_equal(Function *self, ArObject *other) {
     }
 
     return false;
+}
+
+ArObject *function_compare(Function *self, ArObject *other, CompareMode mode) {
+    auto *o = (Function *) other;
+    bool equal = true;
+
+    if (self == other && mode == CompareMode::EQ)
+        return BoolToArBool(true);
+
+    if (!AR_TYPEOF(other, type_function_) || mode != CompareMode::EQ)
+        return nullptr;
+
+    if (self->native_fn == o->native_fn) {
+        equal = !self->IsNative() && AR_EQUAL(self->code, o->code);
+
+        if (equal) {
+            equal = self->flags == o->flags && AR_EQUAL(self->currying, o->currying) &&
+                    AR_EQUAL(self->enclosed, o->enclosed);
+        }
+    }
+
+    return BoolToArBool(equal);
 }
 
 size_t function_hash(Function *self) {
@@ -66,7 +89,7 @@ const TypeInfo argon::object::type_function_ = {
         nullptr,
         (VoidUnaryOp) function_cleanup,
         (Trace) function_trace,
-        nullptr,
+        (CompareOp) function_compare,
         (BoolBinOp) function_equal,
         (BoolUnaryOp) function_is_true,
         (SizeTUnaryOp) function_hash,

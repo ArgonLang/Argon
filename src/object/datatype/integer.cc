@@ -162,24 +162,15 @@ ArObject *integer_compare(Integer *self, ArObject *other, CompareMode mode) {
     IntegerUnderlying left = self->integer;
     IntegerUnderlying right;
 
-    if (AR_SAME_TYPE(self, other)) {
-        right = ((Integer *) other)->integer;
+    if (self == other && mode == CompareMode::EQ)
+        return BoolToArBool(true);
 
-        switch (mode) {
-            case CompareMode::GE:
-                return BoolToArBool(left > right);
-            case CompareMode::GEQ:
-                return BoolToArBool(left >= right);
-            case CompareMode::LE:
-                return BoolToArBool(left < right);
-            case CompareMode::LEQ:
-                return BoolToArBool(left <= right);
-            default:
-                assert(false); // Never get here!
-        }
-    }
+    if (!AR_SAME_TYPE(self, other))
+        return nullptr;
 
-    return nullptr;
+    right = ((Integer *) other)->integer;
+
+    ARGON_RICH_COMPARE_CASES(left, right, mode)
 }
 
 size_t integer_hash(ArObject *obj) {

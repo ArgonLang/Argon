@@ -204,20 +204,13 @@ ArObject *bytes_compare(Bytes *self, ArObject *other, CompareMode mode) {
             left = -1;
         else if (res > 0)
             right = -1;
+        else if (self->len < o->len)
+            left = -1;
+        else if (self->len > o->len)
+            right = -1;
     }
 
-    switch (mode) {
-        case CompareMode::GE:
-            return BoolToArBool(left > right);
-        case CompareMode::GEQ:
-            return BoolToArBool(left >= right);
-        case CompareMode::LE:
-            return BoolToArBool(left < right);
-        case CompareMode::LEQ:
-            return BoolToArBool(left <= right);
-        default:
-            assert(false);
-    }
+    ARGON_RICH_COMPARE_CASES(left, right, mode)
 }
 
 size_t bytes_hash(Bytes *self) {

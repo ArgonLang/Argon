@@ -4,9 +4,17 @@
 
 #include "string.h"
 
+#include "bool.h"
 #include "nil.h"
 
 using namespace argon::object;
+
+ArObject *nil_compare(Nil *self, ArObject *other, CompareMode mode) {
+    if (!AR_TYPEOF(self, type_nil_) || mode != CompareMode::EQ)
+        return nullptr;
+
+    return BoolToArBool(self == other);
+}
 
 bool nil_equal(ArObject *self, ArObject *other) {
     return self->type == other->type;
@@ -32,7 +40,7 @@ const TypeInfo argon::object::type_nil_ = {
         nullptr,
         nullptr,
         nullptr,
-        nullptr,
+        (CompareOp) nil_compare,
         nil_equal,
         nil_is_true,
         nil_hash,

@@ -126,7 +126,9 @@ int StringCompare(String *self, String *other) {
     do {
         c1 = self->buffer[idx1++];
         c2 = other->buffer[idx2++];
-    } while (c1 == c2 && idx1 < self->len && idx2 < other->len);
+
+        // Take care of '\0', String->len not include '\0'
+    } while (c1 == c2 && idx1 < self->len + 1);
 
     return c1 - c2;
 }
@@ -588,6 +590,7 @@ bool string_equal(String *self, ArObject *other) {
 }
 
 ArObject *string_compare(String *self, ArObject *other, CompareMode mode) {
+    auto *o = (String *) other;
     int left = 0;
     int right = 0;
     int res;
@@ -603,20 +606,7 @@ ArObject *string_compare(String *self, ArObject *other, CompareMode mode) {
             right = -1;
     }
 
-    switch (mode) {
-        case CompareMode::GE:
-            return BoolToArBool(left > right);
-        case CompareMode::GEQ:
-            return BoolToArBool(left >= right);
-        case CompareMode::LE:
-            return BoolToArBool(left < right);
-        case CompareMode::LEQ:
-            return BoolToArBool(left <= right);
-        default:
-            assert(false);
-    }
-
-    return nullptr;
+    ARGON_RICH_COMPARE_CASES(left, right, mode)
 }
 
 size_t string_hash(String *self) {
