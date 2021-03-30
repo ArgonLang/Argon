@@ -1155,7 +1155,7 @@ ArObject *argon::vm::Eval(ArRoutine *routine) {
             }
             TARGET_OP(TEST) {
                 ret = PEEK1();
-                if (ret->type->equal(ret, TOP())) {
+                if (Equal(ret, TOP())) {
                     POP();
                     TOP_REPLACE(BoolToArBool(true));
                     DISPATCH();

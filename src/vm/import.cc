@@ -26,19 +26,6 @@ bool import_spec_is_true(ArObject *self) {
     return true;
 }
 
-bool import_spec_equal(ImportSpec *self, ArObject *other) {
-    auto *o = (ImportSpec *) other;
-
-    if (self == other)
-        return true;
-
-    return AR_SAME_TYPE(self, other)
-           && Equal(self->name, o->name)
-           && Equal(self->path, o->path)
-           && Equal(self->origin, o->origin)
-           && Equal(self->loader, o->loader);
-}
-
 ArObject *import_spec_compare(ImportSpec *self, ArObject *other, CompareMode mode) {
     auto *o = (ImportSpec *) other;
 
@@ -87,7 +74,6 @@ const argon::object::TypeInfo argon::vm::type_import_spec_ = {
         (VoidUnaryOp) import_spec_cleanup,
         nullptr,
         (CompareOp) import_spec_compare,
-        (BoolBinOp) import_spec_equal,
         import_spec_is_true,
         nullptr,
         (UnaryOp) import_spec_str,
@@ -121,8 +107,11 @@ bool import_is_true(ArObject *self) {
     return true;
 }
 
-bool import_equal(Import *import, ArObject *other) {
-    return import == other;
+ArObject *import_compare(Import *self, ArObject *other, CompareMode mode) {
+    if (!AR_SAME_TYPE(self, other) || mode != CompareMode::EQ)
+        return nullptr;
+
+    return BoolToArBool(self == other);
 }
 
 ArObject *import_str(Import *self) {
@@ -168,8 +157,7 @@ const argon::object::TypeInfo argon::vm::type_import_ = {
         nullptr,
         (VoidUnaryOp) import_cleanup,
         (Trace) import_trace,
-        nullptr,
-        (BoolBinOp) import_equal,
+        (CompareOp)import_compare,
         import_is_true,
         nullptr,
         (UnaryOp) import_str,

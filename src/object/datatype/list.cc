@@ -305,7 +305,7 @@ ARGON_METHOD5(list_, find,
     auto *list = (List *) self;
 
     for (ArSize i = 0; i < list->len; i++) {
-        if (AR_EQUAL(list->objects[i], *argv))
+        if (Equal(list->objects[i], *argv))
             return IntegerNew(i);
     }
 
@@ -362,7 +362,7 @@ ARGON_METHOD5(list_, remove,
     ArObject *ret = False;
 
     for (ArSize i = 0; i < list->len; i++) {
-        if (AR_EQUAL(list->objects[i], argv[0])) {
+        if (Equal(list->objects[i], argv[0])) {
             Release(list->objects[i]);
             list->len--;
 
@@ -433,27 +433,6 @@ bool list_is_true(List *self) {
     return self->len > 0;
 }
 
-bool list_equal(ArObject *self, ArObject *other) {
-    if (self == other)
-        return true;
-
-    if (self->type == other->type) {
-        auto l1 = (List *) self;
-        auto l2 = (List *) other;
-
-        if (l1->len != l2->len)
-            return false;
-
-        for (size_t i = 0; i < l1->len; i++)
-            if (!l1->objects[i]->type->equal(l1->objects[i], l2->objects[i]))
-                return false;
-
-        return true;
-    }
-
-    return false;
-}
-
 ArObject *list_compare(List *self, ArObject *other, CompareMode mode) {
     if (!AR_SAME_TYPE(self, other) || mode != CompareMode::EQ)
         return nullptr;
@@ -466,7 +445,7 @@ ArObject *list_compare(List *self, ArObject *other, CompareMode mode) {
             return BoolToArBool(false);
 
         for (size_t i = 0; i < l1->len; i++)
-            if (!l1->objects[i]->type->equal(l1->objects[i], l2->objects[i]))
+            if (!Equal(l1->objects[i], l2->objects[i]))
                 return BoolToArBool(false);
     }
 
@@ -542,7 +521,6 @@ const TypeInfo argon::object::type_list_ = {
         (VoidUnaryOp) list_cleanup,
         (Trace) list_trace,
         (CompareOp) list_compare,
-        list_equal,
         (BoolUnaryOp) list_is_true,
         nullptr,
         (UnaryOp) list_str,

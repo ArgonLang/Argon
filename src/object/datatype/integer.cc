@@ -146,18 +146,6 @@ bool integer_is_true(Integer *self) {
     return self->integer > 0;
 }
 
-bool integer_equal(Integer *self, ArObject *other) {
-    if (self == other)
-        return true;
-
-    if (AR_TYPEOF(other, type_decimal_))
-        return AR_EQUAL(other, self);
-    else if (AR_TYPEOF(other, type_integer_))
-        return self->integer == ((Integer *) other)->integer;
-
-    return false;
-}
-
 ArObject *integer_compare(Integer *self, ArObject *other, CompareMode mode) {
     IntegerUnderlying left = self->integer;
     IntegerUnderlying right;
@@ -190,7 +178,6 @@ const TypeInfo argon::object::type_integer_ = {
         nullptr,
         nullptr,
         (CompareOp) integer_compare,
-        (BoolBinOp) integer_equal,
         (BoolUnaryOp) integer_is_true,
         integer_hash,
         (UnaryOp) integer_str,

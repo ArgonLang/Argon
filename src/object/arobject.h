@@ -192,9 +192,6 @@ ArObject *prefix##name##_fn(ArObject *self, ArObject **argv, ArSize count)
         /* Make this datatype comparable */
         CompareOp compare;
 
-        /* Make this datatype comparable for equality */
-        BoolBinOp equal;
-
         /* Return datatype truthiness */
         BoolUnaryOp is_true;
 
@@ -241,7 +238,6 @@ ArObject *prefix##name##_fn(ArObject *self, ArObject **argv, ArSize count)
 #define AR_GET_TYPE(object)         ((object)->type)
 #define AR_TYPEOF(object, type)     (AR_GET_TYPE(object) == &(type))
 #define AR_SAME_TYPE(object, other) (AR_GET_TYPE(object) == AR_GET_TYPE(other))
-#define AR_EQUAL(object, other)     (AR_GET_TYPE(object)->equal(object, other))
 #define AR_TYPE_NAME(object)        (AR_GET_TYPE(object)->name)
 #define AR_IS_TYPE_INSTANCE(object) (AR_GET_TYPE(object) != &type_type_)
 #define AR_ITERATOR_SLOT(object)    (AR_GET_TYPE(object)->iterator_actions)

@@ -15,18 +15,6 @@ bool bounds_is_true(ArObject *self) {
     return true;
 }
 
-bool bounds_equal(Bounds *self, ArObject *other) {
-    auto *o = (Bounds *) other;
-
-    if (self == other)
-        return true;
-
-    return AR_SAME_TYPE(self, other)
-           && self->start == o->start
-           && self->stop == o->stop
-           && self->step == o->step;
-}
-
 ArObject *bounds_compare(Bounds *self, ArObject *other, CompareMode mode) {
     auto *o = (Bounds *) other;
     bool val;
@@ -77,7 +65,6 @@ const TypeInfo argon::object::type_bounds_ = {
         nullptr,
         nullptr,
         (CompareOp) bounds_compare,
-        (BoolBinOp) bounds_equal,
         bounds_is_true,
         bounds_hash,
         (UnaryOp) bounds_str,

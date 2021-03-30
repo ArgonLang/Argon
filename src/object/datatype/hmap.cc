@@ -4,6 +4,7 @@
 
 #include <vm/runtime.h>
 
+#include "bool.h"
 #include "error.h"
 #include "hash_magic.h"
 #include "string.h"
@@ -137,7 +138,7 @@ HEntry *argon::object::HMapLookup(HMap *hmap, ArObject *key) {
     index = Hash(key) % hmap->cap;
 
     for (HEntry *cur = hmap->map[index]; cur != nullptr; cur = cur->next)
-        if (AR_EQUAL(key, cur->key))
+        if (Equal(key, cur->key))
             return cur;
 
     return nullptr;
@@ -163,7 +164,7 @@ HEntry *argon::object::HMapRemove(HMap *hmap, ArObject *key) {
     index = Hash(key) % hmap->cap;
 
     for (HEntry *cur = hmap->map[index]; cur != nullptr; cur = cur->next) {
-        if (AR_EQUAL(key, cur->key)) {
+        if (Equal(key, cur->key)) {
             RemoveIterItem(hmap, cur);
             hmap->len--;
             return cur;
@@ -214,19 +215,19 @@ ArObject *argon::object::HMapIteratorNew(const TypeInfo *type, ArObject *iterabl
     return iter;
 }
 
-bool argon::object::HMapIteratorEqual(HMapIterator *self, ArObject *other) {
+ArObject *argon::object::HMapIteratorCompare(HMapIterator *self, ArObject *other, CompareMode mode) {
     auto *o = (HMapIterator *) other;
 
-    if (self == other)
-        return true;
+    if (!AR_SAME_TYPE(self, other) || mode != CompareMode::EQ)
+        return nullptr;
 
-    if (!AR_SAME_TYPE(self, other))
-        return false;
+    if (self != other)
+        return BoolToArBool(self->reversed == o->reversed && Equal(self->obj, o->obj));
 
-    return self->reversed == o->reversed && AR_EQUAL(self->obj, o->obj);
+    return BoolToArBool(true);
 }
 
-ArObject * argon::object::HMapIteratorStr(HMapIterator *self) {
+ArObject *argon::object::HMapIteratorStr(HMapIterator *self) {
     return StringNewFormat("<%s @%p>", AR_TYPE_NAME(self), self);
 }
 

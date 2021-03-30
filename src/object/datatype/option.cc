@@ -82,21 +82,6 @@ ArObject *option_compare(Option *self, ArObject *other, CompareMode mode) {
     return BoolToArBool(false);
 }
 
-bool option_equal(Option *self, ArObject *other) {
-    auto *o = (Option *) other;
-
-    if (self == other)
-        return true;
-
-    if (!AR_SAME_TYPE(self, other))
-        return false;
-
-    if (self->some != nullptr && o->some != nullptr)
-        return AR_EQUAL(self, o);
-
-    return self->some == o->some;
-}
-
 bool option_is_true(Option *self) {
     return self->some != nullptr;
 }
@@ -114,7 +99,6 @@ const TypeInfo argon::object::type_option_ = {
         (VoidUnaryOp) option_cleanup,
         nullptr,
         (CompareOp) option_compare,
-        (BoolBinOp) option_equal,
         (BoolUnaryOp) option_is_true,
         nullptr,
         (UnaryOp) option_str,

@@ -17,21 +17,6 @@ bool code_is_true(ArObject *self) {
     return true;
 }
 
-bool code_equal(Code *self, ArObject *other) {
-    if (self == other)
-        return true;
-
-    if (!AR_SAME_TYPE(self, other) || self->instr_sz != ((Code *) other)->instr_sz)
-        return false;
-
-    for (size_t i = 0; i < self->instr_sz; i++) {
-        if (self->instr[i] != ((Code *) other)->instr[i])
-            return false;
-    }
-
-    return true;
-}
-
 ArObject *code_compare(Code *self, ArObject *other, CompareMode mode) {
     bool equal = false;
 
@@ -81,7 +66,6 @@ const TypeInfo argon::object::type_code_ = {
         (VoidUnaryOp) code_cleanup,
         nullptr,
         (CompareOp) code_compare,
-        (BoolBinOp) code_equal,
         code_is_true,
         (SizeTUnaryOp) code_hash,
         (UnaryOp) code_str,

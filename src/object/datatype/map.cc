@@ -64,8 +64,7 @@ const TypeInfo type_map_iterator_ = {
         nullptr,
         (VoidUnaryOp) HMapIteratorCleanup,
         (Trace) HMapIteratorTrace,
-        nullptr,
-        (BoolBinOp) HMapIteratorEqual,
+        (CompareOp)HMapIteratorCompare,
         (BoolUnaryOp) HMapIteratorHasNext,
         nullptr,
         (UnaryOp) HMapIteratorStr,
@@ -256,25 +255,6 @@ bool map_is_true(Map *self) {
     return self->hmap.len > 0;
 }
 
-bool map_equal(Map *self, ArObject *other) {
-    auto *o = (Map *) other;
-    MapEntry *cursor;
-    MapEntry *tmp;
-
-    if (self == other)
-        return true;
-
-    if (!AR_SAME_TYPE(self, other))
-        return false;
-
-    for (cursor = (MapEntry *) self->hmap.iter_begin; cursor != nullptr; cursor = (MapEntry *) cursor->iter_next) {
-        if ((tmp = (MapEntry *) HMapLookup(&o->hmap, cursor->key)) == nullptr || !AR_EQUAL(cursor->value, tmp->value))
-            return false;
-    }
-
-    return true;
-}
-
 ArObject *map_compare(Map *self, ArObject *other, CompareMode mode) {
     auto *o = (Map *) other;
     MapEntry *cursor;
@@ -408,7 +388,6 @@ const TypeInfo argon::object::type_map_ = {
         (VoidUnaryOp) map_cleanup,
         (Trace) map_trace,
         (CompareOp) map_compare,
-        (BoolBinOp) map_equal,
         (BoolUnaryOp) map_is_true,
         nullptr,
         (UnaryOp) map_str,

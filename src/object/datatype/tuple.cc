@@ -85,7 +85,7 @@ ARGON_METHOD5(tuple_, find,
     auto *tuple = (Tuple *) self;
 
     for (ArSize i = 0; i < tuple->len; i++) {
-        if (AR_EQUAL(tuple->objects[i], *argv))
+        if (Equal(tuple->objects[i], *argv))
             return IntegerNew(i);
     }
 
@@ -119,22 +119,6 @@ bool tuple_is_true(Tuple *self) {
     return self->len > 0;
 }
 
-bool tuple_equal(Tuple *self, ArObject *other) {
-    auto *o = (Tuple *) other;
-
-    if (self != other) {
-        if (!AR_SAME_TYPE(self, other) || self->len != o->len)
-            return false;
-
-        for (size_t i = 0; i < self->len; i++) {
-            if (!AR_EQUAL(self->objects[i], o->objects[i]))
-                return false;
-        }
-    }
-
-    return true;
-}
-
 ArObject *tuple_compare(Tuple *self, ArObject *other, CompareMode mode) {
     if (!AR_SAME_TYPE(self, other) || mode != CompareMode::EQ)
         return nullptr;
@@ -147,7 +131,7 @@ ArObject *tuple_compare(Tuple *self, ArObject *other, CompareMode mode) {
             return BoolToArBool(false);
 
         for (size_t i = 0; i < t1->len; i++)
-            if (!t1->objects[i]->type->equal(t1->objects[i], t2->objects[i]))
+            if (!Equal(t1->objects[i], t2->objects[i]))
                 return BoolToArBool(false);
     }
 
@@ -231,7 +215,6 @@ const TypeInfo argon::object::type_tuple_ = {
         (VoidUnaryOp) tuple_cleanup,
         nullptr,
         (CompareOp) tuple_compare,
-        (BoolBinOp) tuple_equal,
         (BoolUnaryOp) tuple_is_true,
         (SizeTUnaryOp) tuple_hash,
         (UnaryOp) tuple_str,

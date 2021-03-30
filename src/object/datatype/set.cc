@@ -51,8 +51,7 @@ const TypeInfo type_set_iterator_ = {
         nullptr,
         (VoidUnaryOp) HMapIteratorCleanup,
         (Trace) HMapIteratorTrace,
-        nullptr,
-        (BoolBinOp) HMapIteratorEqual,
+        (CompareOp) HMapIteratorCompare,
         (BoolUnaryOp) HMapIteratorHasNext,
         nullptr,
         (UnaryOp) HMapIteratorStr,
@@ -381,23 +380,6 @@ bool set_is_true(Set *self) {
     return self->set.len > 0;
 }
 
-bool set_equal(Set *self, ArObject *other) {
-    auto *o = (Set *) other;
-
-    if (self == other)
-        return true;
-
-    if (!AR_SAME_TYPE(self, other))
-        return false;
-
-    for (HEntry *cursor = self->set.iter_begin; cursor != nullptr; cursor = cursor->iter_next) {
-        if (HMapLookup(&o->set, cursor->key) == nullptr)
-            return false;
-    }
-
-    return true;
-}
-
 ArObject *set_compare(Set *self, ArObject *other, CompareMode mode) {
     auto *o = (Set *) other;
 
@@ -489,7 +471,6 @@ const TypeInfo argon::object::type_set_ = {
         (VoidUnaryOp) set_cleanup,
         (Trace) set_trace,
         (CompareOp) set_compare,
-        (BoolBinOp) set_equal,
         (BoolUnaryOp) set_is_true,
         nullptr,
         (UnaryOp) set_str,

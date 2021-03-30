@@ -162,18 +162,6 @@ bool bytes_is_true(Bytes *self) {
     return self->len > 0;
 }
 
-bool bytes_equal(Bytes *self, ArObject *other) {
-    auto *o = (Bytes *) other;
-
-    if (self == other)
-        return true;
-
-    if (!AR_SAME_TYPE(self, other) || self->len != o->len)
-        return false;
-
-    return MemoryCompare(self->buffer, o->buffer, self->len) == 0;
-}
-
 ArObject *bytes_ctor(ArObject **args, ArSize count) {
     IntegerUnderlying size = 0;
 
@@ -256,7 +244,6 @@ const TypeInfo argon::object::type_bytes_ = {
         (VoidUnaryOp) bytes_cleanup,
         nullptr,
         (CompareOp) bytes_compare,
-        (BoolBinOp) bytes_equal,
         (BoolUnaryOp) bytes_is_true,
         (SizeTUnaryOp) bytes_hash,
         (UnaryOp) bytes_str,

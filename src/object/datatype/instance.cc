@@ -103,7 +103,6 @@ const TypeInfo argon::object::type_instance_ = {
         nullptr,
         nullptr,
         nullptr,
-        nullptr,
         &instance_actions,
         nullptr,
         nullptr

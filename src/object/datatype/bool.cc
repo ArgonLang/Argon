@@ -40,10 +40,6 @@ bool bool_is_true(Bool *self) {
     return self->value;
 }
 
-bool bool_equal(ArObject *self, ArObject *other) {
-    return self == other;
-}
-
 ArObject *bool_compare(Bool *self, ArObject *other, CompareMode mode) {
     IntegerUnderlying l = self->value;
     IntegerUnderlying r;
@@ -78,7 +74,6 @@ const TypeInfo argon::object::type_bool_ = {
         nullptr,
         nullptr,
         (CompareOp) bool_compare,
-        bool_equal,
         (BoolUnaryOp) bool_is_true,
         bool_hash,
         (UnaryOp) bool_str,

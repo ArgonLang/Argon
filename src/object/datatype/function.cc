@@ -13,26 +13,6 @@ bool function_is_true(Function *self) {
     return true;
 }
 
-bool function_equal(Function *self, ArObject *other) {
-    auto *o = (Function *) other;
-
-    if (self == other)
-        return true;
-
-    if (AR_TYPEOF(other, type_function_)) {
-        if (self->native_fn == o->native_fn) {
-            if (!self->IsNative() && !AR_EQUAL(self->code, o->code))
-                return false;
-
-            return self->flags == o->flags
-                   && AR_EQUAL(self->currying, o->currying)
-                   && AR_EQUAL(self->enclosed, o->enclosed);
-        }
-    }
-
-    return false;
-}
-
 ArObject *function_compare(Function *self, ArObject *other, CompareMode mode) {
     auto *o = (Function *) other;
     bool equal = true;
@@ -44,12 +24,10 @@ ArObject *function_compare(Function *self, ArObject *other, CompareMode mode) {
         return nullptr;
 
     if (self->native_fn == o->native_fn) {
-        equal = !self->IsNative() && AR_EQUAL(self->code, o->code);
+        equal = !self->IsNative() && Equal(self->code, o->code);
 
-        if (equal) {
-            equal = self->flags == o->flags && AR_EQUAL(self->currying, o->currying) &&
-                    AR_EQUAL(self->enclosed, o->enclosed);
-        }
+        if (equal)
+            equal = self->flags == o->flags && Equal(self->currying, o->currying) && Equal(self->enclosed, o->enclosed);
     }
 
     return BoolToArBool(equal);
@@ -90,7 +68,6 @@ const TypeInfo argon::object::type_function_ = {
         (VoidUnaryOp) function_cleanup,
         (Trace) function_trace,
         (CompareOp) function_compare,
-        (BoolBinOp) function_equal,
         (BoolUnaryOp) function_is_true,
         (SizeTUnaryOp) function_hash,
         (UnaryOp) function_str,

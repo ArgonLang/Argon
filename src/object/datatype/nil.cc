@@ -16,10 +16,6 @@ ArObject *nil_compare(Nil *self, ArObject *other, CompareMode mode) {
     return BoolToArBool(self == other);
 }
 
-bool nil_equal(ArObject *self, ArObject *other) {
-    return self->type == other->type;
-}
-
 size_t nil_hash(ArObject *self) {
     return 0;
 }
@@ -41,7 +37,6 @@ const TypeInfo argon::object::type_nil_ = {
         nullptr,
         nullptr,
         (CompareOp) nil_compare,
-        nil_equal,
         nil_is_true,
         nil_hash,
         nil_str,

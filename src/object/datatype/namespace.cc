@@ -36,24 +36,6 @@ bool namespace_is_true(Namespace *self) {
     return self->hmap.len > 0;
 }
 
-bool namespace_equal(Namespace *self, ArObject *other) {
-    auto *o = (Namespace *) other;
-    NsEntry *tmp;
-
-    if (self == other)
-        return true;
-
-    if (!AR_SAME_TYPE(self, other))
-        return false;
-
-    for (auto *cursor = (NsEntry *) self->hmap.iter_begin; cursor != nullptr; cursor = (NsEntry *) cursor->iter_next) {
-        if ((tmp = (NsEntry *) HMapLookup(&o->hmap, cursor->key)) == nullptr || !AR_EQUAL(cursor->value, tmp->value))
-            return false;
-    }
-
-    return true;
-}
-
 ArObject *namespace_compare(Namespace *self, ArObject *other, CompareMode mode) {
     auto *o = (Namespace *) other;
     MapEntry *cursor;
@@ -104,7 +86,6 @@ const TypeInfo argon::object::type_namespace_ = {
         (VoidUnaryOp) namespace_cleanup,
         (Trace) namespace_trace,
         (CompareOp) namespace_compare,
-        (BoolBinOp) namespace_equal,
         (BoolUnaryOp) namespace_is_true,
         nullptr,
         (UnaryOp) namespace_str,

@@ -236,30 +236,6 @@ ArObject *decimal_compare(Decimal *self, ArObject *other, CompareMode mode) {
     ARGON_RICH_COMPARE_CASES(l, r, mode)
 }
 
-bool decimal_equal(Decimal *self, ArObject *other) {
-    Bool *eq;
-
-    if (self == other)
-        return true;
-
-    if (!AR_TYPEOF(other, type_integer_) && !AR_TYPEOF(other, type_decimal_))
-        return false;
-
-    if (isnan(self->decimal)) {
-        if (AR_TYPEOF(other, type_decimal_) && isnan(((Decimal *) other)->decimal))
-            return true;
-        return false;
-    }
-
-    if ((eq = (Bool *) decimal_compare(self, other, CompareMode::EQ)) == True) {
-        Release(eq);
-        return true;
-    }
-
-    Release(eq);
-    return false;
-}
-
 // Hash of double number.
 //
 // From CPython implementation,
@@ -325,7 +301,6 @@ const TypeInfo argon::object::type_decimal_ = {
         nullptr,
         nullptr,
         (CompareOp) decimal_compare,
-        (BoolBinOp) decimal_equal,
         (BoolUnaryOp) decimal_is_true,
         (SizeTUnaryOp) decimal_hash,
         (UnaryOp) decimal_str,

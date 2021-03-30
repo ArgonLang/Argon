@@ -22,8 +22,7 @@ const TypeInfo type_##name##_ = {                                       \
         ctor,                                                           \
         (VoidUnaryOp)(cleanup),                                         \
         nullptr,                                                        \
-        nullptr,                                                        \
-        (BoolBinOp) IteratorEqual,                                      \
+        (CompareOp) IteratorCompare,                                    \
         nullptr,                                                        \
         nullptr,                                                        \
         (UnaryOp) argon::object::IteratorStr,                           \
@@ -57,9 +56,9 @@ namespace argon::object {
         return IteratorNew(&type_iterator_, iterable, reversed);
     }
 
-    bool IteratorEqual(Iterator *iterator, ArObject *other);
-
     inline void IteratorCleanup(Iterator *iterator) { Release(iterator->obj); }
+
+    ArObject *IteratorCompare(Iterator *iterator, ArObject *other, CompareMode mode);
 
     ArObject *IteratorStr(Iterator *iterator);
 

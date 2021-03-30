@@ -32,15 +32,6 @@ ArObject *file_compare(File *self, ArObject *other, CompareMode mode) {
     return BoolToArBool(true);
 }
 
-bool file_equal(File *self, ArObject *other) {
-    if (self != other) {
-        if (self->type != other->type)
-            return false;
-        return self->fd == ((File *) other)->fd;
-    }
-    return true;
-}
-
 void file_cleanup(File *self) {
     Close(self);
 }
@@ -54,7 +45,6 @@ const TypeInfo argon::module::io::type_file_ = {
         (VoidUnaryOp) file_cleanup,
         nullptr,
         (CompareOp) file_compare,
-        (BoolBinOp) file_equal,
         (BoolUnaryOp) file_istrue,
         nullptr,
         nullptr,

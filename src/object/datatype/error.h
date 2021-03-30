@@ -40,7 +40,6 @@ const TypeInfo error_##type_name = {                                \
         nullptr,                                                    \
         nullptr,                                                    \
         nullptr,                                                    \
-        nullptr,                                                    \
         (UnaryOp)err_str,                                           \
         nullptr,                                                    \
         nullptr,                                                    \

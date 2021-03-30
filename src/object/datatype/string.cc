@@ -569,26 +569,6 @@ bool string_is_true(String *self) {
     return self->len > 0;
 }
 
-bool string_equal(String *self, ArObject *other) {
-    auto *o = (String *) other;
-
-    if (self == other)
-        return true;
-
-    if (self->type != other->type)
-        return false;
-
-    if (self->cp_len != o->cp_len)
-        return false;
-
-    for (size_t i = 0; i < self->len; i++) {
-        if (self->buffer[i] != o->buffer[i])
-            return false;
-    }
-
-    return true;
-}
-
 ArObject *string_compare(String *self, ArObject *other, CompareMode mode) {
     auto *o = (String *) other;
     int left = 0;
@@ -599,6 +579,9 @@ ArObject *string_compare(String *self, ArObject *other, CompareMode mode) {
         return nullptr;
 
     if (self != other) {
+        if (mode == CompareMode::EQ && self->kind != o->kind)
+            return BoolToArBool(false);
+
         res = StringCompare(self, (String *) other);
         if (res < 0)
             left = -1;
@@ -661,7 +644,6 @@ const TypeInfo argon::object::type_string_ = {
         (VoidUnaryOp) string_cleanup,
         nullptr,
         (CompareOp) string_compare,
-        (BoolBinOp) string_equal,
         (BoolUnaryOp) string_is_true,
         (SizeTUnaryOp) string_hash,
         (UnaryOp) string_str,
@@ -1513,7 +1495,7 @@ String *argon::object::StringReplace(String *string, String *old, String *nval, 
     size_t nidx = 0;
     size_t newsz;
 
-    if (string_equal(string, old) || n == 0) {
+    if (Equal(string, old) || n == 0) {
         IncRef(string);
         return string;
     }

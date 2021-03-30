@@ -52,7 +52,7 @@ namespace argon::object {
 
     ArObject *HMapIteratorStr(HMapIterator *self);
 
-    bool HMapIteratorEqual(HMapIterator *self, ArObject *other);
+    ArObject *HMapIteratorCompare(HMapIterator *self, ArObject *other, CompareMode mode);
 
     inline bool HMapIteratorHasNext(HMapIterator *iter) { return iter->current != nullptr; }
 

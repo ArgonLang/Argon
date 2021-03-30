@@ -82,19 +82,6 @@ bool module_is_true(ArObject *self) {
     return true;
 }
 
-bool module_equal(Module *self, ArObject *other) {
-    auto *o = (Module *) other;
-
-    if (self == other)
-        return true;
-
-    if (!AR_SAME_TYPE(self, other))
-        return false;
-
-    return AR_EQUAL(self->name, o->name)
-           && AR_EQUAL(self->doc, o->doc);
-}
-
 ArObject *module_compare(Module *self, ArObject *other, CompareMode mode) {
     auto *o = (Module *) other;
 
@@ -126,7 +113,6 @@ const TypeInfo argon::object::type_module_ = {
         (VoidUnaryOp) module_cleanup,
         (Trace) module_trace,
         (CompareOp) module_compare,
-        (BoolBinOp) module_equal,
         module_is_true,
         nullptr,
         (UnaryOp) module_str,

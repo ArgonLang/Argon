@@ -57,25 +57,14 @@ const IteratorSlots iterator_slots = {
         (VoidUnaryOp) IteratorReset
 };
 
-bool argon::object::IteratorEqual(Iterator *iterator, ArObject *other) {
+ArObject *argon::object::IteratorCompare(Iterator *iterator, ArObject *other, CompareMode mode) {
     auto *o = (Iterator *) other;
 
-    if (iterator == other)
-        return true;
-
-    if (!AR_SAME_TYPE(iterator, other))
-        return false;
-
-    return iterator->reversed == o->reversed
-           && iterator->index == o->index
-           && AR_EQUAL(iterator->obj, o->obj);
-}
-
-ArObject *iterator_compare(Iterator *iterator, ArObject *other, CompareMode mode) {
     if (!AR_SAME_TYPE(iterator, other) || mode != CompareMode::EQ)
         return nullptr;
 
-    return BoolToArBool(IteratorEqual(iterator, other));
+    return BoolToArBool(iterator->reversed == o->reversed && iterator->index == o->index
+                        && Equal(iterator->obj, o->obj));
 }
 
 const TypeInfo argon::object::type_iterator_ = {
@@ -86,8 +75,7 @@ const TypeInfo argon::object::type_iterator_ = {
         nullptr,
         (VoidUnaryOp) IteratorCleanup,
         nullptr,
-        (CompareOp) iterator_compare,
-        (BoolBinOp) IteratorEqual,
+        (CompareOp) IteratorCompare,
         (BoolUnaryOp) iterator_has_next,
         nullptr,
         (UnaryOp) IteratorStr,

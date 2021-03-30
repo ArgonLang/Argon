@@ -17,8 +17,11 @@ bool type_is_true(ArObject *self) {
     return true;
 }
 
-bool type_equal(ArObject *self, ArObject *other) {
-    return self == other;
+ArObject *type_compare(ArObject *self, ArObject *other, CompareMode mode) {
+    if (!AR_SAME_TYPE(self, other) || mode != CompareMode::EQ)
+        return nullptr;
+
+    return BoolToArBool(self == other);
 }
 
 ArSize type_hash(ArObject *self) {
@@ -37,8 +40,7 @@ const TypeInfo argon::object::type_type_ = {
         nullptr,
         nullptr,
         nullptr,
-        nullptr,
-        type_equal,
+        type_compare,
         type_is_true,
         type_hash,
         type_str,

@@ -289,21 +289,6 @@ bool bytestream_is_true(ByteStream *self) {
     return self->len > 0;
 }
 
-bool bytestream_equal(ByteStream *self, ArObject *other) {
-    auto *o = (ByteStream *) other;
-
-    if (self == other)
-        return true;
-
-    if (!AR_SAME_TYPE(self, other))
-        return false;
-
-    if (self->len != o->len)
-        return false;
-
-    return MemoryCompare(self->buffer, o->buffer, self->len) == 0;
-}
-
 void bytestream_cleanup(ByteStream *self) {
     Free(self->buffer);
 }
@@ -317,7 +302,6 @@ const TypeInfo argon::object::type_bytestream_ = {
         (VoidUnaryOp) bytestream_cleanup,
         nullptr,
         (CompareOp) bytestream_compare,
-        (BoolBinOp) bytestream_equal,
         (BoolUnaryOp) bytestream_is_true,
         nullptr,
         (UnaryOp) bytestream_str,
