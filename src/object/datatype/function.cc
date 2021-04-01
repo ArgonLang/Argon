@@ -5,6 +5,7 @@
 #include <object/arobject.h>
 #include "bool.h"
 #include "function.h"
+#include "error.h"
 
 using namespace argon::object;
 using namespace argon::memory;
@@ -173,4 +174,46 @@ Function *argon::object::FunctionNew(const Function *func, List *currying) {
     }
 
     return fn;
+}
+
+ArObject * argon::object::FunctionCallNative(const Function *func, ArObject **args, ArSize count) {
+    ArObject *instance = nullptr;
+    List *arguments = nullptr;
+    ArObject *ret;
+
+    if (count > 0 && func->IsMethod()) {
+        instance = *args;
+
+        if (AR_GET_TYPE(instance) != func->base)
+            return ErrorFormat(&error_type_error, "method '%s' for type '%s' doesn't apply to '%s' type",
+                               func->name->buffer, func->base->name, AR_TYPE_NAME(instance));
+
+        args++;
+        count--;
+    }
+
+    if (func->arity > 0) {
+        if (func->currying != nullptr) {
+            if (args != nullptr && count > 0) {
+                if ((arguments = ListNew(func->currying->len + count)) == nullptr)
+                    return nullptr;
+
+                ListConcat(arguments, func->currying);
+
+                for (size_t i = 0; i < count; i++)
+                    ListAppend(arguments, args[i]);
+
+                args = arguments->objects;
+                count = arguments->len;
+            } else {
+                args = func->currying->objects;
+                count = func->currying->len;
+            }
+        }
+    }
+
+    ret = func->native_fn(instance, args, count);
+    Release(arguments);
+
+    return ret;
 }

@@ -5,14 +5,17 @@
 #include <thread>
 #include <mutex>
 #include <condition_variable>
+#include <cstdarg>
 
 #include <object/arobject.h>
 #include <object/setup.h>
+#include <object/datatype/error.h>
 
 #include "areval.h"
 #include "routine_queue.h"
 #include "runtime.h"
 
+using namespace argon::object;
 using namespace argon::vm;
 
 struct OSThread {
@@ -166,8 +169,8 @@ bool argon::vm::IsPanicking() {
     return routine->panic != nullptr;
 }
 
-argon::object::ArObject *argon::vm::GetLastError() {
-    argon::object::ArObject *err = nullptr;
+ArObject *argon::vm::GetLastError() {
+    ArObject *err = nullptr;
     auto routine = GetRoutine();
 
     if (routine != nullptr && routine->panic != nullptr)
@@ -176,12 +179,54 @@ argon::object::ArObject *argon::vm::GetLastError() {
     return err;
 }
 
-argon::object::ArObject *argon::vm::Panic(argon::object::ArObject *obj) {
+ArObject *argon::vm::Panic(ArObject *obj) {
     auto routine = GetRoutine();
 
     RoutineNewPanic(routine, obj);
 
     return nullptr;
+}
+
+ArObject *argon::vm::Call(ArObject *callable, int argc, ArObject **args) {
+    auto func = (Function *) callable;
+    ArObject *result = nullptr;
+    Frame *frame;
+
+    if (!AR_TYPEOF(callable, type_function_))
+        return ErrorFormat(&error_type_error, "'%s' object is not callable", AR_TYPE_NAME(func));
+
+    if (func->IsNative())
+        return FunctionCallNative(func, args, argc);
+
+    if ((frame = FrameNew(func->code, func->gns, nullptr)) != nullptr) {
+        FrameFillForCall(frame, func, args, argc);
+        result = Eval(GetRoutine(), frame);
+        FrameDel(frame);
+    }
+
+    return result;
+}
+
+argon::object::ArObject *argon::vm::Call(argon::object::ArObject *callable, int argc, ...) {
+    ArObject **args;
+    ArObject *result;
+
+    va_list varargs;
+
+    if ((args = (ArObject **) memory::Alloc(argc * sizeof(void *))) == nullptr)
+        return Panic(OutOfMemoryError);
+
+    va_start(varargs, argc);
+
+    for (int i = 0; i < argc; i++)
+        args[i] = va_arg(varargs, ArObject*);
+
+    va_end(varargs);
+
+    result = Call(callable, argc, args);
+    memory::Free(args);
+
+    return result;
 }
 
 void PushOSThread(OSThread *ost, OSThread **list) {

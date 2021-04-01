@@ -88,7 +88,7 @@ ArObject *argon::vm::EvalCode(Code *code, Namespace *globals, Tuple *args) {
     }
 
     if ((frame = FrameNew(code, globals, nullptr)) != nullptr) {
-        res = Eval(GetRoutine(), frame);
+        Release(Eval(GetRoutine(), frame));
         if ((err = GetLastError()) != nullptr) {
             Release(res);
             res = err;

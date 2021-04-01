@@ -23,6 +23,10 @@ namespace argon::vm {
     argon::object::ArObject *GetLastError();
 
     argon::object::ArObject *Panic(argon::object::ArObject *obj);
+
+    argon::object::ArObject *Call(argon::object::ArObject *callable, int argc, argon::object::ArObject **args);
+
+    argon::object::ArObject *Call(argon::object::ArObject *callable, int argc, ...);
 }
 
 #endif //ARGON_VM_RUNTIME_H_

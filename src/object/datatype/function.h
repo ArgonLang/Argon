@@ -87,6 +87,8 @@ namespace argon::object {
 
     Function *FunctionNew(const Function *func, List *currying);
 
+    ArObject *FunctionCallNative(const Function *func, ArObject **args, ArSize count);
+
 } // namespace argon::object
 
 

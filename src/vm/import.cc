@@ -157,7 +157,7 @@ const argon::object::TypeInfo argon::vm::type_import_ = {
         nullptr,
         (VoidUnaryOp) import_cleanup,
         (Trace) import_trace,
-        (CompareOp)import_compare,
+        (CompareOp) import_compare,
         import_is_true,
         nullptr,
         (UnaryOp) import_str,
@@ -674,7 +674,7 @@ argon::object::Module *argon::vm::ImportModule(Import *import, const char *name)
 }
 
 ImportSpec *Locate(Import *import, String *name, String *package) {
-    ArObject *args[3] = {};
+    ArObject *args[] = {import, name, package};
     ArObject *iter;
     Function *fn;
 
@@ -689,16 +689,9 @@ ImportSpec *Locate(Import *import, String *name, String *package) {
         if (!AR_TYPEOF(fn, type_function_))
             continue;
 
-        if (fn->IsNative()) {
-            args[0] = import;
-            args[1] = name;
-            args[2] = package;
-            if ((ret = (ImportSpec *) fn->native_fn(nullptr, args, 3)) == nullptr) {
-                if (IsPanicking())
-                    goto error;
-            }
-        } else {
-            // TODO: Native Locate
+        if ((ret = (ImportSpec *) Call(fn, 3, args)) == nullptr) {
+            if (IsPanicking())
+                goto error;
         }
 
         Release(fn);
@@ -724,18 +717,11 @@ ImportSpec *Locate(Import *import, String *name, String *package) {
 }
 
 Module *Load(Import *import, ImportSpec *spec) {
-    ArObject *args[2] = {};
+    ArObject *args[] = {import, spec};
     Function *fn = spec->loader;
     Module *module = nullptr;
 
-    if (fn->IsNative()) {
-        args[0] = import;
-        args[1] = spec;
-        if ((module = (Module *) fn->native_fn(nullptr, args, 2)) == nullptr)
-            return nullptr;
-    } else {
-        // TODO: Native Loader
-    }
+    module = (Module *) Call(fn, 2, args);
 
     if (IsNull(module))
         Release((ArObject **) &module);

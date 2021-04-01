@@ -218,48 +218,6 @@ ArObject *Subscript(ArObject *obj, ArObject *idx, ArObject *set) {
     return ret;
 }
 
-ArObject *NativeCall(Function *function, ArObject **args, size_t count) {
-    ArObject *instance = nullptr;
-    List *arguments = nullptr;
-    ArObject *ret;
-
-    if (count > 0 && function->IsMethod()) {
-        instance = *args;
-
-        if (AR_GET_TYPE(instance) != function->base)
-            return ErrorFormat(&error_type_error, "method '%s' for type '%s' doesn't apply to '%s' type",
-                               function->name->buffer, function->base->name, AR_TYPE_NAME(instance));
-
-        args++;
-        count--;
-    }
-
-    if (function->arity > 0) {
-        if (function->currying != nullptr) {
-            if (args != nullptr && count > 0) {
-                if ((arguments = ListNew(function->currying->len + count)) == nullptr)
-                    return nullptr;
-
-                ListConcat(arguments, function->currying);
-
-                for (size_t i = 0; i < count; i++)
-                    ListAppend(arguments, args[i]);
-
-                args = arguments->objects;
-                count = arguments->len;
-            } else {
-                args = function->currying->objects;
-                count = function->currying->len;
-            }
-        }
-    }
-
-    ret = function->native_fn(instance, args, count);
-    Release(arguments);
-
-    return ret;
-}
-
 ArObject *RestElementToList(ArObject **args, size_t count) {
     List *rest = ListNew(count);
 
@@ -427,7 +385,7 @@ bool ExecDefer(ArRoutine *routine) {
             return true;
         }
 
-        Release(NativeCall(func, nullptr, 0));
+        Release(FunctionCallNative(func, nullptr, 0));
         RoutinePopDefer(routine);
     }
 
@@ -543,7 +501,7 @@ ArObject *argon::vm::Eval(ArRoutine *routine) {
                     goto error;
 
                 if (helper.func->IsNative()) {
-                    ret = NativeCall(helper.func, helper.params, helper.local_args);
+                    ret = FunctionCallNative(helper.func, helper.params, helper.local_args);
                     ClearCall(&helper);
 
                     if (ret == nullptr)
