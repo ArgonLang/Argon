@@ -146,6 +146,34 @@ bool integer_is_true(Integer *self) {
     return self->integer > 0;
 }
 
+ArObject *integer_ctor(ArObject **args, ArSize count) {
+    DecimalUnderlying num = 0;
+    int base = 10;
+
+    if (!VariadicCheckPositional("integer", count, 0, 2))
+        return nullptr;
+
+    if (count == 2) {
+        if (!AR_TYPEOF(args[1], type_integer_))
+            return nullptr;
+        base = ((Integer *) args[1])->integer;
+    }
+
+    if (count >= 1) {
+        if (AR_TYPEOF(*args, type_integer_))
+            return IncRef(*args);
+        else if (AR_TYPEOF(*args, type_decimal_))
+            num = ((Decimal *) *args)->decimal;
+        else if (AR_TYPEOF(*args, type_string_))
+            num = std::strtol((char *) ((String *) args[0])->buffer, nullptr, base);
+        else
+            return ErrorFormat(&error_not_implemented, "no viable conversion from '%s' to '%s'",
+                               AR_TYPE_NAME(*args), type_integer_.name);
+    }
+
+    return IntegerNew(num);
+}
+
 ArObject *integer_compare(Integer *self, ArObject *other, CompareMode mode) {
     IntegerUnderlying left = self->integer;
     IntegerUnderlying right;
@@ -174,7 +202,7 @@ const TypeInfo argon::object::type_integer_ = {
         "integer",
         nullptr,
         sizeof(Integer),
-        nullptr,
+        integer_ctor,
         nullptr,
         nullptr,
         (CompareOp) integer_compare,

@@ -292,12 +292,34 @@ ArObject *decimal_str(Decimal *self) {
     return StringCFormat("%f", self);
 }
 
+ArObject *decimal_ctor(ArObject **args, ArSize count) {
+    DecimalUnderlying dec = 0;
+    std::size_t idx;
+
+    if (!VariadicCheckPositional("decimal", count, 0, 1))
+        return nullptr;
+
+    if (count == 1) {
+        if (AR_TYPEOF(*args, type_decimal_))
+            return IncRef(*args);
+        else if (AR_TYPEOF(*args, type_integer_))
+            dec = ((Integer *) *args)->integer;
+        else if (AR_TYPEOF(*args, type_string_))
+            dec = std::stold((char *) ((String *) *args)->buffer, &idx);
+        else
+            return ErrorFormat(&error_not_implemented, "no viable conversion from '%s' to '%s'",
+                               AR_TYPE_NAME(*args), type_decimal_.name);
+    }
+
+    return DecimalNew(dec);
+}
+
 const TypeInfo argon::object::type_decimal_ = {
         TYPEINFO_STATIC_INIT,
         "decimal",
         nullptr,
         sizeof(Decimal),
-        nullptr,
+        decimal_ctor,
         nullptr,
         nullptr,
         (CompareOp) decimal_compare,
