@@ -34,21 +34,21 @@ TEST(Map, AddItem) {
     MapInsert(map, key, value);
 
     ArObject *tmp = MapGet(map, key);
-    ASSERT_TRUE(tmp->type->equal(tmp, value));
+    ASSERT_TRUE(Equal(tmp, value));
     Release(key);
     Release(value);
 
     key = StringNew("h2o");
     value = StringNew("water");
     tmp = MapGet(map, key);
-    ASSERT_TRUE(tmp->type->equal(tmp, value));
+    ASSERT_TRUE(Equal(tmp, value));
     Release(key);
     Release(value);
 
     key = StringNew("ch4");
     value = StringNew("methane");
     tmp = MapGet(map, key);
-    ASSERT_TRUE(tmp->type->equal(tmp, value));
+    ASSERT_TRUE(Equal(tmp, value));
     Release(key);
     Release(value);
 
@@ -79,14 +79,14 @@ TEST(Map, RmItem) {
     MapInsert(map, key, value);
 
     ArObject *tmp = MapGet(map, key);
-    ASSERT_TRUE(tmp->type->equal(tmp, value));
+    ASSERT_TRUE(Equal(tmp, value));
     Release(key);
     Release(value);
 
     key = StringNew("h2o");
     value = StringNew("water");
     tmp = MapGet(map, key);
-    ASSERT_TRUE(tmp->type->equal(tmp, value));
+    ASSERT_TRUE(Equal(tmp, value));
     Release(key);
     Release(value);
 

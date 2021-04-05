@@ -650,6 +650,8 @@ void Compiler::CompileCode(const ast::NodeUptr &node) {
             this->EmitOp(OpCodes::POP);
             this->unit_->DecStack();
             break;
+        TARGET_TYPE(FALLTHROUGH)
+            break;
         TARGET_TYPE(FOR)
             this->CompileForLoop(ast::CastNode<ast::For>(node), "");
             break;
@@ -1253,7 +1255,7 @@ void Compiler::CompileSwitch(const ast::Switch *stmt, const std::string &name) {
         ltest = defcase->flow.next;
     } else {
         this->unit_->bb.current = ltest;
-        if(!as_if)
+        if (!as_if)
             this->EmitOp(OpCodes::POP);
         this->CompileJump(OpCodes::JMP, block->end);
     }

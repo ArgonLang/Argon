@@ -138,7 +138,7 @@ HEntry *argon::object::HMapLookup(HMap *hmap, ArObject *key) {
     index = Hash(key) % hmap->cap;
 
     for (HEntry *cur = hmap->map[index]; cur != nullptr; cur = cur->next)
-        if (Equal(key, cur->key))
+        if (Equal(key, cur->key) && AR_SAME_TYPE(key, cur->key))
             return cur;
 
     return nullptr;
@@ -164,7 +164,7 @@ HEntry *argon::object::HMapRemove(HMap *hmap, ArObject *key) {
     index = Hash(key) % hmap->cap;
 
     for (HEntry *cur = hmap->map[index]; cur != nullptr; cur = cur->next) {
-        if (Equal(key, cur->key)) {
+        if (Equal(key, cur->key) && AR_SAME_TYPE(key, cur->key)) {
             RemoveIterItem(hmap, cur);
             hmap->len--;
             return cur;

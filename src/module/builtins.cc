@@ -158,6 +158,9 @@ ARGON_FUNCTION(new,
     if (!AR_TYPEOF(argv[0], type_type_))
         return ErrorFormat(&error_type_error, "expected datatype, found '%s'", AR_TYPE_NAME(argv[0]));
 
+    if (info->ctor == nullptr)
+        return ErrorFormat(&error_not_implemented, "type '%s' has no constructor", info->name);
+
     return info->ctor(argv + 1, count - 1);
 }
 
