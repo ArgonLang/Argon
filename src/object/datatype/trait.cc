@@ -3,12 +3,38 @@
 // Licensed under the Apache License v2.0
 
 #include "trait.h"
+#include "tuple.h"
+#include "error.h"
 
 using namespace argon::object;
 using namespace argon::memory;
 
+ArObject *trait_get_static_attr(Trait *self, ArObject *key) {
+    PropertyInfo pinfo{};
+    ArObject *obj;
+
+    obj = NamespaceGetValue(self->names, key, &pinfo);
+
+    if (!pinfo.IsPublic()) {
+        ErrorFormat(&error_access_violation, "access violation, member '%s' of '%s' are private",
+                    ((String *) key)->buffer, "name");
+        Release(obj);
+        return nullptr;
+    }
+
+    return obj;
+}
+
+const ObjectSlots trait_actions{
+        nullptr,
+        nullptr,
+        (BinaryOp) trait_get_static_attr,
+        nullptr,
+        nullptr
+};
+
 void trait_cleanup(Trait *self) {
-    Release(self->name);
+    //Release(self->name);
     Release(self->names);
     Release(self->mro);
 }
@@ -31,21 +57,66 @@ const TypeInfo argon::object::type_trait_ = {
         nullptr,
         nullptr,
         nullptr,
+        &trait_actions,
         nullptr,
         nullptr,
         nullptr
 };
 
-Trait *argon::object::TraitNew(String *name, Namespace *names, List *mro) {
-    auto trait = ArObjectNew<Trait>(RCType::INLINE, &type_trait_);
+bool AddDefaultProperties(Trait *trait, String *name, String *doc, Tuple *mro) {
+#define ADD_PROPERTY(key, value) \
+    if(!NamespaceNewSymbol(trait->names, key, (ArObject *) value, PropertyInfo(PropertyType::PUBLIC|PropertyType::CONST | PropertyType::STATIC))) \
+        return false
 
-    if (trait != nullptr) {
-        IncRef(name);
-        trait->name = name;
-        IncRef(names);
-        trait->names = names;
-        IncRef(mro);
-        trait->mro = mro;
+    ADD_PROPERTY("__name", name);
+    ADD_PROPERTY("__doc", doc);
+    ADD_PROPERTY("__mro", mro);
+
+    return true;
+
+#undef ADD_PROPERTY
+}
+
+Trait *argon::object::TraitNew(String *name, Namespace *names, Trait **bases, ArSize count) {
+    Trait *trait;
+    List *bases_list;
+    List *lmro;
+
+    Tuple *mro = nullptr;
+
+    if ((trait = ArObjectNew<Trait>(RCType::INLINE, &type_trait_)) != nullptr) {
+        if (count > 0) {
+            if ((bases_list = BuildBasesList(bases, count)) != nullptr) {
+                lmro = ComputeMRO(bases_list);
+                Release(bases_list);
+
+                if (lmro == nullptr) {
+                    Release(trait);
+                    return nullptr;
+                }
+
+                if (lmro->len == 0) {
+                    Release(lmro);
+                    Release(trait);
+                    return nullptr;
+                }
+
+                mro = TupleNew(lmro);
+                Release(lmro);
+
+                if (mro == nullptr) {
+                    Release(trait);
+                    return nullptr;
+                }
+            }
+
+
+        }
+
+        trait->names = IncRef(names);
+        trait->mro = IncRef(mro);
+
+        AddDefaultProperties(trait, name, nullptr, mro);
     }
 
     return trait;
@@ -118,71 +189,51 @@ List *argon::object::ComputeMRO(List *bases) {
     return output;
 }
 
-List *argon::object::BuildBasesList(Trait **traits, size_t count) {
+List *argon::object::BuildBasesList(Trait **traits, ArSize count) {
     List *bases;
+    List *tmp;
+
+    ArSize cap;
 
     if ((bases = ListNew(count)) == nullptr)
         return nullptr;
 
-    /*
-     * MRO list should contain the trait itself as the first element,
-     * this would cause a circular reference!
-     * To avoid this, the trait itself is excluded from the MRO list.
-     *
-     * To perform the calculation, however, it must be included!
-     * Therefore it is added during the generation of the list of base traits.
-     */
-    for (size_t i = 0; i < count; i++) {
-        if (traits[i]->mro == nullptr) {
-            List *tmp = ListNew(1);
+    for (ArSize i = 0; i < count; i++) {
+        cap = 1;
 
-            if (tmp == nullptr) {
-                Release(bases);
-                return nullptr;
-            }
+        if (traits[i]->mro != nullptr)
+            cap += traits[i]->mro->len;
 
-            if (!ListAppend(tmp, traits[i])) {
-                Release(tmp);
-                Release(bases);
-                return nullptr;
-            }
+        if ((tmp = ListNew(cap)) == nullptr)
+            goto error;
 
-            if (!ListAppend(bases, tmp)) {
-                Release(tmp);
-                Release(bases);
-                return nullptr;
-            }
+        /*
+         * MRO list should contain the trait itself as the first element,
+         * this would cause a circular reference!
+         * To avoid this, the trait itself is excluded from the MRO list.
+         *
+         * To perform the calculation, however, it must be included!
+         * Therefore it is added during the generation of the list of base traits.
+         */
+        if (!ListAppend(tmp, traits[i]))
+            goto error;
+        // ******************************
 
-            Release(tmp);
-        } else {
-            List *tmp = ListNew(traits[i]->mro->len + 1);
-
-            if (tmp == nullptr) {
-                Release(bases);
-                return nullptr;
-            }
-
-            if(!ListAppend(tmp, traits[i])){
-                Release(tmp);
-                Release(bases);
-                return nullptr;
-            }
-
-            if(!ListConcat(tmp, traits[i]->mro)){
-                Release(tmp);
-                Release(bases);
-                return nullptr;
-            }
-
-            if (!ListAppend(bases, tmp)) {
-                Release(tmp);
-                Release(bases);
-                return nullptr;
-            }
-
-            Release(tmp);
+        if (traits[i]->mro != nullptr) {
+            if (!ListConcat(tmp, traits[i]->mro))
+                goto error;
         }
+
+        if (!ListAppend(bases, tmp))
+            goto error;
+
+        Release(tmp);
     }
 
     return bases;
+
+    error:
+    Release(tmp);
+    Release(bases);
+    return nullptr;
 }

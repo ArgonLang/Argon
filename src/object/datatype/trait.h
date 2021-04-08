@@ -8,16 +8,18 @@
 #include <object/arobject.h>
 #include "namespace.h"
 #include "list.h"
+#include "tuple.h"
 #include "string.h"
 
 namespace argon::object {
     struct Trait : ArObject {
-        String *name;
         Namespace *names;
-        List *mro;
+        Tuple *mro;
     };
 
     extern const TypeInfo type_trait_;
+
+    Trait *TraitNew(String *name, Namespace *names, Trait **bases, ArSize count);
 
     Trait *TraitNew(String *name, Namespace *names, List *mro);
 

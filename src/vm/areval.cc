@@ -91,6 +91,24 @@ ArObject *ImportModule(ArRoutine *routine, String *name) {
     return module;
 }
 
+Namespace *BuildNamespace(ArRoutine *routine, Code *code) {
+    Namespace *ns;
+    Frame *frame;
+
+    if ((ns = NamespaceNew()) == nullptr)
+        return nullptr;
+
+    if ((frame = FrameNew(code, routine->frame->globals, ns)) == nullptr) {
+        Release(ns);
+        return nullptr;
+    }
+
+    Release(Eval(routine, frame));
+    FrameDel(frame);
+
+    return ns;
+}
+
 ArObject *MkConstruct(ArRoutine *routine, Code *code, String *name, Trait **impls, size_t count, bool is_trait) {
     ArObject *ret;
     Namespace *ns;
@@ -113,9 +131,11 @@ ArObject *MkConstruct(ArRoutine *routine, Code *code, String *name, Trait **impl
         return nullptr;
     }
 
+    /*
     ret = is_trait ?
           (ArObject *) TraitNew(name, ns, mro) :
           (ArObject *) StructNew(name, ns, mro);
+          */
 
     Release(ns);
     Release(mro);
@@ -126,6 +146,8 @@ ArObject *MkConstruct(ArRoutine *routine, Code *code, String *name, Trait **impl
 ArObject *InstantiateStruct(ArRoutine *routine, Struct *base, ArObject **values, size_t count, bool key_pair) {
     Instance *instance;
     Namespace *instance_ns;
+
+    /*
 
     if ((instance_ns = NamespaceNew()) == nullptr)
         return nullptr;
@@ -175,6 +197,8 @@ ArObject *InstantiateStruct(ArRoutine *routine, Struct *base, ArObject **values,
     Release(instance_ns);
 
     return instance;
+     */
+    return nullptr;
 }
 
 ArObject *Subscript(ArObject *obj, ArObject *idx, ArObject *set) {
@@ -614,6 +638,7 @@ ArObject *argon::vm::Eval(ArRoutine *routine) {
                 UNARY_OP(inc);
             }
             TARGET_OP(INIT) {
+                goto error;
                 auto args = ARG16;
                 bool key_pair = argon::lang::I32ExtractFlag(cu_frame->instr_ptr);
                 auto bstruct = (Struct *) *(cu_frame->eval_stack - args - 1);

@@ -23,9 +23,9 @@ set(SRC
         datatype/error.cc
         refcount.cc
         datatype/namespace.cc
-        datatype/struct.cc
+        #datatype/struct.cc
         datatype/trait.cc
-        datatype/instance.cc
+        #datatype/instance.cc
         gc.cc
         arobject.cc
         setup.cc
