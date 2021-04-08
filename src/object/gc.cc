@@ -186,6 +186,8 @@ void *argon::object::GCNew(size_t len) {
         obj = (GCHead *) (((unsigned char *) obj) + sizeof(GCHead));
     }
 
+    Track((ArObject *) obj); // Inform the GC to track the object
+
     return obj;
 }
 
