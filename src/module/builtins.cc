@@ -23,7 +23,6 @@
 #include <object/datatype/set.h>
 #include <object/datatype/string.h>
 #include <object/datatype/struct.h>
-#include <object/datatype/trait.h>
 #include <object/datatype/tuple.h>
 
 #include "io/io.h"
@@ -300,7 +299,7 @@ const PropertyBulk builtins_bulk[] = {
         MODULE_BULK_EXPORT_TYPE("set", type_set_),
         MODULE_BULK_EXPORT_TYPE("str", type_string_),
         //MODULE_BULK_EXPORT_TYPE("struct", type_struct_),
-        MODULE_BULK_EXPORT_TYPE("trait", type_trait_),
+        //MODULE_BULK_EXPORT_TYPE("trait", type_trait_),
         MODULE_BULK_EXPORT_TYPE("tuple", type_tuple_),
 
         // Functions

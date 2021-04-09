@@ -174,6 +174,12 @@ ArObject *prefix##name##_fn(ArObject *self, ArObject **argv, ArSize count)
         const struct TypeInfo *type;
     };
 
+    enum class TypeInfoFlags {
+        BASE,
+        STRUCT,
+        TRAIT
+    };
+
     using Trace = void (*)(struct ArObject *, VoidUnaryOp);
     struct TypeInfo : ArObject {
         const char *name;
@@ -230,6 +236,10 @@ ArObject *prefix##name##_fn(ArObject *self, ArObject **argv, ArSize count)
 
         /* Pointer to dynamically allocated namespace that contains relevant type methods (if any, nullptr otherwise) */
         ArObject *tp_map;
+
+        ArObject *mro;
+
+        TypeInfoFlags flags;
     };
 
     extern const TypeInfo type_type_;
@@ -276,6 +286,10 @@ ArObject *prefix##name##_fn(ArObject *self, ArObject **argv, ArSize count)
 
     ArObject *ToString(ArObject *obj);
 
+    ArObject *TypeNew(const TypeInfo *meta, const char *name, ArObject *ns, TypeInfo **bases, ArSize count);
+
+    ArObject *TypeNew(const TypeInfo *meta, ArObject *name, ArObject *ns, TypeInfo **bases, ArSize count);
+
     template<typename T>
     inline typename std::enable_if<std::is_base_of<ArObject, T>::value, T>::type *IncRef(T *obj) {
         if (obj != nullptr)
@@ -321,7 +335,9 @@ ArObject *prefix##name##_fn(ArObject *self, ArObject **argv, ArSize count)
 
     bool PropertySet(ArObject *obj, ArObject *key, ArObject *value, bool member);
 
-    bool TypeInit(TypeInfo *info);
+    bool TraitIsImplemented(const ArObject *obj, const TypeInfo *type);
+
+    bool TypeInit(TypeInfo *info, ArObject *ns);
 
     bool BufferGet(ArObject *obj, ArBuffer *buffer, ArBufferFlags flags);
 

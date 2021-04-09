@@ -2,7 +2,10 @@
 //
 // Licensed under the Apache License v2.0
 
+#include <memory/memory.h>
+
 #include <vm/runtime.h>
+
 #include <object/datatype/bool.h>
 #include <object/datatype/error.h>
 #include <object/datatype/function.h>
@@ -12,6 +15,54 @@
 #include "arobject.h"
 
 using namespace argon::object;
+
+ArObject *type_get_static_attr(TypeInfo *self, ArObject *key) {
+    PropertyInfo pinfo{};
+    ArObject *obj;
+    ArObject *instance = nullptr;
+    TypeInfo *type;
+
+    if (self->tp_map == nullptr && self->mro == nullptr)
+        return ErrorFormat(&error_attribute_error, "type '%s' has no attributes", self->name);
+
+    if (argon::vm::GetRoutine()->frame != nullptr)
+        instance = argon::vm::GetRoutine()->frame->instance;
+
+    obj = NamespaceGetValue((Namespace *) self->tp_map, key, &pinfo);
+    if (obj == nullptr) {
+        if (self->mro != nullptr) {
+            for (ArSize i = 0; i < ((Tuple *) self->mro)->len; i++) {
+                type = (TypeInfo *) ((Tuple *) self->mro)->objects[i];
+
+                if (type->tp_map != nullptr) {
+                    if ((obj = NamespaceGetValue((Namespace *) type->tp_map, key, &pinfo)) != nullptr)
+                        break;
+                }
+            }
+        }
+
+        if (obj == nullptr)
+            return ErrorFormat(&error_attribute_error, "unknown attribute '%s' of object '%s'",
+                               ((String *) key)->buffer, self->name);
+    }
+
+    if (!pinfo.IsPublic() && !TraitIsImplemented(instance, self)) {
+        ErrorFormat(&error_access_violation, "access violation, member '%s' of '%s' are private",
+                    ((String *) key)->buffer, self->name);
+        Release(obj);
+        return nullptr;
+    }
+
+    return obj;
+}
+
+const ObjectSlots type_obj = {
+        nullptr,
+        nullptr,
+        (BinaryOp) type_get_static_attr,
+        nullptr,
+        nullptr
+};
 
 bool type_is_true(ArObject *self) {
     return true;
@@ -29,7 +80,17 @@ ArSize type_hash(ArObject *self) {
 }
 
 ArObject *type_str(ArObject *self) {
-    return StringNew(((TypeInfo *) self)->name);
+    auto *tp = (TypeInfo *) self;
+    if (tp->flags == TypeInfoFlags::TRAIT)
+        return StringNewFormat("<trait '%s'>", ((TypeInfo *) self)->name);
+
+    return StringNewFormat("<datatype '%s'>", ((TypeInfo *) self)->name);
+}
+
+void type_cleanup(TypeInfo *self) {
+    argon::memory::Free((char *) self->name);
+    Release(self->mro);
+    Release(self->tp_map);
 }
 
 const TypeInfo argon::object::type_type_ = {
@@ -38,7 +99,7 @@ const TypeInfo argon::object::type_type_ = {
         nullptr,
         sizeof(TypeInfo),
         nullptr,
-        nullptr,
+        (VoidUnaryOp) type_cleanup,
         nullptr,
         type_compare,
         type_is_true,
@@ -50,11 +111,151 @@ const TypeInfo argon::object::type_type_ = {
         nullptr,
         nullptr,
         nullptr,
-        nullptr,
+        &type_obj,
         nullptr,
         nullptr,
         nullptr
 };
+
+List *BuildBasesList(TypeInfo **types, ArSize count) {
+    List *tmp = nullptr;
+    List *bases;
+
+    ArSize cap;
+
+    if ((bases = ListNew(count)) == nullptr)
+        return nullptr;
+
+    for (ArSize i = 0; i < count; i++) {
+        cap = 1;
+
+        // Sanity check
+        if (AR_GET_TYPE(types[i]) != &type_type_) {
+            // is not a TypeInfo
+            goto error;
+        }
+
+        /*
+        if(types[i]->flags != TypeInfoFlags::TRAIT){
+            // you can only inherit from traits
+            goto error;
+        }
+         */
+
+        if (types[i]->mro != nullptr)
+            cap += ((Tuple *) types[i]->mro)->len;
+
+        if ((tmp = ListNew(cap)) == nullptr)
+            goto error;
+
+        /*
+         * MRO list should contain the trait itself as the first element,
+         * this would cause a circular reference!
+         * To avoid this, the trait itself is excluded from the MRO list.
+         *
+         * To perform the calculation, however, it must be included!
+         * Therefore it is added during the generation of the list of base traits.
+         */
+        if (!ListAppend(tmp, types[i]))
+            goto error;
+        // ******************************
+
+        if (types[i]->mro != nullptr) {
+            if (!ListConcat(tmp, types[i]->mro))
+                goto error;
+        }
+
+        if (!ListAppend(bases, tmp))
+            goto error;
+
+        Release(tmp);
+    }
+
+    return bases;
+
+    error:
+    Release(tmp);
+    Release(bases);
+    return nullptr;
+}
+
+/*
+ * Calculate MRO with C3 linearization
+ * WARNING: This function uses Tuple object in raw mode!
+ * NO IncRef or Release will be made during elaboration.
+ * TODO: move from List to LinkedList or iterator!
+
+ * T1  T2  T3  T4  T5  T6  T7  T8  T9  ...  TN
+ * ^  ^                                       ^
+ * |  +---------------------------------------+
+ * |                   Tail
+ * +--Head
+ */
+Tuple *ComputeMRO(List *bases) {
+    Tuple *output;
+    ArSize out_idx = 0;
+    ArSize hlist_idx = 0;
+
+    if ((output = TupleNew(bases->len)) == nullptr)
+        return nullptr;
+
+    while (hlist_idx < bases->len) {
+        // Get head list
+        auto head_list = (List *) bases->objects[hlist_idx];
+
+        if (head_list->len > 0) {
+            // Get head of head_list
+            auto head = head_list->objects[0];
+
+            // Check if head is in the tail of any other lists
+            for (size_t i = 0; i < bases->len; i++) {
+                if (hlist_idx != i) {
+                    auto tail_list = ((List *) bases->objects[i]);
+
+                    for (size_t j = 1; j < tail_list->len; j++) {
+                        auto target = (TypeInfo *) tail_list->objects[j];
+                        if (head == target)
+                            goto next_head;
+                    }
+                }
+            }
+
+            // If the current head is equal to head of another list, remove it!
+            for (size_t i = 0; i < bases->len; i++) {
+                auto tail_list = ((List *) bases->objects[i]);
+
+                if (hlist_idx != i) {
+                    if (head == tail_list->objects[0])
+                        ListRemove(tail_list, 0);
+                }
+            }
+
+            TupleInsertAt(output, out_idx++, head);
+
+            ListRemove(head_list, 0);
+            hlist_idx = 0;
+            continue;
+        }
+
+        next_head:
+        hlist_idx++;
+    }
+
+    // if len(output) == 0 no good head was found (Ehm, yes this is a user error... warn him!)
+    return output;
+}
+
+bool CalculateMRO(TypeInfo *type, TypeInfo **bases, ArSize count) {
+    List *bases_list;
+
+    if ((bases_list = BuildBasesList(bases, count)) == nullptr)
+        return false;
+
+    type->mro = ComputeMRO(bases_list);
+    Release(bases_list);
+
+    return type->mro != nullptr;
+}
 
 ArObject *argon::object::ArObjectGCNew(const TypeInfo *type) {
     auto obj = (ArObject *) GCNew(type->size);
@@ -178,6 +379,36 @@ ArObject *argon::object::ToString(ArObject *obj) {
     return ErrorFormat(&error_runtime_error, "unimplemented slot 'str' for object '%s'", AR_TYPE_NAME(obj));
 }
 
+ArObject *argon::object::TypeNew(const TypeInfo *meta, const char *name, ArObject *ns, TypeInfo **bases, ArSize count) {
+    TypeInfo *type;
+
+    if (ns != nullptr && !AR_TYPEOF(ns, type_namespace_))
+        return nullptr;
+
+    if ((type = (TypeInfo *) GCNew(sizeof(TypeInfo))) != nullptr) {
+        argon::memory::MemoryZero(type, sizeof(TypeInfo));
+        type->ref_count = RefBits((unsigned char) RCType::GC);
+        type->type = &type_type_;
+
+        type->name = (char *) argon::memory::Alloc(strlen(name));
+        argon::memory::MemoryCopy((char *) type->name, name, strlen(name));
+
+        if (count > 0)
+            CalculateMRO(type, bases, count);
+
+        TypeInit(type, ns);
+    }
+
+    return type;
+}
+
+ArObject *argon::object::TypeNew(const TypeInfo *meta, ArObject *name, ArObject *ns, TypeInfo **bases, ArSize count) {
+    if (!AR_TYPEOF(name, type_string_))
+        return nullptr;
+
+    return TypeNew(meta, (const char *) ((String *) name)->buffer, ns, bases, count);
+}
+
 ArSize argon::object::Hash(ArObject *obj) {
     if (IsHashable(obj))
         return AR_GET_TYPE(obj)->hash(obj);
@@ -258,33 +489,59 @@ bool argon::object::PropertySet(ArObject *obj, ArObject *key, ArObject *value, b
     return AR_OBJECT_SLOT(obj)->set_static_attr(obj, key, value);
 }
 
-bool argon::object::TypeInit(TypeInfo *info) {
+bool argon::object::TraitIsImplemented(const ArObject *obj, const TypeInfo *type) {
+    const TypeInfo *obj_type;
+
+    if (obj == nullptr || type == nullptr)
+        return false;
+
+    obj_type = AR_GET_TYPE(obj);
+
+    if (obj_type == type)
+        return true;
+
+    if (obj_type->mro == nullptr)
+        return false;
+
+    for (ArSize i = 0; i < ((Tuple *) obj_type->mro)->len; i++) {
+        if (((Tuple *) obj_type->mro)->objects[i] == type)
+            return true;
+    }
+
+    return false;
+}
+
+bool argon::object::TypeInit(TypeInfo *info, ArObject *ns) {
     static PropertyType meth_flags = PropertyType::PUBLIC | PropertyType::CONST;
     Function *fn;
 
     assert(info->tp_map == nullptr);
 
-    if (info->obj_actions == nullptr || info->obj_actions->methods == nullptr)
-        return true;
+    if (ns == nullptr)
+        if (info->obj_actions == nullptr || info->obj_actions->methods == nullptr)
+            return true;
 
     // Build namespace
-    if ((info->tp_map = NamespaceNew()) == nullptr)
+    info->tp_map = IncRef(ns);
+    if (ns == nullptr && (info->tp_map = NamespaceNew()) == nullptr)
         return false;
 
     // Push methods
-    for (const NativeFunc *method = info->obj_actions->methods; method->name != nullptr; method++) {
-        if ((fn = FunctionMethodNew(nullptr, info, method)) == nullptr) {
-            Release(&info->tp_map);
-            return false;
-        }
+    if (info->obj_actions != nullptr && info->obj_actions->methods != nullptr) {
+        for (const NativeFunc *method = info->obj_actions->methods; method->name != nullptr; method++) {
+            if ((fn = FunctionMethodNew(nullptr, info, method)) == nullptr) {
+                Release(&info->tp_map);
+                return false;
+            }
 
-        if (!NamespaceNewSymbol((Namespace *) info->tp_map, fn->name, fn, PropertyInfo(meth_flags))) {
+            if (!NamespaceNewSymbol((Namespace *) info->tp_map, fn->name, fn, PropertyInfo(meth_flags))) {
+                Release(fn);
+                Release(&info->tp_map);
+                return false;
+            }
+
             Release(fn);
-            Release(&info->tp_map);
-            return false;
         }
-
-        Release(fn);
     }
 
     return true;

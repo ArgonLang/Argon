@@ -12,7 +12,6 @@
 #include <object/datatype/bounds.h>
 #include <object/datatype/map.h>
 #include <object/datatype/function.h>
-#include <object/datatype/trait.h>
 #include <object/datatype/struct.h>
 #include <object/datatype/instance.h>
 #include <object/arobject.h>
@@ -45,6 +44,7 @@ ArObject *Binary(ArRoutine *routine, ArObject *l, ArObject *r, int offset) {
 #undef GET_BINARY_OP
 }
 
+/*
 bool GetMRO(ArRoutine *routine, List **mro, Trait **impls, size_t count) {
     (*mro) = nullptr;
 
@@ -67,6 +67,7 @@ bool GetMRO(ArRoutine *routine, List **mro, Trait **impls, size_t count) {
 
     return true;
 }
+*/
 
 ArObject *ImportModule(ArRoutine *routine, String *name) {
     ImportSpec *spec;
@@ -109,6 +110,7 @@ Namespace *BuildNamespace(ArRoutine *routine, Code *code) {
     return ns;
 }
 
+/*
 ArObject *MkConstruct(ArRoutine *routine, Code *code, String *name, Trait **impls, size_t count, bool is_trait) {
     ArObject *ret;
     Namespace *ns;
@@ -135,13 +137,14 @@ ArObject *MkConstruct(ArRoutine *routine, Code *code, String *name, Trait **impl
     ret = is_trait ?
           (ArObject *) TraitNew(name, ns, mro) :
           (ArObject *) StructNew(name, ns, mro);
-          */
+
 
     Release(ns);
     Release(mro);
 
     return ret;
 }
+*/
 
 ArObject *InstantiateStruct(ArRoutine *routine, Struct *base, ArObject **values, size_t count, bool key_pair) {
     Instance *instance;
@@ -935,11 +938,13 @@ ArObject *argon::vm::Eval(ArRoutine *routine) {
             TARGET_OP(MK_STRUCT) {
                 auto args = ARG16;
 
+                /*
                 ret = MkConstruct(routine, (Code *) *(cu_frame->eval_stack - args - 2),
                                   (String *) *(cu_frame->eval_stack - args - 1),
                                   (Trait **) (cu_frame->eval_stack - args), args, false);
                 if (ret == nullptr)
                     goto error;
+                    */
 
                 STACK_REWIND(args + 1); // args + 1(name)
                 TOP_REPLACE(ret);
@@ -947,12 +952,26 @@ ArObject *argon::vm::Eval(ArRoutine *routine) {
             }
             TARGET_OP(MK_TRAIT) {
                 auto args = ARG16;
+                Namespace *ns;
+
+                ns = BuildNamespace(routine, (Code *) *(cu_frame->eval_stack - args - 2));
+
+                ret = TypeNew(&type_type_, (String *) *(cu_frame->eval_stack - args - 1), ns,
+                              (TypeInfo **) (cu_frame->eval_stack - args), args);
+                Release(ns);
+
+                if (ret == nullptr)
+                    goto error;
+
+                /*
 
                 ret = MkConstruct(routine, (Code *) *(cu_frame->eval_stack - args - 2),
                                   (String *) *(cu_frame->eval_stack - args - 1),
                                   (Trait **) (cu_frame->eval_stack - args), args, true);
                 if (ret == nullptr)
                     goto error;
+
+                    */
 
                 STACK_REWIND(args + 1); // args + 1(name)
                 TOP_REPLACE(ret);

@@ -15,8 +15,8 @@
 using namespace argon::object;
 
 bool argon::object::TypesInit() {
-#define INIT_TYPE(type)                 \
-    if(!TypeInit((TypeInfo*)&(type)))   \
+#define INIT_TYPE(type)                         \
+    if(!TypeInit((TypeInfo*)&(type), nullptr))  \
         return false
 
     INIT_TYPE(type_list_);

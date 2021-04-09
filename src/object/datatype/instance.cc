@@ -6,7 +6,6 @@
 
 #include "error.h"
 #include "instance.h"
-#include "trait.h"
 #include "function.h"
 
 using namespace argon::object;
