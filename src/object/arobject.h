@@ -244,6 +244,8 @@ ArObject *prefix##name##_fn(ArObject *self, ArObject **argv, ArSize count)
 
     extern const TypeInfo type_type_;
 
+    extern const TypeInfo type_trait_;
+
 #define TYPEINFO_STATIC_INIT        {{RefCount(RCType::STATIC)}, &type_type_}
 #define AR_GET_TYPE(object)         ((object)->type)
 #define AR_TYPEOF(object, type)     (AR_GET_TYPE(object) == &(type))

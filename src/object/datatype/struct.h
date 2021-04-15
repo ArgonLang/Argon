@@ -12,16 +12,12 @@
 
 namespace argon::object {
     struct Struct : ArObject {
-        String *name;
         Namespace *names;
-        List *impls;
-
-        unsigned short properties_count;
     };
 
     extern const TypeInfo type_struct_;
 
-    Struct *StructNew(String *name, Namespace *names, List *mro);
+    Struct *StructNew(TypeInfo *type, ArObject **values, ArSize count);
 
 } // namespace argon::object
 

@@ -44,31 +44,6 @@ ArObject *Binary(ArRoutine *routine, ArObject *l, ArObject *r, int offset) {
 #undef GET_BINARY_OP
 }
 
-/*
-bool GetMRO(ArRoutine *routine, List **mro, Trait **impls, size_t count) {
-    (*mro) = nullptr;
-
-    if (count > 0) {
-        List *bases = BuildBasesList((Trait **) impls, count);
-        if (bases == nullptr)
-            return false;
-
-        (*mro) = ComputeMRO(bases);
-        Release(bases);
-
-        if ((*mro) == nullptr)
-            return false; // TODO: user error
-
-        if ((*mro)->len == 0) {
-            Release((*mro));
-            return false; // TODO: impls error
-        }
-    }
-
-    return true;
-}
-*/
-
 ArObject *ImportModule(ArRoutine *routine, String *name) {
     ImportSpec *spec;
     String *key;
@@ -109,42 +84,6 @@ Namespace *BuildNamespace(ArRoutine *routine, Code *code) {
 
     return ns;
 }
-
-/*
-ArObject *MkConstruct(ArRoutine *routine, Code *code, String *name, Trait **impls, size_t count, bool is_trait) {
-    ArObject *ret;
-    Namespace *ns;
-    Frame *frame;
-    List *mro;
-
-    if ((ns = NamespaceNew()) == nullptr)
-        return nullptr;
-
-    if ((frame = FrameNew(code, routine->frame->globals, ns)) == nullptr) {
-        Release(ns);
-        return nullptr;
-    }
-
-    Eval(routine, frame);
-    FrameDel(frame);
-
-    if (!GetMRO(routine, &mro, impls, count)) {
-        Release(ns);
-        return nullptr;
-    }
-
-    /*
-    ret = is_trait ?
-          (ArObject *) TraitNew(name, ns, mro) :
-          (ArObject *) StructNew(name, ns, mro);
-
-
-    Release(ns);
-    Release(mro);
-
-    return ret;
-}
-*/
 
 ArObject *InstantiateStruct(ArRoutine *routine, Struct *base, ArObject **values, size_t count, bool key_pair) {
     Instance *instance;
@@ -641,24 +580,19 @@ ArObject *argon::vm::Eval(ArRoutine *routine) {
                 UNARY_OP(inc);
             }
             TARGET_OP(INIT) {
-                goto error;
                 auto args = ARG16;
                 bool key_pair = argon::lang::I32ExtractFlag(cu_frame->instr_ptr);
-                auto bstruct = (Struct *) *(cu_frame->eval_stack - args - 1);
+                auto t_struct = (TypeInfo *) *(cu_frame->eval_stack - args - 1);
 
-                if (bstruct->type != &type_struct_) {
-                    ErrorFormat(&error_type_error, "expected struct, found '%s'", bstruct->type->name);
+                if (t_struct->flags != TypeInfoFlags::STRUCT) {
+                    ErrorFormat(&error_type_error, "expected struct, found '%s'", t_struct->type->name);
                     goto error;
                 }
 
-                if (!key_pair && args > bstruct->properties_count) {
-                    ErrorFormat(&error_type_error, "'%s' takes %d positional arguments but %d were given",
-                                bstruct->name->buffer, bstruct->properties_count, args);
-                    goto error;
+                if (!key_pair) {
+                    if ((ret = StructNew(t_struct, cu_frame->eval_stack - args, args)) == nullptr)
+                        goto error;
                 }
-
-                if ((ret = InstantiateStruct(routine, bstruct, cu_frame->eval_stack - args, args, key_pair)) == nullptr)
-                    goto error;
 
                 STACK_REWIND(args);
                 TOP_REPLACE(ret);
@@ -938,13 +872,16 @@ ArObject *argon::vm::Eval(ArRoutine *routine) {
             TARGET_OP(MK_STRUCT) {
                 auto args = ARG16;
 
-                /*
-                ret = MkConstruct(routine, (Code *) *(cu_frame->eval_stack - args - 2),
-                                  (String *) *(cu_frame->eval_stack - args - 1),
-                                  (Trait **) (cu_frame->eval_stack - args), args, false);
+                Namespace *ns;
+
+                ns = BuildNamespace(routine, (Code *) *(cu_frame->eval_stack - args - 2));
+
+                ret = TypeNew(&type_struct_, (String *) *(cu_frame->eval_stack - args - 1), ns,
+                              (TypeInfo **) (cu_frame->eval_stack - args), args);
+                Release(ns);
+
                 if (ret == nullptr)
                     goto error;
-                    */
 
                 STACK_REWIND(args + 1); // args + 1(name)
                 TOP_REPLACE(ret);
@@ -956,22 +893,12 @@ ArObject *argon::vm::Eval(ArRoutine *routine) {
 
                 ns = BuildNamespace(routine, (Code *) *(cu_frame->eval_stack - args - 2));
 
-                ret = TypeNew(&type_type_, (String *) *(cu_frame->eval_stack - args - 1), ns,
+                ret = TypeNew(&type_trait_, (String *) *(cu_frame->eval_stack - args - 1), ns,
                               (TypeInfo **) (cu_frame->eval_stack - args), args);
                 Release(ns);
 
                 if (ret == nullptr)
                     goto error;
-
-                /*
-
-                ret = MkConstruct(routine, (Code *) *(cu_frame->eval_stack - args - 2),
-                                  (String *) *(cu_frame->eval_stack - args - 1),
-                                  (Trait **) (cu_frame->eval_stack - args), args, true);
-                if (ret == nullptr)
-                    goto error;
-
-                    */
 
                 STACK_REWIND(args + 1); // args + 1(name)
                 TOP_REPLACE(ret);

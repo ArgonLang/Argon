@@ -46,6 +46,14 @@ ArObject *type_get_static_attr(TypeInfo *self, ArObject *key) {
                                ((String *) key)->buffer, self->name);
     }
 
+    if (!pinfo.IsConstant()) {
+        ErrorFormat(&error_access_violation,
+                    "in order to access to non const member '%s' an instance of '%s' is required",
+                    ((String *) key)->buffer, self->name);
+        Release(obj);
+        return nullptr;
+    }
+
     if (!pinfo.IsPublic() && !TraitIsImplemented(instance, self)) {
         ErrorFormat(&error_access_violation, "access violation, member '%s' of '%s' are private",
                     ((String *) key)->buffer, self->name);
@@ -81,8 +89,11 @@ ArSize type_hash(ArObject *self) {
 
 ArObject *type_str(ArObject *self) {
     auto *tp = (TypeInfo *) self;
+
     if (tp->flags == TypeInfoFlags::TRAIT)
         return StringNewFormat("<trait '%s'>", ((TypeInfo *) self)->name);
+    else if (tp->flags == TypeInfoFlags::STRUCT)
+        return StringNewFormat("<struct '%s'>", ((TypeInfo *) self)->name);
 
     return StringNewFormat("<datatype '%s'>", ((TypeInfo *) self)->name);
 }
@@ -115,6 +126,32 @@ const TypeInfo argon::object::type_type_ = {
         nullptr,
         nullptr,
         nullptr
+};
+
+const TypeInfo argon::object::type_trait_ = {
+        TYPEINFO_STATIC_INIT,
+        "trait",
+        nullptr,
+        0,
+        nullptr,
+        nullptr,
+        nullptr,
+        nullptr,
+        nullptr,
+        nullptr,
+        nullptr,
+        nullptr,
+        nullptr,
+        nullptr,
+        nullptr,
+        nullptr,
+        nullptr,
+        nullptr,
+        nullptr,
+        nullptr,
+        nullptr,
+        nullptr,
+        TypeInfoFlags::TRAIT
 };
 
 List *BuildBasesList(TypeInfo **types, ArSize count) {
@@ -386,7 +423,7 @@ ArObject *argon::object::TypeNew(const TypeInfo *meta, const char *name, ArObjec
         return nullptr;
 
     if ((type = (TypeInfo *) GCNew(sizeof(TypeInfo))) != nullptr) {
-        argon::memory::MemoryZero(type, sizeof(TypeInfo));
+        argon::memory::MemoryCopy(type, meta, sizeof(TypeInfo));
         type->ref_count = RefBits((unsigned char) RCType::GC);
         type->type = &type_type_;
 
