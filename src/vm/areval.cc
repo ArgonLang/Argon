@@ -13,7 +13,6 @@
 #include <object/datatype/map.h>
 #include <object/datatype/function.h>
 #include <object/datatype/struct.h>
-#include <object/datatype/instance.h>
 #include <object/arobject.h>
 
 #include <lang/opcodes.h>
@@ -83,64 +82,6 @@ Namespace *BuildNamespace(ArRoutine *routine, Code *code) {
     FrameDel(frame);
 
     return ns;
-}
-
-ArObject *InstantiateStruct(ArRoutine *routine, Struct *base, ArObject **values, size_t count, bool key_pair) {
-    Instance *instance;
-    Namespace *instance_ns;
-
-    /*
-
-    if ((instance_ns = NamespaceNew()) == nullptr)
-        return nullptr;
-
-    if (!key_pair) {
-        size_t index = 0;
-        for (auto *cur = (NsEntry *) base->names->hmap.iter_begin; cur != nullptr; cur = (NsEntry *) cur->iter_next) {
-            if (!cur->info.IsStatic() && !cur->info.IsConstant()) {
-                ArObject *value;
-
-                if (index < count) {
-                    value = values[index++];
-                    IncRef(value);
-                } else
-                    value = NamespaceGetValue(base->names, cur->key, nullptr);
-
-                bool ok = NamespaceNewSymbol(instance_ns, cur->key, value, cur->info);
-                Release(value);
-
-                if (!ok) {
-                    Release(instance_ns);
-                    return nullptr;
-                }
-            }
-        }
-    } else {
-        // Load default values
-        for (auto *cur = (NsEntry *) base->names->hmap.iter_begin; cur != nullptr; cur = (NsEntry *) cur->iter_next) {
-            if (!cur->info.IsStatic())
-                if (!NamespaceNewSymbol(instance_ns, cur->key, cur->value, cur->info)) {
-                    Release(instance_ns);
-                    return nullptr;
-                }
-        }
-
-        for (size_t i = 0; i < count; i += 2) {
-            if (!NamespaceSetValue(instance_ns, values[i], values[i + 1])) {
-                Release(instance_ns);
-                ErrorFormat(&error_undeclared_variable, "'%s' undeclared struct property",
-                            ((String *) values[i])->buffer);
-                return nullptr;
-            }
-        }
-    }
-
-    instance = InstanceNew(base, instance_ns);
-    Release(instance_ns);
-
-    return instance;
-     */
-    return nullptr;
 }
 
 ArObject *Subscript(ArObject *obj, ArObject *idx, ArObject *set) {
@@ -590,7 +531,10 @@ ArObject *argon::vm::Eval(ArRoutine *routine) {
                 }
 
                 if (!key_pair) {
-                    if ((ret = StructNew(t_struct, cu_frame->eval_stack - args, args)) == nullptr)
+                    if ((ret = StructNewPositional(t_struct, cu_frame->eval_stack - args, args)) == nullptr)
+                        goto error;
+                } else {
+                    if ((ret = StructNewKeyPair(t_struct, cu_frame->eval_stack - args, args)) == nullptr)
                         goto error;
                 }
 
@@ -871,10 +815,7 @@ ArObject *argon::vm::Eval(ArRoutine *routine) {
             }
             TARGET_OP(MK_STRUCT) {
                 auto args = ARG16;
-
-                Namespace *ns;
-
-                ns = BuildNamespace(routine, (Code *) *(cu_frame->eval_stack - args - 2));
+                Namespace *ns = BuildNamespace(routine, (Code *) *(cu_frame->eval_stack - args - 2));
 
                 ret = TypeNew(&type_struct_, (String *) *(cu_frame->eval_stack - args - 1), ns,
                               (TypeInfo **) (cu_frame->eval_stack - args), args);
@@ -883,15 +824,13 @@ ArObject *argon::vm::Eval(ArRoutine *routine) {
                 if (ret == nullptr)
                     goto error;
 
-                STACK_REWIND(args + 1); // args + 1(name)
+                STACK_REWIND(args + 1);
                 TOP_REPLACE(ret);
                 DISPATCH2();
             }
             TARGET_OP(MK_TRAIT) {
                 auto args = ARG16;
-                Namespace *ns;
-
-                ns = BuildNamespace(routine, (Code *) *(cu_frame->eval_stack - args - 2));
+                Namespace *ns = BuildNamespace(routine, (Code *) *(cu_frame->eval_stack - args - 2));
 
                 ret = TypeNew(&type_trait_, (String *) *(cu_frame->eval_stack - args - 1), ns,
                               (TypeInfo **) (cu_frame->eval_stack - args), args);
@@ -900,7 +839,7 @@ ArObject *argon::vm::Eval(ArRoutine *routine) {
                 if (ret == nullptr)
                     goto error;
 
-                STACK_REWIND(args + 1); // args + 1(name)
+                STACK_REWIND(args + 1);
                 TOP_REPLACE(ret);
                 DISPATCH2();
             }

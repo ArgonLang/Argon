@@ -202,6 +202,7 @@ const TypeInfo argon::object::type_integer_ = {
         "integer",
         nullptr,
         sizeof(Integer),
+        TypeInfoFlags::BASE,
         integer_ctor,
         nullptr,
         nullptr,
@@ -217,7 +218,9 @@ const TypeInfo argon::object::type_integer_ = {
         &integer_nslots,
         nullptr,
         nullptr,
-        &integer_ops
+        &integer_ops,
+        nullptr,
+        nullptr
 };
 
 Integer *argon::object::IntegerNew(IntegerUnderlying number) {

@@ -95,6 +95,7 @@ const TypeInfo argon::object::type_option_ = {
         "option",
         nullptr,
         sizeof(Option),
+        TypeInfoFlags::BASE,
         option_ctor,
         (VoidUnaryOp) option_cleanup,
         nullptr,
@@ -109,6 +110,7 @@ const TypeInfo argon::object::type_option_ = {
         nullptr,
         nullptr,
         &option_obj,
+        nullptr,
         nullptr,
         nullptr,
         nullptr

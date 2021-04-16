@@ -186,6 +186,9 @@ ArObject *prefix##name##_fn(ArObject *self, ArObject **argv, ArSize count)
         const char *doc;
         const unsigned short size;
 
+        /* Type flags */
+        TypeInfoFlags flags;
+
         /* Datatype constructor */
         VariadicOp ctor;
 
@@ -234,12 +237,11 @@ ArObject *prefix##name##_fn(ArObject *self, ArObject **argv, ArSize count)
         /* Pointer to OpSlots structure that contains the common operations for an object */
         const OpSlots *ops;
 
+        /* Pointer to dynamically allocated tuple that contains Trait & Struct method resolution order */
+        ArObject *mro;
+        
         /* Pointer to dynamically allocated namespace that contains relevant type methods (if any, nullptr otherwise) */
         ArObject *tp_map;
-
-        ArObject *mro;
-
-        TypeInfoFlags flags;
     };
 
     extern const TypeInfo type_type_;

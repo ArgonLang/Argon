@@ -6,9 +6,8 @@
 #define ARGON_OBJECT_STRUCT_H_
 
 #include <object/arobject.h>
-#include "string.h"
+
 #include "namespace.h"
-#include "list.h"
 
 namespace argon::object {
     struct Struct : ArObject {
@@ -17,7 +16,9 @@ namespace argon::object {
 
     extern const TypeInfo type_struct_;
 
-    Struct *StructNew(TypeInfo *type, ArObject **values, ArSize count);
+    Struct *StructNewPositional(TypeInfo *type, ArObject **values, ArSize count);
+
+    Struct *StructNewKeyPair(TypeInfo *type, ArObject **values, ArSize count);
 
 } // namespace argon::object
 

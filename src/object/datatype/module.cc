@@ -109,6 +109,7 @@ const TypeInfo argon::object::type_module_ = {
         "module",
         nullptr,
         sizeof(Module),
+        TypeInfoFlags::BASE,
         nullptr,
         (VoidUnaryOp) module_cleanup,
         (Trace) module_trace,
@@ -123,6 +124,8 @@ const TypeInfo argon::object::type_module_ = {
         nullptr,
         nullptr,
         &module_oslots,
+        nullptr,
+        nullptr,
         nullptr,
         nullptr
 };

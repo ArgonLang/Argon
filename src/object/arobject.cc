@@ -109,6 +109,7 @@ const TypeInfo argon::object::type_type_ = {
         "datatype",
         nullptr,
         sizeof(TypeInfo),
+        TypeInfoFlags::BASE,
         nullptr,
         (VoidUnaryOp) type_cleanup,
         nullptr,
@@ -125,6 +126,7 @@ const TypeInfo argon::object::type_type_ = {
         &type_obj,
         nullptr,
         nullptr,
+        nullptr,
         nullptr
 };
 
@@ -133,6 +135,7 @@ const TypeInfo argon::object::type_trait_ = {
         "trait",
         nullptr,
         0,
+        TypeInfoFlags::TRAIT,
         nullptr,
         nullptr,
         nullptr,
@@ -150,8 +153,7 @@ const TypeInfo argon::object::type_trait_ = {
         nullptr,
         nullptr,
         nullptr,
-        nullptr,
-        TypeInfoFlags::TRAIT
+        nullptr
 };
 
 List *BuildBasesList(TypeInfo **types, ArSize count) {
@@ -420,21 +422,25 @@ ArObject *argon::object::TypeNew(const TypeInfo *meta, const char *name, ArObjec
     TypeInfo *type;
 
     if (ns != nullptr && !AR_TYPEOF(ns, type_namespace_))
+        return ErrorFormat(&error_type_error, "TypeNew expected Namespace at third parameter, not '%s'",
+                           AR_TYPE_NAME(ns));
+
+    if ((type = (TypeInfo *) GCNew(sizeof(TypeInfo))) == nullptr) {
+        argon::vm::Panic(OutOfMemoryError);
         return nullptr;
-
-    if ((type = (TypeInfo *) GCNew(sizeof(TypeInfo))) != nullptr) {
-        argon::memory::MemoryCopy(type, meta, sizeof(TypeInfo));
-        type->ref_count = RefBits((unsigned char) RCType::GC);
-        type->type = &type_type_;
-
-        type->name = (char *) argon::memory::Alloc(strlen(name));
-        argon::memory::MemoryCopy((char *) type->name, name, strlen(name));
-
-        if (count > 0)
-            CalculateMRO(type, bases, count);
-
-        TypeInit(type, ns);
     }
+
+    argon::memory::MemoryCopy(type, meta, sizeof(TypeInfo));
+    type->ref_count = RefBits((unsigned char) RCType::GC);
+    type->type = &type_type_;
+
+    type->name = (char *) argon::memory::Alloc(strlen(name));
+    argon::memory::MemoryCopy((char *) type->name, name, strlen(name));
+
+    if (count > 0)
+        CalculateMRO(type, bases, count);
+
+    TypeInit(type, ns);
 
     return type;
 }

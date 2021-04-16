@@ -319,6 +319,7 @@ const TypeInfo argon::object::type_decimal_ = {
         "decimal",
         nullptr,
         sizeof(Decimal),
+        TypeInfoFlags::BASE,
         decimal_ctor,
         nullptr,
         nullptr,
@@ -334,7 +335,9 @@ const TypeInfo argon::object::type_decimal_ = {
         &decimal_nslots,
         nullptr,
         nullptr,
-        &decimal_ops
+        &decimal_ops,
+        nullptr,
+        nullptr
 };
 
 Decimal *argon::object::DecimalNew(DecimalUnderlying number) {

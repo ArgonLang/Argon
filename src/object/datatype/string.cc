@@ -640,6 +640,7 @@ const TypeInfo argon::object::type_string_ = {
         "string",
         nullptr,
         sizeof(String),
+        TypeInfoFlags::BASE,
         string_ctor,
         (VoidUnaryOp) string_cleanup,
         nullptr,
@@ -655,7 +656,9 @@ const TypeInfo argon::object::type_string_ = {
         nullptr,
         &str_obj,
         &string_sequence,
-        &string_ops
+        &string_ops,
+        nullptr,
+        nullptr
 };
 
 String *argon::object::StringNew(const char *string, size_t len) {

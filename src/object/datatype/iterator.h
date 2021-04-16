@@ -19,6 +19,7 @@ const TypeInfo type_##name##_ = {                                       \
         #name,                                                          \
         nullptr,                                                        \
         sizeof(Iterator),                                               \
+        TypeInfoFlags::BASE,                                            \
         ctor,                                                           \
         (VoidUnaryOp)(cleanup),                                         \
         nullptr,                                                        \
@@ -30,6 +31,7 @@ const TypeInfo type_##name##_ = {                                       \
         nullptr,                                                        \
         nullptr,                                                        \
         &name##_iterator,                                               \
+        nullptr,                                                        \
         nullptr,                                                        \
         nullptr,                                                        \
         nullptr,                                                        \

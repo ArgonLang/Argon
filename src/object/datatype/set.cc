@@ -48,6 +48,7 @@ const TypeInfo type_set_iterator_ = {
         "set_iterator",
         nullptr,
         sizeof(HMapIterator),
+        TypeInfoFlags::BASE,
         nullptr,
         (VoidUnaryOp) HMapIteratorCleanup,
         (Trace) HMapIteratorTrace,
@@ -59,6 +60,7 @@ const TypeInfo type_set_iterator_ = {
         nullptr,
         nullptr,
         &set_iterop,
+        nullptr,
         nullptr,
         nullptr,
         nullptr,
@@ -467,6 +469,7 @@ const TypeInfo argon::object::type_set_ = {
         "set",
         nullptr,
         sizeof(Set),
+        TypeInfoFlags::BASE,
         set_ctor,
         (VoidUnaryOp) set_cleanup,
         (Trace) set_trace,
@@ -483,6 +486,7 @@ const TypeInfo argon::object::type_set_ = {
         &set_obj,
         nullptr,
         &set_ops,
+        nullptr,
         nullptr
 };
 

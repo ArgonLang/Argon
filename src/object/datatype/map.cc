@@ -61,6 +61,7 @@ const TypeInfo type_map_iterator_ = {
         "map_iterator",
         nullptr,
         sizeof(HMapIterator),
+        TypeInfoFlags::BASE,
         nullptr,
         (VoidUnaryOp) HMapIteratorCleanup,
         (Trace) HMapIteratorTrace,
@@ -72,6 +73,7 @@ const TypeInfo type_map_iterator_ = {
         nullptr,
         nullptr,
         &map_iterop,
+        nullptr,
         nullptr,
         nullptr,
         nullptr,
@@ -384,6 +386,7 @@ const TypeInfo argon::object::type_map_ = {
         "map",
         nullptr,
         sizeof(Map),
+        TypeInfoFlags::BASE,
         map_ctor,
         (VoidUnaryOp) map_cleanup,
         (Trace) map_trace,
@@ -398,6 +401,8 @@ const TypeInfo argon::object::type_map_ = {
         &map_actions,
         nullptr,
         &map_obj,
+        nullptr,
+        nullptr,
         nullptr,
         nullptr
 };

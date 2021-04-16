@@ -298,6 +298,7 @@ const TypeInfo argon::object::type_bytestream_ = {
         "bytestream",
         nullptr,
         sizeof(ByteStream),
+        TypeInfoFlags::BASE,
         bytestream_ctor,
         (VoidUnaryOp) bytestream_cleanup,
         nullptr,
@@ -314,6 +315,7 @@ const TypeInfo argon::object::type_bytestream_ = {
         nullptr,
         &bytestream_sequence,
         &bytestream_ops,
+        nullptr,
         nullptr
 };
 

@@ -240,6 +240,7 @@ const TypeInfo argon::object::type_bytes_ = {
         "bytes",
         nullptr,
         sizeof(Bytes),
+        TypeInfoFlags::BASE,
         bytes_ctor,
         (VoidUnaryOp) bytes_cleanup,
         nullptr,
@@ -256,6 +257,7 @@ const TypeInfo argon::object::type_bytes_ = {
         nullptr,
         &bytes_sequence,
         &bytes_ops,
+        nullptr,
         nullptr
 };
 

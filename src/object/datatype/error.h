@@ -34,6 +34,7 @@ const TypeInfo error_##type_name = {                                \
         #name,                                                      \
         nullptr,                                                    \
         sizeof(base),                                               \
+        TypeInfoFlags::BASE,                                        \
         nullptr,                                                    \
         cleanup,                                                    \
         nullptr,                                                    \
@@ -47,6 +48,7 @@ const TypeInfo error_##type_name = {                                \
         nullptr,                                                    \
         nullptr,                                                    \
         obj_actions,                                                \
+        nullptr,                                                    \
         nullptr,                                                    \
         nullptr                                                     \
 }

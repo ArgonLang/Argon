@@ -12,7 +12,6 @@
 #include <object/datatype/decimal.h>
 #include <object/datatype/error.h>
 #include <object/datatype/function.h>
-#include <object/datatype/instance.h>
 #include <object/datatype/integer.h>
 #include <object/datatype/list.h>
 #include <object/datatype/map.h>
@@ -22,7 +21,6 @@
 #include <object/datatype/option.h>
 #include <object/datatype/set.h>
 #include <object/datatype/string.h>
-#include <object/datatype/struct.h>
 #include <object/datatype/tuple.h>
 
 #include "io/io.h"
@@ -288,7 +286,6 @@ const PropertyBulk builtins_bulk[] = {
         MODULE_BULK_EXPORT_TYPE("code", type_code_),
         MODULE_BULK_EXPORT_TYPE("decimal", type_decimal_),
         MODULE_BULK_EXPORT_TYPE("func", type_function_),
-        //MODULE_BULK_EXPORT_TYPE("instance", type_instance_),
         MODULE_BULK_EXPORT_TYPE("integer", type_integer_),
         MODULE_BULK_EXPORT_TYPE("list", type_list_),
         MODULE_BULK_EXPORT_TYPE("map", type_map_),
@@ -298,8 +295,6 @@ const PropertyBulk builtins_bulk[] = {
         MODULE_BULK_EXPORT_TYPE("option", type_option_),
         MODULE_BULK_EXPORT_TYPE("set", type_set_),
         MODULE_BULK_EXPORT_TYPE("str", type_string_),
-        //MODULE_BULK_EXPORT_TYPE("struct", type_struct_),
-        //MODULE_BULK_EXPORT_TYPE("trait", type_trait_),
         MODULE_BULK_EXPORT_TYPE("tuple", type_tuple_),
 
         // Functions

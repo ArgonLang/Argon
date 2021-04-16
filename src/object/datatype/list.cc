@@ -517,6 +517,7 @@ const TypeInfo argon::object::type_list_ = {
         "list",
         nullptr,
         sizeof(List),
+        TypeInfoFlags::BASE,
         list_ctor,
         (VoidUnaryOp) list_cleanup,
         (Trace) list_trace,
@@ -533,6 +534,7 @@ const TypeInfo argon::object::type_list_ = {
         &list_obj,
         &list_actions,
         &list_ops,
+        nullptr,
         nullptr
 };
 

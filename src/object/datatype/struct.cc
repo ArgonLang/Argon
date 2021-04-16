@@ -105,6 +105,7 @@ const TypeInfo argon::object::type_struct_ = {
         "struct",
         nullptr,
         sizeof(Struct),
+        TypeInfoFlags::STRUCT,
         nullptr,
         (VoidUnaryOp) struct_cleanup,
         (Trace) struct_trace,
@@ -122,13 +123,11 @@ const TypeInfo argon::object::type_struct_ = {
         nullptr,
         nullptr,
         nullptr,
-        nullptr,
-        TypeInfoFlags::STRUCT
+        nullptr
 };
 
-Struct *argon::object::StructNew(TypeInfo *type, ArObject **values, ArSize count) {
+Struct *argon::object::StructNewPositional(TypeInfo *type, ArObject **values, ArSize count) {
     auto *instance = (Struct *) ArObjectGCNew(type);
-    int res;
 
     if (instance != nullptr) {
         instance->names = NamespaceNew((Namespace *) type->tp_map, PropertyType::CONST | PropertyType::STATIC);
@@ -137,8 +136,33 @@ Struct *argon::object::StructNew(TypeInfo *type, ArObject **values, ArSize count
             return nullptr;
         }
 
-        res = NamespaceSetPositional(instance->names, values, count);
-        // TODO: check for res >= 1
+        if (NamespaceSetPositional(instance->names, values, count) >= 1) {
+            Release(instance);
+            return (Struct *) ErrorFormat(&error_undeclared_variable, "too many args to initialize struct '%s'",
+                                          type->name);
+        }
+    }
+
+    return instance;
+}
+
+Struct *argon::object::StructNewKeyPair(TypeInfo *type, ArObject **values, ArSize count) {
+    auto *instance = (Struct *) ArObjectGCNew(type);
+
+    if (instance != nullptr) {
+        instance->names = NamespaceNew((Namespace *) type->tp_map, PropertyType::CONST | PropertyType::STATIC);
+        if (instance->names == nullptr) {
+            Release(instance);
+            return nullptr;
+        }
+
+        for (ArSize i = 0; i < count; i += 2) {
+            if (!NamespaceSetValue(instance->names, values[i], values[i + 1])) {
+                Release(instance);
+                return (Struct *) ErrorFormat(&error_undeclared_variable, "struct '%s' have no property named '%s'",
+                                              type->name, ((String *) values[i])->buffer);
+            }
+        }
     }
 
     return instance;

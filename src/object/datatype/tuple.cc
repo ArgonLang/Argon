@@ -211,6 +211,7 @@ const TypeInfo argon::object::type_tuple_ = {
         "tuple",
         nullptr,
         sizeof(Tuple),
+        TypeInfoFlags::BASE,
         tuple_ctor,
         (VoidUnaryOp) tuple_cleanup,
         nullptr,
@@ -226,6 +227,8 @@ const TypeInfo argon::object::type_tuple_ = {
         nullptr,
         &tuple_obj,
         &tuple_sequence,
+        nullptr,
+        nullptr,
         nullptr
 };
 
