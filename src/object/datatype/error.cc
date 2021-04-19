@@ -79,6 +79,13 @@ const ObjectSlots error_obj = {
         nullptr
 };
 
+ArObject *error_ctor(const TypeInfo *type, ArObject **args, ArSize count) {
+    if (!VariadicCheckPositional(type->name, count, 1, 1))
+        return nullptr;
+
+    return ErrorNew(type, *args);
+}
+
 ArObject *error_str(Error *self) {
     auto *tmp = (String *) ToString(self->obj);
     String *ret;
@@ -100,7 +107,7 @@ const TypeInfo name = {                         \
     #doc,                                       \
     sizeof(Error),                              \
     TypeInfoFlags::BASE,                        \
-    nullptr,                                    \
+    error_ctor,                                 \
     (VoidUnaryOp)error_cleanup,                 \
     nullptr,                                    \
     nullptr,                                    \

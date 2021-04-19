@@ -445,7 +445,7 @@ ArObject *set_iter_rget(Set *self) {
     return HMapIteratorNew(&type_set_iterator_, self, &self->set, true);
 }
 
-ArObject *set_ctor(ArObject **args, ArSize count) {
+ArObject *set_ctor(const TypeInfo *type, ArObject **args, ArSize count) {
     if (!VariadicCheckPositional("set", count, 0, 1))
         return nullptr;
 

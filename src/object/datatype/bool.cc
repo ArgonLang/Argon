@@ -26,7 +26,7 @@ NumberSlots bool_nslots = {
         (ArSizeUnaryOp) bool_as_index
 };
 
-ArObject *bool_ctor(ArObject **args, ArSize count) {
+ArObject *bool_ctor(const TypeInfo *type, ArObject **args, ArSize count) {
     if (!VariadicCheckPositional("bool", count, 0, 1))
         return nullptr;
 

@@ -292,7 +292,7 @@ ArObject *decimal_str(Decimal *self) {
     return StringCFormat("%f", self);
 }
 
-ArObject *decimal_ctor(ArObject **args, ArSize count) {
+ArObject *decimal_ctor(const TypeInfo *type, ArObject **args, ArSize count) {
     DecimalUnderlying dec = 0;
     std::size_t idx;
 

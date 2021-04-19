@@ -146,7 +146,7 @@ bool integer_is_true(Integer *self) {
     return self->integer > 0;
 }
 
-ArObject *integer_ctor(ArObject **args, ArSize count) {
+ArObject *integer_ctor(const TypeInfo *type, ArObject **args, ArSize count) {
     DecimalUnderlying num = 0;
     int base = 10;
 

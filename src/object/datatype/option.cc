@@ -53,7 +53,7 @@ const ObjectSlots option_obj = {
         nullptr
 };
 
-ArObject *option_ctor(ArObject **args, ArSize count) {
+ArObject *option_ctor(const TypeInfo *type, ArObject **args, ArSize count) {
     if (!VariadicCheckPositional("option", count, 0, 1))
         return nullptr;
 

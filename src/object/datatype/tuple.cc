@@ -105,7 +105,7 @@ const ObjectSlots tuple_obj = {
         nullptr
 };
 
-ArObject *tuple_ctor(ArObject **args, ArSize count) {
+ArObject *tuple_ctor(const TypeInfo *type, ArObject **args, ArSize count) {
     if (!VariadicCheckPositional("tuple", count, 0, 1))
         return nullptr;
 

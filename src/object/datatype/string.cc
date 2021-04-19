@@ -551,7 +551,7 @@ const ObjectSlots str_obj = {
         nullptr
 };
 
-ArObject *string_ctor(ArObject **args, ArSize count) {
+ArObject *string_ctor(const TypeInfo *type, ArObject **args, ArSize count) {
     if (!VariadicCheckPositional("str", count, 0, 1))
         return nullptr;
 

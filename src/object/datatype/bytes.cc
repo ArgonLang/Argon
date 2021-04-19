@@ -162,7 +162,7 @@ bool bytes_is_true(Bytes *self) {
     return self->len > 0;
 }
 
-ArObject *bytes_ctor(ArObject **args, ArSize count) {
+ArObject *bytes_ctor(const TypeInfo *type, ArObject **args, ArSize count) {
     IntegerUnderlying size = 0;
 
     if (!VariadicCheckPositional("bytes", count, 0, 1))

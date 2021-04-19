@@ -419,7 +419,7 @@ const ObjectSlots list_obj = {
         nullptr
 };
 
-ArObject *list_ctor(ArObject **args, ArSize count) {
+ArObject *list_ctor(const TypeInfo *type, ArObject **args, ArSize count) {
     if (!VariadicCheckPositional("list", count, 0, 1))
         return nullptr;
 

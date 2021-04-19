@@ -342,7 +342,7 @@ void map_trace(Map *self, VoidUnaryOp trace) {
         trace(cur->value);
 }
 
-ArObject *map_ctor(ArObject **args, ArSize count) {
+ArObject *map_ctor(const TypeInfo *type, ArObject **args, ArSize count) {
     if (!VariadicCheckPositional("map", count, 0, 1))
         return nullptr;
 

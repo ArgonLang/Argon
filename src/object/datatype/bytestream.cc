@@ -223,7 +223,7 @@ OpSlots bytestream_ops{
         nullptr
 };
 
-ArObject *bytestream_ctor(ArObject **args, ArSize count) {
+ArObject *bytestream_ctor(const TypeInfo *type, ArObject **args, ArSize count) {
     if (!VariadicCheckPositional("bytestream", count, 0, 1))
         return nullptr;
 

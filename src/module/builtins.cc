@@ -158,7 +158,7 @@ ARGON_FUNCTION(new,
     if (info->ctor == nullptr)
         return ErrorFormat(type_not_implemented_, "type '%s' has no constructor", info->name);
 
-    return info->ctor(argv + 1, count - 1);
+    return info->ctor(info, argv + 1, count - 1);
 }
 
 ARGON_FUNCTION(panic,
