@@ -55,7 +55,7 @@ namespace argon::object {
     using BoolUnaryOp = bool (*)(struct ArObject *obj);
     using CompareOp = struct ArObject *(*)(struct ArObject *, struct ArObject *, CompareMode);
     using SizeTUnaryOp = ArSize (*)(struct ArObject *);
-    using VariadicOp = struct ArObject *(*)(struct ArObject **, ArSize);
+    using VariadicOp = struct ArObject *(*)(const struct TypeInfo *type, struct ArObject **, ArSize);
     using VoidUnaryOp = void (*)(struct ArObject *obj);
     using UnaryOp = struct ArObject *(*)(struct ArObject *);
 
@@ -174,11 +174,20 @@ ArObject *prefix##name##_fn(ArObject *self, ArObject **argv, ArSize count)
         const struct TypeInfo *type;
     };
 
+    enum class TypeInfoFlags {
+        BASE,
+        STRUCT,
+        TRAIT
+    };
+
     using Trace = void (*)(struct ArObject *, VoidUnaryOp);
     struct TypeInfo : ArObject {
         const char *name;
         const char *doc;
         const unsigned short size;
+
+        /* Type flags */
+        TypeInfoFlags flags;
 
         /* Datatype constructor */
         VariadicOp ctor;
@@ -228,11 +237,16 @@ ArObject *prefix##name##_fn(ArObject *self, ArObject **argv, ArSize count)
         /* Pointer to OpSlots structure that contains the common operations for an object */
         const OpSlots *ops;
 
+        /* Pointer to dynamically allocated tuple that contains Trait & Struct method resolution order */
+        ArObject *mro;
+        
         /* Pointer to dynamically allocated namespace that contains relevant type methods (if any, nullptr otherwise) */
         ArObject *tp_map;
     };
 
     extern const TypeInfo type_type_;
+
+    extern const TypeInfo type_trait_;
 
 #define TYPEINFO_STATIC_INIT        {{RefCount(RCType::STATIC)}, &type_type_}
 #define AR_GET_TYPE(object)         ((object)->type)
@@ -275,6 +289,10 @@ ArObject *prefix##name##_fn(ArObject *self, ArObject **argv, ArSize count)
     ArObject *RichCompare(const ArObject *obj, const ArObject *other, CompareMode mode);
 
     ArObject *ToString(ArObject *obj);
+
+    ArObject *TypeNew(const TypeInfo *meta, const char *name, ArObject *ns, TypeInfo **bases, ArSize count);
+
+    ArObject *TypeNew(const TypeInfo *meta, ArObject *name, ArObject *ns, TypeInfo **bases, ArSize count);
 
     template<typename T>
     inline typename std::enable_if<std::is_base_of<ArObject, T>::value, T>::type *IncRef(T *obj) {
@@ -321,7 +339,9 @@ ArObject *prefix##name##_fn(ArObject *self, ArObject **argv, ArSize count)
 
     bool PropertySet(ArObject *obj, ArObject *key, ArObject *value, bool member);
 
-    bool TypeInit(TypeInfo *info);
+    bool TraitIsImplemented(const ArObject *obj, const TypeInfo *type);
+
+    bool TypeInit(TypeInfo *info, ArObject *ns);
 
     bool BufferGet(ArObject *obj, ArBuffer *buffer, ArBufferFlags flags);
 

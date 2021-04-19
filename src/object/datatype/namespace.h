@@ -37,6 +37,10 @@ namespace argon::object {
             return *this;
         }
 
+        [[nodiscard]] PropertyType operator&(PropertyType type) {
+            return this->flags_ & type;
+        }
+
         [[nodiscard]] bool IsConstant() const {
             return ENUMBITMASK_ISTRUE(this->flags_, PropertyType::CONST);
         };
@@ -70,6 +74,12 @@ namespace argon::object {
 
     Namespace *NamespaceNew();
 
+    Namespace *NamespaceNew(Namespace *ns, PropertyType ignore);
+
+    ArObject *NamespaceGetValue(Namespace *ns, ArObject *key, PropertyInfo *info);
+
+    bool NamespaceMerge(Namespace *dst, Namespace *src);
+
     bool NamespaceNewSymbol(Namespace *ns, ArObject *key, ArObject *value, PropertyInfo info);
 
     bool NamespaceNewSymbol(Namespace *ns, const char *key, ArObject *value, PropertyInfo info);
@@ -78,9 +88,9 @@ namespace argon::object {
 
     bool NamespaceContains(Namespace *ns, ArObject *key, PropertyInfo *info);
 
-    ArObject *NamespaceGetValue(Namespace *ns, ArObject *key, PropertyInfo *info);
-
     bool NamespaceRemove(Namespace *ns, ArObject *key);
+
+    int NamespaceSetPositional(Namespace *ns, ArObject **values, ArSize count);
 
 } // namespace argon::object
 

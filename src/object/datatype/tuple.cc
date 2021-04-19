@@ -35,7 +35,7 @@ ArObject *argon::object::TupleGetItem(Tuple *self, ArSSize index) {
         return obj;
     }
 
-    return ErrorFormat(&error_overflow_error, "tuple index out of range (len: %d, idx: %d)", self->len, index);
+    return ErrorFormat(type_overflow_error_, "tuple index out of range (len: %d, idx: %d)", self->len, index);
 }
 
 ArObject *tuple_get_slice(Tuple *self, Bounds *bounds) {
@@ -105,7 +105,7 @@ const ObjectSlots tuple_obj = {
         nullptr
 };
 
-ArObject *tuple_ctor(ArObject **args, ArSize count) {
+ArObject *tuple_ctor(const TypeInfo *type, ArObject **args, ArSize count) {
     if (!VariadicCheckPositional("tuple", count, 0, 1))
         return nullptr;
 
@@ -211,6 +211,7 @@ const TypeInfo argon::object::type_tuple_ = {
         "tuple",
         nullptr,
         sizeof(Tuple),
+        TypeInfoFlags::BASE,
         tuple_ctor,
         (VoidUnaryOp) tuple_cleanup,
         nullptr,
@@ -226,6 +227,8 @@ const TypeInfo argon::object::type_tuple_ = {
         nullptr,
         &tuple_obj,
         &tuple_sequence,
+        nullptr,
+        nullptr,
         nullptr
 };
 
@@ -255,7 +258,7 @@ Tuple *argon::object::TupleNew(size_t len) {
         if (len > 0) {
             if ((tuple->objects = (ArObject **) argon::memory::Alloc(len * sizeof(void *))) == nullptr) {
                 Release(tuple);
-                return (Tuple *) argon::vm::Panic(OutOfMemoryError);
+                return (Tuple *) argon::vm::Panic(error_out_of_memory);
             }
 
             for (size_t i = 0; i < len; i++) {
@@ -293,7 +296,7 @@ Tuple *argon::object::TupleNew(const ArObject *sequence) {
         return tuple;
     }
 
-    return (Tuple *) ErrorFormat(&error_not_implemented, "no viable conversion from '%s' to tuple",
+    return (Tuple *) ErrorFormat(type_not_implemented_, "no viable conversion from '%s' to tuple",
                                  AR_TYPE_NAME(sequence));
 }
 

@@ -109,6 +109,8 @@ namespace argon::object {
 
     String *StringNewBufferOwnership(unsigned char *buffer, size_t len);
 
+    String *StringNewFormat(const char *string, va_list vargs);
+
     String *StringNewFormat(const char *string, ...);
 
     String *StringIntern(const char *string, size_t len);

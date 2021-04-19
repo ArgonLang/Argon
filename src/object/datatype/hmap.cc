@@ -16,7 +16,7 @@ using namespace argon::object;
 #define CHECK_HASHABLE(obj, ret)                                                        \
 do {                                                                                    \
 if(!IsHashable(obj)) {                                                                  \
-    ErrorFormat(&error_unhashable, "unhashable type: '%s'", AR_TYPE_NAME(obj));  \
+    ErrorFormat(type_unhashable_error_, "unhashable type: '%s'", AR_TYPE_NAME(obj));  \
     return ret;                                                                         \
 }} while(false)
 
@@ -33,7 +33,7 @@ bool HMapResize(HMap *hmap) {
     new_map = (HEntry **) Realloc(hmap->map, new_cap * sizeof(void *));
 
     if (new_map == nullptr) {
-        argon::vm::Panic(OutOfMemoryError);
+        argon::vm::Panic(error_out_of_memory);
         return false;
     }
 
@@ -108,7 +108,7 @@ bool argon::object::HMapInit(HMap *hmap) {
         return true;
     }
 
-    argon::vm::Panic(OutOfMemoryError);
+    argon::vm::Panic(error_out_of_memory);
     return false;
 }
 

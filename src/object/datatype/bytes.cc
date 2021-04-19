@@ -36,7 +36,7 @@ ArObject *bytes_get_item(Bytes *self, ArSSize index) {
     if (index < self->len)
         return IntegerNew(self->buffer[index]);
 
-    return ErrorFormat(&error_overflow_error, "bytes index out of range (len: %d, idx: %d)", self->len, index);
+    return ErrorFormat(type_overflow_error_, "bytes index out of range (len: %d, idx: %d)", self->len, index);
 }
 
 ArObject *bytes_get_slice(Bytes *self, Bounds *bounds) {
@@ -162,7 +162,7 @@ bool bytes_is_true(Bytes *self) {
     return self->len > 0;
 }
 
-ArObject *bytes_ctor(ArObject **args, ArSize count) {
+ArObject *bytes_ctor(const TypeInfo *type, ArObject **args, ArSize count) {
     IntegerUnderlying size = 0;
 
     if (!VariadicCheckPositional("bytes", count, 0, 1))
@@ -240,6 +240,7 @@ const TypeInfo argon::object::type_bytes_ = {
         "bytes",
         nullptr,
         sizeof(Bytes),
+        TypeInfoFlags::BASE,
         bytes_ctor,
         (VoidUnaryOp) bytes_cleanup,
         nullptr,
@@ -256,6 +257,7 @@ const TypeInfo argon::object::type_bytes_ = {
         nullptr,
         &bytes_sequence,
         &bytes_ops,
+        nullptr,
         nullptr
 };
 

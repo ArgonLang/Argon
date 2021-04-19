@@ -21,7 +21,7 @@ ArObject *map_iter_next(HMapIterator *iter) {
         return nullptr;
 
     if (iter->used != iter->map->len)
-        return ErrorFormat(&error_runtime_error, "Map changed size during iteration");
+        return ErrorFormat(type_runtime_error_, "Map changed size during iteration");
 
     if ((ret = TupleNew(2)) != nullptr) {
         TupleInsertAt(ret, 0, iter->current->key);
@@ -39,7 +39,7 @@ ArObject *map_iter_peak(HMapIterator *iter) {
         return nullptr;
 
     if (iter->used != iter->map->len)
-        return ErrorFormat(&error_runtime_error, "Map changed size during iteration");
+        return ErrorFormat(type_runtime_error_, "Map changed size during iteration");
 
     if ((ret = TupleNew(2)) != nullptr) {
         TupleInsertAt(ret, 0, iter->current->key);
@@ -61,6 +61,7 @@ const TypeInfo type_map_iterator_ = {
         "map_iterator",
         nullptr,
         sizeof(HMapIterator),
+        TypeInfoFlags::BASE,
         nullptr,
         (VoidUnaryOp) HMapIteratorCleanup,
         (Trace) HMapIteratorTrace,
@@ -72,6 +73,7 @@ const TypeInfo type_map_iterator_ = {
         nullptr,
         nullptr,
         &map_iterop,
+        nullptr,
         nullptr,
         nullptr,
         nullptr,
@@ -340,7 +342,7 @@ void map_trace(Map *self, VoidUnaryOp trace) {
         trace(cur->value);
 }
 
-ArObject *map_ctor(ArObject **args, ArSize count) {
+ArObject *map_ctor(const TypeInfo *type, ArObject **args, ArSize count) {
     if (!VariadicCheckPositional("map", count, 0, 1))
         return nullptr;
 
@@ -384,6 +386,7 @@ const TypeInfo argon::object::type_map_ = {
         "map",
         nullptr,
         sizeof(Map),
+        TypeInfoFlags::BASE,
         map_ctor,
         (VoidUnaryOp) map_cleanup,
         (Trace) map_trace,
@@ -398,6 +401,8 @@ const TypeInfo argon::object::type_map_ = {
         &map_actions,
         nullptr,
         &map_obj,
+        nullptr,
+        nullptr,
         nullptr,
         nullptr
 };
@@ -422,7 +427,7 @@ Map *argon::object::MapNewFromIterable(const ArObject *iterable) {
     bool ok;
 
     if (!IsIterable(iterable))
-        return (Map *) ErrorFormat(&error_type_error, "'%s' is not iterable", AR_TYPE_NAME(iterable));
+        return (Map *) ErrorFormat(type_type_error_, "'%s' is not iterable", AR_TYPE_NAME(iterable));
 
     if ((map = MapNew()) == nullptr)
         return nullptr;
@@ -440,7 +445,7 @@ Map *argon::object::MapNewFromIterable(const ArObject *iterable) {
             Release(key);
             Release(iter);
             Release(map);
-            return (Map *) ErrorFormat(&error_value_error, "map update require an iterable object of even length");
+            return (Map *) ErrorFormat(type_value_error_, "map update require an iterable object of even length");
         }
 
         ok = MapInsert(map, key, value);

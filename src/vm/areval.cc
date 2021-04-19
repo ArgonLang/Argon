@@ -12,9 +12,7 @@
 #include <object/datatype/bounds.h>
 #include <object/datatype/map.h>
 #include <object/datatype/function.h>
-#include <object/datatype/trait.h>
 #include <object/datatype/struct.h>
-#include <object/datatype/instance.h>
 #include <object/arobject.h>
 
 #include <lang/opcodes.h>
@@ -45,29 +43,6 @@ ArObject *Binary(ArRoutine *routine, ArObject *l, ArObject *r, int offset) {
 #undef GET_BINARY_OP
 }
 
-bool GetMRO(ArRoutine *routine, List **mro, Trait **impls, size_t count) {
-    (*mro) = nullptr;
-
-    if (count > 0) {
-        List *bases = BuildBasesList((Trait **) impls, count);
-        if (bases == nullptr)
-            return false;
-
-        (*mro) = ComputeMRO(bases);
-        Release(bases);
-
-        if ((*mro) == nullptr)
-            return false; // TODO: user error
-
-        if ((*mro)->len == 0) {
-            Release((*mro));
-            return false; // TODO: impls error
-        }
-    }
-
-    return true;
-}
-
 ArObject *ImportModule(ArRoutine *routine, String *name) {
     ImportSpec *spec;
     String *key;
@@ -91,11 +66,9 @@ ArObject *ImportModule(ArRoutine *routine, String *name) {
     return module;
 }
 
-ArObject *MkConstruct(ArRoutine *routine, Code *code, String *name, Trait **impls, size_t count, bool is_trait) {
-    ArObject *ret;
+Namespace *BuildNamespace(ArRoutine *routine, Code *code) {
     Namespace *ns;
     Frame *frame;
-    List *mro;
 
     if ((ns = NamespaceNew()) == nullptr)
         return nullptr;
@@ -105,76 +78,10 @@ ArObject *MkConstruct(ArRoutine *routine, Code *code, String *name, Trait **impl
         return nullptr;
     }
 
-    Eval(routine, frame);
+    Release(Eval(routine, frame));
     FrameDel(frame);
 
-    if (!GetMRO(routine, &mro, impls, count)) {
-        Release(ns);
-        return nullptr;
-    }
-
-    ret = is_trait ?
-          (ArObject *) TraitNew(name, ns, mro) :
-          (ArObject *) StructNew(name, ns, mro);
-
-    Release(ns);
-    Release(mro);
-
-    return ret;
-}
-
-ArObject *InstantiateStruct(ArRoutine *routine, Struct *base, ArObject **values, size_t count, bool key_pair) {
-    Instance *instance;
-    Namespace *instance_ns;
-
-    if ((instance_ns = NamespaceNew()) == nullptr)
-        return nullptr;
-
-    if (!key_pair) {
-        size_t index = 0;
-        for (auto *cur = (NsEntry *) base->names->hmap.iter_begin; cur != nullptr; cur = (NsEntry *) cur->iter_next) {
-            if (!cur->info.IsStatic() && !cur->info.IsConstant()) {
-                ArObject *value;
-
-                if (index < count) {
-                    value = values[index++];
-                    IncRef(value);
-                } else
-                    value = NamespaceGetValue(base->names, cur->key, nullptr);
-
-                bool ok = NamespaceNewSymbol(instance_ns, cur->key, value, cur->info);
-                Release(value);
-
-                if (!ok) {
-                    Release(instance_ns);
-                    return nullptr;
-                }
-            }
-        }
-    } else {
-        // Load default values
-        for (auto *cur = (NsEntry *) base->names->hmap.iter_begin; cur != nullptr; cur = (NsEntry *) cur->iter_next) {
-            if (!cur->info.IsStatic())
-                if (!NamespaceNewSymbol(instance_ns, cur->key, cur->value, cur->info)) {
-                    Release(instance_ns);
-                    return nullptr;
-                }
-        }
-
-        for (size_t i = 0; i < count; i += 2) {
-            if (!NamespaceSetValue(instance_ns, values[i], values[i + 1])) {
-                Release(instance_ns);
-                ErrorFormat(&error_undeclared_variable, "'%s' undeclared struct property",
-                            ((String *) values[i])->buffer);
-                return nullptr;
-            }
-        }
-    }
-
-    instance = InstanceNew(base, instance_ns);
-    Release(instance_ns);
-
-    return instance;
+    return ns;
 }
 
 ArObject *Subscript(ArObject *obj, ArObject *idx, ArObject *set) {
@@ -206,12 +113,12 @@ ArObject *Subscript(ArObject *obj, ArObject *idx, ArObject *set) {
                     return False;
             }
         } else {
-            ErrorFormat(&error_type_error, "sequence index must be integer or bounds not '%s'",
+            ErrorFormat(type_type_error_, "sequence index must be integer or bounds not '%s'",
                         idx->type->name);
             return nullptr;
         }
     } else {
-        ErrorFormat(&error_type_error, "'%s' not subscriptable", obj->type->name);
+        ErrorFormat(type_type_error_, "'%s' not subscriptable", obj->type->name);
         return nullptr;
     }
 
@@ -295,7 +202,7 @@ bool PrepareCall(CallHelper *helper, Frame *frame) {
         return true;
     }
 
-    ErrorFormat(&error_type_error, "'%s' object is not callable", AR_TYPE_NAME(helper->func));
+    ErrorFormat(type_type_error_, "'%s' object is not callable", AR_TYPE_NAME(helper->func));
     return false;
 }
 
@@ -313,7 +220,7 @@ ArObject *MkCurrying(CallHelper *helper) {
     ArObject *ret;
 
     if (helper->func->arity > 0 && helper->total_args == 0) {
-        ErrorFormat(&error_type_error, "%s() takes %d argument, but 0 were given",
+        ErrorFormat(type_type_error_, "%s() takes %d argument, but 0 were given",
                     helper->func->name->buffer, helper->func->arity);
         ClearCall(helper);
         return nullptr;
@@ -342,7 +249,7 @@ bool CheckVariadic(CallHelper *helper) {
 
     if (helper->total_args > helper->func->arity) {
         if (!helper->func->IsVariadic()) {
-            ErrorFormat(&error_type_error, "%s() takes %d argument, but %d were given",
+            ErrorFormat(type_type_error_, "%s() takes %d argument, but %d were given",
                         helper->func->name->buffer, helper->func->arity, helper->total_args);
             ClearCall(helper);
             return false;
@@ -451,7 +358,7 @@ ArObject *argon::vm::Eval(ArRoutine *routine) {
 #define BINARY_OP(routine, op, opchar)                                                          \
     if ((ret = Binary(routine, PEEK1(), TOP(), offsetof(OpSlots, op))) == nullptr) {            \
         if (!RoutineIsPanicking(routine)) {                                                     \
-            ErrorFormat(&error_type_error, "unsupported operand type '%s' for: '%s' and '%s'",  \
+            ErrorFormat(type_type_error_, "unsupported operand type '%s' for: '%s' and '%s'",  \
             #opchar, PEEK1()->type->name, TOP()->type->name);                                   \
         }                                                                                       \
         goto error;                                                                             \
@@ -545,7 +452,7 @@ ArObject *argon::vm::Eval(ArRoutine *routine) {
                     goto error;
 
                 if (IsPartialApplication(&helper)) {
-                    ErrorFormat(&error_type_error, "%s() takes %d argument, but %d were given",
+                    ErrorFormat(type_type_error_, "%s() takes %d argument, but %d were given",
                                 helper.func->name->buffer, helper.func->arity, helper.total_args);
                     ClearCall(&helper);
                     goto error;
@@ -616,21 +523,20 @@ ArObject *argon::vm::Eval(ArRoutine *routine) {
             TARGET_OP(INIT) {
                 auto args = ARG16;
                 bool key_pair = argon::lang::I32ExtractFlag(cu_frame->instr_ptr);
-                auto bstruct = (Struct *) *(cu_frame->eval_stack - args - 1);
+                auto t_struct = (TypeInfo *) *(cu_frame->eval_stack - args - 1);
 
-                if (bstruct->type != &type_struct_) {
-                    ErrorFormat(&error_type_error, "expected struct, found '%s'", bstruct->type->name);
+                if (t_struct->flags != TypeInfoFlags::STRUCT) {
+                    ErrorFormat(type_type_error_, "expected struct, found '%s'", t_struct->type->name);
                     goto error;
                 }
 
-                if (!key_pair && args > bstruct->properties_count) {
-                    ErrorFormat(&error_type_error, "'%s' takes %d positional arguments but %d were given",
-                                bstruct->name->buffer, bstruct->properties_count, args);
-                    goto error;
+                if (!key_pair) {
+                    if ((ret = StructNewPositional(t_struct, cu_frame->eval_stack - args, args)) == nullptr)
+                        goto error;
+                } else {
+                    if ((ret = StructNewKeyPair(t_struct, cu_frame->eval_stack - args, args)) == nullptr)
+                        goto error;
                 }
-
-                if ((ret = InstantiateStruct(routine, bstruct, cu_frame->eval_stack - args, args, key_pair)) == nullptr)
-                    goto error;
 
                 STACK_REWIND(args);
                 TOP_REPLACE(ret);
@@ -735,7 +641,7 @@ ArObject *argon::vm::Eval(ArRoutine *routine) {
                 Release(key);
 
                 if (ret == nullptr) {
-                    ErrorFormat(&error_undeclared_variable, "'%s' undeclared global variable",
+                    ErrorFormat(type_undeclared_error_, "'%s' undeclared global variable",
                                 ((String *) key)->buffer);
                     goto error;
                 }
@@ -909,27 +815,31 @@ ArObject *argon::vm::Eval(ArRoutine *routine) {
             }
             TARGET_OP(MK_STRUCT) {
                 auto args = ARG16;
+                Namespace *ns = BuildNamespace(routine, (Code *) *(cu_frame->eval_stack - args - 2));
 
-                ret = MkConstruct(routine, (Code *) *(cu_frame->eval_stack - args - 2),
-                                  (String *) *(cu_frame->eval_stack - args - 1),
-                                  (Trait **) (cu_frame->eval_stack - args), args, false);
+                ret = TypeNew(&type_struct_, (String *) *(cu_frame->eval_stack - args - 1), ns,
+                              (TypeInfo **) (cu_frame->eval_stack - args), args);
+                Release(ns);
+
                 if (ret == nullptr)
                     goto error;
 
-                STACK_REWIND(args + 1); // args + 1(name)
+                STACK_REWIND(args + 1);
                 TOP_REPLACE(ret);
                 DISPATCH2();
             }
             TARGET_OP(MK_TRAIT) {
                 auto args = ARG16;
+                Namespace *ns = BuildNamespace(routine, (Code *) *(cu_frame->eval_stack - args - 2));
 
-                ret = MkConstruct(routine, (Code *) *(cu_frame->eval_stack - args - 2),
-                                  (String *) *(cu_frame->eval_stack - args - 1),
-                                  (Trait **) (cu_frame->eval_stack - args), args, true);
+                ret = TypeNew(&type_trait_, (String *) *(cu_frame->eval_stack - args - 1), ns,
+                              (TypeInfo **) (cu_frame->eval_stack - args), args);
+                Release(ns);
+
                 if (ret == nullptr)
                     goto error;
 
-                STACK_REWIND(args + 1); // args + 1(name)
+                STACK_REWIND(args + 1);
                 TOP_REPLACE(ret);
                 DISPATCH2();
             }
@@ -1057,13 +967,13 @@ ArObject *argon::vm::Eval(ArRoutine *routine) {
                 ret = TupleGetItem(cu_code->names, ARG16);
 
                 if (!NamespaceContains(map, ret, &pinfo)) {
-                    ErrorFormat(&error_undeclared_variable, "'%s' undeclared global variable in assignment",
+                    ErrorFormat(type_undeclared_error_, "'%s' undeclared global variable in assignment",
                                 ((String *) ret)->buffer);
                     goto error;
                 }
 
                 if (pinfo.IsConstant()) {
-                    ErrorFormat(&error_unassignable_variable, "unable to assign value to '%s' because is constant",
+                    ErrorFormat(type_unassignable_error_, "unable to assign value to '%s' because is constant",
                                 ((String *) ret)->buffer);
                     goto error;
                 }
@@ -1126,14 +1036,14 @@ ArObject *argon::vm::Eval(ArRoutine *routine) {
                 ret = TOP();
 
                 if (!AsSequence(ret)) {
-                    ErrorFormat(&error_type_error, "unpacking expression was expecting a sequence not a '%s'",
+                    ErrorFormat(type_type_error_, "unpacking expression was expecting a sequence not a '%s'",
                                 ret->type->name);
                     goto error;
                 }
 
                 size_t s_len = ret->type->sequence_actions->length(ret);
                 if (s_len != len) {
-                    ErrorFormat(&error_value_error, "incompatible number of value to unpack (expected '%d' got '%d')",
+                    ErrorFormat(type_value_error_, "incompatible number of value to unpack (expected '%d' got '%d')",
                                 len, s_len);
                     goto error;
                 }
@@ -1147,7 +1057,7 @@ ArObject *argon::vm::Eval(ArRoutine *routine) {
                 DISPATCH4();
             }
             default:
-                ErrorFormat(&error_runtime_error, "unknown opcode: 0x%X", (unsigned char) (*cu_frame->instr_ptr));
+                ErrorFormat(type_runtime_error_, "unknown opcode: 0x%X", (unsigned char) (*cu_frame->instr_ptr));
         }
         error:
         STACK_REWIND(cu_frame->eval_stack - cu_frame->stack_extra_base);

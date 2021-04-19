@@ -17,7 +17,7 @@ ArObject *set_iter_next(HMapIterator *iter) {
         return nullptr;
 
     if (iter->used != iter->map->len)
-        return ErrorFormat(&error_runtime_error, "Set changed size during iteration");
+        return ErrorFormat(type_runtime_error_, "Set changed size during iteration");
 
     obj = iter->current->key;
 
@@ -31,7 +31,7 @@ ArObject *set_iter_peak(HMapIterator *iter) {
         return nullptr;
 
     if (iter->used != iter->map->len)
-        return ErrorFormat(&error_runtime_error, "Set changed size during iteration");
+        return ErrorFormat(type_runtime_error_, "Set changed size during iteration");
 
     return IncRef(iter->current->key);
 }
@@ -48,6 +48,7 @@ const TypeInfo type_set_iterator_ = {
         "set_iterator",
         nullptr,
         sizeof(HMapIterator),
+        TypeInfoFlags::BASE,
         nullptr,
         (VoidUnaryOp) HMapIteratorCleanup,
         (Trace) HMapIteratorTrace,
@@ -59,6 +60,7 @@ const TypeInfo type_set_iterator_ = {
         nullptr,
         nullptr,
         &set_iterop,
+        nullptr,
         nullptr,
         nullptr,
         nullptr,
@@ -230,7 +232,7 @@ ARGON_METHOD5(set_, diff,
 
     for (ArSize idx = 0; idx < count; idx++) {
         if (!AR_SAME_TYPE(self, argv[idx]))
-            return ErrorFormat(&error_type_error, "set::diff() expect type Set not '%s'", AR_TYPE_NAME(argv[idx]));
+            return ErrorFormat(type_type_error_, "set::diff() expect type Set not '%s'", AR_TYPE_NAME(argv[idx]));
     }
 
     for (ArSize idx = 0; idx < count; idx++) {
@@ -280,7 +282,7 @@ ARGON_METHOD5(set_, intersect,
 
     for (ArSize idx = 0; idx < count; idx++) {
         if (!AR_SAME_TYPE(self, argv[idx]))
-            return ErrorFormat(&error_type_error, "set::intersect() expect type Set not '%s'", AR_TYPE_NAME(argv[idx]));
+            return ErrorFormat(type_type_error_, "set::intersect() expect type Set not '%s'", AR_TYPE_NAME(argv[idx]));
     }
 
     for (ArSize idx = 0; idx < count; idx++) {
@@ -307,7 +309,7 @@ ARGON_METHOD5(set_, symdiff,
 
     for (ArSize idx = 0; idx < count; idx++) {
         if (!AR_SAME_TYPE(self, argv[idx]))
-            return ErrorFormat(&error_type_error, "set::symdiff() expect type Set not '%s'", AR_TYPE_NAME(argv[idx]));
+            return ErrorFormat(type_type_error_, "set::symdiff() expect type Set not '%s'", AR_TYPE_NAME(argv[idx]));
     }
 
     for (ArSize idx = 0; idx < count; idx++) {
@@ -342,7 +344,7 @@ ARGON_METHOD5(set_, update,
 
     for (ArSize idx = 0; idx < count; idx++) {
         if (!AR_SAME_TYPE(self, argv[idx]))
-            return ErrorFormat(&error_type_error, "set::update() expect type Set not '%s'", AR_TYPE_NAME(argv[idx]));
+            return ErrorFormat(type_type_error_, "set::update() expect type Set not '%s'", AR_TYPE_NAME(argv[idx]));
     }
 
     for (ArSize idx = 0; idx < count; idx++) {
@@ -443,7 +445,7 @@ ArObject *set_iter_rget(Set *self) {
     return HMapIteratorNew(&type_set_iterator_, self, &self->set, true);
 }
 
-ArObject *set_ctor(ArObject **args, ArSize count) {
+ArObject *set_ctor(const TypeInfo *type, ArObject **args, ArSize count) {
     if (!VariadicCheckPositional("set", count, 0, 1))
         return nullptr;
 
@@ -467,6 +469,7 @@ const TypeInfo argon::object::type_set_ = {
         "set",
         nullptr,
         sizeof(Set),
+        TypeInfoFlags::BASE,
         set_ctor,
         (VoidUnaryOp) set_cleanup,
         (Trace) set_trace,
@@ -483,6 +486,7 @@ const TypeInfo argon::object::type_set_ = {
         &set_obj,
         nullptr,
         &set_ops,
+        nullptr,
         nullptr
 };
 
@@ -503,7 +507,7 @@ Set *argon::object::SetNewFromIterable(const ArObject *iterable) {
     Set *set;
 
     if (!IsIterable(iterable))
-        return (Set *) ErrorFormat(&error_type_error, "'%s' is not iterable", AR_TYPE_NAME(iterable));
+        return (Set *) ErrorFormat(type_type_error_, "'%s' is not iterable", AR_TYPE_NAME(iterable));
 
     if ((set = SetNew()) == nullptr)
         return nullptr;

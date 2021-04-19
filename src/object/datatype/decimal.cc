@@ -36,9 +36,9 @@ ArObject *decimal_as_integer(Decimal *self) {
     unsigned long exp;
 
     if (std::isinf(self->decimal))
-        return ErrorFormat(&error_overflow_error, "cannot convert infinity to integer");
+        return ErrorFormat(type_overflow_error_, "cannot convert infinity to integer");
     if (std::isnan(self->decimal))
-        return ErrorFormat(&error_overflow_error, "cannot convert NaN to integer");
+        return ErrorFormat(type_overflow_error_, "cannot convert NaN to integer");
 
     num = DecimalModf(self->decimal, &exp, 0);
 
@@ -73,7 +73,7 @@ ArObject *decimal_div(ArObject *left, ArObject *right) {
     CONVERT_DOUBLE(right, r);
 
     if (r == 0.0)
-        return argon::vm::Panic(ZeroDivisionError);
+        return argon::vm::Panic(error_zero_division);
 
     return DecimalNew(l / r);
 }
@@ -89,7 +89,7 @@ ArObject *decimal_idiv(ArObject *left, ArObject *right) {
     CONVERT_DOUBLE(right, r);
 
     if (r == 0.0)
-        return argon::vm::Panic(ZeroDivisionError);
+        return argon::vm::Panic(error_zero_division);
 
     mod = fmod(l, r);
     div = (l - mod) / r;
@@ -113,7 +113,7 @@ ArObject *decimal_mod(ArObject *left, ArObject *right) {
     CONVERT_DOUBLE(right, r);
 
     if (r == 0.0)
-        return argon::vm::Panic(ZeroDivisionError);
+        return argon::vm::Panic(error_zero_division);
 
     if ((mod = fmod(l, r))) {
         // sign of remainder == sign of denominator
@@ -292,7 +292,7 @@ ArObject *decimal_str(Decimal *self) {
     return StringCFormat("%f", self);
 }
 
-ArObject *decimal_ctor(ArObject **args, ArSize count) {
+ArObject *decimal_ctor(const TypeInfo *type, ArObject **args, ArSize count) {
     DecimalUnderlying dec = 0;
     std::size_t idx;
 
@@ -307,7 +307,7 @@ ArObject *decimal_ctor(ArObject **args, ArSize count) {
         else if (AR_TYPEOF(*args, type_string_))
             dec = std::stold((char *) ((String *) *args)->buffer, &idx);
         else
-            return ErrorFormat(&error_not_implemented, "no viable conversion from '%s' to '%s'",
+            return ErrorFormat(type_not_implemented_, "no viable conversion from '%s' to '%s'",
                                AR_TYPE_NAME(*args), type_decimal_.name);
     }
 
@@ -319,6 +319,7 @@ const TypeInfo argon::object::type_decimal_ = {
         "decimal",
         nullptr,
         sizeof(Decimal),
+        TypeInfoFlags::BASE,
         decimal_ctor,
         nullptr,
         nullptr,
@@ -334,7 +335,9 @@ const TypeInfo argon::object::type_decimal_ = {
         &decimal_nslots,
         nullptr,
         nullptr,
-        &decimal_ops
+        &decimal_ops,
+        nullptr,
+        nullptr
 };
 
 Decimal *argon::object::DecimalNew(DecimalUnderlying number) {
@@ -360,7 +363,7 @@ bool argon::object::DecimalCanConvertFromInt(IntegerUnderlying integer, DecimalU
 
     ipart = frexp(integer, &exp);
     if (exp > DBL_MAX_EXP) {
-        ErrorFormat(&error_overflow_error, "integer too large to convert to decimal");
+        ErrorFormat(type_overflow_error_, "integer too large to convert to decimal");
         return false;
     }
 

@@ -52,7 +52,7 @@ ArObject *integer_div(ArObject *left, ArObject *right) {
     CHECK_INTEGER(left, right);
 
     if (((Integer *) right)->integer == 0)
-        return argon::vm::Panic(ZeroDivisionError);
+        return argon::vm::Panic(error_zero_division);
 
     return IntegerNew(((Integer *) (left))->integer / ((Integer *) (right))->integer);
 }
@@ -146,7 +146,7 @@ bool integer_is_true(Integer *self) {
     return self->integer > 0;
 }
 
-ArObject *integer_ctor(ArObject **args, ArSize count) {
+ArObject *integer_ctor(const TypeInfo *type, ArObject **args, ArSize count) {
     DecimalUnderlying num = 0;
     int base = 10;
 
@@ -167,7 +167,7 @@ ArObject *integer_ctor(ArObject **args, ArSize count) {
         else if (AR_TYPEOF(*args, type_string_))
             num = std::strtol((char *) ((String *) args[0])->buffer, nullptr, base);
         else
-            return ErrorFormat(&error_not_implemented, "no viable conversion from '%s' to '%s'",
+            return ErrorFormat(type_not_implemented_, "no viable conversion from '%s' to '%s'",
                                AR_TYPE_NAME(*args), type_integer_.name);
     }
 
@@ -202,6 +202,7 @@ const TypeInfo argon::object::type_integer_ = {
         "integer",
         nullptr,
         sizeof(Integer),
+        TypeInfoFlags::BASE,
         integer_ctor,
         nullptr,
         nullptr,
@@ -217,17 +218,19 @@ const TypeInfo argon::object::type_integer_ = {
         &integer_nslots,
         nullptr,
         nullptr,
-        &integer_ops
+        &integer_ops,
+        nullptr,
+        nullptr
 };
 
 Integer *argon::object::IntegerNew(IntegerUnderlying number) {
     // Overflow check
 #if __WORDSIZE == 32
     if (number > 0x7FFFFFFF)
-        return (Integer *) ErrorFormat(&error_overflow_error, "integer too large to be represented by signed C long");
+        return (Integer *) ErrorFormat(type_overflow_error_, "integer too large to be represented by signed C long");
 #elif __WORDSIZE == 64
     if (number > 0x7FFFFFFFFFFFFFFF)
-        return (Integer *) ErrorFormat(&error_overflow_error, "integer too large to be represented by signed C long");
+        return (Integer *) ErrorFormat(type_overflow_error_, "integer too large to be represented by signed C long");
 #endif
 
     auto integer = ArObjectNew<Integer>(RCType::INLINE, &type_integer_);

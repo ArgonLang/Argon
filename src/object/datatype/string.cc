@@ -97,7 +97,7 @@ String *StringInit(size_t len, bool mkbuf) {
         if (mkbuf) {
             // +1 is '\0'
             if ((str->buffer = (unsigned char *) Alloc(len + 1)) == nullptr) {
-                argon::vm::Panic(OutOfMemoryError);
+                argon::vm::Panic(error_out_of_memory);
                 Release(str);
                 return nullptr;
             }
@@ -234,13 +234,13 @@ ArObject *string_get_item(String *self, ArSSize index) {
     String *ret;
 
     if (self->kind != StringKind::ASCII)
-        return ErrorFormat(&error_unicode_index, "unable to index a unicode string");
+        return ErrorFormat(type_unicode_index_error_, "unable to index a unicode string");
 
     if (index < 0)
         index = self->len + index;
 
     if (index >= self->len)
-        return ErrorFormat(&error_overflow_error, "string index out of range (len: %d, idx: %d)", self->len, index);
+        return ErrorFormat(type_overflow_error_, "string index out of range (len: %d, idx: %d)", self->len, index);
 
     ret = StringIntern((const char *) self->buffer + index, 1);
 
@@ -257,7 +257,7 @@ ArObject *string_get_slice(String *self, ArObject *bounds) {
     ArSSize step;
 
     if (self->kind != StringKind::ASCII)
-        return ErrorFormat(&error_unicode_index, "unable to slice a unicode string");
+        return ErrorFormat(type_unicode_index_error_, "unable to slice a unicode string");
 
     slice_len = BoundsIndex(b, self->len, &start, &stop, &step);
 
@@ -295,7 +295,7 @@ ARGON_METHOD5(str_, count,
     ArSSize n;
 
     if (!AR_TYPEOF(argv[0], type_string_))
-        return ErrorFormat(&error_type_error, "str::count() expected string not '%s'", AR_TYPE_NAME(argv[0]));
+        return ErrorFormat(type_type_error_, "str::count() expected string not '%s'", AR_TYPE_NAME(argv[0]));
 
     n = support::Count(str->buffer, str->len, pattern->buffer, pattern->len, -1);
 
@@ -314,7 +314,7 @@ ARGON_METHOD5(str_, endswith,
     auto *pattern = (String *) argv[0];
 
     if (!AR_TYPEOF(argv[0], type_string_))
-        return ErrorFormat(&error_type_error, "str::endswith() expected string not '%s'", AR_TYPE_NAME(argv[0]));
+        return ErrorFormat(type_type_error_, "str::endswith() expected string not '%s'", AR_TYPE_NAME(argv[0]));
 
     return BoolToArBool(StringEndsWith(str, pattern));
 }
@@ -332,7 +332,7 @@ ARGON_METHOD5(str_, find,
     ArSSize n;
 
     if (!AR_TYPEOF(argv[0], type_string_))
-        return ErrorFormat(&error_type_error, "str::find() expected string not '%s'", AR_TYPE_NAME(argv[0]));
+        return ErrorFormat(type_type_error_, "str::find() expected string not '%s'", AR_TYPE_NAME(argv[0]));
 
     n = StringFind(str, pattern);
 
@@ -352,15 +352,15 @@ ARGON_METHOD5(str_, replace,
     ArSSize n;
 
     if (!AR_TYPEOF(argv[0], type_string_))
-        return ErrorFormat(&error_type_error, "str::replace() first parameter expected string not '%s'",
+        return ErrorFormat(type_type_error_, "str::replace() first parameter expected string not '%s'",
                            AR_TYPE_NAME(argv[0]));
 
     if (!AR_TYPEOF(argv[1], type_string_))
-        return ErrorFormat(&error_type_error, "str::replace() second parameter expected string not '%s'",
+        return ErrorFormat(type_type_error_, "str::replace() second parameter expected string not '%s'",
                            AR_TYPE_NAME(argv[1]));
 
     if (!AR_TYPEOF(argv[2], type_integer_))
-        return ErrorFormat(&error_type_error, "str::replace() third parameter expected integer not '%s'",
+        return ErrorFormat(type_type_error_, "str::replace() third parameter expected integer not '%s'",
                            AR_TYPE_NAME(argv[2]));
 
     n = ((Integer *) argv[2])->integer;
@@ -381,7 +381,7 @@ ARGON_METHOD5(str_, rfind,
     ArSSize n;
 
     if (!AR_TYPEOF(argv[0], type_string_))
-        return ErrorFormat(&error_type_error, "str::rfind() expected string not '%s'", AR_TYPE_NAME(argv[0]));
+        return ErrorFormat(type_type_error_, "str::rfind() expected string not '%s'", AR_TYPE_NAME(argv[0]));
 
     n = StringRFind(str, pattern);
 
@@ -405,7 +405,7 @@ ARGON_METHOD5(str_, join,
 
     while ((tmp = (String *) IteratorNext(iter)) != nullptr) {
         if (!AR_TYPEOF(tmp, type_string_)) {
-            ErrorFormat(&error_type_error, "sequence item %i: expected string not '%s'", idx, AR_TYPE_NAME(tmp));
+            ErrorFormat(type_type_error_, "sequence item %i: expected string not '%s'", idx, AR_TYPE_NAME(tmp));
             goto error;
         }
 
@@ -446,10 +446,10 @@ ARGON_METHOD5(str_, split,
     ArSSize counter = 0;
 
     if (!AR_TYPEOF(argv[0], type_string_))
-        return ErrorFormat(&error_type_error, "str::split() expected string not '%s'", AR_TYPE_NAME(argv[0]));
+        return ErrorFormat(type_type_error_, "str::split() expected string not '%s'", AR_TYPE_NAME(argv[0]));
 
     if (!AR_TYPEOF(argv[1], type_integer_))
-        return ErrorFormat(&error_type_error, "str::split() expected integer not '%s'", AR_TYPE_NAME(argv[1]));
+        return ErrorFormat(type_type_error_, "str::split() expected integer not '%s'", AR_TYPE_NAME(argv[1]));
 
     msplit = ((Integer *) argv[1])->integer;
 
@@ -504,7 +504,7 @@ ARGON_METHOD5(str_, startswith,
     ArSSize n;
 
     if (!AR_TYPEOF(argv[0], type_string_))
-        return ErrorFormat(&error_type_error, "str::startswith() expected string not '%s'", AR_TYPE_NAME(argv[0]));
+        return ErrorFormat(type_type_error_, "str::startswith() expected string not '%s'", AR_TYPE_NAME(argv[0]));
 
     n = str->len - pattern->len;
     if (n >= 0 && MemoryCompare(str->buffer, pattern->buffer, pattern->len) == 0)
@@ -551,7 +551,7 @@ const ObjectSlots str_obj = {
         nullptr
 };
 
-ArObject *string_ctor(ArObject **args, ArSize count) {
+ArObject *string_ctor(const TypeInfo *type, ArObject **args, ArSize count) {
     if (!VariadicCheckPositional("str", count, 0, 1))
         return nullptr;
 
@@ -640,6 +640,7 @@ const TypeInfo argon::object::type_string_ = {
         "string",
         nullptr,
         sizeof(String),
+        TypeInfoFlags::BASE,
         string_ctor,
         (VoidUnaryOp) string_cleanup,
         nullptr,
@@ -655,7 +656,9 @@ const TypeInfo argon::object::type_string_ = {
         nullptr,
         &str_obj,
         &string_sequence,
-        &string_ops
+        &string_ops,
+        nullptr,
+        nullptr
 };
 
 String *argon::object::StringNew(const char *string, size_t len) {
@@ -683,23 +686,33 @@ String *argon::object::StringNewBufferOwnership(unsigned char *buffer, size_t le
     return str;
 }
 
-String *argon::object::StringNewFormat(const char *string, ...) {
+String *argon::object::StringNewFormat(const char *string, va_list vargs) {
+    va_list vargs2;
     String *str;
-
     int sz;
-    va_list args;
 
-    va_start (args, string);
-    sz = vsnprintf(nullptr, 0, string, args) + 1; // +1 is for '\0'
-    va_end(args);
+    va_copy(vargs2, vargs);
+    sz = vsnprintf(nullptr, 0, string, vargs2) + 1; // +1 is for '\0'
+    va_end(vargs2);
 
     if ((str = StringInit(sz - 1, true)) == nullptr)
         return nullptr;
 
     str->cp_len = sz - 1;
 
-    va_start(args, string);
-    vsnprintf((char *) str->buffer, sz, string, args);
+    va_copy(vargs2, vargs);
+    vsnprintf((char *) str->buffer, sz, string, vargs2);
+    va_end(vargs2);
+
+    return str;
+}
+
+String *argon::object::StringNewFormat(const char *string, ...) {
+    va_list args;
+    String *str;
+
+    va_start (args, string);
+    str = StringNewFormat(string, args);
     va_end(args);
 
     return str;
@@ -744,7 +757,7 @@ bool argon::object::StringBuilderResize(StringBuilder *sb, size_t len) {
         return true;
     }
 
-    argon::vm::Panic(OutOfMemoryError);
+    argon::vm::Panic(error_out_of_memory);
     return false;
 }
 
@@ -887,7 +900,7 @@ ArObject *FmtGetNextArg(StringFormatter *fmt) {
         return fmt->args;
 
     not_enough:
-    return ErrorFormat(&error_type_error, "not enough arguments for format string");
+    return ErrorFormat(type_type_error_, "not enough arguments for format string");
 }
 
 int FmtGetNextSpecifier(StringFormatter *fmt) {
@@ -898,7 +911,7 @@ int FmtGetNextSpecifier(StringFormatter *fmt) {
         if (buf[idx++] == '%') {
 
             if ((fmt->fmt.idx + idx) == fmt->fmt.len) {
-                ErrorFormat(&error_value_error, "incomplete format specifier");
+                ErrorFormat(type_value_error_, "incomplete format specifier");
                 return -1;
             }
 
@@ -925,7 +938,7 @@ bool FmtParseOptionStar(StringFormatter *fmt, StringArg *arg, bool prec) {
     int opt;
 
     if (num == nullptr || num->type != &type_integer_) {
-        ErrorFormat(&error_type_error, "* wants integer not '%s'", num->type->name);
+        ErrorFormat(type_type_error_, "* wants integer not '%s'", num->type->name);
         return false;
     }
 
@@ -1130,7 +1143,7 @@ int FmtDecimal(StringFormatter *fmt, StringArg *arg, char specifier) {
     else if (obj->type == &type_integer_)
         num = ((Integer *) obj)->integer;
     else {
-        ErrorFormat(&error_type_error, "%c requires real number not '%s'", fmt->fmt.buf[fmt->fmt.idx],
+        ErrorFormat(type_type_error_, "%c requires real number not '%s'", fmt->fmt.buf[fmt->fmt.idx],
                     obj->type->name);
         return -1;
     }
@@ -1229,7 +1242,7 @@ int FmtInteger(StringFormatter *fmt, StringArg *arg, int base, bool upper) {
         return -1;
 
     if (obj->type != &type_integer_) {
-        ErrorFormat(&error_type_error, "%c requires integer not '%s'", fmt->fmt.buf[fmt->fmt.idx], obj->type->name);
+        ErrorFormat(type_type_error_, "%c requires integer not '%s'", fmt->fmt.buf[fmt->fmt.idx], obj->type->name);
         return -1;
     }
 
@@ -1275,20 +1288,20 @@ int FmtChar(StringFormatter *fmt, StringArg *arg) {
     if (obj->type == &type_string_) {
         auto str = (String *) obj;
         if (str->cp_len > 1) {
-            ErrorFormat(&error_type_error, "%c requires a single char not string");
+            ErrorFormat(type_type_error_, "%c requires a single char not string");
             return -1;
         }
         return FmtWrite(fmt, arg, str->buffer, str->len);
     } else if (obj->type == &type_integer_) {
         if ((len = StringIntToUTF8(((Integer *) obj)->integer, sequence)) == 0) {
-            ErrorFormat(&error_overflow_error, "%c arg not in range(0x110000)");
+            ErrorFormat(type_overflow_error_, "%c arg not in range(0x110000)");
             return -1;
         }
 
         return FmtWrite(fmt, arg, sequence, len);
     }
 
-    ErrorFormat(&error_type_error, "%%c requires integer or char not '%s'", obj->type->name);
+    ErrorFormat(type_type_error_, "%%c requires integer or char not '%s'", obj->type->name);
     return -1;
 }
 
@@ -1357,7 +1370,7 @@ bool FmtFormatArg(StringFormatter *fmt, StringArg *arg) {
             result = FmtChar(fmt, arg);
             break;
         default:
-            ErrorFormat(&error_value_error, "unsupported format character '%c' (0x%x)",
+            ErrorFormat(type_value_error_, "unsupported format character '%c' (0x%x)",
                         (31 <= op && op <= 126 ? '?' : op), op);
     }
 
@@ -1389,7 +1402,7 @@ String *FmtFormatArgs(StringFormatter *fmt) {
         goto error;
 
     if (fmt->nspec < fmt->args_len) {
-        ErrorFormat(&error_type_error, "not all arguments converted during string formatting");
+        ErrorFormat(type_type_error_, "not all arguments converted during string formatting");
         goto error;
     }
 

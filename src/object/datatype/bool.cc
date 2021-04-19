@@ -26,7 +26,7 @@ NumberSlots bool_nslots = {
         (ArSizeUnaryOp) bool_as_index
 };
 
-ArObject *bool_ctor(ArObject **args, ArSize count) {
+ArObject *bool_ctor(const TypeInfo *type, ArObject **args, ArSize count) {
     if (!VariadicCheckPositional("bool", count, 0, 1))
         return nullptr;
 
@@ -70,6 +70,7 @@ const TypeInfo argon::object::type_bool_ = {
         "bool",
         nullptr,
         sizeof(Bool),
+        TypeInfoFlags::BASE,
         bool_ctor,
         nullptr,
         nullptr,
@@ -83,6 +84,8 @@ const TypeInfo argon::object::type_bool_ = {
         nullptr,
         nullptr,
         &bool_nslots,
+        nullptr,
+        nullptr,
         nullptr,
         nullptr,
         nullptr

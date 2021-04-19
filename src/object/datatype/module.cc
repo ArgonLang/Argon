@@ -16,17 +16,17 @@ ArObject *module_get_static_attr(Module *self, ArObject *key) {
     ArObject *obj;
 
     if (!AR_TYPEOF(key, type_string_)) {
-        ErrorFormat(&error_type_error, "expected property name, found '%s'", AR_TYPE_NAME(key));
+        ErrorFormat(type_type_error_, "expected property name, found '%s'", AR_TYPE_NAME(key));
         return nullptr;
     }
 
     if ((obj = NamespaceGetValue(self->module_ns, key, &info)) == nullptr) {
-        ErrorFormat(&error_attribute_error, "unknown attribute '%s' of module '%s'", skey->buffer, self->name->buffer);
+        ErrorFormat(type_attribute_error_, "unknown attribute '%s' of module '%s'", skey->buffer, self->name->buffer);
         return nullptr;
     }
 
     if (!info.IsPublic()) {
-        ErrorFormat(&error_access_violation, "access violation, member '%s' of module '%s' are private", skey->buffer,
+        ErrorFormat(type_access_violation_, "access violation, member '%s' of module '%s' are private", skey->buffer,
                     self->name->buffer);
         Release(obj);
         return nullptr;
@@ -41,23 +41,23 @@ bool module_set_static_attr(Module *self, ArObject *key, ArObject *value) {
     PropertyInfo pinfo{};
 
     if (!AR_TYPEOF(key, type_string_)) {
-        ErrorFormat(&error_type_error, "expected property name, found '%s'", AR_TYPE_NAME(key));
+        ErrorFormat(type_type_error_, "expected property name, found '%s'", AR_TYPE_NAME(key));
         return false;
     }
 
     if (!NamespaceContains(self->module_ns, key, &pinfo)) {
-        ErrorFormat(&error_attribute_error, "unknown attribute '%s' of module '%s'", skey->buffer, self->name->buffer);
+        ErrorFormat(type_attribute_error_, "unknown attribute '%s' of module '%s'", skey->buffer, self->name->buffer);
         return false;
     }
 
     if (!pinfo.IsPublic()) {
-        ErrorFormat(&error_access_violation, "access violation, member '%s' of module '%s' are private", skey->buffer,
+        ErrorFormat(type_access_violation_, "access violation, member '%s' of module '%s' are private", skey->buffer,
                     self->name->buffer);
         return false;
     }
 
     if (pinfo.IsConstant()) {
-        ErrorFormat(&error_unassignable_variable, "unable to assign value to constant '%s::%s'", self->name->buffer,
+        ErrorFormat(type_unassignable_error_, "unable to assign value to constant '%s::%s'", self->name->buffer,
                     skey->buffer);
         return false;
     }
@@ -109,6 +109,7 @@ const TypeInfo argon::object::type_module_ = {
         "module",
         nullptr,
         sizeof(Module),
+        TypeInfoFlags::BASE,
         nullptr,
         (VoidUnaryOp) module_cleanup,
         (Trace) module_trace,
@@ -123,6 +124,8 @@ const TypeInfo argon::object::type_module_ = {
         nullptr,
         nullptr,
         &module_oslots,
+        nullptr,
+        nullptr,
         nullptr,
         nullptr
 };

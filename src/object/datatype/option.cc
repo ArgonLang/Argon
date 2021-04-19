@@ -20,7 +20,7 @@ ARGON_METHOD5(option_, get,
     auto *opt = (Option *) self;
 
     if (opt->some == nullptr)
-        return ErrorFormat(&error_value_error, "Option::get() on a empty value");
+        return ErrorFormat(type_value_error_, "Option::get() on a empty value");
 
     return IncRef(opt->some);
 }
@@ -53,7 +53,7 @@ const ObjectSlots option_obj = {
         nullptr
 };
 
-ArObject *option_ctor(ArObject **args, ArSize count) {
+ArObject *option_ctor(const TypeInfo *type, ArObject **args, ArSize count) {
     if (!VariadicCheckPositional("option", count, 0, 1))
         return nullptr;
 
@@ -95,6 +95,7 @@ const TypeInfo argon::object::type_option_ = {
         "option",
         nullptr,
         sizeof(Option),
+        TypeInfoFlags::BASE,
         option_ctor,
         (VoidUnaryOp) option_cleanup,
         nullptr,
@@ -109,6 +110,7 @@ const TypeInfo argon::object::type_option_ = {
         nullptr,
         nullptr,
         &option_obj,
+        nullptr,
         nullptr,
         nullptr,
         nullptr

@@ -109,7 +109,7 @@ ArObject *argon::module::RuntimeGetProperty(const char *key, const TypeInfo *inf
     Release(str);
 
     if (info != nullptr && ret->type != info) {
-        ErrorFormat(&error_type_error, "expected '%s' found '%s'", info->name, ret->type->name);
+        ErrorFormat(type_type_error_, "expected '%s' found '%s'", info->name, ret->type->name);
         Release(ret);
         return nullptr;
     }

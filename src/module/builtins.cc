@@ -12,7 +12,6 @@
 #include <object/datatype/decimal.h>
 #include <object/datatype/error.h>
 #include <object/datatype/function.h>
-#include <object/datatype/instance.h>
 #include <object/datatype/integer.h>
 #include <object/datatype/list.h>
 #include <object/datatype/map.h>
@@ -22,8 +21,6 @@
 #include <object/datatype/option.h>
 #include <object/datatype/set.h>
 #include <object/datatype/string.h>
-#include <object/datatype/struct.h>
-#include <object/datatype/trait.h>
 #include <object/datatype/tuple.h>
 
 #include "io/io.h"
@@ -120,7 +117,7 @@ ARGON_FUNCTION(len,
     else if (AsMap(argv[0]))
         length = argv[0]->type->map_actions->length(argv[0]);
     else
-        return ErrorFormat(&error_type_error, "type '%s' has no len", argv[0]->type->name);
+        return ErrorFormat(type_type_error_, "type '%s' has no len", argv[0]->type->name);
 
     return IntegerNew(length);
 }
@@ -137,7 +134,7 @@ ARGON_FUNCTION(next,
     ArObject *ret = IteratorNext(*argv);
 
     if (ret == nullptr)
-        return ErrorFormat(&error_exhausted_iterator, "reached the end of the collection");
+        return ErrorFormat(type_exhausted_iterator_, "reached the end of the collection");
 
     return ret;
 }
@@ -156,12 +153,12 @@ ARGON_FUNCTION(new,
     auto *info = (TypeInfo *) argv[0];
 
     if (!AR_TYPEOF(argv[0], type_type_))
-        return ErrorFormat(&error_type_error, "expected datatype, found '%s'", AR_TYPE_NAME(argv[0]));
+        return ErrorFormat(type_type_error_, "expected datatype, found '%s'", AR_TYPE_NAME(argv[0]));
 
     if (info->ctor == nullptr)
-        return ErrorFormat(&error_not_implemented, "type '%s' has no constructor", info->name);
+        return ErrorFormat(type_not_implemented_, "type '%s' has no constructor", info->name);
 
-    return info->ctor(argv + 1, count - 1);
+    return info->ctor(info, argv + 1, count - 1);
 }
 
 ARGON_FUNCTION(panic,
@@ -289,7 +286,6 @@ const PropertyBulk builtins_bulk[] = {
         MODULE_BULK_EXPORT_TYPE("code", type_code_),
         MODULE_BULK_EXPORT_TYPE("decimal", type_decimal_),
         MODULE_BULK_EXPORT_TYPE("func", type_function_),
-        MODULE_BULK_EXPORT_TYPE("instance", type_instance_),
         MODULE_BULK_EXPORT_TYPE("integer", type_integer_),
         MODULE_BULK_EXPORT_TYPE("list", type_list_),
         MODULE_BULK_EXPORT_TYPE("map", type_map_),
@@ -299,8 +295,6 @@ const PropertyBulk builtins_bulk[] = {
         MODULE_BULK_EXPORT_TYPE("option", type_option_),
         MODULE_BULK_EXPORT_TYPE("set", type_set_),
         MODULE_BULK_EXPORT_TYPE("str", type_string_),
-        MODULE_BULK_EXPORT_TYPE("struct", type_struct_),
-        MODULE_BULK_EXPORT_TYPE("trait", type_trait_),
         MODULE_BULK_EXPORT_TYPE("tuple", type_tuple_),
 
         // Functions
@@ -327,5 +321,14 @@ const ModuleInit module_builtins = {
 };
 
 Module *argon::module::BuiltinsNew() {
-    return ModuleNew(&module_builtins);
+    Module *module = ModuleNew(&module_builtins);
+
+    if (module != nullptr) {
+        if (!NamespaceMerge(module->module_ns, (Namespace *) error_types)) {
+            Release(module);
+            return nullptr;
+        }
+    }
+
+    return module;
 }
