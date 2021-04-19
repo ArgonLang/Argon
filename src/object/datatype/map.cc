@@ -21,7 +21,7 @@ ArObject *map_iter_next(HMapIterator *iter) {
         return nullptr;
 
     if (iter->used != iter->map->len)
-        return ErrorFormat(&error_runtime_error, "Map changed size during iteration");
+        return ErrorFormat(type_runtime_error_, "Map changed size during iteration");
 
     if ((ret = TupleNew(2)) != nullptr) {
         TupleInsertAt(ret, 0, iter->current->key);
@@ -39,7 +39,7 @@ ArObject *map_iter_peak(HMapIterator *iter) {
         return nullptr;
 
     if (iter->used != iter->map->len)
-        return ErrorFormat(&error_runtime_error, "Map changed size during iteration");
+        return ErrorFormat(type_runtime_error_, "Map changed size during iteration");
 
     if ((ret = TupleNew(2)) != nullptr) {
         TupleInsertAt(ret, 0, iter->current->key);
@@ -427,7 +427,7 @@ Map *argon::object::MapNewFromIterable(const ArObject *iterable) {
     bool ok;
 
     if (!IsIterable(iterable))
-        return (Map *) ErrorFormat(&error_type_error, "'%s' is not iterable", AR_TYPE_NAME(iterable));
+        return (Map *) ErrorFormat(type_type_error_, "'%s' is not iterable", AR_TYPE_NAME(iterable));
 
     if ((map = MapNew()) == nullptr)
         return nullptr;
@@ -445,7 +445,7 @@ Map *argon::object::MapNewFromIterable(const ArObject *iterable) {
             Release(key);
             Release(iter);
             Release(map);
-            return (Map *) ErrorFormat(&error_value_error, "map update require an iterable object of even length");
+            return (Map *) ErrorFormat(type_value_error_, "map update require an iterable object of even length");
         }
 
         ok = MapInsert(map, key, value);

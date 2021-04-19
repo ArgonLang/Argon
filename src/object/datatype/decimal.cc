@@ -36,9 +36,9 @@ ArObject *decimal_as_integer(Decimal *self) {
     unsigned long exp;
 
     if (std::isinf(self->decimal))
-        return ErrorFormat(&error_overflow_error, "cannot convert infinity to integer");
+        return ErrorFormat(type_overflow_error_, "cannot convert infinity to integer");
     if (std::isnan(self->decimal))
-        return ErrorFormat(&error_overflow_error, "cannot convert NaN to integer");
+        return ErrorFormat(type_overflow_error_, "cannot convert NaN to integer");
 
     num = DecimalModf(self->decimal, &exp, 0);
 
@@ -307,7 +307,7 @@ ArObject *decimal_ctor(ArObject **args, ArSize count) {
         else if (AR_TYPEOF(*args, type_string_))
             dec = std::stold((char *) ((String *) *args)->buffer, &idx);
         else
-            return ErrorFormat(&error_not_implemented, "no viable conversion from '%s' to '%s'",
+            return ErrorFormat(type_not_implemented_, "no viable conversion from '%s' to '%s'",
                                AR_TYPE_NAME(*args), type_decimal_.name);
     }
 
@@ -363,7 +363,7 @@ bool argon::object::DecimalCanConvertFromInt(IntegerUnderlying integer, DecimalU
 
     ipart = frexp(integer, &exp);
     if (exp > DBL_MAX_EXP) {
-        ErrorFormat(&error_overflow_error, "integer too large to convert to decimal");
+        ErrorFormat(type_overflow_error_, "integer too large to convert to decimal");
         return false;
     }
 

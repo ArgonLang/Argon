@@ -20,7 +20,7 @@ ARGON_METHOD5(option_, get,
     auto *opt = (Option *) self;
 
     if (opt->some == nullptr)
-        return ErrorFormat(&error_value_error, "Option::get() on a empty value");
+        return ErrorFormat(type_value_error_, "Option::get() on a empty value");
 
     return IncRef(opt->some);
 }

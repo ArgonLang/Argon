@@ -113,12 +113,12 @@ ArObject *Subscript(ArObject *obj, ArObject *idx, ArObject *set) {
                     return False;
             }
         } else {
-            ErrorFormat(&error_type_error, "sequence index must be integer or bounds not '%s'",
+            ErrorFormat(type_type_error_, "sequence index must be integer or bounds not '%s'",
                         idx->type->name);
             return nullptr;
         }
     } else {
-        ErrorFormat(&error_type_error, "'%s' not subscriptable", obj->type->name);
+        ErrorFormat(type_type_error_, "'%s' not subscriptable", obj->type->name);
         return nullptr;
     }
 
@@ -202,7 +202,7 @@ bool PrepareCall(CallHelper *helper, Frame *frame) {
         return true;
     }
 
-    ErrorFormat(&error_type_error, "'%s' object is not callable", AR_TYPE_NAME(helper->func));
+    ErrorFormat(type_type_error_, "'%s' object is not callable", AR_TYPE_NAME(helper->func));
     return false;
 }
 
@@ -220,7 +220,7 @@ ArObject *MkCurrying(CallHelper *helper) {
     ArObject *ret;
 
     if (helper->func->arity > 0 && helper->total_args == 0) {
-        ErrorFormat(&error_type_error, "%s() takes %d argument, but 0 were given",
+        ErrorFormat(type_type_error_, "%s() takes %d argument, but 0 were given",
                     helper->func->name->buffer, helper->func->arity);
         ClearCall(helper);
         return nullptr;
@@ -249,7 +249,7 @@ bool CheckVariadic(CallHelper *helper) {
 
     if (helper->total_args > helper->func->arity) {
         if (!helper->func->IsVariadic()) {
-            ErrorFormat(&error_type_error, "%s() takes %d argument, but %d were given",
+            ErrorFormat(type_type_error_, "%s() takes %d argument, but %d were given",
                         helper->func->name->buffer, helper->func->arity, helper->total_args);
             ClearCall(helper);
             return false;
@@ -358,7 +358,7 @@ ArObject *argon::vm::Eval(ArRoutine *routine) {
 #define BINARY_OP(routine, op, opchar)                                                          \
     if ((ret = Binary(routine, PEEK1(), TOP(), offsetof(OpSlots, op))) == nullptr) {            \
         if (!RoutineIsPanicking(routine)) {                                                     \
-            ErrorFormat(&error_type_error, "unsupported operand type '%s' for: '%s' and '%s'",  \
+            ErrorFormat(type_type_error_, "unsupported operand type '%s' for: '%s' and '%s'",  \
             #opchar, PEEK1()->type->name, TOP()->type->name);                                   \
         }                                                                                       \
         goto error;                                                                             \
@@ -452,7 +452,7 @@ ArObject *argon::vm::Eval(ArRoutine *routine) {
                     goto error;
 
                 if (IsPartialApplication(&helper)) {
-                    ErrorFormat(&error_type_error, "%s() takes %d argument, but %d were given",
+                    ErrorFormat(type_type_error_, "%s() takes %d argument, but %d were given",
                                 helper.func->name->buffer, helper.func->arity, helper.total_args);
                     ClearCall(&helper);
                     goto error;
@@ -526,7 +526,7 @@ ArObject *argon::vm::Eval(ArRoutine *routine) {
                 auto t_struct = (TypeInfo *) *(cu_frame->eval_stack - args - 1);
 
                 if (t_struct->flags != TypeInfoFlags::STRUCT) {
-                    ErrorFormat(&error_type_error, "expected struct, found '%s'", t_struct->type->name);
+                    ErrorFormat(type_type_error_, "expected struct, found '%s'", t_struct->type->name);
                     goto error;
                 }
 
@@ -641,7 +641,7 @@ ArObject *argon::vm::Eval(ArRoutine *routine) {
                 Release(key);
 
                 if (ret == nullptr) {
-                    ErrorFormat(&error_undeclared_variable, "'%s' undeclared global variable",
+                    ErrorFormat(type_undeclared_error_, "'%s' undeclared global variable",
                                 ((String *) key)->buffer);
                     goto error;
                 }
@@ -967,13 +967,13 @@ ArObject *argon::vm::Eval(ArRoutine *routine) {
                 ret = TupleGetItem(cu_code->names, ARG16);
 
                 if (!NamespaceContains(map, ret, &pinfo)) {
-                    ErrorFormat(&error_undeclared_variable, "'%s' undeclared global variable in assignment",
+                    ErrorFormat(type_undeclared_error_, "'%s' undeclared global variable in assignment",
                                 ((String *) ret)->buffer);
                     goto error;
                 }
 
                 if (pinfo.IsConstant()) {
-                    ErrorFormat(&error_unassignable_variable, "unable to assign value to '%s' because is constant",
+                    ErrorFormat(type_unassignable_error_, "unable to assign value to '%s' because is constant",
                                 ((String *) ret)->buffer);
                     goto error;
                 }
@@ -1036,14 +1036,14 @@ ArObject *argon::vm::Eval(ArRoutine *routine) {
                 ret = TOP();
 
                 if (!AsSequence(ret)) {
-                    ErrorFormat(&error_type_error, "unpacking expression was expecting a sequence not a '%s'",
+                    ErrorFormat(type_type_error_, "unpacking expression was expecting a sequence not a '%s'",
                                 ret->type->name);
                     goto error;
                 }
 
                 size_t s_len = ret->type->sequence_actions->length(ret);
                 if (s_len != len) {
-                    ErrorFormat(&error_value_error, "incompatible number of value to unpack (expected '%d' got '%d')",
+                    ErrorFormat(type_value_error_, "incompatible number of value to unpack (expected '%d' got '%d')",
                                 len, s_len);
                     goto error;
                 }
@@ -1057,7 +1057,7 @@ ArObject *argon::vm::Eval(ArRoutine *routine) {
                 DISPATCH4();
             }
             default:
-                ErrorFormat(&error_runtime_error, "unknown opcode: 0x%X", (unsigned char) (*cu_frame->instr_ptr));
+                ErrorFormat(type_runtime_error_, "unknown opcode: 0x%X", (unsigned char) (*cu_frame->instr_ptr));
         }
         error:
         STACK_REWIND(cu_frame->eval_stack - cu_frame->stack_extra_base);

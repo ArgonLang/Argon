@@ -27,7 +27,7 @@ ArObject *argon::object::ListGetItem(List *self, ArSSize index) {
     if (index < self->len)
         return IncRef(self->objects[index]);
 
-    return ErrorFormat(&error_overflow_error, "list index out of range (len: %d, idx: %d)", self->len, index);
+    return ErrorFormat(type_overflow_error_, "list index out of range (len: %d, idx: %d)", self->len, index);
 }
 
 bool argon::object::ListSetItem(List *self, ArObject *obj, ArSSize index) {
@@ -40,7 +40,7 @@ bool argon::object::ListSetItem(List *self, ArObject *obj, ArSSize index) {
         return true;
     }
 
-    ErrorFormat(&error_overflow_error, "list index out of range (len: %d, idx: %d)", self->len, index);
+    ErrorFormat(type_overflow_error_, "list index out of range (len: %d, idx: %d)", self->len, index);
     return false;
 }
 
@@ -324,7 +324,7 @@ ARGON_METHOD5(list_, insert,
     ArSize idx;
 
     if (!AsNumber(argv[0]) || AR_NUMBER_SLOT(argv[0])->as_index == nullptr)
-        return ErrorFormat(&error_type_error, "'%s' cannot be interpreted as an integer", AR_TYPE_NAME(argv[0]));
+        return ErrorFormat(type_type_error_, "'%s' cannot be interpreted as an integer", AR_TYPE_NAME(argv[0]));
 
     idx = idx = AR_NUMBER_SLOT(argv[0])->as_index(argv[0]);
 
@@ -611,7 +611,7 @@ List *argon::object::ListNew(const ArObject *sequence) {
         return list;
     }
 
-    return (List *) ErrorFormat(&error_not_implemented, "no viable conversion from '%s' to list",
+    return (List *) ErrorFormat(type_not_implemented_, "no viable conversion from '%s' to list",
                                 AR_TYPE_NAME(sequence));
 }
 

@@ -23,7 +23,7 @@ ArObject *type_get_static_attr(TypeInfo *self, ArObject *key) {
     TypeInfo *type;
 
     if (self->tp_map == nullptr && self->mro == nullptr)
-        return ErrorFormat(&error_attribute_error, "type '%s' has no attributes", self->name);
+        return ErrorFormat(type_attribute_error_, "type '%s' has no attributes", self->name);
 
     if (argon::vm::GetRoutine()->frame != nullptr)
         instance = argon::vm::GetRoutine()->frame->instance;
@@ -42,12 +42,12 @@ ArObject *type_get_static_attr(TypeInfo *self, ArObject *key) {
         }
 
         if (obj == nullptr)
-            return ErrorFormat(&error_attribute_error, "unknown attribute '%s' of object '%s'",
+            return ErrorFormat(type_attribute_error_, "unknown attribute '%s' of object '%s'",
                                ((String *) key)->buffer, self->name);
     }
 
     if (!pinfo.IsConstant()) {
-        ErrorFormat(&error_access_violation,
+        ErrorFormat(type_access_violation_,
                     "in order to access to non const member '%s' an instance of '%s' is required",
                     ((String *) key)->buffer, self->name);
         Release(obj);
@@ -55,7 +55,7 @@ ArObject *type_get_static_attr(TypeInfo *self, ArObject *key) {
     }
 
     if (!pinfo.IsPublic() && !TraitIsImplemented(instance, self)) {
-        ErrorFormat(&error_access_violation, "access violation, member '%s' of '%s' are private",
+        ErrorFormat(type_access_violation_, "access violation, member '%s' of '%s' are private",
                     ((String *) key)->buffer, self->name);
         Release(obj);
         return nullptr;
@@ -331,21 +331,21 @@ ArObject *argon::object::InstanceGetMethod(const ArObject *instance, const ArObj
 
 ArObject *argon::object::IteratorGet(const ArObject *obj) {
     if (!IsIterable(obj))
-        return ErrorFormat(&error_type_error, "'%s' is not iterable", AR_TYPE_NAME(obj));
+        return ErrorFormat(type_type_error_, "'%s' is not iterable", AR_TYPE_NAME(obj));
 
     return AR_GET_TYPE(obj)->iter_get((ArObject *) obj);
 }
 
 ArObject *argon::object::IteratorGetReversed(const ArObject *obj) {
     if (!IsIterableReversed(obj))
-        return ErrorFormat(&error_type_error, "'%s' is not reverse iterable", AR_TYPE_NAME(obj));
+        return ErrorFormat(type_type_error_, "'%s' is not reverse iterable", AR_TYPE_NAME(obj));
 
     return AR_GET_TYPE(obj)->iter_rget((ArObject *) obj);
 }
 
 ArObject *argon::object::IteratorNext(ArObject *iterator) {
     if (!IsIterator(iterator))
-        return ErrorFormat(&error_type_error, "expected an iterator not '%s'", AR_TYPE_NAME(iterator));
+        return ErrorFormat(type_type_error_, "expected an iterator not '%s'", AR_TYPE_NAME(iterator));
 
     return AR_ITERATOR_SLOT(iterator)->next(iterator);
 }
@@ -363,13 +363,13 @@ ArObject *argon::object::PropertyGet(const ArObject *obj, const ArObject *key, b
     }
 
     if (!AR_IS_TYPE_INSTANCE(obj) && instance)
-        return ErrorFormat(&error_type_error, "object is not an instance of type '%s'", type->name);
+        return ErrorFormat(type_type_error_, "object is not an instance of type '%s'", type->name);
 
     if (type->tp_map == nullptr)
-        return ErrorFormat(&error_attribute_error, "type '%s' has no attributes", type->name);
+        return ErrorFormat(type_attribute_error_, "type '%s' has no attributes", type->name);
 
     if ((ret = NamespaceGetValue((Namespace *) type->tp_map, (ArObject *) key, nullptr)) == nullptr)
-        return ErrorFormat(&error_attribute_error, "unknown attribute '%s' for type '%s'",
+        return ErrorFormat(type_attribute_error_, "unknown attribute '%s' for type '%s'",
                            ((String *) key)->buffer, type->name);
 
     return ret;
@@ -398,7 +398,7 @@ ArObject *argon::object::RichCompare(const ArObject *obj, const ArObject *other,
         if (mode == CompareMode::EQ)
             return IncRef(False);
 
-        return ErrorFormat(&error_not_implemented, "operator '%s' not supported between instance of '%s' and '%s'",
+        return ErrorFormat(type_not_implemented_, "operator '%s' not supported between instance of '%s' and '%s'",
                            str_mode[(int) mode], AR_TYPE_NAME(obj), AR_TYPE_NAME(other));
     }
 
@@ -415,14 +415,14 @@ ArObject *argon::object::ToString(ArObject *obj) {
     if (AR_GET_TYPE(obj)->str != nullptr)
         return AR_GET_TYPE(obj)->str(obj);
 
-    return ErrorFormat(&error_runtime_error, "unimplemented slot 'str' for object '%s'", AR_TYPE_NAME(obj));
+    return ErrorFormat(type_runtime_error_, "unimplemented slot 'str' for object '%s'", AR_TYPE_NAME(obj));
 }
 
 ArObject *argon::object::TypeNew(const TypeInfo *meta, const char *name, ArObject *ns, TypeInfo **bases, ArSize count) {
     TypeInfo *type;
 
     if (ns != nullptr && !AR_TYPEOF(ns, type_namespace_))
-        return ErrorFormat(&error_type_error, "TypeNew expected Namespace at third parameter, not '%s'",
+        return ErrorFormat(type_type_error_, "TypeNew expected Namespace at third parameter, not '%s'",
                            AR_TYPE_NAME(ns));
 
     if ((type = (TypeInfo *) GCNew(sizeof(TypeInfo))) == nullptr) {
@@ -464,13 +464,13 @@ ArSSize argon::object::Length(const ArObject *obj) {
     else if (AsMap(obj) && AR_GET_TYPE(obj)->map_actions->length != nullptr)
         return AR_GET_TYPE(obj)->map_actions->length((ArObject *) obj);
 
-    ErrorFormat(&error_type_error, "'%s' has no len", AR_TYPE_NAME(obj));
+    ErrorFormat(type_type_error_, "'%s' has no len", AR_TYPE_NAME(obj));
     return -1;
 }
 
 bool argon::object::BufferGet(ArObject *obj, ArBuffer *buffer, ArBufferFlags flags) {
     if (!IsBufferable(obj)) {
-        ErrorFormat(&error_type_error, "bytes-like object is required, not '%s'", obj->type->name);
+        ErrorFormat(type_type_error_, "bytes-like object is required, not '%s'", obj->type->name);
         return false;
     }
 
@@ -480,12 +480,12 @@ bool argon::object::BufferGet(ArObject *obj, ArBuffer *buffer, ArBufferFlags fla
 bool argon::object::BufferSimpleFill(ArObject *obj, ArBuffer *buffer, ArBufferFlags flags, unsigned char *raw,
                                      size_t len, bool writable) {
     if (buffer == nullptr) {
-        ErrorFormat(&error_buffer_error, "bad call to BufferSimpleFill, buffer == nullptr");
+        ErrorFormat(type_buffer_error_, "bad call to BufferSimpleFill, buffer == nullptr");
         return false;
     }
 
     if (ENUMBITMASK_ISTRUE(flags, ArBufferFlags::WRITE) && !writable) {
-        ErrorFormat(&error_buffer_error, "buffer of object '%s' is not writable", obj->type->name);
+        ErrorFormat(type_buffer_error_, "buffer of object '%s' is not writable", obj->type->name);
         return false;
     }
 
@@ -516,7 +516,7 @@ bool argon::object::IsNull(const ArObject *obj) {
 bool argon::object::PropertySet(ArObject *obj, ArObject *key, ArObject *value, bool member) {
     if (member) {
         if (AR_OBJECT_SLOT(obj) == nullptr || AR_OBJECT_SLOT(obj)->set_attr == nullptr) {
-            ErrorFormat(&error_attribute_error, "'%s' object is unable to use attribute(.) operator",
+            ErrorFormat(type_attribute_error_, "'%s' object is unable to use attribute(.) operator",
                         AR_TYPE_NAME(obj));
             return false;
         }
@@ -525,7 +525,7 @@ bool argon::object::PropertySet(ArObject *obj, ArObject *key, ArObject *value, b
     }
 
     if (AR_OBJECT_SLOT(obj) == nullptr || AR_OBJECT_SLOT(obj)->set_static_attr == nullptr) {
-        ErrorFormat(&error_scope_error, "'%s' object is unable to use scope(::) operator", AR_TYPE_NAME(obj));
+        ErrorFormat(type_scope_error_, "'%s' object is unable to use scope(::) operator", AR_TYPE_NAME(obj));
         return false;
     }
 
@@ -592,11 +592,11 @@ bool argon::object::TypeInit(TypeInfo *info, ArObject *ns) {
 
 bool argon::object::VariadicCheckPositional(const char *name, int nargs, int min, int max) {
     if (nargs < min) {
-        ErrorFormat(&error_type_error, "%s expected %s%d argument%s, got %d", name, (min == max ? "" : "at least "),
+        ErrorFormat(type_type_error_, "%s expected %s%d argument%s, got %d", name, (min == max ? "" : "at least "),
                     min, min == 1 ? "" : "s", nargs);
         return false;
     } else if (nargs > max) {
-        ErrorFormat(&error_type_error, "%s expected %s%d argument%s, got %d", name, (min == max ? "" : "at most "),
+        ErrorFormat(type_type_error_, "%s expected %s%d argument%s, got %d", name, (min == max ? "" : "at most "),
                     max, max == 1 ? "" : "s", nargs);
         return false;
     }

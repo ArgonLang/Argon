@@ -167,7 +167,7 @@ ArObject *integer_ctor(ArObject **args, ArSize count) {
         else if (AR_TYPEOF(*args, type_string_))
             num = std::strtol((char *) ((String *) args[0])->buffer, nullptr, base);
         else
-            return ErrorFormat(&error_not_implemented, "no viable conversion from '%s' to '%s'",
+            return ErrorFormat(type_not_implemented_, "no viable conversion from '%s' to '%s'",
                                AR_TYPE_NAME(*args), type_integer_.name);
     }
 
@@ -227,10 +227,10 @@ Integer *argon::object::IntegerNew(IntegerUnderlying number) {
     // Overflow check
 #if __WORDSIZE == 32
     if (number > 0x7FFFFFFF)
-        return (Integer *) ErrorFormat(&error_overflow_error, "integer too large to be represented by signed C long");
+        return (Integer *) ErrorFormat(type_overflow_error_, "integer too large to be represented by signed C long");
 #elif __WORDSIZE == 64
     if (number > 0x7FFFFFFFFFFFFFFF)
-        return (Integer *) ErrorFormat(&error_overflow_error, "integer too large to be represented by signed C long");
+        return (Integer *) ErrorFormat(type_overflow_error_, "integer too large to be represented by signed C long");
 #endif
 
     auto integer = ArObjectNew<Integer>(RCType::INLINE, &type_integer_);

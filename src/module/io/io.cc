@@ -70,7 +70,8 @@ ssize_t read_os_wrap(File *file, void *buf, size_t nbytes) {
         return r;
     }
 
-    ErrorFormat(ErrorFromErrno(), "[Errno %d] %s: fileno: %d", errno, strerror(errno), file->fd);
+    //ErrorFormat(ErrorFromErrno(), "[Errno %d] %s: fileno: %d", errno, strerror(errno), file->fd);
+    ErrorSetFromErrno();
 
     return r;
 }
@@ -83,7 +84,8 @@ ssize_t write_os_wrap(File *file, const void *buf, size_t n) {
         return written;
     }
 
-    ErrorFormat(ErrorFromErrno(), "[Errno %d] %s: fileno: %d", errno, strerror(errno), file->fd);
+    //ErrorFormat(ErrorFromErrno(), "[Errno %d] %s: fileno: %d", errno, strerror(errno), file->fd);
+    ErrorSetFromErrno();
 
     return written;
 }
@@ -137,7 +139,8 @@ bool argon::module::io::Seek(File *file, ssize_t offset, FileWhence whence) {
         return true;
     }
 
-    ErrorFormat(ErrorFromErrno(), "[Errno %d] %s: fileno: %d", errno, strerror(errno), file->fd);
+    //ErrorFormat(ErrorFromErrno(), "[Errno %d] %s: fileno: %d", errno, strerror(errno), file->fd);
+    ErrorSetFromErrno();
     return false;
 }
 
@@ -206,8 +209,7 @@ File *argon::module::io::Open(char *path, FileMode mode) {
         omode |= (unsigned int) O_APPEND;
 
     if ((fd = open(path, (int) omode)) < 0) {
-        ErrorFormat(ErrorFromErrno(), "[Errno %d] %s: %s", EACCES, strerror(EACCES), path);
-        return nullptr;
+        return (File *) ErrorSetFromErrno();
     }
 
     if ((file = FdOpen(fd, mode)) == nullptr)
@@ -459,7 +461,8 @@ void argon::module::io::Close(File *file) {
     } while (err != 0 && errno == EINTR);
 
     if (err != 0)
-        ErrorFormat(ErrorFromErrno(), "[Errno %d] %s: fileno: %d", errno, strerror(errno), file->fd);
+        //ErrorFormat(ErrorFromErrno(), "[Errno %d] %s: fileno: %d", errno, strerror(errno), file->fd);
+        ErrorSetFromErrno();
     // EOL
 
     file->fd = -1;

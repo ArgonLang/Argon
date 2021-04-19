@@ -193,7 +193,7 @@ ArObject *argon::vm::Call(ArObject *callable, int argc, ArObject **args) {
     Frame *frame;
 
     if (!AR_TYPEOF(callable, type_function_))
-        return ErrorFormat(&error_type_error, "'%s' object is not callable", AR_TYPE_NAME(func));
+        return ErrorFormat(type_type_error_, "'%s' object is not callable", AR_TYPE_NAME(func));
 
     if (func->IsNative())
         return FunctionCallNative(func, args, argc);

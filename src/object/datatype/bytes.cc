@@ -36,7 +36,7 @@ ArObject *bytes_get_item(Bytes *self, ArSSize index) {
     if (index < self->len)
         return IntegerNew(self->buffer[index]);
 
-    return ErrorFormat(&error_overflow_error, "bytes index out of range (len: %d, idx: %d)", self->len, index);
+    return ErrorFormat(type_overflow_error_, "bytes index out of range (len: %d, idx: %d)", self->len, index);
 }
 
 ArObject *bytes_get_slice(Bytes *self, Bounds *bounds) {

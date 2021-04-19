@@ -12,11 +12,11 @@ using namespace argon::object;
 
 #define CHECK_INTEGER(obj)              \
     if(!AR_TYPEOF(obj, type_integer_))  \
-        return ErrorFormat(&error_type_error, "expected integer, found '%s'", AR_TYPE_NAME(obj))
+        return ErrorFormat(type_type_error_, "expected integer, found '%s'", AR_TYPE_NAME(obj))
 
 #define CHECK_NUMBER(obj)                                                   \
     if(!AR_TYPEOF(obj, type_integer_) && !AR_TYPEOF(obj, type_decimal_))    \
-        return ErrorFormat(&error_type_error, "expected number, found '%s'", AR_TYPE_NAME(obj))
+        return ErrorFormat(type_type_error_, "expected number, found '%s'", AR_TYPE_NAME(obj))
 
 #define CONVERT_DOUBLE(object, dbl)             \
     if(AR_TYPEOF(object, type_decimal_))        \

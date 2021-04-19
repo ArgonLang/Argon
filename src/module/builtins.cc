@@ -117,7 +117,7 @@ ARGON_FUNCTION(len,
     else if (AsMap(argv[0]))
         length = argv[0]->type->map_actions->length(argv[0]);
     else
-        return ErrorFormat(&error_type_error, "type '%s' has no len", argv[0]->type->name);
+        return ErrorFormat(type_type_error_, "type '%s' has no len", argv[0]->type->name);
 
     return IntegerNew(length);
 }
@@ -134,7 +134,7 @@ ARGON_FUNCTION(next,
     ArObject *ret = IteratorNext(*argv);
 
     if (ret == nullptr)
-        return ErrorFormat(&error_exhausted_iterator, "reached the end of the collection");
+        return ErrorFormat(type_exhausted_iterator_, "reached the end of the collection");
 
     return ret;
 }
@@ -153,10 +153,10 @@ ARGON_FUNCTION(new,
     auto *info = (TypeInfo *) argv[0];
 
     if (!AR_TYPEOF(argv[0], type_type_))
-        return ErrorFormat(&error_type_error, "expected datatype, found '%s'", AR_TYPE_NAME(argv[0]));
+        return ErrorFormat(type_type_error_, "expected datatype, found '%s'", AR_TYPE_NAME(argv[0]));
 
     if (info->ctor == nullptr)
-        return ErrorFormat(&error_not_implemented, "type '%s' has no constructor", info->name);
+        return ErrorFormat(type_not_implemented_, "type '%s' has no constructor", info->name);
 
     return info->ctor(argv + 1, count - 1);
 }

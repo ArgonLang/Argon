@@ -97,7 +97,7 @@ Iterator *argon::object::IteratorNew(const TypeInfo *type, ArObject *iterable, b
     Iterator *iter;
 
     if (!AsSequence(iterable))
-        return (Iterator *) ErrorFormat(&error_type_error,
+        return (Iterator *) ErrorFormat(type_type_error_,
                                         "unable to create a generic iterator for '%s' object who not implement SequenceSlots",
                                         AR_TYPE_NAME(iterable));
 

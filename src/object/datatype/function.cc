@@ -187,7 +187,7 @@ ArObject * argon::object::FunctionCallNative(const Function *func, ArObject **ar
         instance = *args;
 
         if (AR_GET_TYPE(instance) != func->base)
-            return ErrorFormat(&error_type_error, "method '%s' for type '%s' doesn't apply to '%s' type",
+            return ErrorFormat(type_type_error_, "method '%s' for type '%s' doesn't apply to '%s' type",
                                func->name->buffer, func->base->name, AR_TYPE_NAME(instance));
 
         args++;

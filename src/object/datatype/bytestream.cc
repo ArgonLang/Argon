@@ -47,20 +47,20 @@ ArObject *bytestream_get_item(ByteStream *self, ArSSize index) {
     if (index < self->len)
         return IntegerNew(self->buffer[index]);
 
-    return ErrorFormat(&error_overflow_error, "bytestream index out of range (len: %d, idx: %d)", self->len, index);
+    return ErrorFormat(type_overflow_error_, "bytestream index out of range (len: %d, idx: %d)", self->len, index);
 }
 
 bool bytestream_set_item(ByteStream *self, ArObject *obj, ArSSize index) {
     ArSize value;
 
     if (!AR_TYPEOF(obj, type_integer_)) {
-        ErrorFormat(&error_type_error, "expected int found '%s'", AR_TYPE_NAME(obj));
+        ErrorFormat(type_type_error_, "expected int found '%s'", AR_TYPE_NAME(obj));
         return false;
     }
 
     value = ((Integer *) obj)->integer;
     if (value < 0 || value > 255) {
-        ErrorFormat(&error_value_error, "byte must be in range(0, 255)");
+        ErrorFormat(type_value_error_, "byte must be in range(0, 255)");
         return false;
     }
 
@@ -72,7 +72,7 @@ bool bytestream_set_item(ByteStream *self, ArObject *obj, ArSSize index) {
         return true;
     }
 
-    ErrorFormat(&error_overflow_error, "bytestream index out of range (len: %d, idx: %d)", self->len, index);
+    ErrorFormat(type_overflow_error_, "bytestream index out of range (len: %d, idx: %d)", self->len, index);
     return false;
 }
 

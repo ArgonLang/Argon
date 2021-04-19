@@ -12,95 +12,46 @@ namespace argon::object {
         ArObject *obj;
     };
 
-    struct ErrorStr : ArObject {
-        const char *msg;
-    };
-
     ArObject *ErrorNew(const TypeInfo *type, ArObject *object);
 
     ArObject *ErrorNewFromErrno();
 
+    ArObject *ErrorSetFromErrno();
+
     ArObject *ErrorTupleFromErrno();
+
+    ArObject *ErrorFormat(const TypeInfo *etype, const char *format, ...);
 
     const TypeInfo *ErrorTypeFromErrno();
 
     bool ErrorInit();
 
-    void __error_str_cleanup(ArObject *obj);
-
-    void __error_error_cleanup(ArObject *obj);
-
-    ArObject *ErrorFormat(const TypeInfo *etype, const char *format, ...);
-
-    ArObject *__error_str(ErrorStr *self);
-
-    const TypeInfo *ErrorFromErrno();
-
-#define ERROR_NEW_TYPE(type_name, name, base, err_str, cleanup, obj_actions) \
-const TypeInfo error_##type_name = {                                \
-        TYPEINFO_STATIC_INIT,                                       \
-        #name,                                                      \
-        nullptr,                                                    \
-        sizeof(base),                                               \
-        TypeInfoFlags::BASE,                                        \
-        nullptr,                                                    \
-        cleanup,                                                    \
-        nullptr,                                                    \
-        nullptr,                                                    \
-        nullptr,                                                    \
-        nullptr,                                                    \
-        (UnaryOp)err_str,                                           \
-        nullptr,                                                    \
-        nullptr,                                                    \
-        nullptr,                                                    \
-        nullptr,                                                    \
-        nullptr,                                                    \
-        obj_actions,                                                \
-        nullptr,                                                    \
-        nullptr,                                                    \
-        nullptr                                                     \
-}
-
-#define ERROR_STR_NEW_TYPE(type_name, name, obj_actions)                        \
-ERROR_NEW_TYPE(type_name, name, ErrorStr,__error_str, __error_str_cleanup, obj_actions)
-
-    // Generic error that can encapsulate any ArObject
-    ERROR_NEW_TYPE(error, error, Error, nullptr, __error_error_cleanup, nullptr);
-
-    // ArithmeticErrors
-    ERROR_STR_NEW_TYPE(zero_division_error, error_zero_division, nullptr);
-
     // Runtime errors
-    ERROR_STR_NEW_TYPE(oo_memory, OutOfMemory, nullptr);
-    ERROR_STR_NEW_TYPE(type_error, TypeError, nullptr);
-    ERROR_STR_NEW_TYPE(value_error, ValueError, nullptr);
-    ERROR_STR_NEW_TYPE(not_implemented, NotImplemented, nullptr);
-    ERROR_STR_NEW_TYPE(unhashable, UnhashableError, nullptr);
-    ERROR_STR_NEW_TYPE(undeclared_variable, UndeclaredVariable, nullptr);
-    ERROR_STR_NEW_TYPE(unassignable_variable, UnassignableVariable, nullptr);
-    ERROR_STR_NEW_TYPE(attribute_error, AttributeError, nullptr);
-    ERROR_STR_NEW_TYPE(scope_error, ScopeError, nullptr);
-    ERROR_STR_NEW_TYPE(access_violation, AccessViolation, nullptr);
-    ERROR_STR_NEW_TYPE(runtime_error, RuntimeError, nullptr);
-    ERROR_STR_NEW_TYPE(module_notfound, ModuleNotFound, nullptr);
-    ERROR_STR_NEW_TYPE(overflow_error, OverflowError, nullptr);
-    ERROR_STR_NEW_TYPE(buffer_error, BufferError, nullptr);
-    ERROR_STR_NEW_TYPE(unicode_index, UnicodeIndexError, nullptr);
-    ERROR_STR_NEW_TYPE(exhausted_iterator, ExhaustedIteratorError, nullptr);
+    extern const TypeInfo *type_access_violation_;
+    extern const TypeInfo *type_attribute_error_;
+    extern const TypeInfo *type_buffer_error_;
+    extern const TypeInfo *type_exhausted_iterator_;
+    extern const TypeInfo *type_module_not_found_;
+    extern const TypeInfo *type_not_implemented_;
+    extern const TypeInfo *type_overflow_error_;
+    extern const TypeInfo *type_runtime_error_;
+    extern const TypeInfo *type_scope_error_;
+    extern const TypeInfo *type_type_error_;
+    extern const TypeInfo *type_unassignable_error_;
+    extern const TypeInfo *type_undeclared_error_;
+    extern const TypeInfo *type_unhashable_error_;
+    extern const TypeInfo *type_unicode_index_error_;
+    extern const TypeInfo *type_value_error_;
 
-    // IO
-    ERROR_STR_NEW_TYPE(io, IOError, nullptr);
-    ERROR_STR_NEW_TYPE(io_blocking, BlockingIOError, nullptr);
-    ERROR_STR_NEW_TYPE(io_broken_pipe, BrokenPipeError, nullptr);
-    ERROR_STR_NEW_TYPE(io_interrupted, InterruptedError, nullptr);
-
-    ERROR_STR_NEW_TYPE(isa_directory, IsADirectoryError, nullptr);
-    ERROR_STR_NEW_TYPE(file_exists, FileExistsError, nullptr);
-    ERROR_STR_NEW_TYPE(file_notfound, FileNotFound, nullptr);
-    ERROR_STR_NEW_TYPE(file_access, FileAccessError, nullptr);
-
-#undef ERROR_STR_NEW_TYPE
-#undef ERROR_NEW_TYPE
+    // IO errors
+    extern const TypeInfo *type_blocking_io_;
+    extern const TypeInfo *type_broken_pipe_;
+    extern const TypeInfo *type_file_access_;
+    extern const TypeInfo *type_file_exists_;
+    extern const TypeInfo *type_file_not_found_;
+    extern const TypeInfo *type_io_error_;
+    extern const TypeInfo *type_interrupted_error_;
+    extern const TypeInfo *type_is_directory_;
 
     // ExportedErrors
     extern ArObject *error_zero_division;

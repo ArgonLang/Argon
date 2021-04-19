@@ -35,7 +35,7 @@ ArObject *argon::object::TupleGetItem(Tuple *self, ArSSize index) {
         return obj;
     }
 
-    return ErrorFormat(&error_overflow_error, "tuple index out of range (len: %d, idx: %d)", self->len, index);
+    return ErrorFormat(type_overflow_error_, "tuple index out of range (len: %d, idx: %d)", self->len, index);
 }
 
 ArObject *tuple_get_slice(Tuple *self, Bounds *bounds) {
@@ -296,7 +296,7 @@ Tuple *argon::object::TupleNew(const ArObject *sequence) {
         return tuple;
     }
 
-    return (Tuple *) ErrorFormat(&error_not_implemented, "no viable conversion from '%s' to tuple",
+    return (Tuple *) ErrorFormat(type_not_implemented_, "no viable conversion from '%s' to tuple",
                                  AR_TYPE_NAME(sequence));
 }
 

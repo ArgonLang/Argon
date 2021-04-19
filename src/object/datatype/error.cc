@@ -8,25 +8,28 @@
 #include <vm/runtime.h>
 
 #include "integer.h"
+#include "nil.h"
 #include "tuple.h"
 #include "error.h"
-#include "nil.h"
 
 using namespace argon::object;
 
 Namespace *errors = nullptr;
 
-ARGON_METHOD5(error_t_, error, "", 0, false) {
+ArObject *argon::object::error_out_of_memory = nullptr;
+ArObject *argon::object::error_zero_division = nullptr;
+
+ARGON_METHOD5(error_t_, unwrap, "", 0, false) {
     return IncRef(NilVal);
 }
 
 const NativeFunc error_t_methods[] = {
-        error_t_error_,
+        error_t_unwrap_,
         ARGON_METHOD_SENTINEL
 };
 
 const ObjectSlots error_t_obj = {
-        nullptr,
+        error_t_methods,
         nullptr,
         nullptr,
         nullptr,
@@ -59,27 +62,58 @@ const TypeInfo type_error_t_ = {
         nullptr
 };
 
+ARGON_METHOD5(error_, unwrap, "", 0, false) {
+    return IncRef(((Error *) self)->obj);
+}
+
+const NativeFunc error_methods[] = {
+        error_unwrap_,
+        ARGON_METHOD_SENTINEL
+};
+
+const ObjectSlots error_obj = {
+        error_methods,
+        nullptr,
+        nullptr,
+        nullptr,
+        nullptr
+};
+
+ArObject *error_str(Error *self) {
+    auto *tmp = (String *) ToString(self->obj);
+    String *ret;
+
+    ret = StringNewFormat("%s: %s", AR_TYPE_NAME(self), tmp->buffer);
+    Release(tmp);
+
+    return ret;
+}
+
+void error_cleanup(Error *self) {
+    Release(self->obj);
+}
+
 #define ERROR_SIMPLE(name, doc, ptr_name)       \
 const TypeInfo name = {                         \
     TYPEINFO_STATIC_INIT,                       \
     #name,                                      \
     #doc,                                       \
-    0,                                          \
+    sizeof(Error),                              \
     TypeInfoFlags::BASE,                        \
     nullptr,                                    \
+    (VoidUnaryOp)error_cleanup,                 \
+    nullptr,                                    \
+    nullptr,                                    \
+    nullptr,                                    \
+    nullptr,                                    \
+    (UnaryOp)error_str,                         \
     nullptr,                                    \
     nullptr,                                    \
     nullptr,                                    \
     nullptr,                                    \
     nullptr,                                    \
     nullptr,                                    \
-    nullptr,                                    \
-    nullptr,                                    \
-    nullptr,                                    \
-    nullptr,                                    \
-    nullptr,                                    \
-    nullptr,                                    \
-    nullptr,                                    \
+    &error_obj,                                 \
     nullptr,                                    \
     nullptr,                                    \
     nullptr,                                    \
@@ -87,44 +121,34 @@ const TypeInfo name = {                         \
 };                                              \
 const TypeInfo *(ptr_name) = &(name)
 
-#define ERROR_SIMPLE_STATIC(name, doc, tp_name, err_name, error_msg)    \
-    ERROR_SIMPLE(name, doc, tp_name);                                   \
-    ErrorStr Static##name {                                             \
-        {RefCount(RCType::STATIC), (tp_name)},                          \
-        error_msg                                                       \
-    };                                                                  \
-    ArObject *argon::object::error_##err_name = &(Static##name)         \
-
-
 // Runtime error types
-ERROR_SIMPLE(AccessViolation, "", type_access_violation_);
-ERROR_SIMPLE(AttributeError, "", type_attribute_error_);
-ERROR_SIMPLE(BufferError, "", type_buffer_error_);
-ERROR_SIMPLE(ExhaustedIteratorError, "", type_exhausted_iterator_);
-ERROR_SIMPLE(ModuleNotFound, "", type_module_not_found_);
-ERROR_SIMPLE(NotImplemented, "", type_not_implemented_);
-ERROR_SIMPLE(OverflowError, "", type_overflow_error_);
-ERROR_SIMPLE(RuntimeError, "", type_runtime_error_);
-ERROR_SIMPLE(ScopeError, "", type_scope_error);
-ERROR_SIMPLE(TypeError, "", type_type_error_);
-ERROR_SIMPLE(UnassignableError, "", type_unassignable_error_);
-ERROR_SIMPLE(UndeclaredError, "", type_undeclared_error_);
-ERROR_SIMPLE(UnhashableError, "", type_unhashable_error_);
-ERROR_SIMPLE(UnicodeIndex, "", type_unicode_index_error_);
-ERROR_SIMPLE(ValueError, "", type_value_error_);
+ERROR_SIMPLE(AccessViolation, "", argon::object::type_access_violation_);
+ERROR_SIMPLE(AttributeError, "", argon::object::type_attribute_error_);
+ERROR_SIMPLE(BufferError, "", argon::object::type_buffer_error_);
+ERROR_SIMPLE(ExhaustedIteratorError, "", argon::object::type_exhausted_iterator_);
+ERROR_SIMPLE(ModuleNotFound, "", argon::object::type_module_not_found_);
+ERROR_SIMPLE(NotImplemented, "", argon::object::type_not_implemented_);
+ERROR_SIMPLE(OutOfMemory, "", type_out_of_memory_);
+ERROR_SIMPLE(OverflowError, "", argon::object::type_overflow_error_);
+ERROR_SIMPLE(RuntimeError, "", argon::object::type_runtime_error_);
+ERROR_SIMPLE(ScopeError, "", argon::object::type_scope_error_);
+ERROR_SIMPLE(TypeError, "", argon::object::type_type_error_);
+ERROR_SIMPLE(UnassignableError, "", argon::object::type_unassignable_error_);
+ERROR_SIMPLE(UndeclaredError, "", argon::object::type_undeclared_error_);
+ERROR_SIMPLE(UnhashableError, "", argon::object::type_unhashable_error_);
+ERROR_SIMPLE(UnicodeIndex, "", argon::object::type_unicode_index_error_);
+ERROR_SIMPLE(ValueError, "", argon::object::type_value_error_);
+ERROR_SIMPLE(ZeroDivision, "", type_zero_division_);
 
 // IO Error
-ERROR_SIMPLE(BlockingIO, "", type_blocking_io_);
-ERROR_SIMPLE(BrokenPipe, "", type_broken_pipe_);
-ERROR_SIMPLE(FileAccessError, "", type_file_access_);
-ERROR_SIMPLE(FileExistsError, "", type_file_exists_);
-ERROR_SIMPLE(FileNotFoundError, "", type_file_not_found_);
-ERROR_SIMPLE(IOError, "", type_io_error_);
-ERROR_SIMPLE(InterruptedError, "", type_interrupted_error_);
-ERROR_SIMPLE(IsDirectoryError, "", type_is_directory_);
-
-ERROR_SIMPLE_STATIC(OutOfMemory, "", type_out_of_memory_, out_of_memory, "out of memory");
-ERROR_SIMPLE_STATIC(ZeroDivision, "", type_zero_division_, zero_division, "");
+ERROR_SIMPLE(BlockingIO, "", argon::object::type_blocking_io_);
+ERROR_SIMPLE(BrokenPipe, "", argon::object::type_broken_pipe_);
+ERROR_SIMPLE(FileAccessError, "", argon::object::type_file_access_);
+ERROR_SIMPLE(FileExistsError, "", argon::object::type_file_exists_);
+ERROR_SIMPLE(FileNotFoundError, "", argon::object::type_file_not_found_);
+ERROR_SIMPLE(IOError, "", argon::object::type_io_error_);
+ERROR_SIMPLE(InterruptedError, "", argon::object::type_interrupted_error_);
+ERROR_SIMPLE(IsDirectoryError, "", argon::object::type_is_directory_);
 
 #undef ERROR_SIMPLE_STATIC
 #undef ERROR_SIMPLE
@@ -204,6 +228,40 @@ ArObject *argon::object::ErrorNewFromErrno() {
     return err;
 }
 
+ArObject *argon::object::ErrorSetFromErrno() {
+    ArObject *err = ErrorNewFromErrno();
+
+    if (err != nullptr) {
+        argon::vm::Panic(err);
+        Release(err);
+    }
+
+    return nullptr;
+}
+
+ArObject *argon::object::ErrorFormat(const TypeInfo *etype, const char *format, ...) {
+    va_list args;
+    ArObject *err;
+    String *msg;
+
+    va_start(args, format);
+    msg = StringNewFormat(format, args);
+    va_end(args);
+
+    if (msg == nullptr)
+        return nullptr;
+
+    if ((err = ErrorNew(etype, msg)) == nullptr) {
+        Release(msg);
+        return nullptr;
+    }
+
+    argon::vm::Panic(err);
+    Release(err);
+
+    return nullptr;
+}
+
 bool argon::object::ErrorInit() {
 #define INIT(ERR_TYPE)                                                          \
     if(!TypeInit((TypeInfo*) (ERR_TYPE), nullptr))                              \
@@ -212,101 +270,55 @@ bool argon::object::ErrorInit() {
         PropertyInfo(PropertyType::CONST | PropertyType::PUBLIC)))              \
         return false
 
+    String *msg;
+
     if ((errors = NamespaceNew()) == nullptr)
         return false;
 
     INIT(type_out_of_memory_);
+
+    if ((msg = StringNew("out of memory")) == nullptr)
+        return false;
+
+    if ((error_out_of_memory = ErrorNew(type_out_of_memory_, msg)) == nullptr) {
+        Release(msg);
+        return false;
+    }
+
+    INIT(argon::object::type_access_violation_);
+    INIT(argon::object::type_attribute_error_);
+    INIT(argon::object::type_buffer_error_);
+    INIT(argon::object::type_exhausted_iterator_);
+    INIT(argon::object::type_module_not_found_);
+    INIT(argon::object::type_not_implemented_);
+    INIT(argon::object::type_overflow_error_);
+    INIT(argon::object::type_runtime_error_);
+    INIT(argon::object::type_scope_error_);
+    INIT(argon::object::type_type_error_);
+    INIT(argon::object::type_unassignable_error_);
+    INIT(argon::object::type_undeclared_error_);
+    INIT(argon::object::type_unhashable_error_);
+    INIT(argon::object::type_unicode_index_error_);
+    INIT(argon::object::type_value_error_);
     INIT(type_zero_division_);
 
-    INIT(type_access_violation_);
-    INIT(type_attribute_error_);
-    INIT(type_buffer_error_);
-    INIT(type_exhausted_iterator_);
-    INIT(type_module_not_found_);
-    INIT(type_not_implemented_);
-    INIT(type_overflow_error_);
-    INIT(type_runtime_error_);
-    INIT(type_scope_error);
-    INIT(type_type_error_);
-    INIT(type_unassignable_error_);
-    INIT(type_undeclared_error_);
-    INIT(type_unhashable_error_);
-    INIT(type_unicode_index_error_);
-    INIT(type_value_error_);
+    if ((msg = StringNew("zero division error")) == nullptr)
+        return false;
 
-    INIT(type_blocking_io_);
-    INIT(type_broken_pipe_);
-    INIT(type_file_access_);
-    INIT(type_file_exists_);
-    INIT(type_file_not_found_);
-    INIT(type_io_error_);
-    INIT(type_interrupted_error_);
-    INIT(type_is_directory_);
+    if ((error_zero_division = ErrorNew(type_zero_division_, msg)) == nullptr) {
+        Release(msg);
+        return false;
+    }
+
+    // IO
+    INIT(argon::object::type_blocking_io_);
+    INIT(argon::object::type_broken_pipe_);
+    INIT(argon::object::type_file_access_);
+    INIT(argon::object::type_file_exists_);
+    INIT(argon::object::type_file_not_found_);
+    INIT(argon::object::type_io_error_);
+    INIT(argon::object::type_interrupted_error_);
+    INIT(argon::object::type_is_directory_);
 
     return true;
 }
-
-ArObject *argon::object::ErrorFormat(const TypeInfo *etype, const char *format, ...) {
-    char *buf;
-    ErrorStr *error;
-
-    int sz;
-    va_list args;
-
-    va_start (args, format);
-    sz = vsnprintf(nullptr, 0, format, args) + 1; // +1 is for '\0'
-    va_end(args);
-
-    if ((buf = (char *) argon::memory::Alloc(sz)) == nullptr) {
-        argon::vm::Panic(error_out_of_memory);
-        return nullptr;
-    }
-
-    if ((error = ArObjectNew<ErrorStr>(RCType::INLINE, etype)) == nullptr) {
-        argon::memory::Free(buf);
-        argon::vm::Panic(error_out_of_memory);
-        return nullptr;
-    }
-
-    va_start(args, format);
-    vsnprintf(buf, sz, format, args);
-    va_end(args);
-
-    error->msg = buf;
-
-    argon::vm::Panic(error);
-    Release(error);
-
-    return nullptr;
-}
-
-ArObject *argon::object::__error_str(ErrorStr *self) {
-    return StringNew(self->msg);
-}
-
-const TypeInfo *argon::object::ErrorFromErrno() {
-    switch (errno) {
-        case EPERM:
-            return &error_file_access;
-        case ENOENT:
-            return &error_file_exists;
-        case EINTR:
-            return &error_io_interrupted;
-        case EAGAIN:
-            return &error_io_blocking;
-        case EACCES:
-            return &error_file_access;
-        case EEXIST:
-            return &error_file_exists;
-        case EISDIR:
-            return &error_isa_directory;
-        case EPIPE:
-            return &error_io_broken_pipe;
-        default:
-            return &error_io;
-    }
-}
-
-void argon::object::__error_str_cleanup(ArObject *obj) { argon::memory::Free((char *) ((ErrorStr *) obj)->msg); }
-
-void argon::object::__error_error_cleanup(ArObject *obj) { Release(((Error *) obj)->obj); }

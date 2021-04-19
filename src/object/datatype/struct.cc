@@ -42,12 +42,12 @@ ArObject *struct_get_attr(Struct *self, ArObject *key) {
         }
 
         if (obj == nullptr)
-            return ErrorFormat(&error_attribute_error, "unknown attribute '%s' of instance '%s'",
+            return ErrorFormat(type_attribute_error_, "unknown attribute '%s' of instance '%s'",
                                ((String *) key)->buffer, ancestor->name);
     }
 
     if (!pinfo.IsPublic() && !TraitIsImplemented(instance, ancestor)) {
-        ErrorFormat(&error_access_violation, "access violation, member '%s' of '%s' are private",
+        ErrorFormat(type_access_violation_, "access violation, member '%s' of '%s' are private",
                     ((String *) key)->buffer, ancestor->name);
         Release(obj);
         return nullptr;
@@ -70,13 +70,13 @@ bool struct_set_attr(Struct *self, ArObject *key, ArObject *value) {
         instance = argon::vm::GetRoutine()->frame->instance;
 
     if (!NamespaceContains(self->names, key, &pinfo)) {
-        ErrorFormat(&error_attribute_error, "unknown attribute '%s' of instance '%s'", ((String *) key)->buffer,
+        ErrorFormat(type_attribute_error_, "unknown attribute '%s' of instance '%s'", ((String *) key)->buffer,
                     AR_TYPE_NAME(self));
         return false;
     }
 
     if (!pinfo.IsPublic() && instance != self) {
-        ErrorFormat(&error_access_violation, "access violation, member '%s' of '%s' are private",
+        ErrorFormat(type_access_violation_, "access violation, member '%s' of '%s' are private",
                     ((String *) key)->buffer, AR_TYPE_NAME(self));
         return false;
     }
@@ -138,7 +138,7 @@ Struct *argon::object::StructNewPositional(TypeInfo *type, ArObject **values, Ar
 
         if (NamespaceSetPositional(instance->names, values, count) >= 1) {
             Release(instance);
-            return (Struct *) ErrorFormat(&error_undeclared_variable, "too many args to initialize struct '%s'",
+            return (Struct *) ErrorFormat(type_undeclared_error_, "too many args to initialize struct '%s'",
                                           type->name);
         }
     }
@@ -159,7 +159,7 @@ Struct *argon::object::StructNewKeyPair(TypeInfo *type, ArObject **values, ArSiz
         for (ArSize i = 0; i < count; i += 2) {
             if (!NamespaceSetValue(instance->names, values[i], values[i + 1])) {
                 Release(instance);
-                return (Struct *) ErrorFormat(&error_undeclared_variable, "struct '%s' have no property named '%s'",
+                return (Struct *) ErrorFormat(type_undeclared_error_, "struct '%s' have no property named '%s'",
                                               type->name, ((String *) values[i])->buffer);
             }
         }

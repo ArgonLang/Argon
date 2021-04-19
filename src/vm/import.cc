@@ -191,10 +191,10 @@ ARGON_FUNCTION5(import_, builtins_loader,
     Module *module;
 
     if (!AR_TYPEOF(import, type_import_))
-        return ErrorFormat(&error_type_error, "expected Import as first arg, found '%s'", AR_TYPE_NAME(import));
+        return ErrorFormat(type_type_error_, "expected Import as first arg, found '%s'", AR_TYPE_NAME(import));
 
     if (!AR_TYPEOF(spec, type_import_spec_))
-        return ErrorFormat(&error_type_error, "expected ImportSpec as second arg, found '%s'", AR_TYPE_NAME(spec));
+        return ErrorFormat(type_type_error_, "expected ImportSpec as second arg, found '%s'", AR_TYPE_NAME(spec));
 
     module = spec->initfn();
 
@@ -225,10 +225,10 @@ ARGON_FUNCTION5(import_, source_loader,
     std::filebuf infile;
 
     if (!AR_TYPEOF(import, type_import_))
-        return ErrorFormat(&error_type_error, "expected Import as first arg, found '%s'", AR_TYPE_NAME(import));
+        return ErrorFormat(type_type_error_, "expected Import as first arg, found '%s'", AR_TYPE_NAME(import));
 
     if (!AR_TYPEOF(spec, type_import_spec_))
-        return ErrorFormat(&error_type_error, "expected ImportSpec as second arg, found '%s'", AR_TYPE_NAME(spec));
+        return ErrorFormat(type_type_error_, "expected ImportSpec as second arg, found '%s'", AR_TYPE_NAME(spec));
 
     if (infile.open((char *) spec->origin->buffer, std::ios::in)) {
         std::istream is(&infile);
@@ -314,11 +314,11 @@ ARGON_FUNCTION5(import_, builtins_locator,
     String *name;
 
     if (!AR_TYPEOF(argv[0], type_import_))
-        return ErrorFormat(&error_type_error, "expected 'Import' instance as first param, found '%s'",
+        return ErrorFormat(type_type_error_, "expected 'Import' instance as first param, found '%s'",
                            AR_TYPE_NAME(argv[0]));
 
     if (!AR_TYPEOF(argv[1], type_string_) && !AR_TYPEOF(argv[1], type_nil_))
-        return ErrorFormat(&error_type_error, "expected 'string' as second param, found '%s'", AR_TYPE_NAME(argv[1]));
+        return ErrorFormat(type_type_error_, "expected 'string' as second param, found '%s'", AR_TYPE_NAME(argv[1]));
 
     import = (Import *) argv[0];
     name = (String *) argv[1];
@@ -481,15 +481,15 @@ ARGON_FUNCTION5(import_, source_locator,
     String *package = nullptr;
 
     if (!AR_TYPEOF(argv[0], type_import_))
-        return ErrorFormat(&error_type_error, "expected 'Import' instance as first param, found '%s'",
+        return ErrorFormat(type_type_error_, "expected 'Import' instance as first param, found '%s'",
                            AR_TYPE_NAME(argv[0]));
 
     if (!AR_TYPEOF(argv[1], type_string_) && !AR_TYPEOF(argv[1], type_nil_))
-        return ErrorFormat(&error_type_error, "expected 'string' as second param, found '%s'", AR_TYPE_NAME(argv[1]));
+        return ErrorFormat(type_type_error_, "expected 'string' as second param, found '%s'", AR_TYPE_NAME(argv[1]));
 
     if (!IsNull(argv[2])) {
         if (!AR_TYPEOF(argv[2], type_string_))
-            return ErrorFormat(&error_type_error, "expected 'string' as third param, found '%s'",
+            return ErrorFormat(type_type_error_, "expected 'string' as third param, found '%s'",
                                AR_TYPE_NAME(argv[2]));
 
         package = (String *) argv[2];
@@ -706,7 +706,7 @@ ImportSpec *Locate(Import *import, String *name, String *package) {
     if (!IsNull(ret)) {
         if (!AR_TYPEOF(ret, type_import_spec_)) {
             Release(ret);
-            return (ImportSpec *) ErrorFormat(&error_type_error,
+            return (ImportSpec *) ErrorFormat(type_type_error_,
                                               "locator functions MUST returns 'ImportSpec' instance, not '%s'",
                                               AR_TYPE_NAME(ret));
         }
@@ -742,7 +742,7 @@ argon::object::Module *argon::vm::ImportModule(Import *import, String *name, Str
         return module;
 
     if ((spec = Locate(import, name, package)) == nullptr)
-        return (Module *) ErrorFormat(&error_module_notfound, "No module named '%s'", name->buffer);
+        return (Module *) ErrorFormat(type_module_not_found_, "No module named '%s'", name->buffer);
 
     module = Load(import, spec);
 
