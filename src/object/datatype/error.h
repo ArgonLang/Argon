@@ -16,11 +16,19 @@ namespace argon::object {
         const char *msg;
     };
 
+    ArObject *ErrorNew(const TypeInfo *type, ArObject *object);
+
+    ArObject *ErrorNewFromErrno();
+
+    ArObject *ErrorTupleFromErrno();
+
+    const TypeInfo *ErrorTypeFromErrno();
+
+    bool ErrorInit();
+
     void __error_str_cleanup(ArObject *obj);
 
     void __error_error_cleanup(ArObject *obj);
-
-    Error *ErrorNew(ArObject *obj);
 
     ArObject *ErrorFormat(const TypeInfo *etype, const char *format, ...);
 
@@ -60,7 +68,7 @@ ERROR_NEW_TYPE(type_name, name, ErrorStr,__error_str, __error_str_cleanup, obj_a
     ERROR_NEW_TYPE(error, error, Error, nullptr, __error_error_cleanup, nullptr);
 
     // ArithmeticErrors
-    ERROR_STR_NEW_TYPE(zero_division_error, ZeroDivisionError, nullptr);
+    ERROR_STR_NEW_TYPE(zero_division_error, error_zero_division, nullptr);
 
     // Runtime errors
     ERROR_STR_NEW_TYPE(oo_memory, OutOfMemory, nullptr);
@@ -95,8 +103,8 @@ ERROR_NEW_TYPE(type_name, name, ErrorStr,__error_str, __error_str_cleanup, obj_a
 #undef ERROR_NEW_TYPE
 
     // ExportedErrors
-    extern ArObject *ZeroDivisionError;
-    extern ArObject *OutOfMemoryError;
+    extern ArObject *error_zero_division;
+    extern ArObject *error_out_of_memory;
 
 } // namespace argon::object
 

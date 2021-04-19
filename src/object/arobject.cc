@@ -302,7 +302,7 @@ ArObject *argon::object::ArObjectGCNew(const TypeInfo *type) {
     if (obj != nullptr) {
         obj->ref_count = RefBits((unsigned char) RCType::GC);
         obj->type = type;
-    } else argon::vm::Panic(OutOfMemoryError);
+    } else argon::vm::Panic(error_out_of_memory);
 
     return obj;
 }
@@ -313,7 +313,7 @@ ArObject *argon::object::ArObjectNew(RCType rc, const TypeInfo *type) {
     if (obj != nullptr) {
         obj->ref_count = RefBits((unsigned char) rc);
         obj->type = type;
-    } else argon::vm::Panic(OutOfMemoryError);
+    } else argon::vm::Panic(error_out_of_memory);
 
     return obj;
 }
@@ -426,7 +426,7 @@ ArObject *argon::object::TypeNew(const TypeInfo *meta, const char *name, ArObjec
                            AR_TYPE_NAME(ns));
 
     if ((type = (TypeInfo *) GCNew(sizeof(TypeInfo))) == nullptr) {
-        argon::vm::Panic(OutOfMemoryError);
+        argon::vm::Panic(error_out_of_memory);
         return nullptr;
     }
 

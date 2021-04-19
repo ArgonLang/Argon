@@ -52,7 +52,7 @@ ArObject *integer_div(ArObject *left, ArObject *right) {
     CHECK_INTEGER(left, right);
 
     if (((Integer *) right)->integer == 0)
-        return argon::vm::Panic(ZeroDivisionError);
+        return argon::vm::Panic(error_zero_division);
 
     return IntegerNew(((Integer *) (left))->integer / ((Integer *) (right))->integer);
 }

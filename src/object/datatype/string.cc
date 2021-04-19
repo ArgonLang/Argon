@@ -97,7 +97,7 @@ String *StringInit(size_t len, bool mkbuf) {
         if (mkbuf) {
             // +1 is '\0'
             if ((str->buffer = (unsigned char *) Alloc(len + 1)) == nullptr) {
-                argon::vm::Panic(OutOfMemoryError);
+                argon::vm::Panic(error_out_of_memory);
                 Release(str);
                 return nullptr;
             }
@@ -747,7 +747,7 @@ bool argon::object::StringBuilderResize(StringBuilder *sb, size_t len) {
         return true;
     }
 
-    argon::vm::Panic(OutOfMemoryError);
+    argon::vm::Panic(error_out_of_memory);
     return false;
 }
 

@@ -73,7 +73,7 @@ ArObject *decimal_div(ArObject *left, ArObject *right) {
     CONVERT_DOUBLE(right, r);
 
     if (r == 0.0)
-        return argon::vm::Panic(ZeroDivisionError);
+        return argon::vm::Panic(error_zero_division);
 
     return DecimalNew(l / r);
 }
@@ -89,7 +89,7 @@ ArObject *decimal_idiv(ArObject *left, ArObject *right) {
     CONVERT_DOUBLE(right, r);
 
     if (r == 0.0)
-        return argon::vm::Panic(ZeroDivisionError);
+        return argon::vm::Panic(error_zero_division);
 
     mod = fmod(l, r);
     div = (l - mod) / r;
@@ -113,7 +113,7 @@ ArObject *decimal_mod(ArObject *left, ArObject *right) {
     CONVERT_DOUBLE(right, r);
 
     if (r == 0.0)
-        return argon::vm::Panic(ZeroDivisionError);
+        return argon::vm::Panic(error_zero_division);
 
     if ((mod = fmod(l, r))) {
         // sign of remainder == sign of denominator

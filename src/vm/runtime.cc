@@ -214,7 +214,7 @@ argon::object::ArObject *argon::vm::Call(argon::object::ArObject *callable, int 
     va_list varargs;
 
     if ((args = (ArObject **) memory::Alloc(argc * sizeof(void *))) == nullptr)
-        return Panic(OutOfMemoryError);
+        return Panic(error_out_of_memory);
 
     va_start(varargs, argc);
 

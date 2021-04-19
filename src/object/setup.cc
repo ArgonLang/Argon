@@ -8,6 +8,7 @@
 #include <object/datatype/set.h>
 #include <object/datatype/tuple.h>
 #include <object/datatype/string.h>
+#include <object/datatype/error.h>
 
 #include "arobject.h"
 #include "setup.h"
@@ -18,6 +19,9 @@ bool argon::object::TypesInit() {
 #define INIT_TYPE(type)                         \
     if(!TypeInit((TypeInfo*)&(type), nullptr))  \
         return false
+
+    if(!ErrorInit())
+        return false;
 
     INIT_TYPE(type_list_);
     INIT_TYPE(type_option_);

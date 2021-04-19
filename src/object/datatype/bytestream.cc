@@ -25,7 +25,7 @@ bool CheckSize(ByteStream *bs, ArSize count) {
             cap = ARGON_OBJECT_BYTESTREAM_INITIAL_CAP;
 
         if ((tmp = (unsigned char *) Realloc(bs->buffer, cap)) == nullptr) {
-            argon::vm::Panic(OutOfMemoryError);
+            argon::vm::Panic(error_out_of_memory);
             return false;
         }
 
@@ -346,7 +346,7 @@ ByteStream *argon::object::ByteStreamNew(ArSize cap, bool same_len, bool fill_ze
         if (cap > 0) {
             if ((bs->buffer = (unsigned char *) Alloc(cap)) == nullptr) {
                 Release(bs);
-                return (ByteStream *) argon::vm::Panic(OutOfMemoryError);
+                return (ByteStream *) argon::vm::Panic(error_out_of_memory);
             }
 
             if (fill_zero)

@@ -161,7 +161,7 @@ bool argon::object::NamespaceNewSymbol(Namespace *ns, ArObject *key, ArObject *v
     }
 
     if ((entry = HMapFindOrAllocNode<NsEntry>(&ns->hmap)) == nullptr) {
-        argon::vm::Panic(OutOfMemoryError);
+        argon::vm::Panic(error_out_of_memory);
         return false;
     }
 
@@ -194,7 +194,7 @@ bool argon::object::NamespaceNewSymbol(Namespace *ns, const char *key, ArObject 
     }
 
     if ((entry = HMapFindOrAllocNode<NsEntry>(&ns->hmap)) == nullptr) {
-        argon::vm::Panic(OutOfMemoryError);
+        argon::vm::Panic(error_out_of_memory);
         return false;
     }
 

@@ -173,7 +173,7 @@ bool argon::module::io::SetBuffer(File *file, unsigned char *buf, size_t cap, Fi
                 mode = FileBufferMode::NONE;
                 cap = 0;
                 ok = false;
-                argon::vm::Panic(OutOfMemoryError);
+                argon::vm::Panic(error_out_of_memory);
             }
         }
     } else {
@@ -355,7 +355,7 @@ ssize_t argon::module::io::ReadLine(File *file, unsigned char **buf, size_t buf_
         if (*buf == nullptr) {
             allocated += n + len;
             if ((idx = (unsigned char *) argon::memory::Realloc(line, allocated)) == nullptr) {
-                argon::vm::Panic(OutOfMemoryError);
+                argon::vm::Panic(error_out_of_memory);
                 goto error;
             }
             line = idx;

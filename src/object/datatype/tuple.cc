@@ -258,7 +258,7 @@ Tuple *argon::object::TupleNew(size_t len) {
         if (len > 0) {
             if ((tuple->objects = (ArObject **) argon::memory::Alloc(len * sizeof(void *))) == nullptr) {
                 Release(tuple);
-                return (Tuple *) argon::vm::Panic(OutOfMemoryError);
+                return (Tuple *) argon::vm::Panic(error_out_of_memory);
             }
 
             for (size_t i = 0; i < len; i++) {

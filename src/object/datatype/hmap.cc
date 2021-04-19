@@ -33,7 +33,7 @@ bool HMapResize(HMap *hmap) {
     new_map = (HEntry **) Realloc(hmap->map, new_cap * sizeof(void *));
 
     if (new_map == nullptr) {
-        argon::vm::Panic(OutOfMemoryError);
+        argon::vm::Panic(error_out_of_memory);
         return false;
     }
 
@@ -108,7 +108,7 @@ bool argon::object::HMapInit(HMap *hmap) {
         return true;
     }
 
-    argon::vm::Panic(OutOfMemoryError);
+    argon::vm::Panic(error_out_of_memory);
     return false;
 }
 
