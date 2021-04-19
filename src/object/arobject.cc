@@ -90,12 +90,14 @@ ArSize type_hash(ArObject *self) {
 ArObject *type_str(ArObject *self) {
     auto *tp = (TypeInfo *) self;
 
-    if (tp->flags == TypeInfoFlags::TRAIT)
-        return StringNewFormat("<trait '%s'>", ((TypeInfo *) self)->name);
-    else if (tp->flags == TypeInfoFlags::STRUCT)
-        return StringNewFormat("<struct '%s'>", ((TypeInfo *) self)->name);
-
-    return StringNewFormat("<datatype '%s'>", ((TypeInfo *) self)->name);
+    switch (tp->flags) {
+        case TypeInfoFlags::BASE:
+            return StringNewFormat("<datatype '%s'>", tp->name);
+        case TypeInfoFlags::STRUCT:
+            return StringNewFormat("<struct '%s'>", tp->name);
+        case TypeInfoFlags::TRAIT:
+            return StringNewFormat("<trait '%s'>", tp->name);
+    }
 }
 
 void type_cleanup(TypeInfo *self) {

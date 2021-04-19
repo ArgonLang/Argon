@@ -14,7 +14,7 @@
 
 using namespace argon::object;
 
-Namespace *errors = nullptr;
+const ArObject *argon::object::error_types = nullptr;
 
 ArObject *argon::object::error_out_of_memory = nullptr;
 ArObject *argon::object::error_zero_division = nullptr;
@@ -266,13 +266,13 @@ bool argon::object::ErrorInit() {
 #define INIT(ERR_TYPE)                                                          \
     if(!TypeInit((TypeInfo*) (ERR_TYPE), nullptr))                              \
         return false;                                                           \
-    if(!NamespaceNewSymbol(errors, (ERR_TYPE)->name, (ArObject*) (ERR_TYPE),    \
+    if(!NamespaceNewSymbol((Namespace*)error_types, (ERR_TYPE)->name, (ArObject*) (ERR_TYPE),    \
         PropertyInfo(PropertyType::CONST | PropertyType::PUBLIC)))              \
         return false
 
     String *msg;
 
-    if ((errors = NamespaceNew()) == nullptr)
+    if ((error_types = (ArObject *) NamespaceNew()) == nullptr)
         return false;
 
     INIT(type_out_of_memory_);

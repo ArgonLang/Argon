@@ -26,6 +26,8 @@ namespace argon::object {
 
     bool ErrorInit();
 
+    extern const ArObject *error_types;
+
     // Runtime errors
     extern const TypeInfo *type_access_violation_;
     extern const TypeInfo *type_attribute_error_;

@@ -149,6 +149,15 @@ ArObject *argon::object::NamespaceGetValue(Namespace *ns, ArObject *key, Propert
     return nullptr;
 }
 
+bool argon::object::NamespaceMerge(Namespace *dst, Namespace *src) {
+    for (auto *cur = (NsEntry *) src->hmap.iter_begin; cur != nullptr; cur = (NsEntry *) cur->iter_next) {
+        if (!NamespaceNewSymbol(dst, cur->key, cur->value, cur->info))
+            return false;
+    }
+
+    return true;
+}
+
 bool argon::object::NamespaceNewSymbol(Namespace *ns, ArObject *key, ArObject *value, PropertyInfo info) {
     NsEntry *entry;
 
