@@ -97,9 +97,9 @@ void argon::object::BufferViewDetach(BufferView *view) {
     view->len = 0;
 }
 
-void argon::object::BufferViewInit(BufferView *view, SharedBuffer *shared, ArSize start, ArSize len) {
-    shared->Increment();
-    view->shared = shared;
-    view->buffer = shared->buffer + start;
-    view->len = len;
+void argon::object::BufferViewInit(BufferView *dst, BufferView *src, ArSize start, ArSize len) {
+    src->shared->Increment();
+    dst->shared = src->shared;
+    dst->buffer = src->buffer + start;
+    dst->len = len;
 }

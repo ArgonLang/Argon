@@ -13,41 +13,26 @@
 #include "iterator.h"
 #include "bytestream.h"
 
+#define BUFFER_GET(bs)              (bs->view.buffer)
+#define BUFFER_LEN(bs)              (bs->view.len)
+#define BUFFER_MAXLEN(left, right)  (BUFFER_LEN(left) > BUFFER_LEN(right) ? BUFFER_LEN(right) : BUFFER_LEN(self))
+
 using namespace argon::memory;
 using namespace argon::object;
 
-bool CheckSize(ByteStream *bs, ArSize count) {
-    unsigned char *tmp;
-    ArSize cap = count > 1 ? bs->cap + count : (bs->cap + 1) + ((bs->cap + 1) / 2);
-
-    if (bs->len + count > bs->cap) {
-        if (bs->buffer == nullptr)
-            cap = ARGON_OBJECT_BYTESTREAM_INITIAL_CAP;
-
-        if ((tmp = (unsigned char *) Realloc(bs->buffer, cap)) == nullptr) {
-            argon::vm::Panic(error_out_of_memory);
-            return false;
-        }
-
-        bs->buffer = tmp;
-        bs->cap = cap;
-    }
-
-    return true;
-}
-
 ArSize bytestream_len(ByteStream *self) {
-    return self->len;
+    return BUFFER_LEN(self);
 }
 
 ArObject *bytestream_get_item(ByteStream *self, ArSSize index) {
     if (index < 0)
-        index = self->len + index;
+        index = BUFFER_LEN(self) + index;
 
-    if (index < self->len)
-        return IntegerNew(self->buffer[index]);
+    if (index < BUFFER_LEN(self))
+        return IntegerNew(BUFFER_GET(self)[index]);
 
-    return ErrorFormat(type_overflow_error_, "bytestream index out of range (len: %d, idx: %d)", self->len, index);
+    return ErrorFormat(type_overflow_error_, "bytestream index out of range (len: %d, idx: %d)",
+                       BUFFER_LEN(self), index);
 }
 
 bool bytestream_set_item(ByteStream *self, ArObject *obj, ArSSize index) {
@@ -65,14 +50,14 @@ bool bytestream_set_item(ByteStream *self, ArObject *obj, ArSSize index) {
     }
 
     if (index < 0)
-        index = self->len + index;
+        index = BUFFER_LEN(self) + index;
 
-    if (index < self->len) {
-        self->buffer[index] = value;
+    if (index < BUFFER_LEN(self)) {
+        BUFFER_GET(self)[index] = value;
         return true;
     }
 
-    ErrorFormat(type_overflow_error_, "bytestream index out of range (len: %d, idx: %d)", self->len, index);
+    ErrorFormat(type_overflow_error_, "bytestream index out of range (len: %d, idx: %d)", BUFFER_LEN(self), index);
     return false;
 }
 
@@ -84,17 +69,16 @@ ArObject *bytestream_get_slice(ByteStream *self, Bounds *bounds) {
     ArSSize stop;
     ArSSize step;
 
-    slice_len = BoundsIndex(bounds, self->len, &start, &stop, &step);
-
-    if ((ret = ByteStreamNew(slice_len, true, false)) == nullptr)
-        return nullptr;
+    slice_len = BoundsIndex(bounds, BUFFER_LEN(self), &start, &stop, &step);
 
     if (step >= 0) {
-        for (size_t i = 0; start < stop; start += step)
-            ret->buffer[i++] = self->buffer[start];
+        ret = ByteStreamNew(self, start, slice_len);
     } else {
+        if ((ret = ByteStreamNew(slice_len, true, false)) == nullptr)
+            return nullptr;
+
         for (size_t i = 0; stop < start; start += step)
-            ret->buffer[i++] = self->buffer[start];
+            BUFFER_GET(ret)[i++] = BUFFER_GET(self)[start];
     }
 
     return ret;
@@ -118,13 +102,13 @@ ArObject *bytestream_add(ByteStream *self, ArObject *other) {
     if (!BufferGet(other, &buffer, ArBufferFlags::READ))
         return nullptr;
 
-    if ((ret = ByteStreamNew(self->len + buffer.len, true, false)) == nullptr) {
+    if ((ret = ByteStreamNew(BUFFER_LEN(self) + buffer.len, true, false)) == nullptr) {
         BufferRelease(&buffer);
         return nullptr;
     }
 
-    MemoryCopy(ret->buffer, self->buffer, self->len);
-    MemoryCopy(ret->buffer + self->len, buffer.buffer, buffer.len);
+    MemoryCopy(BUFFER_GET(ret), BUFFER_GET(self), BUFFER_LEN(self));
+    MemoryCopy(BUFFER_GET(ret) + BUFFER_LEN(self), buffer.buffer, buffer.len);
 
     BufferRelease(&buffer);
     return ret;
@@ -143,11 +127,11 @@ ArObject *bytestream_mul(ArObject *left, ArObject *right) {
     }
 
     if (AR_TYPEOF(num, type_integer_)) {
-        len = bytes->len * num->integer;
+        len = BUFFER_LEN(bytes) * num->integer;
 
         if ((ret = ByteStreamNew(len, true, false)) != nullptr) {
             for (size_t i = 0; i < num->integer; i++)
-                MemoryCopy(ret->buffer + bytes->len * i, bytes->buffer, bytes->len);
+                MemoryCopy(BUFFER_GET(ret) + BUFFER_LEN(bytes) * i, BUFFER_GET(bytes), BUFFER_LEN(bytes));
         }
     }
 
@@ -155,11 +139,11 @@ ArObject *bytestream_mul(ArObject *left, ArObject *right) {
 }
 
 ByteStream *ShiftBytestream(ByteStream *bytes, ArSSize pos) {
-    auto ret = ByteStreamNew(bytes->len, true, false);
+    auto ret = ByteStreamNew(BUFFER_LEN(bytes), true, false);
 
     if (ret != nullptr) {
-        for (size_t i = 0; i < bytes->len; i++)
-            ret->buffer[((bytes->len + pos) + i) % bytes->len] = bytes->buffer[i];
+        for (size_t i = 0; i < BUFFER_LEN(bytes); i++)
+            ret->view.buffer[((BUFFER_LEN(bytes) + pos) + i) % BUFFER_LEN(bytes)] = BUFFER_GET(bytes)[i];
     }
 
     return ret;
@@ -188,13 +172,13 @@ ArObject *bytestream_iadd(ByteStream *self, ArObject *other) {
     if (!BufferGet(other, &buffer, ArBufferFlags::READ))
         return nullptr;
 
-    if (!CheckSize(self, buffer.len)) {
+    if (!BufferViewEnlarge(&self->view, buffer.len)) {
         BufferRelease(&buffer);
         return nullptr;
     }
 
-    MemoryCopy(self->buffer + self->len, buffer.buffer, buffer.len);
-    self->len += buffer.len;
+    MemoryCopy(BUFFER_GET(self) + BUFFER_LEN(self), buffer.buffer, buffer.len);
+    self->view.len += buffer.len;
 
     BufferRelease(&buffer);
     return IncRef(self);
@@ -241,13 +225,13 @@ ArObject *bytestream_str(ByteStream *self) {
     StringBuilder sb = {};
 
     // Calculate length of string
-    if (!StringBuilderResizeAscii(&sb, self->buffer, self->len, 10 + 4)) // Bytestream + 2"" +2()
+    if (!StringBuilderResizeAscii(&sb, BUFFER_GET(self), BUFFER_LEN(self), 10 + 4)) // Bytestream + 2"" +2()
         return nullptr;
 
     // Build string
     StringBuilderWrite(&sb, (const unsigned char *) "ByteStream(", 11);
     StringBuilderWrite(&sb, (const unsigned char *) "\"", 1);
-    StringBuilderWriteAscii(&sb, self->buffer, self->len);
+    StringBuilderWriteAscii(&sb, BUFFER_GET(self), BUFFER_LEN(self));
     StringBuilderWrite(&sb, (const unsigned char *) "\")", 2);
 
     return StringBuilderFinish(&sb);
@@ -271,14 +255,14 @@ ArObject *bytestream_compare(ByteStream *self, ArObject *other, CompareMode mode
         return nullptr;
 
     if (self != other) {
-        res = MemoryCompare(self->buffer, o->buffer, self->len > o->len ? o->len : self->len);
+        res = MemoryCompare(BUFFER_GET(self), BUFFER_GET(o), BUFFER_MAXLEN(self, o));
         if (res < 0)
             left = -1;
         else if (res > 0)
             right = -1;
-        else if (self->len < o->len)
+        else if (BUFFER_LEN(self) < BUFFER_LEN(o))
             left = -1;
-        else if (self->len > o->len)
+        else if (BUFFER_LEN(self) > BUFFER_LEN(o))
             right = -1;
     }
 
@@ -286,11 +270,11 @@ ArObject *bytestream_compare(ByteStream *self, ArObject *other, CompareMode mode
 }
 
 bool bytestream_is_true(ByteStream *self) {
-    return self->len > 0;
+    return BUFFER_LEN(self) > 0;
 }
 
 void bytestream_cleanup(ByteStream *self) {
-    Free(self->buffer);
+    BufferViewDetach(&self->view);
 }
 
 const TypeInfo argon::object::type_bytestream_ = {
@@ -330,9 +314,18 @@ ByteStream *argon::object::ByteStreamNew(ArObject *object) {
         return nullptr;
 
     if ((bs = ByteStreamNew(buffer.len, true, false)) != nullptr)
-        MemoryCopy(bs->buffer, buffer.buffer, buffer.len);
+        MemoryCopy(BUFFER_GET(bs), buffer.buffer, buffer.len);
 
     BufferRelease(&buffer);
+
+    return bs;
+}
+
+ByteStream *argon::object::ByteStreamNew(ByteStream *stream, ArSize start, ArSize len) {
+    auto bs = ArObjectNew<ByteStream>(RCType::INLINE, &type_bytestream_);
+
+    if (bs != nullptr)
+        BufferViewInit(&bs->view, &stream->view, start, len);
 
     return bs;
 }
@@ -341,21 +334,21 @@ ByteStream *argon::object::ByteStreamNew(ArSize cap, bool same_len, bool fill_ze
     auto bs = ArObjectNew<ByteStream>(RCType::INLINE, &type_bytestream_);
 
     if (bs != nullptr) {
-        bs->buffer = nullptr;
-
-        if (cap > 0) {
-            if ((bs->buffer = (unsigned char *) Alloc(cap)) == nullptr) {
-                Release(bs);
-                return (ByteStream *) argon::vm::Panic(error_out_of_memory);
-            }
-
-            if (fill_zero)
-                MemoryZero(bs->buffer, cap);
+        if (!BufferViewInit(&bs->view, cap)) {
+            Release(bs);
+            return nullptr;
         }
 
-        bs->cap = cap;
-        bs->len = same_len ? cap : 0;
+        if (same_len)
+            bs->view.len = cap;
+
+        if (fill_zero)
+            MemoryZero(BUFFER_GET(bs), cap);
     }
 
     return bs;
 }
+
+#undef BUFFER_GET
+#undef BUFFER_LEN
+#undef BUFFER_MAXLEN
