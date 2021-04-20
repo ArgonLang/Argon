@@ -27,6 +27,7 @@ set(SRC
         gc.cc
         arobject.cc
         setup.cc
+        bufview.cc
         datatype/support/bytesops.cc)
 
 list(TRANSFORM SRC PREPEND ${CMAKE_CURRENT_LIST_DIR}/)
