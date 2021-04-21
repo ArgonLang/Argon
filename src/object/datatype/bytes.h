@@ -6,21 +6,24 @@
 #define ARGON_OBJECT_BYTES_H_
 
 #include <string>
+
 #include <object/arobject.h>
+#include <object/bufview.h>
 
 namespace argon::object {
 
     struct Bytes : ArObject {
-        unsigned char *buffer;
-        size_t len;
-        size_t hash;
+        BufferView view;
+        ArSize hash;
     };
 
     extern const TypeInfo type_bytes_;
 
-    Bytes *BytesNew(size_t len);
+    Bytes *BytesNew(ArSize len);
 
     Bytes *BytesNew(ArObject *object);
+
+    Bytes *BytesNew(Bytes *bytes, ArSize start, ArSize len);
 
     Bytes *BytesNew(const std::string &string);
 
