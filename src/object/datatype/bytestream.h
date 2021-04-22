@@ -6,20 +6,20 @@
 #define ARGON_OBJECT_BYTESTREAM_H_
 
 #include <object/arobject.h>
+#include <object/bufview.h>
 
 #define ARGON_OBJECT_BYTESTREAM_INITIAL_CAP   16
 
 namespace argon::object {
     struct ByteStream : ArObject {
-        unsigned char *buffer;
-
-        ArSize cap;
-        ArSize len;
+        BufferView view;
     };
 
     extern const TypeInfo type_bytestream_;
 
     ByteStream *ByteStreamNew(ArObject *object);
+
+    ByteStream *ByteStreamNew(ByteStream *stream, ArSize start, ArSize len);
 
     ByteStream *ByteStreamNew(ArSize cap, bool same_len, bool fill_zero);
 

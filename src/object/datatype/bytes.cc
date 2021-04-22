@@ -13,11 +13,15 @@
 #include "bytes.h"
 #include "bounds.h"
 
+#define BUFFER_GET(bs)              (bs->view.buffer)
+#define BUFFER_LEN(bs)              (bs->view.len)
+#define BUFFER_MAXLEN(left, right)  (BUFFER_LEN(left) > BUFFER_LEN(right) ? BUFFER_LEN(right) : BUFFER_LEN(self))
+
 using namespace argon::object;
 using namespace argon::memory;
 
 bool bytes_get_buffer(Bytes *self, ArBuffer *buffer, ArBufferFlags flags) {
-    return BufferSimpleFill(self, buffer, flags, self->buffer, self->len, false);
+    return BufferSimpleFill(self, buffer, flags, BUFFER_GET(self), BUFFER_LEN(self), false);
 }
 
 const BufferSlots bytes_buffer = {
@@ -26,17 +30,17 @@ const BufferSlots bytes_buffer = {
 };
 
 ArSize bytes_len(Bytes *self) {
-    return self->len;
+    return BUFFER_LEN(self);
 }
 
 ArObject *bytes_get_item(Bytes *self, ArSSize index) {
     if (index < 0)
-        index = self->len + index;
+        index = BUFFER_LEN(self) + index;
 
-    if (index < self->len)
-        return IntegerNew(self->buffer[index]);
+    if (index < BUFFER_LEN(self))
+        return IntegerNew(BUFFER_GET(self)[index]);
 
-    return ErrorFormat(type_overflow_error_, "bytes index out of range (len: %d, idx: %d)", self->len, index);
+    return ErrorFormat(type_overflow_error_, "bytes index out of range (len: %d, idx: %d)", BUFFER_LEN(self), index);
 }
 
 ArObject *bytes_get_slice(Bytes *self, Bounds *bounds) {
@@ -47,17 +51,16 @@ ArObject *bytes_get_slice(Bytes *self, Bounds *bounds) {
     ArSSize stop;
     ArSSize step;
 
-    slice_len = BoundsIndex(bounds, self->len, &start, &stop, &step);
-
-    if ((ret = BytesNew(slice_len)) == nullptr)
-        return nullptr;
+    slice_len = BoundsIndex(bounds, BUFFER_LEN(self), &start, &stop, &step);
 
     if (step >= 0) {
-        for (size_t i = 0; start < stop; start += step)
-            ret->buffer[i++] = self->buffer[start];
+        ret = BytesNew(self, start, slice_len);
     } else {
+        if ((ret = BytesNew(slice_len)) == nullptr)
+            return nullptr;
+
         for (size_t i = 0; stop < start; start += step)
-            ret->buffer[i++] = self->buffer[start];
+            BUFFER_GET(ret)[i++] = BUFFER_GET(self)[start];
     }
 
     return ret;
@@ -77,11 +80,11 @@ ArObject *bytes_add(Bytes *self, ArObject *other) {
     if (!AR_SAME_TYPE(self, other))
         return nullptr;
 
-    if ((ret = BytesNew(self->len + o->len)) == nullptr)
+    if ((ret = BytesNew(BUFFER_LEN(self) + BUFFER_LEN(o))) == nullptr)
         return nullptr;
 
-    MemoryCopy(ret->buffer, self->buffer, self->len);
-    MemoryCopy(ret->buffer + self->len, o->buffer, o->len);
+    MemoryCopy(BUFFER_GET(ret), BUFFER_GET(self), BUFFER_LEN(self));
+    MemoryCopy(BUFFER_GET(ret) + BUFFER_LEN(self), BUFFER_GET(o), BUFFER_LEN(o));
 
     return ret;
 }
@@ -99,11 +102,11 @@ ArObject *bytes_mul(ArObject *left, ArObject *right) {
     }
 
     if (AR_TYPEOF(num, type_integer_)) {
-        len = bytes->len * num->integer;
+        len = BUFFER_LEN(bytes) * num->integer;
 
         if ((ret = BytesNew(len)) != nullptr) {
             for (size_t i = 0; i < num->integer; i++)
-                MemoryCopy(ret->buffer + bytes->len * i, bytes->buffer, bytes->len);
+                MemoryCopy(BUFFER_GET(ret) + BUFFER_LEN(bytes) * i, BUFFER_GET(bytes), BUFFER_LEN(bytes));
         }
     }
 
@@ -111,11 +114,11 @@ ArObject *bytes_mul(ArObject *left, ArObject *right) {
 }
 
 Bytes *ShiftBytes(Bytes *bytes, ArSSize pos) {
-    auto ret = BytesNew(bytes->len);
+    auto ret = BytesNew(BUFFER_LEN(bytes));
 
     if (ret != nullptr) {
-        for (size_t i = 0; i < bytes->len; i++)
-            ret->buffer[((bytes->len + pos) + i) % bytes->len] = bytes->buffer[i];
+        for (size_t i = 0; i < BUFFER_LEN(bytes); i++)
+            ret->view.buffer[((BUFFER_LEN(bytes) + pos) + i) % BUFFER_LEN(bytes)] = BUFFER_GET(bytes)[i];
     }
 
     return ret;
@@ -159,7 +162,7 @@ OpSlots bytes_ops{
 };
 
 bool bytes_is_true(Bytes *self) {
-    return self->len > 0;
+    return BUFFER_LEN(self) > 0;
 }
 
 ArObject *bytes_ctor(const TypeInfo *type, ArObject **args, ArSize count) {
@@ -187,14 +190,14 @@ ArObject *bytes_compare(Bytes *self, ArObject *other, CompareMode mode) {
         return nullptr;
 
     if (self != other) {
-        res = MemoryCompare(self->buffer, o->buffer, self->len > o->len ? o->len : self->len);
+        res = MemoryCompare(BUFFER_GET(self), BUFFER_GET(o), BUFFER_MAXLEN(self, o));
         if (res < 0)
             left = -1;
         else if (res > 0)
             right = -1;
-        else if (self->len < o->len)
+        else if (BUFFER_LEN(self) < BUFFER_LEN(o))
             left = -1;
-        else if (self->len > o->len)
+        else if (BUFFER_LEN(self) > BUFFER_LEN(o))
             right = -1;
     }
 
@@ -203,7 +206,7 @@ ArObject *bytes_compare(Bytes *self, ArObject *other, CompareMode mode) {
 
 size_t bytes_hash(Bytes *self) {
     if (self->hash == 0)
-        self->hash = HashBytes(self->buffer, self->len);
+        self->hash = HashBytes(BUFFER_GET(self), BUFFER_LEN(self));
 
     return self->hash;
 }
@@ -212,12 +215,12 @@ ArObject *bytes_str(Bytes *self) {
     StringBuilder sb = {};
 
     // Calculate length of string
-    if (!StringBuilderResizeAscii(&sb, self->buffer, self->len, 2))
+    if (!StringBuilderResizeAscii(&sb, BUFFER_GET(self), BUFFER_LEN(self), 2))
         return nullptr;
 
     // Build string
     StringBuilderWrite(&sb, (const unsigned char *) "\"", 1);
-    StringBuilderWriteAscii(&sb, self->buffer, self->len);
+    StringBuilderWriteAscii(&sb, BUFFER_GET(self), BUFFER_LEN(self));
     StringBuilderWrite(&sb, (const unsigned char *) "\"", 1);
 
     return StringBuilderFinish(&sb);
@@ -232,7 +235,7 @@ ArObject *bytes_iter_rget(Bytes *self) {
 }
 
 void bytes_cleanup(Bytes *self) {
-    Free(self->buffer);
+    BufferViewDetach(&self->view);
 }
 
 const TypeInfo argon::object::type_bytes_ = {
@@ -261,21 +264,17 @@ const TypeInfo argon::object::type_bytes_ = {
         nullptr
 };
 
-Bytes *argon::object::BytesNew(size_t len) {
+Bytes *argon::object::BytesNew(ArSize len) {
     auto *bytes = ArObjectNew<Bytes>(RCType::INLINE, &type_bytes_);
 
     if (bytes != nullptr) {
-        bytes->buffer = nullptr;
-        if (len > 0) {
-            if ((bytes->buffer = (unsigned char *) Alloc(len)) == nullptr) {
-                Release(bytes);
-                return nullptr;
-            }
-
-            MemoryZero(bytes->buffer, len);
+        if (!BufferViewInit(&bytes->view, len)) {
+            Release(bytes);
+            return nullptr;
         }
 
-        bytes->len = len;
+        MemoryZero(BUFFER_GET(bytes), len);
+        bytes->view.len = len;
     }
 
     return bytes;
@@ -296,17 +295,30 @@ Bytes *argon::object::BytesNew(ArObject *object) {
         return nullptr;
     }
 
-    MemoryCopy(bytes->buffer, buffer.buffer, buffer.len);
+    MemoryCopy(BUFFER_GET(bytes), buffer.buffer, buffer.len);
 
     BufferRelease(&buffer);
     return bytes;
+}
+
+Bytes *argon::object::BytesNew(Bytes *bytes, ArSize start, ArSize len) {
+    auto ret = ArObjectNew<Bytes>(RCType::INLINE, &type_bytes_);
+
+    if (ret != nullptr)
+        BufferViewInit(&ret->view, &bytes->view, start, len);
+
+    return ret;
 }
 
 Bytes *argon::object::BytesNew(const std::string &string) {
     auto bytes = BytesNew(string.length());
 
     if (bytes != nullptr)
-        MemoryCopy(bytes->buffer, string.c_str(), string.length());
+        MemoryCopy(BUFFER_GET(bytes), string.c_str(), string.length());
 
     return bytes;
 }
+
+#undef BUFFER_GET
+#undef BUFFER_LEN
+#undef BUFFER_MAXLEN
