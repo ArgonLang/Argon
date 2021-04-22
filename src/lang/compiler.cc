@@ -1119,18 +1119,25 @@ void Compiler::CompileLoop(const ast::Loop *loop, const std::string &name) {
 void Compiler::CompileSlice(const ast::Slice *slice) {
     unsigned short len = 1;
 
-    this->CompileCode(slice->low);
+    if (slice->low != nullptr)
+        this->CompileCode(slice->low);
+    else
+        this->PushStatic(NilVal, true, true);
 
     if (slice->type == ast::NodeType::SLICE) {
-        if (slice->high != nullptr) {
+        if (slice->high != nullptr)
             this->CompileCode(slice->high);
-            len++;
-        }
-        if (slice->step != nullptr) {
-            this->CompileCode(slice->step);
-            len++;
-        }
+        else
+            this->PushStatic(NilVal, true, true);
 
+        len++;
+
+        if (slice->step != nullptr)
+            this->CompileCode(slice->step);
+        else
+            this->PushStatic(NilVal, true, true);
+
+        len++;
         this->EmitOp2(OpCodes::MK_BOUNDS, len);
     }
 

@@ -145,7 +145,7 @@ namespace argon::lang::ast {
     };
 
     struct Block : Node {
-        std::list<NodeUptr> stmts;
+        std::list <NodeUptr> stmts;
 
         Block(NodeType type, scanner::Pos start) : Node(type, start, 0) {}
 
@@ -160,7 +160,7 @@ namespace argon::lang::ast {
 
     struct Call : Node {
         NodeUptr callee;
-        std::list<NodeUptr> args;
+        std::list <NodeUptr> args;
 
         explicit Call(NodeUptr callee) : Node(NodeType::CALL, 0, 0) {
             this->callee = std::move(callee);
@@ -173,7 +173,7 @@ namespace argon::lang::ast {
     };
 
     struct Case : Node {
-        std::list<NodeUptr> tests;
+        std::list <NodeUptr> tests;
         NodeUptr body;
 
         explicit Case(scanner::Pos start) : Node(NodeType::CASE, start, 0) {}
@@ -206,11 +206,11 @@ namespace argon::lang::ast {
 
     struct Construct : NodeDoc {
         std::string name;
-        std::list<NodeUptr> impls;
+        std::list <NodeUptr> impls;
         NodeUptr body;
         bool pub = false;
 
-        explicit Construct(NodeType type, std::string &name, std::list<NodeUptr> &impls, NodeUptr body, bool pub,
+        explicit Construct(NodeType type, std::string &name, std::list <NodeUptr> &impls, NodeUptr body, bool pub,
                            scanner::Pos start) : NodeDoc(type, start, 0) {
             this->name = name;
             this->impls = std::move(impls);
@@ -238,11 +238,11 @@ namespace argon::lang::ast {
 
     struct Function : NodeDoc {
         std::string id;
-        std::list<NodeUptr> params;
+        std::list <NodeUptr> params;
         NodeUptr body;
         bool pub = false;
 
-        explicit Function(std::string &id, std::list<NodeUptr> params, NodeUptr body, bool pub, scanner::Pos start)
+        explicit Function(std::string &id, std::list <NodeUptr> params, NodeUptr body, bool pub, scanner::Pos start)
                 : NodeDoc(NodeType::FUNC, start, 0) {
             this->id = id;
             this->params = std::move(params);
@@ -251,8 +251,8 @@ namespace argon::lang::ast {
             this->end = this->body->end;
         }
 
-        explicit Function(std::list<NodeUptr> params, NodeUptr body, scanner::Pos start) : NodeDoc(NodeType::FUNC,
-                                                                                                   start, 0) {
+        explicit Function(std::list <NodeUptr> params, NodeUptr body, scanner::Pos start) : NodeDoc(NodeType::FUNC,
+                                                                                                    start, 0) {
             this->params = std::move(params);
             this->body = std::move(body);
             this->end = this->body->end;
@@ -309,7 +309,7 @@ namespace argon::lang::ast {
 
     struct Import : Node {
         NodeUptr module;
-        std::list<NodeUptr> names;
+        std::list <NodeUptr> names;
 
         explicit Import(scanner::Pos start) : Node(NodeType::IMPORT, start, 0) {}
 
@@ -342,7 +342,7 @@ namespace argon::lang::ast {
     };
 
     struct List : Node {
-        std::list<NodeUptr> expressions;
+        std::list <NodeUptr> expressions;
 
         explicit List(NodeType type, scanner::Pos start) : Node(type, start, 0) {}
 
@@ -386,7 +386,7 @@ namespace argon::lang::ast {
     };
 
     struct Program : NodeDoc {
-        std::list<NodeUptr> body;
+        std::list <NodeUptr> body;
         std::string filename;
 
         explicit Program(std::string &filename, scanner::Pos start) : NodeDoc(NodeType::PROGRAM, start, 0) {
@@ -403,7 +403,7 @@ namespace argon::lang::ast {
     };
 
     struct Scope : Node {
-        std::list<std::string> segments;
+        std::list <std::string> segments;
 
         explicit Scope(scanner::Pos start) : Node(NodeType::SCOPE, start, 0) {}
 
@@ -417,24 +417,26 @@ namespace argon::lang::ast {
         NodeUptr high;
         NodeUptr step;
 
-        explicit Slice(NodeUptr low, NodeUptr high, NodeUptr step) : Node(NodeType::INDEX, 0, 0) {
-            this->low = std::move(low);
-            this->start = this->low->start;
-            if (high != nullptr) {
+        explicit Slice(scanner::Pos start, NodeUptr low, NodeUptr high, NodeUptr step, bool slice) :
+                Node(NodeType::INDEX, start, 0) {
+
+            if (low != nullptr)
+                this->low = std::move(low);
+
+            if (high != nullptr)
                 this->high = std::move(high);
+
+            if (step != nullptr)
+                this->step = std::move(step);
+
+            if (slice)
                 this->type = NodeType::SLICE;
-                this->end = this->high->end;
-                if (step != nullptr) {
-                    this->step = std::move(step);
-                    this->end = this->step->end;
-                }
-            }
         }
     };
 
     struct StructInit : Node {
         NodeUptr left;
-        std::list<NodeUptr> args;
+        std::list <NodeUptr> args;
         bool keys = false;
 
         explicit StructInit(NodeUptr left) : Node(NodeType::STRUCT_INIT, 0, 0) {
@@ -455,7 +457,7 @@ namespace argon::lang::ast {
 
     struct Switch : Node {
         NodeUptr test;
-        std::list<NodeUptr> cases;
+        std::list <NodeUptr> cases;
 
         explicit Switch(NodeUptr test, scanner::Pos start) : Node(NodeType::SWITCH, start, 0) {
             this->test = std::move(test);

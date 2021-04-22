@@ -82,75 +82,77 @@ const TypeInfo argon::object::type_bounds_ = {
         nullptr
 };
 
-Bounds *argon::object::BoundsNew(ArSSize start, ArSSize stop, ArSSize step) {
+Bounds *argon::object::BoundsNew(ArObject *start, ArObject *stop, ArObject *step) {
     Bounds *bounds;
 
-    if (step == 0)
-        return (Bounds *) ErrorFormat(type_value_error_, "slice step cannot be 0");
+    if (!IsNull(step)) {
+        if (!AsIndex(step))
+            return (Bounds *) ErrorFormat(type_type_error_, "step parameter must be integer not '%s'",
+                                          step->type->name);
+    }
+
+    if (!IsNull(stop)) {
+        if (!AsIndex(stop))
+            return (Bounds *) ErrorFormat(type_type_error_, "stop parameter must be integer not '%s'",
+                                          step->type->name);
+    }
+
+    if (!IsNull(start)) {
+        if (!AsIndex(start))
+            return (Bounds *) ErrorFormat(type_type_error_, "start parameter must be integer not '%s'",
+                                          start->type->name);
+    }
 
     if ((bounds = ArObjectNew<Bounds>(RCType::INLINE, &type_bounds_)) != nullptr) {
-        bounds->start = start;
-        bounds->stop = stop;
-        bounds->step = step;
+        bounds->start = (Integer *) IncRef(start);
+        bounds->stop = (Integer *) IncRef(stop);
+        bounds->step = (Integer *) IncRef(step);
     }
 
     return bounds;
 }
 
-Bounds *argon::object::BoundsNew(ArObject *start, ArObject *stop, ArObject *step) {
-    ArSSize _step = 1;
-    ArSSize _stop = 0;
-    ArSSize _start;
+ArSSize argon::object::BoundsIndex(Bounds *bound, ArSize length, ArSSize *start, ArSSize *stop, ArSSize *step) {
+    ArSSize low;
+    ArSSize high;
 
-    if (step != nullptr) {
-        if (!AsIndex(step))
-            return (Bounds *) ErrorFormat(type_type_error_, "step parameter must be integer not '%s'",
-                                          step->type->name);
-        _step = step->type->number_actions->as_index(step);
+    *step = IsNull(bound->step) ? 1 : bound->step->integer;
+    if (*step < 0) {
+        low = -1;
+        high = length + low;
+    } else {
+        low = 0;
+        high = length;
     }
 
-    if (stop != nullptr) {
-        if (!AsIndex(stop))
-            return (Bounds *) ErrorFormat(type_type_error_, "stop parameter must be integer not '%s'",
-                                          step->type->name);
-        _stop = stop->type->number_actions->as_index(stop);
+    *start = *step < 0 ? high : low;
+    *stop = *step < 0 ? low : high;
+
+    if (!IsNull(bound->start)) {
+        *start = bound->start->integer;
+        if (*start < 0) {
+            if ((*start = *start + length) < low)
+                *start = low;
+        } else if (*start > high)
+            *start = high;
     }
 
-    if (!AsIndex(start))
-        return (Bounds *) ErrorFormat(type_type_error_, "start parameter must be integer not '%s'",
-                                      start->type->name);
-    _start = start->type->number_actions->as_index(start);
+    if (!IsNull(bound->stop)) {
+        *stop = bound->stop->integer;
+        if (*stop < 0) {
+            if ((*stop = *stop + length) < low)
+                *stop = low;
+        } else if (*stop > high)
+            *stop = high;
+    }
 
-    return BoundsNew(_start, _stop, _step);
-}
-
-ArSSize argon::object::BoundsIndex(Bounds *bound, size_t length, ArSSize *start, ArSSize *stop, ArSSize *step) {
-    *start = bound->start;
-    *stop = bound->stop;
-    *step = bound->step;
-
-    // START
-    if (bound->start < 0) {
-        if ((*start += length) < 0)
-            *start = bound->step < 0 ? -1 : 0;
-    } else if (bound->start >= length)
-        *start = bound->step < 0 ? length - 1 : length;
-
-    // STOP
-    if (bound->stop < 0) {
-        if ((*stop += length) < 0)
-            *stop = bound->step < 0 ? -1 : 0;
-    } else if (bound->stop >= length)
-        *stop = bound->step < 0 ? length - 1 : length;
 
     // LENGTH
-    if (bound->step < 0) {
+    if (*step < 0) {
         if (*stop < *start)
-            return (*start - *stop - 1) / (-bound->step) + 1;
-    } else {
-        if (*start < *stop)
-            return (*stop - *start - 1) / bound->step + 1;
-    }
+            return (*start - *stop - 1) / (-*step) + 1;
+    } else if (*start < *stop)
+        return (*stop - *start - 1) / *step + 1;
 
     return 0;
 }

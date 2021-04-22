@@ -7,21 +7,21 @@
 
 #include <object/arobject.h>
 
+#include "integer.h"
+
 namespace argon::object {
 
     struct Bounds : ArObject {
-        ArSSize start;
-        ArSSize stop;
-        ArSSize step;
+        Integer *start;
+        Integer *stop;
+        Integer *step;
     };
 
     extern const TypeInfo type_bounds_;
 
-    Bounds *BoundsNew(ArSSize start, ArSSize stop, ArSSize step);
-
     Bounds *BoundsNew(ArObject *start, ArObject *stop, ArObject *step);
 
-    ArSSize BoundsIndex(Bounds *bound, size_t length, ArSSize *start, ArSSize *stop, ArSSize *step);
+    ArSSize BoundsIndex(Bounds *bound, ArSize length, ArSSize *start, ArSSize *stop, ArSSize *step);
 
 } // namespace argon::object
 
