@@ -421,6 +421,7 @@ ArObject *argon::object::ToString(ArObject *obj) {
 }
 
 ArObject *argon::object::TypeNew(const TypeInfo *meta, const char *name, ArObject *ns, TypeInfo **bases, ArSize count) {
+    ArSize name_len = strlen(name) + 1; // +1 '\0'
     TypeInfo *type;
 
     if (ns != nullptr && !AR_TYPEOF(ns, type_namespace_))
@@ -436,8 +437,8 @@ ArObject *argon::object::TypeNew(const TypeInfo *meta, const char *name, ArObjec
     type->ref_count = RefBits((unsigned char) RCType::GC);
     type->type = &type_type_;
 
-    type->name = (char *) argon::memory::Alloc(strlen(name));
-    argon::memory::MemoryCopy((char *) type->name, name, strlen(name));
+    type->name = (char *) argon::memory::Alloc(name_len);
+    argon::memory::MemoryCopy((char *) type->name, name, name_len);
 
     if (count > 0)
         CalculateMRO(type, bases, count);
