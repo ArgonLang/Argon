@@ -204,6 +204,9 @@ ArObject *argon::vm::Call(ArObject *callable, int argc, ArObject **args) {
         FrameDel(frame);
     }
 
+    if (IsPanicking())
+        Release((ArObject **) &result);
+
     return result;
 }
 

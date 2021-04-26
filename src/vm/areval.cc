@@ -905,9 +905,9 @@ ArObject *argon::vm::Eval(ArRoutine *routine) {
                 DISPATCH();
             }
             TARGET_OP(POP) {
+                // DO NOT RELEASE, it may be returned as a return value!
                 Release(last_popped);
-                last_popped = TOP();
-                cu_frame->eval_stack--; // DO NOT RELEASE, it may be returned as a return value!
+                last_popped = TOP_BACK();
                 DISPATCH();
             }
             TARGET_OP(POS) {
@@ -925,8 +925,11 @@ ArObject *argon::vm::Eval(ArRoutine *routine) {
                 DISPATCH2();
             }
             TARGET_OP(RET) {
-                if (cu_frame->stack_extra_base != cu_frame->eval_stack)
+                if (cu_frame->stack_extra_base != cu_frame->eval_stack) {
+                    Release(last_popped);
+                    last_popped = IncRef(TOP());
                     cu_frame->return_value = TOP_BACK();
+                }
 
                 goto end_function;
             }
