@@ -826,6 +826,7 @@ int argon::object::StringBuilderWriteAscii(StringBuilder *sb, const unsigned cha
                 break;
             case '\\':
                 *buf++ = '\\';
+                *buf++ = '\\';
                 break;
             case '\t':
                 *buf++ = '\\';
