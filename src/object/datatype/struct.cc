@@ -92,6 +92,28 @@ const ObjectSlots struct_actions{
         nullptr
 };
 
+ArObject *struct_str(Struct *self) {
+    ArObject *args[] = {self};
+    ArObject *func;
+    ArObject *ret;
+    String *key;
+
+    if ((key = StringIntern("__str")) == nullptr)
+        return nullptr;
+
+    func = PropertyGet(self, key, true);
+    Release(key);
+
+    if (func != nullptr) {
+        ret = argon::vm::Call(func, 1, args);
+        Release(func);
+        return ret;
+    }
+
+    Release(argon::vm::GetLastError()); // Ignore undeclared_method or private_modifier
+    return StringNewFormat("%s object at %p", AR_TYPE_NAME(self), self);
+}
+
 void struct_cleanup(Struct *self) {
     Release(self->names);
 }
@@ -112,7 +134,7 @@ const TypeInfo argon::object::type_struct_ = {
         nullptr,
         nullptr,
         nullptr,
-        nullptr,
+        (UnaryOp) struct_str,
         nullptr,
         nullptr,
         nullptr,
