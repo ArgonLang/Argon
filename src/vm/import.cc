@@ -456,7 +456,7 @@ ImportSpec *SourceLocator(Import *import, String *name, String *package) {
             mod_package = StringIntern("");
 
         if (mod_package != nullptr)
-            spec = ImportSpecNew(mod_name, mod_package, file, loader);
+            spec = ImportSpecNew(name, mod_package, file, loader);
 
     }
 
