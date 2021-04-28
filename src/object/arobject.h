@@ -81,18 +81,25 @@ namespace argon::object {
         /* Arity of the function, how many args accepts in input?! */
         unsigned short arity;
 
-        /* Is a variadic function? (func variadic(p1,p2,...p3))*/
+        /* Is a variadic function? (func variadic(p1,p2,...p3)) */
         bool variadic;
+
+        /* Export as a method or like a normal(static) function? (used by TypeInit) */
+        bool method;
     };
 
-#define ARGON_FUNCTION5(prefix, name, doc, arity, variadic)                     \
-ArObject *prefix##name##_fn(ArObject *self, ArObject **argv, ArSize count);     \
-NativeFunc prefix##name##_ = {#name, doc, prefix##name##_fn, arity, variadic};  \
+#define ARGON_FUNCTION5(prefix, name, doc, arity, variadic)                             \
+ArObject *prefix##name##_fn(ArObject *self, ArObject **argv, ArSize count);             \
+NativeFunc prefix##name##_ = {#name, doc, prefix##name##_fn, arity, variadic, false};   \
+ArObject *prefix##name##_fn(ArObject *self, ArObject **argv, ArSize count)
+
+#define ARGON_METHOD5(prefix, name, doc, arity, variadic)                                   \
+ArObject *prefix##name##_fn(ArObject *self, ArObject **argv, ArSize count);                 \
+NativeFunc prefix##name##_ = {#name, doc, prefix##name##_fn,  (arity)+1, variadic, true};   \
 ArObject *prefix##name##_fn(ArObject *self, ArObject **argv, ArSize count)
 
 #define ARGON_FUNCTION(name, doc, arity, variadic)          ARGON_FUNCTION5(,name, doc, arity, variadic)
-#define ARGON_METHOD5(prefix, name, doc, arity, variadic)   ARGON_FUNCTION5(prefix, name, doc, (arity)+1, variadic)
-#define ARGON_METHOD(name, doc, arity, variadic)            ARGON_FUNCTION5(,name, doc, (arity)+1, variadic)
+#define ARGON_METHOD(name, doc, arity, variadic)            ARGON_FUNCTION5(,name, doc, arity, variadic)
 
 #define ARGON_CALL_FUNC5(prefix, name, self, argv, count)   prefix##name##_fn(self, argv, count)
 #define ARGON_CALL_FUNC(name, self, argv, count)            ARGON_CALL_FUNC5(,name,self,argv,count)
@@ -239,7 +246,7 @@ ArObject *prefix##name##_fn(ArObject *self, ArObject **argv, ArSize count)
 
         /* Pointer to dynamically allocated tuple that contains Trait & Struct method resolution order */
         ArObject *mro;
-        
+
         /* Pointer to dynamically allocated namespace that contains relevant type methods (if any, nullptr otherwise) */
         ArObject *tp_map;
     };
