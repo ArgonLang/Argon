@@ -530,6 +530,26 @@ ARGON_METHOD5(str_, trim,
     return StringNew((const char *) str->buffer + start, end - start);
 }
 
+ARGON_FUNCTION5(str_, chr,
+                "Returns the character that represents the specified unicode."
+                ""
+                "- Parameter number: an integer representing a valid Unicode code point."
+                "- Returns: new string that contains the specified character.", 1, false) {
+    unsigned char buf[] = {0x00, 0x00, 0x00, 0x00};
+    ArObject *ret;
+    ArSize len;
+
+    if (!AR_TYPEOF(argv[0], type_integer_))
+        return ErrorFormat(type_type_error_, "chr expected an integer not '%s'", AR_TYPE_NAME(argv[0]));
+
+    len = StringIntToUTF8(((Integer *) argv[0])->integer, buf);
+
+    if ((ret = StringNew((const char *) buf, len)) == nullptr)
+        return nullptr;
+
+    return ret;
+}
+
 const NativeFunc str_methods[] = {
         str_count_,
         str_endswith_,
@@ -540,6 +560,7 @@ const NativeFunc str_methods[] = {
         str_split_,
         str_startswith_,
         str_trim_,
+        str_chr_,
         ARGON_METHOD_SENTINEL
 };
 
