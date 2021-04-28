@@ -16,7 +16,7 @@ Parser::Parser(std::string filename, std::istream *source) {
     this->filename_ = std::move(filename);
 }
 
-std::unique_ptr <Program> Parser::Parse() {
+std::unique_ptr<Program> Parser::Parse() {
     auto program = std::make_unique<Program>(this->filename_, this->currTk_.start);
 
     this->Eat(); // Init parser
@@ -134,7 +134,7 @@ ast::NodeUptr Parser::VarModifier(bool pub) {
 ast::NodeUptr Parser::VarDecl(bool pub) {
     Pos start = this->currTk_.start;
     NodeUptr value;
-    std::unique_ptr <Variable> variable;
+    std::unique_ptr<Variable> variable;
 
     this->Eat();
     variable = std::make_unique<Variable>(this->currTk_.value, pub, start);
@@ -171,7 +171,7 @@ ast::NodeUptr Parser::ConstDecl(bool pub) {
 ast::NodeUptr Parser::FuncDecl(bool pub) {
     Pos start = this->currTk_.start;
     std::string name;
-    std::list <NodeUptr> params;
+    std::list<NodeUptr> params;
     auto dpos = this->BeginDocs();
 
     this->Eat();
@@ -188,8 +188,8 @@ ast::NodeUptr Parser::FuncDecl(bool pub) {
     return fn;
 }
 
-std::list <NodeUptr> Parser::Param() {
-    std::list <NodeUptr> params;
+std::list<NodeUptr> Parser::Param() {
+    std::list<NodeUptr> params;
     NodeUptr tmp = this->Variadic();
 
     if (tmp != nullptr) {
@@ -217,7 +217,7 @@ std::list <NodeUptr> Parser::Param() {
 
 ast::NodeUptr Parser::Variadic() {
     Pos start = this->currTk_.start;
-    std::unique_ptr <Identifier> id;
+    std::unique_ptr<Identifier> id;
 
     if (this->Match(TokenType::ELLIPSIS)) {
         this->Eat();
@@ -234,7 +234,7 @@ ast::NodeUptr Parser::Variadic() {
 ast::NodeUptr Parser::StructDecl(bool pub) {
     Pos start = this->currTk_.start;
     std::string name;
-    std::list <NodeUptr> impls;
+    std::list<NodeUptr> impls;
     auto dpos = this->BeginDocs();
 
     this->Eat();
@@ -297,7 +297,7 @@ ast::NodeUptr Parser::StructBlock() {
 ast::NodeUptr Parser::TraitDecl(bool pub) {
     Pos start = this->currTk_.start;
     std::string name;
-    std::list <NodeUptr> impls;
+    std::list<NodeUptr> impls;
     auto dpos = this->BeginDocs();
 
     this->Eat();
@@ -352,8 +352,8 @@ ast::NodeUptr Parser::TraitBlock() {
     return block;
 }
 
-std::list <NodeUptr> Parser::TraitList() {
-    std::list <NodeUptr> impls;
+std::list<NodeUptr> Parser::TraitList() {
+    std::list<NodeUptr> impls;
 
     impls.push_back(this->ParseScope());
 
@@ -408,8 +408,7 @@ ast::NodeUptr Parser::Statement() {
                 tmp = std::make_unique<Unary>(NodeType::SPAWN, this->Test(), start);
                 break;
             case TokenType::RETURN:
-                this->Eat();
-                tmp = std::make_unique<Unary>(NodeType::RETURN, this->TestList(), start);
+                tmp = this->RtnStmt();
                 break;
             case TokenType::IMPORT:
                 tmp = this->ImportStmt();
@@ -454,6 +453,24 @@ ast::NodeUptr Parser::Statement() {
     return tmp;
 }
 
+ast::NodeUptr Parser::RtnStmt() {
+    std::unique_ptr<Unary> ret;
+    Pos start = this->currTk_.start;
+
+    ret = std::make_unique<Unary>(NodeType::RETURN, nullptr, start);
+
+    ret->end = this->currTk_.end;
+
+    this->Eat();
+
+    if (!this->Match(TokenType::END_OF_LINE, TokenType::SEMICOLON, TokenType::END_OF_FILE)) {
+        ret->expr = this->TestList();
+        ret->end = ret->expr->end;
+    }
+
+    return ret;
+}
+
 ast::NodeUptr Parser::ImportStmt() {
     auto import = std::make_unique<Import>(this->currTk_.start);
 
@@ -471,7 +488,7 @@ ast::NodeUptr Parser::ImportStmt() {
 
 ast::NodeUptr Parser::FromImportStmt() {
     Pos start = this->currTk_.start;
-    std::unique_ptr <Import> import;
+    std::unique_ptr<Import> import;
 
     this->Eat(TokenType::FROM, "expected from keyword");
 
@@ -589,7 +606,7 @@ ast::NodeUptr Parser::LoopStmt() {
 
 ast::NodeUptr Parser::IfStmt() {
     Pos start = this->currTk_.start;
-    std::unique_ptr <If> ifs;
+    std::unique_ptr<If> ifs;
     NodeUptr test;
 
     this->Eat();
@@ -643,7 +660,7 @@ ast::NodeUptr Parser::SwitchStmt() {
 
 ast::NodeUptr Parser::SwitchCase() {
     auto swc = std::make_unique<Case>(this->currTk_.start);
-    std::unique_ptr <ast::Block> body;
+    std::unique_ptr<ast::Block> body;
     NodeUptr tmp;
     int last_fallthrough = -1;
 
@@ -1165,7 +1182,7 @@ ast::NodeUptr Parser::ParseAtom() {
 ast::NodeUptr Parser::ParseArrowOrTuple() {
     Pos start = this->currTk_.start;
     Pos end = 0;
-    std::list <NodeUptr> params;
+    std::list<NodeUptr> params;
     NodeUptr tmp;
     bool must_fn = false;
     bool last_is_comma = false;
@@ -1306,8 +1323,8 @@ std::list<Comment>::iterator Parser::BeginDocs() {
     return --this->comments_.end();
 }
 
-std::list <Comment> Parser::GetDocs(std::list<Comment>::iterator &pos) {
-    std::list <Comment> docs;
+std::list<Comment> Parser::GetDocs(std::list<Comment>::iterator &pos) {
+    std::list<Comment> docs;
 
     if (pos == this->comments_.end())
         docs.splice(docs.begin(), this->comments_, this->comments_.begin(), this->comments_.end());

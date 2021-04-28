@@ -765,11 +765,15 @@ void Compiler::CompileCode(const ast::NodeUptr &node) {
             this->unit_->DecStack();
             break;
         }
-        TARGET_TYPE(RETURN)
-            this->CompileCode(ast::CastNode<ast::Unary>(node)->expr);
+        TARGET_TYPE(RETURN) {
+            if (ast::CastNode<ast::Unary>(node)->expr != nullptr)
+                this->CompileCode(ast::CastNode<ast::Unary>(node)->expr);
+            else
+                this->PushStatic(NilVal, true, true);
             this->EmitOp(OpCodes::RET);
             this->unit_->DecStack();
             break;
+        }
         TARGET_TYPE(SCOPE)
             this->CompileScope(ast::CastNode<ast::Scope>(node), false, true);
             break;

@@ -61,6 +61,8 @@ namespace argon::lang {
 
         ast::NodeUptr Statement();
 
+        ast::NodeUptr RtnStmt();
+
         ast::NodeUptr ImportStmt();
 
         ast::NodeUptr FromImportStmt();
