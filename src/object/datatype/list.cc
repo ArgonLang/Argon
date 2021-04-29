@@ -560,9 +560,8 @@ bool ListConcat(List *base, T *t) {
         return false;
 
     for (size_t i = 0; i < t->len; i++)
-        base->objects[i] = IncRef(t->objects[i]);
+        base->objects[base->len++] = IncRef(t->objects[i]);
 
-    base->len += t->len;
     return true;
 }
 
