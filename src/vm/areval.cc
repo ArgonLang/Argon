@@ -918,10 +918,10 @@ ArObject *argon::vm::Eval(ArRoutine *routine) {
 
                 ret = TOP(); // Save TOP
 
-                for (size_t i = 0; i < len - 1; i++)
+                for (size_t i = 0; i < len; i++)
                     *(cu_frame->eval_stack - i - 1) = *(cu_frame->eval_stack - i - 2);
 
-                *(cu_frame->eval_stack - len) = ret;
+                *(cu_frame->eval_stack - (len + 1)) = ret;
                 DISPATCH2();
             }
             TARGET_OP(RET) {
