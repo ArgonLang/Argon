@@ -88,6 +88,29 @@ ARGON_FUNCTION(input,
     return nullptr;
 }
 
+ARGON_FUNCTION(isinstance,
+               "Check if object is an instance of indicated type."
+               ""
+               "- Parameter obj: object to check."
+               "- Returns: true if the object is an instance of indicated type, false otherwise.", 2, false) {
+    return BoolToArBool(argv[0]->type == argv[1]);
+}
+
+ARGON_FUNCTION(isimpl,
+               "Check if object implements all the indicated traits."
+               ""
+               "- Parameters:"
+               "    - obj: object to check."
+               "    - ...traits: traits list."
+               "- Returns: true if the object implements ALL indicated traits, false otherwise.", 2, true) {
+    for (ArSize i = 1; i < count; i++) {
+        if (!TraitIsImplemented(argv[0], (TypeInfo *) argv[i]))
+            return BoolToArBool(false);
+    }
+
+    return BoolToArBool(true);
+}
+
 ARGON_FUNCTION(iter,
                "Return an iterator object."
                ""
@@ -300,6 +323,8 @@ const PropertyBulk builtins_bulk[] = {
         // Functions
         MODULE_BULK_EXPORT_FUNCTION(callable_),
         MODULE_BULK_EXPORT_FUNCTION(input_),
+        MODULE_BULK_EXPORT_FUNCTION(isinstance_),
+        MODULE_BULK_EXPORT_FUNCTION(isimpl_),
         MODULE_BULK_EXPORT_FUNCTION(iter_),
         MODULE_BULK_EXPORT_FUNCTION(hasnext_),
         MODULE_BULK_EXPORT_FUNCTION(len_),
