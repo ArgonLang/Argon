@@ -113,6 +113,13 @@ int argon::memory::MemoryCompare(const void *ptr1, const void *ptr2, size_t num)
     auto *p1 = (const unsigned char *) ptr1;
     auto *p2 = (const unsigned char *) ptr2;
 
+    if (ptr1 == nullptr && ptr2 == nullptr)
+        return 0;
+    else if (ptr1 == nullptr)
+        return *p2;
+    else if (ptr2 == nullptr)
+        return *p1;
+
     do {
         if (*p1++ != *p2++)
             return *--p1 - *--p2;
