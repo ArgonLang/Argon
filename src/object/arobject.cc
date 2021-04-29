@@ -233,11 +233,11 @@ List *BuildBasesList(TypeInfo **types, ArSize count) {
  * +--Head
  */
 Tuple *ComputeMRO(List *bases) {
-    Tuple *output;
-    ArSize out_idx = 0;
     ArSize hlist_idx = 0;
+    Tuple *ret;
+    List *output;
 
-    if ((output = TupleNew(bases->len)) == nullptr)
+    if ((output = ListNew()) == nullptr)
         return nullptr;
 
     while (hlist_idx < bases->len) {
@@ -271,7 +271,10 @@ Tuple *ComputeMRO(List *bases) {
                 }
             }
 
-            TupleInsertAt(output, out_idx++, head);
+            if (!ListAppend(output, head)) {
+                Release(output);
+                return nullptr;
+            }
 
             ListRemove(head_list, 0);
             hlist_idx = 0;
@@ -282,8 +285,11 @@ Tuple *ComputeMRO(List *bases) {
         hlist_idx++;
     }
 
+    ret = TupleNew(output);
+    Release(output);
+
     // if len(output) == 0 no good head was found (Ehm, yes this is a user error... warn him!)
-    return output;
+    return ret;
 }
 
 bool CalculateMRO(TypeInfo *type, TypeInfo **bases, ArSize count) {
@@ -440,8 +446,12 @@ ArObject *argon::object::TypeNew(const TypeInfo *meta, const char *name, ArObjec
     type->name = (char *) argon::memory::Alloc(name_len);
     argon::memory::MemoryCopy((char *) type->name, name, name_len);
 
-    if (count > 0)
-        CalculateMRO(type, bases, count);
+    if (count > 0) {
+        if (!CalculateMRO(type, bases, count)) {
+            Release(type);
+            return nullptr;
+        }
+    }
 
     TypeInit(type, ns);
 
