@@ -20,6 +20,15 @@
 using namespace argon::memory;
 using namespace argon::object;
 
+bool bytestream_get_buffer(ByteStream *self, ArBuffer *buffer, ArBufferFlags flags) {
+    return BufferSimpleFill(self, buffer, flags, BUFFER_GET(self), BUFFER_LEN(self), true);
+}
+
+const BufferSlots bytesream_buffer = {
+        (BufferGetFn) bytestream_get_buffer,
+        nullptr
+};
+
 ArSize bytestream_len(ByteStream *self) {
     return BUFFER_LEN(self);
 }
@@ -292,7 +301,7 @@ const TypeInfo argon::object::type_bytestream_ = {
         (UnaryOp) bytestream_str,
         (UnaryOp) bytestream_iter_get,
         (UnaryOp) bytestream_iter_rget,
-        nullptr,
+        &bytesream_buffer,
         nullptr,
         nullptr,
         nullptr,
