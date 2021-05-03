@@ -147,7 +147,8 @@ bool integer_is_true(Integer *self) {
 }
 
 ArObject *integer_ctor(const TypeInfo *type, ArObject **args, ArSize count) {
-    DecimalUnderlying num = 0;
+    ArBuffer buffer = {};
+    IntegerUnderlying num = 0;
     int base = 10;
 
     if (!VariadicCheckPositional("integer", count, 0, 2))
@@ -164,9 +165,14 @@ ArObject *integer_ctor(const TypeInfo *type, ArObject **args, ArSize count) {
             return IncRef(*args);
         else if (AR_TYPEOF(*args, type_decimal_))
             num = ((Decimal *) *args)->decimal;
-        else if (AR_TYPEOF(*args, type_string_))
-            num = std::strtol((char *) ((String *) args[0])->buffer, nullptr, base);
-        else
+        else if (IsBufferable(*args)) {
+            if (!BufferGet(*args, &buffer, ArBufferFlags::READ))
+                return nullptr;
+
+            num = std::strtol((char *) buffer.buffer, nullptr, base);
+
+            BufferRelease(&buffer);
+        } else
             return ErrorFormat(type_not_implemented_, "no viable conversion from '%s' to '%s'",
                                AR_TYPE_NAME(*args), type_integer_.name);
     }

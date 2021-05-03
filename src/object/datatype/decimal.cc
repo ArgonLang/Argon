@@ -293,6 +293,7 @@ ArObject *decimal_str(Decimal *self) {
 }
 
 ArObject *decimal_ctor(const TypeInfo *type, ArObject **args, ArSize count) {
+    ArBuffer buffer = {};
     DecimalUnderlying dec = 0;
     std::size_t idx;
 
@@ -304,9 +305,14 @@ ArObject *decimal_ctor(const TypeInfo *type, ArObject **args, ArSize count) {
             return IncRef(*args);
         else if (AR_TYPEOF(*args, type_integer_))
             dec = ((Integer *) *args)->integer;
-        else if (AR_TYPEOF(*args, type_string_))
-            dec = std::stold((char *) ((String *) *args)->buffer, &idx);
-        else
+        else if (IsBufferable(*args)) {
+            if (!BufferGet(*args, &buffer, ArBufferFlags::READ))
+                return nullptr;
+
+            dec = std::stold((char *) buffer.buffer, &idx);
+
+            BufferRelease(&buffer);
+        } else
             return ErrorFormat(type_not_implemented_, "no viable conversion from '%s' to '%s'",
                                AR_TYPE_NAME(*args), type_decimal_.name);
     }
