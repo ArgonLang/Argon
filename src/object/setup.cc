@@ -9,6 +9,8 @@
 #include <object/datatype/tuple.h>
 #include <object/datatype/string.h>
 #include <object/datatype/error.h>
+#include <object/datatype/bytes.h>
+#include <object/datatype/bytestream.h>
 
 #include "arobject.h"
 #include "setup.h"
@@ -20,15 +22,17 @@ bool argon::object::TypesInit() {
     if(!TypeInit((TypeInfo*)&(type), nullptr))  \
         return false
 
-    if(!ErrorInit())
+    if (!ErrorInit())
         return false;
 
-    INIT_TYPE(type_list_);
-    INIT_TYPE(type_option_);
-    INIT_TYPE(type_tuple_);
+    INIT_TYPE(type_bytes_);
+    INIT_TYPE(type_bytestream_);
     INIT_TYPE(type_map_);
+    INIT_TYPE(type_option_);
     INIT_TYPE(type_set_);
     INIT_TYPE(type_string_);
+    INIT_TYPE(type_tuple_);
+    INIT_TYPE(type_list_);
 
     return true;
 #undef INIT_TYPE

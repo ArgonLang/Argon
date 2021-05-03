@@ -161,6 +161,27 @@ OpSlots bytes_ops{
         nullptr
 };
 
+ARGON_METHOD5(bytes_, str, "Convert bytes to str object."
+                           ""
+                           "- Returns: new str object.", 0, false) {
+    auto *bytes = (Bytes *) self;
+
+    return StringNew((const char *) bytes->view.buffer, bytes->view.len);
+}
+
+const NativeFunc bytes_methods[] = {
+        bytes_str_,
+        ARGON_METHOD_SENTINEL
+};
+
+const ObjectSlots bytes_obj = {
+        bytes_methods,
+        nullptr,
+        nullptr,
+        nullptr,
+        nullptr
+};
+
 bool bytes_is_true(Bytes *self) {
     return BUFFER_LEN(self) > 0;
 }
@@ -257,7 +278,7 @@ const TypeInfo argon::object::type_bytes_ = {
         nullptr,
         nullptr,
         nullptr,
-        nullptr,
+        &bytes_obj,
         &bytes_sequence,
         &bytes_ops,
         nullptr,
@@ -283,9 +304,6 @@ Bytes *argon::object::BytesNew(ArSize len) {
 Bytes *argon::object::BytesNew(ArObject *object) {
     ArBuffer buffer = {};
     Bytes *bytes;
-
-    if (!IsBufferable(object))
-        return nullptr;
 
     if (!BufferGet(object, &buffer, ArBufferFlags::READ))
         return nullptr;

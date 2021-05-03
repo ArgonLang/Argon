@@ -101,6 +101,27 @@ const SequenceSlots bytestream_sequence = {
         nullptr
 };
 
+ARGON_METHOD5(bytesream_, str, "Convert bytestream to str object."
+                               ""
+                               "- Returns: new str object.", 0, false) {
+    auto *bytes = (ByteStream *) self;
+
+    return StringNew((const char *) bytes->view.buffer, bytes->view.len);
+}
+
+const NativeFunc bytestream_methods[] = {
+        bytesream_str_,
+        ARGON_METHOD_SENTINEL
+};
+
+const ObjectSlots bytestream_obj = {
+        bytestream_methods,
+        nullptr,
+        nullptr,
+        nullptr,
+        nullptr
+};
+
 ArObject *bytestream_add(ByteStream *self, ArObject *other) {
     ArBuffer buffer = {};
     ByteStream *ret;
@@ -305,7 +326,7 @@ const TypeInfo argon::object::type_bytestream_ = {
         nullptr,
         nullptr,
         nullptr,
-        nullptr,
+        &bytestream_obj,
         &bytestream_sequence,
         &bytestream_ops,
         nullptr,
