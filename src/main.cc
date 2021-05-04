@@ -25,6 +25,9 @@ int main(int argc, char **argv) {
 
     if (!IsNull(ret)) {
         auto *str = (String *) ToString(ret);
+        if (IsPanicking())
+            str = (String *) ToString(GetLastError());
+
         std::cerr << "error: " << str->buffer << std::endl;
     }
 
