@@ -129,7 +129,7 @@ argon::object::FunctionNew(Namespace *gns, String *name, String *doc, Code *code
     return fn;
 }
 
-Function *argon::object::FunctionNew(Namespace *gns, const NativeFunc *native) {
+Function *argon::object::FunctionNew(Namespace *gns, TypeInfo *base, const NativeFunc *native, bool method) {
     FunctionType flags = FunctionType::NATIVE;
     Function *fn;
     String *name;
@@ -143,25 +143,19 @@ Function *argon::object::FunctionNew(Namespace *gns, const NativeFunc *native) {
         return nullptr;
     }
 
+    if (method)
+        flags |= FunctionType::METHOD;
+
     if (native->variadic)
         flags |= FunctionType::VARIADIC;
 
-    fn = FunctionNew(gns, name, nullptr, nullptr, nullptr, native->arity, flags);
+    fn = FunctionNew(gns, name, doc, nullptr, nullptr, native->arity, flags);
     Release(name);
     Release(doc);
 
-    if (fn != nullptr)
-        fn->native_fn = native->func;
-
-    return fn;
-}
-
-Function *argon::object::FunctionMethodNew(Namespace *gns, TypeInfo *type, const NativeFunc *native) {
-    Function *fn = FunctionNew(gns, native);
-
     if (fn != nullptr) {
-        fn->base = IncRef(type);
-        fn->flags |= FunctionType::METHOD;
+        fn->base = IncRef(base);
+        fn->native_fn = native->func;
     }
 
     return fn;
@@ -178,7 +172,7 @@ Function *argon::object::FunctionNew(const Function *func, List *currying) {
     return fn;
 }
 
-ArObject * argon::object::FunctionCallNative(const Function *func, ArObject **args, ArSize count) {
+ArObject *argon::object::FunctionCallNative(const Function *func, ArObject **args, ArSize count) {
     ArObject *instance = nullptr;
     List *arguments = nullptr;
     ArObject *ret;
@@ -214,7 +208,7 @@ ArObject * argon::object::FunctionCallNative(const Function *func, ArObject **ar
         }
     }
 
-    ret = func->native_fn(instance, args, count);
+    ret = func->native_fn(func->base, instance, args, count);
     Release(arguments);
 
     return ret;

@@ -585,12 +585,7 @@ bool argon::object::TypeInit(TypeInfo *info, ArObject *ns) {
     // Push methods
     if (info->obj_actions != nullptr && info->obj_actions->methods != nullptr) {
         for (const NativeFunc *method = info->obj_actions->methods; method->name != nullptr; method++) {
-            if (method->method)
-                fn = FunctionMethodNew(nullptr, info, method);
-            else
-                fn = FunctionNew(nullptr, method);
-
-            if (fn == nullptr) {
+            if ((fn = FunctionNew(nullptr, info, method, method->method)) == nullptr) {
                 Release(&info->tp_map);
                 return false;
             }

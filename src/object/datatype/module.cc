@@ -229,7 +229,7 @@ bool argon::object::ModuleAddObjects(Module *module, const PropertyBulk *bulk) {
         obj = cursor->prop.obj;
 
         if (cursor->is_func) {
-            if ((obj = FunctionNew(module->module_ns, cursor->prop.func)) == nullptr) {
+            if ((obj = FunctionNew(module->module_ns, nullptr, cursor->prop.func, false)) == nullptr) {
                 ok = false;
                 break;
             }

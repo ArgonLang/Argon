@@ -78,12 +78,10 @@ namespace argon::object {
 
     extern const TypeInfo type_function_;
 
-    Function *FunctionNew(Namespace *gns, String *name, String *doc, Code *code, List *enclosed, unsigned short arity,
-                          FunctionType flags);
+    Function *FunctionNew(Namespace *gns, String *name, String *doc, Code *code,
+                          List *enclosed, unsigned short arity, FunctionType flags);
 
-    Function *FunctionNew(Namespace *gns, const NativeFunc *native);
-
-    Function *FunctionMethodNew(Namespace *gns, TypeInfo *type, const NativeFunc *native);
+    Function *FunctionNew(Namespace *gns, TypeInfo *base, const NativeFunc *native, bool method);
 
     Function *FunctionNew(const Function *func, List *currying);
 

@@ -67,7 +67,7 @@ namespace argon::object {
         ArBufferFlags flags;
     };
 
-    using NativeFuncPtr = ArObject *(*)(ArObject *self, ArObject **argv, ArSize count);
+    using NativeFuncPtr = ArObject *(*)(const TypeInfo *origin, ArObject *self, ArObject **argv, ArSize count);
     struct NativeFunc {
         /* Name of native function (this name will be exposed to Argon) */
         const char *name;
@@ -88,21 +88,21 @@ namespace argon::object {
         bool method;
     };
 
-#define ARGON_FUNCTION5(prefix, name, doc, arity, variadic)                             \
-ArObject *prefix##name##_fn(ArObject *self, ArObject **argv, ArSize count);             \
-NativeFunc prefix##name##_ = {#name, doc, prefix##name##_fn, arity, variadic, false};   \
-ArObject *prefix##name##_fn(ArObject *self, ArObject **argv, ArSize count)
+#define ARGON_FUNCTION5(prefix, name, doc, arity, variadic)                                         \
+ArObject *prefix##name##_fn(const TypeInfo *origin, ArObject *self, ArObject **argv, ArSize count); \
+NativeFunc prefix##name##_ = {#name, doc, prefix##name##_fn, arity, variadic, false};               \
+ArObject *prefix##name##_fn(const TypeInfo *origin, ArObject *self, ArObject **argv, ArSize count)
 
-#define ARGON_METHOD5(prefix, name, doc, arity, variadic)                                   \
-ArObject *prefix##name##_fn(ArObject *self, ArObject **argv, ArSize count);                 \
-NativeFunc prefix##name##_ = {#name, doc, prefix##name##_fn,  (arity)+1, variadic, true};   \
-ArObject *prefix##name##_fn(ArObject *self, ArObject **argv, ArSize count)
+#define ARGON_METHOD5(prefix, name, doc, arity, variadic)                                           \
+ArObject *prefix##name##_fn(const TypeInfo *origin, ArObject *self, ArObject **argv, ArSize count); \
+NativeFunc prefix##name##_ = {#name, doc, prefix##name##_fn,  (arity)+1, variadic, true};           \
+ArObject *prefix##name##_fn(const TypeInfo *origin, ArObject *self, ArObject **argv, ArSize count)
 
 #define ARGON_FUNCTION(name, doc, arity, variadic)          ARGON_FUNCTION5(,name, doc, arity, variadic)
 #define ARGON_METHOD(name, doc, arity, variadic)            ARGON_FUNCTION5(,name, doc, arity, variadic)
 
-#define ARGON_CALL_FUNC5(prefix, name, self, argv, count)   prefix##name##_fn(self, argv, count)
-#define ARGON_CALL_FUNC(name, self, argv, count)            ARGON_CALL_FUNC5(,name,self,argv,count)
+#define ARGON_CALL_FUNC5(prefix, name, origin, self, argv, count)   prefix##name##_fn(origin, self, argv, count)
+#define ARGON_CALL_FUNC(name, origin, self, argv, count)            ARGON_CALL_FUNC5(,name,origin,self,argv,count)
 
 #define ARGON_METHOD_SENTINEL   {nullptr, nullptr, nullptr, 0, false}
 

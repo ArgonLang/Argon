@@ -505,7 +505,7 @@ bool AddNativeFunction(List *dst, NativeFunc *func) {
     Function *fn;
     bool ok;
 
-    if ((fn = FunctionNew(nullptr, func)) == nullptr)
+    if ((fn = FunctionNew(nullptr, nullptr, func, false)) == nullptr)
         return false;
 
     ok = ListAppend(dst, fn);

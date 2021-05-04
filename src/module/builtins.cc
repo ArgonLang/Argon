@@ -284,7 +284,7 @@ ARGON_FUNCTION(println,
                "# SEE"
                "- print.",
                0, true) {
-    ArObject *success = ARGON_CALL_FUNC(print, self, argv, count);
+    ArObject *success = ARGON_CALL_FUNC(print, origin, self, argv, count);
 
     if (success != nullptr) {
         auto out = (io::File *) RuntimeGetProperty("stdout", &io::type_file_);
