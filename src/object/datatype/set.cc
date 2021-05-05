@@ -202,6 +202,19 @@ const OpSlots set_ops = {
         nullptr
 };
 
+ARGON_FUNCTION5(set_, new, "Create an empty set or construct it from an iterable object."
+                           ""
+                           "- Parameter [iter]: iterable object."
+                           "- Returns: new set.", 0, true) {
+    if (!VariadicCheckPositional("set::new", count, 0, 1))
+        return nullptr;
+
+    if (count == 1)
+        return SetNewFromIterable((const ArObject *) *argv);
+
+    return SetNew();
+}
+
 ARGON_METHOD5(set_, add,
               "Adds an element to the set."
               ""
@@ -360,6 +373,7 @@ ARGON_METHOD5(set_, update,
 }
 
 const NativeFunc set_methods[] = {
+        set_new_,
         set_add_,
         set_clear_,
         set_diff_,
@@ -445,16 +459,6 @@ ArObject *set_iter_rget(Set *self) {
     return HMapIteratorNew(&type_set_iterator_, self, &self->set, true);
 }
 
-ArObject *set_ctor(const TypeInfo *type, ArObject **args, ArSize count) {
-    if (!VariadicCheckPositional("set", count, 0, 1))
-        return nullptr;
-
-    if (count == 1)
-        return SetNewFromIterable((const ArObject *) *args);
-
-    return SetNew();
-}
-
 void set_cleanup(Set *self) {
     HMapFinalize(&self->set, nullptr);
 }
@@ -470,7 +474,7 @@ const TypeInfo argon::object::type_set_ = {
         nullptr,
         sizeof(Set),
         TypeInfoFlags::BASE,
-        set_ctor,
+        nullptr,
         (VoidUnaryOp) set_cleanup,
         (Trace) set_trace,
         (CompareOp) set_compare,

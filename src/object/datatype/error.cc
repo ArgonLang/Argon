@@ -62,11 +62,16 @@ const TypeInfo type_error_t_ = {
         nullptr
 };
 
+ARGON_FUNCTION5(error_, new, "", 1, false) {
+    return ErrorNew(origin, *argv);
+}
+
 ARGON_METHOD5(error_, unwrap, "", 0, false) {
     return IncRef(((Error *) self)->obj);
 }
 
 const NativeFunc error_methods[] = {
+        error_new_,
         error_unwrap_,
         ARGON_METHOD_SENTINEL
 };
@@ -78,13 +83,6 @@ const ObjectSlots error_obj = {
         nullptr,
         nullptr
 };
-
-ArObject *error_ctor(const TypeInfo *type, ArObject **args, ArSize count) {
-    if (!VariadicCheckPositional(type->name, count, 1, 1))
-        return nullptr;
-
-    return ErrorNew(type, *args);
-}
 
 ArObject *error_str(Error *self) {
     auto *tmp = (String *) ToString(self->obj);
@@ -107,7 +105,7 @@ const TypeInfo name = {                         \
     #doc,                                       \
     sizeof(Error),                              \
     TypeInfoFlags::BASE,                        \
-    error_ctor,                                 \
+    nullptr,                                    \
     (VoidUnaryOp)error_cleanup,                 \
     nullptr,                                    \
     nullptr,                                    \

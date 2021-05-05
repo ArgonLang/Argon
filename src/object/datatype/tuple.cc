@@ -77,6 +77,19 @@ const SequenceSlots tuple_sequence{
         nullptr
 };
 
+ARGON_FUNCTION5(tuple_, new, "Creates an empty tuple or construct it from an iterable object."
+                             ""
+                             "- Parameter [iter]: iterable object."
+                             "- Returns: new tuple.", 0, true) {
+    if (!VariadicCheckPositional("tuple::new", count, 0, 1))
+        return nullptr;
+
+    if (count == 1)
+        return TupleNew(*argv);
+
+    return TupleNew((ArSize) 0);
+}
+
 ARGON_METHOD5(tuple_, find,
               "Find an item into the tuple and returns its position."
               ""
@@ -93,6 +106,7 @@ ARGON_METHOD5(tuple_, find,
 }
 
 const NativeFunc tuple_methods[] = {
+        tuple_new_,
         tuple_find_,
         ARGON_METHOD_SENTINEL
 };
@@ -104,16 +118,6 @@ const ObjectSlots tuple_obj = {
         nullptr,
         nullptr
 };
-
-ArObject *tuple_ctor(const TypeInfo *type, ArObject **args, ArSize count) {
-    if (!VariadicCheckPositional("tuple", count, 0, 1))
-        return nullptr;
-
-    if (count == 1)
-        return TupleNew(*args);
-
-    return TupleNew((size_t) 0);
-}
 
 bool tuple_is_true(Tuple *self) {
     return self->len > 0;
@@ -212,7 +216,7 @@ const TypeInfo argon::object::type_tuple_ = {
         nullptr,
         sizeof(Tuple),
         TypeInfoFlags::BASE,
-        tuple_ctor,
+        nullptr,
         (VoidUnaryOp) tuple_cleanup,
         nullptr,
         (CompareOp) tuple_compare,

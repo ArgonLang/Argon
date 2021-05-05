@@ -10,6 +10,20 @@
 
 using namespace argon::object;
 
+ARGON_FUNCTION5(option_, new,
+                "Returns new option that can encapsulate an optional object."
+                ""
+                "- Parameter obj: option object."
+                "- Returns: Contained object.", 0, false) {
+    if (!VariadicCheckPositional("option::new", count, 0, 1))
+        return nullptr;
+
+    if (count == 1)
+        return OptionNew(*argv);
+
+    return OptionNew(nullptr);
+}
+
 ARGON_METHOD5(option_, get,
               "Returns the contained value."
               ""
@@ -40,6 +54,7 @@ ARGON_METHOD5(option_, get_or,
 }
 
 const NativeFunc option_methods[] = {
+        option_new_,
         option_get_,
         option_get_or_,
         ARGON_METHOD_SENTINEL
@@ -52,16 +67,6 @@ const ObjectSlots option_obj = {
         nullptr,
         nullptr
 };
-
-ArObject *option_ctor(const TypeInfo *type, ArObject **args, ArSize count) {
-    if (!VariadicCheckPositional("option", count, 0, 1))
-        return nullptr;
-
-    if (count == 1)
-        return OptionNew(*args);
-
-    return OptionNew(nullptr);
-}
 
 void option_cleanup(Option *self) {
     Release(self->some);
@@ -96,7 +101,7 @@ const TypeInfo argon::object::type_option_ = {
         nullptr,
         sizeof(Option),
         TypeInfoFlags::BASE,
-        option_ctor,
+        nullptr,
         (VoidUnaryOp) option_cleanup,
         nullptr,
         (CompareOp) option_compare,

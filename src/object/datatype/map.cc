@@ -135,6 +135,19 @@ const MapSlots map_actions{
         (BoolTernOp) argon::object::MapInsert
 };
 
+ARGON_FUNCTION5(map_, new, "Create an empty map or construct it from an iterable object."
+                           ""
+                           "- Parameter [iter]: iterable object."
+                           "- Returns: new map.", 0, true) {
+    if (!VariadicCheckPositional("map::new", count, 0, 1))
+        return nullptr;
+
+    if (count == 1)
+        return MapNewFromIterable((const ArObject *) *argv);
+
+    return MapNew();
+}
+
 ARGON_METHOD5(map_, clear,
               "Removes all the elements from the map."
               ""
@@ -236,6 +249,7 @@ ARGON_METHOD5(map_, values, "Returns a list of all the values in the map."
 }
 
 const NativeFunc map_methods[] = {
+        map_new_,
         map_clear_,
         map_get_,
         map_items_,
@@ -342,16 +356,6 @@ void map_trace(Map *self, VoidUnaryOp trace) {
         trace(cur->value);
 }
 
-ArObject *map_ctor(const TypeInfo *type, ArObject **args, ArSize count) {
-    if (!VariadicCheckPositional("map", count, 0, 1))
-        return nullptr;
-
-    if (count == 1)
-        return MapNewFromIterable((const ArObject *) *args);
-
-    return MapNew();
-}
-
 void map_cleanup(Map *self) {
     HMapFinalize(&self->hmap, [](HEntry *entry) {
         Release(((MapEntry *) entry)->value);
@@ -387,7 +391,7 @@ const TypeInfo argon::object::type_map_ = {
         nullptr,
         sizeof(Map),
         TypeInfoFlags::BASE,
-        map_ctor,
+        nullptr,
         (VoidUnaryOp) map_cleanup,
         (Trace) map_trace,
         (CompareOp) map_compare,

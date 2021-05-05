@@ -253,6 +253,19 @@ OpSlots list_ops{
         nullptr
 };
 
+ARGON_FUNCTION5(list_, new, "Creates an empty list or construct it from an iterable object."
+                            ""
+                            "- Parameter [iter]: iterable object."
+                            "- Returns: new list.", 0, true) {
+    if (!VariadicCheckPositional("list::new", count, 0, 1))
+        return nullptr;
+
+    if (count == 1)
+        return ListNew(*argv);
+
+    return ListNew();
+}
+
 ARGON_METHOD5(list_, append,
               "Add an item to the end of the list."
               ""
@@ -400,6 +413,7 @@ ARGON_METHOD5(list_, reverse,
 }
 
 const NativeFunc list_methods[] = {
+        list_new_,
         list_append_,
         list_clear_,
         list_extend_,
@@ -418,16 +432,6 @@ const ObjectSlots list_obj = {
         nullptr,
         nullptr
 };
-
-ArObject *list_ctor(const TypeInfo *type, ArObject **args, ArSize count) {
-    if (!VariadicCheckPositional("list", count, 0, 1))
-        return nullptr;
-
-    if (count == 1)
-        return ListNew(*args);
-
-    return ListNew();
-}
 
 bool list_is_true(List *self) {
     return self->len > 0;
@@ -518,7 +522,7 @@ const TypeInfo argon::object::type_list_ = {
         nullptr,
         sizeof(List),
         TypeInfoFlags::BASE,
-        list_ctor,
+        nullptr,
         (VoidUnaryOp) list_cleanup,
         (Trace) list_trace,
         (CompareOp) list_compare,

@@ -161,6 +161,27 @@ OpSlots bytes_ops{
         nullptr
 };
 
+ARGON_FUNCTION5(bytes_, new, "Creates bytes object."
+                             ""
+                             "The src parameter is optional, in case of call without src parameter an empty zero-length"
+                             "bytes object will be constructed."
+                             ""
+                             "- Parameter [src]: integer or bufferable object."
+                             "- Returns: construct a new bytes object.", 0, true) {
+    IntegerUnderlying size = 0;
+
+    if (!VariadicCheckPositional("bytes::new", count, 0, 1))
+        return nullptr;
+
+    if (count == 1) {
+        if (!AR_TYPEOF(*argv, type_integer_))
+            return BytesNew(*argv);
+        size = ((Integer *) *argv)->integer;
+    }
+
+    return BytesNew(size);
+}
+
 ARGON_METHOD5(bytes_, str, "Convert bytes to str object."
                            ""
                            "- Returns: new str object.", 0, false) {
@@ -170,6 +191,7 @@ ARGON_METHOD5(bytes_, str, "Convert bytes to str object."
 }
 
 const NativeFunc bytes_methods[] = {
+        bytes_new_,
         bytes_str_,
         ARGON_METHOD_SENTINEL
 };
@@ -184,21 +206,6 @@ const ObjectSlots bytes_obj = {
 
 bool bytes_is_true(Bytes *self) {
     return BUFFER_LEN(self) > 0;
-}
-
-ArObject *bytes_ctor(const TypeInfo *type, ArObject **args, ArSize count) {
-    IntegerUnderlying size = 0;
-
-    if (!VariadicCheckPositional("bytes", count, 0, 1))
-        return nullptr;
-
-    if (count == 1) {
-        if (!AR_TYPEOF(*args, type_integer_))
-            return BytesNew(*args);
-        size = ((Integer *) *args)->integer;
-    }
-
-    return BytesNew(size);
 }
 
 ArObject *bytes_compare(Bytes *self, ArObject *other, CompareMode mode) {
@@ -265,7 +272,7 @@ const TypeInfo argon::object::type_bytes_ = {
         nullptr,
         sizeof(Bytes),
         TypeInfoFlags::BASE,
-        bytes_ctor,
+        nullptr,
         (VoidUnaryOp) bytes_cleanup,
         nullptr,
         (CompareOp) bytes_compare,

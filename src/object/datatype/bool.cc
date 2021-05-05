@@ -26,15 +26,25 @@ NumberSlots bool_nslots = {
         (ArSizeUnaryOp) bool_as_index
 };
 
-ArObject *bool_ctor(const TypeInfo *type, ArObject **args, ArSize count) {
-    if (!VariadicCheckPositional("bool", count, 0, 1))
-        return nullptr;
-
-    if (count == 1)
-        return BoolToArBool(IsTrue(*args));
-
-    return False;
+ARGON_FUNCTION5(bool_, new, "Creates a new bool from object."
+                            ""
+                            "- Parameter obj: obj to convert."
+                            "- Returns: true or false.", 1, false) {
+    return BoolToArBool(IsTrue(*argv));
 }
+
+const NativeFunc bool_methods[] = {
+        bool_new_,
+        ARGON_METHOD_SENTINEL
+};
+
+const ObjectSlots bool_obj{
+        bool_methods,
+        nullptr,
+        nullptr,
+        nullptr,
+        nullptr
+};
 
 bool bool_is_true(Bool *self) {
     return self->value;
@@ -71,7 +81,7 @@ const TypeInfo argon::object::type_bool_ = {
         nullptr,
         sizeof(Bool),
         TypeInfoFlags::BASE,
-        bool_ctor,
+        nullptr,
         nullptr,
         nullptr,
         (CompareOp) bool_compare,
@@ -84,7 +94,7 @@ const TypeInfo argon::object::type_bool_ = {
         nullptr,
         nullptr,
         &bool_nslots,
-        nullptr,
+        &bool_obj,
         nullptr,
         nullptr,
         nullptr,

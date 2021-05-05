@@ -36,6 +36,56 @@ const NumberSlots integer_nslots{
         (ArSizeUnaryOp) integer_as_index
 };
 
+ARGON_FUNCTION5(integer_, new, "Convert a string or number to decimal numer, if possible."
+                               ""
+                               "- Parameter obj: obj to convert."
+                               "- Returns: decimal number.", 1, true) {
+    ArBuffer buffer = {};
+    IntegerUnderlying num = 0;
+    int base = 10;
+
+    if (!VariadicCheckPositional("integer::new", count, 1, 2))
+        return nullptr;
+
+    if (count == 2) {
+        if (!AR_TYPEOF(argv[1], type_integer_))
+            return ErrorFormat(type_type_error_, "base must be an integer not '%s'", AR_TYPE_NAME(argv[1]));
+        base = ((Integer *) argv[1])->integer;
+    }
+
+    if (count >= 1) {
+        if (AR_TYPEOF(*argv, type_integer_))
+            return IncRef(*argv);
+        else if (AR_TYPEOF(*argv, type_decimal_))
+            num = ((Decimal *) *argv)->decimal;
+        else if (IsBufferable(*argv)) {
+            if (!BufferGet(*argv, &buffer, ArBufferFlags::READ))
+                return nullptr;
+
+            num = std::strtol((char *) buffer.buffer, nullptr, base);
+
+            BufferRelease(&buffer);
+        } else
+            return ErrorFormat(type_not_implemented_, "no viable conversion from '%s' to '%s'",
+                               AR_TYPE_NAME(*argv), type_integer_.name);
+    }
+
+    return IntegerNew(num);
+}
+
+const NativeFunc integer_methods[] = {
+        integer_new_,
+        ARGON_METHOD_SENTINEL
+};
+
+const ObjectSlots integer_obj{
+        integer_methods,
+        nullptr,
+        nullptr,
+        nullptr,
+        nullptr
+};
+
 ArObject *integer_add(ArObject *left, ArObject *right) {
     SIMPLE_OP(left, right, +);
 }
@@ -146,40 +196,6 @@ bool integer_is_true(Integer *self) {
     return self->integer > 0;
 }
 
-ArObject *integer_ctor(const TypeInfo *type, ArObject **args, ArSize count) {
-    ArBuffer buffer = {};
-    IntegerUnderlying num = 0;
-    int base = 10;
-
-    if (!VariadicCheckPositional("integer", count, 0, 2))
-        return nullptr;
-
-    if (count == 2) {
-        if (!AR_TYPEOF(args[1], type_integer_))
-            return nullptr;
-        base = ((Integer *) args[1])->integer;
-    }
-
-    if (count >= 1) {
-        if (AR_TYPEOF(*args, type_integer_))
-            return IncRef(*args);
-        else if (AR_TYPEOF(*args, type_decimal_))
-            num = ((Decimal *) *args)->decimal;
-        else if (IsBufferable(*args)) {
-            if (!BufferGet(*args, &buffer, ArBufferFlags::READ))
-                return nullptr;
-
-            num = std::strtol((char *) buffer.buffer, nullptr, base);
-
-            BufferRelease(&buffer);
-        } else
-            return ErrorFormat(type_not_implemented_, "no viable conversion from '%s' to '%s'",
-                               AR_TYPE_NAME(*args), type_integer_.name);
-    }
-
-    return IntegerNew(num);
-}
-
 ArObject *integer_compare(Integer *self, ArObject *other, CompareMode mode) {
     IntegerUnderlying left = self->integer;
     IntegerUnderlying right;
@@ -209,7 +225,7 @@ const TypeInfo argon::object::type_integer_ = {
         nullptr,
         sizeof(Integer),
         TypeInfoFlags::BASE,
-        integer_ctor,
+        nullptr,
         nullptr,
         nullptr,
         (CompareOp) integer_compare,
@@ -222,7 +238,7 @@ const TypeInfo argon::object::type_integer_ = {
         nullptr,
         nullptr,
         &integer_nslots,
-        nullptr,
+        &integer_obj,
         nullptr,
         &integer_ops,
         nullptr,

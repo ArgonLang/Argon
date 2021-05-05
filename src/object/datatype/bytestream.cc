@@ -101,6 +101,27 @@ const SequenceSlots bytestream_sequence = {
         nullptr
 };
 
+ARGON_FUNCTION5(bytestream_, new, "Creates bytestream object."
+                                  ""
+                                  "The src parameter is optional, in case of call without src parameter an empty zero-length"
+                                  "bytestream object will be constructed."
+                                  ""
+                                  "- Parameter [src]: integer or bufferable object."
+                                  "- Returns: construct a new bytestream object.", 0, true) {
+    IntegerUnderlying size = 0;
+
+    if (!VariadicCheckPositional("bytestream::new", count, 0, 1))
+        return nullptr;
+
+    if (count == 1) {
+        if (!AR_TYPEOF(*argv, type_integer_))
+            return ByteStreamNew(*argv);
+        size = ((Integer *) *argv)->integer;
+    }
+
+    return ByteStreamNew(size, true, true);
+}
+
 ARGON_METHOD5(bytesream_, str, "Convert bytestream to str object."
                                ""
                                "- Returns: new str object.", 0, false) {
@@ -110,6 +131,7 @@ ARGON_METHOD5(bytesream_, str, "Convert bytestream to str object."
 }
 
 const NativeFunc bytestream_methods[] = {
+        bytestream_new_,
         bytesream_str_,
         ARGON_METHOD_SENTINEL
 };
@@ -237,20 +259,6 @@ OpSlots bytestream_ops{
         nullptr
 };
 
-ArObject *bytestream_ctor(const TypeInfo *type, ArObject **args, ArSize count) {
-    if (!VariadicCheckPositional("bytestream", count, 0, 1))
-        return nullptr;
-
-    if (count == 1) {
-        if (AR_TYPEOF(*args, type_integer_))
-            return ByteStreamNew(((Integer *) *args)->integer, true, true);
-
-        return ByteStreamNew(*args);
-    }
-
-    return ByteStreamNew();
-}
-
 ArObject *bytestream_str(ByteStream *self) {
     StringBuilder sb = {};
 
@@ -313,7 +321,7 @@ const TypeInfo argon::object::type_bytestream_ = {
         nullptr,
         sizeof(ByteStream),
         TypeInfoFlags::BASE,
-        bytestream_ctor,
+        nullptr,
         (VoidUnaryOp) bytestream_cleanup,
         nullptr,
         (CompareOp) bytestream_compare,

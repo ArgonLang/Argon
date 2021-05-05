@@ -162,28 +162,6 @@ ARGON_FUNCTION(next,
     return ret;
 }
 
-ARGON_FUNCTION(new,
-               "Invoke datatype constructor."
-               ""
-               "- Parameters:"
-               "     - type: datatype of which to invoke the constructor."
-               "     - ...args: see datatype constructor."
-               "- Returns: new object of type 'type'."
-               "- Panics:"
-               "     - TypeError: invalid type."
-               "     - ???: see datatype constructor.",
-               1, true) {
-    auto *info = (TypeInfo *) argv[0];
-
-    if (!AR_TYPEOF(argv[0], type_type_))
-        return ErrorFormat(type_type_error_, "expected datatype, found '%s'", AR_TYPE_NAME(argv[0]));
-
-    if (info->ctor == nullptr)
-        return ErrorFormat(type_not_implemented_, "type '%s' has no constructor", info->name);
-
-    return info->ctor(info, argv + 1, count - 1);
-}
-
 ARGON_FUNCTION(panic,
                "Stops normal execution of current ArRoutine."
                ""
@@ -329,7 +307,6 @@ const PropertyBulk builtins_bulk[] = {
         MODULE_BULK_EXPORT_FUNCTION(hasnext_),
         MODULE_BULK_EXPORT_FUNCTION(len_),
         MODULE_BULK_EXPORT_FUNCTION(next_),
-        MODULE_BULK_EXPORT_FUNCTION(new_),
         MODULE_BULK_EXPORT_FUNCTION(panic_),
         MODULE_BULK_EXPORT_FUNCTION(print_),
         MODULE_BULK_EXPORT_FUNCTION(println_),

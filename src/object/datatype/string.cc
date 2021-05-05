@@ -285,6 +285,24 @@ SequenceSlots string_sequence = {
         nullptr
 };
 
+ARGON_FUNCTION5(str_, new,
+                "Create a new string object from the given object."
+                ""
+                "- Parameter [obj]: specifies the object to convert into a string."
+                "- Returns: new string.", 0, true) {
+    if (!VariadicCheckPositional("str::new", count, 0, 1))
+        return nullptr;
+
+    if (count == 1) {
+        if (AR_TYPEOF(*argv, type_string_))
+            return IncRef(*argv);
+
+        return ToString(*argv);
+    }
+
+    return StringIntern((char *) "");
+}
+
 ARGON_METHOD5(str_, count,
               "Returns the number of times a specified value occurs in a string."
               ""
@@ -551,6 +569,7 @@ ARGON_FUNCTION5(str_, chr,
 }
 
 const NativeFunc str_methods[] = {
+        str_new_,
         str_count_,
         str_endswith_,
         str_find_,
@@ -571,20 +590,6 @@ const ObjectSlots str_obj = {
         nullptr,
         nullptr
 };
-
-ArObject *string_ctor(const TypeInfo *type, ArObject **args, ArSize count) {
-    if (!VariadicCheckPositional("str", count, 0, 1))
-        return nullptr;
-
-    if (count == 1) {
-        if (AR_TYPEOF(*args, type_string_))
-            return IncRef(*args);
-
-        return ToString(*args);
-    }
-
-    return StringIntern((char *) "");
-}
 
 bool string_is_true(String *self) {
     return self->len > 0;
@@ -662,7 +667,7 @@ const TypeInfo argon::object::type_string_ = {
         nullptr,
         sizeof(String),
         TypeInfoFlags::BASE,
-        string_ctor,
+        nullptr,
         (VoidUnaryOp) string_cleanup,
         nullptr,
         (CompareOp) string_compare,

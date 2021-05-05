@@ -53,6 +53,45 @@ const NumberSlots decimal_nslots = {
         nullptr
 };
 
+ARGON_FUNCTION5(decimal_, new, "Convert a string or number to decimal numer, if possible."
+                               ""
+                               "- Parameter obj: obj to convert."
+                               "- Returns: decimal number.", 1, false) {
+    ArBuffer buffer = {};
+    DecimalUnderlying dec = 0;
+    std::size_t idx;
+
+    if (AR_TYPEOF(*argv, type_decimal_))
+        return IncRef(*argv);
+    else if (AR_TYPEOF(*argv, type_integer_))
+        dec = ((Integer *) *argv)->integer;
+    else if (IsBufferable(*argv)) {
+        if (!BufferGet(*argv, &buffer, ArBufferFlags::READ))
+            return nullptr;
+
+        dec = std::stold((char *) buffer.buffer, &idx);
+
+        BufferRelease(&buffer);
+    } else
+        return ErrorFormat(type_not_implemented_, "no viable conversion from '%s' to '%s'",
+                           AR_TYPE_NAME(*argv), type_decimal_.name);
+
+    return DecimalNew(dec);
+}
+
+const NativeFunc decimal_methods[] = {
+        decimal_new_,
+        ARGON_METHOD_SENTINEL
+};
+
+const ObjectSlots decimal_obj{
+        decimal_methods,
+        nullptr,
+        nullptr,
+        nullptr,
+        nullptr
+};
+
 ArObject *decimal_add(ArObject *left, ArObject *right) {
     SIMPLE_OP(left, right, +);
 }
@@ -292,41 +331,13 @@ ArObject *decimal_str(Decimal *self) {
     return StringCFormat("%f", self);
 }
 
-ArObject *decimal_ctor(const TypeInfo *type, ArObject **args, ArSize count) {
-    ArBuffer buffer = {};
-    DecimalUnderlying dec = 0;
-    std::size_t idx;
-
-    if (!VariadicCheckPositional("decimal", count, 0, 1))
-        return nullptr;
-
-    if (count == 1) {
-        if (AR_TYPEOF(*args, type_decimal_))
-            return IncRef(*args);
-        else if (AR_TYPEOF(*args, type_integer_))
-            dec = ((Integer *) *args)->integer;
-        else if (IsBufferable(*args)) {
-            if (!BufferGet(*args, &buffer, ArBufferFlags::READ))
-                return nullptr;
-
-            dec = std::stold((char *) buffer.buffer, &idx);
-
-            BufferRelease(&buffer);
-        } else
-            return ErrorFormat(type_not_implemented_, "no viable conversion from '%s' to '%s'",
-                               AR_TYPE_NAME(*args), type_decimal_.name);
-    }
-
-    return DecimalNew(dec);
-}
-
 const TypeInfo argon::object::type_decimal_ = {
         TYPEINFO_STATIC_INIT,
         "decimal",
         nullptr,
         sizeof(Decimal),
         TypeInfoFlags::BASE,
-        decimal_ctor,
+        nullptr,
         nullptr,
         nullptr,
         (CompareOp) decimal_compare,
@@ -339,7 +350,7 @@ const TypeInfo argon::object::type_decimal_ = {
         nullptr,
         nullptr,
         &decimal_nslots,
-        nullptr,
+        &decimal_obj,
         nullptr,
         &decimal_ops,
         nullptr,
