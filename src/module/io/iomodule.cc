@@ -37,12 +37,13 @@ ARGON_FUNCTION( openfile, "", 2, false) {
 }
 
 const PropertyBulk io_bulk[] = {
-        MODULE_BULK_EXPORT_TYPE("file", type_file_),
+        MODULE_EXPORT_TYPE_ALIAS("file", type_file_),
 
-        MODULE_BULK_EXPORT_FUNCTION(create_),
-        MODULE_BULK_EXPORT_FUNCTION(open_),
-        MODULE_BULK_EXPORT_FUNCTION(openfile_),
-        {nullptr, nullptr, false, PropertyInfo()} // Sentinel
+        MODULE_EXPORT_FUNCTION(create_),
+        MODULE_EXPORT_FUNCTION(open_),
+        MODULE_EXPORT_FUNCTION(openfile_),
+
+        MODULE_EXPORT_SENTINEL
 };
 
 bool IOInit(Module *module) {

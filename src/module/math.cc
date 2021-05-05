@@ -451,27 +451,28 @@ bool math_init(Module *module) {
 }
 
 const PropertyBulk math_bulk[] = {
-        MODULE_BULK_EXPORT_FUNCTION(math_acos_),
-        MODULE_BULK_EXPORT_FUNCTION(math_asin_),
-        MODULE_BULK_EXPORT_FUNCTION(math_atan_),
-        MODULE_BULK_EXPORT_FUNCTION(math_ceil_),
-        MODULE_BULK_EXPORT_FUNCTION(math_cos_),
-        MODULE_BULK_EXPORT_FUNCTION(math_cosh_),
-        MODULE_BULK_EXPORT_FUNCTION(math_exp_),
-        MODULE_BULK_EXPORT_FUNCTION(math_fabs_),
-        MODULE_BULK_EXPORT_FUNCTION(math_floor_),
-        MODULE_BULK_EXPORT_FUNCTION(math_fmod_),
-        MODULE_BULK_EXPORT_FUNCTION(math_log_),
-        MODULE_BULK_EXPORT_FUNCTION(math_log10_),
-        MODULE_BULK_EXPORT_FUNCTION(math_mpow_),
-        MODULE_BULK_EXPORT_FUNCTION(math_pow_),
-        MODULE_BULK_EXPORT_FUNCTION(math_sin_),
-        MODULE_BULK_EXPORT_FUNCTION(math_sinh_),
-        MODULE_BULK_EXPORT_FUNCTION(math_sqrt_),
-        MODULE_BULK_EXPORT_FUNCTION(math_isqrt_),
-        MODULE_BULK_EXPORT_FUNCTION(math_tan_),
-        MODULE_BULK_EXPORT_FUNCTION(math_tanh_),
-        {nullptr, nullptr, false, PropertyInfo()} // Sentinel
+        MODULE_EXPORT_FUNCTION(math_acos_),
+        MODULE_EXPORT_FUNCTION(math_asin_),
+        MODULE_EXPORT_FUNCTION(math_atan_),
+        MODULE_EXPORT_FUNCTION(math_ceil_),
+        MODULE_EXPORT_FUNCTION(math_cos_),
+        MODULE_EXPORT_FUNCTION(math_cosh_),
+        MODULE_EXPORT_FUNCTION(math_exp_),
+        MODULE_EXPORT_FUNCTION(math_fabs_),
+        MODULE_EXPORT_FUNCTION(math_floor_),
+        MODULE_EXPORT_FUNCTION(math_fmod_),
+        MODULE_EXPORT_FUNCTION(math_log_),
+        MODULE_EXPORT_FUNCTION(math_log10_),
+        MODULE_EXPORT_FUNCTION(math_mpow_),
+        MODULE_EXPORT_FUNCTION(math_pow_),
+        MODULE_EXPORT_FUNCTION(math_sin_),
+        MODULE_EXPORT_FUNCTION(math_sinh_),
+        MODULE_EXPORT_FUNCTION(math_sqrt_),
+        MODULE_EXPORT_FUNCTION(math_isqrt_),
+        MODULE_EXPORT_FUNCTION(math_tan_),
+        MODULE_EXPORT_FUNCTION(math_tanh_),
+
+        MODULE_EXPORT_SENTINEL
 };
 
 const ModuleInit module_math = {
