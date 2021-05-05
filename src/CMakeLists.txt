@@ -9,6 +9,8 @@ target_link_libraries(main argon)
 add_dependencies(main argon)
 set_target_properties(main PROPERTIES OUTPUT_NAME "argon")
 
+file(COPY arlib/ DESTINATION ${LIBRARY_OUTPUT_PATH}/)
+
 add_subdirectory(lang)
 add_subdirectory(memory)
 add_subdirectory(module)

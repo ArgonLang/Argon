@@ -1,0 +1,147 @@
+/*
+ * This source file is part of the Argon project.
+ *
+ * Licensed under the Apache License v2.0
+ *
+ * JSON Encoder/Decoder (RFC 8259)
+*/
+
+import math
+
+pub trait JSONEncoder {
+	pub func encode(encoder, obj, buffer) {
+		panic(NotImplemented::new("you must implement JSONEncoder::encode"))
+	}
+}
+
+pub struct Encoder {
+	pub var separators = (b", ", b": ")
+    pub var newlines = true
+    pub var indent = 0
+
+	pub func encode(obj, buffer) {
+		if obj == nil {
+			buffer += b"null"
+			return buffer
+		}
+
+		if obj == true || obj == false {
+			buffer += obj ? b"true" : b"false"
+			return buffer
+		}
+
+		switch type(obj) {
+		case map:
+			return self.enc_map(obj, buffer)
+		case list; tuple:
+			return self.enc_array(obj, buffer)
+		case str:
+			buffer += b"\"" + bytes::new(obj) + b"\""
+			return buffer
+		case decimal:
+			if obj == math::nan {
+				buffer += b"NaN"
+				return buffer
+			} elif obj == math::inf {
+				buffer += b"Infinity"
+				return buffer
+			} elif obj == -math::inf {
+				buffer += b"-Infinity"
+				return buffer
+			}
+			fallthrough
+		case integer:
+			buffer += bytes::new(str::new(obj))
+			return buffer
+		}
+
+		if !isimpl(obj, JSONEncoder) {
+			panic(NotImplemented::new("object of type '%s' is not JSON serializable" % type(obj)))
+		}
+
+		return obj.encode(self, obj, buffer)
+	}
+
+	func enc_map(obj, buffer) {
+		var key
+		var value
+		var sep
+		var keysep
+		var many = false
+
+		if !obj {
+			buffer += b"{}"
+			return buffer
+		}
+
+		sep, keysep = self.separators
+
+		buffer += b"{" + (self.newlines ? b"\n" : b"")
+
+		self.indent++
+
+		for key, value in obj {
+			if many {
+				buffer += sep + (self.newlines ? b"\n" : b"")
+			}
+
+			if self.newlines {
+				buffer += b"\t" * self.indent
+			}
+
+			self.encode(key, buffer)
+			buffer += keysep
+			self.encode(value, buffer)
+
+			many = true
+		}
+
+		self.indent--
+		
+		if self.newlines {
+			buffer += b"\n" + b"\t" * self.indent
+		}
+
+		buffer += b"}"
+
+		return buffer
+	}
+
+	func enc_array(obj, buffer) {
+		var sep = self.separators[0]
+		var many = false
+		var value
+
+		if !obj {
+			buffer += b"[]"
+			return buffer
+		}
+
+		buffer += b"[" + (self.newlines ? b"\n" : b"")
+
+		self.indent++
+
+		for value in obj {
+			if many {
+				buffer += sep + (self.newlines ? b"\n" : b"")
+			}
+
+			if self.newlines {
+				buffer += b"\t" * self.indent
+			}
+
+			self.encode(value, buffer)
+			many = true
+		}
+
+		self.indent--
+		
+		if self.newlines {
+			buffer += b"\n" + b"\t" * self.indent
+		}
+
+		buffer += b"]"
+
+		return buffer
+	}
+}
