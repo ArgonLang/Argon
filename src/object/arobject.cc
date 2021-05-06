@@ -91,12 +91,12 @@ ArObject *type_str(ArObject *self) {
     auto *tp = (TypeInfo *) self;
 
     switch (tp->flags) {
-        case TypeInfoFlags::BASE:
-            return StringNewFormat("<datatype '%s'>", tp->name);
         case TypeInfoFlags::STRUCT:
             return StringNewFormat("<struct '%s'>", tp->name);
         case TypeInfoFlags::TRAIT:
             return StringNewFormat("<trait '%s'>", tp->name);
+        default:
+            return StringNewFormat("<datatype '%s'>", tp->name);
     }
 }
 

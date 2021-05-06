@@ -272,7 +272,7 @@ ArObject *decimal_compare(Decimal *self, ArObject *other, CompareMode mode) {
         } else r = .0;
     }
 
-    ARGON_RICH_COMPARE_CASES(l, r, mode)
+    ARGON_RICH_COMPARE_CASES(l, r, mode);
 }
 
 // Hash of double number.

@@ -304,7 +304,7 @@ ArObject *bytestream_compare(ByteStream *self, ArObject *other, CompareMode mode
             right = -1;
     }
 
-    ARGON_RICH_COMPARE_CASES(left, right, mode)
+    ARGON_RICH_COMPARE_CASES(left, right, mode);
 }
 
 bool bytestream_is_true(ByteStream *self) {

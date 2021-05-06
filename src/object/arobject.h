@@ -29,19 +29,20 @@ namespace argon::object {
 #define ARGON_RICH_COMPARE_CASES(a, b, mode)    \
     switch (mode) {                             \
         case CompareMode::EQ:                   \
-            return BoolToArBool(a == b);        \
+            return BoolToArBool((a) == (b));    \
         case CompareMode::NE:                   \
             assert(false);                      \
             break;                              \
         case CompareMode::GE:                   \
-            return BoolToArBool(a > b);         \
+            return BoolToArBool((a) > (b));     \
         case CompareMode::GEQ:                  \
-            return BoolToArBool(a >= b);        \
+            return BoolToArBool((a) >= (b));    \
         case CompareMode::LE:                   \
-            return BoolToArBool(a < b);         \
+            return BoolToArBool((a) < (b));     \
         case CompareMode::LEQ:                  \
-            return BoolToArBool(a <= b);        \
-    }
+            return BoolToArBool((a) <= (b));    \
+    }                                           \
+    assert(false)
 
     using ArSize = size_t;
     using ArSSize = ssize_t;
@@ -49,7 +50,6 @@ namespace argon::object {
     using ArSizeUnaryOp = ArSSize (*)(struct ArObject *);
     using BinaryOp = struct ArObject *(*)(struct ArObject *, struct ArObject *);
     using BinaryOpArSize = struct ArObject *(*)(struct ArObject *, ArSSize);
-    using BoolBinOp = bool (*)(struct ArObject *, struct ArObject *);
     using BoolTernOp = bool (*)(struct ArObject *, struct ArObject *, struct ArObject *);
     using BoolTernOpArSize = bool (*)(struct ArObject *, struct ArObject *, ArSSize);
     using BoolUnaryOp = bool (*)(struct ArObject *obj);

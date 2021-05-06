@@ -229,7 +229,7 @@ ArObject *bytes_compare(Bytes *self, ArObject *other, CompareMode mode) {
             right = -1;
     }
 
-    ARGON_RICH_COMPARE_CASES(left, right, mode)
+    ARGON_RICH_COMPARE_CASES(left, right, mode);
 }
 
 size_t bytes_hash(Bytes *self) {
