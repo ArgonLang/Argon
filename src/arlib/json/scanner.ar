@@ -141,7 +141,7 @@ pub struct Scanner {
         }
 
         if !float {
-            return new(integer, num_str), index
+            return integer::new(num_str), index
         }
 
         return decimal::new(num_str), index

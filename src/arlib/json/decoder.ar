@@ -136,7 +136,7 @@ pub struct Decoder impl ScannerCallback {
                     index = index + 1
                 case 117:
                     index = is_hex(buffer, index + 1, 4)
-                    rstr += str::chr(new(integer, buffer[start+2:index], 16))
+                    rstr += str::chr(integer::new(buffer[start+2:index], 16))
                 }
 
                 start = index
