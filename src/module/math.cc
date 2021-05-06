@@ -2,6 +2,8 @@
 //
 // Licensed under the Apache License v2.0
 
+#include <cmath>
+
 #include <object/datatype/error.h>
 #include <object/datatype/integer.h>
 #include <object/datatype/decimal.h>
