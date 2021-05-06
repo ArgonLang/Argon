@@ -342,20 +342,57 @@ ARGON_FUNCTION5(import_, builtins_locator,
     return spec;
 }
 
-String *FindSource(String *package, String *mod_path, Tuple *exts) {
+String *FindSourceInit(Import *import, String *mod_path, String *mod_name) {
+    // Congrats M.D & A.M I wish you all the best!
+    String *file;
+    String *sep_name;
+    std::ifstream infile;
+
+    if ((sep_name = StringConcat(import->path_sep, mod_name)) == nullptr)
+        return nullptr;
+
+    file = StringConcat(sep_name, (String *) import->extensions->objects[0]);
+    Release(sep_name);
+
+    if (file == nullptr)
+        return nullptr;
+
+    sep_name = file;
+
+    file = StringConcat(mod_path, sep_name);
+    Release(sep_name);
+
+    if (file == nullptr)
+        return nullptr;
+
+    infile = std::ifstream((char *) file->buffer);
+
+    if (infile.good()) {
+        infile.close();
+        return file;
+    }
+
+    infile.close();
+
+    Release(file);
+    return nullptr;
+}
+
+String *FindSource(Import *import, String *package, String *mod_path, String *mod_name) {
     String *path;
     String *file;
+    std::ifstream infile;
 
     if ((path = StringConcat(package, mod_path)) == nullptr)
         return nullptr;
 
-    for (ArSize i = 0; i < exts->len; i++) {
-        if ((file = StringConcat(path, (String *) exts->objects[i])) == nullptr) {
+    for (ArSize i = 0; i < import->extensions->len; i++) {
+        if ((file = StringConcat(path, (String *) import->extensions->objects[i])) == nullptr) {
             Release(path);
             return nullptr;
         }
 
-        std::ifstream infile((char *) file->buffer);
+        infile = std::ifstream((char *) file->buffer);
 
         if (infile.good()) {
             infile.close();
@@ -367,8 +404,10 @@ String *FindSource(String *package, String *mod_path, Tuple *exts) {
         Release(file);
     }
 
+    file = FindSourceInit(import, path, mod_name);
     Release(path);
-    return nullptr;
+
+    return file;
 }
 
 String *GetModuleName(String *path, String *sep) {
@@ -380,7 +419,7 @@ String *GetModuleName(String *path, String *sep) {
     return IncRef(path);
 }
 
-String *FindSourceInPaths(Import *import, String *mod_path) {
+String *FindSourceInPaths(Import *import, String *mod_path, String *mod_name) {
     String *file = nullptr;
     String *path;
 
@@ -395,7 +434,7 @@ String *FindSourceInPaths(Import *import, String *mod_path) {
             continue;
         }
 
-        if ((file = FindSource(path, mod_path, import->extensions)) == nullptr) {
+        if ((file = FindSource(import, path, mod_path, mod_name)) == nullptr) {
             if (IsPanicking()) {
                 Release(path);
                 Release(iter);
@@ -442,10 +481,10 @@ ImportSpec *SourceLocator(Import *import, String *name, String *package) {
     }
 
     if (package != nullptr)
-        file = FindSource(package, mod_path, import->extensions);
+        file = FindSource(import, package, mod_path, mod_path);
 
     if (file == nullptr)
-        file = FindSourceInPaths(import, mod_path);
+        file = FindSourceInPaths(import, mod_path, mod_name);
 
     if (file != nullptr) {
         // Extract origin package
