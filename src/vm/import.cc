@@ -209,6 +209,58 @@ ARGON_FUNCTION5(import_, builtins_loader,
     return module;
 }
 
+bool InsertModule(Import *import, ImportSpec *spec, Module *module) {
+    String *mod_sep = nullptr;
+    String *file = nullptr;
+    String *tmp = nullptr;
+    List *split = nullptr;
+
+    ArSSize end_pos = (ArSSize) spec->origin->len - 3; // len(".ar") is 3
+    ArSSize last_sep;
+
+    bool ok = false;
+
+    if (!MapInsert(import->modules, spec->name, module))
+        return false;
+
+    if ((last_sep = StringRFind(spec->origin, import->path_sep)) > 0) {
+        for (ArSSize i = end_pos - (last_sep + 1); i > 0; i--) {
+            if (spec->origin->buffer[last_sep - i] != spec->origin->buffer[end_pos - i])
+                return true;
+        }
+
+        if ((mod_sep = StringIntern("::")) == nullptr)
+            return false;
+
+        if ((split = (List *) StringSplit(spec->name, mod_sep, -1)) == nullptr)
+            goto error;
+
+        if (split->len < 2 || !Equal(split->objects[split->len - 1], split->objects[split->len - 2])) {
+            if ((tmp = StringConcat(spec->name, mod_sep)) == nullptr)
+                goto error;
+
+            if ((file = StringConcat(tmp, (String *) split->objects[split->len - 1])) == nullptr)
+                goto error;
+        } else {
+            last_sep = StringRFind(spec->name, mod_sep);
+            if ((file = StringSubs(spec->name, 0, last_sep)) == nullptr)
+                goto error;
+        }
+
+        if (!MapInsert(import->modules, file, module))
+            goto error;
+    }
+
+    ok = true;
+
+    error:
+    Release(mod_sep);
+    Release(file);
+    Release(tmp);
+    Release(split);
+    return ok;
+}
+
 ARGON_FUNCTION5(import_, source_loader,
                 "Load external modules from sources."
                 ""
@@ -243,7 +295,7 @@ ARGON_FUNCTION5(import_, source_loader,
         if (!ModuleAddProperty(module, "__spec", spec, MODULE_ATTRIBUTE_PUB_CONST))
             goto error;
 
-        if (!MapInsert(import->modules, spec->name, module))
+        if (!InsertModule(import, spec, module))
             goto error;
 
         if ((frame = FrameNew(code, module->module_ns, nullptr)) == nullptr)
@@ -496,7 +548,6 @@ ImportSpec *SourceLocator(Import *import, String *name, String *package) {
 
         if (mod_package != nullptr)
             spec = ImportSpecNew(name, mod_package, file, loader);
-
     }
 
     Release(file);
