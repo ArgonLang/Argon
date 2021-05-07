@@ -455,13 +455,6 @@ ARGON_METHOD5(str_, split,
               " - maxsplit: specifies how many splits to do.", 2, false) {
     auto *str = (String *) self;
     auto *pattern = (String *) argv[0];
-    String *tmp;
-    List *ret;
-
-    ArSize idx = 0;
-    ArSSize end;
-    ArSSize msplit;
-    ArSSize counter = 0;
 
     if (!AR_TYPEOF(argv[0], type_string_))
         return ErrorFormat(type_type_error_, "str::split() expected string not '%s'", AR_TYPE_NAME(argv[0]));
@@ -469,44 +462,7 @@ ARGON_METHOD5(str_, split,
     if (!AR_TYPEOF(argv[1], type_integer_))
         return ErrorFormat(type_type_error_, "str::split() expected integer not '%s'", AR_TYPE_NAME(argv[1]));
 
-    msplit = ((Integer *) argv[1])->integer;
-
-    if ((ret = ListNew()) == nullptr)
-        return nullptr;
-
-    if (msplit != 0) {
-        while ((end = support::Find(str->buffer + idx, str->len - idx, pattern->buffer, pattern->len)) >= 0) {
-            if ((tmp = StringNew((const char *) str->buffer + idx, end)) == nullptr)
-                goto error;
-
-            idx += end + pattern->len;
-
-            if (!ListAppend(ret, tmp))
-                goto error;
-
-            Release(tmp);
-
-            if (msplit > -1 && ++counter >= msplit)
-                break;
-        }
-    }
-
-    if (str->len - idx > 0) {
-        if ((tmp = StringNew((const char *) str->buffer + idx, str->len - idx)) == nullptr)
-            goto error;
-
-        if (!ListAppend(ret, tmp))
-            goto error;
-
-        Release(tmp);
-    }
-
-    return ret;
-
-    error:
-    Release(tmp);
-    Release(ret);
-    return nullptr;
+    return StringSplit(str, pattern, ((Integer *) argv[1])->integer);
 }
 
 ARGON_METHOD5(str_, startswith,
@@ -1443,6 +1399,52 @@ String *FmtFormatArgs(StringFormatter *fmt) {
 }
 
 // Common Operations
+
+ArObject *argon::object::StringSplit(String *string, String *pattern, ArSSize maxsplit) {
+    String *tmp;
+    List *ret;
+
+    ArSize idx = 0;
+    ArSSize end;
+    ArSSize counter = 0;
+
+    if ((ret = ListNew()) == nullptr)
+        return nullptr;
+
+    if (maxsplit != 0) {
+        while ((end = support::Find(string->buffer + idx, string->len - idx, pattern->buffer, pattern->len)) >= 0) {
+            if ((tmp = StringNew((const char *) string->buffer + idx, end)) == nullptr)
+                goto error;
+
+            idx += end + pattern->len;
+
+            if (!ListAppend(ret, tmp))
+                goto error;
+
+            Release(tmp);
+
+            if (maxsplit > -1 && ++counter >= maxsplit)
+                break;
+        }
+    }
+
+    if (string->len - idx > 0) {
+        if ((tmp = StringNew((const char *) string->buffer + idx, string->len - idx)) == nullptr)
+            goto error;
+
+        if (!ListAppend(ret, tmp))
+            goto error;
+
+        Release(tmp);
+    }
+
+    return ret;
+
+    error:
+    Release(tmp);
+    Release(ret);
+    return nullptr;
+}
 
 bool argon::object::StringEndsWith(String *string, String *pattern) {
     ArSSize n;

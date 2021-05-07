@@ -10,8 +10,8 @@
 
 #include <utils/enum_bitmask.h>
 
-#include <object/arobject.h>
 #include <object/datatype/support/bytesops.h>
+#include <object/arobject.h>
 
 namespace argon::object {
     enum class StringFormatFlags {
@@ -120,6 +120,8 @@ namespace argon::object {
     inline String *StringIntern(const std::string &string) { return StringIntern(string.c_str(), string.length()); }
 
     // Common Operations
+
+    ArObject *StringSplit(String *string, String *pattern, ArSSize maxsplit);
 
     inline bool StringEmpty(String *string) { return string->len == 0; }
 
