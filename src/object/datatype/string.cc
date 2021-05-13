@@ -452,7 +452,8 @@ ARGON_METHOD5(str_, split,
               ""
               "- Parameters:"
               " - separator: specifies the separator to use when splitting the string."
-              " - maxsplit: specifies how many splits to do.", 2, false) {
+              " - maxsplit: specifies how many splits to do."
+              "- Returns: new list of string.", 2, false) {
     auto *str = (String *) self;
     auto *pattern = (String *) argv[0];
 
@@ -789,11 +790,11 @@ int argon::object::StringBuilderWrite(StringBuilder *sb, const unsigned char *bu
     wbytes = FillBuffer(&sb->str, sb->w_idx, buffer, len);
     sb->w_idx += wbytes;
 
-    return wbytes;
+    return (int) wbytes;
 }
 
 int argon::object::StringBuilderWriteAscii(StringBuilder *sb, const unsigned char *buffer, size_t len) {
-    static unsigned char hex[] = "0123456789abcdef";
+    static const unsigned char hex[] = "0123456789abcdef";
     unsigned char *start = sb->str.buffer + sb->w_idx;
     unsigned char *buf = sb->str.buffer + sb->w_idx;
 
@@ -837,6 +838,30 @@ int argon::object::StringBuilderWriteAscii(StringBuilder *sb, const unsigned cha
     sb->str.cp_len += buf - start;
     sb->w_idx += buf - start;
     return len;
+}
+
+int argon::object::StringBuilderWriteHex(StringBuilder *sb, const unsigned char *buffer, size_t len) {
+    static const unsigned char hex[] = "0123456789abcdef";
+    unsigned char *buf;
+
+    ArSize wlen = len * 4;
+
+    if (!StringBuilderResize(sb, wlen))
+        return -1;
+
+    buf = sb->str.buffer;
+
+    for (ArSize i = 0; i < len; i++) {
+        *buf++ = '\\';
+        *buf++ = 'x';
+        *buf++ = hex[(buffer[i] & 0xF0) >> 4];
+        *buf++ = hex[(buffer[i] & 0x0F)];
+    }
+
+    sb->w_idx += wlen;
+    sb->str.cp_len += wlen;
+
+    return (int) wlen;
 }
 
 String *argon::object::StringBuilderFinish(StringBuilder *sb) {

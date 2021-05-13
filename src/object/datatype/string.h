@@ -95,6 +95,8 @@ namespace argon::object {
 
     int StringBuilderWriteAscii(StringBuilder *sb, const unsigned char *buffer, size_t len);
 
+    int StringBuilderWriteHex(StringBuilder *sb, const unsigned char *buffer, size_t len);
+
     String *StringBuilderFinish(StringBuilder *sb);
 
     void StringBuilderClean(StringBuilder *sb);
