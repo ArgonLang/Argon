@@ -24,6 +24,9 @@ namespace argon::object {
     ByteStream *ByteStreamNew(ArSize cap, bool same_len, bool fill_zero);
 
     inline ByteStream *ByteStreamNew() { return ByteStreamNew(ARGON_OBJECT_BYTESTREAM_INITIAL_CAP, false, false); }
+
+    ArObject *ByteStreamSplit(ByteStream *bytes, unsigned char *pattern, ArSize plen, ArSSize maxsplit);
+
 } // namespace argon::object
 
 

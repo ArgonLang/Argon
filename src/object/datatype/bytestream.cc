@@ -12,6 +12,7 @@
 #include "integer.h"
 #include "iterator.h"
 #include "bytestream.h"
+#include "bytes.h"
 
 #define BUFFER_GET(bs)              (bs->view.buffer)
 #define BUFFER_LEN(bs)              (bs->view.len)
@@ -106,7 +107,7 @@ ARGON_FUNCTION5(bytestream_, new, "Creates bytestream object."
                                   "The src parameter is optional, in case of call without src parameter an empty zero-length"
                                   "bytestream object will be constructed."
                                   ""
-                                  "- Parameter [src]: integer or bufferable object."
+                                  "- Parameter [src]: integer or bytes-like object."
                                   "- Returns: construct a new bytestream object.", 0, true) {
     IntegerUnderlying size = 0;
 
@@ -116,23 +117,414 @@ ARGON_FUNCTION5(bytestream_, new, "Creates bytestream object."
     if (count == 1) {
         if (!AR_TYPEOF(*argv, type_integer_))
             return ByteStreamNew(*argv);
+
         size = ((Integer *) *argv)->integer;
     }
 
     return ByteStreamNew(size, true, true);
 }
 
-ARGON_METHOD5(bytesream_, str, "Convert bytestream to str object."
-                               ""
-                               "- Returns: new str object.", 0, false) {
-    auto *bytes = (ByteStream *) self;
+ARGON_METHOD5(bytestream_, count,
+              "Returns the number of times a specified value occurs in bytestream."
+              ""
+              "- Parameter sub: subsequence to search."
+              "- Returns: number of times a specified value appears in bytestream.", 1, false) {
+    ArBuffer buffer{};
+    ByteStream *bytes;
+    ArSSize n;
 
-    return StringNew((const char *) bytes->view.buffer, bytes->view.len);
+    bytes = (ByteStream *) self;
+
+    if (!BufferGet(argv[0], &buffer, ArBufferFlags::READ))
+        return nullptr;
+
+    n = support::Count(BUFFER_GET(bytes), BUFFER_LEN(bytes), buffer.buffer, buffer.len, -1);
+
+    BufferRelease(&buffer);
+
+    return IntegerNew(n);
 }
 
+ARGON_METHOD5(bytestream_, clone,
+              "Returns the number of times a specified value occurs in bytestream."
+              ""
+              "- Parameter sub: subsequence to search."
+              "- Returns: number of times a specified value appears in the string.", 0, false) {
+    return ByteStreamNew(self);
+}
+
+ARGON_METHOD5(bytestream_, endswith,
+              "Returns true if bytestream ends with the specified value."
+              ""
+              "- Parameter suffix: the value to check if the bytestream ends with."
+              "- Returns: true if bytestream ends with the specified value, false otherwise."
+              ""
+              "# SEE"
+              "- startswith: Returns true if bytestream starts with the specified value.", 1, false) {
+    ArBuffer buffer{};
+    ByteStream *bytes;
+    int res;
+
+    bytes = (ByteStream *) self;
+
+    if (!BufferGet(argv[0], &buffer, ArBufferFlags::READ))
+        return nullptr;
+
+    res = BUFFER_LEN(bytes) > buffer.len ? buffer.len : BUFFER_LEN(bytes);
+    res = MemoryCompare(BUFFER_GET(bytes) + (BUFFER_LEN(bytes) - res), buffer.buffer, res);
+
+    BufferRelease(&buffer);
+
+    return BoolToArBool(res == 0);
+}
+
+ARGON_METHOD5(bytestream_, find,
+              "Searches bytestream for a specified value and returns the position of where it was found."
+              ""
+              "- Parameter sub: the value to search for."
+              "- Returns: index of the first position, -1 otherwise."
+              ""
+              "# SEE"
+              "- rfind: Same as find, but returns the index of the last position.", 1, false) {
+    ArBuffer buffer{};
+    ByteStream *bytes;
+    ArSSize pos;
+
+    bytes = (ByteStream *) self;
+
+    if (!BufferGet(argv[0], &buffer, ArBufferFlags::READ))
+        return nullptr;
+
+    pos = support::Find(BUFFER_GET(bytes), BUFFER_LEN(bytes), buffer.buffer, buffer.len, false);
+
+    return IntegerNew(pos);
+}
+
+ARGON_METHOD5(bytestream_, hex, "Convert bytestream to str of hexadecimal numbers."
+                                ""
+                                "- Returns: new str object.", 0, false) {
+    StringBuilder builder{};
+    ByteStream *bytes;
+
+    bytes = (ByteStream *) self;
+
+    if (StringBuilderWriteHex(&builder, BUFFER_GET(bytes), BUFFER_LEN(bytes)) < 0) {
+        StringBuilderClean(&builder);
+        return nullptr;
+    }
+
+    return StringBuilderFinish(&builder);
+}
+
+ARGON_METHOD5(bytestream_, isalnum,
+              "Check if all characters in the bytestream are alphanumeric (either alphabets or numbers)."
+              ""
+              "- Returns: true if all characters are alphanumeric, false otherwise."
+              ""
+              "# SEE"
+              "- isalpha: Check if all characters in the bytestream are alphabets."
+              "- isascii: Check if all characters in the bytestream are ascii."
+              "- isdigit: Check if all characters in the bytestream are digits.", 0, false) {
+    auto *bytes = (ByteStream *) self;
+    int chr;
+
+    for (ArSize i = 0; i < BUFFER_LEN(bytes); i++) {
+        chr = BUFFER_GET(bytes)[i];
+
+        if ((chr < 'A' || chr > 'Z') && (chr < 'a' || chr > 'z') && (chr < '0' || chr > '9'))
+            return BoolToArBool(false);
+    }
+
+    return BoolToArBool(true);
+}
+
+ARGON_METHOD5(bytestream_, isalpha,
+              "Check if all characters in the bytestream are alphabets."
+              ""
+              "- Returns: true if all characters are alphabets, false otherwise."
+              ""
+              "# SEE"
+              "- isalnum: Check if all characters in the bytestream are alphanumeric (either alphabets or numbers)."
+              "- isascii: Check if all characters in the bytestream are ascii."
+              "- isdigit: Check if all characters in the bytestream are digits.", 0, false) {
+    auto *bytes = (ByteStream *) self;
+    int chr;
+
+    for (ArSize i = 0; i < BUFFER_LEN(bytes); i++) {
+        chr = BUFFER_GET(bytes)[i];
+
+        if ((chr < 'A' || chr > 'Z') && (chr < 'a' || chr > 'z'))
+            return BoolToArBool(false);
+    }
+
+    return BoolToArBool(true);
+}
+
+
+ARGON_METHOD5(bytestream_, isascii,
+              "Check if all characters in the bytestream are ascii."
+              ""
+              "- Returns: true if all characters are ascii, false otherwise."
+              ""
+              "# SEE"
+              "- isalnum: Check if all characters in the bytestream are alphanumeric (either alphabets or numbers)."
+              "- isalpha: Check if all characters in the bytestream are alphabets."
+              "- isdigit: Check if all characters in the bytestream are digits.", 0, false) {
+    auto *bytes = (ByteStream *) self;
+    int chr;
+
+    for (ArSize i = 0; i < BUFFER_LEN(bytes); i++) {
+        chr = BUFFER_GET(bytes)[i];
+
+        if (chr > 0x7F)
+            return BoolToArBool(false);
+    }
+
+    return BoolToArBool(true);
+}
+
+
+ARGON_METHOD5(bytestream_, isdigit,
+              "Check if all characters in the bytestream are digits."
+              ""
+              "- Returns: true if all characters are digits, false otherwise."
+              ""
+              "# SEE"
+              "- isalnum: Check if all characters in the bytestream are alphanumeric (either alphabets or numbers)."
+              "- isalpha: Check if all characters in the bytestream are alphabets."
+              "- isascii: Check if all characters in the bytestream are ascii.", 0, false) {
+    auto *bytes = (ByteStream *) self;
+    int chr;
+
+    for (ArSize i = 0; i < BUFFER_LEN(bytes); i++) {
+        chr = BUFFER_GET(bytes)[i];
+
+        if (chr < '0' || chr > '9')
+            return BoolToArBool(false);
+    }
+
+    return BoolToArBool(true);
+}
+
+ARGON_METHOD5(bytestream_, join,
+              "Joins the elements of an iterable to the end of the bytestream."
+              ""
+              "- Parameter iterable: any iterable object where all the returned values are bytes-like object."
+              "- Returns: new bytestream where all items in an iterable are joined into one bytestream.", 1, false) {
+    ArBuffer buffer{};
+    ArObject *item = nullptr;
+    ArObject *iter;
+
+    ByteStream *bytes;
+    ByteStream *ret;
+
+    ArSize idx = 0;
+    ArSize len;
+
+    bytes = (ByteStream *) self;
+
+    if ((iter = IteratorGet(argv[0])) == nullptr)
+        return nullptr;
+
+    if ((ret = ByteStreamNew()) == nullptr)
+        goto error;
+
+    while ((item = IteratorNext(iter)) != nullptr) {
+        if (!BufferGet(item, &buffer, ArBufferFlags::READ))
+            goto error;
+
+        len = buffer.len;
+
+        if (idx > 0)
+            len += bytes->view.len;
+
+        if (!BufferViewEnlarge(&ret->view, len)) {
+            BufferRelease(&buffer);
+            goto error;
+        }
+
+        if (idx > 0) {
+            MemoryCopy(BUFFER_GET(ret) + BUFFER_LEN(ret), BUFFER_GET(bytes), BUFFER_LEN(bytes));
+            ret->view.len += BUFFER_LEN(bytes);
+        }
+
+        MemoryCopy(BUFFER_GET(ret) + BUFFER_LEN(ret), buffer.buffer, buffer.len);
+        ret->view.len += buffer.len;
+
+        BufferRelease(&buffer);
+        Release(item);
+        idx++;
+    }
+
+    Release(iter);
+    return ret;
+
+    error:
+    Release(item);
+    Release(iter);
+    Release(ret);
+    return nullptr;
+}
+
+ARGON_METHOD5(bytestream_, rfind,
+              "Searches bytestream for a specified value and returns the position of where it was found."
+              ""
+              "- Parameter sub: the value to search for."
+              "- Returns: index of the first position, -1 otherwise."
+              ""
+              "# SEE"
+              "- find: Same as find, but returns the index of the last position.", 1, false) {
+    ArBuffer buffer{};
+    ByteStream *bytes;
+    ArSSize pos;
+
+    bytes = (ByteStream *) self;
+
+    if (!BufferGet(argv[0], &buffer, ArBufferFlags::READ))
+        return nullptr;
+
+    pos = support::Find(BUFFER_GET(bytes), BUFFER_LEN(bytes), buffer.buffer, buffer.len, true);
+
+    return IntegerNew(pos);
+}
+
+ARGON_METHOD5(bytestream_, rmpostfix,
+              "Returns new bytestream without postfix(if present), otherwise return this object."
+              ""
+              "- Parameter postfix: postfix to looking for."
+              "- Returns: new bytestream without indicated postfix."
+              ""
+              "# SEE"
+              "- rmprefix: Returns new bytestream without prefix(if present), otherwise return this object.",
+              1, false) {
+    ArBuffer buffer{};
+    auto *bytes = (ByteStream *) self;
+    int len;
+    int compare;
+
+    if (!BufferGet(argv[0], &buffer, ArBufferFlags::READ))
+        return nullptr;
+
+    len = BUFFER_LEN(bytes) > buffer.len ? buffer.len : BUFFER_LEN(bytes);
+
+    compare = MemoryCompare(BUFFER_GET(bytes) + (BUFFER_LEN(bytes) - len), buffer.buffer, len);
+    BufferRelease(&buffer);
+
+    if (compare == 0)
+        return ByteStreamNew(bytes, 0, BUFFER_LEN(bytes) - len);
+
+    return IncRef(bytes);
+}
+
+
+ARGON_METHOD5(bytestream_, rmprefix,
+              "Returns new bytestream without prefix(if present), otherwise return this object."
+              ""
+              "- Parameter prefix: prefix to looking for."
+              "- Returns: new bytestream without indicated prefix."
+              ""
+              "# SEE"
+              "- rmpostfix: Returns new bytestream without postfix(if present), otherwise return this object.", 1,
+              false) {
+    ArBuffer buffer{};
+    auto *bytes = (ByteStream *) self;
+    int len;
+    int compare;
+
+    if (!BufferGet(argv[0], &buffer, ArBufferFlags::READ))
+        return nullptr;
+
+    len = BUFFER_LEN(bytes) > buffer.len ? buffer.len : BUFFER_LEN(bytes);
+
+    compare = MemoryCompare(BUFFER_GET(bytes), buffer.buffer, len);
+    BufferRelease(&buffer);
+
+    if (compare == 0)
+        return ByteStreamNew(bytes, len, BUFFER_LEN(bytes) - len);
+
+    return IncRef(bytes);
+}
+
+
+ARGON_METHOD5(bytestream_, split,
+              "Splits bytestream at the specified separator, and returns a list."
+              ""
+              "- Parameters:"
+              " - separator: specifies the separator to use when splitting bytestream."
+              " - maxsplit: specifies how many splits to do."
+              "- Returns: new list of bytestream.", 2, false) {
+    ArBuffer buffer{};
+    ByteStream *bytes;
+    ArObject *ret;
+
+    bytes = (ByteStream *) self;
+
+    if (!AR_TYPEOF(argv[1], type_integer_))
+        return ErrorFormat(type_type_error_, "bytestream::split() expected integer not '%s'", AR_TYPE_NAME(argv[1]));
+
+    if (!BufferGet(argv[0], &buffer, ArBufferFlags::READ))
+        return nullptr;
+
+    ret = ByteStreamSplit(bytes, buffer.buffer, buffer.len, ((Integer *) argv[1])->integer);
+
+    BufferRelease(&buffer);
+
+    return ret;
+}
+
+
+ARGON_METHOD5(bytestream_, startswith,
+              "Returns true if bytestream starts with the specified value."
+              ""
+              "- Parameter prefix: the value to check if the bytestream starts with."
+              "- Returns: true if bytestream starts with the specified value, false otherwise."
+              ""
+              "# SEE"
+              "- endswith: Returns true if bytestream ends with the specified value.", 1, false) {
+    ArBuffer buffer{};
+    ByteStream *bytes;
+    int res;
+
+    bytes = (ByteStream *) self;
+
+    if (!BufferGet(argv[0], &buffer, ArBufferFlags::READ))
+        return nullptr;
+
+    res = BUFFER_LEN(bytes) > buffer.len ? buffer.len : BUFFER_LEN(bytes);
+    res = MemoryCompare(BUFFER_GET(bytes), buffer.buffer, res);
+
+    BufferRelease(&buffer);
+
+    return BoolToArBool(res == 0);
+}
+
+
+ARGON_METHOD5(bytestream_, str, "Convert bytestream to str object."
+                                ""
+                                "- Returns: new str object.", 0, false) {
+    auto *bytes = (ByteStream *) self;
+
+    return StringNew((const char *) BUFFER_GET(bytes), BUFFER_LEN(bytes));
+}
+
+
 const NativeFunc bytestream_methods[] = {
+        bytestream_count_,
+        bytestream_endswith_,
+        bytestream_find_,
+        bytestream_hex_,
+        bytestream_isalnum_,
+        bytestream_isalpha_,
+        bytestream_isascii_,
+        bytestream_isdigit_,
+        bytestream_join_,
         bytestream_new_,
-        bytesream_str_,
+        bytestream_rfind_,
+        bytestream_rmpostfix_,
+        bytestream_rmprefix_,
+        bytestream_split_,
+        bytestream_startswith_,
+        bytestream_str_,
         ARGON_METHOD_SENTINEL
 };
 
@@ -340,6 +732,52 @@ const TypeInfo argon::object::type_bytestream_ = {
         nullptr,
         nullptr
 };
+
+ArObject *argon::object::ByteStreamSplit(ByteStream *bytes, unsigned char *pattern, ArSize plen, ArSSize maxsplit) {
+    ByteStream *tmp;
+    List *ret;
+
+    ArSize idx = 0;
+    ArSSize end;
+    ArSSize counter = 0;
+
+    if ((ret = ListNew()) == nullptr)
+        return nullptr;
+
+    if (maxsplit != 0) {
+        while ((end = support::Find(BUFFER_GET(bytes) + idx, BUFFER_LEN(bytes) - idx, pattern, plen)) >= 0) {
+            if ((tmp = ByteStreamNew(bytes, idx, end - idx)) == nullptr)
+                goto error;
+
+            idx += end + plen;
+
+            if (!ListAppend(ret, tmp))
+                goto error;
+
+            Release(tmp);
+
+            if (maxsplit > -1 && ++counter >= maxsplit)
+                break;
+        }
+    }
+
+    if (BUFFER_LEN(bytes) - idx > 0) {
+        if ((tmp = ByteStreamNew(bytes, idx, BUFFER_LEN(bytes) - idx)) == nullptr)
+            goto error;
+
+        if (!ListAppend(ret, tmp))
+            goto error;
+
+        Release(tmp);
+    }
+
+    return ret;
+
+    error:
+    Release(tmp);
+    Release(ret);
+    return nullptr;
+}
 
 ByteStream *argon::object::ByteStreamNew(ArObject *object) {
     ArBuffer buffer = {};
