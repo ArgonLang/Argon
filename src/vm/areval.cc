@@ -375,7 +375,6 @@ ArObject *argon::vm::Eval(ArRoutine *routine) {
     DISPATCH()
 
     // FUNCTION START
-    ArObject *last_popped = NilVal;
     Frame *first_frame = routine->frame;
 
     begin:
@@ -906,8 +905,8 @@ ArObject *argon::vm::Eval(ArRoutine *routine) {
             }
             TARGET_OP(POP) {
                 // DO NOT RELEASE, it may be returned as a return value!
-                Release(last_popped);
-                last_popped = TOP_BACK();
+                Release(cu_frame->return_value);
+                cu_frame->return_value = TOP_BACK();
                 DISPATCH();
             }
             TARGET_OP(POS) {
@@ -926,8 +925,7 @@ ArObject *argon::vm::Eval(ArRoutine *routine) {
             }
             TARGET_OP(RET) {
                 if (cu_frame->stack_extra_base != cu_frame->eval_stack) {
-                    Release(last_popped);
-                    last_popped = IncRef(TOP());
+                    Release(cu_frame->return_value);
                     cu_frame->return_value = TOP_BACK();
                 }
 
@@ -1105,7 +1103,7 @@ ArObject *argon::vm::Eval(ArRoutine *routine) {
         RoutinePopDefer(routine);
     }
 
-    return last_popped;
+    return IncRef(cu_frame->return_value);
 
 #undef TARGET_OP
 #undef DISPATCH
