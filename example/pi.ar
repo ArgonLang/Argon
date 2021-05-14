@@ -1,0 +1,11 @@
+# Calculation of Pi using the Gregory-Leibniz Series
+
+var pi = 4
+var flag = 0
+
+for var i = 3; i < 10000000; i+= 2 {
+    pi = flag ? pi + 4.0 / i :  pi - 4.0 / i;
+    flag = !flag
+}
+
+println("value of π (Gregory-Leibniz Series) is %f" % pi)

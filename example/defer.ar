@@ -1,0 +1,10 @@
+let text = input("Enter text to reverse: ")
+
+var split = text.split(" ", -1)
+
+var word
+for word in split {
+    defer (word) => {
+        println(word)
+    }(word)
+}

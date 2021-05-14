@@ -1,0 +1,14 @@
+var num = input("Enter a number: ")
+
+num = integer::new(num)
+
+if num > 1 {
+    for var i = 2; i < num; i++ {
+        if num % i == 0 {
+            println("%d is not a prime number" % num)
+            return
+        }
+    }
+}
+
+println("%d is a prime number" % num)

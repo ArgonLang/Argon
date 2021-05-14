@@ -1,0 +1,14 @@
+func div(value) {
+    defer () => {
+        println("recovered: %s" % recover())
+    }()
+
+    if type(value) != integer {
+        panic("expected integer, found: %s" % type(value))
+    }
+
+    return 24 / 0
+}
+
+div24("")
+div24(0)

@@ -1,0 +1,7 @@
+var num1 = input("Enter first number: ")
+var num2 = input("Enter second number: ")
+var sum
+
+sum = decimal::new(num1) + decimal::new(num2)
+
+println("Sum of %s and %s is %f" %(num1, num2, sum))
