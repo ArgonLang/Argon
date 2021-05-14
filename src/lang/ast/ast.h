@@ -9,7 +9,7 @@
 
 #include <lang/scanner/token.h>
 
-namespace lang::ast {
+namespace argon::lang::ast {
     enum class NodeType {
         ALIAS,
         ASSIGN,
@@ -25,6 +25,7 @@ namespace lang::ast {
         ELLIPSIS,
         ELVIS,
         EQUALITY,
+        EXPRESSION,
         FALLTHROUGH,
         FOR,
         FOR_IN,
@@ -34,6 +35,8 @@ namespace lang::ast {
         IF,
         IMPL,
         IMPORT,
+        IMPORT_FROM,
+        IMPORT_NAME,
         INDEX,
         LABEL,
         LIST,
@@ -42,8 +45,7 @@ namespace lang::ast {
         LOOP,
         MAP,
         MEMBER,
-        MEMBER_ASSERT,
-        MEMBER_SAFE,
+        NULLABLE,
         PROGRAM,
         RELATIONAL,
         RETURN,
@@ -143,7 +145,7 @@ namespace lang::ast {
     };
 
     struct Block : Node {
-        std::list<NodeUptr> stmts;
+        std::list <NodeUptr> stmts;
 
         Block(NodeType type, scanner::Pos start) : Node(type, start, 0) {}
 
@@ -158,7 +160,7 @@ namespace lang::ast {
 
     struct Call : Node {
         NodeUptr callee;
-        std::list<NodeUptr> args;
+        std::list <NodeUptr> args;
 
         explicit Call(NodeUptr callee) : Node(NodeType::CALL, 0, 0) {
             this->callee = std::move(callee);
@@ -171,7 +173,7 @@ namespace lang::ast {
     };
 
     struct Case : Node {
-        std::list<NodeUptr> tests;
+        std::list <NodeUptr> tests;
         NodeUptr body;
 
         explicit Case(scanner::Pos start) : Node(NodeType::CASE, start, 0) {}
@@ -204,11 +206,11 @@ namespace lang::ast {
 
     struct Construct : NodeDoc {
         std::string name;
-        std::list<NodeUptr> impls;
+        std::list <NodeUptr> impls;
         NodeUptr body;
         bool pub = false;
 
-        explicit Construct(NodeType type, std::string &name, std::list<NodeUptr> &impls, NodeUptr body, bool pub,
+        explicit Construct(NodeType type, std::string &name, std::list <NodeUptr> &impls, NodeUptr body, bool pub,
                            scanner::Pos start) : NodeDoc(type, start, 0) {
             this->name = name;
             this->impls = std::move(impls);
@@ -236,11 +238,11 @@ namespace lang::ast {
 
     struct Function : NodeDoc {
         std::string id;
-        std::list<NodeUptr> params;
+        std::list <NodeUptr> params;
         NodeUptr body;
         bool pub = false;
 
-        explicit Function(std::string &id, std::list<NodeUptr> params, NodeUptr body, bool pub, scanner::Pos start)
+        explicit Function(std::string &id, std::list <NodeUptr> params, NodeUptr body, bool pub, scanner::Pos start)
                 : NodeDoc(NodeType::FUNC, start, 0) {
             this->id = id;
             this->params = std::move(params);
@@ -249,8 +251,8 @@ namespace lang::ast {
             this->end = this->body->end;
         }
 
-        explicit Function(std::list<NodeUptr> params, NodeUptr body, scanner::Pos start) : NodeDoc(NodeType::FUNC,
-                                                                                                   start, 0) {
+        explicit Function(std::list <NodeUptr> params, NodeUptr body, scanner::Pos start) : NodeDoc(NodeType::FUNC,
+                                                                                                    start, 0) {
             this->params = std::move(params);
             this->body = std::move(body);
             this->end = this->body->end;
@@ -307,11 +309,11 @@ namespace lang::ast {
 
     struct Import : Node {
         NodeUptr module;
-        std::list<NodeUptr> names;
+        std::list <NodeUptr> names;
 
-        explicit Import(scanner::Pos start) : Import(nullptr, start) {}
+        explicit Import(scanner::Pos start) : Node(NodeType::IMPORT, start, 0) {}
 
-        explicit Import(NodeUptr module, scanner::Pos start) : Node(NodeType::IMPORT, start, 0) {
+        explicit Import(NodeUptr module, scanner::Pos start) : Node(NodeType::IMPORT_FROM, start, 0) {
             this->module = std::move(module);
         }
 
@@ -321,8 +323,26 @@ namespace lang::ast {
         }
     };
 
+    struct ImportName : Node {
+        std::string name;
+        std::string import_as;
+
+        explicit ImportName(scanner::Pos start) : Node(NodeType::IMPORT_NAME, start, 0) {}
+
+        void AddSegment(const std::string segment, scanner::Pos end) {
+            if (!this->name.empty()) {
+                this->name += "::" + segment;
+                this->import_as = segment;
+            } else {
+                name = segment;
+                import_as = segment;
+            }
+            this->end = end;
+        }
+    };
+
     struct List : Node {
-        std::list<NodeUptr> expressions;
+        std::list <NodeUptr> expressions;
 
         explicit List(NodeType type, scanner::Pos start) : Node(type, start, 0) {}
 
@@ -355,8 +375,18 @@ namespace lang::ast {
         }
     };
 
+    struct Member : Node {
+        NodeUptr left;
+        NodeUptr right;
+        bool safe;
+
+        explicit Member(NodeUptr left, NodeUptr right, bool safe) : Node(NodeType::MEMBER, left->start, right->end),
+                                                                    left(std::move(left)), right(std::move(right)),
+                                                                    safe(safe) {}
+    };
+
     struct Program : NodeDoc {
-        std::list<NodeUptr> body;
+        std::list <NodeUptr> body;
         std::string filename;
 
         explicit Program(std::string &filename, scanner::Pos start) : NodeDoc(NodeType::PROGRAM, start, 0) {
@@ -373,7 +403,7 @@ namespace lang::ast {
     };
 
     struct Scope : Node {
-        std::list<std::string> segments;
+        std::list <std::string> segments;
 
         explicit Scope(scanner::Pos start) : Node(NodeType::SCOPE, start, 0) {}
 
@@ -387,24 +417,26 @@ namespace lang::ast {
         NodeUptr high;
         NodeUptr step;
 
-        explicit Slice(NodeUptr low, NodeUptr high, NodeUptr step) : Node(NodeType::INDEX, 0, 0) {
-            this->low = std::move(low);
-            this->start = this->low->start;
-            if (high != nullptr) {
+        explicit Slice(scanner::Pos start, NodeUptr low, NodeUptr high, NodeUptr step, bool slice) :
+                Node(NodeType::INDEX, start, 0) {
+
+            if (low != nullptr)
+                this->low = std::move(low);
+
+            if (high != nullptr)
                 this->high = std::move(high);
+
+            if (step != nullptr)
+                this->step = std::move(step);
+
+            if (slice)
                 this->type = NodeType::SLICE;
-                this->end = this->high->end;
-                if (step != nullptr) {
-                    this->step = std::move(step);
-                    this->end = this->step->end;
-                }
-            }
         }
     };
 
     struct StructInit : Node {
         NodeUptr left;
-        std::list<NodeUptr> args;
+        std::list <NodeUptr> args;
         bool keys = false;
 
         explicit StructInit(NodeUptr left) : Node(NodeType::STRUCT_INIT, 0, 0) {
@@ -425,7 +457,7 @@ namespace lang::ast {
 
     struct Switch : Node {
         NodeUptr test;
-        std::list<NodeUptr> cases;
+        std::list <NodeUptr> cases;
 
         explicit Switch(NodeUptr test, scanner::Pos start) : Node(NodeType::SWITCH, start, 0) {
             this->test = std::move(test);

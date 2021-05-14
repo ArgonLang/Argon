@@ -5,7 +5,9 @@
 #include "arena.h"
 #include "osmemory.h"
 
+#include <cstddef>
 #include <cassert>
+#include <new>
 
 using namespace argon::memory;
 
@@ -48,6 +50,8 @@ Pool *argon::memory::AllocPool(Arena *arena, size_t clazz) {
     if (pool == AlignDown(arena, ARGON_MEMORY_PAGE_SIZE))
         bytes -= sizeof(Arena);
 
+    pool->next = nullptr;
+    pool->prev = nullptr;
     pool->blocksz = (unsigned short) ClassToSize(clazz);
     pool->blocks = (unsigned short) bytes / pool->blocksz;
     pool->free = pool->blocks;
@@ -62,6 +66,7 @@ void argon::memory::FreePool(Pool *pool) {
     pool->next = arena->pool;
     arena->pool = pool;
     arena->free++;
+    assert(arena->free <= arena->pools);
 }
 
 void *argon::memory::AllocBlock(Pool *pool) {
@@ -74,6 +79,7 @@ void *argon::memory::AllocBlock(Pool *pool) {
     pool->block = (void *) *((Uintptr *) pool->block);
     if (pool->block == nullptr && pool->free > 0) {
         pool->block = ((unsigned char *) block) + pool->blocksz;
+        *((Uintptr *) pool->block) = 0x0;
     }
 
     return block;
@@ -83,4 +89,5 @@ void argon::memory::FreeBlock(Pool *pool, void *block) {
     *((Uintptr *) block) = (Uintptr) pool->block;
     pool->block = block;
     pool->free++;
+    assert(pool->free <= pool->blocks);
 }

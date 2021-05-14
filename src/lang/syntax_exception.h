@@ -9,7 +9,7 @@
 #include <exception>
 #include <lang/scanner/token.h>
 
-namespace lang {
+namespace argon::lang {
     class SyntaxException : std::exception {
     public:
         const std::string errmsg;

@@ -9,7 +9,7 @@
 #include <string>
 #include <map>
 
-namespace lang::scanner {
+namespace argon::lang::scanner {
 
     enum class TokenType {
         TK_NULL,
@@ -100,7 +100,7 @@ namespace lang::scanner {
         ELIF,
         ELSE,
         FALLTHROUGH,
-        FALSE,
+        //FALSE,
         FOR,
         FROM,
         FUNC,
@@ -111,19 +111,25 @@ namespace lang::scanner {
         IMPORT,
         LET,
         LOOP,
-        NIL,
+        //NIL,
         PUB,
         RETURN,
-        SELF,
+        //SELF,
         SPAWN,
         STRUCT,
         SWITCH,
         TRAIT,
-        TRUE,
+        //TRUE,
         USING,
         VAR,
         WEAK,
         KEYWORD_END,
+
+        FALSE,
+        NIL,
+        SELF,
+        TRUE,
+
         ERROR
     };
 

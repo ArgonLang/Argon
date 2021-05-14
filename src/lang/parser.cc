@@ -7,9 +7,9 @@
 #include "parser.h"
 #include "syntax_exception.h"
 
-using namespace lang;
-using namespace lang::ast;
-using namespace lang::scanner;
+using namespace argon::lang;
+using namespace argon::lang::ast;
+using namespace argon::lang::scanner;
 
 Parser::Parser(std::string filename, std::istream *source) {
     this->scanner_ = std::make_unique<Scanner>(source);
@@ -401,15 +401,14 @@ ast::NodeUptr Parser::Statement() {
         switch (this->currTk_.type) {
             case TokenType::DEFER:
                 this->Eat();
-                tmp = std::make_unique<Unary>(NodeType::DEFER, this->AtomExpr(), start);
+                tmp = std::make_unique<Unary>(NodeType::DEFER, this->Test(), start);
                 break;
             case TokenType::SPAWN:
                 this->Eat();
-                tmp = std::make_unique<Unary>(NodeType::SPAWN, this->AtomExpr(), start);
+                tmp = std::make_unique<Unary>(NodeType::SPAWN, this->Test(), start);
                 break;
             case TokenType::RETURN:
-                this->Eat();
-                tmp = std::make_unique<Unary>(NodeType::RETURN, this->TestList(), start);
+                tmp = this->RtnStmt();
                 break;
             case TokenType::IMPORT:
                 tmp = this->ImportStmt();
@@ -435,6 +434,13 @@ ast::NodeUptr Parser::Statement() {
             case TokenType::GOTO:
                 tmp = this->JmpStmt();
                 break;
+                /*
+            case TokenType::FALSE:
+            case TokenType::NIL:
+            case TokenType::TRUE:
+                tmp = this->Expression();
+                break;
+                 */
             default:
                 throw SyntaxException("expected statement", this->currTk_);
         }
@@ -447,16 +453,34 @@ ast::NodeUptr Parser::Statement() {
     return tmp;
 }
 
+ast::NodeUptr Parser::RtnStmt() {
+    std::unique_ptr<Unary> ret;
+    Pos start = this->currTk_.start;
+
+    ret = std::make_unique<Unary>(NodeType::RETURN, nullptr, start);
+
+    ret->end = this->currTk_.end;
+
+    this->Eat();
+
+    if (!this->Match(TokenType::END_OF_LINE, TokenType::SEMICOLON, TokenType::END_OF_FILE)) {
+        ret->expr = this->TestList();
+        ret->end = ret->expr->end;
+    }
+
+    return ret;
+}
+
 ast::NodeUptr Parser::ImportStmt() {
     auto import = std::make_unique<Import>(this->currTk_.start);
 
     this->Eat(TokenType::IMPORT, "expected import keyword");
 
-    import->AddName(this->ScopeAsName(false));
+    import->AddName(this->ScopeAsName(false, true));
 
     while (this->Match(TokenType::COMMA)) {
         this->Eat();
-        import->AddName(this->ScopeAsName(false));
+        import->AddName(this->ScopeAsName(false, true));
     }
 
     return import;
@@ -468,39 +492,60 @@ ast::NodeUptr Parser::FromImportStmt() {
 
     this->Eat(TokenType::FROM, "expected from keyword");
 
-    import = std::make_unique<Import>(this->ScopeAsName(false), start);
+    import = std::make_unique<Import>(this->ScopeAsName(false, false), start);
 
     this->Eat(TokenType::IMPORT, "expected import keyword");
 
-    import->AddName(this->ScopeAsName(true));
+    import->AddName(this->ScopeAsName(true, true));
     while (this->Match(TokenType::COMMA)) {
         this->Eat();
-        import->AddName(this->ScopeAsName(true));
+        import->AddName(this->ScopeAsName(true, true));
     }
 
     return import;
 }
 
-ast::NodeUptr Parser::ScopeAsName(bool id_only) {
+ast::NodeUptr Parser::ScopeAsName(bool id_only, bool with_alias) {
+    auto name = std::make_unique<ImportName>(this->currTk_.start);
     Pos start = this->currTk_.start;
     Pos end;
-    NodeUptr path;
     NodeUptr alias;
 
-    path = this->ParseScope();
-    end = path->end;
+    if (!this->Match(TokenType::IDENTIFIER)) {
+        if (id_only)
+            throw SyntaxException("expected name", this->currTk_);
+        else
+            throw SyntaxException("expected name or scope path", this->currTk_);
+    }
 
-    if (id_only && path->type != NodeType::IDENTIFIER)
-        throw SyntaxException("expected name", this->currTk_);
+    name->AddSegment(this->currTk_.value, this->currTk_.end);
+    this->Eat();
+
+    if (this->Match(TokenType::SCOPE)) {
+        if (id_only)
+            throw SyntaxException("expected name not scope path", this->currTk_);
+        do {
+            this->Eat();
+            if (!this->Match(TokenType::IDENTIFIER))
+                throw SyntaxException("expected name after scope path separator", this->currTk_);
+            name->AddSegment(this->currTk_.value, this->currTk_.end);
+            this->Eat();
+        } while (this->Match(TokenType::SCOPE));
+    }
+
+    end = name->end;
+
+    if (!with_alias)
+        return name;
 
     if (this->Match(TokenType::AS)) {
         this->Eat();
         alias = std::make_unique<Identifier>(this->currTk_);
-        end = alias->end;
+        end = this->currTk_.end;
         this->Eat(TokenType::IDENTIFIER, "expected alias name");
     }
 
-    return std::make_unique<Alias>(std::move(alias), std::move(path), start, end);
+    return std::make_unique<Alias>(std::move(alias), std::move(name), start, end);
 }
 
 ast::NodeUptr Parser::ForStmt() {
@@ -515,8 +560,10 @@ ast::NodeUptr Parser::ForStmt() {
     if (!this->Match(TokenType::SEMICOLON)) {
         if (this->Match(TokenType::VAR))
             init = this->VarDecl(false);
-        else
-            init = this->Expression();
+        else {
+            auto expr = this->Expression();
+            init = std::move(CastNode<Unary>(expr)->expr);
+        }
     }
 
     if (this->Match(TokenType::IN)) {
@@ -539,7 +586,7 @@ ast::NodeUptr Parser::ForStmt() {
         this->Eat(TokenType::SEMICOLON, "expected ; after test condition");
         inc = this->Expression();
     } else
-        test = this->Expression();
+        test = this->Test();
 
     return std::make_unique<For>(type, std::move(init), std::move(test), std::move(inc), this->Block(), start);
 }
@@ -615,13 +662,15 @@ ast::NodeUptr Parser::SwitchCase() {
     auto swc = std::make_unique<Case>(this->currTk_.start);
     std::unique_ptr<ast::Block> body;
     NodeUptr tmp;
+    int last_fallthrough = -1;
+
 
     if (this->Match(TokenType::DEFAULT)) {
         this->Eat();
     } else if (this->Match(TokenType::CASE)) {
         this->Eat();
-        this->Test();
-        while (this->Match(TokenType::PIPE)) {
+        swc->AddCondition(this->Test());
+        while (this->Match(TokenType::SEMICOLON)) {
             this->Eat();
             swc->AddCondition(this->Test());
         }
@@ -637,10 +686,16 @@ ast::NodeUptr Parser::SwitchCase() {
     while (!this->Match(TokenType::CASE, TokenType::DEFAULT, TokenType::RIGHT_BRACES)) {
         tmp = this->SmallDecl(false);
         body->SetEndPos(tmp->end);
+        if (tmp->type == NodeType::FALLTHROUGH && last_fallthrough == -1)
+            last_fallthrough = body->stmts.size();
         body->AddStmtOrExpr(std::move(tmp));
         if (!this->Match(TokenType::CASE, TokenType::DEFAULT))
             this->EatTerm(true, TokenType::RIGHT_BRACES);
     }
+
+    // Check fallthrough
+    if (last_fallthrough != -1 && last_fallthrough != body->stmts.size() - 1)
+        throw SyntaxException("fallthrough statement out of place", this->currTk_);
 
     swc->body = std::move(body);
 
@@ -717,7 +772,8 @@ ast::NodeUptr Parser::Expression() {
         return std::make_unique<Assignment>(kind, std::move(left), this->TestList());
     }
 
-    return left;
+    Pos start = left->start;
+    return std::make_unique<ast::Unary>(NodeType::EXPRESSION, std::move(left), start);
 }
 
 ast::NodeUptr Parser::TestList() {
@@ -851,7 +907,7 @@ ast::NodeUptr Parser::ArithExpr() {
 }
 
 ast::NodeUptr Parser::MulExpr() {
-    NodeUptr left = this->UnaryExpr();
+    NodeUptr left = this->UnaryExpr(true);
     TokenType type = this->currTk_.type;
 
     switch (this->currTk_.type) {
@@ -866,7 +922,7 @@ ast::NodeUptr Parser::MulExpr() {
     }
 }
 
-ast::NodeUptr Parser::UnaryExpr() {
+ast::NodeUptr Parser::UnaryExpr(bool first) {
     Pos start = this->currTk_.start;
     TokenType type = this->currTk_.type;
     Pos end;
@@ -878,52 +934,72 @@ ast::NodeUptr Parser::UnaryExpr() {
         case TokenType::PLUS:
         case TokenType::MINUS:
             this->Eat();
-            expr = this->UnaryExpr();
+            expr = this->UnaryExpr(false);
             end = expr->end;
-            return std::make_unique<Unary>(NodeType::UNARY_OP, type, std::move(expr), start, end);
+            expr = std::make_unique<Unary>(NodeType::UNARY_OP, type, std::move(expr), start, end);
+            break;
         case TokenType::PLUS_PLUS:
         case TokenType::MINUS_MINUS:
             this->Eat();
-            expr = this->UnaryExpr();
+            expr = this->UnaryExpr(false);
             end = expr->end;
-            return std::make_unique<Update>(std::move(expr), type, true, start, end);
+            expr = std::make_unique<Update>(std::move(expr), type, true, start, end);
+            break;
         default:
-            return this->AtomExpr();
+            expr = this->AtomExpr();
     }
+
+    if (first && this->safe_ > 0) {
+        // Wrapper for Nullable-Expression E.g: a.b?.c or a?.b()?.c() ...
+        this->safe_--;
+        return std::make_unique<Unary>(NodeType::NULLABLE, std::move(expr), start);
+    }
+
+    return expr;
 }
 
 ast::NodeUptr Parser::AtomExpr() {
     auto left = this->ParseAtom();
     Pos end;
+    unsigned short safe;
 
-    if (this->Match(TokenType::EXCLAMATION_LBRACES))
-        left = this->Initializer(std::move(left));
-
-    end = left->end;
-
-    while (end > 0) {
+    do {
         end = left->end;
+        if (this->Match(TokenType::EXCLAMATION_LBRACES)) {
+            left = this->Initializer(std::move(left));
+
+            if (!this->Match(TokenType::DOT, TokenType::QUESTION_DOT))
+                break;
+        }
+
         switch (this->currTk_.type) {
             case TokenType::LEFT_ROUND:
+                // Fix for expression like: a?.b(a)
+                // "Call" with at least one arg invoke ParseArgument that invoke Test method.
+                // Into this method "this->safe_" will be decremented, obviously this behavior is not correct!
+                // This ugly fix correct this behaviour, but it is only temporary, rewrite this shit as soon as possible!
+                safe = this->safe_;
+                this->safe_ = 0;
                 left = this->ParseArguments(std::move(left));
+                this->safe_ = safe;
                 break;
             case TokenType::LEFT_SQUARE:
                 left = std::make_unique<Binary>(NodeType::SUBSCRIPT, std::move(left), this->ParseSubscript());
                 break;
             case TokenType::DOT:
             case TokenType::QUESTION_DOT:
-            case TokenType::EXCLAMATION_DOT:
                 left = this->MemberAccess(std::move(left));
-                break;
-            case TokenType::PLUS_PLUS:
-            case TokenType::MINUS_MINUS:
-                left = std::make_unique<Update>(std::move(left), this->currTk_.type, false, end);
-                this->Eat();
                 break;
             default:
                 end = 0;
         }
+    } while (end > 0);
+
+    if (end == 0 && this->Match(TokenType::PLUS_PLUS, TokenType::MINUS_MINUS)) {
+        left = std::make_unique<Update>(std::move(left), this->currTk_.type, false, this->currTk_.end);
+        this->Eat();
     }
+
     return left;
 }
 
@@ -949,7 +1025,8 @@ ast::NodeUptr Parser::Initializer(NodeUptr left) {
                 this->EatTerm(false, TokenType::SEMICOLON);
                 init->AddKeyValue(std::move(key), this->Test());
             } while (this->MatchEat(TokenType::COMMA, true));
-        }
+        } else
+            init->AddArgument(std::move(key));
     }
 
     init->end = this->currTk_.end;
@@ -979,6 +1056,7 @@ ast::NodeUptr Parser::ParseArguments(NodeUptr left) {
         this->Eat();
         call->AddArgument(std::move(tmp));
     } else {
+        call->AddArgument(std::move(tmp));
         while (this->Match(TokenType::COMMA)) {
             this->Eat();
             tmp = this->Test();
@@ -1001,24 +1079,43 @@ ast::NodeUptr Parser::ParseArguments(NodeUptr left) {
 }
 
 ast::NodeUptr Parser::ParseSubscript() {
-    NodeUptr low;
-    NodeUptr high;
-    NodeUptr step;
+    NodeUptr low = nullptr;
+    NodeUptr high = nullptr;
+    NodeUptr step = nullptr;
+
+    bool isslice = false;
+
+    Pos start = this->currTk_.start;
 
     this->Eat();
 
-    low = this->Test();
-
-    if (this->Match(TokenType::COLON)) {
-        this->Eat();
-        high = this->Test();
-        if (this->Match(TokenType::COLON)) {
-            this->Eat();
+    if (this->MatchEat(TokenType::SCOPE, false)) {
+        isslice = true;
+        if (!this->Match(TokenType::RIGHT_SQUARE))
             step = this->Test();
+    } else {
+        if (!this->Match(TokenType::COLON))
+            low = this->Test();
+
+        if (!this->MatchEat(TokenType::SCOPE, false)) {
+            if (this->MatchEat(TokenType::COLON, false)) {
+                isslice = true;
+                if (!this->Match(TokenType::RIGHT_SQUARE)) {
+                    high = this->Test();
+                    if (this->MatchEat(TokenType::COLON, false)) {
+                        if (!this->Match(TokenType::RIGHT_SQUARE))
+                            step = this->Test();
+                    }
+                }
+            }
+        } else {
+            isslice = true;
+            if (!this->Match(TokenType::RIGHT_SQUARE))
+                step = this->Test();
         }
     }
 
-    auto slice = std::make_unique<Slice>(std::move(low), std::move(high), std::move(step));
+    auto slice = std::make_unique<Slice>(start, std::move(low), std::move(high), std::move(step), isslice);
     slice->end = this->currTk_.end;
 
     this->Eat(TokenType::RIGHT_SQUARE, "expected ]");
@@ -1026,18 +1123,20 @@ ast::NodeUptr Parser::ParseSubscript() {
 }
 
 ast::NodeUptr Parser::MemberAccess(ast::NodeUptr left) {
+    if (left == nullptr)
+        left = this->ParseScope();
+
     switch (this->currTk_.type) {
         case TokenType::DOT:
             this->Eat();
-            return std::make_unique<Binary>(NodeType::MEMBER, std::move(left), this->ParseScope());
+            return std::make_unique<Member>(std::move(left), this->MemberAccess(nullptr), false);
         case TokenType::QUESTION_DOT:
             this->Eat();
-            return std::make_unique<Binary>(NodeType::MEMBER_SAFE, std::move(left), this->ParseScope());
-        case TokenType::EXCLAMATION_DOT:
-            this->Eat();
-            return std::make_unique<Binary>(NodeType::MEMBER_ASSERT, std::move(left), this->ParseScope());
+            this->safe_++;
+            return std::make_unique<Member>(std::move(left), this->MemberAccess(nullptr), true);
         default:
-            throw SyntaxException("expected . or ?. or !. operator", this->currTk_);
+            return left;
+            //throw SyntaxException("expected . or ?. or !. operator", this->currTk_);
     }
 }
 
@@ -1082,65 +1181,62 @@ ast::NodeUptr Parser::ParseAtom() {
 
 ast::NodeUptr Parser::ParseArrowOrTuple() {
     Pos start = this->currTk_.start;
-    auto tuple = std::make_unique<List>(NodeType::TUPLE, start);
+    Pos end = 0;
     std::list<NodeUptr> params;
-    bool mustFn = false;
+    NodeUptr tmp;
+    bool must_fn = false;
+    bool last_is_comma = false;
 
     this->Eat();
 
     if (!this->MatchEatNL(TokenType::RIGHT_ROUND)) {
-        params = this->ParsePeap();
-        for (auto &item : params) {
-            if (item->type == NodeType::IDENTIFIER) {
-                if (CastNode<Identifier>(item)->rest_element) {
-                    mustFn = true;
+        must_fn = true;
+        if ((tmp = this->Variadic()) == nullptr) {
+            must_fn = false;
+            params.push_back(this->Test());
+            while (this->MatchEat(TokenType::COMMA, true)) {
+                if (this->MatchEatNL(TokenType::RIGHT_ROUND)) {
+                    last_is_comma = true;
                     break;
                 }
-                continue;
+                if ((tmp = this->Variadic()) != nullptr) {
+                    params.push_back(std::move(tmp));
+                    must_fn = true;
+                    break;
+                }
+                params.push_back(this->Test());
+                last_is_comma = false;
             }
-            tuple->end = this->currTk_.end;
-            this->Eat(TokenType::RIGHT_ROUND, "expected ) after parenthesized expression");
-            tuple->expressions = std::move(params);
-            return tuple;
-        }
+        } else
+            params.push_back(std::move(tmp));
     }
 
-    tuple->end = this->currTk_.end;
+    end = this->currTk_.end;
     this->Eat(TokenType::RIGHT_ROUND, "expected )");
 
     if (this->Match(TokenType::ARROW)) {
         this->Eat();
+        // All items into params list must be IDENTIFIER
+        for (auto &item : params)
+            if (item->type != NodeType::IDENTIFIER)
+                throw SyntaxException("expected IDENTIFIER", this->currTk_); // TODO: fix
         auto dpos = this->BeginDocs();
         auto fn = std::make_unique<Function>(std::move(params), this->Block(), start);
         fn->docs = this->GetDocs(dpos);
         return fn;
     }
 
-    if (mustFn)
+    if (must_fn)
         this->Eat(TokenType::ARROW, "expected arrow function declaration");
 
-    // it's definitely a parenthesized expression
+    if (!last_is_comma && params.size() == 1)
+        return std::move(params.front()); // parenthesized expression
+
+    // it's definitely a tuple
+    auto tuple = std::make_unique<List>(NodeType::TUPLE, start);
+    tuple->end = end;
     tuple->expressions = std::move(params);
     return tuple;
-}
-
-std::list<ast::NodeUptr> Parser::ParsePeap() {
-    std::list<ast::NodeUptr> params;
-    NodeUptr tmp = this->Variadic();
-
-    if (!tmp) {
-        params.push_back(this->Test());
-        while (this->MatchEat(TokenType::COMMA, true)) {
-            if ((tmp = this->Variadic()) != nullptr) {
-                params.push_back(std::move(tmp));
-                break;
-            }
-            params.push_back(this->Test());
-        }
-    } else
-        params.push_back(std::move(tmp));
-
-    return params;
 }
 
 ast::NodeUptr Parser::ParseList() {
@@ -1184,7 +1280,8 @@ ast::NodeUptr Parser::ParseMapOrSet() {
                 this->EatTerm(false, TokenType::SEMICOLON);
                 ms->AddExpression(this->Test());
             } while (this->MatchEat(TokenType::COMMA, true));
-        }
+        } else
+            ms->AddExpression(std::move(key));
     }
 
     ms->end = this->currTk_.end;

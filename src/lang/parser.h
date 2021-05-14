@@ -10,12 +10,14 @@
 
 #include <list>
 
-namespace lang {
+namespace argon::lang {
     class Parser {
         std::unique_ptr<scanner::Scanner> scanner_;
         std::list<ast::Comment> comments_;
         scanner::Token currTk_;
         std::string filename_;
+
+        unsigned short safe_ = 0;
 
         std::list<ast::Comment>::iterator BeginDocs();
 
@@ -59,11 +61,13 @@ namespace lang {
 
         ast::NodeUptr Statement();
 
+        ast::NodeUptr RtnStmt();
+
         ast::NodeUptr ImportStmt();
 
         ast::NodeUptr FromImportStmt();
 
-        ast::NodeUptr ScopeAsName(bool id_only);
+        ast::NodeUptr ScopeAsName(bool id_only, bool with_alias);
 
         ast::NodeUptr ForStmt();
 
@@ -107,7 +111,7 @@ namespace lang {
 
         ast::NodeUptr MulExpr();
 
-        ast::NodeUptr UnaryExpr();
+        ast::NodeUptr UnaryExpr(bool first);
 
         ast::NodeUptr AtomExpr();
 
@@ -122,8 +126,6 @@ namespace lang {
         ast::NodeUptr ParseAtom();
 
         ast::NodeUptr ParseArrowOrTuple();
-
-        std::list<ast::NodeUptr> ParsePeap();
 
         ast::NodeUptr ParseList();
 

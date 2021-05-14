@@ -1,0 +1,149 @@
+/*
+ * This source file is part of the Argon project.
+ *
+ * Licensed under the Apache License v2.0
+ *
+ * JSON Encoder/Decoder (RFC 8259)
+*/
+
+import math
+
+pub trait ScannerCallback {
+    pub func parse_array(scanner, buffer, index) {}
+    pub func parse_object(scanner, buffer, index) {}
+    pub func parse_string(scanner, buffer, index) {}
+}
+
+pub struct DecodeError {
+    pub var msg
+    pub var buf
+    pub var index
+
+    pub let new = (msg, buffer, index) => {
+        return DecodeError!{msg, buffer, index}
+    }
+
+    pub func __str() {
+        # todo err_str
+        return "%s: lines: ?, column: ?, index: %d" % (self.msg, self.index)
+    }
+}
+
+pub func skip_spaces(buffer, index) {
+    var length = len(buffer)
+
+    loop index < length {
+        var c = buffer[index]
+
+        if (c != 9 && c != 10 && c != 13 && c != 32) {
+            break
+        }
+
+        index = index + 1 # skip spaces, tabs and new-lines
+    }
+
+    return index
+}
+
+pub struct Scanner {
+    var callbacks
+
+    func eat_digits(buffer, index) {
+        var length = len(buffer)
+
+        loop index < length {
+            var c = buffer[index]
+
+            if c < 48 || c > 57 {
+                break
+            }
+
+            index = index + 1
+        }
+
+        return index
+    }
+
+    func is_number(buffer, index) {
+        var length = len(buffer)
+        var start = index
+        var float = false
+
+        if index < length && buffer[index] == 45 {
+            index = index + 1
+        }
+
+        index = self.eat_digits(buffer, index)
+        
+        if index < length && buffer[index] == 46 {
+            # fraction
+            index = index + 1
+            index = self.eat_digits(buffer, index)
+            float = true
+        }
+
+        if index < length && (buffer[index] == 69 || buffer[index] == 101) {
+            # exponent
+            index = index + 1
+            if index < length && (buffer[index] == 43 || buffer[index] == 45) {
+                index = index + 1
+            }
+
+            index = self.eat_digits(buffer, index)
+        }
+
+        return index, buffer[start:index], float
+    }
+
+    pub func scan(buffer, index) {
+        var num_str
+        var float
+
+        index = skip_spaces(buffer, index)
+
+        switch buffer[index] {
+            case 34:
+                return self.callbacks.parse_string(self, buffer, index + 1)
+            case 123:
+                return self.callbacks.parse_object(self, buffer, index + 1)
+            case 91:
+                return self.callbacks.parse_array(self, buffer, index +1)
+            case 110:   # n
+            if buffer[index:index + 4] == b"null" {
+                return nil, index + 4
+            }
+            case 116:   # t
+            if buffer[index:index + 4] == b"true" {
+                return true, index + 4
+            }
+            case 102:   # f
+            if buffer[index:index + 5] == b"false" {
+                return false, index + 5
+            }
+            case 78:    # N
+            if buffer[index:index + 3] == b"NaN" {
+                return math::nan, index + 3
+            }
+            case 73:    # I
+            if buffer[index:index + 8] == b"Infinity" {
+                return math::inf, index + 8
+            }
+            case 45:    # -
+            if buffer[index:index + 9] == b"-Infinity" {
+                return -math::inf, index + 9
+            }
+        }
+
+        index, num_str, float = self.is_number(buffer, index)
+
+        if !num_str {
+            panic(DecodeError::new("number", buffer, index))
+        }
+
+        if !float {
+            return integer::new(num_str), index
+        }
+
+        return decimal::new(num_str), index
+    }
+}

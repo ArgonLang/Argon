@@ -1,0 +1,251 @@
+/*
+ * This source file is part of the Argon project.
+ *
+ * Licensed under the Apache License v2.0
+ *
+ * Base16, Base32, Base64 data encodings (RFC 4648).
+*/
+
+pub let BASE16_TABLE = b"0123456789ABCDEF"
+pub let BASE32_TABLE = b"ABCDEFGHIJKLMNOPQRSTUVWXYZ234567="
+pub let BASE64_TABLE = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/="
+pub let BASE64_TABLE_URLSAFE = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_"
+
+func compute_decode_len(table, input, block_length){
+    var pad = 0
+
+    for var i = len(input) - 1; i > 0; i-- {
+        if input[i] != table[-1] {
+            break
+        }
+        pad++
+    }
+    
+    return ((len(input) - pad) * block_length) / 8
+}
+
+func compute_encode32_len(input_len) {
+    var length_nopad = (input_len * 8 + 4) / 5
+    var length_pad = length_nopad + (8 - length_nopad) % 8
+
+    return length_pad
+}
+
+func compute_encode64_len(input_len, table_len) {
+    if table_len == 65 {
+        return (((input_len * 4) / 3) + 3) & ~3 # length with padding
+    }
+
+    return (input_len * 8 + 6 - 1) / 6 # length without padding
+}
+
+func padding(buffer, index, symbol, times) {
+    for var i = 0; i < times; i++ {
+        buffer[index + i] = symbol
+    }
+
+    return buffer.freeze()
+}
+
+func rshift(byte, offset){
+    if offset > 0 {
+        return  byte >> offset
+    }
+
+    return byte << -offset
+}
+
+pub func reverse_table(table) {
+    var rt = bytes::new(255)
+    var idx = 0
+    var byte
+
+    for byte in table {
+        if rt[byte] != 0 || (idx > 0 && byte == table[0]) {
+            panic(ValueError::new("duplicated byte(%d) in encode table" % rt[byte]))
+        }
+
+        rt[byte] = idx++
+    }
+
+    return rt
+}
+
+pub func make_encode16(table){
+    return (s) => {
+        var result = bytes::new(len(s) * 2)
+        var idx=0
+        var byte
+
+        for byte in s {
+            result[idx++] = table[(byte >> 4) & 0x0F]
+            result[idx++] = table[byte & 0x0F]
+        }
+
+        return result.freeze()
+    }
+}
+
+pub func make_decode16(table) {
+    var rt
+
+    return (s) => {
+        var result = bytes::new(len(s) / 2)
+        var idx = 0
+
+        if rt == nil {
+            rt = reverse_table(table)
+        }
+
+        for var i = 0; i < len(s); i += 2{
+            result[idx++] = rt[s[i]] << 4 | rt[s[i + 1]]
+        }
+
+        return result.freeze()
+    }
+}
+
+pub func make_encode32(table) {
+    return (s) => {
+        var result = bytes::new(compute_encode32_len(len(s)))
+        var idx = 0
+        
+        for var i = 0; i < len(s); i += 5 {
+            var sz = len(s) - i < 5 ? len(s) - i : 5
+            
+            for var block = 0; block < 8; block++ {
+                var octect = (block * 5) / 8
+                var offset = ((8 - 5) - (block * 5) % 8)
+                var val = 0
+
+                if octect >= sz {
+                    return padding(result, idx, table[-1], 8 - block)
+                }
+
+                val = rshift(s[i+octect], offset)
+
+                if offset < 0 && octect < sz - 1 {
+                    val = val | s[i + octect + 1] >> 8 + offset
+                }
+
+                result[idx++] = table[val & 0x1F]
+            }
+        }
+
+        return result.freeze()
+    }
+}
+
+pub func make_decode32(table) {
+    var rt
+
+    return (s) => {
+        var result = bytes::new(compute_decode_len(table, s, 5))
+        var idx = 0
+
+        if rt == nil {
+            rt = reverse_table(table)
+        }
+        
+        for var i = 0; i < len(s); i += 8 {    
+            for var block = 0; block < 8; block++ {
+                var octect = (block * 5) / 8
+                var offset = ((8 - 5) - (block * 5) % 8)
+                var val = 0
+
+                if s[i+block] == table[-1] {
+                    return result.freeze()
+                }
+
+                val = rt[s[i + block]]
+
+                result[idx+octect] = result[idx+octect] | rshift(val, -offset)
+  
+                if offset < 0 && (idx + octect + 1) < len(result) {
+                    result[idx+octect+1] = rshift(val, -(8+offset)) & 0x7F
+                }
+            }
+            idx += 5
+        }
+        return result.freeze()
+    }
+}
+
+pub func make_encode64(table) {
+    return (s) => {
+        var result = bytes::new(compute_encode64_len(len(s), len(table)))
+        var idx = 0
+
+        for var i=0; i < len(s); i += 3 {
+            var sz = len(s) - i < 3 ? len(s) - i : 3
+
+            for var block = 0; block < 4; block++ {
+                var octect = (block * 6) / 8
+                var offset = ((8 - 6) - (block * 6) % 8)
+                var val = 0
+
+                if octect >= sz {
+                    return len(table) < 65 ? result.freeze() : padding(result, idx, table[-1], 4 - block)
+                }
+
+                val = rshift(s[i + octect], offset)
+
+                if offset < 0 && octect < sz - 1 {
+                    val = val | s[i + octect + 1] >> 8 + offset
+                }
+
+                result[idx++] = table[val & 0x3F]
+            }
+        }
+
+        return result.freeze()
+    }
+}
+
+pub func make_decode64(table) {
+    var rt
+
+    return (s) => {
+        var length = compute_decode_len(table, s, 6)
+        var result = bytes::new(length)
+        var idx = 0
+
+        if rt == nil {
+            rt = reverse_table(table)
+        }
+
+        for var i = 0; i < len(s); i += 4 {    
+            for var block = 0; block < 4; block++ {
+                var octect = (block * 6) / 8
+                var offset = ((8 - 6) - (block * 6) % 8)
+                var val = 0
+
+                if idx + octect >= length {
+                    return result.freeze()
+                }
+
+                val = rt[s[i + block]]
+
+                result[idx+octect] = result[idx+octect] | rshift(val, -offset)
+  
+                if offset < 0 && (idx + octect + 1) < len(result) {
+                    result[idx+octect+1] = rshift(val, -(8+offset)) & 0xFF
+                }
+            }
+            idx += 3
+        }
+        return result.freeze()
+    }
+}
+
+pub let encode16 = make_encode16(BASE16_TABLE)
+pub let decode16 = make_decode16(BASE16_TABLE)
+
+pub let encode32 = make_encode32(BASE32_TABLE)
+pub let decode32 = make_decode32(BASE32_TABLE)
+
+pub let encode64 = make_encode64(BASE64_TABLE)
+pub let decode64 = make_decode64(BASE64_TABLE)
+
+pub let encode64url = make_encode64(BASE64_TABLE_URLSAFE)
+pub let decode64url = make_decode64(BASE64_TABLE_URLSAFE)

@@ -1,0 +1,181 @@
+/*
+ * This source file is part of the Argon project.
+ *
+ * Licensed under the Apache License v2.0
+ *
+ * JSON Encoder/Decoder (RFC 8259)
+*/
+
+from json::scanner import Scanner, ScannerCallback, DecodeError, skip_spaces
+
+pub struct Decoder impl ScannerCallback {
+    pub func parse_array(scanner, buffer, index) {
+        var length = len(buffer)
+        var items = []
+        var item
+
+        index = skip_spaces(buffer, index)
+        if buffer[index] == 93 {
+            return items, index + 1
+        }
+
+        loop index < length {
+            item, index = scanner.scan(buffer, index)
+
+            items.append(item)
+
+            index = skip_spaces(buffer, index)
+            if buffer[index] == 93 {
+                break
+            }
+
+            if buffer[index] != 44 {
+                panic(DecodeError::new("expecting ',' delimiter", buffer, index))
+            }
+
+            index = index + 1
+        }
+
+        return items, index + 1
+    }
+
+    pub func parse_object(scanner, buffer, index) {
+        var length = len(buffer)
+        var obj = {}
+        var key
+        var value
+
+        index = skip_spaces(buffer, index)
+        if buffer[index] == 125 {
+            return obj, index + 1
+        }
+
+        loop index < length {
+            key, value, index = self.keypair(scanner, buffer, index)
+
+            obj[key] = value
+
+            index = skip_spaces(buffer, index)
+            if buffer[index] == 125 {
+                break
+            }
+
+            if buffer[index] != 44 {
+                panic(DecodeError::new("expecting ',' delimiter", buffer, index))
+            }
+
+           index = index + 1
+        }
+
+        return obj, index + 1
+    }
+
+    pub func keypair(scanner, buffer, index) {
+        var length = len(buffer)
+        var key
+        var value
+
+        index = skip_spaces(buffer, index)
+        if buffer[index] != 34 {
+            panic(DecodeError::new("expecting property name enclosed in double quotes", buffer, index))
+        }
+
+        key, index = self.parse_string(scanner, buffer, index + 1)
+
+        index = skip_spaces(buffer, index)
+        if buffer[index] != 58 {
+            panic(DecodeError::new("expecting ':' delimiter", buffer, index))
+        }
+
+        index = index + 1 # skip :
+
+        value, index = scanner.scan(buffer, index)
+
+        return key, value, index
+    }
+
+    pub func parse_string(scanner, buffer, index) {
+        var length = len(buffer)
+        var start = index
+        var rstr = ""
+
+        loop index < length && buffer[index] != 34 {
+            if buffer[index] == 92 {
+                rstr = rstr + buffer[start:index].str()
+                
+                index = index + 1
+                
+                if index >= length {
+                    break
+                }
+
+                switch buffer[index] {
+                case 34:
+                    rstr += "\""
+                    index = index + 1
+                case 92:
+                    rstr += "\\"
+                    index = index + 1
+                case 47:
+                    rstr += "/"
+                    index = index + 1
+                case 98:
+                    rstr += "\b"
+                    index = index + 1
+                case 102:
+                    rstr += "\f"
+                    index = index + 1
+                case 110:
+                    rstr += "\n"
+                    index = index + 1
+                case 114:
+                    rstr += "\r"
+                    index = index + 1
+                case 116:
+                    rstr += "\t"
+                    index = index + 1
+                case 117:
+                    index = is_hex(buffer, index + 1, 4)
+                    rstr += str::chr(integer::new(buffer[start+2:index], 16))
+                }
+
+                start = index
+                continue
+            }
+
+            index = index + 1
+        }
+
+        if index >= length {
+            panic(DecodeError::new("unterminated string", buffer, index))
+        }
+
+        if !rstr {
+            return buffer[start:index].str(), index + 1
+        }
+
+        rstr = rstr + buffer[start:index].str()
+        return rstr, index + 1
+    }
+}
+
+func is_hex(buffer, index, min) {
+    var length = len(buffer)
+
+    loop index < length && min > 0 {
+        var c = buffer[index]
+
+        if c < 48 || ((c > 57 && c < 97) || c > 102) {
+            break
+        }
+
+        index = index + 1
+        min--;
+    }
+
+    if min != 0 {
+        panic(DecodeError::new("invalid \\uXXXX escape", buffer, index))
+    }
+
+    return index
+}

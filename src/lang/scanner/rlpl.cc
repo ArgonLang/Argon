@@ -25,13 +25,13 @@ int main(int argc, char **argv) {
             source += line + "\n";
         }
         std::istringstream stream(source);
-        lang::scanner::Scanner scanner(&stream);
-        lang::scanner::Token tk = scanner.Next();
+        argon::lang::scanner::Scanner scanner(&stream);
+        argon::lang::scanner::Token tk = scanner.Next();
         do {
             std::cout << tk.String() << std::endl;
             tk = scanner.Next();
-            if (tk.type == lang::scanner::TokenType::ERROR)
+            if (tk.type == argon::lang::scanner::TokenType::ERROR)
                 break;
-        } while (tk.type != lang::scanner::TokenType::END_OF_FILE);
+        } while (tk.type != argon::lang::scanner::TokenType::END_OF_FILE);
     }
 }

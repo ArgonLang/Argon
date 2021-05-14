@@ -1,0 +1,112 @@
+// This source file is part of the Argon project.
+//
+// Licensed under the Apache License v2.0
+
+#include <sstream>
+#include <fstream>
+
+#include <lang/compiler.h>
+
+#include "areval.h"
+#include "argon.h"
+
+using namespace argon::object;
+using namespace argon::vm;
+
+ArObject *ParseCMDArgs(int argc, char **argv) {
+    Tuple *args;
+    String *tmp;
+
+    if ((args = TupleNew(argc)) != nullptr) {
+        for (int i = 0; i < argc; i++) {
+            if ((tmp = StringNew(argv[i])) == nullptr) {
+                Release(args);
+                return nullptr;
+            }
+            TupleInsertAt(args, i, tmp);
+            Release(tmp);
+        }
+    }
+
+    return args;
+}
+
+int argon::vm::Main(int argc, char **argv) {
+    ArObject *args;
+
+    if (!Initialize())
+        return -1;
+
+    // args = ParseCMDArgs(argc - 1, argv + 1);
+
+    // TODO: TBD
+
+    Shutdown();
+
+    return 0;
+}
+
+argon::object::ArObject *argon::vm::EvalFile(const char *file) {
+    ArObject *res;
+    Code *code;
+    lang::Compiler compiler;
+
+    std::ifstream in(file, std::ifstream::in);
+
+    code = compiler.Compile(&in);
+
+    res = EvalCode(code, nullptr);
+
+    Release(code);
+    return res;
+}
+
+ArObject *argon::vm::EvalString(const std::string &str) {
+    ArObject *res;
+    Code *code;
+
+    argon::lang::Compiler compiler;
+    std::istringstream iss(str);
+
+    code = compiler.Compile(&iss);
+
+    res = EvalCode(code, nullptr);
+
+    Release(code);
+
+    return res;
+}
+
+ArObject *argon::vm::EvalCode(Code *code, Namespace *globals, Tuple *args) {
+    ArObject *res = nullptr;
+    ArObject *err;
+    Frame *frame;
+
+    // TODO: set command args!
+    if (args != nullptr) {
+
+    }
+
+    if ((frame = FrameNew(code, globals, nullptr)) != nullptr) {
+        Release(Eval(GetRoutine(), frame));
+        if ((err = GetLastError()) != nullptr) {
+            Release(res);
+            res = err;
+        }
+        RoutineReset(GetRoutine(), ArRoutineStatus::RUNNABLE);
+    }
+
+    return res;
+}
+
+ArObject *argon::vm::EvalCode(Code *code, Tuple *args) {
+    ArObject *res = nullptr;
+    Module *main;
+
+    if ((main = ImportAddModule(GetContext()->import, "main")) != nullptr) {
+        res = EvalCode(code, main->module_ns, args);
+        Release(main);
+    }
+
+    return res;
+}

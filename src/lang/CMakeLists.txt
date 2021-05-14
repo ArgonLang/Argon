@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.7)
 
-add_library(Parser SHARED scanner/scanner.cc parser.cc)
+set(SRC scanner/scanner.cc parser.cc compiler.cc transl_unit.cc basicblock.cc symtable.cc)
+list(TRANSFORM SRC PREPEND ${CMAKE_CURRENT_LIST_DIR}/)
+target_sources(argon PRIVATE ${SRC})
 
-add_executable(rlpl scanner/rlpl.cc)
-add_dependencies(rlpl Parser)
-target_link_libraries(rlpl Parser)
+add_executable(rlpl scanner/rlpl.cc scanner/scanner.cc)
