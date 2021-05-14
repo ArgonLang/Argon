@@ -10,7 +10,6 @@
 #include <object/datatype/string.h>
 #include <object/datatype/error.h>
 #include <object/datatype/bytes.h>
-#include <object/datatype/bytestream.h>
 #include <object/datatype/bool.h>
 #include <object/datatype/decimal.h>
 
@@ -31,7 +30,6 @@ bool argon::object::TypesInit() {
     INIT_TYPE(type_decimal_);
     INIT_TYPE(type_integer_);
     INIT_TYPE(type_bytes_);
-    INIT_TYPE(type_bytestream_);
     INIT_TYPE(type_map_);
     INIT_TYPE(type_option_);
     INIT_TYPE(type_set_);

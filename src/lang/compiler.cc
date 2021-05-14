@@ -6,12 +6,12 @@
 
 #include <object/datatype/nil.h>
 #include <object/datatype/bool.h>
-#include <object/datatype/bytes.h>
 #include <object/datatype/integer.h>
 #include <object/datatype/function.h>
 #include <object/datatype/decimal.h>
 #include <object/datatype/namespace.h>
 #include <object/datatype/string.h>
+#include <object/datatype/bytes.h>
 
 #include "compiler_exception.h"
 #include "lang/parser.h"
@@ -1057,7 +1057,7 @@ void Compiler::CompileLiteral(const ast::Literal *literal) {
             obj = StringNew(literal->value);
             break;
         case scanner::TokenType::BYTE_STRING:
-            obj = BytesNew(literal->value);
+            obj = BytesNew((unsigned char *) literal->value.c_str(), literal->value.length(), true);
             break;
         case scanner::TokenType::RAW_STRING:
             obj = StringNew(literal->value);

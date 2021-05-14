@@ -1,34 +1,34 @@
 cmake_minimum_required(VERSION 3.7)
 
 set(SRC
-        datatype/option.cc
-        datatype/iterator.cc
-        datatype/set.cc
+        arobject.cc
+        bufview.cc
+        datatype/bool.cc
+        datatype/bounds.cc
         datatype/bytes.cc
-        datatype/bytestream.cc
+        datatype/code.cc
+        datatype/decimal.cc
+        datatype/error.cc
+        datatype/function.cc
+        datatype/hash_magic.cc
         datatype/hmap.cc
         datatype/integer.cc
-        datatype/decimal.cc
-        datatype/string.cc
-        datatype/code.cc
+        datatype/iterator.cc
         datatype/list.cc
-        datatype/tuple.cc
         datatype/map.cc
-        datatype/hash_magic.cc
-        datatype/nil.cc
-        datatype/bool.cc
-        datatype/function.cc
-        datatype/bounds.cc
         datatype/module.cc
-        datatype/error.cc
-        refcount.cc
         datatype/namespace.cc
+        datatype/nil.cc
+        datatype/option.cc
+        datatype/set.cc
+        datatype/string.cc
         datatype/struct.cc
+        datatype/support/bytesops.cc
+        datatype/tuple.cc
         gc.cc
-        arobject.cc
+        refcount.cc
         setup.cc
-        bufview.cc
-        datatype/support/bytesops.cc)
+)
 
 list(TRANSFORM SRC PREPEND ${CMAKE_CURRENT_LIST_DIR}/)
 target_sources(argon PRIVATE ${SRC})

@@ -44,7 +44,7 @@ func padding(buffer, index, symbol, times) {
         buffer[index + i] = symbol
     }
 
-    return buffer
+    return buffer.freeze()
 }
 
 func rshift(byte, offset){
@@ -56,7 +56,7 @@ func rshift(byte, offset){
 }
 
 pub func reverse_table(table) {
-    var rt = bytestream::new(255)
+    var rt = bytes::new(255)
     var idx = 0
     var byte
 
@@ -73,7 +73,7 @@ pub func reverse_table(table) {
 
 pub func make_encode16(table){
     return (s) => {
-        var result = bytestream::new(len(s) * 2)
+        var result = bytes::new(len(s) * 2)
         var idx=0
         var byte
 
@@ -82,7 +82,7 @@ pub func make_encode16(table){
             result[idx++] = table[byte & 0x0F]
         }
 
-        return result
+        return result.freeze()
     }
 }
 
@@ -90,7 +90,7 @@ pub func make_decode16(table) {
     var rt
 
     return (s) => {
-        var result = bytestream::new(len(s) / 2)
+        var result = bytes::new(len(s) / 2)
         var idx = 0
 
         if rt == nil {
@@ -101,13 +101,13 @@ pub func make_decode16(table) {
             result[idx++] = rt[s[i]] << 4 | rt[s[i + 1]]
         }
 
-        return result
+        return result.freeze()
     }
 }
 
 pub func make_encode32(table) {
     return (s) => {
-        var result = bytestream::new(compute_encode32_len(len(s)))
+        var result = bytes::new(compute_encode32_len(len(s)))
         var idx = 0
         
         for var i = 0; i < len(s); i += 5 {
@@ -132,7 +132,7 @@ pub func make_encode32(table) {
             }
         }
 
-        return result
+        return result.freeze()
     }
 }
 
@@ -140,7 +140,7 @@ pub func make_decode32(table) {
     var rt
 
     return (s) => {
-        var result = bytestream::new(compute_decode_len(table, s, 5))
+        var result = bytes::new(compute_decode_len(table, s, 5))
         var idx = 0
 
         if rt == nil {
@@ -154,7 +154,7 @@ pub func make_decode32(table) {
                 var val = 0
 
                 if s[i+block] == table[-1] {
-                    return result
+                    return result.freeze()
                 }
 
                 val = rt[s[i + block]]
@@ -167,13 +167,13 @@ pub func make_decode32(table) {
             }
             idx += 5
         }
-        return result
+        return result.freeze()
     }
 }
 
 pub func make_encode64(table) {
     return (s) => {
-        var result = bytestream::new(compute_encode64_len(len(s), len(table)))
+        var result = bytes::new(compute_encode64_len(len(s), len(table)))
         var idx = 0
 
         for var i=0; i < len(s); i += 3 {
@@ -185,7 +185,7 @@ pub func make_encode64(table) {
                 var val = 0
 
                 if octect >= sz {
-                    return len(table) < 65 ? result : padding(result, idx, table[-1], 4 - block)
+                    return len(table) < 65 ? result.freeze() : padding(result, idx, table[-1], 4 - block)
                 }
 
                 val = rshift(s[i + octect], offset)
@@ -198,7 +198,7 @@ pub func make_encode64(table) {
             }
         }
 
-        return result
+        return result.freeze()
     }
 }
 
@@ -207,7 +207,7 @@ pub func make_decode64(table) {
 
     return (s) => {
         var length = compute_decode_len(table, s, 6)
-        var result = bytestream::new(length)
+        var result = bytes::new(length)
         var idx = 0
 
         if rt == nil {
@@ -221,7 +221,7 @@ pub func make_decode64(table) {
                 var val = 0
 
                 if idx + octect >= length {
-                    return result
+                    return result.freeze()
                 }
 
                 val = rt[s[i + block]]
@@ -234,7 +234,7 @@ pub func make_decode64(table) {
             }
             idx += 3
         }
-        return result
+        return result.freeze()
     }
 }
 
