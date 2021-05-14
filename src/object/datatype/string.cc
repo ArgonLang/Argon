@@ -1151,7 +1151,7 @@ int FmtDecimal(StringFormatter *fmt, StringArg *arg, char specifier) {
     else if (obj->type == &type_integer_)
         num = ((Integer *) obj)->integer;
     else {
-        ErrorFormat(type_type_error_, "%c requires real number not '%s'", fmt->fmt.buf[fmt->fmt.idx],
+        ErrorFormat(type_type_error_, "%%%c requires real number not '%s'", fmt->fmt.buf[fmt->fmt.idx],
                     obj->type->name);
         return -1;
     }
@@ -1250,7 +1250,7 @@ int FmtInteger(StringFormatter *fmt, StringArg *arg, int base, bool upper) {
         return -1;
 
     if (obj->type != &type_integer_) {
-        ErrorFormat(type_type_error_, "%c requires integer not '%s'", fmt->fmt.buf[fmt->fmt.idx], obj->type->name);
+        ErrorFormat(type_type_error_, "%%%c requires integer not '%s'", fmt->fmt.buf[fmt->fmt.idx], obj->type->name);
         return -1;
     }
 
@@ -1296,20 +1296,20 @@ int FmtChar(StringFormatter *fmt, StringArg *arg) {
     if (obj->type == &type_string_) {
         auto str = (String *) obj;
         if (str->cp_len > 1) {
-            ErrorFormat(type_type_error_, "%c requires a single char not string");
+            ErrorFormat(type_type_error_, "%%c requires a single char not string");
             return -1;
         }
         return FmtWrite(fmt, arg, str->buffer, str->len);
     } else if (obj->type == &type_integer_) {
         if ((len = StringIntToUTF8(((Integer *) obj)->integer, sequence)) == 0) {
-            ErrorFormat(type_overflow_error_, "%c arg not in range(0x110000)");
+            ErrorFormat(type_overflow_error_, "%%c arg not in range(0x110000)");
             return -1;
         }
 
         return FmtWrite(fmt, arg, sequence, len);
     }
 
-    ErrorFormat(type_type_error_, "%%c requires integer or char not '%s'", obj->type->name);
+    ErrorFormat(type_type_error_, "%%c requires integer or char not '%s'", AR_TYPE_NAME(obj));
     return -1;
 }
 
@@ -1338,7 +1338,7 @@ int FmtString(StringFormatter *fmt, StringArg *arg) {
 }
 
 bool FmtFormatArg(StringFormatter *fmt, StringArg *arg) {
-    auto op = fmt->fmt.buf[fmt->fmt.idx++];
+    auto op = fmt->fmt.buf[fmt->fmt.idx];
     int result = -1;
 
     switch (op) {
@@ -1381,6 +1381,8 @@ bool FmtFormatArg(StringFormatter *fmt, StringArg *arg) {
             ErrorFormat(type_value_error_, "unsupported format character '%c' (0x%x)",
                         (31 <= op && op <= 126 ? '?' : op), op);
     }
+
+    fmt->fmt.idx++;
 
     if (result < 0)
         return false;
