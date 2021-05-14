@@ -47,6 +47,7 @@ ArObject *bytes_get_item(Bytes *self, ArSSize index) {
 }
 
 bool bytes_set_item(Bytes *self, ArObject *obj, ArSSize index) {
+    Bytes *other;
     ArSize value;
 
     if (self->frozen) {
@@ -54,12 +55,22 @@ bool bytes_set_item(Bytes *self, ArObject *obj, ArSSize index) {
         return false;
     }
 
-    if (!AR_TYPEOF(obj, type_integer_)) {
-        ErrorFormat(type_type_error_, "expected int found '%s'", AR_TYPE_NAME(obj));
+    if (AR_TYPEOF(obj, type_bytes_)) {
+        other = (Bytes *) obj;
+
+        if (BUFFER_LEN(other) > 1) {
+            ErrorFormat(type_value_error_, "expected bytes of length 1 not %d", BUFFER_LEN(other));
+            return false;
+        }
+
+        value = BUFFER_GET(other)[0];
+    } else if (AR_TYPEOF(obj, type_integer_))
+        value = ((Integer *) obj)->integer;
+    else {
+        ErrorFormat(type_type_error_, "expected integer or bytes, found '%s'", AR_TYPE_NAME(obj));
         return false;
     }
 
-    value = ((Integer *) obj)->integer;
     if (value < 0 || value > 255) {
         ErrorFormat(type_value_error_, "byte must be in range(0, 255)");
         return false;
@@ -109,12 +120,12 @@ const SequenceSlots bytes_sequence = {
 };
 
 ARGON_FUNCTION5(bytes_, new, "Creates bytes object."
-                                  ""
-                                  "The src parameter is optional, in case of call without src parameter an empty zero-length"
-                                  "bytes object will be constructed."
-                                  ""
-                                  "- Parameter [src]: integer or bytes-like object."
-                                  "- Returns: construct a new bytes object.", 0, true) {
+                             ""
+                             "The src parameter is optional, in case of call without src parameter an empty zero-length"
+                             "bytes object will be constructed."
+                             ""
+                             "- Parameter [src]: integer or bytes-like object."
+                             "- Returns: construct a new bytes object.", 0, true) {
     IntegerUnderlying size = 0;
 
     if (!VariadicCheckPositional("bytes::new", count, 0, 1))
@@ -217,8 +228,8 @@ ARGON_METHOD5(bytes_, freeze,
 }
 
 ARGON_METHOD5(bytes_, hex, "Convert bytes to str of hexadecimal numbers."
-                                ""
-                                "- Returns: new str object.", 0, false) {
+                           ""
+                           "- Returns: new str object.", 0, false) {
     StringBuilder builder{};
     Bytes *bytes;
 
@@ -523,8 +534,8 @@ ARGON_METHOD5(bytes_, startswith,
 
 
 ARGON_METHOD5(bytes_, str, "Convert bytes to str object."
-                                ""
-                                "- Returns: new str object.", 0, false) {
+                           ""
+                           "- Returns: new str object.", 0, false) {
     auto *bytes = (Bytes *) self;
 
     return StringNew((const char *) BUFFER_GET(bytes), BUFFER_LEN(bytes));
