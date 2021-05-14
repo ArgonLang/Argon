@@ -12,7 +12,7 @@
 #include "integer.h"
 #include "iterator.h"
 #include "bytestream.h"
-#include "bytes.h"
+#include "hash_magic.h"
 
 #define BUFFER_GET(bs)              (bs->view.buffer)
 #define BUFFER_LEN(bs)              (bs->view.len)
@@ -22,10 +22,10 @@ using namespace argon::memory;
 using namespace argon::object;
 
 bool bytestream_get_buffer(ByteStream *self, ArBuffer *buffer, ArBufferFlags flags) {
-    return BufferSimpleFill(self, buffer, flags, BUFFER_GET(self), BUFFER_LEN(self), true);
+    return BufferSimpleFill(self, buffer, flags, BUFFER_GET(self), BUFFER_LEN(self), self->frozen);
 }
 
-const BufferSlots bytesream_buffer = {
+const BufferSlots bytestream_buffer = {
         (BufferGetFn) bytestream_get_buffer,
         nullptr
 };
@@ -47,6 +47,11 @@ ArObject *bytestream_get_item(ByteStream *self, ArSSize index) {
 
 bool bytestream_set_item(ByteStream *self, ArObject *obj, ArSSize index) {
     ArSize value;
+
+    if (self->frozen) {
+        ErrorFormat(type_type_error_, "unable to set item to frozen bytes object");
+        return false;
+    }
 
     if (!AR_TYPEOF(obj, type_integer_)) {
         ErrorFormat(type_type_error_, "expected int found '%s'", AR_TYPE_NAME(obj));
@@ -84,7 +89,7 @@ ArObject *bytestream_get_slice(ByteStream *self, Bounds *bounds) {
     if (step >= 0) {
         ret = ByteStreamNew(self, start, slice_len);
     } else {
-        if ((ret = ByteStreamNew(slice_len, true, false)) == nullptr)
+        if ((ret = ByteStreamNew(slice_len, true, false, self->frozen)) == nullptr)
             return nullptr;
 
         for (size_t i = 0; stop < start; start += step)
@@ -121,7 +126,7 @@ ARGON_FUNCTION5(bytestream_, new, "Creates bytestream object."
         size = ((Integer *) *argv)->integer;
     }
 
-    return ByteStreamNew(size, true, true);
+    return ByteStreamNew(size, true, true, false);
 }
 
 ARGON_METHOD5(bytestream_, count,
@@ -198,6 +203,16 @@ ARGON_METHOD5(bytestream_, find,
     pos = support::Find(BUFFER_GET(bytes), BUFFER_LEN(bytes), buffer.buffer, buffer.len, false);
 
     return IntegerNew(pos);
+}
+
+ARGON_METHOD5(bytestream_, freeze,
+              "Freeze bytes object."
+              ""
+              "If bytes is already frozen, the same object will be returned, otherwise a new frozen bytes(view) will be returned."
+              "- Returns: frozen bytes object.", 0, false) {
+    auto *bytes = (ByteStream *) self;
+
+    return ByteStreamFreeze(bytes);
 }
 
 ARGON_METHOD5(bytestream_, hex, "Convert bytestream to str of hexadecimal numbers."
@@ -304,6 +319,13 @@ ARGON_METHOD5(bytestream_, isdigit,
     }
 
     return BoolToArBool(true);
+}
+
+ARGON_METHOD5(bytestream_, isfrozen,
+              "Check if this bytes object is frozen."
+              ""
+              "- Returns: true if it is frozen, false otherwise.", 0, false) {
+    return BoolToArBool(((ByteStream *) self)->frozen);
 }
 
 ARGON_METHOD5(bytestream_, join,
@@ -512,11 +534,13 @@ const NativeFunc bytestream_methods[] = {
         bytestream_count_,
         bytestream_endswith_,
         bytestream_find_,
+        bytestream_freeze_,
         bytestream_hex_,
         bytestream_isalnum_,
         bytestream_isalpha_,
         bytestream_isascii_,
         bytestream_isdigit_,
+        bytestream_isfrozen_,
         bytestream_join_,
         bytestream_new_,
         bytestream_rfind_,
@@ -546,7 +570,7 @@ ArObject *bytestream_add(ByteStream *self, ArObject *other) {
     if (!BufferGet(other, &buffer, ArBufferFlags::READ))
         return nullptr;
 
-    if ((ret = ByteStreamNew(BUFFER_LEN(self) + buffer.len, true, false)) == nullptr) {
+    if ((ret = ByteStreamNew(BUFFER_LEN(self) + buffer.len, true, false, self->frozen)) == nullptr) {
         BufferRelease(&buffer);
         return nullptr;
     }
@@ -555,6 +579,7 @@ ArObject *bytestream_add(ByteStream *self, ArObject *other) {
     MemoryCopy(BUFFER_GET(ret) + BUFFER_LEN(self), buffer.buffer, buffer.len);
 
     BufferRelease(&buffer);
+
     return ret;
 }
 
@@ -573,7 +598,7 @@ ArObject *bytestream_mul(ArObject *left, ArObject *right) {
     if (AR_TYPEOF(num, type_integer_)) {
         len = BUFFER_LEN(bytes) * num->integer;
 
-        if ((ret = ByteStreamNew(len, true, false)) != nullptr) {
+        if ((ret = ByteStreamNew(len, true, false, bytes->frozen)) != nullptr) {
             for (size_t i = 0; i < num->integer; i++)
                 MemoryCopy(BUFFER_GET(ret) + BUFFER_LEN(bytes) * i, BUFFER_GET(bytes), BUFFER_LEN(bytes));
         }
@@ -583,7 +608,7 @@ ArObject *bytestream_mul(ArObject *left, ArObject *right) {
 }
 
 ByteStream *ShiftBytestream(ByteStream *bytes, ArSSize pos) {
-    auto ret = ByteStreamNew(BUFFER_LEN(bytes), true, false);
+    auto ret = ByteStreamNew(BUFFER_LEN(bytes), true, false, bytes->frozen);
 
     if (ret != nullptr) {
         for (size_t i = 0; i < BUFFER_LEN(bytes); i++)
@@ -609,6 +634,7 @@ ArObject *bytestream_shr(ArObject *left, ArObject *right) {
 
 ArObject *bytestream_iadd(ByteStream *self, ArObject *other) {
     ArBuffer buffer = {};
+    ByteStream *ret = self;
 
     if (!IsBufferable(other))
         return nullptr;
@@ -616,13 +642,26 @@ ArObject *bytestream_iadd(ByteStream *self, ArObject *other) {
     if (!BufferGet(other, &buffer, ArBufferFlags::READ))
         return nullptr;
 
+    if (self->frozen) {
+        if ((ret = ByteStreamNew(BUFFER_LEN(self) + buffer.len, true, false, true)) == nullptr) {
+            BufferRelease(&buffer);
+            return nullptr;
+        }
+
+        MemoryCopy(BUFFER_GET(ret), BUFFER_GET(self), BUFFER_LEN(self));
+        MemoryCopy(BUFFER_GET(ret) + BUFFER_LEN(self), buffer.buffer, buffer.len);
+
+        BufferRelease(&buffer);
+        return ret;
+    }
+
     if (!BufferViewEnlarge(&self->view, buffer.len)) {
         BufferRelease(&buffer);
         return nullptr;
     }
 
-    MemoryCopy(BUFFER_GET(self) + BUFFER_LEN(self), buffer.buffer, buffer.len);
-    self->view.len += buffer.len;
+    MemoryCopy(BUFFER_GET(ret) + BUFFER_LEN(ret), buffer.buffer, buffer.len);
+    ret->view.len += buffer.len;
 
     BufferRelease(&buffer);
     return IncRef(self);
@@ -699,6 +738,18 @@ ArObject *bytestream_compare(ByteStream *self, ArObject *other, CompareMode mode
     ARGON_RICH_COMPARE_CASES(left, right, mode);
 }
 
+ArSize bytestream_hash(ByteStream *self) {
+    if (!self->frozen) {
+        ErrorFormat(type_unhashable_error_, "unable to hash unfrozen bytes object");
+        return 0;
+    }
+
+    if (self->hash == 0)
+        self->hash = HashBytes(BUFFER_GET(self), BUFFER_LEN(self));
+
+    return self->hash;
+}
+
 bool bytestream_is_true(ByteStream *self) {
     return BUFFER_LEN(self) > 0;
 }
@@ -718,11 +769,11 @@ const TypeInfo argon::object::type_bytestream_ = {
         nullptr,
         (CompareOp) bytestream_compare,
         (BoolUnaryOp) bytestream_is_true,
-        nullptr,
+        (SizeTUnaryOp) bytestream_hash,
         (UnaryOp) bytestream_str,
         (UnaryOp) bytestream_iter_get,
         (UnaryOp) bytestream_iter_rget,
-        &bytesream_buffer,
+        &bytestream_buffer,
         nullptr,
         nullptr,
         nullptr,
@@ -789,7 +840,7 @@ ByteStream *argon::object::ByteStreamNew(ArObject *object) {
     if (!BufferGet(object, &buffer, ArBufferFlags::READ))
         return nullptr;
 
-    if ((bs = ByteStreamNew(buffer.len, true, false)) != nullptr)
+    if ((bs = ByteStreamNew(buffer.len, true, false, false)) != nullptr)
         MemoryCopy(BUFFER_GET(bs), buffer.buffer, buffer.len);
 
     BufferRelease(&buffer);
@@ -800,13 +851,16 @@ ByteStream *argon::object::ByteStreamNew(ArObject *object) {
 ByteStream *argon::object::ByteStreamNew(ByteStream *stream, ArSize start, ArSize len) {
     auto bs = ArObjectNew<ByteStream>(RCType::INLINE, &type_bytestream_);
 
-    if (bs != nullptr)
+    if (bs != nullptr) {
         BufferViewInit(&bs->view, &stream->view, start, len);
+        bs->hash = 0;
+        bs->frozen = stream->frozen;
+    }
 
     return bs;
 }
 
-ByteStream *argon::object::ByteStreamNew(ArSize cap, bool same_len, bool fill_zero) {
+ByteStream *argon::object::ByteStreamNew(ArSize cap, bool same_len, bool fill_zero, bool frozen) {
     auto bs = ArObjectNew<ByteStream>(RCType::INLINE, &type_bytestream_);
 
     if (bs != nullptr) {
@@ -820,9 +874,27 @@ ByteStream *argon::object::ByteStreamNew(ArSize cap, bool same_len, bool fill_ze
 
         if (fill_zero)
             MemoryZero(BUFFER_GET(bs), cap);
+
+        bs->hash = 0;
+        bs->frozen = frozen;
     }
 
     return bs;
+}
+
+ByteStream *argon::object::ByteStreamFreeze(ByteStream *stream) {
+    ByteStream *ret;
+
+    if (stream->frozen)
+        return IncRef(stream);
+
+    if ((ret = ByteStreamNew(stream, 0, BUFFER_LEN(stream))) == nullptr)
+        return nullptr;
+
+    ret->frozen = true;
+    Hash(ret);
+
+    return ret;
 }
 
 #undef BUFFER_GET

@@ -13,6 +13,9 @@
 namespace argon::object {
     struct ByteStream : ArObject {
         BufferView view;
+        ArSize hash;
+
+        bool frozen;
     };
 
     extern const TypeInfo type_bytestream_;
@@ -21,9 +24,13 @@ namespace argon::object {
 
     ByteStream *ByteStreamNew(ByteStream *stream, ArSize start, ArSize len);
 
-    ByteStream *ByteStreamNew(ArSize cap, bool same_len, bool fill_zero);
+    ByteStream *ByteStreamNew(ArSize cap, bool same_len, bool fill_zero, bool frozen);
 
-    inline ByteStream *ByteStreamNew() { return ByteStreamNew(ARGON_OBJECT_BYTESTREAM_INITIAL_CAP, false, false); }
+    ByteStream *ByteStreamFreeze(ByteStream *stream);
+
+    inline ByteStream *ByteStreamNew() {
+        return ByteStreamNew(ARGON_OBJECT_BYTESTREAM_INITIAL_CAP, false, false, false);
+    }
 
     ArObject *ByteStreamSplit(ByteStream *bytes, unsigned char *pattern, ArSize plen, ArSSize maxsplit);
 
