@@ -59,13 +59,16 @@ namespace argon::vm {
         Defer *cu_defer;
 
         /* Pointer to object that describe actual routine panic (if any...) */
-        struct Panic *panic;
+        Panic *panic;
 
         /* Store object references in a function that which can become recursive (e.g. list_str, map_str...) */
         argon::object::List *references;
 
         /* Context in which this routine was created */
         Context *context;
+
+        /* Current recursion depth */
+        argon::object::ArSize recursion_depth;
 
         /* Routine status */
         ArRoutineStatus status;

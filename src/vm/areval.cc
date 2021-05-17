@@ -140,6 +140,38 @@ ArObject *RestElementToList(ArObject **args, size_t count) {
     return rest;
 }
 
+bool CheckRecursionLimit(ArRoutine *routine) {
+    ArSize flags = (sizeof(ArSize) * 8) - 1;
+    ArSize nflag = ~(0x01 << flags);
+
+    // Ignore if it is a suspended frame (e.g. for function call)
+    if(routine->frame->instr_ptr != routine->frame->code->instr)
+        return true;
+
+    if (routine->recursion_depth >> flags == 0x01) {
+        ArSize current = routine->recursion_depth & nflag;
+        current++;
+
+        if (current > routine->context->recursion_limit + 24)
+            assert("current > routine->context->recursion_limit + 24"); // TODO add fatal error
+
+        if (current < routine->context->recursion_limit)
+            routine->recursion_depth = current;
+        else
+            routine->recursion_depth++;
+
+        return true;
+    }
+
+    if (++routine->recursion_depth > routine->context->recursion_limit) {
+        ErrorFormat(type_runtime_error_, "maximum recursion depth of %d reached", routine->context->recursion_limit);
+        routine->recursion_depth |= 0x01 << flags;
+        return false;
+    }
+
+    return true;
+}
+
 struct CallHelper {
     Frame *frame;
     Function *func;
@@ -383,6 +415,9 @@ ArObject *argon::vm::Eval(ArRoutine *routine) {
 
     ArObject *ret = nullptr;
 
+    if (!CheckRecursionLimit(routine))
+        goto error;
+
     while (cu_frame->instr_ptr < (cu_code->instr + cu_code->instr_sz)) {
         switch (*(argon::lang::OpCodes *) cu_frame->instr_ptr) {
             TARGET_OP(ADD) {
@@ -472,7 +507,6 @@ ArObject *argon::vm::Eval(ArRoutine *routine) {
                 RoutineNewDefer(routine, ret);
                 Release(ret);
                 DISPATCH4();
-                // MISS YOU E.V.
             }
             TARGET_OP(DIV) {
                 BINARY_OP(routine, div, /);
@@ -1080,6 +1114,7 @@ ArObject *argon::vm::Eval(ArRoutine *routine) {
             break;
 
         routine->frame = cu_frame->back;
+        routine->recursion_depth--;
 
         if (routine->frame->eval_stack != nullptr) {
             ret = NilVal;

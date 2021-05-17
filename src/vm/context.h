@@ -18,6 +18,7 @@ namespace argon::vm {
         argon::object::Module *runtime;
 
         Import *import;
+        argon::object::ArSize recursion_limit;
     };
 
     Context *ContextNew();

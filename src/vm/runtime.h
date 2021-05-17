@@ -6,7 +6,7 @@
 #define ARGON_VM_RUNTIME_H_
 
 #include <object/arobject.h>
-#include "ar_routine.h"
+#include "arroutine.h"
 #include "context.h"
 
 namespace argon::vm {

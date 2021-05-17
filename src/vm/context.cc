@@ -28,6 +28,8 @@ Context *argon::vm::ContextNew() {
     if ((ctx->runtime = ImportModule(ctx->import, "runtime")) == nullptr)
         goto error;
 
+    ctx->recursion_limit = 1000; // default maximum recursion depth
+
     return ctx;
 
     error:

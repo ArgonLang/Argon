@@ -3,7 +3,7 @@
 // Licensed under the Apache License v2.0
 
 #include <object/arobject.h>
-#include "ar_routine.h"
+#include "arroutine.h"
 
 using namespace argon::vm;
 using namespace argon::memory;
@@ -24,6 +24,7 @@ ArRoutine *argon::vm::RoutineNew(ArRoutineStatus status) {
             return nullptr;
         }
 
+        routine->recursion_depth = 0;
         routine->status = status;
     }
 
@@ -68,6 +69,7 @@ void argon::vm::RoutineReset(ArRoutine *routine, ArRoutineStatus status) {
 
         assert(routine->cu_defer == nullptr);
 
+        routine->recursion_depth = 0;
         routine->status = status;
     }
 }
