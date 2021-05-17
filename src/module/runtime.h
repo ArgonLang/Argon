@@ -10,8 +10,6 @@
 
 namespace argon::module {
     argon::object::Module *RuntimeNew();
-
-    argon::object::ArObject *RuntimeGetProperty(const char *key, const argon::object::TypeInfo *info);
 } // namespace argon::module
 
 

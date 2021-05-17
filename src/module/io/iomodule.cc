@@ -24,15 +24,15 @@ ArObject *io_seek_mode_start = nullptr;
 ArObject *io_seek_mode_cur = nullptr;
 ArObject *io_seek_mode_end = nullptr;
 
-ARGON_FUNCTION( create, "", 1, false) {
+ARGON_FUNCTION(create, "", 1, false) {
     return nullptr;
 }
 
-ARGON_FUNCTION( open, "", 1, false) {
+ARGON_FUNCTION(open, "", 1, false) {
     return nullptr;
 }
 
-ARGON_FUNCTION( openfile, "", 2, false) {
+ARGON_FUNCTION(openfile, "", 2, false) {
     return nullptr;
 }
 
@@ -48,15 +48,15 @@ const PropertyBulk io_bulk[] = {
 
 bool IOInit(Module *module) {
 #define INIT_CONST_STR(name, string)                                    \
-     if (name==nullptr && ((name = StringIntern(string)) == nullptr))   \
+     if (name == nullptr && ((name = StringIntern(string)) == nullptr)) \
         return false
 
-#define INIT_OBJ(fn, key, c_value)                                                                          \
-    if ((value = fn(c_value)) == nullptr)                                                                   \
-        return false;                                                                                       \
-    if (!ModuleAddProperty(module, key, value, PropertyInfo(PropertyType::PUBLIC | PropertyType::CONST))) { \
-        Release(value);                                                                                     \
-        return false; }                                                                                     \
+#define INIT_OBJ(fn, key, c_value)                                              \
+    if ((value = fn(c_value)) == nullptr)                                       \
+        return false;                                                           \
+    if (!ModuleAddProperty(module, key, value, MODULE_ATTRIBUTE_PUB_CONST)) {   \
+        Release(value);                                                         \
+        return false; }                                                         \
     Release(value)
 
     ArObject *value;

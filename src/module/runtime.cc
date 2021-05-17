@@ -2,9 +2,6 @@
 //
 // Licensed under the Apache License v2.0
 
-#include <vm/runtime.h>
-#include <object/datatype/error.h>
-
 #include "runtime.h"
 
 using namespace argon::object;
@@ -15,18 +12,17 @@ bool InitFDs(io::File **in, io::File **out, io::File **err) {
         return false;
 
     if ((*out = io::FdOpen(STDOUT_FILENO, io::FileMode::WRITE)) == nullptr) {
-        Release(*in);
+        Release((ArObject **) in);
         return false;
     }
 
     if ((*err = io::FdOpen(STDERR_FILENO, io::FileMode::WRITE)) == nullptr) {
-        Release(*in);
-        Release(*out);
+        Release((ArObject **) in);
+        Release((ArObject **) out);
         return false;
     }
 
     io::SetBuffer(*err, nullptr, 0, io::FileBufferMode::NONE);
-
     return true;
 }
 
@@ -48,23 +44,25 @@ bool GetOS(String **name) {
 }
 
 bool runtime_init(Module *module) {
-#define ADD_PROPERTY(name, object, pinfo)                       \
-    if(!(ok=ModuleAddProperty(module, name, object, pinfo)))    \
-        goto error;
+#define ADD_PROPERTY(name, object, pinfo)               \
+    if(!ModuleAddProperty(module, name, object, pinfo)) \
+        goto error
 
     String *os_name = nullptr;
-    io::File *in;
-    io::File *out;
-    io::File *err;
-    bool ok;
+
+    io::File *in = nullptr;
+    io::File *out = nullptr;
+    io::File *err = nullptr;
+
+    bool ok = false;
 
     // Init IO
     if (!InitFDs(&in, &out, &err))
         return false;
 
-    ADD_PROPERTY("__stdin", in, PropertyInfo(PropertyType::PUBLIC | PropertyType::CONST));
-    ADD_PROPERTY("__stdout", out, PropertyInfo(PropertyType::PUBLIC | PropertyType::CONST));
-    ADD_PROPERTY("__stderr", err, PropertyInfo(PropertyType::PUBLIC | PropertyType::CONST));
+    ADD_PROPERTY("__stdin", in, MODULE_ATTRIBUTE_PUB_CONST);
+    ADD_PROPERTY("__stdout", out, MODULE_ATTRIBUTE_PUB_CONST);
+    ADD_PROPERTY("__stderr", err, MODULE_ATTRIBUTE_PUB_CONST);
 
     ADD_PROPERTY("stdin", in, PropertyInfo(PropertyType::PUBLIC));
     ADD_PROPERTY("stdout", out, PropertyInfo(PropertyType::PUBLIC));
@@ -73,7 +71,9 @@ bool runtime_init(Module *module) {
     if (!GetOS(&os_name))
         goto error;
 
-    ADD_PROPERTY("os", os_name, PropertyInfo(PropertyType::PUBLIC | PropertyType::CONST));
+    ADD_PROPERTY("os", os_name, MODULE_ATTRIBUTE_PUB_CONST);
+
+    ok = true;
 
     error:
     Release(in);
@@ -96,23 +96,4 @@ const ModuleInit module_runtime = {
 
 Module *argon::module::RuntimeNew() {
     return ModuleNew(&module_runtime);
-}
-
-ArObject *argon::module::RuntimeGetProperty(const char *key, const TypeInfo *info) {
-    auto str = StringIntern(key);
-    ArObject *ret;
-
-    if (str == nullptr)
-        return nullptr;
-
-    ret = NamespaceGetValue(argon::vm::GetContext()->runtime->module_ns, str, nullptr);
-    Release(str);
-
-    if (info != nullptr && ret->type != info) {
-        ErrorFormat(type_type_error_, "expected '%s' found '%s'", info->name, ret->type->name);
-        Release(ret);
-        return nullptr;
-    }
-
-    return ret;
 }

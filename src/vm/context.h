@@ -22,6 +22,8 @@ namespace argon::vm {
 
     Context *ContextNew();
 
+    argon::object::ArObject *ContextRuntimeGetProperty(const char *key, const argon::object::TypeInfo *info);
+
     void ContextDel(Context *context);
 }
 

@@ -4,10 +4,14 @@
 
 #include <memory/memory.h>
 
+#include <object/datatype/error.h>
+
+#include "runtime.h"
 #include "context.h"
 
 using namespace argon::memory;
 using namespace argon::vm;
+using namespace argon::object;
 
 Context *argon::vm::ContextNew() {
     Context *ctx;
@@ -29,6 +33,24 @@ Context *argon::vm::ContextNew() {
     error:
     ContextDel(ctx);
     return nullptr;
+}
+
+ArObject *argon::vm::ContextRuntimeGetProperty(const char *key, const TypeInfo *info) {
+    auto *str = StringIntern(key);
+    ArObject *ret;
+
+    if (str == nullptr)
+        return nullptr;
+
+    ret = NamespaceGetValue(GetContext()->runtime->module_ns, str, nullptr);
+    Release(str);
+
+    if (info != nullptr && ret->type != info) {
+        Release(ret);
+        return ErrorFormat(type_type_error_, "expected '%s' found '%s'", info->name, AR_TYPE_NAME(ret));
+    }
+
+    return ret;
 }
 
 void argon::vm::ContextDel(Context *context) {
