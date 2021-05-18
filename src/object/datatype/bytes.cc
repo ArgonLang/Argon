@@ -23,7 +23,7 @@ using namespace argon::memory;
 using namespace argon::object;
 
 bool bytes_get_buffer(Bytes *self, ArBuffer *buffer, ArBufferFlags flags) {
-    return BufferSimpleFill(self, buffer, flags, BUFFER_GET(self), BUFFER_LEN(self), self->frozen);
+    return BufferSimpleFill(self, buffer, flags, BUFFER_GET(self), BUFFER_LEN(self), !self->frozen);
 }
 
 const BufferSlots bytes_buffer = {
