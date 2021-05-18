@@ -38,6 +38,8 @@ namespace argon::object {
 
     bool BufferViewInit(BufferView *view, ArSize capacity);
 
+    bool BufferViewHoldBuffer(BufferView *view, unsigned char *buffer, ArSize len, ArSize cap);
+
     void BufferViewInit(BufferView *dst, BufferView *src, ArSize start, ArSize len);
 
     void BufferViewDetach(BufferView *view);

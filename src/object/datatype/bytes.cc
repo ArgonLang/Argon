@@ -902,6 +902,22 @@ Bytes *argon::object::BytesNew(unsigned char *buffer, ArSize len, bool frozen) {
     return bytes;
 }
 
+Bytes *argon::object::BytesNewHoldBuffer(unsigned char *buffer, ArSize len, ArSize cap, bool frozen) {
+    auto bs = ArObjectNew<Bytes>(RCType::INLINE, &type_bytes_);
+
+    if (bs != nullptr) {
+        if (!BufferViewHoldBuffer(&bs->view, buffer, len, cap)) {
+            Release(bs);
+            return nullptr;
+        }
+
+        bs->hash = 0;
+        bs->frozen = frozen;
+    }
+
+    return bs;
+}
+
 Bytes *argon::object::BytesFreeze(Bytes *stream) {
     Bytes *ret;
 

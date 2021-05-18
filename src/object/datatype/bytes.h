@@ -28,6 +28,8 @@ namespace argon::object {
 
     Bytes *BytesNew(unsigned char *buffer, ArSize len, bool frozen);
 
+    Bytes *BytesNewHoldBuffer(unsigned char *buffer, ArSize len, ArSize cap, bool frozen);
+
     Bytes *BytesFreeze(Bytes *stream);
 
     inline Bytes *BytesNew() {

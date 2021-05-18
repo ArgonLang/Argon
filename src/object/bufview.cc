@@ -91,6 +91,19 @@ bool argon::object::BufferViewInit(BufferView *view, ArSize capacity) {
     return true;
 }
 
+bool argon::object::BufferViewHoldBuffer(BufferView *view, unsigned char *buffer, ArSize len, ArSize cap) {
+    if ((view->shared = SharedBufferNew(0)) == nullptr)
+        return false;
+
+    view->shared->buffer = buffer;
+    view->shared->cap = cap;
+
+    view->buffer = buffer;
+    view->len = len;
+
+    return true;
+}
+
 void argon::object::BufferViewDetach(BufferView *view) {
     SharedBufferRelease(view->shared);
     view->buffer = nullptr;
