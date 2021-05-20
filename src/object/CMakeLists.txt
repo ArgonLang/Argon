@@ -12,6 +12,7 @@ set(SRC
         datatype/function.cc
         datatype/hash_magic.cc
         datatype/hmap.cc
+        datatype/io/io.cc
         datatype/integer.cc
         datatype/iterator.cc
         datatype/list.cc

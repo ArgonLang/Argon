@@ -2,13 +2,13 @@
 //
 // Licensed under the Apache License v2.0
 
-#ifndef ARGON_MODULES_IO_IOMODULE_H_
-#define ARGON_MODULES_IO_IOMODULE_H_
+#ifndef ARGON_MODULES_IOMODULE_H_
+#define ARGON_MODULES_IOMODULE_H_
 
 #include <object/datatype/module.h>
 
 namespace argon::module::io {
     argon::object::Module *IONew();
-} // namespace argon::module::io
+} // namespace argon::module
 
-#endif // !ARGON_MODULES_IO_IOMODULE_H_
+#endif // !ARGON_MODULES_IOMODULE_H_

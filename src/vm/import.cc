@@ -7,7 +7,7 @@
 #include <lang/compiler.h>
 
 #include <module/builtins.h>
-#include <module/io/iomodule.h>
+#include <module/iomodule.h>
 #include <module/math.h>
 #include <module/runtime.h>
 

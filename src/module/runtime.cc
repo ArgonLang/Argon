@@ -2,6 +2,8 @@
 //
 // Licensed under the Apache License v2.0
 
+#include <object/datatype/io/io.h>
+
 #include "runtime.h"
 
 using namespace argon::object;

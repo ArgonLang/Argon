@@ -5,6 +5,7 @@
 #include <object/datatype/list.h>
 #include <object/datatype/option.h>
 #include <object/datatype/map.h>
+#include <object/datatype/io/io.h>
 #include <object/datatype/set.h>
 #include <object/datatype/tuple.h>
 #include <object/datatype/string.h>
@@ -28,6 +29,7 @@ bool argon::object::TypesInit() {
 
     INIT_TYPE(type_bool_);
     INIT_TYPE(type_decimal_);
+    INIT_TYPE(io::type_file_);
     INIT_TYPE(type_integer_);
     INIT_TYPE(type_bytes_);
     INIT_TYPE(type_map_);

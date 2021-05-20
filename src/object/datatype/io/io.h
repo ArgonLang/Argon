@@ -2,22 +2,22 @@
 //
 // Licensed under the Apache License v2.0
 
-#ifndef ARGON_MODULES_IO_IO_H_
-#define ARGON_MODULES_IO_IO_H_
+#ifndef ARGON_OBJECT_IO_IO_H_
+#define ARGON_OBJECT_IO_IO_H_
 
 #include <object/arobject.h>
 #include <utils/enum_bitmask.h>
 
-namespace argon::module::io {
+namespace argon::object::io {
 
     enum class FileMode : unsigned char {
-        READ = 1,
-        WRITE = (unsigned char) 1 << (unsigned char) 1,
-        APPEND = (unsigned char) 1 << (unsigned char) 2,
+        READ = 1u,
+        WRITE = 1u << 1u,
+        APPEND = 1u << 2u,
 
         // PRIVATE/NOT EXPORTED FIELDS
-        _IS_TERM = (unsigned char) 1 << (unsigned char) 3,
-        _IS_PIPE = (unsigned char) 1 << (unsigned char) 4
+        _IS_TERM = 1u << 3u,
+        _IS_PIPE = 1u << 4u
     };
 
     enum class FileBufferMode {
@@ -78,8 +78,8 @@ namespace argon::module::io {
 
     void Close(File *file);
 
-} // namespace argon::module::io
+} // namespace argon::object::io
 
-ENUMBITMASK_ENABLE(argon::module::io::FileMode);
+ENUMBITMASK_ENABLE(argon::object::io::FileMode);
 
-#endif // !ARGON_MODULES_IO_IO_H_
+#endif // !ARGON_OBJECT_IO_IO_H_

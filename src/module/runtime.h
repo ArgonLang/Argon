@@ -5,7 +5,6 @@
 #ifndef ARGON_MODULES_RUNTIME_H_
 #define ARGON_MODULES_RUNTIME_H_
 
-#include "io/io.h"
 #include <object/datatype/module.h>
 
 namespace argon::module {

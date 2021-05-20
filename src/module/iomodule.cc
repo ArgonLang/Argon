@@ -3,14 +3,14 @@
 // Licensed under the Apache License v2.0
 
 #include <object/datatype/integer.h>
+#include <object/datatype/io/io.h>
 #include <object/datatype/function.h>
 #include <object/arobject.h>
 
-#include "io.h"
 #include "iomodule.h"
 
 using namespace argon::object;
-using namespace argon::module::io;
+using namespace io;
 
 ArObject *io_mode_read = nullptr;
 ArObject *io_mode_write = nullptr;

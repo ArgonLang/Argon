@@ -12,6 +12,7 @@
 #include <object/datatype/decimal.h>
 #include <object/datatype/error.h>
 #include <object/datatype/function.h>
+#include "object/datatype/io/io.h"
 #include <object/datatype/integer.h>
 #include <object/datatype/list.h>
 #include <object/datatype/map.h>
@@ -23,8 +24,6 @@
 #include <object/datatype/string.h>
 #include <object/datatype/tuple.h>
 
-#include "io/io.h"
-#include "runtime.h"
 #include "builtins.h"
 
 using namespace argon::object;
@@ -68,10 +67,10 @@ ARGON_FUNCTION(input,
     if ((str = ToString(argv[0])) == nullptr)
         goto error;
 
-    if (argon::module::io::WriteObject(out, str) < 0)
+    if (io::WriteObject(out, str) < 0)
         goto error;
 
-    argon::module::io::Flush(out);
+    io::Flush(out);
     Release(str);
     Release(out);
 
@@ -236,7 +235,7 @@ ARGON_FUNCTION(print,
         if ((str = ToString(argv[i++])) == nullptr)
             return nullptr;
 
-        if (argon::module::io::WriteObject(out, str) < 0) {
+        if (io::WriteObject(out, str) < 0) {
             Release(str);
             return nullptr;
         }
@@ -244,7 +243,7 @@ ARGON_FUNCTION(print,
         Release(str);
 
         if (i < count) {
-            if (argon::module::io::Write(out, (unsigned char *) " ", 1) < 0)
+            if (io::Write(out, (unsigned char *) " ", 1) < 0)
                 return nullptr;
         }
     }
@@ -270,7 +269,7 @@ ARGON_FUNCTION(println,
         if (out == nullptr)
             return nullptr;
 
-        if (argon::module::io::Write(out, (unsigned char *) "\n", 1) < 0) {
+        if (io::Write(out, (unsigned char *) "\n", 1) < 0) {
             Release(success);
             return nullptr;
         }

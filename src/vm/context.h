@@ -8,8 +8,6 @@
 #include <object/arobject.h>
 #include <object/datatype/module.h>
 
-#include <module/io/io.h>
-
 #include "import.h"
 
 namespace argon::vm {
