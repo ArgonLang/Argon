@@ -4,6 +4,8 @@
 
 #include <cassert>
 
+#include <utils/macros.h>
+
 #include <vm/runtime.h>
 
 #include "bool.h"
@@ -247,10 +249,10 @@ const TypeInfo argon::object::type_integer_ = {
 
 Integer *argon::object::IntegerNew(IntegerUnderlying number) {
     // Overflow check
-#if __WORDSIZE == 32
+#ifdef _ARGON_ENVIRON32
     if (number > 0x7FFFFFFF)
         return (Integer *) ErrorFormat(type_overflow_error_, "integer too large to be represented by signed C long");
-#elif __WORDSIZE == 64
+#elif defined _ARGON_ENVIRON64
     if (number > 0x7FFFFFFFFFFFFFFF)
         return (Integer *) ErrorFormat(type_overflow_error_, "integer too large to be represented by signed C long");
 #endif

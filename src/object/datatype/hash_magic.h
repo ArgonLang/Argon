@@ -7,12 +7,13 @@
 
 #include <cstddef>
 
+#include <utils/macros.h>
 #include <object/arobject.h>
 
-#if __WORDSIZE == 32
+#ifdef _ARGON_ENVIRON32
 #define ARGON_OBJECT_HASH_BITS  31
 #define ARGON_OBJECT_HASH_PRIME 2147483647 // pow(2,31) - 1
-#elif __WORDSIZE == 64
+#elif defined _ARGON_ENVIRON64
 #define ARGON_OBJECT_HASH_BITS  61
 #define ARGON_OBJECT_HASH_PRIME 2305843009213693951 // pow(2,61) - 1
 #endif

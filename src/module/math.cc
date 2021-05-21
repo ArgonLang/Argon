@@ -2,6 +2,12 @@
 //
 // Licensed under the Apache License v2.0
 
+#include <utils/macros.h>
+
+#if _ARGON_PLATFORM == windows
+#define _USE_MATH_DEFINES
+#endif
+
 #include <cmath>
 
 #include <object/datatype/error.h>
@@ -354,9 +360,9 @@ ARGON_FUNCTION5(math_, isqrt,
                 "- Parameter x: value whose inverse square root is computed."
                 "- Returns: inverse square root of x.",
                 1, false) {
-#if __WORDSIZE == 32
+#ifdef _ARGON_ENVIRON32
 #define MAGIC_CONSTANT 0x5F375A86
-#elif __WORDSIZE == 64
+#elif defined _ARGON_ENVIRON64
 #define MAGIC_CONSTANT 0x5FE6EB50C7B537A9
 #endif
 

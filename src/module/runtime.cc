@@ -4,6 +4,7 @@
 
 #include <unistd.h>
 #include <object/datatype/io/io.h>
+#include <utils/macros.h>
 
 #include "runtime.h"
 
@@ -30,19 +31,7 @@ bool InitFDs(io::File **in, io::File **out, io::File **err) {
 }
 
 bool GetOS(String **name) {
-#if defined(WIN32) || defined(_WIN32) || defined(__WIN32__) || defined(__NT__)
-    const char *os_name = "windows";
-#elif defined(__APPLE__)
-    const char *os_name = "darwin";
-#elif defined(__linux__)
-    const char *os_name = "linux";
-#elif defined(__unix__)
-    const char *os_name = "unix";
-#else
-    const char *os_name = "unknown";
-#endif
-
-    *name = StringIntern(os_name);
+    *name = StringIntern(_ARGON_PLATFORM_NAME);
     return *name != nullptr;
 }
 
