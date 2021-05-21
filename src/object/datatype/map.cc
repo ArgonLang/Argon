@@ -82,7 +82,7 @@ const TypeInfo type_map_iterator_ = {
         nullptr
 };
 
-size_t map_len(Map *self) {
+ArSize map_len(Map *self) {
     return self->hmap.len;
 }
 
@@ -362,7 +362,7 @@ void map_cleanup(Map *self) {
     });
 }
 
-ArObject *argon::object::MapGetFrmStr(Map *map, const char *key, size_t len) {
+ArObject *argon::object::MapGetFrmStr(Map *map, const char *key, ArSize len) {
     auto *entry = (MapEntry *) HMapLookup(&map->hmap, key, len);
 
     if (entry != nullptr) {

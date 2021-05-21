@@ -108,8 +108,8 @@ void TraceRoots(GCHead **unreachable, unsigned short generation) {
     }
 }
 
-size_t argon::object::Collect() {
-    size_t total_count = 0;
+ArSize argon::object::Collect() {
+    ArSize total_count = 0;
 
     for (int i = 0; i < ARGON_OBJECT_GC_GENERATIONS; i++)
         total_count += Collect(i);
@@ -119,7 +119,7 @@ size_t argon::object::Collect() {
     return total_count;
 }
 
-size_t argon::object::Collect(unsigned short generation) {
+ArSize argon::object::Collect(unsigned short generation) {
     GCHead *unreachable = nullptr;
     unsigned short next_gen = (generation + 1) % ARGON_OBJECT_GC_GENERATIONS;
 
@@ -175,7 +175,7 @@ GCStats argon::object::GetStats(unsigned short generation) {
     return stats[generation];
 }
 
-void *argon::object::GCNew(size_t len) {
+void *argon::object::GCNew(ArSize len) {
     auto obj = (GCHead *) Alloc(sizeof(GCHead) + len);
 
     if (obj != nullptr) {

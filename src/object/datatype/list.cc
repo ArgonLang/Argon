@@ -16,7 +16,7 @@
 using namespace argon::object;
 using namespace argon::memory;
 
-size_t list_len(ArObject *obj) {
+ArSize list_len(ArObject *obj) {
     return ((List *) obj)->len;
 }
 
@@ -59,13 +59,13 @@ ArObject *list_get_slice(List *self, Bounds *bounds) {
         return nullptr;
 
     if (step >= 0) {
-        for (size_t i = 0; start < stop; start += step) {
+        for (ArSize i = 0; start < stop; start += step) {
             tmp = self->objects[start];
             IncRef(tmp);
             ret->objects[i++] = tmp;
         }
     } else {
-        for (size_t i = 0; stop < start; start += step) {
+        for (ArSize i = 0; stop < start; start += step) {
             tmp = self->objects[start];
             IncRef(tmp);
             ret->objects[i++] = tmp;
@@ -89,9 +89,9 @@ const SequenceSlots list_actions{
         (BoolTernOp) list_set_slice
 };
 
-bool CheckSize(List *list, size_t count) {
+bool CheckSize(List *list, ArSize count) {
     ArObject **tmp;
-    size_t len = count > 1 ? list->cap + count : (list->cap + 1) + ((list->cap + 1) / 2);
+    ArSize len = count > 1 ? list->cap + count : (list->cap + 1) + ((list->cap + 1) / 2);
 
     if (list->len + count > list->cap) {
         if (list->objects == nullptr)
@@ -113,7 +113,7 @@ List *ShiftList(List *list, ArSSize pos) {
     auto ret = ListNew(list->len);
 
     if (ret != nullptr) {
-        for (size_t i = 0; i < list->len; i++) {
+        for (ArSize i = 0; i < list->len; i++) {
             IncRef(list->objects[i]);
             ret->objects[((list->len + pos) + i) % list->len] = list->objects[i];
         }
@@ -130,7 +130,7 @@ ArObject *list_add(ArObject *left, ArObject *right) {
 
     if (AR_SAME_TYPE(l, r)) {
         if ((list = ListNew(l->len + r->len)) != nullptr) {
-            size_t i = 0;
+            ArSize i = 0;
 
             // copy from left (self)
             for (; i < l->len; i++) {
@@ -163,7 +163,7 @@ ArObject *list_mul(ArObject *left, ArObject *right) {
 
     if (AR_TYPEOF(num, type_integer_)) {
         if ((ret = ListNew(list->len * ((Integer *) num)->integer)) != nullptr) {
-            for (size_t i = 0; i < ret->cap; i++) {
+            for (ArSize i = 0; i < ret->cap; i++) {
                 IncRef(list->objects[i % list->len]);
                 ret->objects[i] = list->objects[i % list->len];
             }
@@ -203,7 +203,7 @@ ArObject *list_inp_add(ArObject *left, ArObject *right) {
 ArObject *list_inp_mul(ArObject *left, ArObject *right) {
     auto *list = (List *) left;
     auto *num = (Integer *) right;
-    size_t nlen;
+    ArSize nlen;
 
     if (!AR_TYPEOF(list, type_list_)) {
         list = (List *) right;
@@ -216,7 +216,7 @@ ArObject *list_inp_mul(ArObject *left, ArObject *right) {
         if (!CheckSize(list, nlen))
             return nullptr;
 
-        for (size_t i = list->len; i < nlen; i++) {
+        for (ArSize i = list->len; i < nlen; i++) {
             IncRef(list->objects[i % list->len]);
             list->objects[i] = list->objects[i % list->len];
         }
@@ -448,7 +448,7 @@ ArObject *list_compare(List *self, ArObject *other, CompareMode mode) {
         if (l1->len != l2->len)
             return BoolToArBool(false);
 
-        for (size_t i = 0; i < l1->len; i++)
+        for (ArSize i = 0; i < l1->len; i++)
             if (!Equal(l1->objects[i], l2->objects[i]))
                 return BoolToArBool(false);
     }
@@ -468,7 +468,7 @@ ArObject *list_str(List *self) {
     if (StringBuilderWrite(&sb, (unsigned char *) "[", 1, self->len == 0 ? 1 : 0) < 0)
         goto error;
 
-    for (size_t i = 0; i < self->len; i++) {
+    for (ArSize i = 0; i < self->len; i++) {
         if ((tmp = (String *) ToString(self->objects[i])) == nullptr)
             goto error;
 
@@ -505,12 +505,12 @@ ArObject *list_iter_rget(List *self) {
 }
 
 void list_trace(List *self, VoidUnaryOp trace) {
-    for (size_t i = 0; i < self->len; i++)
+    for (ArSize i = 0; i < self->len; i++)
         trace(self->objects[i]);
 }
 
 void list_cleanup(List *self) {
-    for (size_t i = 0; i < self->len; i++)
+    for (ArSize i = 0; i < self->len; i++)
         Release(self->objects[i]);
 
     Free(self->objects);
@@ -551,7 +551,7 @@ List *ListClone(T *t) {
     if ((list = ListNew(t->len)) == nullptr)
         return nullptr;
 
-    for (size_t i = 0; i < t->len; i++)
+    for (ArSize i = 0; i < t->len; i++)
         list->objects[i] = IncRef(t->objects[i]);
 
     list->len = t->len;
@@ -563,13 +563,13 @@ bool ListConcat(List *base, T *t) {
     if (!CheckSize(base, t->len))
         return false;
 
-    for (size_t i = 0; i < t->len; i++)
+    for (ArSize i = 0; i < t->len; i++)
         base->objects[base->len++] = IncRef(t->objects[i]);
 
     return true;
 }
 
-List *argon::object::ListNew(size_t cap) {
+List *argon::object::ListNew(ArSize cap) {
     auto list = ArObjectGCNew<List>(&type_list_);
 
     if (list != nullptr) {
@@ -602,7 +602,7 @@ List *argon::object::ListNew(const ArObject *sequence) {
             return ListClone((Tuple *) sequence);
 
         // Generic sequence
-        if ((list = ListNew((size_t) AR_SEQUENCE_SLOT(sequence)->length((ArObject *) sequence))) == nullptr)
+        if ((list = ListNew((ArSize) AR_SEQUENCE_SLOT(sequence)->length((ArObject *) sequence))) == nullptr)
             return nullptr;
 
         while (idx < list->cap) {
@@ -668,7 +668,7 @@ void argon::object::ListRemove(List *list, ArSSize i) {
     Release(list->objects[i]);
 
     // Move items back
-    for (size_t idx = i + 1; idx < list->len; idx++)
+    for (ArSize idx = i + 1; idx < list->len; idx++)
         list->objects[idx - 1] = list->objects[idx];
 
     list->len--;

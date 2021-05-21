@@ -55,7 +55,7 @@ bool ViewEnlargeNew(BufferView *view, ArSize count) {
 
 bool argon::object::BufferViewEnlarge(BufferView *view, ArSize count) {
     unsigned char *tmp;
-    size_t cap = count > 1 ? view->shared->cap + count : (view->shared->cap + 1) + ((view->shared->cap + 1) / 2);
+    ArSize cap = count > 1 ? view->shared->cap + count : (view->shared->cap + 1) + ((view->shared->cap + 1) / 2);
 
     if (!view->shared->IsWritable())
         return ViewEnlargeNew(view, count);

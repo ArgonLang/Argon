@@ -22,7 +22,7 @@ using namespace argon::object;
 
 static Map *intern;
 
-size_t StringSubStrLen(String *str, size_t offset, size_t graphemes) {
+ArSize StringSubStrLen(String *str, ArSize offset, ArSize graphemes) {
     unsigned char *buf = str->buffer + offset;
     unsigned char *end = str->buffer + str->len;
 
@@ -88,7 +88,7 @@ ArObject *str_iter_peek(Iterator *self) {
 
 ITERATOR_NEW_DEFAULT(str_iterator, (BoolUnaryOp) str_iter_has_next, (UnaryOp) str_iter_next, (UnaryOp) str_iter_peek);
 
-String *StringInit(size_t len, bool mkbuf) {
+String *StringInit(ArSize len, bool mkbuf) {
     auto str = ArObjectNew<String>(RCType::INLINE, &type_string_);
 
     if (str != nullptr) {
@@ -117,8 +117,8 @@ String *StringInit(size_t len, bool mkbuf) {
 }
 
 int StringCompare(String *self, String *other) {
-    size_t idx1 = 0;
-    size_t idx2 = 0;
+    ArSize idx1 = 0;
+    ArSize idx2 = 0;
 
     unsigned char c1;
     unsigned char c2;
@@ -133,10 +133,10 @@ int StringCompare(String *self, String *other) {
     return c1 - c2;
 }
 
-size_t FillBuffer(String *dst, size_t offset, const unsigned char *buf, size_t len) {
+ArSize FillBuffer(String *dst, ArSize offset, const unsigned char *buf, ArSize len) {
     StringKind kind = StringKind::ASCII;
-    size_t idx = 0;
-    size_t uidx = 0;
+    ArSize idx = 0;
+    ArSize uidx = 0;
 
     while (idx < len) {
         dst->buffer[idx + offset] = buf[idx];
@@ -226,7 +226,7 @@ OpSlots string_ops{
         nullptr
 };
 
-size_t argon::object::StringLen(const String *str) {
+ArSize argon::object::StringLen(const String *str) {
     return str->len;
 }
 
@@ -267,10 +267,10 @@ ArObject *string_get_slice(String *self, ArObject *bounds) {
     ret->cp_len = slice_len;
 
     if (step >= 0) {
-        for (size_t i = 0; start < stop; start += step)
+        for (ArSize i = 0; start < stop; start += step)
             ret->buffer[i++] = self->buffer[start];
     } else {
-        for (size_t i = 0; stop < start; start += step)
+        for (ArSize i = 0; stop < start; start += step)
             ret->buffer[i++] = self->buffer[start];
     }
 
@@ -575,7 +575,7 @@ ArObject *string_compare(String *self, ArObject *other, CompareMode mode) {
     ARGON_RICH_COMPARE_CASES(left, right, mode);
 }
 
-size_t string_hash(String *self) {
+ArSize string_hash(String *self) {
     if (self->hash == 0)
         self->hash = HashBytes(self->buffer, self->len);
 
@@ -585,7 +585,7 @@ size_t string_hash(String *self) {
 String *string_str(String *self) {
     /*
     StringBuilder sb = {};
-    size_t len = self->len + 1;
+    ArSize len = self->len + 1;
 
     if (StringBuilderWrite(&sb, (unsigned char *) "\"", 1, len) < 0)
         goto error;
@@ -644,7 +644,7 @@ const TypeInfo argon::object::type_string_ = {
         nullptr
 };
 
-String *argon::object::StringNew(const char *string, size_t len) {
+String *argon::object::StringNew(const char *string, ArSize len) {
     auto str = StringInit(len, true);
 
     if (str != nullptr && string != nullptr)
@@ -653,7 +653,7 @@ String *argon::object::StringNew(const char *string, size_t len) {
     return str;
 }
 
-String *argon::object::StringNewBufferOwnership(unsigned char *buffer, size_t len) {
+String *argon::object::StringNewBufferOwnership(unsigned char *buffer, ArSize len) {
     String *str;
 
     if (buffer == nullptr || len == 0) {
@@ -701,7 +701,7 @@ String *argon::object::StringNewFormat(const char *string, ...) {
     return str;
 }
 
-String *argon::object::StringIntern(const char *string, size_t len) {
+String *argon::object::StringIntern(const char *string, ArSize len) {
     String *ret = nullptr;
 
     if (intern == nullptr) {
@@ -725,7 +725,7 @@ String *argon::object::StringIntern(const char *string, size_t len) {
 
 // String Builder
 
-bool argon::object::StringBuilderResize(StringBuilder *sb, size_t len) {
+bool argon::object::StringBuilderResize(StringBuilder *sb, ArSize len) {
     unsigned char *tmp;
 
     if (len == 0 || sb->w_idx + len < sb->str.len)
@@ -745,10 +745,10 @@ bool argon::object::StringBuilderResize(StringBuilder *sb, size_t len) {
 }
 
 bool
-argon::object::StringBuilderResizeAscii(StringBuilder *sb, const unsigned char *buffer, size_t len, int overalloc) {
-    size_t str_len = overalloc;
+argon::object::StringBuilderResizeAscii(StringBuilder *sb, const unsigned char *buffer, ArSize len, int overalloc) {
+    ArSize str_len = overalloc;
 
-    for (size_t i = 0; i < len; i++) {
+    for (ArSize i = 0; i < len; i++) {
         switch (buffer[i]) {
             case '"':
             case '\\':
@@ -781,8 +781,8 @@ int argon::object::StringBuilderRepeat(StringBuilder *sb, char chr, int times) {
     return times;
 }
 
-int argon::object::StringBuilderWrite(StringBuilder *sb, const unsigned char *buffer, size_t len, int overalloc) {
-    size_t wbytes;
+int argon::object::StringBuilderWrite(StringBuilder *sb, const unsigned char *buffer, ArSize len, int overalloc) {
+    ArSize wbytes;
 
     if (!StringBuilderResize(sb, len + overalloc))
         return -1;
@@ -793,12 +793,12 @@ int argon::object::StringBuilderWrite(StringBuilder *sb, const unsigned char *bu
     return (int) wbytes;
 }
 
-int argon::object::StringBuilderWriteAscii(StringBuilder *sb, const unsigned char *buffer, size_t len) {
+int argon::object::StringBuilderWriteAscii(StringBuilder *sb, const unsigned char *buffer, ArSize len) {
     static const unsigned char hex[] = "0123456789abcdef";
     unsigned char *start = sb->str.buffer + sb->w_idx;
     unsigned char *buf = sb->str.buffer + sb->w_idx;
 
-    for (size_t i = 0; i < len; i++) {
+    for (ArSize i = 0; i < len; i++) {
         if (buf - start > sb->str.len - sb->w_idx)
             return -1;
 
@@ -840,7 +840,7 @@ int argon::object::StringBuilderWriteAscii(StringBuilder *sb, const unsigned cha
     return len;
 }
 
-int argon::object::StringBuilderWriteHex(StringBuilder *sb, const unsigned char *buffer, size_t len) {
+int argon::object::StringBuilderWriteHex(StringBuilder *sb, const unsigned char *buffer, ArSize len) {
     static const unsigned char hex[] = "0123456789abcdef";
     unsigned char *buf;
 
@@ -913,7 +913,7 @@ ArObject *FmtGetNextArg(StringFormatter *fmt) {
 
 int FmtGetNextSpecifier(StringFormatter *fmt) {
     unsigned char *buf = fmt->fmt.buf + fmt->fmt.idx;
-    size_t idx = 0;
+    ArSize idx = 0;
 
     while ((fmt->fmt.idx + idx) < fmt->fmt.len) {
         if (buf[idx++] == '%') {
@@ -1032,7 +1032,7 @@ void FmtParseOptions(StringFormatter *fmt, StringArg *arg) {
     }
 }
 
-int FmtWrite(StringFormatter *fmt, StringArg *arg, const unsigned char *buf, size_t len) {
+int FmtWrite(StringFormatter *fmt, StringArg *arg, const unsigned char *buf, ArSize len) {
     int width = 0;
 
     if (arg->width > len)
@@ -1102,7 +1102,7 @@ FmtWriteNumber(unsigned char *buf, long num, int base, int prec, int width, bool
     static unsigned char l_case[] = "0123456789abcdef";
     static unsigned char u_case[] = "0123456789ABCDEF";
     unsigned char *p_case = upper ? u_case : l_case;
-    size_t idx = 0;
+    ArSize idx = 0;
     bool neg = false;
 
     if (num < 0) {
@@ -1316,7 +1316,7 @@ int FmtChar(StringFormatter *fmt, StringArg *arg) {
 int FmtString(StringFormatter *fmt, StringArg *arg) {
     ArObject *obj;
     String *str;
-    size_t len;
+    ArSize len;
     int ok;
 
     if ((obj = FmtGetNextArg(fmt)) == nullptr)
@@ -1483,11 +1483,11 @@ bool argon::object::StringEndsWith(String *string, String *pattern) {
     return false;
 }
 
-bool argon::object::StringEq(String *string, const unsigned char *c_str, size_t len) {
+bool argon::object::StringEq(String *string, const unsigned char *c_str, ArSize len) {
     if (string->len != len)
         return false;
 
-    for (size_t i = 0; i < string->len; i++) {
+    for (ArSize i = 0; i < string->len; i++) {
         if (string->buffer[i] != c_str[i])
             return false;
     }
@@ -1560,9 +1560,9 @@ String *argon::object::StringFormat(String *fmt, ArObject *args) {
 String *argon::object::StringReplace(String *string, String *old, String *nval, ArSSize n) {
     String *nstring;
 
-    size_t idx = 0;
-    size_t nidx = 0;
-    size_t newsz;
+    ArSize idx = 0;
+    ArSize nidx = 0;
+    ArSize newsz;
 
     if (Equal(string, old) || n == 0) {
         IncRef(string);
@@ -1596,9 +1596,9 @@ String *argon::object::StringReplace(String *string, String *old, String *nval, 
     return nstring;
 }
 
-String *argon::object::StringSubs(String *string, size_t start, size_t end) {
+String *argon::object::StringSubs(String *string, ArSize start, ArSize end) {
     String *ret;
-    size_t len;
+    ArSize len;
 
     if (start >= string->len)
         return nullptr;

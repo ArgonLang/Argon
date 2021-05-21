@@ -104,7 +104,7 @@ ArObject *bytes_get_slice(Bytes *self, Bounds *bounds) {
         if ((ret = BytesNew(slice_len, true, false, self->frozen)) == nullptr)
             return nullptr;
 
-        for (size_t i = 0; stop < start; start += step)
+        for (ArSize i = 0; stop < start; start += step)
             BUFFER_GET(ret)[i++] = BUFFER_GET(self)[start];
     }
 
@@ -611,7 +611,7 @@ ArObject *bytes_mul(ArObject *left, ArObject *right) {
         len = BUFFER_LEN(bytes) * num->integer;
 
         if ((ret = BytesNew(len, true, false, bytes->frozen)) != nullptr) {
-            for (size_t i = 0; i < num->integer; i++)
+            for (ArSize i = 0; i < num->integer; i++)
                 MemoryCopy(BUFFER_GET(ret) + BUFFER_LEN(bytes) * i, BUFFER_GET(bytes), BUFFER_LEN(bytes));
         }
     }
@@ -623,7 +623,7 @@ Bytes *ShiftBytes(Bytes *bytes, ArSSize pos) {
     auto ret = BytesNew(BUFFER_LEN(bytes), true, false, bytes->frozen);
 
     if (ret != nullptr) {
-        for (size_t i = 0; i < BUFFER_LEN(bytes); i++)
+        for (ArSize i = 0; i < BUFFER_LEN(bytes); i++)
             ret->view.buffer[((BUFFER_LEN(bytes) + pos) + i) % BUFFER_LEN(bytes)] = BUFFER_GET(bytes)[i];
     }
 

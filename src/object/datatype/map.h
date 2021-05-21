@@ -26,7 +26,7 @@ namespace argon::object {
 
     ArObject *MapGet(Map *map, ArObject *key);
 
-    ArObject *MapGetFrmStr(Map *map, const char *key, size_t len);
+    ArObject *MapGetFrmStr(Map *map, const char *key, ArSize len);
 
     bool MapInsert(Map *map, ArObject *key, ArObject *value);
 

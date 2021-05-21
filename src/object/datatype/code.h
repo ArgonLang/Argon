@@ -32,7 +32,7 @@ namespace argon::object {
         /* Maximum stack size required to run this code */
         unsigned int stack_sz;
 
-        size_t hash;
+        ArSize hash;
     };
 
     extern const TypeInfo type_code_;

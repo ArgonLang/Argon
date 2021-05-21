@@ -34,8 +34,8 @@ namespace argon::object {
         HEntry *iter_begin;
         HEntry *iter_end;
 
-        size_t cap;
-        size_t len;
+        ArSize cap;
+        ArSize len;
     };
 
     struct HMapIterator : ArObject {
@@ -44,7 +44,7 @@ namespace argon::object {
         HMap *map;
         HEntry *current;
 
-        size_t used;
+        ArSize used;
         bool reversed;
     };
 
@@ -70,7 +70,7 @@ namespace argon::object {
 
     HEntry *HMapLookup(HMap *hmap, ArObject *key);
 
-    HEntry *HMapLookup(HMap *hmap, const char *key, size_t len);
+    HEntry *HMapLookup(HMap *hmap, const char *key, ArSize len);
 
     inline HEntry *HMapLookup(HMap *hmap, const char *key) {
         return HMapLookup(hmap, key, strlen(key));

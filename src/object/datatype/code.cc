@@ -28,7 +28,7 @@ ArObject *code_compare(Code *self, ArObject *other, CompareMode mode) {
 
     if (self->instr_sz == ((Code *) other)->instr_sz) {
         equal = true;
-        for (size_t i = 0; i < self->instr_sz; i++) {
+        for (ArSize i = 0; i < self->instr_sz; i++) {
             if (self->instr[i] != ((Code *) other)->instr[i]) {
                 equal = false;
                 break;
@@ -39,7 +39,7 @@ ArObject *code_compare(Code *self, ArObject *other, CompareMode mode) {
     return BoolToArBool(equal);
 }
 
-size_t code_hash(Code *self) {
+ArSize code_hash(Code *self) {
     if (self->hash == 0)
         self->hash = HashBytes(self->instr, self->instr_sz);
 

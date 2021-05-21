@@ -84,7 +84,7 @@ ArObject *type_compare(ArObject *self, ArObject *other, CompareMode mode) {
 }
 
 ArSize type_hash(ArObject *self) {
-    return (ArSize) self; // returns memory pointer as size_t
+    return (ArSize) self; // returns memory pointer as ArSize
 }
 
 ArObject *type_str(ArObject *self) {
@@ -249,11 +249,11 @@ Tuple *ComputeMRO(List *bases) {
             auto head = head_list->objects[0];
 
             // Check if head is in the tail of any other lists
-            for (size_t i = 0; i < bases->len; i++) {
+            for (ArSize i = 0; i < bases->len; i++) {
                 if (hlist_idx != i) {
                     auto tail_list = ((List *) bases->objects[i]);
 
-                    for (size_t j = 1; j < tail_list->len; j++) {
+                    for (ArSize j = 1; j < tail_list->len; j++) {
                         auto target = (TypeInfo *) tail_list->objects[j];
                         if (head == target)
                             goto next_head;
@@ -262,7 +262,7 @@ Tuple *ComputeMRO(List *bases) {
             }
 
             // If the current head is equal to head of another list, remove it!
-            for (size_t i = 0; i < bases->len; i++) {
+            for (ArSize i = 0; i < bases->len; i++) {
                 auto tail_list = ((List *) bases->objects[i]);
 
                 if (hlist_idx != i) {
@@ -491,7 +491,7 @@ bool argon::object::BufferGet(ArObject *obj, ArBuffer *buffer, ArBufferFlags fla
 }
 
 bool argon::object::BufferSimpleFill(ArObject *obj, ArBuffer *buffer, ArBufferFlags flags, unsigned char *raw,
-                                     size_t len, bool writable) {
+                                     ArSize len, bool writable) {
     if (buffer == nullptr) {
         ErrorFormat(type_buffer_error_, "bad call to BufferSimpleFill, buffer == nullptr");
         return false;

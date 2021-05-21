@@ -40,18 +40,18 @@ namespace argon::object {
         bool intern;
 
         /* Length in bytes */
-        size_t len;
+        ArSize len;
 
         /* Number of graphemes in string */
-        size_t cp_len;
+        ArSize cp_len;
 
         /* String hash */
-        size_t hash;
+        ArSize hash;
     };
 
     struct StringBuilder {
         String str;
-        size_t w_idx;
+        ArSize w_idx;
     };
 
     struct StringArg {
@@ -63,29 +63,29 @@ namespace argon::object {
     struct StringFormatter {
         struct {
             unsigned char *buf;
-            size_t len;
-            size_t idx;
+            ArSize len;
+            ArSize idx;
         } fmt;
 
         StringBuilder builder;
 
         ArObject *args;
-        size_t args_idx;
-        size_t args_len;
+        ArSize args_idx;
+        ArSize args_len;
         int nspec;
     };
 
     extern const TypeInfo type_string_;
 
-    bool StringBuilderResize(StringBuilder *sb, size_t len);
+    bool StringBuilderResize(StringBuilder *sb, ArSize len);
 
-    bool StringBuilderResizeAscii(StringBuilder *sb, const unsigned char *buffer, size_t len, int overalloc);
+    bool StringBuilderResizeAscii(StringBuilder *sb, const unsigned char *buffer, ArSize len, int overalloc);
 
     int StringBuilderRepeat(StringBuilder *sb, char chr, int times);
 
-    int StringBuilderWrite(StringBuilder *sb, const unsigned char *buffer, size_t len, int overalloc);
+    int StringBuilderWrite(StringBuilder *sb, const unsigned char *buffer, ArSize len, int overalloc);
 
-    inline int StringBuilderWrite(StringBuilder *sb, const unsigned char *buffer, size_t len) {
+    inline int StringBuilderWrite(StringBuilder *sb, const unsigned char *buffer, ArSize len) {
         return StringBuilderWrite(sb, buffer, len, 0);
     }
 
@@ -93,9 +93,9 @@ namespace argon::object {
         return StringBuilderWrite(sb, str->buffer, str->len, overalloc);
     }
 
-    int StringBuilderWriteAscii(StringBuilder *sb, const unsigned char *buffer, size_t len);
+    int StringBuilderWriteAscii(StringBuilder *sb, const unsigned char *buffer, ArSize len);
 
-    int StringBuilderWriteHex(StringBuilder *sb, const unsigned char *buffer, size_t len);
+    int StringBuilderWriteHex(StringBuilder *sb, const unsigned char *buffer, ArSize len);
 
     String *StringBuilderFinish(StringBuilder *sb);
 
@@ -103,19 +103,19 @@ namespace argon::object {
 
     // String
 
-    String *StringNew(const char *string, size_t len);
+    String *StringNew(const char *string, ArSize len);
 
     inline String *StringNew(const char *string) { return StringNew(string, strlen(string)); }
 
     inline String *StringNew(const std::string &string) { return StringNew(string.c_str(), string.length()); }
 
-    String *StringNewBufferOwnership(unsigned char *buffer, size_t len);
+    String *StringNewBufferOwnership(unsigned char *buffer, ArSize len);
 
     String *StringNewFormat(const char *string, va_list vargs);
 
     String *StringNewFormat(const char *string, ...);
 
-    String *StringIntern(const char *string, size_t len);
+    String *StringIntern(const char *string, ArSize len);
 
     inline String *StringIntern(const char *str) { return StringIntern(str, strlen(str)); }
 
@@ -129,11 +129,11 @@ namespace argon::object {
 
     bool StringEndsWith(String *string, String *pattern);
 
-    bool StringEq(String *string, const unsigned char *c_str, size_t len);
+    bool StringEq(String *string, const unsigned char *c_str, ArSize len);
 
     int StringIntToUTF8(unsigned int glyph, unsigned char *buf);
 
-    size_t StringLen(const String *str);
+    ArSize StringLen(const String *str);
 
     String *StringConcat(String *left, String *right);
 
@@ -155,7 +155,7 @@ namespace argon::object {
         return StringReplace(string, old, nval, -1);
     }
 
-    String *StringSubs(String *string, size_t start, size_t end);
+    String *StringSubs(String *string, ArSize start, ArSize end);
 }
 
 ENUMBITMASK_ENABLE(argon::object::StringFormatFlags);

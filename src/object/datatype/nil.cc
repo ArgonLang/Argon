@@ -16,7 +16,7 @@ ArObject *nil_compare(Nil *self, ArObject *other, CompareMode mode) {
     return BoolToArBool(self == other);
 }
 
-size_t nil_hash(ArObject *self) {
+ArSize nil_hash(ArObject *self) {
     return 0;
 }
 

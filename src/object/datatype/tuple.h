@@ -18,12 +18,12 @@
 namespace argon::object {
     struct Tuple : ArObject {
         ArObject **objects;
-        size_t len;
+        ArSize len;
     };
 
     extern const TypeInfo type_tuple_;
 
-    Tuple *TupleNew(size_t len);
+    Tuple *TupleNew(ArSize len);
 
     Tuple *TupleNew(const ArObject *sequence);
 
@@ -31,7 +31,7 @@ namespace argon::object {
 
     ArObject *TupleGetItem(Tuple *self, ArSSize i);
 
-    bool TupleInsertAt(Tuple *tuple, size_t idx, ArObject *obj);
+    bool TupleInsertAt(Tuple *tuple, ArSize idx, ArObject *obj);
 
 } // namespace argon::object
 

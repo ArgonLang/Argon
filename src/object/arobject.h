@@ -5,8 +5,6 @@
 #ifndef ARGON_OBJECT_AROBJECT_H_
 #define ARGON_OBJECT_AROBJECT_H_
 
-#include <unistd.h>
-
 #include <utils/enum_bitmask.h>
 
 #include "refcount.h"
@@ -45,7 +43,7 @@ namespace argon::object {
     assert(false)
 
     using ArSize = size_t;
-    using ArSSize = ssize_t;
+    using ArSSize = long int;
 
     using ArSizeUnaryOp = ArSSize (*)(struct ArObject *);
     using BinaryOp = struct ArObject *(*)(struct ArObject *, struct ArObject *);

@@ -4,10 +4,10 @@
 
 #include "bytesops.h"
 
-long argon::object::support::Count(const unsigned char *buf, size_t blen, const unsigned char *pattern, size_t plen,
+long argon::object::support::Count(const unsigned char *buf, ArSize blen, const unsigned char *pattern, ArSize plen,
                                    long n) {
     long counter = 0;
-    size_t idx = 0;
+    ArSize idx = 0;
 
     if (n == 0)
         return 0;
@@ -21,14 +21,14 @@ long argon::object::support::Count(const unsigned char *buf, size_t blen, const 
     return counter;
 }
 
-long argon::object::support::Find(const unsigned char *buf, size_t blen, const unsigned char *pattern, size_t plen,
+long argon::object::support::Find(const unsigned char *buf, ArSize blen, const unsigned char *pattern, ArSize plen,
                                   bool reverse) {
     /*
      * Implementation of Boyer-Moore-Horspool algorithm
      */
 
-    size_t delta1[256] = {}; // Bad Character table
-    size_t cursor = plen - 1;
+    ArSize delta1[256] = {}; // Bad Character table
+    ArSize cursor = plen - 1;
     bool ok = false;
 
     if (((long) blen) < 0)
@@ -38,16 +38,16 @@ long argon::object::support::Find(const unsigned char *buf, size_t blen, const u
         return -1;
 
     // Fill delta1 table
-    for (size_t &i:delta1)
+    for (ArSize &i:delta1)
         i = plen;
 
-    for (size_t i = 0; i < plen; i++)
+    for (ArSize i = 0; i < plen; i++)
         delta1[pattern[i]] = plen - i - 1;
 
     // Do search
     if (!reverse) {
         while (cursor < blen && !ok) {
-            for (size_t i = 0; i < plen; i++) {
+            for (ArSize i = 0; i < plen; i++) {
                 if (pattern[(plen - 1) - i] != buf[cursor - i]) {
                     cursor = (cursor - i) + delta1[buf[cursor - i]];
                     ok = false;
@@ -61,7 +61,7 @@ long argon::object::support::Find(const unsigned char *buf, size_t blen, const u
         cursor = (blen - 1) - (plen - 1);
 
         while (cursor >= 0 && !ok) {
-            for (size_t i = 0; i < plen; i++) {
+            for (ArSize i = 0; i < plen; i++) {
                 if (pattern[i] != buf[cursor + i]) {
                     if (delta1[buf[cursor + i]] > cursor + i)
                         goto not_found;

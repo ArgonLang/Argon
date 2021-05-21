@@ -50,16 +50,16 @@ namespace argon::object {
     };
 
     struct GCStats {
-        size_t count;
-        size_t collected;
-        size_t uncollected;
+        ArSize count;
+        ArSize collected;
+        ArSize uncollected;
     };
 
-    size_t Collect();
+    ArSize Collect();
 
-    size_t Collect(unsigned short generation);
+    ArSize Collect(unsigned short generation);
 
-    void *GCNew(size_t len);
+    void *GCNew(ArSize len);
 
     GCStats GetStats(unsigned short generation);
 

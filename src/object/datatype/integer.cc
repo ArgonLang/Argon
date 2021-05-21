@@ -211,7 +211,7 @@ ArObject *integer_compare(Integer *self, ArObject *other, CompareMode mode) {
     ARGON_RICH_COMPARE_CASES(left, right, mode);
 }
 
-size_t integer_hash(ArObject *obj) {
+ArSize integer_hash(ArObject *obj) {
     return ((Integer *) obj)->integer;
 }
 

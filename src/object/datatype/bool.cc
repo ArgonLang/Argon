@@ -67,7 +67,7 @@ ArObject *bool_compare(Bool *self, ArObject *other, CompareMode mode) {
     ARGON_RICH_COMPARE_CASES(l, r, mode);
 }
 
-size_t bool_hash(ArObject *obj) {
+ArSize bool_hash(ArObject *obj) {
     return ((Bool *) obj)->value ? TRUE_AS_INT : FALSE_AS_INT;
 }
 

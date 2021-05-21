@@ -125,11 +125,11 @@ ArObject *Subscript(ArObject *obj, ArObject *idx, ArObject *set) {
     return ret;
 }
 
-ArObject *RestElementToList(ArObject **args, size_t count) {
+ArObject *RestElementToList(ArObject **args, ArSize count) {
     List *rest = ListNew(count);
 
     if (rest != nullptr) {
-        for (size_t i = 0; i < count; i++) {
+        for (ArSize i = 0; i < count; i++) {
             if (!ListAppend(rest, args[i])) {
                 Release(rest);
                 return nullptr;
@@ -239,7 +239,7 @@ bool PrepareCall(CallHelper *helper, Frame *frame) {
 }
 
 void ClearCall(CallHelper *helper) {
-    for (size_t i = helper->stack_offset + 1; i > 0; i--)
+    for (ArSize i = helper->stack_offset + 1; i > 0; i--)
         Release(*(--helper->frame->eval_stack));
 
     Release(helper->list_params);
@@ -378,7 +378,7 @@ ArObject *argon::vm::Eval(ArRoutine *routine) {
     *cu_frame->eval_stack = obj;    \
     cu_frame->eval_stack++
 #define POP()       Release(*(--cu_frame->eval_stack))
-#define STACK_REWIND(offset) for(size_t i = offset; i>0; POP(), i--)
+#define STACK_REWIND(offset) for(ArSize i = offset; i>0; POP(), i--)
 #define TOP()       (*(cu_frame->eval_stack-1))
 #define TOP_BACK()  (*(--cu_frame->eval_stack))
 #define TOP_REPLACE(obj)                \
@@ -951,7 +951,7 @@ ArObject *argon::vm::Eval(ArRoutine *routine) {
 
                 ret = TOP(); // Save TOP
 
-                for (size_t i = 0; i < len; i++)
+                for (ArSize i = 0; i < len; i++)
                     *(cu_frame->eval_stack - i - 1) = *(cu_frame->eval_stack - i - 2);
 
                 *(cu_frame->eval_stack - (len + 1)) = ret;
@@ -1076,7 +1076,7 @@ ArObject *argon::vm::Eval(ArRoutine *routine) {
                     goto error;
                 }
 
-                size_t s_len = ret->type->sequence_actions->length(ret);
+                ArSize s_len = ret->type->sequence_actions->length(ret);
                 if (s_len != len) {
                     ErrorFormat(type_value_error_, "incompatible number of value to unpack (expected '%d' got '%d')",
                                 len, s_len);

@@ -132,7 +132,7 @@ ARGON_FUNCTION(len,
                "  - TypeError: object has no len."
                "  - OverflowError: object is too long.",
                1, false) {
-    size_t length;
+    ArSize length;
 
     if (AsSequence(argv[0]))
         length = argv[0]->type->sequence_actions->length(argv[0]);
@@ -226,7 +226,7 @@ ARGON_FUNCTION(print,
                0, true) {
     auto out = (io::File *) argon::vm::ContextRuntimeGetProperty("stdout", &io::type_file_);
     ArObject *str;
-    size_t i = 0;
+    ArSize i = 0;
 
     if (out == nullptr)
         return nullptr;

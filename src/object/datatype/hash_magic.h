@@ -7,6 +7,8 @@
 
 #include <cstddef>
 
+#include <object/arobject.h>
+
 #if __WORDSIZE == 32
 #define ARGON_OBJECT_HASH_BITS  31
 #define ARGON_OBJECT_HASH_PRIME 2147483647 // pow(2,31) - 1
@@ -19,7 +21,7 @@
 #define ARGON_OBJECT_HASH_INF   0x4CB2F
 
 namespace argon::object {
-    size_t HashBytes(const unsigned char *bytes, size_t size);
+    ArSize HashBytes(const unsigned char *bytes, ArSize size);
 }
 
 #endif // !ARGON_OBJECT_HASH_MAGIC_H_

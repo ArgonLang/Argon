@@ -22,8 +22,8 @@ if(!IsHashable(obj)) {                                                          
 
 bool HMapResize(HMap *hmap) {
     HEntry **new_map;
-    size_t new_cap;
-    size_t hash;
+    ArSize new_cap;
+    ArSize hash;
 
     if (((float) hmap->len + 1) / hmap->cap < ARGON_OBJECT_HMAP_LOAD_FACTOR)
         return true;
@@ -39,7 +39,7 @@ bool HMapResize(HMap *hmap) {
 
     MemoryZero(new_map + hmap->cap, (new_cap - hmap->cap) * sizeof(void *));
 
-    for (size_t i = 0; i < hmap->cap; i++) {
+    for (ArSize i = 0; i < hmap->cap; i++) {
         for (HEntry *prev = nullptr, *cur = new_map[i], *next; cur != nullptr; cur = next) {
             hash = Hash(cur->key) % new_cap;
             next = cur->next;
@@ -113,7 +113,7 @@ bool argon::object::HMapInit(HMap *hmap) {
 }
 
 bool argon::object::HMapInsert(HMap *hmap, HEntry *entry) {
-    size_t index;
+    ArSize index;
 
     if (!HMapResize(hmap))
         return false;
@@ -131,7 +131,7 @@ bool argon::object::HMapInsert(HMap *hmap, HEntry *entry) {
 }
 
 HEntry *argon::object::HMapLookup(HMap *hmap, ArObject *key) {
-    size_t index;
+    ArSize index;
 
     CHECK_HASHABLE(key, nullptr);
 
@@ -144,8 +144,8 @@ HEntry *argon::object::HMapLookup(HMap *hmap, ArObject *key) {
     return nullptr;
 }
 
-HEntry *argon::object::HMapLookup(HMap *hmap, const char *key, size_t len) {
-    size_t index = HashBytes((const unsigned char *) key, len) % hmap->cap;
+HEntry *argon::object::HMapLookup(HMap *hmap, const char *key, ArSize len) {
+    ArSize index = HashBytes((const unsigned char *) key, len) % hmap->cap;
 
     for (HEntry *cur = hmap->map[index]; cur != nullptr; cur = cur->next)
         if (AR_TYPEOF(cur->key, type_string_)) {
@@ -157,7 +157,7 @@ HEntry *argon::object::HMapLookup(HMap *hmap, const char *key, size_t len) {
 }
 
 HEntry *argon::object::HMapRemove(HMap *hmap, ArObject *key) {
-    size_t index;
+    ArSize index;
 
     CHECK_HASHABLE(key, nullptr);
 

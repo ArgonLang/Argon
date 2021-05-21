@@ -57,7 +57,7 @@ namespace argon::object {
         /* Flags, see: FunctionInfo */
         FunctionType flags;
 
-        size_t hash;
+        ArSize hash;
 
         [[nodiscard]] bool IsNative() const {
             return ENUMBITMASK_ISTRUE(this->flags, FunctionType::NATIVE);

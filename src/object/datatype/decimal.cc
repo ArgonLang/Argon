@@ -59,7 +59,7 @@ ARGON_FUNCTION5(decimal_, new, "Convert a string or number to decimal numer, if 
                                "- Returns: decimal number.", 1, false) {
     ArBuffer buffer = {};
     DecimalUnderlying dec = 0;
-    std::size_t idx;
+    ArSize idx;
 
     if (AR_TYPEOF(*argv, type_decimal_))
         return IncRef(*argv);
@@ -280,7 +280,7 @@ ArObject *decimal_compare(Decimal *self, ArObject *other, CompareMode mode) {
 // From CPython implementation,
 // see: https://docs.python.org/3/library/stdtypes.html section: Hashing of numeric types
 // Source code: cpython/Python/pyhash.c
-size_t decimal_hash(Decimal *self) {
+ArSize decimal_hash(Decimal *self) {
     long double float_part;
     int sign = 1;
     int exponent;
@@ -297,10 +297,10 @@ size_t decimal_hash(Decimal *self) {
         float_part = -float_part;
     }
 
-    size_t hash = 0;
-    size_t fp_tmp;
+    ArSize hash = 0;
+    ArSize fp_tmp;
     while (float_part != 0) {
-        hash = ((hash << (unsigned char) 28) & (size_t) ARGON_OBJECT_HASH_PRIME) |
+        hash = ((hash << (unsigned char) 28) & (ArSize) ARGON_OBJECT_HASH_PRIME) |
                hash >> (unsigned char) (ARGON_OBJECT_HASH_BITS - 28);
         float_part *= 268435456.f;
         exponent -= 28;
@@ -316,7 +316,7 @@ size_t decimal_hash(Decimal *self) {
     else
         exponent = ARGON_OBJECT_HASH_BITS - 1 - ((-1 - exponent) % ARGON_OBJECT_HASH_BITS);
 
-    hash = ((hash << (unsigned int) exponent) & (size_t) ARGON_OBJECT_HASH_PRIME) |
+    hash = ((hash << (unsigned int) exponent) & (ArSize) ARGON_OBJECT_HASH_PRIME) |
            hash >> (unsigned char) (ARGON_OBJECT_HASH_BITS - exponent);
 
     hash = hash * sign;
@@ -366,7 +366,7 @@ Decimal *argon::object::DecimalNew(DecimalUnderlying number) {
 
 Decimal *argon::object::DecimalNewFromString(const std::string &string) {
     auto decimal = ArObjectNew<Decimal>(RCType::INLINE, &type_decimal_);
-    std::size_t idx;
+    ArSize idx;
 
     if (decimal != nullptr)
         decimal->decimal = std::stold(string, &idx);

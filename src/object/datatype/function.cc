@@ -34,8 +34,8 @@ ArObject *function_compare(Function *self, ArObject *other, CompareMode mode) {
     return BoolToArBool(equal);
 }
 
-size_t function_hash(Function *self) {
-    return (size_t) self;
+ArSize function_hash(Function *self) {
+    return (ArSize) self;
 }
 
 ArObject *function_str(Function *self) {
@@ -196,7 +196,7 @@ ArObject *argon::object::FunctionCallNative(const Function *func, ArObject **arg
 
                 ListConcat(arguments, func->currying);
 
-                for (size_t i = 0; i < count; i++)
+                for (ArSize i = 0; i < count; i++)
                     ListAppend(arguments, args[i]);
 
                 args = arguments->objects;

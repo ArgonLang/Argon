@@ -12,13 +12,13 @@
 namespace argon::object {
     struct List : ArObject {
         ArObject **objects;
-        size_t cap;
-        size_t len;
+        ArSize cap;
+        ArSize len;
     };
 
     extern const TypeInfo type_list_;
 
-    List *ListNew(size_t cap);
+    List *ListNew(ArSize cap);
 
     List *ListNew(const ArObject *sequence);
 

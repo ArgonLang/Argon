@@ -34,7 +34,7 @@ namespace argon::object::io {
 
     struct File : argon::object::ArObject {
         int fd;
-        size_t cur;
+        ArSize cur;
         FileMode mode;
 
         struct {
@@ -56,9 +56,9 @@ namespace argon::object::io {
 
     bool IsSeekable(File *file);
 
-    bool Seek(File *file, ssize_t offset, FileWhence whence);
+    bool Seek(File *file, ArSSize offset, FileWhence whence);
 
-    bool SetBuffer(File *file, unsigned char *buf, size_t cap, FileBufferMode mode);
+    bool SetBuffer(File *file, unsigned char *buf, ArSize cap, FileBufferMode mode);
 
     File *Open(char *path, FileMode mode);
 
@@ -66,15 +66,15 @@ namespace argon::object::io {
 
     int GetFd(File *file);
 
-    ssize_t Read(File *file, unsigned char *buf, size_t count);
+    ArSSize Read(File *file, unsigned char *buf, ArSize count);
 
-    ssize_t ReadLine(File *file, unsigned char **buf, size_t buf_len);
+    ArSSize ReadLine(File *file, unsigned char **buf, ArSize buf_len);
 
-    size_t Tell(File *file);
+    ArSize Tell(File *file);
 
-    ssize_t Write(File *file, unsigned char *buf, size_t count);
+    ArSSize Write(File *file, unsigned char *buf, ArSize count);
 
-    ssize_t WriteObject(File *file, argon::object::ArObject *obj);
+    ArSSize WriteObject(File *file, argon::object::ArObject *obj);
 
     void Close(File *file);
 

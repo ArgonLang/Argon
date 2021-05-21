@@ -40,7 +40,7 @@ void argon::vm::FrameDel(Frame *frame) {
     Code *code = frame->code;
 
     if (code->locals != nullptr) {
-        for (size_t i = 0; i < code->locals->len; i++)
+        for (ArSize i = 0; i < code->locals->len; i++)
             Release(frame->locals[i]);
     }
 
@@ -55,16 +55,16 @@ void argon::vm::FrameDel(Frame *frame) {
 }
 
 void argon::vm::FrameFillForCall(Frame *frame, Function *callable, ArObject **argv, ArSize argc) {
-    size_t local_idx = 0;
+    ArSize local_idx = 0;
 
     // Push currying args
     if (callable->currying != nullptr) {
-        for (size_t i = 0; i < callable->currying->len; i++)
+        for (ArSize i = 0; i < callable->currying->len; i++)
             frame->locals[local_idx++] = ListGetItem(callable->currying, i);
     }
 
     // Fill with stack args
-    for (size_t i = 0; i < argc; i++)
+    for (ArSize i = 0; i < argc; i++)
         frame->locals[local_idx++] = IncRef(argv[i]);
 
     // If method, set frame->instance

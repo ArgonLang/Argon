@@ -497,8 +497,8 @@ const TypeInfo argon::object::io::type_file_ = {
         nullptr
 };
 
-bool seek_wrap(File *file, ssize_t offset, FileWhence whence) {
-    ssize_t pos;
+bool seek_wrap(File *file, ArSSize offset, FileWhence whence) {
+    ArSSize pos;
     int _whence;
 
     switch (whence) {
@@ -522,8 +522,8 @@ bool seek_wrap(File *file, ssize_t offset, FileWhence whence) {
     return false;
 }
 
-ssize_t read_os_wrap(File *file, void *buf, size_t nbytes) {
-    ssize_t r = read(file->fd, buf, nbytes);
+ArSSize read_os_wrap(File *file, void *buf, ArSize nbytes) {
+    ArSSize r = read(file->fd, buf, nbytes);
 
     if (r >= 0) {
         file->cur += r;
@@ -535,8 +535,8 @@ ssize_t read_os_wrap(File *file, void *buf, size_t nbytes) {
     return r;
 }
 
-ssize_t write_os_wrap(File *file, const void *buf, size_t n) {
-    ssize_t written = write(file->fd, buf, n);
+ArSSize write_os_wrap(File *file, const void *buf, ArSize n) {
+    ArSSize written = write(file->fd, buf, n);
 
     if (written >= 0) {
         file->cur += written;
@@ -575,7 +575,7 @@ bool argon::object::io::IsSeekable(File *file) {
              ENUMBITMASK_ISTRUE(file->mode, FileMode::_IS_PIPE));
 }
 
-bool argon::object::io::Seek(File *file, ssize_t offset, FileWhence whence) {
+bool argon::object::io::Seek(File *file, ArSSize offset, FileWhence whence) {
     if (file->buffer.mode != FileBufferMode::NONE && file->buffer.wlen > 0) {
         if (!Flush(file))
             return false;
@@ -593,7 +593,7 @@ bool argon::object::io::Seek(File *file, ssize_t offset, FileWhence whence) {
     return false;
 }
 
-size_t FindBestBufSize(File *file) {
+ArSize FindBestBufSize(File *file) {
     struct stat st{};
 
     if (ENUMBITMASK_ISTRUE(file->mode, FileMode::_IS_TERM))
@@ -605,7 +605,7 @@ size_t FindBestBufSize(File *file) {
     return st.st_blksize > 8192 ? 8192 : st.st_blksize;
 }
 
-bool argon::object::io::SetBuffer(File *file, unsigned char *buf, size_t cap, FileBufferMode mode) {
+bool argon::object::io::SetBuffer(File *file, unsigned char *buf, ArSize cap, FileBufferMode mode) {
     bool ok = true;
 
     Flush(file);
@@ -714,8 +714,8 @@ int argon::object::io::GetFd(File *file) {
     return file->fd;
 }
 
-ssize_t FillBuffer(File *file) {
-    ssize_t nbytes = -1;
+ArSSize FillBuffer(File *file) {
+    ArSSize nbytes = -1;
 
     // check if buffer is empty
     if (file->buffer.cur < file->buffer.buf + file->buffer.len)
@@ -732,9 +732,9 @@ ssize_t FillBuffer(File *file) {
     return nbytes;
 }
 
-ssize_t ReadFromBuffer(File *file, unsigned char *buf, size_t count) {
-    size_t to_read = (file->buffer.buf + file->buffer.len) - file->buffer.cur;
-    size_t nbytes = 0;
+ArSSize ReadFromBuffer(File *file, unsigned char *buf, ArSize count) {
+    ArSize to_read = (file->buffer.buf + file->buffer.len) - file->buffer.cur;
+    ArSize nbytes = 0;
 
     while (count > to_read) {
         argon::memory::MemoryCopy(buf + nbytes, file->buffer.cur, to_read);
@@ -743,7 +743,7 @@ ssize_t ReadFromBuffer(File *file, unsigned char *buf, size_t count) {
         count -= to_read;
 
         if (count >= file->buffer.cap) {
-            ssize_t rbytes;
+            ArSSize rbytes;
 
             if (!Flush(file))
                 return -1;
@@ -777,19 +777,19 @@ ssize_t ReadFromBuffer(File *file, unsigned char *buf, size_t count) {
     return nbytes;
 }
 
-ssize_t argon::object::io::Read(File *file, unsigned char *buf, size_t count) {
+ArSSize argon::object::io::Read(File *file, unsigned char *buf, ArSize count) {
     if (file->buffer.mode != FileBufferMode::NONE)
         return ReadFromBuffer(file, buf, count);
 
     return read_os_wrap(file, buf, count);
 }
 
-ssize_t argon::object::io::ReadLine(File *file, unsigned char **buf, size_t buf_len) {
+ArSSize argon::object::io::ReadLine(File *file, unsigned char **buf, ArSize buf_len) {
     unsigned char *line = *buf;
     unsigned char *idx;
-    size_t allocated = 1;
-    size_t n = 0;
-    size_t len;
+    ArSize allocated = 1;
+    ArSize n = 0;
+    ArSize len;
 
     bool found = false;
 
@@ -849,18 +849,18 @@ ssize_t argon::object::io::ReadLine(File *file, unsigned char **buf, size_t buf_
     return -1;
 }
 
-size_t argon::object::io::Tell(File *file) {
+ArSize argon::object::io::Tell(File *file) {
     if (file->buffer.mode == FileBufferMode::NONE)
         return file->cur;
 
     return (file->cur - file->buffer.len) + (file->buffer.cur - file->buffer.buf);
 }
 
-ssize_t WriteToBuffer(File *file, const unsigned char *buf, size_t count) {
+ArSSize WriteToBuffer(File *file, const unsigned char *buf, ArSize count) {
     unsigned char *cap_ptr = file->buffer.buf + file->buffer.cap;
     unsigned char *cur_start = file->buffer.cur;
     long wlen_start = file->buffer.wlen;
-    size_t writes = 0;
+    ArSize writes = 0;
 
     while (writes < count) {
         if (file->buffer.cur < cap_ptr) {
@@ -890,20 +890,20 @@ ssize_t WriteToBuffer(File *file, const unsigned char *buf, size_t count) {
     return writes;
 }
 
-ssize_t argon::object::io::Write(File *file, unsigned char *buf, size_t count) {
+ArSSize argon::object::io::Write(File *file, unsigned char *buf, ArSize count) {
     if (file->buffer.mode != FileBufferMode::NONE)
         return WriteToBuffer(file, buf, count);
 
     return write_os_wrap(file, buf, count);
 }
 
-ssize_t argon::object::io::WriteObject(File *file, ArObject *obj) {
+ArSSize argon::object::io::WriteObject(File *file, ArObject *obj) {
     ArBuffer buffer = {};
 
     if (!BufferGet(obj, &buffer, ArBufferFlags::READ))
         return -1;
 
-    ssize_t nbytes = Write(file, buffer.buffer, buffer.len);
+    ArSSize nbytes = Write(file, buffer.buffer, buffer.len);
     BufferRelease(&buffer);
     return nbytes;
 }

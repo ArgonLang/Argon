@@ -48,7 +48,7 @@ ArObject *bounds_compare(Bounds *self, ArObject *other, CompareMode mode) {
     return BoolToArBool(val);
 }
 
-size_t bounds_hash(ArObject *obj) {
+ArSize bounds_hash(ArObject *obj) {
     return 0;
 }
 
