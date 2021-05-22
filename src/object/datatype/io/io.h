@@ -8,6 +8,20 @@
 #include <object/arobject.h>
 #include <utils/enum_bitmask.h>
 
+#ifndef STDIN_FILENO
+#define STDIN_FILENO 0
+#endif
+
+#ifndef STDOUT_FILENO
+#define STDOUT_FILENO 1
+#endif
+
+#ifndef STDERR_FILENO
+#define STDERR_FILENO 2
+#endif
+
+#define ARGON_OBJECT_IO_DEFAULT_BUFSIZE 4096
+
 namespace argon::object::io {
 
     enum class FileMode : unsigned char {
@@ -58,7 +72,7 @@ namespace argon::object::io {
 
     bool Seek(File *file, ArSSize offset, FileWhence whence);
 
-    bool SetBuffer(File *file, unsigned char *buf, ArSize cap, FileBufferMode mode);
+    bool SetBuffer(File *file, unsigned char *buf, ArSSize cap, FileBufferMode mode);
 
     File *Open(char *path, FileMode mode);
 

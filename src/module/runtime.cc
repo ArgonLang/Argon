@@ -2,7 +2,6 @@
 //
 // Licensed under the Apache License v2.0
 
-#include <unistd.h>
 #include <object/datatype/io/io.h>
 #include <utils/macros.h>
 

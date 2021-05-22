@@ -2,11 +2,18 @@
 //
 // Licensed under the Apache License v2.0
 
-#include <unistd.h>
 #include <fcntl.h>
 #include <sys/stat.h>
 #include <cstring>
 #include <cerrno>
+
+#include <utils/macros.h>
+
+#if _ARGON_PLATFORM == windows
+#include <io.h>
+#else
+#include <unistd.h>
+#endif
 
 #include <vm/runtime.h>
 
@@ -191,7 +198,11 @@ ARGON_METHOD5(file_, read, "Read up to size bytes from the file and return them.
 
         blksize = st.st_size;
         if (ENUMBITMASK_ISTRUE(file->mode, FileMode::_IS_TERM)) {
+#if _ARGON_PLATFORM != windows
             blksize = st.st_blksize;
+#else
+            blksize = ARGON_OBJECT_IO_DEFAULT_BUFSIZE;
+#endif
             known_len = false;
         }
     }
@@ -448,14 +459,14 @@ ArObject *file_str(File *self) {
     if (ENUMBITMASK_ISTRUE(self->mode, FileMode::WRITE)) {
         memcpy(mode + idx, "|", 1);
         idx += 1;
-        memcpy(mode+idx, "O_WRITE", 7);
+        memcpy(mode + idx, "O_WRITE", 7);
         idx += 7;
     }
 
     if (ENUMBITMASK_ISTRUE(self->mode, FileMode::APPEND)) {
-        memcpy(mode+idx, "|", 1);
+        memcpy(mode + idx, "|", 1);
         idx += 1;
-        memcpy(mode+idx, "O_APPEND", 8);
+        memcpy(mode + idx, "O_APPEND", 8);
         idx += 8;
     }
 
@@ -497,31 +508,6 @@ const TypeInfo argon::object::io::type_file_ = {
         nullptr
 };
 
-bool seek_wrap(File *file, ArSSize offset, FileWhence whence) {
-    ArSSize pos;
-    int _whence;
-
-    switch (whence) {
-        case FileWhence::START:
-            _whence = SEEK_SET;
-            break;
-        case FileWhence::CUR:
-            _whence = SEEK_CUR;
-            break;
-        case FileWhence::END:
-            _whence = SEEK_END;
-            break;
-    }
-
-    if ((pos = lseek(file->fd, offset, _whence)) >= 0) {
-        file->cur = pos;
-        return true;
-    }
-
-    ErrorSetFromErrno();
-    return false;
-}
-
 ArSSize read_os_wrap(File *file, void *buf, ArSize nbytes) {
     ArSSize r = read(file->fd, buf, nbytes);
 
@@ -546,6 +532,31 @@ ArSSize write_os_wrap(File *file, const void *buf, ArSize n) {
     ErrorSetFromErrno();
 
     return written;
+}
+
+bool seek_wrap(File *file, ArSSize offset, FileWhence whence) {
+    ArSSize pos;
+    int _whence;
+
+    switch (whence) {
+        case FileWhence::START:
+            _whence = SEEK_SET;
+            break;
+        case FileWhence::CUR:
+            _whence = SEEK_CUR;
+            break;
+        case FileWhence::END:
+            _whence = SEEK_END;
+            break;
+    }
+
+    if ((pos = lseek(file->fd, offset, _whence)) >= 0) {
+        file->cur = pos;
+        return true;
+    }
+
+    ErrorSetFromErrno();
+    return false;
 }
 
 bool argon::object::io::Flush(File *file) {
@@ -593,19 +604,21 @@ bool argon::object::io::Seek(File *file, ArSSize offset, FileWhence whence) {
     return false;
 }
 
-ArSize FindBestBufSize(File *file) {
+inline ArSSize FindBestBufSize(File *file) {
+#if _ARGON_PLATFORM != windows
     struct stat st{};
 
     if (ENUMBITMASK_ISTRUE(file->mode, FileMode::_IS_TERM))
-        return 4096;
+        return ARGON_OBJECT_IO_DEFAULT_BUFSIZE;
 
-    if (fstat(file->fd, &st) < 0)
-        return 4096;
+    if (fstat(file->fd, &st) >= 0)
+        return st.st_blksize > 8192 ? 8192 : st.st_blksize;
+#endif
 
-    return st.st_blksize > 8192 ? 8192 : st.st_blksize;
+    return ARGON_OBJECT_IO_DEFAULT_BUFSIZE;
 }
 
-bool argon::object::io::SetBuffer(File *file, unsigned char *buf, ArSize cap, FileBufferMode mode) {
+bool argon::object::io::SetBuffer(File *file, unsigned char *buf, ArSSize cap, FileBufferMode mode) {
     bool ok = true;
 
     Flush(file);
@@ -668,8 +681,21 @@ File *argon::object::io::Open(char *path, FileMode mode) {
 }
 
 File *argon::object::io::FdOpen(int fd, FileMode mode) {
-    auto file = ArObjectNew<File>(RCType::INLINE, &type_file_);
+#ifdef S_ISFIFO
+#define ISFIFO(st)  S_ISFIFO((st).st_mode)
+#else
+#ifdef S_IFIFO
+#define ISFIFO(st)  ((st).st_mode & S_IFMT) == S_IFIFO
+#elif defined _S_IFIFO  // Windows
+#define ISFIFO(st)  ((st).st_mode & S_IFMT) == _S_IFIFO
+#endif
+#endif
+    struct stat st{};
+    File *file;
+
     FileBufferMode buf_mode;
+
+    file = ArObjectNew<File>(RCType::INLINE, &type_file_);
 
     if (file != nullptr) {
         file->fd = fd;
@@ -687,14 +713,12 @@ File *argon::object::io::FdOpen(int fd, FileMode mode) {
             file->mode |= FileMode::_IS_TERM;
             buf_mode = FileBufferMode::LINE;
         } else {
-            struct stat st{};
-
             if (fstat(file->fd, &st) < 0) {
                 Release(file);
                 return nullptr;
             }
 
-            if (S_ISFIFO(st.st_mode))
+            if (ISFIFO(st))
                 file->mode |= FileMode::_IS_PIPE;
 
             buf_mode = FileBufferMode::BLOCK;
@@ -707,6 +731,7 @@ File *argon::object::io::FdOpen(int fd, FileMode mode) {
     }
 
     return file;
+#undef ISFIFO
 }
 
 int argon::object::io::GetFd(File *file) {
