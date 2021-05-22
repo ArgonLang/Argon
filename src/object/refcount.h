@@ -100,7 +100,7 @@ namespace argon::object {
 
         SideTable *AllocOrGetSideTable();
 
-        class ArObject *GetObjectBase();
+        struct ArObject *GetObjectBase();
 
     public:
         RefCount() = default;
@@ -111,7 +111,7 @@ namespace argon::object {
 
         RefCount &operator=(RefBits status);
 
-        class ArObject *GetObject();
+        struct ArObject *GetObject();
 
         RefBits IncWeak();
 
