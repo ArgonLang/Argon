@@ -360,9 +360,9 @@ ARGON_FUNCTION5(math_, isqrt,
                 "- Parameter x: value whose inverse square root is computed."
                 "- Returns: inverse square root of x.",
                 1, false) {
-#ifdef _ARGON_ENVIRON32
+#if _ARGON_ENVIRON == 32
 #define MAGIC_CONSTANT 0x5F375A86
-#elif defined _ARGON_ENVIRON64
+#else
 #define MAGIC_CONSTANT 0x5FE6EB50C7B537A9
 #endif
 

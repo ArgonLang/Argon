@@ -249,10 +249,10 @@ const TypeInfo argon::object::type_integer_ = {
 
 Integer *argon::object::IntegerNew(IntegerUnderlying number) {
     // Overflow check
-#ifdef _ARGON_ENVIRON32
+#if _ARGON_ENVIRON == 32
     if (number > 0x7FFFFFFF)
         return (Integer *) ErrorFormat(type_overflow_error_, "integer too large to be represented by signed C long");
-#elif defined _ARGON_ENVIRON64
+#else
     if (number > 0x7FFFFFFFFFFFFFFF)
         return (Integer *) ErrorFormat(type_overflow_error_, "integer too large to be represented by signed C long");
 #endif

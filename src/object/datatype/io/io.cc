@@ -9,7 +9,7 @@
 
 #include <utils/macros.h>
 
-#if _ARGON_PLATFORM == windows
+#ifdef _ARGON_PLATFORM_WINDOWS
 #include <io.h>
 #else
 #include <unistd.h>

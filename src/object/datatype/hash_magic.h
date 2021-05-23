@@ -10,10 +10,10 @@
 #include <utils/macros.h>
 #include <object/arobject.h>
 
-#ifdef _ARGON_ENVIRON32
+#if _ARGON_ENVIRON == 32
 #define ARGON_OBJECT_HASH_BITS  31
 #define ARGON_OBJECT_HASH_PRIME 2147483647 // pow(2,31) - 1
-#elif defined _ARGON_ENVIRON64
+#else
 #define ARGON_OBJECT_HASH_BITS  61
 #define ARGON_OBJECT_HASH_PRIME 2305843009213693951 // pow(2,61) - 1
 #endif
