@@ -14,7 +14,7 @@ The wiki is under development, you can view the current version here: [wiki](htt
 
 | Platform / Architecture  | x86 | x86_64 | ARM | Apple silicon |
 |--------------------------|-----|--------|-----|---------------|
-| Windows (7, 8, 10, ...)  | ??? | ???    | ??? | ???           |
+| Windows (7, 8, 10, ...)  | ✓   | ✓      | ??? | ???           |
 | Linux                    | ✓   | ✓      | ✓   | ???           |
 | Mac OS                   | NA  | ✓      | NA  | ✓             |
 
@@ -47,7 +47,23 @@ When completed, Argon and related libraries will placed in `bin/` directory.
 N.B: At present there are no installation steps.
 
 ## Building on Windows
-Coming soon...
+Building Argon on Windows environment requires Visual Studio, or the Microsoft Build Tools. 
+You can download and install the tool of your choice from the [Microsoft Visual Studio](https://www.visualstudio.com/downloads/) page.
+
+1. Install Visual Studio / Microsoft Build Tools.
+2. From Windows start menu, open **Developer Command Prompt** and go to the Argon root folder:
+```sh
+    cd %path_of_Argon_folder%
+```
+3. Execute `build.bat` to start compilation.
+
+If you preferred to install Visual Studio, you can import the CMake project directly into visual studio. 
+To do this, open Visual Studio and press **continue without code** in the welcome window that opens before the IDE. 
+From IDE menu, select File > Open > CMake... and open the CMakeLists.txt file, ignore the CMake Overview Page that might open 
+and from the top bar select Argon.exe as start up item, select the configuration of interest (Debug / Release) and start the compilation 
+through the play button(or press F5 key).
+
+⚠️ Tested with Microsoft Visual Studio 2019.
 
 # ‼️ Notes
 Argon is under development, so many features are not yet active or available, a list (certainly not exhaustive) of the missing features is the following:
