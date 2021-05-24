@@ -4,15 +4,66 @@
 
 #include "bytesops.h"
 
-long argon::object::support::Count(const unsigned char *buf, ArSize blen, const unsigned char *pattern, ArSize plen,
-                                   long n) {
-    long counter = 0;
-    ArSize idx = 0;
+using namespace argon::object;
+
+void FillBadCharTable(int *table, const unsigned char *pattern, ArSSize len, bool reverse) {
+    // Reset table
+    for (int i = 0; i < 256; i++)
+        table[i] = (int) len;
+
+    // Fill table
+    // value = len(pattern) - index - 1
+    for (int i = 0; i < len; i++)
+        table[pattern[i]] = reverse ? i : ((int) len) - i - 1;
+}
+
+ArSSize DoSearch(int *table, const unsigned char *buf, ArSSize blen, const unsigned char *pattern, ArSSize plen) {
+    ArSSize cursor = plen - 1;
+
+    FillBadCharTable(table, pattern, plen, false);
+
+    next:
+    while (cursor < blen) {
+        for (ArSSize i = 0; i < plen; i++) {
+            if (buf[cursor - i] != pattern[(plen - 1) - i]) {
+                cursor = (cursor - i) + table[buf[cursor - i]];
+                goto next;
+            }
+        }
+        return cursor - (plen - 1);
+    }
+
+    return -1;
+}
+
+ArSSize DoRSearch(int *table, const unsigned char *buf, ArSSize blen, const unsigned char *pattern, ArSSize plen) {
+    ArSSize cursor = (blen - 1) - plen;
+
+    FillBadCharTable(table, pattern, plen, true);
+
+    next:
+    while (cursor >= 0) {
+        for (ArSSize i = 0; i < plen; i++) {
+            if (buf[cursor + i] != pattern[i]) {
+                cursor = (cursor - i) - table[buf[cursor - i]];
+                goto next;
+            }
+        }
+        return cursor;
+    }
+
+    return -1;
+}
+
+long argon::object::support::Count(const unsigned char *buf, ArSSize blen, const unsigned char *pattern,
+                                   ArSSize plen, long n) {
+    ArSSize counter = 0;
+    ArSSize idx = 0;
+    ArSSize lmatch;
 
     if (n == 0)
         return 0;
 
-    long lmatch;
     while ((counter < n || n == -1) && (lmatch = Find(buf + idx, blen - idx, pattern, plen)) > -1) {
         counter++;
         idx += lmatch + plen;
@@ -21,15 +72,13 @@ long argon::object::support::Count(const unsigned char *buf, ArSize blen, const 
     return counter;
 }
 
-long argon::object::support::Find(const unsigned char *buf, ArSize blen, const unsigned char *pattern, ArSize plen,
-                                  bool reverse) {
+long argon::object::support::Find(const unsigned char *buf, ArSSize blen, const unsigned char *pattern,
+                                  ArSSize plen, bool reverse) {
     /*
      * Implementation of Boyer-Moore-Horspool algorithm
      */
 
-    ArSize delta1[256] = {}; // Bad Character table
-    ArSize cursor = plen - 1;
-    bool ok = false;
+    int delta1[256] = {}; // Bad Character table
 
     if (((long) blen) < 0)
         return -2; // Too big
@@ -37,47 +86,8 @@ long argon::object::support::Find(const unsigned char *buf, ArSize blen, const u
     if (plen > blen)
         return -1;
 
-    // Fill delta1 table
-    for (ArSize &i:delta1)
-        i = plen;
+    if (reverse)
+        return DoRSearch(delta1, buf, blen, pattern, plen);
 
-    for (ArSize i = 0; i < plen; i++)
-        delta1[pattern[i]] = plen - i - 1;
-
-    // Do search
-    if (!reverse) {
-        while (cursor < blen && !ok) {
-            for (ArSize i = 0; i < plen; i++) {
-                if (pattern[(plen - 1) - i] != buf[cursor - i]) {
-                    cursor = (cursor - i) + delta1[buf[cursor - i]];
-                    ok = false;
-                    break;
-                }
-                ok = true;
-            }
-        }
-        cursor -= plen-1;;
-    } else {
-        cursor = (blen - 1) - (plen - 1);
-
-        while (cursor >= 0 && !ok) {
-            for (ArSize i = 0; i < plen; i++) {
-                if (pattern[i] != buf[cursor + i]) {
-                    if (delta1[buf[cursor + i]] > cursor + i)
-                        goto not_found;
-
-                    cursor = (cursor + i) - delta1[buf[cursor + i]];
-                    ok = false;
-                    break;
-                }
-                ok = true;
-            }
-        }
-    }
-
-    if (ok)
-        return cursor;
-
-    not_found:
-    return -1;
+    return DoSearch(delta1, buf, blen, pattern, plen);
 }
