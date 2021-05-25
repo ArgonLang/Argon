@@ -28,7 +28,7 @@ int main(int argc, char **argv) {
         if (IsPanicking())
             str = (String *) ToString(GetLastError());
 
-        std::cerr << "error: " << str->buffer << std::endl;
+        std::cerr << str->buffer << std::endl;
     }
 
     Release(ret);
