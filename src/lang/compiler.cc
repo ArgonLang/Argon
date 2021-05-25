@@ -267,11 +267,11 @@ unsigned int Compiler::PushStatic(ArObject *obj, bool store, bool emit) {
 
     if (store) {
         // check if object is already present in TranslationUnit
-        tmp = MapGet(this->unit_->statics_map, obj);
+        tmp = MapGetNoException(this->unit_->statics_map, obj);
 
         if (tmp == nullptr) {
             // Object not found in the current TranslationUnit, try in global_statics
-            if ((tmp = MapGet(this->statics_globals_, obj)) != nullptr) {
+            if ((tmp = MapGetNoException(this->statics_globals_, obj)) != nullptr) {
                 // recover already existing object and discard the actual one
                 Release(obj);
                 obj = tmp;

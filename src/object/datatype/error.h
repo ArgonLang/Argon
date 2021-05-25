@@ -20,6 +20,8 @@ namespace argon::object {
 
     ArObject *ErrorTupleFromErrno();
 
+    ArObject *ErrorFormat(const TypeInfo *etype, const char *format, ArObject *args);
+
     ArObject *ErrorFormat(const TypeInfo *etype, const char *format, ...);
 
     const TypeInfo *ErrorTypeFromErrno();
@@ -33,6 +35,7 @@ namespace argon::object {
     extern const TypeInfo *type_attribute_error_;
     extern const TypeInfo *type_buffer_error_;
     extern const TypeInfo *type_exhausted_iterator_;
+    extern const TypeInfo *type_key_not_found_;
     extern const TypeInfo *type_module_not_found_;
     extern const TypeInfo *type_not_implemented_;
     extern const TypeInfo *type_overflow_error_;

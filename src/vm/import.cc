@@ -732,7 +732,7 @@ argon::object::Module *argon::vm::ImportAddModule(Import *import, const char *na
         return nullptr;
 
     // Retrieve from cache
-    if ((module = (Module *) MapGet(import->modules, key)) != nullptr) {
+    if ((module = (Module *) MapGetNoException(import->modules, key)) != nullptr) {
         Release(key);
         return module;
     }
@@ -828,7 +828,7 @@ argon::object::Module *argon::vm::ImportModule(Import *import, String *name, Str
     Module *module;
 
     // Retrieve from cache
-    if ((module = (Module *) MapGet(import->modules, name)) != nullptr)
+    if ((module = (Module *) MapGetNoException(import->modules, name)) != nullptr)
         return module;
 
     if ((spec = Locate(import, name, package)) == nullptr)

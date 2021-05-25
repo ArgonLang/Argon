@@ -65,7 +65,7 @@ const TypeInfo type_map_iterator_ = {
         nullptr,
         (VoidUnaryOp) HMapIteratorCleanup,
         (Trace) HMapIteratorTrace,
-        (CompareOp)HMapIteratorCompare,
+        (CompareOp) HMapIteratorCompare,
         (BoolUnaryOp) HMapIteratorHasNext,
         nullptr,
         (UnaryOp) HMapIteratorStr,
@@ -86,7 +86,7 @@ ArSize map_len(Map *self) {
     return self->hmap.len;
 }
 
-ArObject *argon::object::MapGet(Map *map, ArObject *key) {
+ArObject *argon::object::MapGetNoException(Map *map, ArObject *key) {
     MapEntry *entry;
 
     if ((entry = (MapEntry *) HMapLookup(&map->hmap, key)) != nullptr) {
@@ -129,9 +129,18 @@ bool argon::object::MapInsert(Map *map, ArObject *key, ArObject *value) {
     return true;
 }
 
+ArObject *map_get_item(Map *self, ArObject *key) {
+    ArObject *ret = MapGetNoException(self, key);
+
+    if (ret == nullptr)
+        return ErrorFormat(type_key_not_found_, "invalid key '%s'", key);
+
+    return ret;
+}
+
 const MapSlots map_actions{
         (SizeTUnaryOp) map_len,
-        (BinaryOp) argon::object::MapGet,
+        (BinaryOp) map_get_item,
         (BoolTernOp) argon::object::MapInsert
 };
 

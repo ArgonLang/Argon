@@ -131,6 +131,7 @@ ERROR_SIMPLE(AccessViolation, "", argon::object::type_access_violation_);
 ERROR_SIMPLE(AttributeError, "", argon::object::type_attribute_error_);
 ERROR_SIMPLE(BufferError, "", argon::object::type_buffer_error_);
 ERROR_SIMPLE(ExhaustedIteratorError, "", argon::object::type_exhausted_iterator_);
+ERROR_SIMPLE(KeyNotFoundError, "", argon::object::type_key_not_found_);
 ERROR_SIMPLE(ModuleNotFound, "", argon::object::type_module_not_found_);
 ERROR_SIMPLE(NotImplemented, "", argon::object::type_not_implemented_);
 ERROR_SIMPLE(OutOfMemory, "", type_out_of_memory_);
@@ -244,6 +245,25 @@ ArObject *argon::object::ErrorSetFromErrno() {
     return nullptr;
 }
 
+ArObject *argon::object::ErrorFormat(const TypeInfo *etype, const char *format, ArObject *args) {
+    ArObject *err;
+    String *msg;
+
+    if ((msg = StringCFormat(format, args)) == nullptr)
+        return nullptr;
+
+    err = ErrorNew(etype, msg);
+    Release(msg);
+
+    if (err == nullptr)
+        return nullptr;
+
+    argon::vm::Panic(err);
+    Release(err);
+
+    return nullptr;
+}
+
 ArObject *argon::object::ErrorFormat(const TypeInfo *etype, const char *format, ...) {
     va_list args;
     ArObject *err;
@@ -256,10 +276,11 @@ ArObject *argon::object::ErrorFormat(const TypeInfo *etype, const char *format, 
     if (msg == nullptr)
         return nullptr;
 
-    if ((err = ErrorNew(etype, msg)) == nullptr) {
-        Release(msg);
+    err = ErrorNew(etype, msg);
+    Release(msg);
+
+    if (err == nullptr)
         return nullptr;
-    }
 
     argon::vm::Panic(err);
     Release(err);
@@ -294,6 +315,7 @@ bool argon::object::ErrorInit() {
     INIT(argon::object::type_attribute_error_);
     INIT(argon::object::type_buffer_error_);
     INIT(argon::object::type_exhausted_iterator_);
+    INIT(argon::object::type_key_not_found_);
     INIT(argon::object::type_module_not_found_);
     INIT(argon::object::type_not_implemented_);
     INIT(argon::object::type_overflow_error_);
