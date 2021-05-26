@@ -180,9 +180,9 @@ ArObject *argon::object::FunctionCallNative(const Function *func, ArObject **arg
     if (count > 0 && func->IsMethod()) {
         instance = *args;
 
-        if (AR_GET_TYPE(instance) != func->base)
-            return ErrorFormat(type_type_error_, "method '%s' for type '%s' doesn't apply to '%s' type",
-                               func->name->buffer, func->base->name, AR_TYPE_NAME(instance));
+        if (!TraitIsImplemented(instance, func->base))
+            return ErrorFormat(type_type_error_, "method %s::%s doesn't apply to '%s' type",
+                               func->base->name, func->name->buffer, AR_TYPE_NAME(instance));
 
         args++;
         count--;
