@@ -7,6 +7,7 @@
 
 #include <vm/runtime.h>
 
+#include "bool.h"
 #include "integer.h"
 #include "nil.h"
 #include "tuple.h"
@@ -92,6 +93,15 @@ const ObjectSlots error_obj = {
         nullptr
 };
 
+ArObject *error_compare(Error *self, ArObject *other, CompareMode mode) {
+    auto *o = (Error *) other;
+
+    if (!AR_SAME_TYPE(self, other) || mode != CompareMode::EQ)
+        return nullptr;
+
+    return BoolToArBool(Equal(self->obj, o->obj));
+}
+
 ArObject *error_str(Error *self) {
     auto *tmp = (String *) ToString(self->obj);
     String *ret;
@@ -100,6 +110,10 @@ ArObject *error_str(Error *self) {
     Release(tmp);
 
     return ret;
+}
+
+bool error_is_true(ArObject *self) {
+    return true;
 }
 
 void error_cleanup(Error *self) {
@@ -116,8 +130,8 @@ const TypeInfo name = {                         \
     nullptr,                                    \
     (VoidUnaryOp)error_cleanup,                 \
     nullptr,                                    \
-    nullptr,                                    \
-    nullptr,                                    \
+    (CompareOp)error_compare,                   \
+    error_is_true,                              \
     nullptr,                                    \
     (UnaryOp)error_str,                         \
     nullptr,                                    \
