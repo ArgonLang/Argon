@@ -341,7 +341,7 @@ ArObject *prefix##name##_fn(const TypeInfo *origin, ArObject *self, ArObject **a
 
     bool IsNull(const ArObject *obj);
 
-    inline bool IsTrue(const ArObject *obj) { return AR_GET_TYPE(obj)->is_true((ArObject *) obj); }
+    bool IsTrue(const ArObject *obj);
 
     bool PropertySet(ArObject *obj, ArObject *key, ArObject *value, bool member);
 

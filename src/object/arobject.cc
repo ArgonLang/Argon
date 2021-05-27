@@ -556,6 +556,13 @@ bool argon::object::IsNull(const ArObject *obj) {
     return AR_TYPEOF(obj, type_nil_);
 }
 
+bool argon::object::IsTrue(const ArObject *obj) {
+    if (AR_GET_TYPE(obj)->is_true == nullptr)
+        return false;
+
+    return AR_GET_TYPE(obj)->is_true((ArObject *) obj);
+}
+
 bool argon::object::PropertySet(ArObject *obj, ArObject *key, ArObject *value, bool member) {
     if (member) {
         if (AR_OBJECT_SLOT(obj) == nullptr || AR_OBJECT_SLOT(obj)->set_attr == nullptr) {
