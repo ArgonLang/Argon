@@ -85,6 +85,7 @@ const ObjectSlots integer_obj{
         nullptr,
         nullptr,
         nullptr,
+        nullptr,
         nullptr
 };
 

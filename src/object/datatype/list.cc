@@ -430,6 +430,7 @@ const ObjectSlots list_obj = {
         nullptr,
         nullptr,
         nullptr,
+        nullptr,
         nullptr
 };
 

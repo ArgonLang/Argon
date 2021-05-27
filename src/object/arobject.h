@@ -131,6 +131,7 @@ ArObject *prefix##name##_fn(const TypeInfo *origin, ArObject *self, ArObject **a
 
     struct ObjectSlots {
         const NativeFunc *methods;
+        const TypeInfo **traits;
 
         BinaryOp get_attr;
         BinaryOp get_static_attr;

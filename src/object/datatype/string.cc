@@ -545,6 +545,7 @@ const ObjectSlots str_obj = {
         nullptr,
         nullptr,
         nullptr,
+        nullptr,
         nullptr
 };
 

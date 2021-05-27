@@ -67,6 +67,7 @@ ArObject *type_get_static_attr(TypeInfo *self, ArObject *key) {
 const ObjectSlots type_obj = {
         nullptr,
         nullptr,
+        nullptr,
         (BinaryOp) type_get_static_attr,
         nullptr,
         nullptr
@@ -295,14 +296,40 @@ Tuple *ComputeMRO(List *bases) {
 }
 
 bool CalculateMRO(TypeInfo *type, TypeInfo **bases, ArSize count) {
+    auto *mro = (Tuple *) type->mro;
+    List *merge = nullptr;
     List *bases_list;
 
+    if (count == 0)
+        return true;
+
+    if (mro != nullptr) {
+        if (mro->len > 0) {
+            if ((merge = ListNew(mro->len + count)) == nullptr) {
+                Release((ArObject **) type->mro);
+                goto error;
+            }
+
+            ListConcat(merge, mro);
+
+            for (ArSize i = 0; i < count; i++)
+                ListAppend(merge, bases[i]);
+
+            bases = (TypeInfo **) merge->objects;
+            count = merge->len;
+        }
+
+        Release((ArObject **) type->mro);
+    }
+
     if ((bases_list = BuildBasesList(bases, count)) == nullptr)
-        return false;
+        goto error;
 
     type->mro = ComputeMRO(bases_list);
     Release(bases_list);
 
+    error:
+    Release(merge);
     return type->mro != nullptr;
 }
 
@@ -455,7 +482,8 @@ ArObject *argon::object::TypeNew(const TypeInfo *meta, const char *name, ArObjec
         }
     }
 
-    TypeInit(type, ns);
+    if (!TypeInit(type, ns))
+        Release((ArObject **) type);
 
     return type;
 }
@@ -571,38 +599,49 @@ bool argon::object::TraitIsImplemented(const ArObject *obj, const TypeInfo *type
 
 bool argon::object::TypeInit(TypeInfo *info, ArObject *ns) {
     static PropertyType meth_flags = PropertyType::PUBLIC | PropertyType::CONST;
-    Function *fn;
+    Function *fn = nullptr;
+
+    ArSize blen = 0;
 
     assert(info->tp_map == nullptr);
 
-    if (ns == nullptr)
-        if (info->obj_actions == nullptr || info->obj_actions->methods == nullptr)
-            return true;
+    if (ns == nullptr && (info->obj_actions == nullptr || info->obj_actions->methods == nullptr))
+        return true;
+
+    // Calculate static MRO
+    if (info->obj_actions != nullptr && info->obj_actions->traits != nullptr) {
+        // Count base traits
+        for (const TypeInfo **base = info->obj_actions->traits; *base != nullptr; blen++, base++);
+
+        if (!CalculateMRO(info, (TypeInfo **) info->obj_actions->traits, blen))
+            return false;
+    }
 
     // Build namespace
     info->tp_map = IncRef(ns);
     if (ns == nullptr && (info->tp_map = NamespaceNew()) == nullptr)
-        return false;
+        goto error;
 
     // Push methods
     if (info->obj_actions != nullptr && info->obj_actions->methods != nullptr) {
         for (const NativeFunc *method = info->obj_actions->methods; method->name != nullptr; method++) {
-            if ((fn = FunctionNew(nullptr, info, method, method->method)) == nullptr) {
-                Release(&info->tp_map);
-                return false;
-            }
+            if ((fn = FunctionNew(nullptr, info, method, method->method)) == nullptr)
+                goto error;
 
-            if (!NamespaceNewSymbol((Namespace *) info->tp_map, fn->name, fn, PropertyInfo(meth_flags))) {
-                Release(fn);
-                Release(&info->tp_map);
-                return false;
-            }
+            if (!NamespaceNewSymbol((Namespace *) info->tp_map, fn->name, fn, PropertyInfo(meth_flags)))
+                goto error;
 
             Release(fn);
         }
     }
 
     return true;
+
+    error:
+    Release(fn);
+    Release(&info->mro);
+    Release(&info->tp_map);
+    return false;
 }
 
 bool argon::object::VariadicCheckPositional(const char *name, int nargs, int min, int max) {

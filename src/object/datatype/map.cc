@@ -273,6 +273,7 @@ const ObjectSlots map_obj = {
         nullptr,
         nullptr,
         nullptr,
+        nullptr,
         nullptr
 };
 

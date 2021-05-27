@@ -86,6 +86,7 @@ bool struct_set_attr(Struct *self, ArObject *key, ArObject *value) {
 
 const ObjectSlots struct_actions{
         nullptr,
+        nullptr,
         (BinaryOp) struct_get_attr,
         (BinaryOp) struct_get_static_attr,
         (BoolTernOp) struct_set_attr,

@@ -33,6 +33,7 @@ const ObjectSlots error_t_obj = {
         nullptr,
         nullptr,
         nullptr,
+        nullptr,
         nullptr
 };
 
@@ -77,8 +78,14 @@ const NativeFunc error_methods[] = {
         ARGON_METHOD_SENTINEL
 };
 
+const TypeInfo *error_bases[] = {
+        type_error_wrap_,
+        nullptr
+};
+
 const ObjectSlots error_obj = {
         error_methods,
+        error_bases,
         nullptr,
         nullptr,
         nullptr,

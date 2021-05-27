@@ -65,6 +65,7 @@ const ObjectSlots option_obj = {
         nullptr,
         nullptr,
         nullptr,
+        nullptr,
         nullptr
 };
 

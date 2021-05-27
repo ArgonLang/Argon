@@ -569,6 +569,7 @@ const ObjectSlots bytes_obj = {
         nullptr,
         nullptr,
         nullptr,
+        nullptr,
         nullptr
 };
 

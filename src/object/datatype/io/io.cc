@@ -426,6 +426,7 @@ const ObjectSlots file_obj = {
         nullptr,
         nullptr,
         nullptr,
+        nullptr,
         nullptr
 };
 
