@@ -54,6 +54,20 @@ ArObject *argon::vm::RoutineRecover(ArRoutine *routine) {
     return err;
 }
 
+ArObject *argon::vm::RoutineReturnGet(ArRoutine *routine) {
+    if (routine->cu_defer != nullptr)
+        return IncRef(routine->cu_defer->frame->return_value);
+
+    return nullptr;
+}
+
+void argon::vm::RoutineReturnSet(ArRoutine *routine, ArObject *object) {
+    if (routine->cu_defer != nullptr) {
+        Release(routine->cu_defer->frame->return_value);
+        routine->cu_defer->frame->return_value = IncRef(object);
+    }
+}
+
 void argon::vm::RoutineReset(ArRoutine *routine, ArRoutineStatus status) {
     if (routine != nullptr) {
         routine->next = nullptr;

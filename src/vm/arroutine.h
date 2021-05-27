@@ -82,6 +82,10 @@ namespace argon::vm {
 
     argon::object::ArObject *RoutineRecover(ArRoutine *routine);
 
+    argon::object::ArObject *RoutineReturnGet(ArRoutine *routine);
+
+    void RoutineReturnSet(ArRoutine *routine, argon::object::ArObject *object);
+
     void RoutineReset(ArRoutine *routine, ArRoutineStatus status);
 
     void RoutineDel(ArRoutine *routine);

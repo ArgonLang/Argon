@@ -194,6 +194,41 @@ ARGON_FUNCTION(recover,
     return ReturnNil(argon::vm::GetLastError());
 }
 
+ARGON_FUNCTION(returns,
+               "Set and/or get the return value of the function that invoked a defer."
+               ""
+               "If returns is called with:"
+               "    * 0 argument: no value is set as a return value."
+               "    * 1 argument: argument is set as a return value."
+               "    * n arguments: the return value is a tuple containing all the passed values."
+               ""
+               "In any case, the current return value is returned."
+               ""
+               "- Parameters:"
+               "    - ...objs: return value."
+               "- Returns: current return value.", 0, true) {
+    ArObject *ret;
+    ArObject *current;
+
+    current = ReturnNil(argon::vm::RoutineReturnGet(argon::vm::GetRoutine()));
+
+    if (count > 0) {
+        if (count > 1) {
+            if ((ret = TupleNew(argv, count)) == nullptr)
+                return nullptr;
+
+            argon::vm::RoutineReturnSet(argon::vm::GetRoutine(), ret);
+            Release(ret);
+
+            return current;
+        }
+
+        argon::vm::RoutineReturnSet(argon::vm::GetRoutine(), *argv);
+    }
+
+    return current;
+}
+
 ARGON_FUNCTION(riter,
                "Return an reverse iterator object."
                ""
@@ -309,6 +344,7 @@ const PropertyBulk builtins_bulk[] = {
         MODULE_EXPORT_FUNCTION(print_),
         MODULE_EXPORT_FUNCTION(println_),
         MODULE_EXPORT_FUNCTION(recover_),
+        MODULE_EXPORT_FUNCTION(returns_),
         MODULE_EXPORT_FUNCTION(riter_),
         MODULE_EXPORT_FUNCTION(type_),
 

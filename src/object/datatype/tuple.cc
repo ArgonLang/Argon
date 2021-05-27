@@ -328,6 +328,17 @@ Tuple *argon::object::TupleNew(ArObject *result, ArObject *error) {
     return nullptr;
 }
 
+Tuple *argon::object::TupleNew(ArObject **objects, ArSize count) {
+    auto *tuple = TupleNew(count);
+
+    if (tuple != nullptr) {
+        for (ArSize i = 0; i < count; i++)
+            tuple->objects[i] = IncRef(objects[i]);
+    }
+
+    return tuple;
+}
+
 bool argon::object::TupleInsertAt(Tuple *tuple, ArSize idx, ArObject *obj) {
     if (idx >= tuple->len)
         return false;
