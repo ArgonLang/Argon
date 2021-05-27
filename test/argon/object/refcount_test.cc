@@ -46,7 +46,7 @@ TEST(RefCount, WeakObject) {
     RefCount weak(list->ref_count.IncWeak());
 
     ArObject *tmp = weak.GetObject();
-    ASSERT_EQ(tmp->type, &type_list_);
+    ASSERT_EQ(tmp->type, type_list_);
     Release(tmp);
 
     Release(list);

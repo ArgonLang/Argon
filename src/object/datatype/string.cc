@@ -89,7 +89,7 @@ ArObject *str_iter_peek(Iterator *self) {
 ITERATOR_NEW_DEFAULT(str_iterator, (BoolUnaryOp) str_iter_has_next, (UnaryOp) str_iter_next, (UnaryOp) str_iter_peek);
 
 String *StringInit(ArSize len, bool mkbuf) {
-    auto str = ArObjectNew<String>(RCType::INLINE, &type_string_);
+    auto str = ArObjectNew<String>(RCType::INLINE, type_string_);
 
     if (str != nullptr) {
         str->buffer = nullptr;
@@ -174,7 +174,7 @@ BufferSlots string_buffer = {
 };
 
 ArObject *string_add(ArObject *left, ArObject *right) {
-    if (left->type == right->type && left->type == &type_string_)
+    if (left->type == right->type && left->type == type_string_)
         return StringConcat((String *) left, (String *) right);
 
     return nullptr;
@@ -187,12 +187,12 @@ ArObject *string_mul(ArObject *left, ArObject *right) {
     IntegerUnderlying times;
 
     // int * str -> str * int
-    if (left->type != &type_string_) {
+    if (left->type != type_string_) {
         l = (String *) right;
         right = left;
     }
 
-    if (right->type == &type_integer_) {
+    if (right->type == type_integer_) {
         times = ((Integer *) right)->integer;
         if ((ret = StringInit(l->len * times, true)) != nullptr) {
             while (times--)
@@ -618,7 +618,7 @@ void string_cleanup(String *self) {
     argon::memory::Free(self->buffer);
 }
 
-const TypeInfo argon::object::type_string_ = {
+const TypeInfo StringType = {
         TYPEINFO_STATIC_INIT,
         "string",
         nullptr,
@@ -643,6 +643,7 @@ const TypeInfo argon::object::type_string_ = {
         nullptr,
         nullptr
 };
+const TypeInfo *argon::object::type_string_ = &StringType;
 
 String *argon::object::StringNew(const char *string, ArSize len) {
     auto str = StringInit(len, true);
@@ -892,7 +893,7 @@ void argon::object::StringBuilderClean(StringBuilder *sb) {
 // String Formatter
 
 ArObject *FmtGetNextArg(StringFormatter *fmt) {
-    if (fmt->args->type == &type_tuple_) {
+    if (fmt->args->type == type_tuple_) {
         auto tp = ((Tuple *) fmt->args);
 
         fmt->args_len = tp->len;
@@ -945,7 +946,7 @@ bool FmtParseOptionStar(StringFormatter *fmt, StringArg *arg, bool prec) {
     auto num = (Integer *) FmtGetNextArg(fmt);
     int opt;
 
-    if (num == nullptr || num->type != &type_integer_) {
+    if (num == nullptr || num->type != type_integer_) {
         ErrorFormat(type_type_error_, "* wants integer not '%s'", num->type->name);
         return false;
     }
@@ -1146,9 +1147,9 @@ int FmtDecimal(StringFormatter *fmt, StringArg *arg, char specifier) {
     if ((obj = FmtGetNextArg(fmt)) == nullptr)
         return -1;
 
-    if (obj->type == &type_decimal_)
+    if (obj->type == type_decimal_)
         num = ((Decimal *) obj)->decimal;
-    else if (obj->type == &type_integer_)
+    else if (obj->type == type_integer_)
         num = ((Integer *) obj)->integer;
     else {
         ErrorFormat(type_type_error_, "%%%c requires real number not '%s'", fmt->fmt.buf[fmt->fmt.idx],
@@ -1249,7 +1250,7 @@ int FmtInteger(StringFormatter *fmt, StringArg *arg, int base, bool upper) {
     if ((obj = FmtGetNextArg(fmt)) == nullptr)
         return -1;
 
-    if (obj->type != &type_integer_) {
+    if (obj->type != type_integer_) {
         ErrorFormat(type_type_error_, "%%%c requires integer not '%s'", fmt->fmt.buf[fmt->fmt.idx], obj->type->name);
         return -1;
     }
@@ -1293,14 +1294,14 @@ int FmtChar(StringFormatter *fmt, StringArg *arg) {
     if ((obj = FmtGetNextArg(fmt)) == nullptr)
         return -1;
 
-    if (obj->type == &type_string_) {
+    if (obj->type == type_string_) {
         auto str = (String *) obj;
         if (str->cp_len > 1) {
             ErrorFormat(type_type_error_, "%%c requires a single char not string");
             return -1;
         }
         return FmtWrite(fmt, arg, str->buffer, str->len);
-    } else if (obj->type == &type_integer_) {
+    } else if (obj->type == type_integer_) {
         if ((len = StringIntToUTF8(((Integer *) obj)->integer, sequence)) == 0) {
             ErrorFormat(type_overflow_error_, "%%c arg not in range(0x110000)");
             return -1;

@@ -65,7 +65,7 @@ void import_spec_cleanup(ImportSpec *self) {
     Release(self->loader);
 }
 
-const argon::object::TypeInfo argon::vm::type_import_spec_ = {
+const argon::object::TypeInfo ImportSpecType = {
         TYPEINFO_STATIC_INIT,
         "import_spec",
         nullptr,
@@ -90,9 +90,10 @@ const argon::object::TypeInfo argon::vm::type_import_spec_ = {
         nullptr,
         nullptr
 };
+const TypeInfo *argon::vm::type_import_spec_ = &ImportSpecType;
 
 ImportSpec *argon::vm::ImportSpecNew(String *name, String *path, String *origin, Function *loader) {
-    auto spec = ArObjectNew<ImportSpec>(RCType::INLINE, &type_import_spec_);
+    auto spec = ArObjectNew<ImportSpec>(RCType::INLINE, type_import_spec_);
 
     if (spec != nullptr) {
         spec->name = IncRef(name);
@@ -151,7 +152,7 @@ void import_trace(Import *self, VoidUnaryOp trace) {
     trace(self->loaders);
 }
 
-const argon::object::TypeInfo argon::vm::type_import_ = {
+const argon::object::TypeInfo ImportType = {
         TYPEINFO_STATIC_INIT,
         "import",
         nullptr,
@@ -176,6 +177,7 @@ const argon::object::TypeInfo argon::vm::type_import_ = {
         nullptr,
         nullptr
 };
+const TypeInfo *argon::vm::type_import_ = &ImportType;
 
 // LOADERS
 
@@ -617,7 +619,7 @@ Import *argon::vm::ImportNew() {
     if(!AddNativeFunction(imp->loaders, &(loader))) \
         goto error
 
-    auto imp = ArObjectGCNew<Import>(&type_import_);
+    auto imp = ArObjectGCNew<Import>(type_import_);
 
     if (imp != nullptr) {
         if ((imp->modules = MapNew()) == nullptr)

@@ -28,7 +28,7 @@ ArObject *nil_str(ArObject *self) {
     return StringIntern("nil");
 }
 
-const TypeInfo argon::object::type_nil_ = {
+const TypeInfo NilType = {
         TYPEINFO_STATIC_INIT,
         "nil",
         nullptr,
@@ -53,7 +53,8 @@ const TypeInfo argon::object::type_nil_ = {
         nullptr,
         nullptr
 };
+const TypeInfo *argon::object::type_nil_ = &NilType;
 
-Nil NilDef{{RefCount(RCType::STATIC), &type_nil_}};
+Nil NilDef{{RefCount(RCType::STATIC), type_nil_}};
 
 Nil *argon::object::NilVal = &NilDef;

@@ -56,7 +56,7 @@ const IteratorSlots map_iterop = {
         (VoidUnaryOp) HMapIteratorReset
 };
 
-const TypeInfo type_map_iterator_ = {
+const TypeInfo MapIteratorType = {
         TYPEINFO_STATIC_INIT,
         "map_iterator",
         nullptr,
@@ -353,11 +353,11 @@ ArObject *map_str(Map *self) {
 }
 
 ArObject *map_iter_get(Map *self) {
-    return HMapIteratorNew(&type_map_iterator_, self, &self->hmap, false);
+    return HMapIteratorNew(&MapIteratorType, self, &self->hmap, false);
 }
 
 ArObject *map_iter_rget(Map *self) {
-    return HMapIteratorNew(&type_map_iterator_, self, &self->hmap, true);
+    return HMapIteratorNew(&MapIteratorType, self, &self->hmap, true);
 }
 
 void map_trace(Map *self, VoidUnaryOp trace) {
@@ -394,7 +394,7 @@ bool argon::object::MapRemove(Map *map, ArObject *key) {
     return entry != nullptr;
 }
 
-const TypeInfo argon::object::type_map_ = {
+const TypeInfo MapType = {
         TYPEINFO_STATIC_INIT,
         "map",
         nullptr,
@@ -419,9 +419,10 @@ const TypeInfo argon::object::type_map_ = {
         nullptr,
         nullptr
 };
+const TypeInfo *argon::object::type_map_ = &MapType;
 
 Map *argon::object::MapNew() {
-    auto map = ArObjectGCNew<Map>(&type_map_);
+    auto map = ArObjectGCNew<Map>(type_map_);
 
     if (map != nullptr) {
         if (!HMapInit(&map->hmap))

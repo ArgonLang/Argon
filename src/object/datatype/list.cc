@@ -516,7 +516,7 @@ void list_cleanup(List *self) {
     Free(self->objects);
 }
 
-const TypeInfo argon::object::type_list_ = {
+const TypeInfo ListType = {
         TYPEINFO_STATIC_INIT,
         "list",
         nullptr,
@@ -541,6 +541,7 @@ const TypeInfo argon::object::type_list_ = {
         nullptr,
         nullptr
 };
+const TypeInfo *argon::object::type_list_ = &ListType;
 
 template<typename T>
 List *ListClone(T *t) {
@@ -570,7 +571,7 @@ bool ListConcat(List *base, T *t) {
 }
 
 List *argon::object::ListNew(ArSize cap) {
-    auto list = ArObjectGCNew<List>(&type_list_);
+    auto list = ArObjectGCNew<List>(type_list_);
 
     if (list != nullptr) {
         list->objects = nullptr;

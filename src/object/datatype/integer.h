@@ -17,7 +17,7 @@ namespace argon::object {
         IntegerUnderlying integer;
     };
 
-    extern const TypeInfo type_integer_;
+    extern const TypeInfo *type_integer_;
 
     Integer *IntegerNew(IntegerUnderlying number);
 

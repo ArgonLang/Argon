@@ -36,7 +36,7 @@ ARGON_FUNCTION(callable,
                "- Returns: true if object is callable, false otherwise.",
                1, false) {
     // This definition may be change in future
-    if (argv[0]->type == &type_function_)
+    if (argv[0]->type == type_function_)
         return True;
     return False;
 }
@@ -55,8 +55,8 @@ ARGON_FUNCTION(input,
                ""
                "- Parameter prompt: string representing a default message before the input."
                "- Returns: string containing user input.", 1, false) {
-    auto in = (io::File *) argon::vm::ContextRuntimeGetProperty("stdin", &io::type_file_);
-    auto out = (io::File *) argon::vm::ContextRuntimeGetProperty("stdout", &io::type_file_);
+    auto in = (io::File *) argon::vm::ContextRuntimeGetProperty("stdin", io::type_file_);
+    auto out = (io::File *) argon::vm::ContextRuntimeGetProperty("stdout", io::type_file_);
     unsigned char *line = nullptr;
     ArObject *str = nullptr;
     ArSSize len;
@@ -224,7 +224,7 @@ ARGON_FUNCTION(print,
                "     - ...obj: objects to print."
                "- Returns: nil",
                0, true) {
-    auto out = (io::File *) argon::vm::ContextRuntimeGetProperty("stdout", &io::type_file_);
+    auto out = (io::File *) argon::vm::ContextRuntimeGetProperty("stdout", io::type_file_);
     ArObject *str;
     ArSize i = 0;
 
@@ -264,7 +264,7 @@ ARGON_FUNCTION(println,
     ArObject *success = ARGON_CALL_FUNC(print, origin, self, argv, count);
 
     if (success != nullptr) {
-        auto out = (io::File *) argon::vm::ContextRuntimeGetProperty("stdout", &io::type_file_);
+        auto out = (io::File *) argon::vm::ContextRuntimeGetProperty("stdout", io::type_file_);
 
         if (out == nullptr)
             return nullptr;

@@ -62,7 +62,7 @@ namespace argon::object::io {
         } buffer;
     };
 
-    extern const argon::object::TypeInfo type_file_;
+    extern const argon::object::TypeInfo *type_file_;
 
     bool Flush(File *file);
 

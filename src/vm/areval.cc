@@ -105,7 +105,7 @@ ArObject *Subscript(ArObject *obj, ArObject *idx, ArObject *set) {
                 if (!obj->type->sequence_actions->set_item(obj, set, idx->type->number_actions->as_index(idx)))
                     return False;
             }
-        } else if (idx->type == &type_bounds_) {
+        } else if (idx->type == type_bounds_) {
             if (set == nullptr) {
                 ret = obj->type->sequence_actions->get_slice(obj, idx);
             } else {
@@ -770,13 +770,13 @@ ArObject *argon::vm::Eval(ArRoutine *routine) {
                 DISPATCH2();
             }
             TARGET_OP(MK_FUNC) {
-                auto flags = (FunctionType) argon::lang::I32ExtractFlag(cu_frame->instr_ptr);
+                auto flags = (FunctionFlags) argon::lang::I32ExtractFlag(cu_frame->instr_ptr);
                 auto name = (String *) PEEK1();
                 List *enclosed = nullptr;
 
                 ret = TOP();
 
-                if (ENUMBITMASK_ISTRUE(flags, FunctionType::CLOSURE)) {
+                if (ENUMBITMASK_ISTRUE(flags, FunctionFlags::CLOSURE)) {
                     enclosed = (List *) TOP();
                     ret = PEEK1();
                     name = (String *) PEEK2();
@@ -787,7 +787,7 @@ ArObject *argon::vm::Eval(ArRoutine *routine) {
                 if (ret == nullptr)
                     goto error;
 
-                if (ENUMBITMASK_ISTRUE(flags, FunctionType::CLOSURE))
+                if (ENUMBITMASK_ISTRUE(flags, FunctionFlags::CLOSURE))
                     POP();
 
                 POP();
@@ -850,7 +850,7 @@ ArObject *argon::vm::Eval(ArRoutine *routine) {
                 auto args = ARG16;
                 Namespace *ns = BuildNamespace(routine, (Code *) *(cu_frame->eval_stack - args - 2));
 
-                ret = TypeNew(&type_struct_, (String *) *(cu_frame->eval_stack - args - 1), ns,
+                ret = TypeNew(type_struct_, (String *) *(cu_frame->eval_stack - args - 1), ns,
                               (TypeInfo **) (cu_frame->eval_stack - args), args);
                 Release(ns);
 
@@ -865,7 +865,7 @@ ArObject *argon::vm::Eval(ArRoutine *routine) {
                 auto args = ARG16;
                 Namespace *ns = BuildNamespace(routine, (Code *) *(cu_frame->eval_stack - args - 2));
 
-                ret = TypeNew(&type_trait_, (String *) *(cu_frame->eval_stack - args - 1), ns,
+                ret = TypeNew(type_trait_, (String *) *(cu_frame->eval_stack - args - 1), ns,
                               (TypeInfo **) (cu_frame->eval_stack - args), args);
                 Release(ns);
 

@@ -75,7 +75,7 @@ ArObject *bool_str(Bool *self) {
     return StringIntern(self->value ? "true" : "false");
 }
 
-const TypeInfo argon::object::type_bool_ = {
+const TypeInfo BoolType = {
         TYPEINFO_STATIC_INIT,
         "bool",
         nullptr,
@@ -100,9 +100,10 @@ const TypeInfo argon::object::type_bool_ = {
         nullptr,
         nullptr
 };
+const TypeInfo *argon::object::type_bool_ = &BoolType;
 
-#define BOOL_TYPE(sname, export_name, value)                  \
-Bool sname {{RefCount(RCType::STATIC), &type_bool_}, value};  \
+#define BOOL_TYPE(sname, export_name, value)                \
+Bool sname {{RefCount(RCType::STATIC), type_bool_}, value}; \
 Bool *export_name = &sname
 
 BOOL_TYPE(BoolTrue, argon::object::True, true);

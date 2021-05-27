@@ -210,7 +210,7 @@ void tuple_cleanup(Tuple *self) {
     argon::memory::Free(self->objects);
 }
 
-const TypeInfo argon::object::type_tuple_ = {
+const TypeInfo TupleType = {
         TYPEINFO_STATIC_INIT,
         "tuple",
         nullptr,
@@ -235,6 +235,7 @@ const TypeInfo argon::object::type_tuple_ = {
         nullptr,
         nullptr
 };
+const TypeInfo *argon::object::type_tuple_ = &TupleType;
 
 template<typename T>
 Tuple *TupleClone(T *t) {
@@ -253,7 +254,7 @@ Tuple *TupleClone(T *t) {
 }
 
 Tuple *argon::object::TupleNew(ArSize len) {
-    auto tuple = ArObjectNew<Tuple>(RCType::INLINE, &type_tuple_);
+    auto tuple = ArObjectNew<Tuple>(RCType::INLINE, type_tuple_);
 
     if (tuple != nullptr) {
         tuple->objects = nullptr;

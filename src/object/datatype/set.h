@@ -14,7 +14,7 @@ namespace argon::object {
         HMap set;
     };
 
-    extern const TypeInfo type_set_;
+    extern const TypeInfo *type_set_;
 
     Set *SetNew();
 

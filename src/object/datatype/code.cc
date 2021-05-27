@@ -57,7 +57,7 @@ void code_cleanup(Code *self) {
     Free((void *) self->instr);
 }
 
-const TypeInfo argon::object::type_code_ = {
+const TypeInfo CodeType = {
         TYPEINFO_STATIC_INIT,
         "code",
         nullptr,
@@ -82,6 +82,7 @@ const TypeInfo argon::object::type_code_ = {
         nullptr,
         nullptr
 };
+const TypeInfo *argon::object::type_code_ = &CodeType;
 
 Code *argon::object::CodeNew(const unsigned char *instr,
                              unsigned int instr_sz,
@@ -90,7 +91,7 @@ Code *argon::object::CodeNew(const unsigned char *instr,
                              List *names,
                              List *locals,
                              List *enclosed) {
-    auto code = ArObjectNew<Code>(RCType::INLINE, &type_code_);
+    auto code = ArObjectNew<Code>(RCType::INLINE, type_code_);
 
     if (code != nullptr) {
         code->instr = instr;

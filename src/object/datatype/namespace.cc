@@ -77,7 +77,7 @@ void namespace_trace(Namespace *self, VoidUnaryOp trace) {
         trace(cur->value);
 }
 
-const TypeInfo argon::object::type_namespace_ = {
+const TypeInfo NamespaceType = {
         TYPEINFO_STATIC_INIT,
         "namespace",
         nullptr,
@@ -102,9 +102,10 @@ const TypeInfo argon::object::type_namespace_ = {
         nullptr,
         nullptr
 };
+const TypeInfo *argon::object::type_namespace_ = &NamespaceType;
 
 Namespace *argon::object::NamespaceNew() {
-    auto ns = ArObjectGCNew<Namespace>(&type_namespace_);
+    auto ns = ArObjectGCNew<Namespace>(type_namespace_);
 
     if (ns != nullptr) {
         if (!HMapInit(&ns->hmap))

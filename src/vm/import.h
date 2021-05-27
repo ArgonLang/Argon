@@ -25,7 +25,7 @@ namespace argon::vm {
         InitBuiltins initfn;
     };
 
-    extern const argon::object::TypeInfo type_import_spec_;
+    extern const argon::object::TypeInfo *type_import_spec_;
 
     ImportSpec *ImportSpecNew(argon::object::String *name, argon::object::String *path, argon::object::String *origin,
                               argon::object::Function *loader);
@@ -41,7 +41,7 @@ namespace argon::vm {
         argon::object::String *path_sep;
     };
 
-    extern const argon::object::TypeInfo type_import_;
+    extern const argon::object::TypeInfo *type_import_;
 
     Import *ImportNew();
 

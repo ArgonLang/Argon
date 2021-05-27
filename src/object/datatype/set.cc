@@ -43,7 +43,7 @@ const IteratorSlots set_iterop = {
         (VoidUnaryOp) HMapIteratorReset
 };
 
-const TypeInfo type_set_iterator_ = {
+const TypeInfo SetIteratorType = {
         TYPEINFO_STATIC_INIT,
         "set_iterator",
         nullptr,
@@ -452,11 +452,11 @@ ArObject *set_str(Set *self) {
 }
 
 ArObject *set_iter_get(Set *self) {
-    return HMapIteratorNew(&type_set_iterator_, self, &self->set, false);
+    return HMapIteratorNew(&SetIteratorType, self, &self->set, false);
 }
 
 ArObject *set_iter_rget(Set *self) {
-    return HMapIteratorNew(&type_set_iterator_, self, &self->set, true);
+    return HMapIteratorNew(&SetIteratorType, self, &self->set, true);
 }
 
 void set_cleanup(Set *self) {
@@ -468,7 +468,7 @@ void set_trace(Set *self, VoidUnaryOp trace) {
         trace(cur->key);
 }
 
-const TypeInfo argon::object::type_set_ = {
+const TypeInfo SetType = {
         TYPEINFO_STATIC_INIT,
         "set",
         nullptr,
@@ -493,9 +493,10 @@ const TypeInfo argon::object::type_set_ = {
         nullptr,
         nullptr
 };
+const TypeInfo *argon::object::type_set_ = &SetType;
 
 Set *argon::object::SetNew() {
-    auto set = ArObjectGCNew<Set>(&type_set_);
+    auto set = ArObjectGCNew<Set>(type_set_);
 
     if (set != nullptr) {
         if (!HMapInit(&set->set))

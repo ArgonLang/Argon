@@ -75,7 +75,7 @@ namespace argon::object {
         int nspec;
     };
 
-    extern const TypeInfo type_string_;
+    extern const TypeInfo *type_string_;
 
     bool StringBuilderResize(StringBuilder *sb, ArSize len);
 

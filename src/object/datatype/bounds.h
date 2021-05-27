@@ -17,7 +17,7 @@ namespace argon::object {
         Integer *step;
     };
 
-    extern const TypeInfo type_bounds_;
+    extern const TypeInfo *type_bounds_;
 
     Bounds *BoundsNew(ArObject *start, ArObject *stop, ArObject *step);
 

@@ -49,7 +49,7 @@ argon::object::Code *Compiler::Assemble() {
 }
 
 argon::object::Code *Compiler::CompileFunction(const ast::Function *func) {
-    FunctionType fun_flags{};
+    FunctionFlags fun_flags{};
     unsigned short p_count = func->params.size();
     Code *fu_code;
 
@@ -59,7 +59,7 @@ argon::object::Code *Compiler::CompileFunction(const ast::Function *func) {
     if (!func->id.empty()) {
         if (this->unit_->prev->scope == TUScope::STRUCT || this->unit_->prev->scope == TUScope::TRAIT) {
             this->VariableNew("self", false, 0);
-            fun_flags |= FunctionType::METHOD;
+            fun_flags |= FunctionFlags::METHOD;
             p_count++;
         }
     }
@@ -69,7 +69,7 @@ argon::object::Code *Compiler::CompileFunction(const ast::Function *func) {
         auto id = ast::CastNode<ast::Identifier>(param);
         this->VariableNew(id->value, false, 0);
         if (id->rest_element) {
-            fun_flags |= FunctionType::VARIADIC;
+            fun_flags |= FunctionFlags::VARIADIC;
             p_count--;
         }
     }
@@ -102,7 +102,7 @@ argon::object::Code *Compiler::CompileFunction(const ast::Function *func) {
         }
         this->unit_->DecStack(fu_code->enclosed->len);
         this->EmitOp4(OpCodes::MK_LIST, fu_code->enclosed->len);
-        fun_flags |= FunctionType::CLOSURE;
+        fun_flags |= FunctionFlags::CLOSURE;
     }
 
     this->EmitOp4Flags(OpCodes::MK_FUNC, (unsigned char) fun_flags, p_count);

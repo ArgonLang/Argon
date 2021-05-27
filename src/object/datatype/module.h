@@ -12,7 +12,7 @@
 #define MODULE_ATTRIBUTE_PUB_CONST  PropertyInfo(PropertyType::CONST | PropertyType::PUBLIC)
 
 #define MODULE_EXPORT_TYPE_ALIAS(name, type) \
-    {name, {.obj=(ArObject *) &(type)}, false, MODULE_ATTRIBUTE_PUB_CONST}
+    {name, {.obj=(ArObject *) (type)}, false, MODULE_ATTRIBUTE_PUB_CONST}
 
 #define MODULE_EXPORT_FUNCTION(fn_native)  \
     {(fn_native).name, {.func=&(fn_native)}, true, MODULE_ATTRIBUTE_PUB_CONST}
@@ -54,7 +54,7 @@ namespace argon::object {
         ModuleFinalizeFn finalize;
     };
 
-    extern const TypeInfo type_module_;
+    extern const TypeInfo *type_module_;
 
     Module *ModuleNew(String *name, String *doc);
 

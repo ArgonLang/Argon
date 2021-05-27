@@ -95,7 +95,7 @@ ArObject *option_str(Option *self) {
     return StringNewFormat("Option<%s>", self->some == nullptr ? "?" : AR_TYPE_NAME(self->some));
 }
 
-const TypeInfo argon::object::type_option_ = {
+const TypeInfo OptionType = {
         TYPEINFO_STATIC_INIT,
         "option",
         nullptr,
@@ -120,9 +120,10 @@ const TypeInfo argon::object::type_option_ = {
         nullptr,
         nullptr
 };
+const TypeInfo *argon::object::type_option_ = &OptionType;
 
 Option *argon::object::OptionNew(ArObject *obj) {
-    auto *opt = (Option *) ArObjectNew(RCType::INLINE, &type_option_);
+    auto *opt = (Option *) ArObjectNew(RCType::INLINE, type_option_);
 
     if (opt != nullptr)
         opt->some = IncRef(obj);

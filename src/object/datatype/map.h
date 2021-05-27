@@ -18,7 +18,7 @@ namespace argon::object {
         HMap hmap;
     };
 
-    extern const TypeInfo type_map_;
+    extern const TypeInfo *type_map_;
 
     Map *MapNew();
 

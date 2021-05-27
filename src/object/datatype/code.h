@@ -35,7 +35,7 @@ namespace argon::object {
         ArSize hash;
     };
 
-    extern const TypeInfo type_code_;
+    extern const TypeInfo *type_code_;
 
     Code *CodeNew(const unsigned char *instr,
                   unsigned int instr_sz,

@@ -769,7 +769,7 @@ void bytes_cleanup(Bytes *self) {
     BufferViewDetach(&self->view);
 }
 
-const TypeInfo argon::object::type_bytes_ = {
+const TypeInfo BytesType = {
         TYPEINFO_STATIC_INIT,
         "bytes",
         nullptr,
@@ -794,6 +794,7 @@ const TypeInfo argon::object::type_bytes_ = {
         nullptr,
         nullptr
 };
+const TypeInfo *argon::object::type_bytes_ = &BytesType;
 
 ArObject *argon::object::BytesSplit(Bytes *bytes, unsigned char *pattern, ArSize plen, ArSSize maxsplit) {
     Bytes *tmp;
@@ -860,7 +861,7 @@ Bytes *argon::object::BytesNew(ArObject *object) {
 }
 
 Bytes *argon::object::BytesNew(Bytes *stream, ArSize start, ArSize len) {
-    auto bs = ArObjectNew<Bytes>(RCType::INLINE, &type_bytes_);
+    auto bs = ArObjectNew<Bytes>(RCType::INLINE, type_bytes_);
 
     if (bs != nullptr) {
         BufferViewInit(&bs->view, &stream->view, start, len);
@@ -872,7 +873,7 @@ Bytes *argon::object::BytesNew(Bytes *stream, ArSize start, ArSize len) {
 }
 
 Bytes *argon::object::BytesNew(ArSize cap, bool same_len, bool fill_zero, bool frozen) {
-    auto bs = ArObjectNew<Bytes>(RCType::INLINE, &type_bytes_);
+    auto bs = ArObjectNew<Bytes>(RCType::INLINE, type_bytes_);
 
     if (bs != nullptr) {
         if (!BufferViewInit(&bs->view, cap)) {
@@ -903,7 +904,7 @@ Bytes *argon::object::BytesNew(unsigned char *buffer, ArSize len, bool frozen) {
 }
 
 Bytes *argon::object::BytesNewHoldBuffer(unsigned char *buffer, ArSize len, ArSize cap, bool frozen) {
-    auto bs = ArObjectNew<Bytes>(RCType::INLINE, &type_bytes_);
+    auto bs = ArObjectNew<Bytes>(RCType::INLINE, type_bytes_);
 
     if (bs != nullptr) {
         if (!BufferViewHoldBuffer(&bs->view, buffer, len, cap)) {

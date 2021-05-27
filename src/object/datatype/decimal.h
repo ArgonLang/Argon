@@ -20,7 +20,7 @@ namespace argon::object {
         DecimalUnderlying decimal;
     };
 
-    extern const TypeInfo type_decimal_;
+    extern const TypeInfo *type_decimal_;
 
     extern Decimal *NaN;
 

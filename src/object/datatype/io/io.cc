@@ -12,7 +12,9 @@
 #ifdef _ARGON_PLATFORM_WINDOWS
 #include <io.h>
 #else
+
 #include <unistd.h>
+
 #endif
 
 #include <vm/runtime.h>
@@ -482,7 +484,7 @@ ArObject *file_str(File *self) {
     return StringNewFormat("<file fd: %d, mode: %s, buffered: %s>", self->fd, mode, buffered);
 }
 
-const TypeInfo argon::object::io::type_file_ = {
+const TypeInfo FileType = {
         TYPEINFO_STATIC_INIT,
         "file",
         nullptr,
@@ -507,6 +509,7 @@ const TypeInfo argon::object::io::type_file_ = {
         nullptr,
         nullptr
 };
+const TypeInfo *argon::object::io::type_file_ = &FileType;
 
 ArSSize read_os_wrap(File *file, void *buf, ArSize nbytes) {
     ArSSize r = read(file->fd, buf, nbytes);
@@ -695,7 +698,7 @@ File *argon::object::io::FdOpen(int fd, FileMode mode) {
 
     FileBufferMode buf_mode;
 
-    file = ArObjectNew<File>(RCType::INLINE, &type_file_);
+    file = ArObjectNew<File>(RCType::INLINE, type_file_);
 
     if (file != nullptr) {
         file->fd = fd;

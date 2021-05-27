@@ -12,7 +12,7 @@ namespace argon::object {
         ArObject *some;
     };
 
-    extern const TypeInfo type_option_;
+    extern const TypeInfo *type_option_;
 
     Option *OptionNew(ArObject *obj);
 

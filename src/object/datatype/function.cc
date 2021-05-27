@@ -60,7 +60,7 @@ void function_cleanup(Function *fn) {
     Release(fn->gns);
 }
 
-const TypeInfo argon::object::type_function_ = {
+const TypeInfo FunctionType = {
         TYPEINFO_STATIC_INIT,
         "function",
         nullptr,
@@ -85,10 +85,10 @@ const TypeInfo argon::object::type_function_ = {
         nullptr,
         nullptr
 };
-
+const TypeInfo *argon::object::type_function_ = &FunctionType;
 
 Function *CloneFn(const Function *func) {
-    auto fn = ArObjectGCNew<Function>(&type_function_);
+    auto fn = ArObjectGCNew<Function>(type_function_);
 
     if (fn != nullptr) {
         if (!func->IsNative())
@@ -111,8 +111,8 @@ Function *CloneFn(const Function *func) {
 
 Function *
 argon::object::FunctionNew(Namespace *gns, String *name, String *doc, Code *code, List *enclosed, unsigned short arity,
-                           FunctionType flags) {
-    auto fn = ArObjectGCNew<Function>(&type_function_);
+                           FunctionFlags flags) {
+    auto fn = ArObjectGCNew<Function>(type_function_);
 
     if (fn != nullptr) {
         fn->code = IncRef(code);
@@ -130,7 +130,7 @@ argon::object::FunctionNew(Namespace *gns, String *name, String *doc, Code *code
 }
 
 Function *argon::object::FunctionNew(Namespace *gns, TypeInfo *base, const NativeFunc *native, bool method) {
-    FunctionType flags = FunctionType::NATIVE;
+    FunctionFlags flags = FunctionFlags::NATIVE;
     Function *fn;
     String *name;
     String *doc;
@@ -144,10 +144,10 @@ Function *argon::object::FunctionNew(Namespace *gns, TypeInfo *base, const Nativ
     }
 
     if (method)
-        flags |= FunctionType::METHOD;
+        flags |= FunctionFlags::METHOD;
 
     if (native->variadic)
-        flags |= FunctionType::VARIADIC;
+        flags |= FunctionFlags::VARIADIC;
 
     fn = FunctionNew(gns, name, doc, nullptr, nullptr, native->arity, flags);
     Release(name);

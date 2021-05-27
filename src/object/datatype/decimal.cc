@@ -74,7 +74,7 @@ ARGON_FUNCTION5(decimal_, new, "Convert a string or number to decimal numer, if 
         BufferRelease(&buffer);
     } else
         return ErrorFormat(type_not_implemented_, "no viable conversion from '%s' to '%s'",
-                           AR_TYPE_NAME(*argv), type_decimal_.name);
+                           AR_TYPE_NAME(*argv), type_decimal_->name);
 
     return DecimalNew(dec);
 }
@@ -331,7 +331,7 @@ ArObject *decimal_str(Decimal *self) {
     return StringCFormat("%f", self);
 }
 
-const TypeInfo argon::object::type_decimal_ = {
+const TypeInfo DecimalType = {
         TYPEINFO_STATIC_INIT,
         "decimal",
         nullptr,
@@ -356,16 +356,17 @@ const TypeInfo argon::object::type_decimal_ = {
         nullptr,
         nullptr
 };
+const TypeInfo *argon::object::type_decimal_ = &DecimalType;
 
 Decimal *argon::object::DecimalNew(DecimalUnderlying number) {
-    auto decimal = ArObjectNew<Decimal>(RCType::INLINE, &type_decimal_);
+    auto decimal = ArObjectNew<Decimal>(RCType::INLINE, type_decimal_);
     if (decimal != nullptr)
         decimal->decimal = number;
     return decimal;
 }
 
 Decimal *argon::object::DecimalNewFromString(const std::string &string) {
-    auto decimal = ArObjectNew<Decimal>(RCType::INLINE, &type_decimal_);
+    auto decimal = ArObjectNew<Decimal>(RCType::INLINE, type_decimal_);
     ArSize idx;
 
     if (decimal != nullptr)
@@ -476,7 +477,7 @@ unsigned long argon::object::DecimalFrexp10(DecimalUnderlying value, unsigned lo
 }
 
 #define DECIMAL_TYPE(sname, export_name, value)                     \
-Decimal sname {{RefCount(RCType::STATIC), &type_decimal_}, value};  \
+Decimal sname {{RefCount(RCType::STATIC), type_decimal_}, value};  \
 Decimal *export_name = &sname
 
 DECIMAL_TYPE(DecimalNaN, argon::object::NaN, NAN);

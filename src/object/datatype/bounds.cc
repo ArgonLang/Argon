@@ -56,7 +56,7 @@ ArObject *bounds_str(Bounds *self) {
     return StringNewFormat("bounds(%i,%i,%i)", self->start, self->stop, self->step);
 }
 
-const TypeInfo argon::object::type_bounds_ = {
+const TypeInfo BoundsType = {
         TYPEINFO_STATIC_INIT,
         "bounds",
         nullptr,
@@ -81,6 +81,7 @@ const TypeInfo argon::object::type_bounds_ = {
         nullptr,
         nullptr
 };
+const TypeInfo *argon::object::type_bounds_ = &BoundsType;
 
 Bounds *argon::object::BoundsNew(ArObject *start, ArObject *stop, ArObject *step) {
     Bounds *bounds;
@@ -103,7 +104,7 @@ Bounds *argon::object::BoundsNew(ArObject *start, ArObject *stop, ArObject *step
                                           start->type->name);
     }
 
-    if ((bounds = ArObjectNew<Bounds>(RCType::INLINE, &type_bounds_)) != nullptr) {
+    if ((bounds = ArObjectNew<Bounds>(RCType::INLINE, type_bounds_)) != nullptr) {
         bounds->start = (Integer *) IncRef(start);
         bounds->stop = (Integer *) IncRef(stop);
         bounds->step = (Integer *) IncRef(step);

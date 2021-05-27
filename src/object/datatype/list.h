@@ -16,7 +16,7 @@ namespace argon::object {
         ArSize len;
     };
 
-    extern const TypeInfo type_list_;
+    extern const TypeInfo *type_list_;
 
     List *ListNew(ArSize cap);
 

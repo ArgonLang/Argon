@@ -105,7 +105,7 @@ void module_cleanup(Module *self) {
     Release(self->module_ns);
 }
 
-const TypeInfo argon::object::type_module_ = {
+const TypeInfo ModuleType = {
         TYPEINFO_STATIC_INIT,
         "module",
         nullptr,
@@ -130,6 +130,7 @@ const TypeInfo argon::object::type_module_ = {
         nullptr,
         nullptr
 };
+const TypeInfo *argon::object::type_module_ = &ModuleType;
 
 bool InsertID(Module *module, const char *id, ArObject *value) {
     ArObject *key;
@@ -159,7 +160,7 @@ bool InitGlobals(Module *module) {
 }
 
 Module *argon::object::ModuleNew(String *name, String *doc) {
-    auto module = ArObjectGCNew<Module>(&type_module_);
+    auto module = ArObjectGCNew<Module>(type_module_);
 
     if (module != nullptr) {
         module->name = IncRef(name);

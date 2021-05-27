@@ -18,7 +18,7 @@ namespace argon::object {
         bool frozen;
     };
 
-    extern const TypeInfo type_bytes_;
+    extern const TypeInfo *type_bytes_;
 
     Bytes *BytesNew(ArObject *object);
 

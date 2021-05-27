@@ -13,7 +13,7 @@
 #include "string.h"
 
 namespace argon::object {
-    enum class FunctionType : unsigned char {
+    enum class FunctionFlags : unsigned char {
         NATIVE = 1,
         METHOD = 1u << 2,
         CLOSURE = 1u << 3,
@@ -21,7 +21,7 @@ namespace argon::object {
     };
 }
 
-ENUMBITMASK_ENABLE(argon::object::FunctionType);
+ENUMBITMASK_ENABLE(argon::object::FunctionFlags);
 
 namespace argon::object {
     struct Function : ArObject {
@@ -55,31 +55,31 @@ namespace argon::object {
         unsigned short arity;
 
         /* Flags, see: FunctionInfo */
-        FunctionType flags;
+        FunctionFlags flags;
 
         ArSize hash;
 
         [[nodiscard]] bool IsNative() const {
-            return ENUMBITMASK_ISTRUE(this->flags, FunctionType::NATIVE);
+            return ENUMBITMASK_ISTRUE(this->flags, FunctionFlags::NATIVE);
         }
 
         [[nodiscard]] bool IsMethod() const {
-            return ENUMBITMASK_ISTRUE(this->flags, FunctionType::METHOD);
+            return ENUMBITMASK_ISTRUE(this->flags, FunctionFlags::METHOD);
         }
 
         [[nodiscard]] bool IsClosure() const {
-            return ENUMBITMASK_ISTRUE(this->flags, FunctionType::CLOSURE);
+            return ENUMBITMASK_ISTRUE(this->flags, FunctionFlags::CLOSURE);
         }
 
         [[nodiscard]] bool IsVariadic() const {
-            return ENUMBITMASK_ISTRUE(this->flags, FunctionType::VARIADIC);
+            return ENUMBITMASK_ISTRUE(this->flags, FunctionFlags::VARIADIC);
         }
     };
 
-    extern const TypeInfo type_function_;
+    extern const TypeInfo *type_function_;
 
     Function *FunctionNew(Namespace *gns, String *name, String *doc, Code *code,
-                          List *enclosed, unsigned short arity, FunctionType flags);
+                          List *enclosed, unsigned short arity, FunctionFlags flags);
 
     Function *FunctionNew(Namespace *gns, TypeInfo *base, const NativeFunc *native, bool method);
 

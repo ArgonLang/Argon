@@ -70,7 +70,7 @@ namespace argon::object {
         HMap hmap;
     };
 
-    extern const TypeInfo type_namespace_;
+    extern const TypeInfo *type_namespace_;
 
     Namespace *NamespaceNew();
 

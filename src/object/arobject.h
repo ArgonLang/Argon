@@ -249,16 +249,16 @@ ArObject *prefix##name##_fn(const TypeInfo *origin, ArObject *self, ArObject **a
         ArObject *tp_map;
     };
 
-    extern const TypeInfo type_type_;
+    extern const TypeInfo *type_type_;
 
-    extern const TypeInfo type_trait_;
+    extern const TypeInfo *type_trait_;
 
-#define TYPEINFO_STATIC_INIT        {{RefCount(RCType::STATIC)}, &type_type_}
+#define TYPEINFO_STATIC_INIT        {{RefCount(RCType::STATIC)}, type_type_}
 #define AR_GET_TYPE(object)         ((object)->type)
-#define AR_TYPEOF(object, type)     (AR_GET_TYPE(object) == &(type))
+#define AR_TYPEOF(object, type)     (AR_GET_TYPE(object) == (type))
 #define AR_SAME_TYPE(object, other) (AR_GET_TYPE(object) == AR_GET_TYPE(other))
 #define AR_TYPE_NAME(object)        (AR_GET_TYPE(object)->name)
-#define AR_IS_TYPE_INSTANCE(object) (AR_GET_TYPE(object) != &type_type_)
+#define AR_IS_TYPE_INSTANCE(object) (AR_GET_TYPE(object) != type_type_)
 #define AR_ITERATOR_SLOT(object)    (AR_GET_TYPE(object)->iterator_actions)
 #define AR_MAP_SLOT(object)         (AR_GET_TYPE(object)->map_actions)
 #define AR_NUMBER_SLOT(object)      (AR_GET_TYPE(object)->number_actions)

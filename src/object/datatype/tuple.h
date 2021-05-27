@@ -21,7 +21,7 @@ namespace argon::object {
         ArSize len;
     };
 
-    extern const TypeInfo type_tuple_;
+    extern const TypeInfo *type_tuple_;
 
     Tuple *TupleNew(ArSize len);
 

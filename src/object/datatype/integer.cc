@@ -69,7 +69,7 @@ ARGON_FUNCTION5(integer_, new, "Convert a string or number to decimal numer, if 
             BufferRelease(&buffer);
         } else
             return ErrorFormat(type_not_implemented_, "no viable conversion from '%s' to '%s'",
-                               AR_TYPE_NAME(*argv), type_integer_.name);
+                               AR_TYPE_NAME(*argv), type_integer_->name);
     }
 
     return IntegerNew(num);
@@ -221,7 +221,7 @@ ArObject *integer_str(Integer *self) {
     return StringCFormat("%i", self);
 }
 
-const TypeInfo argon::object::type_integer_ = {
+const TypeInfo IntegerType = {
         TYPEINFO_STATIC_INIT,
         "integer",
         nullptr,
@@ -246,6 +246,7 @@ const TypeInfo argon::object::type_integer_ = {
         nullptr,
         nullptr
 };
+const TypeInfo *argon::object::type_integer_ = &IntegerType;
 
 Integer *argon::object::IntegerNew(IntegerUnderlying number) {
     // Overflow check
@@ -257,7 +258,7 @@ Integer *argon::object::IntegerNew(IntegerUnderlying number) {
         return (Integer *) ErrorFormat(type_overflow_error_, "integer too large to be represented by signed C long");
 #endif
 
-    auto integer = ArObjectNew<Integer>(RCType::INLINE, &type_integer_);
+    auto integer = ArObjectNew<Integer>(RCType::INLINE, type_integer_);
 
     if (integer != nullptr)
         integer->integer = number;
@@ -266,7 +267,7 @@ Integer *argon::object::IntegerNew(IntegerUnderlying number) {
 }
 
 Integer *argon::object::IntegerNewFromString(const std::string &string, int base) {
-    auto integer = ArObjectNew<Integer>(RCType::INLINE, &type_integer_);
+    auto integer = ArObjectNew<Integer>(RCType::INLINE, type_integer_);
 
     if (integer != nullptr)
         integer->integer = std::strtol(string.c_str(), nullptr, base);

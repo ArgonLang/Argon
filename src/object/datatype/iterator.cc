@@ -67,7 +67,7 @@ ArObject *argon::object::IteratorCompare(Iterator *iterator, ArObject *other, Co
                         && Equal(iterator->obj, o->obj));
 }
 
-const TypeInfo argon::object::type_iterator_ = {
+const TypeInfo IteratorType = {
         TYPEINFO_STATIC_INIT,
         "iterator",
         nullptr,
@@ -92,6 +92,7 @@ const TypeInfo argon::object::type_iterator_ = {
         nullptr,
         nullptr
 };
+const TypeInfo *argon::object::type_iterator_ = &IteratorType;
 
 Iterator *argon::object::IteratorNew(const TypeInfo *type, ArObject *iterable, bool reversed) {
     Iterator *iter;

@@ -122,7 +122,7 @@ void struct_trace(Struct *self, VoidUnaryOp trace) {
     trace(self->names);
 }
 
-const TypeInfo argon::object::type_struct_ = {
+const TypeInfo StructType = {
         TYPEINFO_STATIC_INIT,
         "struct",
         nullptr,
@@ -147,6 +147,7 @@ const TypeInfo argon::object::type_struct_ = {
         nullptr,
         nullptr
 };
+const TypeInfo *argon::object::type_struct_ = &StructType;
 
 Struct *argon::object::StructNewPositional(TypeInfo *type, ArObject **values, ArSize count) {
     auto *instance = (Struct *) ArObjectGCNew(type);

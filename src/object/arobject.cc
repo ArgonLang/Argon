@@ -106,7 +106,7 @@ void type_cleanup(TypeInfo *self) {
     Release(self->tp_map);
 }
 
-const TypeInfo argon::object::type_type_ = {
+const TypeInfo TypeType = {
         TYPEINFO_STATIC_INIT,
         "datatype",
         nullptr,
@@ -131,8 +131,9 @@ const TypeInfo argon::object::type_type_ = {
         nullptr,
         nullptr
 };
+const TypeInfo *argon::object::type_type_ = &TypeType;
 
-const TypeInfo argon::object::type_trait_ = {
+const TypeInfo TraitType = {
         TYPEINFO_STATIC_INIT,
         "trait",
         nullptr,
@@ -157,6 +158,7 @@ const TypeInfo argon::object::type_trait_ = {
         nullptr,
         nullptr
 };
+const TypeInfo *argon::object::type_trait_ = &TraitType;
 
 List *BuildBasesList(TypeInfo **types, ArSize count) {
     List *tmp = nullptr;
@@ -171,7 +173,7 @@ List *BuildBasesList(TypeInfo **types, ArSize count) {
         cap = 1;
 
         // Sanity check
-        if (AR_GET_TYPE(types[i]) != &type_type_) {
+        if (AR_GET_TYPE(types[i]) != type_type_) {
             // is not a TypeInfo
             goto error;
         }
@@ -441,7 +443,7 @@ ArObject *argon::object::TypeNew(const TypeInfo *meta, const char *name, ArObjec
 
     argon::memory::MemoryCopy(type, meta, sizeof(TypeInfo));
     type->ref_count = RefBits((unsigned char) RCType::GC);
-    type->type = &type_type_;
+    type->type = type_type_;
 
     type->name = (char *) argon::memory::Alloc(name_len);
     argon::memory::MemoryCopy((char *) type->name, name, name_len);
