@@ -20,7 +20,7 @@ ArObject *argon::object::error_out_of_memory = nullptr;
 ArObject *argon::object::error_zero_division = nullptr;
 
 ARGON_METHOD5(error_t_, unwrap, "", 0, false) {
-    return IncRef(NilVal);
+    return ErrorFormat(type_not_implemented_, "you must implement %s::unwrap", AR_TYPE_NAME(self));
 }
 
 const NativeFunc error_t_methods[] = {
@@ -36,9 +36,9 @@ const ObjectSlots error_t_obj = {
         nullptr
 };
 
-const TypeInfo type_error_t_ = {
+const TypeInfo ErrorWrap = {
         TYPEINFO_STATIC_INIT,
-        "Error",
+        "ErrorWrap",
         nullptr,
         0,
         TypeInfoFlags::TRAIT,
@@ -61,6 +61,7 @@ const TypeInfo type_error_t_ = {
         nullptr,
         nullptr
 };
+const TypeInfo *argon::object::type_error_wrap_ = &ErrorWrap;
 
 ARGON_FUNCTION5(error_, new, "", 1, false) {
     return ErrorNew(origin, *argv);
@@ -311,6 +312,7 @@ bool argon::object::ErrorInit() {
         return false;
     }
 
+    INIT(argon::object::type_error_wrap_);
     INIT(argon::object::type_access_violation_);
     INIT(argon::object::type_attribute_error_);
     INIT(argon::object::type_buffer_error_);

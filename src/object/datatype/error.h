@@ -30,6 +30,8 @@ namespace argon::object {
 
     extern const ArObject *error_types;
 
+    extern const TypeInfo *type_error_wrap_;
+
     // Runtime errors
     extern const TypeInfo *type_access_violation_;
     extern const TypeInfo *type_attribute_error_;
