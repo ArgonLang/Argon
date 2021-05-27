@@ -145,7 +145,7 @@ bool CheckRecursionLimit(ArRoutine *routine) {
     ArSize nflag = ~(0x01 << flags);
 
     // Ignore if it is a suspended frame (e.g. for function call)
-    if(routine->frame->instr_ptr != routine->frame->code->instr)
+    if (routine->frame->instr_ptr != routine->frame->code->instr)
         return true;
 
     if (routine->recursion_depth >> flags == 0x01) {
@@ -1134,6 +1134,7 @@ ArObject *argon::vm::Eval(ArRoutine *routine) {
             goto begin;
         }
 
+        FrameDel(cu_frame);
         cu_frame = routine->frame;  // set cu_frame before execute another defer
         RoutinePopDefer(routine);
     }
