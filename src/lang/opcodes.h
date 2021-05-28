@@ -48,6 +48,7 @@ namespace argon::lang {
         DIV,
         DUP,    // Duplicate elements on stack
         IDIV,
+        IMPALL,
         IMPFRM,
         IMPMOD,
         INC,

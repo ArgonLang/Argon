@@ -1015,23 +1015,25 @@ void Compiler::CompileImportFrom(const ast::Import *import) {
     this->EmitOp4(OpCodes::IMPMOD, idx);
     this->unit_->IncStack();
 
+    if (!import->all) {
+        for (auto &name : import->names) {
+            auto alias = ast::CastNode<ast::Alias>(name);
+            std::string *name_to_store;
 
-    for (auto &name : import->names) {
-        auto alias = ast::CastNode<ast::Alias>(name);
-        std::string *name_to_store;
+            name_to_store = &(ast::CastNode<ast::ImportName>(alias->value)->name);
 
-        name_to_store = &(ast::CastNode<ast::ImportName>(alias->value)->name);
+            idx = this->PushStatic(*name_to_store, true, false);
+            this->unit_->IncStack();
 
-        idx = this->PushStatic(*name_to_store, true, false);
-        this->unit_->IncStack();
+            this->EmitOp4(OpCodes::IMPFRM, idx);
 
-        this->EmitOp4(OpCodes::IMPFRM, idx);
+            if (alias->name != nullptr)
+                name_to_store = &(ast::CastNode<ast::Identifier>(alias->name)->value);
 
-        if (alias->name != nullptr)
-            name_to_store = &(ast::CastNode<ast::Identifier>(alias->name)->value);
-
-        this->VariableNew(*name_to_store, true, AttrToFlags(false, true, false, false));
-    }
+            this->VariableNew(*name_to_store, true, AttrToFlags(false, true, false, false));
+        }
+    } else
+        this->EmitOp(OpCodes::IMPALL);
 
     this->EmitOp(OpCodes::POP);
     this->unit_->DecStack();

@@ -526,6 +526,14 @@ ArObject *argon::vm::Eval(ArRoutine *routine) {
             TARGET_OP(IDIV) {
                 BINARY_OP(routine, idiv, '//');
             }
+            TARGET_OP(IMPALL) {
+                auto *mod = (Module *) TOP();
+
+                if (!NamespaceMergePublic(cu_frame->globals, mod->module_ns))
+                    goto error;
+
+                DISPATCH();
+            }
             TARGET_OP(IMPFRM) {
                 auto attribute = (String *) TupleGetItem(cu_code->statics, ARG32);
 

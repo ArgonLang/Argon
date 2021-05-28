@@ -80,6 +80,8 @@ namespace argon::object {
 
     bool NamespaceMerge(Namespace *dst, Namespace *src);
 
+    bool NamespaceMergePublic(Namespace *dst, Namespace *src);
+
     bool NamespaceNewSymbol(Namespace *ns, ArObject *key, ArObject *value, PropertyInfo info);
 
     bool NamespaceNewSymbol(Namespace *ns, const char *key, ArObject *value, PropertyInfo info);

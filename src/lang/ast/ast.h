@@ -310,11 +310,15 @@ namespace argon::lang::ast {
     struct Import : Node {
         NodeUptr module;
         std::list <NodeUptr> names;
+        bool all;
 
-        explicit Import(scanner::Pos start) : Node(NodeType::IMPORT, start, 0) {}
+        explicit Import(scanner::Pos start) : Node(NodeType::IMPORT, start, 0) {
+            this->all = false;
+        }
 
         explicit Import(NodeUptr module, scanner::Pos start) : Node(NodeType::IMPORT_FROM, start, 0) {
             this->module = std::move(module);
+            this->all = false;
         }
 
         void AddName(NodeUptr name) {

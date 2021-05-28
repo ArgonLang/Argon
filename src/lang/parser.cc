@@ -496,9 +496,13 @@ ast::NodeUptr Parser::FromImportStmt() {
 
     this->Eat(TokenType::IMPORT, "expected import keyword");
 
+    if (this->MatchEat(TokenType::ASTERISK, false)) {
+        import->all = true;
+        return import;
+    }
+
     import->AddName(this->ScopeAsName(true, true));
-    while (this->Match(TokenType::COMMA)) {
-        this->Eat();
+    while (this->MatchEat(TokenType::COMMA, false)) {
         import->AddName(this->ScopeAsName(true, true));
     }
 
