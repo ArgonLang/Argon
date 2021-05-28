@@ -7,6 +7,7 @@
 #include <lang/compiler.h>
 
 #include <module/builtins.h>
+#include <module/error.h>
 #include <module/iomodule.h>
 #include <module/math.h>
 #include <module/runtime.h>
@@ -358,7 +359,8 @@ ARGON_FUNCTION5(import_, builtins_locator,
                 "   - name: module name/path."
                 "   - package: nil."
                 "- Returns: ImportSpec instance if module was found, otherwise nil.", 3, false) {
-    static Builtins builtins[] = {{"builtins", argon::module::BuiltinsNew},
+    static Builtins builtins[] = {{"_error", argon::module::ErrorNew},
+                                  {"builtins", argon::module::BuiltinsNew},
                                   {"io",       argon::module::io::IONew},
                                   {"math",     argon::module::MathNew},
                                   {"runtime",  argon::module::RuntimeNew}};

@@ -1,0 +1,63 @@
+/*
+ * This source file is part of the Argon project.
+ *
+ * Licensed under the Apache License v2.0
+*/
+
+/*
+    The ErrorWrap trait is natively implemented,
+    its implementation in Argon is similar to the following:
+
+    trait ErrorWrap {
+        pub func unwrap {
+            panic(NotImplemented::new("you must implement unwrap"))
+        }
+    }
+*/
+
+from _error import *
+
+pub struct Except {
+    pub var try = nil
+    pub var catch = nil
+    pub var finally = nil
+
+    pub func do {
+        if self.finally != nil {
+            defer self.finally()
+        }
+
+        if self.catch != nil {
+            defer () => {
+                var err = recover()
+                if err != nil {
+                    self.catch(err)
+                }
+            }()
+        }
+
+        self.try()
+    }
+}
+
+pub func is(obj, err) {
+    var tmp = obj
+
+    loop isimpl(tmp, ErrorWrap) {
+        if type(tmp) == err {
+            return tmp
+        }
+
+        tmp = tmp.unwrap()
+    }
+
+    return nil
+}
+
+pub func unwrap(err) {
+    if !isimpl(err, ErrorWrap) {
+        return nil
+    }
+
+    return err.unwrap()
+}

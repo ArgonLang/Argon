@@ -358,14 +358,5 @@ const ModuleInit module_builtins = {
 };
 
 Module *argon::module::BuiltinsNew() {
-    Module *module = ModuleNew(&module_builtins);
-
-    if (module != nullptr) {
-        if (!NamespaceMerge(module->module_ns, (Namespace *) error_types)) {
-            Release(module);
-            return nullptr;
-        }
-    }
-
-    return module;
+    return ModuleNew(&module_builtins);
 }
