@@ -14,7 +14,7 @@
 #include <object/datatype/integer.h>
 #include <object/datatype/decimal.h>
 
-#include "math.h"
+#include "modules.h"
 
 using namespace argon::object;
 
@@ -490,10 +490,7 @@ const ModuleInit module_math = {
         math_init,
         nullptr
 };
-
-Module *argon::module::MathNew() {
-    return ModuleNew(&module_math);
-}
+const argon::object::ModuleInit *argon::module::module_math_ = &module_math;
 
 #undef CHECK_INTEGER
 #undef CHECK_NUMBER

@@ -5,7 +5,7 @@
 #include <object/datatype/io/io.h>
 #include <utils/macros.h>
 
-#include "runtime.h"
+#include "modules.h"
 
 using namespace argon::object;
 using namespace argon::module;
@@ -84,7 +84,4 @@ const ModuleInit module_runtime = {
         runtime_init,
         nullptr
 };
-
-Module *argon::module::RuntimeNew() {
-    return ModuleNew(&module_runtime);
-}
+const ModuleInit *argon::module::module_runtime_ = &module_runtime;

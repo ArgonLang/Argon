@@ -4,7 +4,7 @@
 
 #include <object/datatype/error.h>
 
-#include "error.h"
+#include "modules.h"
 
 using namespace argon::object;
 using namespace argon::module;
@@ -21,7 +21,4 @@ const ModuleInit module_error = {
         error_init,
         nullptr
 };
-
-Module *argon::module::ErrorNew() {
-    return ModuleNew(&module_error);
-}
+const argon::object::ModuleInit *argon::module::module_error_ = &module_error;

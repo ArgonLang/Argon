@@ -6,11 +6,7 @@
 
 #include <lang/compiler.h>
 
-#include <module/builtins.h>
-#include <module/error.h>
-#include <module/iomodule.h>
-#include <module/math.h>
-#include <module/runtime.h>
+#include <module/modules.h>
 
 #include <object/datatype/bool.h>
 #include <object/datatype/error.h>
@@ -101,7 +97,7 @@ ImportSpec *argon::vm::ImportSpecNew(String *name, String *path, String *origin,
         spec->path = IncRef(path);
         spec->origin = IncRef(origin);
         spec->loader = IncRef(loader);
-        spec->initfn = nullptr;
+        spec->init = nullptr;
     }
 
     return spec;
@@ -199,15 +195,15 @@ ARGON_FUNCTION5(import_, builtins_loader,
     if (!AR_TYPEOF(spec, type_import_spec_))
         return ErrorFormat(type_type_error_, "expected ImportSpec as second arg, found '%s'", AR_TYPE_NAME(spec));
 
-    module = spec->initfn();
+    if ((module = ModuleNew(spec->init)) != nullptr) {
+        if (!ModuleAddProperty(module, "__spec", spec, MODULE_ATTRIBUTE_PUB_CONST)) {
+            Release(module);
+            return nullptr;
+        }
 
-    if (!ModuleAddProperty(module, "__spec", spec, MODULE_ATTRIBUTE_PUB_CONST)) {
-        Release(module);
-        return nullptr;
+        if (!MapInsert(import->modules, spec->name, module))
+            Release((ArObject **) &module);
     }
-
-    if (!MapInsert(import->modules, spec->name, module))
-        Release((ArObject **) &module);
 
     return module;
 }
@@ -322,12 +318,6 @@ ARGON_FUNCTION5(import_, source_loader,
 
 // LOCATORS
 
-struct Builtins {
-    const char *name;
-
-    InitBuiltins init;
-};
-
 Function *FindFuncFromNative(List *functions, NativeFunc *native) {
     ArObject *iter;
     Function *tmp;
@@ -359,11 +349,12 @@ ARGON_FUNCTION5(import_, builtins_locator,
                 "   - name: module name/path."
                 "   - package: nil."
                 "- Returns: ImportSpec instance if module was found, otherwise nil.", 3, false) {
-    static Builtins builtins[] = {{"_error", argon::module::ErrorNew},
-                                  {"builtins", argon::module::BuiltinsNew},
-                                  {"io",       argon::module::io::IONew},
-                                  {"math",     argon::module::MathNew},
-                                  {"runtime",  argon::module::RuntimeNew}};
+    static const ModuleInit *builtins[] = {argon::module::module_builtins_,
+                                           argon::module::module_error_,
+                                           argon::module::module_io_,
+                                           argon::module::module_math_,
+                                           argon::module::module_runtime_};
+
     ImportSpec *spec = nullptr;
     Import *import;
     Function *loader;
@@ -380,7 +371,7 @@ ARGON_FUNCTION5(import_, builtins_locator,
     name = (String *) argv[1];
 
     for (auto &builtin : builtins) {
-        if (StringEq(name, (unsigned char *) builtin.name, strlen(builtin.name))) {
+        if (StringEq(name, (unsigned char *) builtin->name, strlen(builtin->name))) {
             if ((loader = FindFuncFromNative(import->loaders, &import_builtins_loader_)) == nullptr)
                 return nullptr;
 
@@ -390,7 +381,7 @@ ARGON_FUNCTION5(import_, builtins_locator,
             if (spec == nullptr)
                 return nullptr;
 
-            spec->initfn = builtin.init;
+            spec->init = builtin;
             break;
         }
     }

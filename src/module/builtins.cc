@@ -24,7 +24,7 @@
 #include <object/datatype/string.h>
 #include <object/datatype/tuple.h>
 
-#include "builtins.h"
+#include "modules.h"
 
 using namespace argon::object;
 using namespace argon::module;
@@ -354,9 +354,8 @@ const PropertyBulk builtins_bulk[] = {
 const ModuleInit module_builtins = {
         "builtins",
         "Built-in functions and other things",
-        builtins_bulk
+        builtins_bulk,
+        nullptr,
+        nullptr
 };
-
-Module *argon::module::BuiltinsNew() {
-    return ModuleNew(&module_builtins);
-}
+const ModuleInit *argon::module::module_builtins_ = &module_builtins;

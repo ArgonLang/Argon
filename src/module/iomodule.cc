@@ -7,7 +7,7 @@
 #include <object/datatype/function.h>
 #include <object/arobject.h>
 
-#include "iomodule.h"
+#include "modules.h"
 
 using namespace argon::object;
 using namespace io;
@@ -112,7 +112,4 @@ const ModuleInit module_io = {
         IOInit,
         IOFinalize
 };
-
-argon::object::Module *argon::module::io::IONew() {
-    return ModuleNew(&module_io);
-}
+const argon::object::ModuleInit *argon::module::module_io_ = &module_io;

@@ -13,8 +13,6 @@
 #include <object/datatype/tuple.h>
 
 namespace argon::vm {
-    using InitBuiltins = argon::object::Module *(*)();
-
     struct ImportSpec : public argon::object::ArObject {
         argon::object::String *name;
         argon::object::String *path;
@@ -22,7 +20,7 @@ namespace argon::vm {
 
         argon::object::Function *loader;
 
-        InitBuiltins initfn;
+        const argon::object::ModuleInit *init;
     };
 
     extern const argon::object::TypeInfo *type_import_spec_;
