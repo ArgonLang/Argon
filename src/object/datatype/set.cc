@@ -69,6 +69,16 @@ const TypeInfo SetIteratorType = {
         nullptr
 };
 
+ArSize set_len(Set *self) {
+    return self->set.len;
+}
+
+const MapSlots set_mslots{
+        (SizeTUnaryOp) set_len,
+        nullptr,
+        nullptr
+};
+
 ArObject *set_sub(ArObject *left, ArObject *right) {
     // difference
     auto *l = (Set *) left;
@@ -486,7 +496,7 @@ const TypeInfo SetType = {
         (UnaryOp) set_iter_rget,
         nullptr,
         nullptr,
-        nullptr,
+        &set_mslots,
         nullptr,
         &set_obj,
         nullptr,
