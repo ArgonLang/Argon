@@ -75,7 +75,14 @@ ARGON_FUNCTION5(integer_, new, "Convert a string or number to decimal numer, if 
     return IntegerNew(num);
 }
 
+ARGON_METHOD5(integer_, bits, "Return number of bits necessary to represent an integer in binary."
+                              ""
+                              "- Returns: number of bits(integer).", 0, false) {
+    return IntegerNew(IntegerCountBits(((Integer*)self)));
+}
+
 const NativeFunc integer_methods[] = {
+        integer_bits_,
         integer_new_,
         ARGON_METHOD_SENTINEL
 };
