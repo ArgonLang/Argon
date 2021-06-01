@@ -29,6 +29,44 @@
 using namespace argon::object;
 using namespace argon::module;
 
+ARGON_FUNCTION(bind,
+               "Return a partial-applied function(currying)."
+               ""
+               "Calling bind(func, args...) is equivalent to the following expression:"
+               "func(args...) "
+               "IF AND ONLY IF the number of arguments is less than the arity of the function,"
+               "otherwise the expression invokes the function call. "
+               "This does not happen with the use of bind which allows to bind a number of arguments"
+               "equal to the arity of the function."
+               ""
+               "- Parameters:"
+               "    - func: callable object(function)."
+               "    - ...obj: list of arguments to bind."
+               "- Returns: partial-applied function.",
+               1, true) {
+    auto *func = (Function *) argv[0];
+    Function *fnew;
+    List *currying;
+
+    if (!AR_TYPEOF(func, type_function_))
+        return ErrorFormat(type_type_error_, "bind expect a function as its first argument, not '%s'",
+                           AR_TYPE_NAME(func));
+
+    if (count - 1 > 0) {
+        if ((currying = ListNew(count - 1)) == nullptr)
+            return nullptr;
+
+        for (ArSize i = 1; i < count; i++)
+            ListAppend(currying, argv[i]);
+
+        fnew = FunctionNew(func, currying);
+        Release(currying);
+        return fnew;
+    }
+
+    return IncRef(func);
+}
+
 ARGON_FUNCTION(callable,
                "Return true if argument appears callable, false otherwise."
                ""
@@ -332,6 +370,7 @@ const PropertyBulk builtins_bulk[] = {
         MODULE_EXPORT_TYPE_ALIAS("tuple", type_tuple_),
 
         // Functions
+        MODULE_EXPORT_FUNCTION(bind_),
         MODULE_EXPORT_FUNCTION(callable_),
         MODULE_EXPORT_FUNCTION(input_),
         MODULE_EXPORT_FUNCTION(isinstance_),
