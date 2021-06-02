@@ -591,33 +591,57 @@ List *argon::object::ListNew(ArSize cap) {
     return list;
 }
 
-List *argon::object::ListNew(const ArObject *sequence) {
+List *argon::object::ListNew(const ArObject *object) {
+    ArObject *iter;
+    ArObject *tmp;
     List *list;
-    ArObject *ret;
+
     ArSize idx = 0;
 
-    if (AsSequence(sequence)) {
+    if (AsSequence(object)) {
         // FAST PATH
-        if (AR_TYPEOF(sequence, type_list_))
-            return ListClone((List *) sequence);
-        else if (AR_TYPEOF(sequence, type_tuple_))
-            return ListClone((Tuple *) sequence);
+        if (AR_TYPEOF(object, type_list_))
+            return ListClone((List *) object);
+        else if (AR_TYPEOF(object, type_tuple_))
+            return ListClone((Tuple *) object);
 
-        // Generic sequence
-        if ((list = ListNew((ArSize) AR_SEQUENCE_SLOT(sequence)->length((ArObject *) sequence))) == nullptr)
+        // Generic object
+        if ((list = ListNew((ArSize) AR_SEQUENCE_SLOT(object)->length((ArObject *) object))) == nullptr)
             return nullptr;
 
         while (idx < list->cap) {
-            ret = AR_SEQUENCE_SLOT(sequence)->get_item((ArObject *) sequence, idx++);
-            ListAppend(list, ret);
-            Release(ret);
+            tmp = AR_SEQUENCE_SLOT(object)->get_item((ArObject *) object, idx++);
+            ListAppend(list, tmp);
+            Release(tmp);
         }
 
+        return list;
+    } else if (IsIterable(object)) {
+        if ((iter = IteratorGet(object)) == nullptr)
+            return nullptr;
+
+        if ((list = ListNew()) == nullptr) {
+            Release(iter);
+            return nullptr;
+        }
+
+        while ((tmp = IteratorNext(iter)) != nullptr) {
+            if (!ListAppend(list, tmp)) {
+                Release(list);
+                Release(iter);
+                Release(tmp);
+                return nullptr;
+            }
+
+            Release(tmp);
+        }
+
+        Release(iter);
         return list;
     }
 
     return (List *) ErrorFormat(type_not_implemented_, "no viable conversion from '%s' to list",
-                                AR_TYPE_NAME(sequence));
+                                AR_TYPE_NAME(object));
 }
 
 bool argon::object::ListAppend(List *list, ArObject *obj) {

@@ -20,7 +20,7 @@ namespace argon::object {
 
     List *ListNew(ArSize cap);
 
-    List *ListNew(const ArObject *sequence);
+    List *ListNew(const ArObject *object);
 
     inline List *ListNew() { return ListNew(ARGON_OBJECT_LIST_INITIAL_CAP); }
 

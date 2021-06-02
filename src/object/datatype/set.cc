@@ -244,6 +244,14 @@ ARGON_METHOD5(set_, clear,
     return IncRef(self);
 }
 
+ARGON_METHOD5(set_, contains,
+              "Check if this set contains the specified element."
+              ""
+              "- Parameter obj: object whose presence in this set is to be tested."
+              "- Returns: true if the element is present, otherwise false.", 1, false) {
+    return BoolToArBool(SetContains((Set *) self, argv[0]));
+}
+
 ARGON_METHOD5(set_, diff,
               "Removes the items in this set that are also included in another set(s)"
               ""
@@ -386,6 +394,7 @@ const NativeFunc set_methods[] = {
         set_new_,
         set_add_,
         set_clear_,
+        set_contains_,
         set_diff_,
         set_discard_,
         set_intersect_,
@@ -570,6 +579,10 @@ bool argon::object::SetAdd(Set *set, ArObject *value) {
     }
 
     return true;
+}
+
+bool argon::object::SetContains(Set *set, ArObject *value) {
+    return HMapLookup(&set->set, value) != nullptr;
 }
 
 void argon::object::SetClear(Set *set) {

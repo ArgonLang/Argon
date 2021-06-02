@@ -22,6 +22,8 @@ namespace argon::object {
 
     bool SetAdd(Set *set, ArObject *value);
 
+    bool SetContains(Set *set, ArObject *value);
+
     void SetClear(Set *set);
 
 } // namespace argon::object
