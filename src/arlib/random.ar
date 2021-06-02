@@ -1,0 +1,196 @@
+/*
+ * This source file is part of the Argon project.
+ *
+ * Licensed under the Apache License v2.0
+*/
+
+import error
+
+from _random import *
+
+/*
+    The Random trait is natively implemented,
+    its implementation in Argon is similar to the following:
+
+    pub trait Random {
+        pub func discard(n) {}
+
+        pub func random() {
+            panic(NotImplemented::new("you must implement Random::random"))
+        }
+
+        pub func randbits(bits) {
+            panic(NotImplemented::new("you must implement Random::randbits"))
+        }
+
+        pub func seed(seed) {}
+    }
+*/
+
+pub func _randbelow(engine, num) {
+    var bits
+    var rd
+
+    if !isimpl(engine, Random) {
+        panic(error::TypeError::new("invalid engine for _randbelow"))
+    }
+
+    if num == 0 {
+        return 0
+    }
+
+    bits = num.bits()
+    rd = engine.randbits(bits)
+
+    loop rd >= num {
+        rd = engine.randbits(bits)
+    }
+
+    return rd
+}
+
+pub func _randrange(engine, start, stop, step) {
+    var istart
+    var istop
+    var istep
+
+    if !isimpl(engine, Random) {
+        panic(error::TypeError::new("invalid engine for _randrange"))
+    }
+
+    istart = integer::new(start)
+    if start != istart {
+        panic(error::ValueError::new("non-integer start for _randrange"))
+    }
+
+    istop = integer::new(stop)
+    if stop != istop {
+        panic(error::ValueError::new("non-integer stop for _randrange"))
+    }
+
+    istep = integer::new(step)
+    if step != istep {
+        panic(error::ValueError::new("non-integer step for _randrange"))
+    }
+
+    var width = istop - istart
+
+    if step == 1 {
+        if width > 0 {
+            return istart + _randbelow(engine, width)
+        }
+
+        panic(error::ValueError::new("empty range for _randrange (%d, %d, %d)" % (istart, istop, width)))
+    }
+
+    var n
+    switch {
+        case istep > 0:
+            n = (width + istep - 1) // istep
+        case istep < 0:
+            n = (width + istep + 1) // istep
+        default:
+            panic(error::ValueError::new("zero step for _randrange"))
+    }
+
+    if n <= 0 {
+        panic(error::ValueError::new("empty range for _randrange"))
+    }
+
+    return istart + istep * _randbelow(engine, n)
+}
+
+# -------------------- bytes ----------------------
+
+pub func _randbytes(engine, length) {
+    if !isimpl(engine, Random) {
+        panic(error::TypeError::new("invalid engine for _randbytes"))
+    }
+
+    var bts = bytes::new(length)
+
+    for var i = 0; i < length; i++ {
+        bts[i] = engine.randbits(8)
+    }
+
+    return bts
+}
+
+# -------------------- sequence -------------------
+
+pub func _randlist(engine, start, stop, step, length) {
+    if !isimpl(engine, Random) {
+        panic(error::TypeError::new("invalid engine for _randlist"))
+    }
+
+    var ls = [0] * length
+
+    for var i = 0; i < length; i++ {
+        ls[i] = _randrange(engine, start, stop, step)
+    }
+
+    return ls
+}
+
+pub func _randchoice(engine, seq) {
+    if !isimpl(engine, Random) {
+        panic(error::TypeError::new("invalid engine for _randchoice"))
+    }
+
+    return seq[_randbelow(engine, len(seq))]
+}
+
+pub func _randsample(engine, population, k) {
+    var ik = integer::new(k)
+    var plen = len(population)
+
+    if !isimpl(engine, Random) {
+        panic(error::TypeError::new("invalid engine for _randsample"))
+    }
+
+    if k < 0 {
+        panic(error::ValueError::new("k is negative"))
+    }
+
+    if ik != k {
+        panic(error::ValueError::new("non-integer k for _randsample"))
+    }
+
+    if ik > len(population) {
+        panic(error::ValueError::new("sample larger than population"))
+    }
+
+    var sample = [nil] * ik
+    var table = set::new()
+    var index
+
+    for var i = 0; i < ik; i++ {
+        index = _randbelow(engine, plen)
+        loop table.contains(index) {
+            index = _randbelow(engine, plen)
+        }
+        table.add(index)
+        sample[i] = population[index]
+    }
+
+    return sample
+}
+
+# ---------------- module - defaults --------------
+
+let engine = RdEngine::new()
+
+pub let choice = _randchoice(engine)
+
+pub let discard = bind(RdEngine::discard, engine)
+pub let random = bind(RdEngine::random, engine)
+
+pub let randint = (a, b) => {
+    return _randrange(engine, a, b+1, 1)
+}
+
+pub let randbits = bind(RdEngine::randbits, engine)
+pub let randbytes = _randbytes(engine)
+pub let randlist = _randlist(engine)
+pub let sample = _randsample(engine)
+pub let seed = bind(RdEngine::seed, engine)
