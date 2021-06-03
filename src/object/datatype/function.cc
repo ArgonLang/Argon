@@ -163,11 +163,26 @@ Function *argon::object::FunctionNew(Namespace *gns, TypeInfo *base, const Nativ
 
 Function *argon::object::FunctionNew(const Function *func, List *currying) {
     auto fn = CloneFn(func);
+    List *merged;
 
-    if (fn != nullptr) {
-        Release(fn->currying);
+    if (fn == nullptr)
+        return nullptr;
+    
+    if (fn->currying == nullptr) {
         fn->currying = IncRef(currying);
+        return fn;
     }
+
+    if ((merged = ListNew(fn->currying->len + currying->len)) == nullptr) {
+        Release(fn);
+        return nullptr;
+    }
+
+    ListConcat(merged, fn->currying);
+    ListConcat(merged, currying);
+
+    Release(fn->currying);
+    fn->currying = merged;
 
     return fn;
 }
