@@ -1,6 +1,6 @@
+// This source file is part of the Argon project.
 //
-// Created by Jacopo De Luca on 30/05/21.
-//
+// Licensed under the Apache License v2.0
 
 #ifndef ARGON_MODULE_MODULES_H_
 #define ARGON_MODULE_MODULES_H_
@@ -12,6 +12,7 @@ namespace argon::module {
     extern const argon::object::ModuleInit *module_error_;
     extern const argon::object::ModuleInit *module_io_;
     extern const argon::object::ModuleInit *module_math_;
+    extern const argon::object::ModuleInit *module_os_;
     extern const argon::object::ModuleInit *module_random_;
     extern const argon::object::ModuleInit *module_runtime_;
 } // namespace argon::module

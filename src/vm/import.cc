@@ -353,6 +353,7 @@ ARGON_FUNCTION5(import_, builtins_locator,
                                            argon::module::module_error_,
                                            argon::module::module_io_,
                                            argon::module::module_math_,
+                                           argon::module::module_os_,
                                            argon::module::module_random_,
                                            argon::module::module_runtime_};
 
