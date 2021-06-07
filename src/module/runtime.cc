@@ -3,12 +3,16 @@
 // Licensed under the Apache License v2.0
 
 #include <object/datatype/io/io.h>
+#include <object/datatype/tuple.h>
+#include <vm/config.h>
+
 #include <utils/macros.h>
 
 #include "modules.h"
 
 using namespace argon::object;
 using namespace argon::module;
+using namespace argon::vm;
 
 bool InitFDs(io::File **in, io::File **out, io::File **err) {
     if ((*in = io::FdOpen(STDIN_FILENO, io::FileMode::READ)) == nullptr)
@@ -34,12 +38,31 @@ bool GetOS(String **name) {
     return *name != nullptr;
 }
 
+Tuple *ParseCMDArgs(int argc, char **argv) {
+    Tuple *args;
+    String *tmp;
+
+    if ((args = TupleNew(argc)) != nullptr) {
+        for (int i = 0; i < argc; i++) {
+            if ((tmp = StringNew(argv[i])) == nullptr) {
+                Release(args);
+                return nullptr;
+            }
+            TupleInsertAt(args, i, tmp);
+            Release(tmp);
+        }
+    }
+
+    return args;
+}
+
 bool runtime_init(Module *module) {
 #define ADD_PROPERTY(name, object, pinfo)               \
     if(!ModuleAddProperty(module, name, object, pinfo)) \
         goto error
 
     String *os_name = nullptr;
+    Tuple *argv = nullptr;
 
     io::File *in = nullptr;
     io::File *out = nullptr;
@@ -49,7 +72,10 @@ bool runtime_init(Module *module) {
 
     // Init IO
     if (!InitFDs(&in, &out, &err))
-        return false;
+        goto error;
+
+    if((argv = ParseCMDArgs(global_cfg->argc, global_cfg->argv)) == nullptr)
+        goto error;
 
     ADD_PROPERTY("__stdin", in, MODULE_ATTRIBUTE_PUB_CONST);
     ADD_PROPERTY("__stdout", out, MODULE_ATTRIBUTE_PUB_CONST);
@@ -58,6 +84,8 @@ bool runtime_init(Module *module) {
     ADD_PROPERTY("stdin", in, PropertyInfo(PropertyType::PUBLIC));
     ADD_PROPERTY("stdout", out, PropertyInfo(PropertyType::PUBLIC));
     ADD_PROPERTY("stderr", err, PropertyInfo(PropertyType::PUBLIC));
+
+    ADD_PROPERTY("argv", argv, MODULE_ATTRIBUTE_PUB_CONST);
 
     if (!GetOS(&os_name))
         goto error;
@@ -71,6 +99,7 @@ bool runtime_init(Module *module) {
     Release(out);
     Release(err);
     Release(os_name);
+    Release(argv);
     return ok;
 
 #undef ADD_PROPERTY

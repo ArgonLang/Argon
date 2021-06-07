@@ -13,24 +13,6 @@
 using namespace argon::object;
 using namespace argon::vm;
 
-ArObject *ParseCMDArgs(int argc, char **argv) {
-    Tuple *args;
-    String *tmp;
-
-    if ((args = TupleNew(argc)) != nullptr) {
-        for (int i = 0; i < argc; i++) {
-            if ((tmp = StringNew(argv[i])) == nullptr) {
-                Release(args);
-                return nullptr;
-            }
-            TupleInsertAt(args, i, tmp);
-            Release(tmp);
-        }
-    }
-
-    return args;
-}
-
 int argon::vm::Main(int argc, char **argv) {
     ArObject *args;
 

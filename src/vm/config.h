@@ -1,0 +1,21 @@
+// This source file is part of the Argon project.
+//
+// Licensed under the Apache License v2.0
+
+#ifndef ARGON_VM_CONFIG_H_
+#define ARGON_VM_CONFIG_H_
+
+namespace argon::vm {
+    struct Config {
+        char **argv;
+        int argc;
+
+        int cmd;
+    };
+
+    extern const Config *global_cfg;
+
+    int ConfigInit(int argc, char **argv);
+}
+
+#endif // !ARGON_VM_CONFIG_H_
