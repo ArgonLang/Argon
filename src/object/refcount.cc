@@ -126,8 +126,16 @@ bool RefCount::DecWeak() {
 }
 
 bool RefCount::IsGcObject() {
+    return this->bits_.load(std::memory_order_relaxed).IsGcObject();
+}
+
+bool RefCount::HaveSideTable() {
     RefBits current = this->bits_.load(std::memory_order_relaxed);
-    return current.IsGcObject();
+    return !current.IsStatic() && !current.IsInlineCounter();
+}
+
+bool RefCount::IsStatic() {
+    return this->bits_.load(std::memory_order_relaxed).IsStatic();
 }
 
 uintptr_t RefCount::GetStrongCount() {
@@ -142,7 +150,7 @@ uintptr_t RefCount::GetStrongCount() {
 uintptr_t RefCount::GetWeakCount() {
     RefBits current = this->bits_.load(std::memory_order_consume);
 
-    if (!current.IsInlineCounter())
+    if (!current.IsStatic() && !current.IsInlineCounter())
         return current.GetSideTable()->weak;
 
     return 0;

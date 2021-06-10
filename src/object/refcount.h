@@ -119,7 +119,11 @@ namespace argon::object {
 
         bool DecWeak();
 
+        bool HaveSideTable();
+
         bool IsGcObject();
+
+        bool IsStatic();
 
         uintptr_t GetStrongCount();
 
