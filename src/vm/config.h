@@ -5,6 +5,8 @@
 #ifndef ARGON_VM_CONFIG_H_
 #define ARGON_VM_CONFIG_H_
 
+#include <utils/macros.h>
+
 namespace argon::vm {
     struct Config {
         char **argv;
@@ -13,7 +15,7 @@ namespace argon::vm {
         int cmd;
     };
 
-    extern const Config *global_cfg;
+    extern const _ARGONAPI Config *global_cfg;
 
     int ConfigInit(int argc, char **argv);
 }

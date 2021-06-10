@@ -25,17 +25,22 @@
 #if defined(WIN32) || defined(_WIN32) || defined(__WIN32__) || defined(__NT__)
 #define _ARGON_PLATFORM_WINDOWS
 #define _ARGON_PLATFORM_NAME "windows"
+#define _ARGONAPI __declspec(dllimport)
 #elif defined(__APPLE__)
 #define _ARGON_PLATFORM_DARWIN
 #define _ARGON_PLATFORM_NAME "darwin"
+#define _ARGONAPI
 #elif defined(__linux__)
 #define _ARGON_PLATFORM_LINUX
 #define _ARGON_PLATFORM_NAME "linux"
+#define _ARGONAPI
 #elif defined(__unix__)
 #define _ARGON_PLATFORM_UNIX
 #define _ARGON_PLATFORM_NAME "unix"
+#define _ARGONAPI
 #else
 #define _ARGON_PLATFORM_NAME "unknown"
+#define _ARGONAPI
 #endif
 
 #endif // !ARGON_UTILS_MACROS_H_
