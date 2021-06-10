@@ -10,6 +10,7 @@
 namespace argon::module {
     extern const argon::object::ModuleInit *module_builtins_;
     extern const argon::object::ModuleInit *module_error_;
+    extern const argon::object::ModuleInit *module_gc_;
     extern const argon::object::ModuleInit *module_io_;
     extern const argon::object::ModuleInit *module_math_;
     extern const argon::object::ModuleInit *module_os_;

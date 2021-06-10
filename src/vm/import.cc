@@ -351,6 +351,7 @@ ARGON_FUNCTION5(import_, builtins_locator,
                 "- Returns: ImportSpec instance if module was found, otherwise nil.", 3, false) {
     static const ModuleInit *builtins[] = {argon::module::module_builtins_,
                                            argon::module::module_error_,
+                                           argon::module::module_gc_,
                                            argon::module::module_io_,
                                            argon::module::module_math_,
                                            argon::module::module_os_,
