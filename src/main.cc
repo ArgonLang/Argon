@@ -31,7 +31,7 @@ int main(int argc, char **argv) {
     if (global_cfg->cmd != -1)
         ret = argon::vm::EvalString(argv[global_cfg->cmd]);
     else
-        ret = argon::vm::EvalFile(argv[1]);
+        ret = argon::vm::EvalFile(global_cfg->argv[0]);
 
     err = 0;
     if (!IsNull(ret)) {
