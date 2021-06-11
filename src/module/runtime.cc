@@ -29,6 +29,9 @@ bool InitFDs(io::File **in, io::File **out, io::File **err) {
         return false;
     }
 
+    if(global_cfg->unbuffered)
+        io::SetBuffer(*out, nullptr, 0, io::FileBufferMode::NONE);
+
     io::SetBuffer(*err, nullptr, 0, io::FileBufferMode::NONE);
     return true;
 }

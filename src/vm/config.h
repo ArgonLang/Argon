@@ -12,6 +12,7 @@ namespace argon::vm {
         char **argv;
         int argc;
 
+        bool unbuffered;
         int cmd;
     };
 

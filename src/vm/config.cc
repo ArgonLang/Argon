@@ -5,6 +5,8 @@
 #include <cstring>
 #include <cstdio>
 
+#include "version.h"
+
 #include "config.h"
 
 using namespace argon::vm;
@@ -16,8 +18,10 @@ static const char usage_line[] =
 
 static const char usage[] =
         "\nOptions and arguments:\n"
-        "-c cmd     : program string\n"
-        "-h, --help : print this help message and exit\n";
+        "-c cmd         : program string\n"
+        "-h, --help     : print this help message and exit\n"
+        "-u             : force the stdout stream to be unbuffered\n"
+        "-v, --version  : print Argon version and exit\n";
 
 // ---------------------------------------------------------------------------------------------
 
@@ -95,6 +99,7 @@ int ReadOp(ReadOpStatus *status, const char *opts, ReadOpLong *lopt, int llopt, 
 Config config = {
         nullptr,
         0,
+        false,
         -1
 };
 const Config *argon::vm::global_cfg = &config;
@@ -109,20 +114,29 @@ void ParseEnvs() {
 }
 
 int argon::vm::ConfigInit(int argc, char **argv) {
-    ReadOpLong lopt[] = {{(char *) "help", false, 'h'}};
+    ReadOpLong lopt[] = {
+            {(char *) "help",    false, 'h'},
+            {(char *) "version", false, 'v'}
+    };
     ReadOpStatus status = {};
     int ret = 0;
 
     status.argv = argv + 1;
     status.argc = argc - 1;
 
-    while (ret != -1 && (ret = ReadOp(&status, "c!h", lopt, sizeof(lopt), '-')) != -1) {
+    while (ret != -1 && (ret = ReadOp(&status, "c!huv", lopt, sizeof(lopt), '-')) != -1) {
         switch (ret) {
             case 'c':
                 config.cmd = status.argc_cur;
                 break;
             case 'h':
                 Help(*argv);
+                return 0;
+            case 'u':
+                config.unbuffered = true;
+                break;
+            case 'v':
+                printf("Argon %d.%d.%d(%s)\n", AR_MAJOR, AR_MINOR, AR_PATCH, AR_RELEASE_LEVEL);
                 return 0;
             case ISLOPT:
                 break;
