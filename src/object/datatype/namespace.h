@@ -36,6 +36,10 @@ namespace argon::object {
             return *this;
         }
 
+        explicit operator PropertyType() {
+            return this->flags_;
+        }
+
         [[nodiscard]] PropertyType operator&(PropertyType type) {
             return this->flags_ & type;
         }
@@ -77,11 +81,13 @@ namespace argon::object {
 
     bool NamespaceMergePublic(Namespace *dst, Namespace *src);
 
-    bool NamespaceNewSymbol(Namespace *ns, ArObject *key, ArObject *value, PropertyInfo info);
+    bool NamespaceNewSymbol(Namespace *ns, ArObject *key, ArObject *value, PropertyType info);
 
-    bool NamespaceNewSymbol(Namespace *ns, const char *key, ArObject *value, PropertyInfo info);
+    bool NamespaceNewSymbol(Namespace *ns, const char *key, ArObject *value, PropertyType info);
 
     bool NamespaceSetValue(Namespace *ns, ArObject *key, ArObject *value);
+
+    bool NamespaceSetValue(Namespace *ns, const char *key, ArObject *value);
 
     bool NamespaceContains(Namespace *ns, ArObject *key, PropertyInfo *info);
 

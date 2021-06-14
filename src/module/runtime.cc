@@ -84,9 +84,9 @@ bool runtime_init(Module *module) {
     ADD_PROPERTY("__stdout", out, MODULE_ATTRIBUTE_PUB_CONST);
     ADD_PROPERTY("__stderr", err, MODULE_ATTRIBUTE_PUB_CONST);
 
-    ADD_PROPERTY("stdin", in, PropertyInfo(PropertyType::PUBLIC));
-    ADD_PROPERTY("stdout", out, PropertyInfo(PropertyType::PUBLIC));
-    ADD_PROPERTY("stderr", err, PropertyInfo(PropertyType::PUBLIC));
+    ADD_PROPERTY("stdin", in, PropertyType::PUBLIC);
+    ADD_PROPERTY("stdout", out, PropertyType::PUBLIC);
+    ADD_PROPERTY("stderr", err, PropertyType::PUBLIC);
 
     ADD_PROPERTY("argv", argv, MODULE_ATTRIBUTE_PUB_CONST);
 

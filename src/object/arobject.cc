@@ -635,7 +635,7 @@ bool argon::object::TypeInit(TypeInfo *info, ArObject *ns) {
             if ((fn = FunctionNew(nullptr, info, method, method->method)) == nullptr)
                 goto error;
 
-            if (!NamespaceNewSymbol((Namespace *) info->tp_map, fn->name, fn, PropertyInfo(meth_flags)))
+            if (!NamespaceNewSymbol((Namespace *) info->tp_map, fn->name, fn, meth_flags))
                 goto error;
 
             Release(fn);

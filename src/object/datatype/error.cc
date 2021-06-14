@@ -311,11 +311,11 @@ ArObject *argon::object::ErrorFormat(const TypeInfo *etype, const char *format, 
 }
 
 bool argon::object::ErrorInit() {
-#define INIT(ERR_TYPE)                                                          \
-    if(!TypeInit((TypeInfo*) (ERR_TYPE), nullptr))                              \
-        return false;                                                           \
-    if(!NamespaceNewSymbol((Namespace*)error_types, (ERR_TYPE)->name, (ArObject*) (ERR_TYPE),    \
-        PropertyInfo(PropertyType::CONST | PropertyType::PUBLIC)))              \
+#define INIT(ERR_TYPE)                                                                          \
+    if(!TypeInit((TypeInfo*) (ERR_TYPE), nullptr))                                              \
+        return false;                                                                           \
+    if(!NamespaceNewSymbol((Namespace*)error_types, (ERR_TYPE)->name, (ArObject*) (ERR_TYPE),   \
+        PropertyType::CONST | PropertyType::PUBLIC))                                            \
         return false
 
     String *msg;

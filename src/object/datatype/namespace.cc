@@ -123,7 +123,7 @@ Namespace *argon::object::NamespaceNew(Namespace *ns, PropertyType ignore) {
 
     for (auto *cur = (NsEntry *) ns->hmap.iter_begin; cur != nullptr; cur = (NsEntry *) cur->iter_next) {
         if ((int) ignore == 0 || (int) (cur->info & ignore) == 0) {
-            if (!NamespaceNewSymbol(space, cur->key, cur->value, cur->info)) {
+            if (!NamespaceNewSymbol(space, cur->key, cur->value, (PropertyType)cur->info)) {
                 Release(space);
                 return nullptr;
             }
@@ -152,7 +152,7 @@ ArObject *argon::object::NamespaceGetValue(Namespace *ns, ArObject *key, Propert
 
 bool argon::object::NamespaceMerge(Namespace *dst, Namespace *src) {
     for (auto *cur = (NsEntry *) src->hmap.iter_begin; cur != nullptr; cur = (NsEntry *) cur->iter_next) {
-        if (!NamespaceNewSymbol(dst, cur->key, cur->value, cur->info))
+        if (!NamespaceNewSymbol(dst, cur->key, cur->value, (PropertyType)cur->info))
             return false;
     }
 
@@ -162,7 +162,7 @@ bool argon::object::NamespaceMerge(Namespace *dst, Namespace *src) {
 bool argon::object::NamespaceMergePublic(Namespace *dst, Namespace *src) {
     for (auto *cur = (NsEntry *) src->hmap.iter_begin; cur != nullptr; cur = (NsEntry *) cur->iter_next) {
         if((cur->info & PropertyType::PUBLIC) == PropertyType::PUBLIC) {
-            if (!NamespaceNewSymbol(dst, cur->key, cur->value, cur->info))
+            if (!NamespaceNewSymbol(dst, cur->key, cur->value, (PropertyType)cur->info))
                 return false;
         }
     }
@@ -170,7 +170,7 @@ bool argon::object::NamespaceMergePublic(Namespace *dst, Namespace *src) {
     return true;
 }
 
-bool argon::object::NamespaceNewSymbol(Namespace *ns, ArObject *key, ArObject *value, PropertyInfo info) {
+bool argon::object::NamespaceNewSymbol(Namespace *ns, ArObject *key, ArObject *value, PropertyType info) {
     NsEntry *entry;
 
     if (!IsHashable(key))
@@ -205,7 +205,7 @@ bool argon::object::NamespaceNewSymbol(Namespace *ns, ArObject *key, ArObject *v
     return true;
 }
 
-bool argon::object::NamespaceNewSymbol(Namespace *ns, const char *key, ArObject *value, PropertyInfo info) {
+bool argon::object::NamespaceNewSymbol(Namespace *ns, const char *key, ArObject *value, PropertyType info) {
     auto *entry = (NsEntry *) HMapLookup(&ns->hmap, key);
     String *skey;
 
@@ -247,6 +247,17 @@ bool argon::object::NamespaceSetValue(Namespace *ns, ArObject *key, ArObject *va
 
     if (!IsHashable(key))
         return false;
+
+    if ((entry = (NsEntry *) HMapLookup(&ns->hmap, key)) != nullptr) {
+        SetValueToEntry(entry, value);
+        return true;
+    }
+
+    return false;
+}
+
+bool argon::object::NamespaceSetValue(Namespace *ns, const char *key, ArObject *value) {
+    NsEntry *entry;
 
     if ((entry = (NsEntry *) HMapLookup(&ns->hmap, key)) != nullptr) {
         SetValueToEntry(entry, value);

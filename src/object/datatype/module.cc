@@ -138,7 +138,7 @@ bool InsertID(Module *module, const char *id, ArObject *value) {
     bool ok = false;
 
     if ((key = StringIntern(id)) != nullptr) {
-        ok = NamespaceNewSymbol(module->module_ns, key, value, PropertyInfo(PropertyType::CONST));
+        ok = NamespaceNewSymbol(module->module_ns, key, value, PropertyType::CONST);
         Release(key);
     }
 
