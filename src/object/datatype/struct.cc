@@ -154,7 +154,7 @@ Struct *argon::object::StructNewPositional(TypeInfo *type, ArObject **values, Ar
     auto *instance = (Struct *) ArObjectGCNew(type);
 
     if (instance != nullptr) {
-        instance->names = NamespaceNew((Namespace *) type->tp_map, PropertyType::CONST | PropertyType::STATIC);
+        instance->names = NamespaceNew((Namespace *) type->tp_map, PropertyType::CONST);
         if (instance->names == nullptr) {
             Release(instance);
             return nullptr;
@@ -174,7 +174,7 @@ Struct *argon::object::StructNewKeyPair(TypeInfo *type, ArObject **values, ArSiz
     auto *instance = (Struct *) ArObjectGCNew(type);
 
     if (instance != nullptr) {
-        instance->names = NamespaceNew((Namespace *) type->tp_map, PropertyType::CONST | PropertyType::STATIC);
+        instance->names = NamespaceNew((Namespace *) type->tp_map, PropertyType::CONST);
         if (instance->names == nullptr) {
             Release(instance);
             return nullptr;
