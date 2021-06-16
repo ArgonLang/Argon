@@ -13,6 +13,7 @@
 #else
 
 #include <unistd.h>
+#include <sys/stat.h>
 
 #endif
 
@@ -128,6 +129,55 @@ ARGON_FUNCTION(getpid, "Returns the process ID (PID) of the calling process."
     return IntegerNew(getpid());
 }
 
+ARGON_FUNCTION(mkdir, "Creates a new directory with the specified name and permission bits."
+                      ""
+                      "- Parameters:"
+                      "     - name: directory name."
+                      "     - mode: permission bits(integer)."
+                      "- Returns: nil on success, error object otherwise.", 2, false) {
+    const char *name;
+    int error;
+
+    if (!AR_TYPEOF(argv[1], type_integer_))
+        return ErrorFormat(type_type_error_, "mkdir expected integer as mode, not '%s'", AR_TYPE_NAME(argv[1]));
+
+    GET_CSTR(argv[0], name, mkdir, name);
+
+#ifdef _ARGON_PLATFORM_WINDOWS
+    // TODO: set mode
+    error = _mkdir(name);
+#else
+    error = mkdir(name, ((Integer *) argv[1])->integer);
+#endif
+
+    if (error < 0)
+        return ErrorNewFromErrno();
+
+    return IncRef(NilVal);
+}
+
+ARGON_FUNCTION(rmdir, "Remove (delete) the directory path."
+                      ""
+                      "- Parameter name: directory name."
+                      "- Returns: nil on success, error object otherwise.", 1, false) {
+    const char *name;
+    int error;
+
+    GET_CSTR(argv[0], name, mkdir, name);
+
+#ifdef _ARGON_PLATFORM_WINDOWS
+    error = _rmdir(name);
+#else
+    error = rmdir(name);
+#endif
+
+    if (error < 0)
+        return ErrorNewFromErrno();
+
+    return IncRef(NilVal);
+}
+
+
 ARGON_FUNCTION(setenv, "Add or change the environment variable value."
                        ""
                        "setenv adds the variable name to the environment with the value value, if name does not already exist."
@@ -175,8 +225,24 @@ ARGON_FUNCTION(unsetenv, "Delete the environment variable named key."
     return BoolToArBool(success == 0);
 }
 
-
 #undef GET_CSTR
+
+bool os_init(Module *self) {
+    bool ok = false;
+    String *sep;
+
+#ifdef _ARGON_PLATFORM_WINDOWS
+    sep = StringIntern("\\");
+#else
+    sep = StringIntern("/");
+#endif
+
+    if (sep != nullptr)
+        ok = ModuleAddProperty(self, "pathsep", sep, MODULE_ATTRIBUTE_PUB_CONST);
+
+    Release(sep);
+    return ok;
+}
 
 const PropertyBulk os_bulk[] = {
         MODULE_EXPORT_FUNCTION(chdir_),
@@ -184,6 +250,8 @@ const PropertyBulk os_bulk[] = {
         MODULE_EXPORT_FUNCTION(getenv_),
         MODULE_EXPORT_FUNCTION(getlogin_),
         MODULE_EXPORT_FUNCTION(getpid_),
+        MODULE_EXPORT_FUNCTION(mkdir_),
+        MODULE_EXPORT_FUNCTION(rmdir_),
         MODULE_EXPORT_FUNCTION(setenv_),
         MODULE_EXPORT_FUNCTION(unsetenv_),
         MODULE_EXPORT_SENTINEL
@@ -193,7 +261,7 @@ const ModuleInit module_os = {
         "os",
         "The module os provides a platform-independent interface to operating system functionality.",
         os_bulk,
-        nullptr,
+        os_init,
         nullptr
 };
 const ModuleInit *argon::module::module_os_ = &module_os;
