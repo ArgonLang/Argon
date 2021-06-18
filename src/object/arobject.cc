@@ -490,7 +490,8 @@ ArObject *argon::object::TypeNew(const TypeInfo *meta, const char *name, ArObjec
 
 ArObject *argon::object::TypeNew(const TypeInfo *meta, ArObject *name, ArObject *ns, TypeInfo **bases, ArSize count) {
     if (!AR_TYPEOF(name, type_string_))
-        return nullptr;
+        return ErrorFormat(type_type_error_, "TypeNew expected string as name, not '%s'",
+                           AR_TYPE_NAME(name));
 
     return TypeNew(meta, (const char *) ((String *) name)->buffer, ns, bases, count);
 }
