@@ -256,7 +256,7 @@ ARGON_METHOD5(file_, readall, "Read and return all the bytes from the stream unt
     *args = IntegerNew(-1);
 
     if (*args != nullptr) {
-        ret = ARGON_CALL_FUNC5(file_, read, origin, self, args, 1);
+        ret = ARGON_CALL_FUNC5(file_, read, func, self, args, 1);
         Release(*args);
     }
 

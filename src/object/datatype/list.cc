@@ -342,7 +342,7 @@ ARGON_METHOD5(list_, insert,
     idx = idx = AR_NUMBER_SLOT(argv[0])->as_index(argv[0]);
 
     if (idx > list->len)
-        return ARGON_CALL_FUNC5(list_, append, origin, list, argv + 1, 1);
+        return ARGON_CALL_FUNC5(list_, append, func, list, argv + 1, 1);
 
     if (!ListSetItem(list, argv[1], idx))
         return nullptr;

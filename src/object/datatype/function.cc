@@ -187,7 +187,7 @@ Function *argon::object::FunctionNew(const Function *func, List *currying) {
     return fn;
 }
 
-ArObject *argon::object::FunctionCallNative(const Function *func, ArObject **args, ArSize count) {
+ArObject *argon::object::FunctionCallNative(Function *func, ArObject **args, ArSize count) {
     ArObject *instance = nullptr;
     List *arguments = nullptr;
     ArObject *ret;
@@ -223,7 +223,7 @@ ArObject *argon::object::FunctionCallNative(const Function *func, ArObject **arg
         }
     }
 
-    ret = func->native_fn(func->base, instance, args, count);
+    ret = func->native_fn(func, instance, args, count);
     Release(arguments);
 
     return ret;

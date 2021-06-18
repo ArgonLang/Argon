@@ -44,7 +44,7 @@ ARGON_FUNCTION(bind,
                "    - ...obj: list of arguments to bind."
                "- Returns: partial-applied function.",
                1, true) {
-    auto *func = (Function *) argv[0];
+    auto *base = (Function *) argv[0];
     Function *fnew;
     List *currying;
 
@@ -59,7 +59,7 @@ ARGON_FUNCTION(bind,
         for (ArSize i = 1; i < count; i++)
             ListAppend(currying, argv[i]);
 
-        fnew = FunctionNew(func, currying);
+        fnew = FunctionNew(base, currying);
         Release(currying);
         return fnew;
     }
@@ -334,7 +334,7 @@ ARGON_FUNCTION(println,
                "# SEE"
                "- print.",
                0, true) {
-    ArObject *success = ARGON_CALL_FUNC(print, origin, self, argv, count);
+    ArObject *success = ARGON_CALL_FUNC(print, func, self, argv, count);
 
     if (success != nullptr) {
         auto out = (io::File *) argon::vm::ContextRuntimeGetProperty("stdout", io::type_file_);

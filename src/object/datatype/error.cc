@@ -66,7 +66,7 @@ const TypeInfo ErrorWrap = {
 const TypeInfo *argon::object::type_error_wrap_ = &ErrorWrap;
 
 ARGON_FUNCTION5(error_, new, "", 1, false) {
-    return ErrorNew(origin, *argv);
+    return ErrorNew(((Function *) func)->base, *argv);
 }
 
 ARGON_METHOD5(error_, unwrap, "", 0, false) {
