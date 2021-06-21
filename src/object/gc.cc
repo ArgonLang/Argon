@@ -204,6 +204,7 @@ void argon::object::Sweep() {
         tmp = cursor;
         cursor = cursor->next;
         tmp->GetObject<ArObject>()->ref_count.DecStrong();
+        Release((TypeInfo *) tmp->GetObject<ArObject>()->type);
         Free(tmp);
     }
 }

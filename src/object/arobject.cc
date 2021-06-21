@@ -338,7 +338,7 @@ ArObject *argon::object::ArObjectGCNew(const TypeInfo *type) {
 
     if (obj != nullptr) {
         obj->ref_count = RefBits((unsigned char) RCType::GC);
-        obj->type = type;
+        obj->type = IncRef((TypeInfo *) type);
     } else argon::vm::Panic(error_out_of_memory);
 
     return obj;
@@ -349,7 +349,7 @@ ArObject *argon::object::ArObjectNew(RCType rc, const TypeInfo *type) {
 
     if (obj != nullptr) {
         obj->ref_count = RefBits((unsigned char) rc);
-        obj->type = type;
+        obj->type = IncRef((TypeInfo *) type);
     } else argon::vm::Panic(error_out_of_memory);
 
     return obj;
@@ -463,14 +463,14 @@ ArObject *argon::object::TypeNew(const TypeInfo *meta, const char *name, ArObjec
         return ErrorFormat(type_type_error_, "TypeNew expected Namespace at third parameter, not '%s'",
                            AR_TYPE_NAME(ns));
 
-    if ((type = (TypeInfo *) GCNew(sizeof(TypeInfo))) == nullptr) {
+    if ((type = (TypeInfo *) memory::Alloc(sizeof(TypeInfo))) == nullptr) {
         argon::vm::Panic(error_out_of_memory);
         return nullptr;
     }
 
     argon::memory::MemoryCopy(type, meta, sizeof(TypeInfo));
-    type->ref_count = RefBits((unsigned char) RCType::GC);
-    type->type = type_type_;
+    type->ref_count = RefBits((unsigned char) RCType::INLINE);
+    type->type = IncRef((TypeInfo *) type_type_);
 
     type->name = (char *) argon::memory::Alloc(name_len);
     argon::memory::MemoryCopy((char *) type->name, name, name_len);
@@ -713,6 +713,8 @@ void argon::object::Release(ArObject *obj) {
     if (obj->ref_count.DecStrong()) {
         if (obj->type->cleanup != nullptr)
             obj->type->cleanup(obj);
+
+        Release((ArObject *) obj->type);
 
         if (obj->ref_count.IsGcObject()) {
             UnTrack(obj);
