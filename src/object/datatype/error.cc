@@ -35,7 +35,8 @@ const ObjectSlots error_t_obj = {
         nullptr,
         nullptr,
         nullptr,
-        nullptr
+        nullptr,
+        -1
 };
 
 const TypeInfo ErrorWrap = {
@@ -90,7 +91,8 @@ const ObjectSlots error_obj = {
         nullptr,
         nullptr,
         nullptr,
-        nullptr
+        nullptr,
+        -1
 };
 
 ArObject *error_compare(Error *self, ArObject *other, CompareMode mode) {

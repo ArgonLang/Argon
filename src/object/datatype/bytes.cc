@@ -570,7 +570,8 @@ const ObjectSlots bytes_obj = {
         nullptr,
         nullptr,
         nullptr,
-        nullptr
+        nullptr,
+        -1
 };
 
 ArObject *bytes_add(Bytes *self, ArObject *other) {

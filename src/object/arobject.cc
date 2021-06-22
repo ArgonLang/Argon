@@ -70,7 +70,8 @@ const ObjectSlots type_obj = {
         nullptr,
         (BinaryOp) type_get_static_attr,
         nullptr,
-        nullptr
+        nullptr,
+        -1
 };
 
 bool type_is_true(ArObject *self) {

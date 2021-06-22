@@ -427,7 +427,8 @@ const ObjectSlots file_obj = {
         nullptr,
         nullptr,
         nullptr,
-        nullptr
+        nullptr,
+        -1
 };
 
 bool file_istrue(File *self) {

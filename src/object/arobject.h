@@ -137,6 +137,8 @@ ArObject *prefix##name##_fn(ArObject *func, ArObject *self, ArObject **argv, ArS
         BinaryOp get_static_attr;
         BoolTernOp set_attr;
         BoolTernOp set_static_attr;
+
+        int nsoffset;
     };
 
     struct OpSlots {

@@ -90,7 +90,8 @@ const ObjectSlots struct_actions{
         (BinaryOp) struct_get_attr,
         (BinaryOp) struct_get_static_attr,
         (BoolTernOp) struct_set_attr,
-        nullptr
+        nullptr,
+        -1
 };
 
 ArObject *struct_str(Struct *self) {

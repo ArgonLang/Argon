@@ -66,7 +66,8 @@ const ObjectSlots option_obj = {
         nullptr,
         nullptr,
         nullptr,
-        nullptr
+        nullptr,
+        -1
 };
 
 void option_cleanup(Option *self) {
