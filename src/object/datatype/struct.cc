@@ -53,6 +53,7 @@ NativeWrapper *argon::object::NativeWrapperNew(const NativeMember *member) {
 
 ArObject *struct_get_attr(Struct *self, ArObject *key) {
     PropertyInfo pinfo{};
+    Namespace **ns = (Namespace **) AR_GET_NSOFF(self);
 
     const TypeInfo *ancestor = AR_GET_TYPE(self);
     const TypeInfo *type;
@@ -60,7 +61,7 @@ ArObject *struct_get_attr(Struct *self, ArObject *key) {
     ArObject *instance = nullptr;
     ArObject *obj;
 
-    obj = NamespaceGetValue(self->names, key, &pinfo);
+    obj = NamespaceGetValue(*ns, key, &pinfo);
 
     if (argon::vm::GetRoutine()->frame != nullptr)
         instance = argon::vm::GetRoutine()->frame->instance;
@@ -104,12 +105,13 @@ ArObject *struct_get_static_attr(Struct *self, ArObject *key) {
 
 bool struct_set_attr(Struct *self, ArObject *key, ArObject *value) {
     PropertyInfo pinfo{};
+    Namespace **ns = (Namespace **) AR_GET_NSOFF(self);
     ArObject *instance = nullptr;
 
     if (argon::vm::GetRoutine()->frame != nullptr)
         instance = argon::vm::GetRoutine()->frame->instance;
 
-    if (!NamespaceContains(self->names, key, &pinfo)) {
+    if (!NamespaceContains(*ns, key, &pinfo)) {
         ErrorFormat(type_attribute_error_, "unknown attribute '%s' of instance '%s'", ((String *) key)->buffer,
                     AR_TYPE_NAME(self));
         return false;
@@ -121,7 +123,7 @@ bool struct_set_attr(Struct *self, ArObject *key, ArObject *value) {
         return false;
     }
 
-    return NamespaceSetValue(self->names, key, value);
+    return NamespaceSetValue(*ns, key, value);
 }
 
 const ObjectSlots struct_actions{
@@ -132,7 +134,7 @@ const ObjectSlots struct_actions{
         (BinaryOp) struct_get_static_attr,
         (BoolTernOp) struct_set_attr,
         nullptr,
-        -1
+        offsetof(Struct, names)
 };
 
 ArObject *struct_str(Struct *self) {
@@ -193,44 +195,62 @@ const TypeInfo StructType = {
 const TypeInfo *argon::object::type_struct_ = &StructType;
 
 Struct *argon::object::StructNewPositional(TypeInfo *type, ArObject **values, ArSize count) {
-    auto *instance = (Struct *) ArObjectGCNew(type);
+    auto *instance = ArObjectGCNew(type);
+    Namespace **ns;
 
-    if (instance != nullptr) {
-        instance->names = NamespaceNew((Namespace *) type->tp_map, PropertyType::CONST);
-        if (instance->names == nullptr) {
-            Release(instance);
-            return nullptr;
-        }
+    if (instance == nullptr)
+        return nullptr;
 
-        if (NamespaceSetPositional(instance->names, values, count) >= 1) {
-            Release(instance);
-            return (Struct *) ErrorFormat(type_undeclared_error_, "too many args to initialize struct '%s'",
-                                          type->name);
-        }
+    if (type->obj_actions->nsoffset == -1) {
+        // fill real struct!
+        return (Struct *) instance;
     }
 
-    return instance;
+    // Initialize new namespace
+    ns = (Namespace **) AR_GET_NSOFF(instance);
+
+    if ((*ns = NamespaceNew((Namespace *) type->tp_map, PropertyType::CONST)) == nullptr) {
+        Release(instance);
+        return nullptr;
+    }
+
+    if (NamespaceSetPositional(*ns, values, count) >= 1) {
+        Release(instance);
+        return (Struct *) ErrorFormat(type_undeclared_error_, "too many args to initialize struct '%s'",
+                                      type->name);
+    }
+
+    return (Struct *) instance;
 }
 
 Struct *argon::object::StructNewKeyPair(TypeInfo *type, ArObject **values, ArSize count) {
-    auto *instance = (Struct *) ArObjectGCNew(type);
+    auto *instance = ArObjectGCNew(type);
+    Namespace **ns;
 
-    if (instance != nullptr) {
-        instance->names = NamespaceNew((Namespace *) type->tp_map, PropertyType::CONST);
-        if (instance->names == nullptr) {
+    if (instance == nullptr)
+        return nullptr;
+
+    if (type->obj_actions->nsoffset == -1) {
+        // fill real struct!
+        return (Struct *) instance;
+    }
+
+    // Initialize new namespace
+    ns = (Namespace **) AR_GET_NSOFF(instance);
+
+    if ((*ns = NamespaceNew((Namespace *) type->tp_map, PropertyType::CONST)) == nullptr) {
+        Release(instance);
+        return nullptr;
+    }
+
+    for (ArSize i = 0; i < count; i += 2) {
+        if (!NamespaceSetValue(*ns, values[i], values[i + 1])) {
             Release(instance);
-            return nullptr;
-        }
-
-        for (ArSize i = 0; i < count; i += 2) {
-            if (!NamespaceSetValue(instance->names, values[i], values[i + 1])) {
-                Release(instance);
-                return (Struct *) ErrorFormat(type_undeclared_error_, "struct '%s' have no property named '%s'",
-                                              type->name, ((String *) values[i])->buffer);
-            }
+            return (Struct *) ErrorFormat(type_undeclared_error_, "struct '%s' have no property named '%s'",
+                                          type->name, ((String *) values[i])->buffer);
         }
     }
 
-    return instance;
+    return (Struct *) instance;
 }
 
