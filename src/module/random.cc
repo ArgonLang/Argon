@@ -172,6 +172,7 @@ const TypeInfo *rdengine_bases[] = {
 
 const ObjectSlots rdengine_obj = {
         rdengine_methods,
+        nullptr,
         rdengine_bases,
         nullptr,
         nullptr,

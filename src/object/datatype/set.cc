@@ -410,6 +410,7 @@ const ObjectSlots set_obj = {
         nullptr,
         nullptr,
         nullptr,
+        nullptr,
         -1
 };
 

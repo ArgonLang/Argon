@@ -11,6 +11,46 @@
 using namespace argon::object;
 using namespace argon::memory;
 
+const TypeInfo NativeWrapperType = {
+        TYPEINFO_STATIC_INIT,
+        "NativeWrapper",
+        nullptr,
+        sizeof(NativeWrapper),
+        TypeInfoFlags::STRUCT,
+        nullptr,
+        nullptr,
+        nullptr,
+        nullptr,
+        nullptr,
+        nullptr,
+        nullptr,
+        nullptr,
+        nullptr,
+        nullptr,
+        nullptr,
+        nullptr,
+        nullptr,
+        nullptr,
+        nullptr,
+        nullptr,
+        nullptr,
+        nullptr
+};
+const TypeInfo *argon::object::type_native_wrapper_ = &NativeWrapperType;
+
+NativeWrapper *argon::object::NativeWrapperNew(const NativeMember *member) {
+    auto *native = ArObjectNew<NativeWrapper>(RCType::INLINE, type_native_wrapper_);
+
+    if (native != nullptr) {
+        native->name = member->name; // TODO: Copy!!
+        native->offset = member->offset;
+        native->mtype = member->type;
+        native->readonly = member->readonly;
+    }
+
+    return native;
+}
+
 ArObject *struct_get_attr(Struct *self, ArObject *key) {
     PropertyInfo pinfo{};
 
@@ -85,6 +125,7 @@ bool struct_set_attr(Struct *self, ArObject *key, ArObject *value) {
 }
 
 const ObjectSlots struct_actions{
+        nullptr,
         nullptr,
         nullptr,
         (BinaryOp) struct_get_attr,

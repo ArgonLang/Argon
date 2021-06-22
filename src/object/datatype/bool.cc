@@ -45,6 +45,7 @@ const ObjectSlots bool_obj{
         nullptr,
         nullptr,
         nullptr,
+        nullptr,
         -1
 };
 

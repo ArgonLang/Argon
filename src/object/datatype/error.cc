@@ -36,6 +36,7 @@ const ObjectSlots error_t_obj = {
         nullptr,
         nullptr,
         nullptr,
+        nullptr,
         -1
 };
 
@@ -87,6 +88,7 @@ const TypeInfo *error_bases[] = {
 
 const ObjectSlots error_obj = {
         error_methods,
+        nullptr,
         error_bases,
         nullptr,
         nullptr,

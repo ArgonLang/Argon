@@ -10,6 +10,7 @@
 #include <object/datatype/error.h>
 #include <object/datatype/function.h>
 #include <object/datatype/nil.h>
+#include <object/datatype/struct.h>
 
 #include "gc.h"
 #include "arobject.h"
@@ -65,6 +66,7 @@ ArObject *type_get_static_attr(TypeInfo *self, ArObject *key) {
 }
 
 const ObjectSlots type_obj = {
+        nullptr,
         nullptr,
         nullptr,
         nullptr,
@@ -632,15 +634,30 @@ bool argon::object::TypeInit(TypeInfo *info, ArObject *ns) {
         goto error;
 
     // Push methods
-    if (info->obj_actions != nullptr && info->obj_actions->methods != nullptr) {
-        for (const NativeFunc *method = info->obj_actions->methods; method->name != nullptr; method++) {
-            if ((fn = FunctionNew(nullptr, info, method, method->method)) == nullptr)
-                goto error;
+    if (info->obj_actions != nullptr) {
+        if (info->obj_actions->methods != nullptr) {
+            for (const NativeFunc *method = info->obj_actions->methods; method->name != nullptr; method++) {
+                if ((fn = FunctionNew(nullptr, info, method, method->method)) == nullptr)
+                    goto error;
 
-            if (!NamespaceNewSymbol((Namespace *) info->tp_map, fn->name, fn, meth_flags))
-                goto error;
+                if (!NamespaceNewSymbol((Namespace *) info->tp_map, fn->name, fn, meth_flags))
+                    goto error;
 
-            Release(fn);
+                Release(fn);
+            }
+        }
+
+        ArObject *tmp;
+        if (info->obj_actions->members != nullptr) {
+            for (const NativeMember *member = info->obj_actions->members; member->name != nullptr; member++) {
+                if ((tmp = NativeWrapperNew(member)) == nullptr)
+                    goto error;
+
+                if (!NamespaceNewSymbol((Namespace *) info->tp_map, member->name, tmp, PropertyType::PUBLIC))
+                    goto error;
+
+                Release(tmp);
+            }
         }
     }
 
