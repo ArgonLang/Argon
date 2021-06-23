@@ -31,7 +31,7 @@ The Argon build system uses a simple cmake file to build the interpreter.
 2. Clone the sources with git:
 
   ```sh
-  git clone https://github.com/jacopodl/argon
+  git clone https://github.com/ArgonLang/Argon
   cd argon
   ```
   
