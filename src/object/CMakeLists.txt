@@ -19,6 +19,7 @@ set(SRC
         datatype/map.cc
         datatype/module.cc
         datatype/namespace.cc
+        datatype/nativewrap.cc
         datatype/nil.cc
         datatype/option.cc
         datatype/set.cc

@@ -105,15 +105,23 @@ ArObject *prefix##name##_fn(ArObject *func, ArObject *self, ArObject **argv, ArS
 #define ARGON_METHOD_SENTINEL   {nullptr, nullptr, nullptr, 0, false}
 
     enum class NativeMemberType {
-        // TODO: fill
+        AROBJECT,
+        DOUBLE,
+        FLOAT,
+        INT,
+        LONG,
+        SHORT,
+        STRING
     };
 
     struct NativeMember {
         const char *name;
-        int offset;
         NativeMemberType type;
+        int offset;
         bool readonly;
     };
+
+#define ARGON_MEMBER_SENTINEL {nullptr, (NativeMemberType)0, 0, false}
 
     using BufferGetFn = bool (*)(struct ArObject *obj, ArBuffer *buffer, ArBufferFlags flags);
     using BufferRelFn = void (*)(ArBuffer *buffer);

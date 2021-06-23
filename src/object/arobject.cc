@@ -10,7 +10,7 @@
 #include <object/datatype/error.h>
 #include <object/datatype/function.h>
 #include <object/datatype/nil.h>
-#include <object/datatype/struct.h>
+#include <object/datatype/nativewrap.h>
 
 #include "gc.h"
 #include "arobject.h"
@@ -149,14 +149,15 @@ bool type_set_attr(ArObject *obj, ArObject *key, ArObject *value) {
     }
 
     if (AR_TYPEOF(actual, type_native_wrapper_)) {
-        return false;
+        bool ok = NativeWrapperSet((NativeWrapper *) actual, obj, value);
+        Release(actual);
+        return ok;
     }
 
     Release(actual);
 
     if (is_tpm) {
-        ErrorFormat(type_access_violation_, "read-only member '%s' of '%s'",
-                    ((String *) key)->buffer, AR_TYPE_NAME(obj));
+        ErrorFormat(type_unassignable_error_, "%s::%s is read-only", AR_TYPE_NAME(obj), ((String *) key)->buffer);
         return false;
     }
 
@@ -491,6 +492,7 @@ ArObject *argon::object::IteratorNext(ArObject *iterator) {
 ArObject *argon::object::PropertyGet(const ArObject *obj, const ArObject *key, bool instance) {
     BinaryOp get_attr = type_type_->obj_actions->get_attr;
     BinaryOp get_sattr = type_type_->obj_actions->get_static_attr;
+    ArObject *ret;
     ArObject *tmp;
 
     if (AR_OBJECT_SLOT(obj) != nullptr) {
@@ -501,13 +503,15 @@ ArObject *argon::object::PropertyGet(const ArObject *obj, const ArObject *key, b
             get_sattr = AR_OBJECT_SLOT(obj)->get_static_attr;
     }
 
-    tmp = instance ? get_attr((ArObject *) obj, (ArObject *) key) : get_sattr((ArObject *) obj, (ArObject *) key);
+    ret = instance ? get_attr((ArObject *) obj, (ArObject *) key) : get_sattr((ArObject *) obj, (ArObject *) key);
 
-    if (tmp != nullptr && AR_TYPEOF(tmp, type_native_wrapper_)) {
-
+    if (ret != nullptr && AR_TYPEOF(ret, type_native_wrapper_)) {
+        tmp = NativeWrapperGet((NativeWrapper *) ret, obj);
+        Release(ret);
+        ret = tmp;
     }
 
-    return tmp;
+    return ret;
 }
 
 ArObject *argon::object::RichCompare(const ArObject *obj, const ArObject *other, CompareMode mode) {
@@ -680,10 +684,10 @@ bool argon::object::PropertySet(ArObject *obj, ArObject *key, ArObject *value, b
             return false;
         }
 
-        return set_sattr(obj,key,value);
+        return set_sattr(obj, key, value);
     }
 
-    return set_attr(obj, key, value) ;
+    return set_attr(obj, key, value);
 }
 
 bool argon::object::TraitIsImplemented(const ArObject *obj, const TypeInfo *type) {
