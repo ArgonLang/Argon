@@ -278,7 +278,10 @@ ArObject *prefix##name##_fn(ArObject *func, ArObject *self, ArObject **argv, ArS
 #define AR_MAP_SLOT(object)         (AR_GET_TYPE(object)->map_actions)
 #define AR_NUMBER_SLOT(object)      (AR_GET_TYPE(object)->number_actions)
 #define AR_OBJECT_SLOT(object)      (AR_GET_TYPE(object)->obj_actions)
-#define AR_GET_NSOFF(obj)           ((ArObject **) (((unsigned char *) (obj)) + AR_GET_TYPE(obj)->obj_actions->nsoffset))
+
+#define AR_GET_NSOFF(obj)           (AR_OBJECT_SLOT(obj) != nullptr ? \
+    ((ArObject **) (((unsigned char *) (obj)) + AR_OBJECT_SLOT(obj)->nsoffset)) : nullptr)
+
 #define AR_SEQUENCE_SLOT(object)    (AR_GET_TYPE(object)->sequence_actions)
 
     ArObject *ArObjectGCNew(const TypeInfo *type);
