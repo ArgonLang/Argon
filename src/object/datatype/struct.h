@@ -16,9 +16,9 @@ namespace argon::object {
 
     extern const TypeInfo *type_struct_;
 
-    Struct *StructNewPositional(TypeInfo *type, ArObject **values, ArSize count);
+    Struct *StructInitPositional(TypeInfo *type, ArObject **values, ArSize count);
 
-    Struct *StructNewKeyPair(TypeInfo *type, ArObject **values, ArSize count);
+    Struct *StructInitKeyPair(TypeInfo *type, ArObject **values, ArSize count);
 
 } // namespace argon::object
 

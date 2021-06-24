@@ -4,6 +4,7 @@
 
 #include <vm/runtime.h>
 
+#include "nativewrap.h"
 #include "error.h"
 #include "tuple.h"
 #include "struct.h"
@@ -79,15 +80,88 @@ const TypeInfo StructType = {
 };
 const TypeInfo *argon::object::type_struct_ = &StructType;
 
-Struct *argon::object::StructNewPositional(TypeInfo *type, ArObject **values, ArSize count) {
+bool NativeInitPositional(ArObject *instance, ArObject **values, ArSize count) {
+    const TypeInfo *type = AR_GET_TYPE(instance);
+    ArObject *tmp;
+    ArObject *iter;
+
+    ArSize index = 0;
+    ArSize setted = 0;
+
+    if (type->tp_map == nullptr || count == 0)
+        return true;
+
+    if ((iter = IteratorGet(type->tp_map)) == nullptr)
+        return false;
+
+    while ((tmp = IteratorNext(iter)) != nullptr) {
+        if (AR_TYPEOF(tmp, type_native_wrapper_)) {
+            if (!NativeWrapperSet((NativeWrapper *) tmp, instance, values[index++])) {
+                Release(iter);
+                Release(tmp);
+                return false;
+            }
+            setted++;
+        }
+        Release(tmp);
+    }
+
+    Release(iter);
+
+    if (count > setted) {
+        ErrorFormat(type_undeclared_error_, "too many args to initialize native struct '%s'", type->name);
+        return false;
+    }
+
+    return true;
+}
+
+bool NativeInitKeyPair(ArObject *instance, ArObject **values, ArSize count) {
+    const TypeInfo *type = AR_GET_TYPE(instance);
+    ArObject *tmp;
+    ArSize i;
+
+    if (type->tp_map == nullptr || count == 0)
+        return true;
+
+    for (i = 0; i < count; i += 2) {
+        if ((tmp = NamespaceGetValue((Namespace *) type->tp_map, values[i], nullptr)) == nullptr)
+            goto error;
+
+        if (!AR_TYPEOF(tmp, type_native_wrapper_))
+            goto error;
+
+        if (!NativeWrapperSet((NativeWrapper *) tmp, instance, values[i + 1])) {
+            Release(tmp);
+            return false;
+        }
+    }
+
+    return true;
+
+    error:
+    ErrorFormat(type_undeclared_error_, "native struct '%s' have no property named '%s'",
+                type->name, ((String *) values[i])->buffer);
+    Release(tmp);
+    return false;
+
+}
+
+Struct *argon::object::StructInitPositional(TypeInfo *type, ArObject **values, ArSize count) {
     auto *instance = ArObjectGCNew(type);
     Namespace **ns;
 
     if (instance == nullptr)
         return nullptr;
 
-    if (type->obj_actions->nsoffset == -1) {
-        // fill real struct!
+    if (type->obj_actions->nsoffset < 0) {
+        if (type->tp_map != nullptr && count > 0) {
+            if (!NativeInitPositional(instance, values, count)) {
+                Release(instance);
+                return nullptr;
+            }
+        }
+
         return (Struct *) instance;
     }
 
@@ -108,15 +182,21 @@ Struct *argon::object::StructNewPositional(TypeInfo *type, ArObject **values, Ar
     return (Struct *) instance;
 }
 
-Struct *argon::object::StructNewKeyPair(TypeInfo *type, ArObject **values, ArSize count) {
+Struct *argon::object::StructInitKeyPair(TypeInfo *type, ArObject **values, ArSize count) {
     auto *instance = ArObjectGCNew(type);
     Namespace **ns;
 
     if (instance == nullptr)
         return nullptr;
 
-    if (type->obj_actions->nsoffset == -1) {
-        // fill real struct!
+    if (type->obj_actions->nsoffset < 0) {
+        if (type->tp_map != nullptr && count > 0) {
+            if (!NativeInitKeyPair(instance, values, count)) {
+                Release(instance);
+                return nullptr;
+            }
+        }
+
         return (Struct *) instance;
     }
 

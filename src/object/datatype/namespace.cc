@@ -11,6 +11,73 @@
 
 using namespace argon::object;
 
+ArObject *namespace_iter_next(HMapIterator *iter) {
+    ArObject *ret;
+    NsEntry *entry;
+
+    if (iter->current == nullptr)
+        return nullptr;
+
+    if (iter->used != iter->map->len)
+        return ErrorFormat(type_runtime_error_, "Map changed size during iteration");
+
+    entry = ((NsEntry *) iter->current);
+
+    ret = entry->info.IsWeak() ? ReturnNil(entry->weak.GetObject()) : IncRef(entry->value);
+    iter->current = iter->reversed ? iter->current->iter_prev : iter->current->iter_next;
+
+    return ret;
+}
+
+ArObject *namespace_iter_peak(HMapIterator *iter) {
+    ArObject *ret;
+    NsEntry *entry;
+
+    if (iter->current == nullptr)
+        return nullptr;
+
+    if (iter->used != iter->map->len)
+        return ErrorFormat(type_runtime_error_, "Map changed size during iteration");
+
+    entry = ((NsEntry *) iter->current);
+    ret = entry->info.IsWeak() ? ReturnNil(entry->weak.GetObject()) : IncRef(entry->value);
+
+    return ret;
+}
+
+const IteratorSlots namespace_iterop = {
+        (BoolUnaryOp) HMapIteratorHasNext,
+        (UnaryOp) namespace_iter_next,
+        (UnaryOp) namespace_iter_peak,
+        (VoidUnaryOp) HMapIteratorReset
+};
+
+const TypeInfo NamespaceIteratorType = {
+        TYPEINFO_STATIC_INIT,
+        "namespace_iterator",
+        nullptr,
+        sizeof(HMapIterator),
+        TypeInfoFlags::BASE,
+        nullptr,
+        (VoidUnaryOp) HMapIteratorCleanup,
+        (Trace) HMapIteratorTrace,
+        (CompareOp) HMapIteratorCompare,
+        (BoolUnaryOp) HMapIteratorHasNext,
+        nullptr,
+        (UnaryOp) HMapIteratorStr,
+        nullptr,
+        nullptr,
+        nullptr,
+        &namespace_iterop,
+        nullptr,
+        nullptr,
+        nullptr,
+        nullptr,
+        nullptr,
+        nullptr,
+        nullptr
+};
+
 void SetValueToEntry(NsEntry *entry, ArObject *value) {
     if (entry->info.IsWeak()) {
         entry->weak.DecWeak();
@@ -61,6 +128,19 @@ ArObject *namespace_str(Namespace *str) {
     return nullptr;
 }
 
+ArObject *namespace_iter_get(Map *self) {
+    return HMapIteratorNew(&NamespaceIteratorType, self, &self->hmap, false);
+}
+
+ArObject *namespace_iter_rget(Map *self) {
+    return HMapIteratorNew(&NamespaceIteratorType, self, &self->hmap, true);
+}
+
+void namespace_trace(Namespace *self, VoidUnaryOp trace) {
+    for (auto *cur = (NsEntry *) self->hmap.iter_begin; cur != nullptr; cur = (NsEntry *) cur->iter_next)
+        trace(cur->value);
+}
+
 void namespace_cleanup(Namespace *self) {
     HMapFinalize(&self->hmap, [](HEntry *entry) {
         auto *nse = (NsEntry *) entry;
@@ -70,11 +150,6 @@ void namespace_cleanup(Namespace *self) {
         else
             Release(nse->value);
     });
-}
-
-void namespace_trace(Namespace *self, VoidUnaryOp trace) {
-    for (auto *cur = (NsEntry *) self->hmap.iter_begin; cur != nullptr; cur = (NsEntry *) cur->iter_next)
-        trace(cur->value);
 }
 
 const TypeInfo NamespaceType = {
@@ -90,8 +165,8 @@ const TypeInfo NamespaceType = {
         (BoolUnaryOp) namespace_is_true,
         nullptr,
         (UnaryOp) namespace_str,
-        nullptr,
-        nullptr,
+        (UnaryOp) namespace_iter_get,
+        (UnaryOp) namespace_iter_rget,
         nullptr,
         nullptr,
         nullptr,
@@ -123,7 +198,7 @@ Namespace *argon::object::NamespaceNew(Namespace *ns, PropertyType ignore) {
 
     for (auto *cur = (NsEntry *) ns->hmap.iter_begin; cur != nullptr; cur = (NsEntry *) cur->iter_next) {
         if ((int) ignore == 0 || (int) (cur->info & ignore) == 0) {
-            if (!NamespaceNewSymbol(space, cur->key, cur->value, (PropertyType)cur->info)) {
+            if (!NamespaceNewSymbol(space, cur->key, cur->value, (PropertyType) cur->info)) {
                 Release(space);
                 return nullptr;
             }
@@ -152,7 +227,7 @@ ArObject *argon::object::NamespaceGetValue(Namespace *ns, ArObject *key, Propert
 
 bool argon::object::NamespaceMerge(Namespace *dst, Namespace *src) {
     for (auto *cur = (NsEntry *) src->hmap.iter_begin; cur != nullptr; cur = (NsEntry *) cur->iter_next) {
-        if (!NamespaceNewSymbol(dst, cur->key, cur->value, (PropertyType)cur->info))
+        if (!NamespaceNewSymbol(dst, cur->key, cur->value, (PropertyType) cur->info))
             return false;
     }
 
@@ -161,8 +236,8 @@ bool argon::object::NamespaceMerge(Namespace *dst, Namespace *src) {
 
 bool argon::object::NamespaceMergePublic(Namespace *dst, Namespace *src) {
     for (auto *cur = (NsEntry *) src->hmap.iter_begin; cur != nullptr; cur = (NsEntry *) cur->iter_next) {
-        if((cur->info & PropertyType::PUBLIC) == PropertyType::PUBLIC) {
-            if (!NamespaceNewSymbol(dst, cur->key, cur->value, (PropertyType)cur->info))
+        if ((cur->info & PropertyType::PUBLIC) == PropertyType::PUBLIC) {
+            if (!NamespaceNewSymbol(dst, cur->key, cur->value, (PropertyType) cur->info))
                 return false;
         }
     }

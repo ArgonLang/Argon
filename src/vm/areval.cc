@@ -572,10 +572,10 @@ ArObject *argon::vm::Eval(ArRoutine *routine) {
                 }
 
                 if (!key_pair) {
-                    if ((ret = StructNewPositional(t_struct, cu_frame->eval_stack - args, args)) == nullptr)
+                    if ((ret = StructInitPositional(t_struct, cu_frame->eval_stack - args, args)) == nullptr)
                         goto error;
                 } else {
-                    if ((ret = StructNewKeyPair(t_struct, cu_frame->eval_stack - args, args)) == nullptr)
+                    if ((ret = StructInitKeyPair(t_struct, cu_frame->eval_stack - args, args)) == nullptr)
                         goto error;
                 }
 
