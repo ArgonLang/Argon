@@ -17,12 +17,30 @@
 
 using namespace argon::object;
 
+ArObject *MROSearch(const TypeInfo *type, ArObject *key, PropertyInfo *pinfo) {
+    ArObject *obj = nullptr;
+
+    if (type->mro != nullptr) {
+        for (ArSize i = 0; i < ((Tuple *) type->mro)->len; i++) {
+            type = (TypeInfo *) ((Tuple *) type->mro)->objects[i];
+
+            if (type->tp_map != nullptr) {
+                if ((obj = NamespaceGetValue((Namespace *) type->tp_map, key, pinfo)) != nullptr)
+                    break;
+            }
+        }
+    }
+
+    return obj;
+}
+
 ArObject *type_get_static_attr(ArObject *self, ArObject *key) {
     const TypeInfo *type = AR_TYPEOF(self, type_type_) ? (TypeInfo *) self : AR_GET_TYPE(self);
     const TypeInfo *tp_base = type;
-    PropertyInfo pinfo{};
-    ArObject *obj;
     ArObject *instance = nullptr;
+    ArObject *obj;
+
+    PropertyInfo pinfo{};
 
     if (type->tp_map == nullptr && type->mro == nullptr)
         return ErrorFormat(type_attribute_error_, "type '%s' has no attributes", type->name);
@@ -31,16 +49,8 @@ ArObject *type_get_static_attr(ArObject *self, ArObject *key) {
         instance = argon::vm::GetRoutine()->frame->instance;
 
     if ((obj = NamespaceGetValue((Namespace *) type->tp_map, key, &pinfo)) == nullptr) {
-        if (type->mro != nullptr) {
-            for (ArSize i = 0; i < ((Tuple *) type->mro)->len; i++) {
-                type = (TypeInfo *) ((Tuple *) type->mro)->objects[i];
-
-                if (type->tp_map != nullptr) {
-                    if ((obj = NamespaceGetValue((Namespace *) type->tp_map, key, &pinfo)) != nullptr)
-                        break;
-                }
-            }
-        }
+        if (type->mro != nullptr)
+            obj = MROSearch(type, key, &pinfo);
 
         if (obj == nullptr)
             return ErrorFormat(type_attribute_error_, "unknown attribute '%s' of object '%s'",
@@ -66,38 +76,28 @@ ArObject *type_get_static_attr(ArObject *self, ArObject *key) {
 }
 
 ArObject *type_get_attr(ArObject *self, ArObject *key) {
-    Namespace **ns = (Namespace **) AR_GET_NSOFF(self);
-    PropertyInfo pinfo{};
-
-    const TypeInfo *ancestor = AR_GET_TYPE(self);
-    const TypeInfo *type = AR_TYPEOF(self, type_type_) ? (TypeInfo *) self : AR_GET_TYPE(self);
-
+    const TypeInfo *ancestor = AR_TYPEOF(self, type_type_) ? (TypeInfo *) self : AR_GET_TYPE(self);
+    auto **ns = (Namespace **) AR_GET_NSOFF(self);
     ArObject *instance = nullptr;
     ArObject *obj = nullptr;
 
-    if (!AR_IS_TYPE_INSTANCE(self))
-        return ErrorFormat(type_type_error_, "object is not an instance of type '%s'", type->name);
+    PropertyInfo pinfo{};
 
-    if (AR_OBJECT_SLOT(self)->nsoffset != -1)
-        obj = NamespaceGetValue(*ns, key, &pinfo);
+    if (!AR_IS_TYPE_INSTANCE(self))
+        return ErrorFormat(type_type_error_, "object is not an instance of type '%s'", ancestor->name);
 
     if (argon::vm::GetRoutine()->frame != nullptr)
         instance = argon::vm::GetRoutine()->frame->instance;
+
+    if (AR_OBJECT_SLOT(self)->nsoffset >= 0)
+        obj = NamespaceGetValue(*ns, key, &pinfo);
 
     if (obj == nullptr) {
         if (ancestor->tp_map != nullptr)
             obj = NamespaceGetValue((Namespace *) ancestor->tp_map, key, &pinfo);
 
-        if (obj == nullptr && ancestor->mro != nullptr) {
-            for (ArSize i = 0; i < ((Tuple *) ancestor->mro)->len; i++) {
-                type = (TypeInfo *) ((Tuple *) ancestor->mro)->objects[i];
-
-                if (type->tp_map != nullptr) {
-                    if ((obj = NamespaceGetValue((Namespace *) type->tp_map, key, &pinfo)) != nullptr)
-                        break;
-                }
-            }
-        }
+        if (obj == nullptr && ancestor->mro != nullptr)
+            obj = MROSearch(ancestor, key, &pinfo);
     }
 
     if (obj != nullptr) {
@@ -116,10 +116,11 @@ ArObject *type_get_attr(ArObject *self, ArObject *key) {
 }
 
 bool type_set_attr(ArObject *obj, ArObject *key, ArObject *value) {
-    Namespace **ns = (Namespace **) AR_GET_NSOFF(obj);
+    auto **ns = (Namespace **) AR_GET_NSOFF(obj);
     ArObject *instance = nullptr;
     ArObject *actual;
 
+    bool ok = false;
     bool is_tpm = false;
 
     PropertyInfo pinfo{};
@@ -130,14 +131,14 @@ bool type_set_attr(ArObject *obj, ArObject *key, ArObject *value) {
     if (argon::vm::GetRoutine()->frame != nullptr)
         instance = argon::vm::GetRoutine()->frame->instance;
 
-    if (AR_OBJECT_SLOT(obj)->nsoffset == -1) {
+    if (AR_OBJECT_SLOT(obj)->nsoffset >= 0) {
         ns = (Namespace **) &(AR_GET_TYPE(obj)->tp_map);
         is_tpm = true;
     }
 
     if ((actual = NamespaceGetValue(*ns, key, &pinfo)) == nullptr) {
-        ErrorFormat(type_attribute_error_, "unknown attribute '%s' of instance '%s'", ((String *) key)->buffer,
-                    AR_TYPE_NAME(obj));
+        ErrorFormat(type_attribute_error_, "unknown attribute '%s' of instance '%s'",
+                    ((String *) key)->buffer, AR_TYPE_NAME(obj));
         return false;
     }
 
@@ -149,7 +150,7 @@ bool type_set_attr(ArObject *obj, ArObject *key, ArObject *value) {
     }
 
     if (AR_TYPEOF(actual, type_native_wrapper_)) {
-        bool ok = NativeWrapperSet((NativeWrapper *) actual, obj, value);
+        ok = NativeWrapperSet((NativeWrapper *) actual, obj, value);
         Release(actual);
         return ok;
     }
