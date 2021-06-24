@@ -73,6 +73,7 @@ Argon is under development, so many features are not yet active or available, a 
 * Limited I/O support.
 * No multithreading support.
 * No debugging support.
+* Currently all test cases are disabled and out of date.
 
 # 🤝 Contributing
 There is currently no guide available to contribute to the development, but if you are interested you can contribute in several ways:
