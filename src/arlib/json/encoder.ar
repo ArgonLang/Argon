@@ -15,7 +15,7 @@ pub trait JSONEncoder {
 }
 
 pub struct Encoder {
-	pub var separators = (b", ", b": ")
+    pub var separators = (b", ", b": ")
     pub var newlines = true
     pub var indent = 0
 
@@ -25,12 +25,10 @@ pub struct Encoder {
 			return buffer
 		}
 
-		if obj == true || obj == false {
-			buffer += obj ? b"true" : b"false"
-			return buffer
-		}
-
 		switch type(obj) {
+		case bool:
+		    buffer += obj ? b"true" : b"false"
+		    return buffer
 		case map:
 			return self.enc_map(obj, buffer)
 		case list; tuple:
