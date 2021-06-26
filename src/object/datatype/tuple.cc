@@ -117,7 +117,9 @@ const ObjectSlots tuple_obj = {
         nullptr,
         nullptr,
         nullptr,
-        nullptr
+        nullptr,
+        nullptr,
+        -1
 };
 
 bool tuple_is_true(Tuple *self) {

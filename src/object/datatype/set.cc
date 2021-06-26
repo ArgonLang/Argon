@@ -409,7 +409,9 @@ const ObjectSlots set_obj = {
         nullptr,
         nullptr,
         nullptr,
-        nullptr
+        nullptr,
+        nullptr,
+        -1
 };
 
 bool set_is_true(Set *self) {

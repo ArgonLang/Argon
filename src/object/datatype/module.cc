@@ -71,9 +71,11 @@ const ObjectSlots module_oslots = {
         nullptr,
         nullptr,
         nullptr,
+        nullptr,
         (BinaryOp) module_get_static_attr,
         nullptr,
-        (BoolTernOp) module_set_static_attr
+        (BoolTernOp) module_set_static_attr,
+        -1
 };
 
 ArObject *module_str(Module *self) {

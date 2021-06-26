@@ -274,7 +274,9 @@ const ObjectSlots map_obj = {
         nullptr,
         nullptr,
         nullptr,
-        nullptr
+        nullptr,
+        nullptr,
+        -1
 };
 
 bool map_is_true(Map *self) {

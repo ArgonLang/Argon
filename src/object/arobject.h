@@ -104,6 +104,25 @@ ArObject *prefix##name##_fn(ArObject *func, ArObject *self, ArObject **argv, ArS
 
 #define ARGON_METHOD_SENTINEL   {nullptr, nullptr, nullptr, 0, false}
 
+    enum class NativeMemberType {
+        AROBJECT,
+        DOUBLE,
+        FLOAT,
+        INT,
+        LONG,
+        SHORT,
+        STRING
+    };
+
+    struct NativeMember {
+        const char *name;
+        NativeMemberType type;
+        int offset;
+        bool readonly;
+    };
+
+#define ARGON_MEMBER_SENTINEL {nullptr, (NativeMemberType)0, 0, false}
+
     using BufferGetFn = bool (*)(struct ArObject *obj, ArBuffer *buffer, ArBufferFlags flags);
     using BufferRelFn = void (*)(ArBuffer *buffer);
     struct BufferSlots {
@@ -131,12 +150,15 @@ ArObject *prefix##name##_fn(ArObject *func, ArObject *self, ArObject **argv, ArS
 
     struct ObjectSlots {
         const NativeFunc *methods;
+        const NativeMember *members;
         const TypeInfo **traits;
 
         BinaryOp get_attr;
         BinaryOp get_static_attr;
         BoolTernOp set_attr;
         BoolTernOp set_static_attr;
+
+        int nsoffset;
     };
 
     struct OpSlots {
@@ -264,6 +286,10 @@ ArObject *prefix##name##_fn(ArObject *func, ArObject *self, ArObject **argv, ArS
 #define AR_MAP_SLOT(object)         (AR_GET_TYPE(object)->map_actions)
 #define AR_NUMBER_SLOT(object)      (AR_GET_TYPE(object)->number_actions)
 #define AR_OBJECT_SLOT(object)      (AR_GET_TYPE(object)->obj_actions)
+
+#define AR_GET_NSOFF(obj)           (AR_OBJECT_SLOT(obj) != nullptr ? \
+    ((ArObject **) (((unsigned char *) (obj)) + AR_OBJECT_SLOT(obj)->nsoffset)) : nullptr)
+
 #define AR_SEQUENCE_SLOT(object)    (AR_GET_TYPE(object)->sequence_actions)
 
     ArObject *ArObjectGCNew(const TypeInfo *type);

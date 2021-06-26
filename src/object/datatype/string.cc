@@ -546,7 +546,9 @@ const ObjectSlots str_obj = {
         nullptr,
         nullptr,
         nullptr,
-        nullptr
+        nullptr,
+        nullptr,
+        -1
 };
 
 bool string_is_true(String *self) {

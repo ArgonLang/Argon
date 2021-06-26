@@ -431,7 +431,9 @@ const ObjectSlots list_obj = {
         nullptr,
         nullptr,
         nullptr,
-        nullptr
+        nullptr,
+        nullptr,
+        -1
 };
 
 bool list_is_true(List *self) {

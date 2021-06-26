@@ -4,6 +4,7 @@
 
 #include <vm/runtime.h>
 
+#include "nativewrap.h"
 #include "error.h"
 #include "tuple.h"
 #include "struct.h"
@@ -11,86 +12,15 @@
 using namespace argon::object;
 using namespace argon::memory;
 
-ArObject *struct_get_attr(Struct *self, ArObject *key) {
-    PropertyInfo pinfo{};
-
-    const TypeInfo *ancestor = AR_GET_TYPE(self);
-    const TypeInfo *type;
-
-    ArObject *instance = nullptr;
-    ArObject *obj;
-
-    obj = NamespaceGetValue(self->names, key, &pinfo);
-
-    if (argon::vm::GetRoutine()->frame != nullptr)
-        instance = argon::vm::GetRoutine()->frame->instance;
-
-    if (obj == nullptr) {
-
-        if (ancestor->tp_map != nullptr)
-            obj = NamespaceGetValue((Namespace *) ancestor->tp_map, key, &pinfo);
-
-        if (obj == nullptr && ancestor->mro != nullptr) {
-            for (ArSize i = 0; i < ((Tuple *) ancestor->mro)->len; i++) {
-                type = (TypeInfo *) ((Tuple *) ancestor->mro)->objects[i];
-
-                if (type->tp_map != nullptr) {
-                    if ((obj = NamespaceGetValue((Namespace *) type->tp_map, key, &pinfo)) != nullptr)
-                        break;
-                }
-            }
-        }
-
-        if (obj == nullptr)
-            return ErrorFormat(type_attribute_error_, "unknown attribute '%s' of instance '%s'",
-                               ((String *) key)->buffer, ancestor->name);
-    }
-
-    if (!pinfo.IsPublic() && !TraitIsImplemented(instance, ancestor)) {
-        ErrorFormat(type_access_violation_, "access violation, member '%s' of '%s' are private",
-                    ((String *) key)->buffer, ancestor->name);
-        Release(obj);
-        return nullptr;
-    }
-
-    return obj;
-}
-
-ArObject *struct_get_static_attr(Struct *self, ArObject *key) {
-    const TypeInfo *ancestor = AR_GET_TYPE(self)->type;
-
-    return ancestor->obj_actions->get_static_attr((ArObject *) AR_GET_TYPE(self), key);
-}
-
-bool struct_set_attr(Struct *self, ArObject *key, ArObject *value) {
-    PropertyInfo pinfo{};
-    ArObject *instance = nullptr;
-
-    if (argon::vm::GetRoutine()->frame != nullptr)
-        instance = argon::vm::GetRoutine()->frame->instance;
-
-    if (!NamespaceContains(self->names, key, &pinfo)) {
-        ErrorFormat(type_attribute_error_, "unknown attribute '%s' of instance '%s'", ((String *) key)->buffer,
-                    AR_TYPE_NAME(self));
-        return false;
-    }
-
-    if (!pinfo.IsPublic() && instance != self) {
-        ErrorFormat(type_access_violation_, "access violation, member '%s' of '%s' are private",
-                    ((String *) key)->buffer, AR_TYPE_NAME(self));
-        return false;
-    }
-
-    return NamespaceSetValue(self->names, key, value);
-}
-
 const ObjectSlots struct_actions{
         nullptr,
         nullptr,
-        (BinaryOp) struct_get_attr,
-        (BinaryOp) struct_get_static_attr,
-        (BoolTernOp) struct_set_attr,
-        nullptr
+        nullptr,
+        nullptr,
+        nullptr,
+        nullptr,
+        nullptr,
+        offsetof(Struct, names)
 };
 
 ArObject *struct_str(Struct *self) {
@@ -150,38 +80,111 @@ const TypeInfo StructType = {
 };
 const TypeInfo *argon::object::type_struct_ = &StructType;
 
-Struct *argon::object::StructNewPositional(TypeInfo *type, ArObject **values, ArSize count) {
-    auto *instance = (Struct *) ArObjectGCNew(type);
+bool NativeInitPositional(ArObject *instance, ArObject **values, ArSize count) {
+    const TypeInfo *type = AR_GET_TYPE(instance);
+    ArObject *tmp;
+    ArObject *iter;
 
-    if (instance != nullptr) {
-        instance->names = NamespaceNew((Namespace *) type->tp_map, PropertyType::CONST);
-        if (instance->names == nullptr) {
-            Release(instance);
-            return nullptr;
+    ArSize index = 0;
+    ArSize setted = 0;
+
+    if (type->tp_map == nullptr || count == 0)
+        return true;
+
+    if ((iter = IteratorGet(type->tp_map)) == nullptr)
+        return false;
+
+    while ((tmp = IteratorNext(iter)) != nullptr) {
+        if (AR_TYPEOF(tmp, type_native_wrapper_)) {
+            if (!NativeWrapperSet((NativeWrapper *) tmp, instance, values[index++])) {
+                Release(iter);
+                Release(tmp);
+                return false;
+            }
+            setted++;
+        }
+        Release(tmp);
+    }
+
+    Release(iter);
+
+    if (count > setted) {
+        ErrorFormat(type_undeclared_error_, "too many args to initialize native struct '%s'", type->name);
+        return false;
+    }
+
+    return true;
+}
+
+bool NativeInitKeyPair(ArObject *instance, ArObject **values, ArSize count) {
+    const TypeInfo *type = AR_GET_TYPE(instance);
+    ArObject *tmp;
+    ArSize i;
+
+    if (type->tp_map == nullptr || count == 0)
+        return true;
+
+    for (i = 0; i < count; i += 2) {
+        if ((tmp = NamespaceGetValue((Namespace *) type->tp_map, values[i], nullptr)) == nullptr)
+            goto error;
+
+        if (!AR_TYPEOF(tmp, type_native_wrapper_))
+            goto error;
+
+        if (!NativeWrapperSet((NativeWrapper *) tmp, instance, values[i + 1])) {
+            Release(tmp);
+            return false;
+        }
+    }
+
+    return true;
+
+    error:
+    ErrorFormat(type_undeclared_error_, "native struct '%s' have no property named '%s'",
+                type->name, ((String *) values[i])->buffer);
+    Release(tmp);
+    return false;
+
+}
+
+ArObject *argon::object::StructInit(const TypeInfo *type, ArObject **values, ArSize count, bool keypair) {
+    auto *instance = ArObjectGCNew(type);
+    Namespace **ns;
+    bool ok;
+
+    if (instance == nullptr)
+        return nullptr;
+
+    if (type->obj_actions->nsoffset < 0) {
+        if (type->tp_map != nullptr && count > 0) {
+            ok = keypair ? NativeInitKeyPair(instance, values, count) : NativeInitPositional(instance, values, count);
+
+            if (!ok) {
+                Release(instance);
+                return nullptr;
+            }
         }
 
-        if (NamespaceSetPositional(instance->names, values, count) >= 1) {
+        return instance;
+    }
+
+    // Initialize new namespace
+    ns = (Namespace **) AR_GET_NSOFF(instance);
+
+    if ((*ns = NamespaceNew((Namespace *) type->tp_map, PropertyType::CONST)) == nullptr) {
+        Release(instance);
+        return nullptr;
+    }
+
+    if (!keypair) {
+        if (NamespaceSetPositional(*ns, values, count) >= 1) {
             Release(instance);
             return (Struct *) ErrorFormat(type_undeclared_error_, "too many args to initialize struct '%s'",
                                           type->name);
         }
-    }
-
-    return instance;
-}
-
-Struct *argon::object::StructNewKeyPair(TypeInfo *type, ArObject **values, ArSize count) {
-    auto *instance = (Struct *) ArObjectGCNew(type);
-
-    if (instance != nullptr) {
-        instance->names = NamespaceNew((Namespace *) type->tp_map, PropertyType::CONST);
-        if (instance->names == nullptr) {
-            Release(instance);
-            return nullptr;
-        }
-
+    } else {
         for (ArSize i = 0; i < count; i += 2) {
-            if (!NamespaceSetValue(instance->names, values[i], values[i + 1])) {
+            if (!NamespaceSetValue(*ns, values[i], values[i + 1])) {
                 Release(instance);
                 return (Struct *) ErrorFormat(type_undeclared_error_, "struct '%s' have no property named '%s'",
                                               type->name, ((String *) values[i])->buffer);
@@ -191,4 +194,3 @@ Struct *argon::object::StructNewKeyPair(TypeInfo *type, ArObject **values, ArSiz
 
     return instance;
 }
-

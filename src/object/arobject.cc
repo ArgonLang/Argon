@@ -10,53 +10,64 @@
 #include <object/datatype/error.h>
 #include <object/datatype/function.h>
 #include <object/datatype/nil.h>
+#include <object/datatype/nativewrap.h>
 
 #include "gc.h"
 #include "arobject.h"
 
 using namespace argon::object;
 
-ArObject *type_get_static_attr(TypeInfo *self, ArObject *key) {
-    PropertyInfo pinfo{};
-    ArObject *obj;
-    ArObject *instance = nullptr;
-    TypeInfo *type;
+ArObject *MROSearch(const TypeInfo *type, ArObject *key, PropertyInfo *pinfo) {
+    ArObject *obj = nullptr;
 
-    if (self->tp_map == nullptr && self->mro == nullptr)
-        return ErrorFormat(type_attribute_error_, "type '%s' has no attributes", self->name);
+    if (type->mro != nullptr) {
+        for (ArSize i = 0; i < ((Tuple *) type->mro)->len; i++) {
+            type = (TypeInfo *) ((Tuple *) type->mro)->objects[i];
+
+            if (type->tp_map != nullptr) {
+                if ((obj = NamespaceGetValue((Namespace *) type->tp_map, key, pinfo)) != nullptr)
+                    break;
+            }
+        }
+    }
+
+    return obj;
+}
+
+ArObject *type_get_static_attr(ArObject *self, ArObject *key) {
+    const TypeInfo *type = AR_TYPEOF(self, type_type_) ? (TypeInfo *) self : AR_GET_TYPE(self);
+    const TypeInfo *tp_base = type;
+    ArObject *instance = nullptr;
+    ArObject *obj;
+
+    PropertyInfo pinfo{};
+
+    if (type->tp_map == nullptr && type->mro == nullptr)
+        return ErrorFormat(type_attribute_error_, "type '%s' has no attributes", type->name);
 
     if (argon::vm::GetRoutine()->frame != nullptr)
         instance = argon::vm::GetRoutine()->frame->instance;
 
-    obj = NamespaceGetValue((Namespace *) self->tp_map, key, &pinfo);
-    if (obj == nullptr) {
-        if (self->mro != nullptr) {
-            for (ArSize i = 0; i < ((Tuple *) self->mro)->len; i++) {
-                type = (TypeInfo *) ((Tuple *) self->mro)->objects[i];
-
-                if (type->tp_map != nullptr) {
-                    if ((obj = NamespaceGetValue((Namespace *) type->tp_map, key, &pinfo)) != nullptr)
-                        break;
-                }
-            }
-        }
+    if ((obj = NamespaceGetValue((Namespace *) type->tp_map, key, &pinfo)) == nullptr) {
+        if (type->mro != nullptr)
+            obj = MROSearch(type, key, &pinfo);
 
         if (obj == nullptr)
             return ErrorFormat(type_attribute_error_, "unknown attribute '%s' of object '%s'",
-                               ((String *) key)->buffer, self->name);
+                               ((String *) key)->buffer, type->name);
     }
 
     if (!pinfo.IsConstant()) {
         ErrorFormat(type_access_violation_,
                     "in order to access to non const member '%s' an instance of '%s' is required",
-                    ((String *) key)->buffer, self->name);
+                    ((String *) key)->buffer, type->name);
         Release(obj);
         return nullptr;
     }
 
-    if (!pinfo.IsPublic() && !TraitIsImplemented(instance, self)) {
+    if (!pinfo.IsPublic() && !TraitIsImplemented(instance, tp_base)) {
         ErrorFormat(type_access_violation_, "access violation, member '%s' of '%s' are private",
-                    ((String *) key)->buffer, self->name);
+                    ((String *) key)->buffer, type->name);
         Release(obj);
         return nullptr;
     }
@@ -64,13 +75,105 @@ ArObject *type_get_static_attr(TypeInfo *self, ArObject *key) {
     return obj;
 }
 
+ArObject *type_get_attr(ArObject *self, ArObject *key) {
+    const TypeInfo *ancestor = AR_TYPEOF(self, type_type_) ? (TypeInfo *) self : AR_GET_TYPE(self);
+    auto **ns = (Namespace **) AR_GET_NSOFF(self);
+    ArObject *instance = nullptr;
+    ArObject *obj = nullptr;
+
+    PropertyInfo pinfo{};
+
+    if (!AR_IS_TYPE_INSTANCE(self))
+        return ErrorFormat(type_type_error_, "object is not an instance of type '%s'", ancestor->name);
+
+    if (argon::vm::GetRoutine()->frame != nullptr)
+        instance = argon::vm::GetRoutine()->frame->instance;
+
+    if (AR_OBJECT_SLOT(self)->nsoffset >= 0)
+        obj = NamespaceGetValue(*ns, key, &pinfo);
+
+    if (obj == nullptr) {
+        if (ancestor->tp_map != nullptr)
+            obj = NamespaceGetValue((Namespace *) ancestor->tp_map, key, &pinfo);
+
+        if (obj == nullptr && ancestor->mro != nullptr)
+            obj = MROSearch(ancestor, key, &pinfo);
+    }
+
+    if (obj != nullptr) {
+        if (!pinfo.IsPublic() && !TraitIsImplemented(instance, ancestor)) {
+            ErrorFormat(type_access_violation_, "access violation, member '%s' of '%s' are private",
+                        ((String *) key)->buffer, ancestor->name);
+            Release(obj);
+            return nullptr;
+        }
+
+        return obj;
+    }
+
+    return ErrorFormat(type_attribute_error_, "unknown attribute '%s' of instance '%s'",
+                       ((String *) key)->buffer, ancestor->name);
+}
+
+bool type_set_attr(ArObject *obj, ArObject *key, ArObject *value) {
+    auto **ns = (Namespace **) AR_GET_NSOFF(obj);
+    ArObject *instance = nullptr;
+    ArObject *actual;
+
+    bool ok = false;
+    bool is_tpm = false;
+
+    PropertyInfo pinfo{};
+
+    if (!AR_IS_TYPE_INSTANCE(obj))
+        return ErrorFormat(type_type_error_, "object is not an instance of type '%s'", ((TypeInfo *) obj)->name);
+
+    if (argon::vm::GetRoutine()->frame != nullptr)
+        instance = argon::vm::GetRoutine()->frame->instance;
+
+    if (AR_OBJECT_SLOT(obj)->nsoffset >= 0) {
+        ns = (Namespace **) &(AR_GET_TYPE(obj)->tp_map);
+        is_tpm = true;
+    }
+
+    if ((actual = NamespaceGetValue(*ns, key, &pinfo)) == nullptr) {
+        ErrorFormat(type_attribute_error_, "unknown attribute '%s' of instance '%s'",
+                    ((String *) key)->buffer, AR_TYPE_NAME(obj));
+        return false;
+    }
+
+    if (!pinfo.IsPublic() && instance != obj) {
+        ErrorFormat(type_access_violation_, "access violation, member '%s' of '%s' are private",
+                    ((String *) key)->buffer, AR_TYPE_NAME(obj));
+        Release(actual);
+        return false;
+    }
+
+    if (AR_TYPEOF(actual, type_native_wrapper_)) {
+        ok = NativeWrapperSet((NativeWrapper *) actual, obj, value);
+        Release(actual);
+        return ok;
+    }
+
+    Release(actual);
+
+    if (is_tpm) {
+        ErrorFormat(type_unassignable_error_, "%s::%s is read-only", AR_TYPE_NAME(obj), ((String *) key)->buffer);
+        return false;
+    }
+
+    return NamespaceSetValue(*ns, key, value);
+}
+
 const ObjectSlots type_obj = {
         nullptr,
         nullptr,
         nullptr,
-        (BinaryOp) type_get_static_attr,
+        type_get_attr,
+        type_get_static_attr,
+        type_set_attr,
         nullptr,
-        nullptr
+        -1
 };
 
 bool type_is_true(ArObject *self) {
@@ -388,26 +491,26 @@ ArObject *argon::object::IteratorNext(ArObject *iterator) {
 }
 
 ArObject *argon::object::PropertyGet(const ArObject *obj, const ArObject *key, bool instance) {
-    const TypeInfo *type = AR_TYPEOF(obj, type_type_) ? (TypeInfo *) obj : AR_GET_TYPE(obj);
+    BinaryOp get_attr = type_type_->obj_actions->get_attr;
+    BinaryOp get_sattr = type_type_->obj_actions->get_static_attr;
     ArObject *ret;
+    ArObject *tmp;
 
-    if (AR_GET_TYPE(obj)->obj_actions != nullptr) {
+    if (AR_OBJECT_SLOT(obj) != nullptr) {
         if (AR_OBJECT_SLOT(obj)->get_attr != nullptr)
-            return AR_OBJECT_SLOT(obj)->get_attr((ArObject *) obj, (ArObject *) key);
+            get_attr = AR_OBJECT_SLOT(obj)->get_attr;
 
-        if (!instance && AR_OBJECT_SLOT(obj)->get_static_attr != nullptr)
-            return AR_OBJECT_SLOT(obj)->get_static_attr((ArObject *) obj, (ArObject *) key);
+        if (AR_OBJECT_SLOT(obj)->get_static_attr != nullptr)
+            get_sattr = AR_OBJECT_SLOT(obj)->get_static_attr;
     }
 
-    if (!AR_IS_TYPE_INSTANCE(obj) && instance)
-        return ErrorFormat(type_type_error_, "object is not an instance of type '%s'", type->name);
+    ret = instance ? get_attr((ArObject *) obj, (ArObject *) key) : get_sattr((ArObject *) obj, (ArObject *) key);
 
-    if (type->tp_map == nullptr)
-        return ErrorFormat(type_attribute_error_, "type '%s' has no attributes", type->name);
-
-    if ((ret = NamespaceGetValue((Namespace *) type->tp_map, (ArObject *) key, nullptr)) == nullptr)
-        return ErrorFormat(type_attribute_error_, "unknown attribute '%s' for type '%s'",
-                           ((String *) key)->buffer, type->name);
+    if (ret != nullptr && AR_TYPEOF(ret, type_native_wrapper_)) {
+        tmp = NativeWrapperGet((NativeWrapper *) ret, obj);
+        Release(ret);
+        ret = tmp;
+    }
 
     return ret;
 }
@@ -565,22 +668,27 @@ bool argon::object::IsTrue(const ArObject *obj) {
 }
 
 bool argon::object::PropertySet(ArObject *obj, ArObject *key, ArObject *value, bool member) {
-    if (member) {
-        if (AR_OBJECT_SLOT(obj) == nullptr || AR_OBJECT_SLOT(obj)->set_attr == nullptr) {
-            ErrorFormat(type_attribute_error_, "'%s' object is unable to use attribute(.) operator",
-                        AR_TYPE_NAME(obj));
+    BoolTernOp set_attr = type_type_->obj_actions->set_attr;
+    BoolTernOp set_sattr = type_type_->obj_actions->set_static_attr;
+
+    if (AR_OBJECT_SLOT(obj) != nullptr) {
+        if (AR_OBJECT_SLOT(obj)->set_attr != nullptr)
+            set_attr = AR_OBJECT_SLOT(obj)->set_attr;
+
+        if (AR_OBJECT_SLOT(obj)->set_static_attr != nullptr)
+            set_sattr = AR_OBJECT_SLOT(obj)->set_static_attr;
+    }
+
+    if (!member) {
+        if (set_sattr == nullptr) {
+            ErrorFormat(type_type_error_, "'%s' object is unable to set static member", AR_TYPE_NAME(obj));
             return false;
         }
 
-        return AR_OBJECT_SLOT(obj)->set_attr(obj, key, value);
+        return set_sattr(obj, key, value);
     }
 
-    if (AR_OBJECT_SLOT(obj) == nullptr || AR_OBJECT_SLOT(obj)->set_static_attr == nullptr) {
-        ErrorFormat(type_scope_error_, "'%s' object is unable to use scope(::) operator", AR_TYPE_NAME(obj));
-        return false;
-    }
-
-    return AR_OBJECT_SLOT(obj)->set_static_attr(obj, key, value);
+    return set_attr(obj, key, value);
 }
 
 bool argon::object::TraitIsImplemented(const ArObject *obj, const TypeInfo *type) {
@@ -605,10 +713,50 @@ bool argon::object::TraitIsImplemented(const ArObject *obj, const TypeInfo *type
     return false;
 }
 
+bool InitMembers(TypeInfo *info) {
+    ArObject *tmp;
+
+    if (info->obj_actions == nullptr)
+        return true;
+
+    // Functions / Methods
+    if(info->obj_actions->methods!= nullptr) {
+        for (const NativeFunc *method = info->obj_actions->methods; method->name != nullptr; method++) {
+            if ((tmp = FunctionNew(nullptr, info, method, method->method)) == nullptr)
+                goto error;
+
+            if (!NamespaceNewSymbol((Namespace *) info->tp_map, ((Function *) tmp)->name, tmp,
+                                    PropertyType::PUBLIC | PropertyType::CONST))
+                goto error;
+
+            Release(tmp);
+        }
+    }
+
+    // Members
+    if(info->obj_actions->members!= nullptr) {
+        for (const NativeMember *member = info->obj_actions->members; member->name != nullptr; member++) {
+            if ((tmp = NativeWrapperNew(member)) == nullptr)
+                goto error;
+
+            if (!NamespaceNewSymbol((Namespace *) info->tp_map, member->name, tmp,
+                                    PropertyType::PUBLIC | PropertyType::CONST))
+                goto error;
+
+            Release(tmp);
+        }
+    }
+
+
+    return true;
+
+    error:
+    Release(tmp);
+    return false;
+}
+
 bool argon::object::TypeInit(TypeInfo *info, ArObject *ns) {
     static PropertyType meth_flags = PropertyType::PUBLIC | PropertyType::CONST;
-    Function *fn = nullptr;
-
     ArSize blen = 0;
 
     assert(info->tp_map == nullptr);
@@ -631,22 +779,14 @@ bool argon::object::TypeInit(TypeInfo *info, ArObject *ns) {
         goto error;
 
     // Push methods
-    if (info->obj_actions != nullptr && info->obj_actions->methods != nullptr) {
-        for (const NativeFunc *method = info->obj_actions->methods; method->name != nullptr; method++) {
-            if ((fn = FunctionNew(nullptr, info, method, method->method)) == nullptr)
-                goto error;
-
-            if (!NamespaceNewSymbol((Namespace *) info->tp_map, fn->name, fn, meth_flags))
-                goto error;
-
-            Release(fn);
-        }
+    if (info->obj_actions != nullptr) {
+        if (!InitMembers(info))
+            goto error;
     }
 
     return true;
 
     error:
-    Release(fn);
     Release(&info->mro);
     Release(&info->tp_map);
     return false;

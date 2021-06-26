@@ -44,7 +44,9 @@ const ObjectSlots bool_obj{
         nullptr,
         nullptr,
         nullptr,
-        nullptr
+        nullptr,
+        nullptr,
+        -1
 };
 
 bool bool_is_true(Bool *self) {

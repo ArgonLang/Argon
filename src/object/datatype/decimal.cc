@@ -90,7 +90,9 @@ const ObjectSlots decimal_obj{
         nullptr,
         nullptr,
         nullptr,
-        nullptr
+        nullptr,
+        nullptr,
+        -1
 };
 
 ArObject *decimal_add(ArObject *left, ArObject *right) {

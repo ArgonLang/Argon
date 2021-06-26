@@ -571,13 +571,8 @@ ArObject *argon::vm::Eval(ArRoutine *routine) {
                     goto error;
                 }
 
-                if (!key_pair) {
-                    if ((ret = StructNewPositional(t_struct, cu_frame->eval_stack - args, args)) == nullptr)
-                        goto error;
-                } else {
-                    if ((ret = StructNewKeyPair(t_struct, cu_frame->eval_stack - args, args)) == nullptr)
-                        goto error;
-                }
+                if ((ret = StructInit(t_struct, cu_frame->eval_stack - args, args, key_pair)) == nullptr)
+                    goto error;
 
                 STACK_REWIND(args);
                 TOP_REPLACE(ret);

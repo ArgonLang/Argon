@@ -35,7 +35,9 @@ const ObjectSlots error_t_obj = {
         nullptr,
         nullptr,
         nullptr,
-        nullptr
+        nullptr,
+        nullptr,
+        -1
 };
 
 const TypeInfo ErrorWrap = {
@@ -79,6 +81,11 @@ const NativeFunc error_methods[] = {
         ARGON_METHOD_SENTINEL
 };
 
+const NativeMember error_members[] = {
+        {"error",  NativeMemberType::AROBJECT, offsetof(Error, obj), true},
+        ARGON_MEMBER_SENTINEL
+};
+
 const TypeInfo *error_bases[] = {
         type_error_wrap_,
         nullptr
@@ -86,11 +93,13 @@ const TypeInfo *error_bases[] = {
 
 const ObjectSlots error_obj = {
         error_methods,
+        error_members,
         error_bases,
         nullptr,
         nullptr,
         nullptr,
-        nullptr
+        nullptr,
+        -1
 };
 
 ArObject *error_compare(Error *self, ArObject *other, CompareMode mode) {
@@ -126,7 +135,7 @@ const TypeInfo name = {                         \
     #name,                                      \
     #doc,                                       \
     sizeof(Error),                              \
-    TypeInfoFlags::BASE,                        \
+    TypeInfoFlags::STRUCT,                      \
     nullptr,                                    \
     (VoidUnaryOp)error_cleanup,                 \
     nullptr,                                    \
