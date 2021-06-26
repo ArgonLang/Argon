@@ -713,10 +713,50 @@ bool argon::object::TraitIsImplemented(const ArObject *obj, const TypeInfo *type
     return false;
 }
 
+bool InitMembers(TypeInfo *info) {
+    ArObject *tmp;
+
+    if (info->obj_actions == nullptr)
+        return true;
+
+    // Functions / Methods
+    if(info->obj_actions->methods!= nullptr) {
+        for (const NativeFunc *method = info->obj_actions->methods; method->name != nullptr; method++) {
+            if ((tmp = FunctionNew(nullptr, info, method, method->method)) == nullptr)
+                goto error;
+
+            if (!NamespaceNewSymbol((Namespace *) info->tp_map, ((Function *) tmp)->name, tmp,
+                                    PropertyType::PUBLIC | PropertyType::CONST))
+                goto error;
+
+            Release(tmp);
+        }
+    }
+
+    // Members
+    if(info->obj_actions->members!= nullptr) {
+        for (const NativeMember *member = info->obj_actions->members; member->name != nullptr; member++) {
+            if ((tmp = NativeWrapperNew(member)) == nullptr)
+                goto error;
+
+            if (!NamespaceNewSymbol((Namespace *) info->tp_map, member->name, tmp,
+                                    PropertyType::PUBLIC | PropertyType::CONST))
+                goto error;
+
+            Release(tmp);
+        }
+    }
+
+
+    return true;
+
+    error:
+    Release(tmp);
+    return false;
+}
+
 bool argon::object::TypeInit(TypeInfo *info, ArObject *ns) {
     static PropertyType meth_flags = PropertyType::PUBLIC | PropertyType::CONST;
-    Function *fn = nullptr;
-
     ArSize blen = 0;
 
     assert(info->tp_map == nullptr);
@@ -740,36 +780,13 @@ bool argon::object::TypeInit(TypeInfo *info, ArObject *ns) {
 
     // Push methods
     if (info->obj_actions != nullptr) {
-        if (info->obj_actions->methods != nullptr) {
-            for (const NativeFunc *method = info->obj_actions->methods; method->name != nullptr; method++) {
-                if ((fn = FunctionNew(nullptr, info, method, method->method)) == nullptr)
-                    goto error;
-
-                if (!NamespaceNewSymbol((Namespace *) info->tp_map, fn->name, fn, meth_flags))
-                    goto error;
-
-                Release(fn);
-            }
-        }
-
-        ArObject *tmp;
-        if (info->obj_actions->members != nullptr) {
-            for (const NativeMember *member = info->obj_actions->members; member->name != nullptr; member++) {
-                if ((tmp = NativeWrapperNew(member)) == nullptr)
-                    goto error;
-
-                if (!NamespaceNewSymbol((Namespace *) info->tp_map, member->name, tmp, PropertyType::PUBLIC))
-                    goto error;
-
-                Release(tmp);
-            }
-        }
+        if (!InitMembers(info))
+            goto error;
     }
 
     return true;
 
     error:
-    Release(fn);
     Release(&info->mro);
     Release(&info->tp_map);
     return false;
