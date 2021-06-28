@@ -120,8 +120,8 @@ bool type_set_attr(ArObject *obj, ArObject *key, ArObject *value) {
     ArObject *instance = nullptr;
     ArObject *actual;
 
-    bool ok = false;
     bool is_tpm = false;
+    bool ok;
 
     PropertyInfo pinfo{};
 
@@ -131,7 +131,7 @@ bool type_set_attr(ArObject *obj, ArObject *key, ArObject *value) {
     if (argon::vm::GetRoutine()->frame != nullptr)
         instance = argon::vm::GetRoutine()->frame->instance;
 
-    if (AR_OBJECT_SLOT(obj)->nsoffset >= 0) {
+    if (AR_OBJECT_SLOT(obj)->nsoffset < 0) {
         ns = (Namespace **) &(AR_GET_TYPE(obj)->tp_map);
         is_tpm = true;
     }
