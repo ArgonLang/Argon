@@ -19,18 +19,20 @@ void FillBadCharTable(int *table, const unsigned char *pattern, ArSSize len, boo
 
 ArSSize DoSearch(int *table, const unsigned char *buf, ArSSize blen, const unsigned char *pattern, ArSSize plen) {
     ArSSize cursor = plen - 1;
+    ArSSize i;
 
     FillBadCharTable(table, pattern, plen, false);
 
-    next:
     while (cursor < blen) {
-        for (ArSSize i = 0; i < plen; i++) {
+        for (i = 0; i < plen; i++) {
             if (buf[cursor - i] != pattern[(plen - 1) - i]) {
                 cursor = (cursor - i) + table[buf[cursor - i]];
-                goto next;
+                break;
             }
         }
-        return cursor - (plen - 1);
+
+        if(i==plen)
+            return cursor - (plen - 1);
     }
 
     return -1;
@@ -38,18 +40,20 @@ ArSSize DoSearch(int *table, const unsigned char *buf, ArSSize blen, const unsig
 
 ArSSize DoRSearch(int *table, const unsigned char *buf, ArSSize blen, const unsigned char *pattern, ArSSize plen) {
     ArSSize cursor = (blen - 1) - plen;
+    ArSSize i;
 
     FillBadCharTable(table, pattern, plen, true);
 
-    next:
     while (cursor >= 0) {
-        for (ArSSize i = 0; i < plen; i++) {
+        for (i = 0; i < plen; i++) {
             if (buf[cursor + i] != pattern[i]) {
                 cursor = (cursor - i) - table[buf[cursor - i]];
-                goto next;
+                break;
             }
         }
-        return cursor;
+
+        if(i==plen)
+            return cursor;
     }
 
     return -1;

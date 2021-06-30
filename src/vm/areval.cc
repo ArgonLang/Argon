@@ -142,7 +142,7 @@ ArObject *RestElementToList(ArObject **args, ArSize count) {
 
 bool CheckRecursionLimit(ArRoutine *routine) {
     ArSize flags = (sizeof(ArSize) * 8) - 1;
-    ArSize nflag = ~(0x01 << flags);
+    ArSize nflag = ~(0x01UL << flags);
 
     // Ignore if it is a suspended frame (e.g. for function call)
     if (routine->frame->instr_ptr != routine->frame->code->instr)
