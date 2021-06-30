@@ -1,0 +1,42 @@
+name: Code analysis
+
+on:
+  push:
+    branches: [ develop ]
+
+  # Allows you to run this workflow manually from the Actions tab
+  workflow_dispatch:
+
+jobs:
+  sonarqube:
+    runs-on: ubuntu-latest
+    
+    steps:
+      # Checks-out repository
+      - uses: actions/checkout@v2
+      
+      - name: Download SonarQube tools
+        run: |
+          mkdir sonar
+          cd sonar
+          wget https://binaries.sonarsource.com/Distribution/sonar-scanner-cli/sonar-scanner-cli-4.6.2.2472-linux.zip;
+          wget https://sonarcloud.io/static/cpp/build-wrapper-linux-x86.zip;
+          unzip -j build-wrapper-linux-x86.zip;
+          unzip sonar-scanner-cli-4.6.2.2472-linux.zip
+      
+      - name: Compiling
+        run: | 
+          cmake .
+          sonar/build-wrapper-linux-x86-64 --out-dir wrapper_output make
+        
+      - name: Run analyzer
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+          SONAR_ARGS: >
+           -Dsonar.projectKey=ArgonLang_Argon 
+           -Dsonar.organization=argonlang
+           -Dsonar.host.url=https://sonarcloud.io
+           -Dsonar.projectBaseDir=src
+           -Dsonar.cfamily.build-wrapper-output=wrapper_output 
+        run: sonar/sonar-scanner-4.6.2.2472-linux/bin/sonar-scanner ${SONAR_ARGS}
