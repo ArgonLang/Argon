@@ -24,7 +24,7 @@ endif()
 
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-if (${CMAKE_SYSTEM_NAME_ID} MATCHES "Linux")
+if (${CMAKE_SYSTEM_NAME} MATCHES "Linux")
     set(CMAKE_CXX_FLAGS  "${CMAKE_CXX_FLAGS} -pthread")
 endif()
 
