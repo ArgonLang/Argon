@@ -16,7 +16,7 @@ namespace argon::object {
 
     extern const TypeInfo *type_struct_;
 
-    ArObject *StructInit(const TypeInfo *type, ArObject **values, ArSize count, bool keypair);
+    ArObject *StructInit(const ArObject *t_obj, ArObject **values, ArSize count, bool keypair);
 
 } // namespace argon::object
 

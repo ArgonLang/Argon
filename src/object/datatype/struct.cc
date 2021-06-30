@@ -147,12 +147,16 @@ bool NativeInitKeyPair(ArObject *instance, ArObject **values, ArSize count) {
 
 }
 
-ArObject *argon::object::StructInit(const TypeInfo *type, ArObject **values, ArSize count, bool keypair) {
-    auto *instance = ArObjectGCNew(type);
+ArObject *argon::object::StructInit(const ArObject *t_obj, ArObject **values, ArSize count, bool keypair) {
+    const TypeInfo *type = AR_TYPEOF(t_obj, type_type_) ? (TypeInfo *) t_obj : AR_GET_TYPE(t_obj);
+    ArObject *instance;
     Namespace **ns;
     bool ok;
 
-    if (instance == nullptr)
+    if (type->obj_actions == nullptr || type->flags!=TypeInfoFlags::STRUCT)
+        return ErrorFormat(type_type_error_, "expected struct, found '%s'", type->type->name);
+
+    if ((instance = ArObjectGCNew(type)) == nullptr)
         return nullptr;
 
     if (type->obj_actions->nsoffset < 0) {
@@ -171,7 +175,7 @@ ArObject *argon::object::StructInit(const TypeInfo *type, ArObject **values, ArS
     // Initialize new namespace
     ns = (Namespace **) AR_GET_NSOFF(instance);
 
-    if ((*ns = NamespaceNew((Namespace *) type->tp_map, PropertyType::CONST)) == nullptr) {
+    if (ns == nullptr || (*ns = NamespaceNew((Namespace *) type->tp_map, PropertyType::CONST)) == nullptr) {
         Release(instance);
         return nullptr;
     }

@@ -564,12 +564,7 @@ ArObject *argon::vm::Eval(ArRoutine *routine) {
             TARGET_OP(INIT) {
                 auto args = ARG16;
                 bool key_pair = argon::lang::I32ExtractFlag(cu_frame->instr_ptr);
-                auto t_struct = (TypeInfo *) *(cu_frame->eval_stack - args - 1);
-
-                if (t_struct->flags != TypeInfoFlags::STRUCT) {
-                    ErrorFormat(type_type_error_, "expected struct, found '%s'", t_struct->type->name);
-                    goto error;
-                }
+                auto t_struct = *(cu_frame->eval_stack - args - 1);
 
                 if ((ret = StructInit(t_struct, cu_frame->eval_stack - args, args, key_pair)) == nullptr)
                     goto error;
