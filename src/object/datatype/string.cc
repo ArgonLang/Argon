@@ -3,6 +3,7 @@
 // Licensed under the Apache License v2.0
 
 #include <cstdarg>
+#include <cmath>
 
 #include <memory/memory.h>
 #include <vm/runtime.h>
@@ -949,12 +950,15 @@ bool FmtParseOptionStar(StringFormatter *fmt, StringArg *arg, bool prec) {
     auto num = (Integer *) FmtGetNextArg(fmt);
     int opt;
 
-    if (num == nullptr || num->type != type_integer_) {
+    if (num == nullptr)
+        return false;
+
+    if (num->type != type_integer_) {
         ErrorFormat(type_type_error_, "* wants integer not '%s'", num->type->name);
         return false;
     }
 
-    opt = num->integer;
+    opt = (int)num->integer;
 
     if (opt < 0) {
         if (!prec)
@@ -1160,7 +1164,7 @@ int FmtDecimal(StringFormatter *fmt, StringArg *arg, char specifier) {
         return -1;
     }
 
-    if (num != num) // check NaN
+    if (std::isnan(num)) // if (num != num) // check NaN
         return FmtWrite(fmt, arg, (unsigned char *) "nan", 3);
     else if (num > DBL_MAX)
         return FmtWrite(fmt, arg, (unsigned char *) "+inf", 4);
