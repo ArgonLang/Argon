@@ -61,6 +61,8 @@ namespace argon::object {
 
     void *GCNew(ArSize len);
 
+    void GCFree(ArObject *obj);
+
     GCStats GetStats(unsigned short generation);
 
     void Sweep();

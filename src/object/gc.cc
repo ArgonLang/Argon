@@ -191,6 +191,13 @@ void *argon::object::GCNew(ArSize len) {
     return obj;
 }
 
+void argon::object::GCFree(ArObject *obj) {
+    if(obj->ref_count.IsGcObject()){
+        UnTrack(obj);
+        argon::memory::Free(GCGetHead(obj));
+    }
+}
+
 void argon::object::Sweep() {
     GCHead *cursor;
     GCHead *tmp;
@@ -212,7 +219,7 @@ void argon::object::Sweep() {
 void argon::object::Track(ArObject *obj) {
     auto head = GCGetHead(obj);
 
-    if (!obj->ref_count.IsGcObject())
+    if (obj == nullptr || !obj->ref_count.IsGcObject())
         return;
 
     track_lck.lock();
