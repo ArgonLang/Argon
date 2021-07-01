@@ -148,12 +148,11 @@ bool NativeInitKeyPair(ArObject *instance, ArObject **values, ArSize count) {
 }
 
 ArObject *argon::object::StructInit(const ArObject *t_obj, ArObject **values, ArSize count, bool keypair) {
-    const TypeInfo *type = AR_TYPEOF(t_obj, type_type_) ? (TypeInfo *) t_obj : AR_GET_TYPE(t_obj);
+    const TypeInfo *type = AR_GET_TYPEOBJ(t_obj);
     ArObject *instance;
     Namespace **ns;
-    bool ok;
 
-    if (type->obj_actions == nullptr || type->flags!=TypeInfoFlags::STRUCT)
+    if (type->obj_actions == nullptr || type->flags != TypeInfoFlags::STRUCT)
         return ErrorFormat(type_type_error_, "expected struct, found '%s'", type->type->name);
 
     if ((instance = ArObjectGCNew(type)) == nullptr)
@@ -161,12 +160,8 @@ ArObject *argon::object::StructInit(const ArObject *t_obj, ArObject **values, Ar
 
     if (type->obj_actions->nsoffset < 0) {
         if (type->tp_map != nullptr && count > 0) {
-            ok = keypair ? NativeInitKeyPair(instance, values, count) : NativeInitPositional(instance, values, count);
-
-            if (!ok) {
-                Release(instance);
-                return nullptr;
-            }
+            if (!(keypair ? NativeInitKeyPair(instance, values, count) : NativeInitPositional(instance, values, count)))
+                goto error;
         }
 
         return instance;
@@ -175,26 +170,27 @@ ArObject *argon::object::StructInit(const ArObject *t_obj, ArObject **values, Ar
     // Initialize new namespace
     ns = (Namespace **) AR_GET_NSOFF(instance);
 
-    if (ns == nullptr || (*ns = NamespaceNew((Namespace *) type->tp_map, PropertyType::CONST)) == nullptr) {
-        Release(instance);
-        return nullptr;
-    }
+    if ((*ns = NamespaceNew((Namespace *) type->tp_map, PropertyType::CONST)) == nullptr)
+        goto error;
 
     if (!keypair) {
         if (NamespaceSetPositional(*ns, values, count) >= 1) {
-            Release(instance);
-            return (Struct *) ErrorFormat(type_undeclared_error_, "too many args to initialize struct '%s'",
-                                          type->name);
+            ErrorFormat(type_undeclared_error_, "too many args to initialize struct '%s'", type->name);
+            goto error;
         }
     } else {
         for (ArSize i = 0; i < count; i += 2) {
             if (!NamespaceSetValue(*ns, values[i], values[i + 1])) {
-                Release(instance);
-                return (Struct *) ErrorFormat(type_undeclared_error_, "struct '%s' have no property named '%s'",
-                                              type->name, ((String *) values[i])->buffer);
+                ErrorFormat(type_undeclared_error_, "struct '%s' have no property named '%s'", type->name,
+                            ((String *) values[i])->buffer);
+                goto error;
             }
         }
     }
 
     return instance;
+
+    error:
+    Release(instance);
+    return nullptr;
 }

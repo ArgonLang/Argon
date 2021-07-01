@@ -1164,7 +1164,7 @@ int FmtDecimal(StringFormatter *fmt, StringArg *arg, char specifier) {
         return -1;
     }
 
-    if (std::isnan(num)) // if (num != num) // check NaN
+    if (std::isnan(num)) // check NaN equals to num != num
         return FmtWrite(fmt, arg, (unsigned char *) "nan", 3);
     else if (num > DBL_MAX)
         return FmtWrite(fmt, arg, (unsigned char *) "+inf", 4);

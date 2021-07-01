@@ -35,7 +35,7 @@ ArObject *MROSearch(const TypeInfo *type, ArObject *key, PropertyInfo *pinfo) {
 }
 
 ArObject *type_get_static_attr(ArObject *self, ArObject *key) {
-    const TypeInfo *type = AR_TYPEOF(self, type_type_) ? (TypeInfo *) self : AR_GET_TYPE(self);
+    const TypeInfo *type = AR_GET_TYPEOBJ(self);
     const TypeInfo *tp_base = type;
     ArObject *instance = nullptr;
     ArObject *obj;
@@ -76,7 +76,7 @@ ArObject *type_get_static_attr(ArObject *self, ArObject *key) {
 }
 
 ArObject *type_get_attr(ArObject *self, ArObject *key) {
-    const TypeInfo *ancestor = AR_TYPEOF(self, type_type_) ? (TypeInfo *) self : AR_GET_TYPE(self);
+    const TypeInfo *ancestor = AR_GET_TYPEOBJ(self);
     auto **ns = (Namespace **) AR_GET_NSOFF(self);
     ArObject *instance = nullptr;
     ArObject *obj = nullptr;

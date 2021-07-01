@@ -278,6 +278,7 @@ ArObject *prefix##name##_fn(ArObject *func, ArObject *self, ArObject **argv, ArS
 
 #define TYPEINFO_STATIC_INIT        {{RefCount(RCType::STATIC)}, type_type_}
 #define AR_GET_TYPE(object)         ((object)->type)
+#define AR_GET_TYPEOBJ(object)      (AR_TYPEOF(object, type_type_) ? (const TypeInfo *) (object) : AR_GET_TYPE(object))
 #define AR_TYPEOF(object, type)     (AR_GET_TYPE(object) == (type))
 #define AR_SAME_TYPE(object, other) (AR_GET_TYPE(object) == AR_GET_TYPE(other))
 #define AR_TYPE_NAME(object)        (AR_GET_TYPE(object)->name)

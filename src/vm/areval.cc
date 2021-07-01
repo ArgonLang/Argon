@@ -165,7 +165,7 @@ bool CheckRecursionLimit(ArRoutine *routine) {
 
     if (++routine->recursion_depth > routine->context->recursion_limit) {
         ErrorFormat(type_runtime_error_, "maximum recursion depth of %d reached", routine->context->recursion_limit);
-        routine->recursion_depth |= 0x01 << flags;
+        routine->recursion_depth |= 0x01UL << flags;
         return false;
     }
 
@@ -563,10 +563,9 @@ ArObject *argon::vm::Eval(ArRoutine *routine) {
             }
             TARGET_OP(INIT) {
                 auto args = ARG16;
-                bool key_pair = argon::lang::I32ExtractFlag(cu_frame->instr_ptr);
-                auto t_struct = *(cu_frame->eval_stack - args - 1);
 
-                if ((ret = StructInit(t_struct, cu_frame->eval_stack - args, args, key_pair)) == nullptr)
+                if ((ret = StructInit(*(cu_frame->eval_stack - args - 1), cu_frame->eval_stack - args,
+                                      args, argon::lang::I32ExtractFlag(cu_frame->instr_ptr))) == nullptr)
                     goto error;
 
                 STACK_REWIND(args);
