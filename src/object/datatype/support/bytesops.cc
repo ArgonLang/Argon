@@ -31,7 +31,7 @@ ArSSize DoSearch(int *table, const unsigned char *buf, ArSSize blen, const unsig
             }
         }
 
-        if(i==plen)
+        if (i == plen)
             return cursor - (plen - 1);
     }
 
@@ -39,7 +39,7 @@ ArSSize DoSearch(int *table, const unsigned char *buf, ArSSize blen, const unsig
 }
 
 ArSSize DoRSearch(int *table, const unsigned char *buf, ArSSize blen, const unsigned char *pattern, ArSSize plen) {
-    ArSSize cursor = (blen - 1) - plen;
+    ArSSize cursor = blen - plen;
     ArSSize i;
 
     FillBadCharTable(table, pattern, plen, true);
@@ -52,7 +52,7 @@ ArSSize DoRSearch(int *table, const unsigned char *buf, ArSSize blen, const unsi
             }
         }
 
-        if(i==plen)
+        if (i == plen)
             return cursor;
     }
 
