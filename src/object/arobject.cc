@@ -35,7 +35,7 @@ ArObject *MROSearch(const TypeInfo *type, ArObject *key, PropertyInfo *pinfo) {
 }
 
 ArObject *type_get_static_attr(ArObject *self, ArObject *key) {
-    const TypeInfo *type = AR_TYPEOF(self, type_type_) ? (TypeInfo *) self : AR_GET_TYPE(self);
+    const TypeInfo *type = AR_GET_TYPEOBJ(self);
     const TypeInfo *tp_base = type;
     ArObject *instance = nullptr;
     ArObject *obj;
@@ -76,7 +76,7 @@ ArObject *type_get_static_attr(ArObject *self, ArObject *key) {
 }
 
 ArObject *type_get_attr(ArObject *self, ArObject *key) {
-    const TypeInfo *ancestor = AR_TYPEOF(self, type_type_) ? (TypeInfo *) self : AR_GET_TYPE(self);
+    const TypeInfo *ancestor = AR_GET_TYPEOBJ(self);
     auto **ns = (Namespace **) AR_GET_NSOFF(self);
     ArObject *instance = nullptr;
     ArObject *obj = nullptr;
@@ -85,6 +85,9 @@ ArObject *type_get_attr(ArObject *self, ArObject *key) {
 
     if (!AR_IS_TYPE_INSTANCE(self))
         return ErrorFormat(type_type_error_, "object is not an instance of type '%s'", ancestor->name);
+
+    if (AR_OBJECT_SLOT(self) == nullptr)
+        return ErrorFormat(type_attribute_error_, "object of type '%s' does not support attribute(.) operator", ancestor->name);
 
     if (argon::vm::GetRoutine()->frame != nullptr)
         instance = argon::vm::GetRoutine()->frame->instance;
@@ -126,7 +129,11 @@ bool type_set_attr(ArObject *obj, ArObject *key, ArObject *value) {
     PropertyInfo pinfo{};
 
     if (!AR_IS_TYPE_INSTANCE(obj))
-        return ErrorFormat(type_type_error_, "object is not an instance of type '%s'", ((TypeInfo *) obj)->name);
+        return ErrorFormat(type_type_error_, "object is not an instance of type '%s'", AR_TYPE_NAME(obj));
+
+    if (AR_OBJECT_SLOT(obj) == nullptr)
+        return ErrorFormat(type_attribute_error_, "object of type '%s' does not support attribute(.) operator",
+                           AR_TYPE_NAME(obj));
 
     if (argon::vm::GetRoutine()->frame != nullptr)
         instance = argon::vm::GetRoutine()->frame->instance;
@@ -856,11 +863,8 @@ void argon::object::Release(ArObject *obj) {
 
         Release((ArObject *) obj->type);
 
-        if (obj->ref_count.IsGcObject()) {
-            UnTrack(obj);
-            argon::memory::Free(GCGetHead(obj));
-            return;
-        }
+        if (obj->ref_count.IsGcObject())
+            return GCFree(obj);
 
         argon::memory::Free(obj);
     }

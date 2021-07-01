@@ -48,10 +48,10 @@ unsigned int ArRoutineQueue::GrabHalfQueue(unsigned int min_len, ArRoutineQueue 
     std::unique_lock<std::mutex> uniqueLock(this->queue_lock);
 
     ArRoutine *mid = queue.head_;   // Mid element pointer
+    ArRoutine *last = queue.tail_;  // Pointer to last element in queue
     ArRoutine *mid_prev = nullptr;
-    ArRoutine *last;                // Pointer to last element in queue
-    unsigned int grab_len = 0;
     unsigned int counter = 0;
+    unsigned int grab_len;
 
     // Check target queue minimum length
     if (queue.len_ < min_len) {
