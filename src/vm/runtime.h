@@ -25,6 +25,12 @@ namespace argon::vm {
 
     bool Shutdown();
 
+    void StopTheWorld();
+
+    void StartTheWorld();
+
+    void STWCheckpoint();
+
     bool IsPanicking();
 
     Context *GetContext();
