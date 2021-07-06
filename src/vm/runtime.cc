@@ -3,8 +3,6 @@
 // Licensed under the Apache License v2.0
 
 #include <thread>
-#include <mutex>
-#include <condition_variable>
 
 #include <object/setup.h>
 #include <object/datatype/error.h>
@@ -52,9 +50,9 @@ OSThread *ost_idle = nullptr;               // IDLE OSThread
 thread_local OSThread *ost_local = nullptr; // OSThread for actual thread
 
 unsigned int ost_total = 0;                 // OSThread counter
-//unsigned int ost_idle_count = 0;          // OSThread counter (idle)
+unsigned int ost_idle_count = 0;            // OSThread counter (idle)
 std::atomic_uint ost_spinning_count = 0;    // OSThread in spinning
-std::atomic_int ost_worker_count = 0;
+std::atomic_int ost_worker_count = 0;       // OSThread counter (worker)
 
 bool should_stop = false;                   // If true all thread should be stopped
 bool stw = false;
@@ -125,7 +123,7 @@ ArRoutine *FindExecutable() {
 bool WireVCore(VCore *vcore) {
     bool ok = false;
 
-    if (vcore!= nullptr&&vcore->ost == nullptr) {
+    if (vcore != nullptr && vcore->ost == nullptr) {
         vcore->ost = ost_local;
         vcore->status = VCoreStatus::RUNNING;
         ost_local->current = vcore;
@@ -134,11 +132,6 @@ bool WireVCore(VCore *vcore) {
     }
 
     return ok;
-}
-
-bool WireVCoreLock(VCore *vcore) {
-    std::unique_lock lck(vc_lock);
-    return WireVCore(vcore);
 }
 
 bool AcquireVCore() {
@@ -185,7 +178,7 @@ OSThread *AllocOST() {
     return ost;
 }
 
-void FreeOST(OSThread *ost) {
+inline void FreeOST(OSThread *ost) {
     if (ost != nullptr)
         argon::memory::Free(ost);
 }
@@ -240,13 +233,16 @@ void ResetSpinning() {
 }
 
 void FromActiveToIdle(OSThread *ost) {
-    if (--ost_worker_count == 0)
+    if (ost_worker_count.fetch_sub(1) == 1)
         cond_stw.notify_one();
+
+    if(ost->current!= nullptr)
+        ReleaseVCore();
 
     ost_lock.lock();
     RemoveOSThread(ost);
     PushOSThread(ost, &ost_idle);
-    //ost_idle_count++;
+    ost_idle_count++;
     ost_lock.unlock();
 }
 
@@ -254,7 +250,7 @@ void FromIdleToActive(OSThread *ost) {
     ost_lock.lock();
     RemoveOSThread(ost);
     PushOSThread(ost, &ost_active);
-    //ost_idle_count--;
+    ost_idle_count--;
     ost_lock.unlock();
 
     ost_worker_count++;
@@ -266,7 +262,13 @@ void Schedule(OSThread *self) {
     START:
 
     // Find a free VCore and associate with it
-    while (!should_stop && !WireVCoreLock(ost_local->old)) {
+    while (!should_stop) {
+        {
+            std::unique_lock lck(vc_lock);
+            if (WireVCore(ost_local->old))
+                break;
+        }
+
         if (AcquireVCore())
             break;
 
@@ -278,7 +280,6 @@ void Schedule(OSThread *self) {
     // Main dispatch procedure
     while (!should_stop) {
         if ((self->routine = FindExecutable()) == nullptr) {
-            ReleaseVCore();
             FromActiveToIdle(self);
             OSTSleep();
             goto START;
@@ -287,8 +288,11 @@ void Schedule(OSThread *self) {
         if (self->spinning)
             ResetSpinning();
 
-        if (should_stop)
-            return; // Remove routine!!!!!!!!
+        if (should_stop) {
+            RoutineDel(self->routine);
+            self->routine = nullptr;
+            break;
+        }
 
         STWCheckpoint();
         Release(Eval(self->routine));
@@ -304,25 +308,21 @@ void Schedule(OSThread *self) {
     // Shutdown thread
     assert(self->routine == nullptr);
 
-    ReleaseVCore();
     FromActiveToIdle(self);
 
-    // ERROR
     ost_lock.lock();
     RemoveOSThread(self);
-    ost_total--;
-    ost_lock.unlock();
-
     self->self.detach();
     FreeOST(self);
-    // ERROR
+    ost_total--;
+    ost_lock.unlock();
 }
 
 void StartOST(OSThread *ost) {
     ost_lock.lock();
     PushOSThread(ost, &ost_idle);
     ost_total++;
-    //ost_idle_count++;
+    ost_idle_count++;
     ost_lock.unlock();
     ost->self = std::thread(Schedule, ost);
 }
@@ -471,18 +471,21 @@ bool argon::vm::Shutdown() {
 
 void argon::vm::StopTheWorld() {
     std::unique_lock lck(stw_lock);
-    stw = true;
 
-    ost_lock.lock();
+    if (stw) {
+        if (ost_worker_count.fetch_sub(1) == 1)
+            cond_stw.notify_one();
 
-    if (--ost_worker_count > 0) {
-        ost_lock.unlock();
-        cond_stw.wait(lck, [] { return ost_worker_count == 0; });
+        cond_stopwait.wait(lck, [] { return !stw; });
+        ost_worker_count++;
     }
 
-    assert(ost_worker_count >= 0);
+    stw = true;
 
-    ost_lock.unlock();
+    if (ost_worker_count.fetch_sub(1) > 1)
+        cond_stw.wait(lck, [] { return ost_worker_count == 0; });
+
+    assert(ost_worker_count >= 0);
 }
 
 void argon::vm::StartTheWorld() {
@@ -496,9 +499,35 @@ void argon::vm::STWCheckpoint() {
     if (!stw)
         return;
 
-    if (--ost_worker_count == 0)
+    if (ost_worker_count.fetch_sub(1) == 1)
         cond_stw.notify_one();
 
     cond_stopwait.wait(lck, [] { return !stw; });
     ost_worker_count++;
+}
+
+void OSTWakeRun() {
+    std::unique_lock lck(ost_lock);
+    OSThread *ost;
+
+    if (ost_idle_count > 0) {
+        ost_cond.notify_one();
+        return;
+    }
+
+    if (ost_total > OST_MAX)
+        return;
+
+    if ((ost = AllocOST()) == nullptr) {
+        // TODO: Signal Error?!
+    }
+
+    lck.unlock();
+
+    StartOST(ost);
+}
+
+void argon::vm::ReleaseQueue() {
+    ReleaseVCore();
+    OSTWakeRun();
 }

@@ -21,19 +21,21 @@ namespace argon::vm {
 
     ArRoutine *GetRoutine();
 
+    Context *GetContext();
+
     bool Initialize();
-
-    bool Shutdown();
-
-    void StopTheWorld();
-
-    void StartTheWorld();
-
-    void STWCheckpoint();
 
     bool IsPanicking();
 
-    Context *GetContext();
+    bool Shutdown();
+
+    void ReleaseQueue();
+
+    void StartTheWorld();
+
+    void StopTheWorld();
+
+    void STWCheckpoint();
 }
 
 #endif //ARGON_VM_RUNTIME_H_
