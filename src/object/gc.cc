@@ -6,24 +6,27 @@
 
 #include "gc.h"
 
-using namespace argon::memory;
 using namespace argon::object;
 
 /* GC variables */
-GCHead *generations[ARGON_OBJECT_GC_GENERATIONS] = {};  // Generation queues
-GCHead *garbage = nullptr;                              // Pointer to list of objects ready to be deleted
-GCStats stats[ARGON_OBJECT_GC_GENERATIONS] = {};        // Statistics
-std::mutex track_lck;                                   // GC lock
-std::mutex garbage_lck;                                 // Garbage lock
+GCGeneration generations[ARGON_OBJECT_GC_GENERATIONS] = {}; // Generation queues
+GCHead *garbage = nullptr;                                  // Pointer to list of objects ready to be deleted
 
-inline void InsertObject(GCHead **list, GCHead *obj) {
+ArSize total_tracked = 0;                                   // Sum of the objects tracked in each generation
+ArSize allocations = 0;
+ArSize deallocations = 0;
+
+std::mutex track_lck;                                       // GC lock
+std::mutex garbage_lck;                                     // Garbage lock
+
+void InsertObject(GCHead *obj, GCHead **list) {
     if (*list == nullptr) {
-        obj->next = nullptr;
+        obj->SetNext(nullptr);
         obj->prev = list;
     } else {
-        obj->next = (*list);
+        obj->SetNext(*list);
 
-        if ((*list) != nullptr)
+        if (*list != nullptr)
             (*list)->prev = &obj->next;
 
         obj->prev = list;
@@ -32,36 +35,29 @@ inline void InsertObject(GCHead **list, GCHead *obj) {
     *list = obj;
 }
 
-inline void RemoveObject(GCHead *head) {
+void RemoveObject(GCHead *head) {
     if (head->prev != nullptr)
         *head->prev = head->Next();
     if (head->Next() != nullptr)
         head->Next()->prev = head->prev;
 }
 
-inline void InitGCRefCount(GCHead *head, ArObject *obj) {
+inline void ResetStats(GCGeneration *generation) {
+    generation->count = 0;
+    generation->collected = 0;
+    generation->uncollected = 0;
+}
+
+void InitGCRefCount(GCHead *head, ArObject *obj) {
     head->ref = obj->ref_count.GetStrongCount();
-    obj->ref_count.IncStrong(); // Required to break references cycle if the cleanup method will be called!
     head->SetVisited(true);
 }
 
-void GCIncRef(ArObject *obj) {
-    if (GCIsTracking(obj)) {
-        auto head = GCGetHead(obj);
-
-        if (head->IsVisited()) {
-            head->SetVisited(false);
-            obj->ref_count.DecStrong(); // Acquired in first step (SearchRoots)
-            obj->type->trace(obj, GCIncRef);
-        }
-
-        head->ref++;
-    }
-}
-
 void GCDecRef(ArObject *obj) {
+    GCHead *head;
+
     if (GCIsTracking(obj)) {
-        auto head = GCGetHead(obj);
+        head = GCGetHead(obj);
 
         if (!head->IsVisited())
             InitGCRefCount(head, obj);
@@ -70,42 +66,126 @@ void GCDecRef(ArObject *obj) {
     }
 }
 
-void SearchRoots(unsigned short generation) {
-    GCHead *cursor = generations[generation];
+void GCIncRef(ArObject *obj) {
+    GCHead *head;
+
+    if (GCIsTracking(obj)) {
+        head = GCGetHead(obj);
+
+        if (head->IsVisited()) {
+            head->SetVisited(false);
+            obj->type->trace(obj, GCIncRef);
+        }
+
+        head->ref++;
+    }
+}
+
+void SearchRoots(GCGeneration *generation) {
     ArObject *obj;
 
-    while (cursor != nullptr) {
-        obj = cursor->GetObject<ArObject>();
+    for (GCHead *cursor = generation->list; cursor != nullptr; cursor = cursor->Next()) {
+        obj = cursor->GetObject();
 
         if (!cursor->IsVisited())
             InitGCRefCount(cursor, obj);
 
         obj->type->trace(obj, GCDecRef);
-        cursor = cursor->Next();
-
-        stats[generation].count++;
+        generation->count++;
     }
 }
 
-void TraceRoots(GCHead **unreachable, unsigned short generation) {
+void TraceRoots(GCGeneration *generation, GCHead **unreachable) {
+    ArObject *obj;
     GCHead *tmp;
 
-    for (GCHead *cursor = generations[generation]; cursor != nullptr; cursor = tmp) {
+    for (GCHead *cursor = generation->list; cursor != nullptr; cursor = tmp) {
         tmp = cursor->Next();
 
         if (cursor->ref == 0) {
+            cursor->SetFinalize(true);
             RemoveObject(cursor);
-            InsertObject(unreachable, cursor);
+            InsertObject(cursor, unreachable);
             continue;
         }
 
         if (cursor->IsVisited()) {
-            auto obj = cursor->GetObject<ArObject>();
+            obj = cursor->GetObject();
             cursor->SetVisited(false);
-            obj->ref_count.DecStrong(); // Acquired in first step (SearchRoots)
             obj->type->trace(obj, GCIncRef);
         }
     }
+}
+
+void Trashing(GCHead *unreachable, GCGeneration *generation, unsigned short next_gen) {
+    ArObject *obj;
+    GCHead *tmp;
+
+    for (GCHead *cursor = unreachable; cursor != nullptr; cursor = tmp) {
+        tmp = cursor->Next();
+        obj = cursor->GetObject();
+
+        RemoveObject(cursor);
+
+        // Check if objects are really unreachable
+        if (cursor->ref == 0) {
+            obj->type->cleanup(obj);
+
+            generation->collected++;
+
+            garbage_lck.lock();
+            InsertObject(cursor, &garbage);
+            total_tracked--;
+            deallocations++;
+            garbage_lck.unlock();
+            continue;
+        }
+
+        cursor->SetFinalize(false);
+        InsertObject(cursor, &generations[next_gen].list);
+    }
+}
+
+ArObject *argon::object::GCNew(ArSize len) {
+    auto obj = (GCHead *) memory::Alloc(sizeof(GCHead) + len);
+    ArObject *tmp = nullptr;
+
+    if (obj != nullptr) {
+        obj->prev = nullptr;
+        obj->next = nullptr;
+        obj->ref = 0;
+
+        tmp = (ArObject *) (((unsigned char *) obj) + sizeof(GCHead));
+    }
+
+    return tmp;
+}
+
+ArSize argon::object::Collect(unsigned short generation) {
+    GCHead *unreachable = nullptr;
+    unsigned short next_gen;
+
+    next_gen = (generation + 1) % ARGON_OBJECT_GC_GENERATIONS;
+    if (next_gen == 0)
+        next_gen = ARGON_OBJECT_GC_GENERATIONS - 1;
+
+    ResetStats(&generations[generation]);
+    generations[generation].times++;
+
+    if (generations[0].list == nullptr)
+        return 0;
+
+    // 1) Enumerate roots
+    SearchRoots(&generations[generation]);
+
+    // 2) Trace all objects reachable from roots
+    TraceRoots(&generations[generation], &unreachable);
+
+    // 3) Trash the unreachable objects
+    Trashing(unreachable, &generations[generation], next_gen);
+
+    generations[generation].uncollected = generations[generation].count - generations[generation].collected;
+    return generations[generation].collected;
 }
 
 ArSize argon::object::Collect() {
@@ -114,91 +194,26 @@ ArSize argon::object::Collect() {
     for (int i = 0; i < ARGON_OBJECT_GC_GENERATIONS; i++)
         total_count += Collect(i);
 
-    Sweep();
-
     return total_count;
 }
 
-ArSize argon::object::Collect(unsigned short generation) {
-    GCHead *unreachable = nullptr;
-    unsigned short next_gen = (generation + 1) % ARGON_OBJECT_GC_GENERATIONS;
+void argon::object::GCFree(ArObject *obj) {
+    if (obj->ref_count.IsGcObject()) {
+        if (GCGetHead(obj)->IsFinalized())
+            return;
 
-    if (next_gen == 0)
-        next_gen = ARGON_OBJECT_GC_GENERATIONS - 1;
+        UnTrack(obj);
 
-    // Reset stats
-    stats[generation].count = 0;
-    stats[generation].collected = 0;
-    stats[generation].uncollected = 0;
-
-    if (generations[generation] == nullptr)
-        return 0;
-
-    // Enumerate roots
-    SearchRoots(generation);
-
-    // Trace objects reachable from roots
-    TraceRoots(&unreachable, generation);
-
-    // Check if object is really unreachable and break it's reference
-    GCHead *tmp;
-    for (GCHead *cursor = unreachable; cursor != nullptr; cursor = tmp) {
-        auto obj = cursor->GetObject<ArObject>();
-        tmp = cursor->next;
-
-        RemoveObject(cursor);
-
-        if (cursor->ref == 0) {
+        if (obj->type->cleanup != nullptr)
             obj->type->cleanup(obj);
 
-            // Kill all weak reference (if any...)
-            obj->ref_count.ClearWeakRef();
-
-            garbage_lck.lock();
-            InsertObject(&garbage, cursor);
-            garbage_lck.unlock();
-
-            stats[generation].collected++;
-
-            continue;
-        }
-
-        InsertObject(&generations[next_gen], cursor);
-    }
-
-    stats[generation].uncollected = stats[generation].count - stats[generation].collected;
-
-    return stats[generation].collected;
-}
-
-GCStats argon::object::GetStats(unsigned short generation) {
-    return stats[generation];
-}
-
-void *argon::object::GCNew(ArSize len) {
-    auto obj = (GCHead *) Alloc(sizeof(GCHead) + len);
-
-    if (obj != nullptr) {
-        obj->prev = nullptr;
-        obj->next = nullptr;
-        obj->ref = 0;
-
-        obj = (GCHead *) (((unsigned char *) obj) + sizeof(GCHead));
-    }
-
-    Track((ArObject *) obj); // Inform the GC to track the object
-
-    return obj;
-}
-
-void argon::object::GCFree(ArObject *obj) {
-    if(obj->ref_count.IsGcObject()){
-        UnTrack(obj);
-        argon::memory::Free(GCGetHead(obj));
+        Release((ArObject *) obj->type);
+        memory::Free(GCGetHead(obj));
     }
 }
 
 void argon::object::Sweep() {
+    ArObject *obj;
     GCHead *cursor;
     GCHead *tmp;
 
@@ -209,30 +224,41 @@ void argon::object::Sweep() {
 
     while (cursor != nullptr) {
         tmp = cursor;
-        cursor = cursor->next;
-        tmp->GetObject<ArObject>()->ref_count.DecStrong();
-        Release((TypeInfo *) tmp->GetObject<ArObject>()->type);
-        Free(tmp);
+        obj = cursor->GetObject();
+
+        cursor = cursor->Next();
+
+        Release((ArObject *) obj->type);
+        memory::Free(tmp);
     }
 }
 
 void argon::object::Track(ArObject *obj) {
-    auto head = GCGetHead(obj);
+    auto *head = GCGetHead(obj);
 
     if (obj == nullptr || !obj->ref_count.IsGcObject())
         return;
 
     track_lck.lock();
-    if (!head->IsTracked())
-        InsertObject(&generations[0], head);
+    if (!head->IsTracked()) {
+        InsertObject(head, &generations[0].list);
+        total_tracked++;
+        allocations++;
+    }
     track_lck.unlock();
 }
 
 void argon::object::UnTrack(ArObject *obj) {
-    auto head = GCGetHead(obj);
+    auto *head = GCGetHead(obj);
+
+    if (obj == nullptr || !obj->ref_count.IsGcObject())
+        return;
 
     track_lck.lock();
-    if (GCIsTracking(obj))
+    if (GCIsTracking(obj)) {
         RemoveObject(head);
+        total_tracked--;
+        deallocations++;
+    }
     track_lck.unlock();
 }

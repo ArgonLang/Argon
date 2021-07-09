@@ -858,14 +858,13 @@ void argon::object::Release(ArObject *obj) {
         return;
 
     if (obj->ref_count.DecStrong()) {
+        if(obj->ref_count.IsGcObject())
+            return GCFree(obj);
+
         if (obj->type->cleanup != nullptr)
             obj->type->cleanup(obj);
 
         Release((ArObject *) obj->type);
-
-        if (obj->ref_count.IsGcObject())
-            return GCFree(obj);
-
         argon::memory::Free(obj);
     }
 }
