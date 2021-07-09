@@ -4,17 +4,27 @@
 
 #include <memory/memory.h>
 
+#include <vm/runtime.h>
+
 #include "gc.h"
 
 using namespace argon::object;
 
 /* GC variables */
-GCGeneration generations[ARGON_OBJECT_GC_GENERATIONS] = {}; // Generation queues
+GCGeneration generations[ARGON_OBJECT_GC_GENERATIONS] = {   // Generation queues
+        {nullptr, 0,0,0,250,0},
+        {nullptr, 0,0,0,5,0},
+        {nullptr, 0,0,0,5,0},
+};
+
 GCHead *garbage = nullptr;                                  // Pointer to list of objects ready to be deleted
 
 ArSize total_tracked = 0;                                   // Sum of the objects tracked in each generation
 ArSize allocations = 0;
 ArSize deallocations = 0;
+
+std::atomic_bool enabled = true;
+std::atomic_bool gc_requested = false;
 
 std::mutex track_lck;                                       // GC lock
 std::mutex garbage_lck;                                     // Garbage lock
@@ -162,6 +172,8 @@ ArObject *argon::object::GCNew(ArSize len) {
 }
 
 ArSize argon::object::Collect(unsigned short generation) {
+    std::unique_lock lck(track_lck);
+
     GCHead *unreachable = nullptr;
     unsigned short next_gen;
 
@@ -195,6 +207,38 @@ ArSize argon::object::Collect() {
         total_count += Collect(i);
 
     return total_count;
+}
+
+ArSize argon::object::STWCollect(unsigned short generation) {
+    ArSize collected;
+
+    argon::vm::StopTheWorld();
+    collected = Collect(generation);
+    argon::vm::StartTheWorld();
+
+    Sweep();
+
+    return collected;
+}
+
+ArSize argon::object::STWCollect() {
+    ArSize collected;
+
+    argon::vm::StopTheWorld();
+    collected = Collect();
+    argon::vm::StartTheWorld();
+
+    Sweep();
+
+    return collected;
+}
+
+void argon::object::GcEnabled(bool enable) {
+    enabled = enable;
+}
+
+bool argon::object::GCIsEnabled() {
+    return enabled;
 }
 
 void argon::object::GCFree(ArObject *obj) {
@@ -239,6 +283,8 @@ void argon::object::Track(ArObject *obj) {
     if (obj == nullptr || !obj->ref_count.IsGcObject())
         return;
 
+    ThresholdCollect();
+
     track_lck.lock();
     if (!head->IsTracked()) {
         InsertObject(head, &generations[0].list);
@@ -246,6 +292,36 @@ void argon::object::Track(ArObject *obj) {
         allocations++;
     }
     track_lck.unlock();
+}
+
+void argon::object::ThresholdCollect() {
+    bool requested = false;
+
+    if (!enabled || allocations - deallocations < generations[0].threshold)
+        return;
+
+    if(!gc_requested.compare_exchange_strong(requested, true, std::memory_order_relaxed))
+        return;
+
+    argon::vm::StopTheWorld();
+
+    Collect(0);
+
+    if(generations[0].times >= generations[1].threshold) {
+        Collect(1);
+        generations[0].times = 0;
+    }
+
+    if(generations[1].times >= generations[2].threshold) {
+        Collect(3);
+        generations[1].times = 0;
+    }
+
+    gc_requested = false;
+
+    argon::vm::StartTheWorld();
+
+    Sweep();
 }
 
 void argon::object::UnTrack(ArObject *obj) {

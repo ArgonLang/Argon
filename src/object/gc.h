@@ -69,6 +69,7 @@ namespace argon::object {
         ArSize collected;
         ArSize uncollected;
 
+        int threshold;
         int times;
     };
 
@@ -78,11 +79,21 @@ namespace argon::object {
 
     ArSize Collect();
 
+    ArSize STWCollect(unsigned short generation);
+
+    ArSize STWCollect();
+
+    bool GCIsEnabled();
+
+    void GcEnabled(bool enable);
+
     void GCFree(ArObject *obj);
 
     void Sweep();
 
     void Track(ArObject *obj);
+
+    void ThresholdCollect();
 
     void UnTrack(ArObject *obj);
 
