@@ -3,6 +3,8 @@
 // Licensed under the Apache License v2.0
 
 #include <thread>
+#include <condition_variable>
+#include <cstdarg>
 
 #include <object/setup.h>
 #include <object/datatype/error.h>
