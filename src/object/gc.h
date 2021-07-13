@@ -106,6 +106,18 @@ namespace argon::object {
             return GCGetHead(obj)->IsTracked();
         return false;
     }
+
+    inline void TrackIf(ArObject *container, ArObject *item) {
+        if (item->ref_count.IsGcObject() && !GCIsTracking(container))
+            Track(container);
+    }
+
+    template<typename ...Items>
+    inline void TrackIf(ArObject *container, ArObject *item, Items... items) {
+        TrackIf(container, item);
+        TrackIf(container, items...);
+    }
+
 } // namespace argon::object
 
 

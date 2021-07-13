@@ -3,6 +3,7 @@
 // Licensed under the Apache License v2.0
 
 #include <vm/runtime.h>
+#include <object/gc.h>
 
 #include "bool.h"
 #include "error.h"
@@ -104,6 +105,7 @@ bool argon::object::MapInsert(Map *map, ArObject *key, ArObject *value) {
         Release(entry->value);
         IncRef(value);
         entry->value = value;
+        TrackIf(map, value);
         return true;
     }
 
@@ -125,6 +127,8 @@ bool argon::object::MapInsert(Map *map, ArObject *key, ArObject *value) {
         HMapEntryToFreeNode(&map->hmap, entry);
         return false;
     }
+
+    TrackIf(map, key, value);
 
     return true;
 }

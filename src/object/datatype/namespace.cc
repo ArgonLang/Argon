@@ -4,6 +4,8 @@
 
 #include <vm/runtime.h>
 
+#include <object/gc.h>
+
 #include "nil.h"
 #include "error.h"
 #include "namespace.h"
@@ -78,7 +80,7 @@ const TypeInfo NamespaceIteratorType = {
         nullptr
 };
 
-void SetValueToEntry(NsEntry *entry, ArObject *value) {
+void SetValueToEntry(NsEntry *entry, ArObject *value, Namespace *ns) {
     if (entry->info.IsWeak()) {
         entry->weak.DecWeak();
         entry->weak = value->ref_count.IncWeak();
@@ -86,6 +88,7 @@ void SetValueToEntry(NsEntry *entry, ArObject *value) {
         Release(entry->value);
         IncRef(value);
         entry->value = value;
+        TrackIf(ns, value);
     }
 }
 
@@ -251,8 +254,11 @@ bool argon::object::NamespaceNewSymbol(Namespace *ns, ArObject *key, ArObject *v
     if (!IsHashable(key))
         return false;
 
+    if(value== nullptr)
+        value = IncRef(NilVal);
+
     if ((entry = (NsEntry *) HMapLookup(&ns->hmap, key)) != nullptr) {
-        SetValueToEntry(entry, value);
+        SetValueToEntry(entry, value, ns);
         return true;
     }
 
@@ -277,44 +283,24 @@ bool argon::object::NamespaceNewSymbol(Namespace *ns, ArObject *key, ArObject *v
         return false;
     }
 
+    if(!entry->info.IsWeak())
+        TrackIf(ns, value);
+
     return true;
 }
 
 bool argon::object::NamespaceNewSymbol(Namespace *ns, const char *key, ArObject *value, PropertyType info) {
-    auto *entry = (NsEntry *) HMapLookup(&ns->hmap, key);
     String *skey;
+    bool ok;
 
-    if (entry != nullptr) {
-        SetValueToEntry(entry, value);
-        return true;
-    }
-
-    if ((entry = HMapFindOrAllocNode<NsEntry>(&ns->hmap)) == nullptr) {
-        argon::vm::Panic(error_out_of_memory);
+    if ((skey = StringIntern(key)) == nullptr)
         return false;
-    }
 
-    if ((skey = StringIntern(key)) == nullptr) {
-        HMapEntryToFreeNode(&ns->hmap, entry);
-        return false;
-    }
+    ok = NamespaceNewSymbol(ns, skey, value, info);
 
-    entry->info = info;
-    entry->key = skey;
+    Release(skey);
 
-    if (!entry->info.IsWeak()) {
-        IncRef(value);
-        entry->value = value;
-    } else
-        entry->weak = value->ref_count.IncWeak();
-
-    if (!HMapInsert(&ns->hmap, entry)) {
-        ReleaseEntryValue(entry, true);
-        HMapEntryToFreeNode(&ns->hmap, entry);
-        return false;
-    }
-
-    return true;
+    return ok;
 }
 
 bool argon::object::NamespaceSetValue(Namespace *ns, ArObject *key, ArObject *value) {
@@ -324,7 +310,7 @@ bool argon::object::NamespaceSetValue(Namespace *ns, ArObject *key, ArObject *va
         return false;
 
     if ((entry = (NsEntry *) HMapLookup(&ns->hmap, key)) != nullptr) {
-        SetValueToEntry(entry, value);
+        SetValueToEntry(entry, value, ns);
         return true;
     }
 
@@ -335,7 +321,7 @@ bool argon::object::NamespaceSetValue(Namespace *ns, const char *key, ArObject *
     NsEntry *entry;
 
     if ((entry = (NsEntry *) HMapLookup(&ns->hmap, key)) != nullptr) {
-        SetValueToEntry(entry, value);
+        SetValueToEntry(entry, value, ns);
         return true;
     }
 
@@ -380,7 +366,7 @@ int argon::object::NamespaceSetPositional(Namespace *ns, ArObject **values, ArSi
         if (cur->info.IsConstant())
             continue;
 
-        SetValueToEntry(cur, values[idx++]);
+        SetValueToEntry(cur, values[idx++], ns);
     }
 
     return count == ns_len ? 0 : 1;
