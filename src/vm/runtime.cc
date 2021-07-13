@@ -50,6 +50,7 @@ struct OSThread {
 OSThread *ost_active = nullptr;             // Working OSThread
 OSThread *ost_idle = nullptr;               // IDLE OSThread
 thread_local OSThread *ost_local = nullptr; // OSThread for actual thread
+thread_local OSThread *ost_main = nullptr;  // OSThread main thread
 
 unsigned int ost_total = 0;                 // OSThread counter
 unsigned int ost_idle_count = 0;            // OSThread counter (idle)
@@ -77,9 +78,9 @@ std::mutex vc_lock;
 ArRoutineQueue routine_gq;
 
 ArRoutine *FindExecutable() {
-    ArRoutine *routine = nullptr;
-    VCore *target_vc = nullptr;
-    VCore *self_vc = nullptr;
+    ArRoutine *routine;
+    VCore *target_vc;
+    VCore *self_vc;
 
     unsigned short attempts = 3;
 
@@ -238,7 +239,7 @@ void FromActiveToIdle(OSThread *ost) {
     if (ost_worker_count.fetch_sub(1) == 1)
         cond_stw.notify_one();
 
-    if(ost->current!= nullptr)
+    if (ost->current != nullptr)
         ReleaseVCore();
 
     ost_lock.lock();
@@ -375,29 +376,43 @@ argon::object::ArObject *argon::vm::Call(argon::object::ArObject *callable, int 
 }
 
 ArObject *argon::vm::GetLastError() {
+    ArRoutine *routine = GetRoutine();
     ArObject *err = nullptr;
 
-    if (ost_local->routine->panic != nullptr)
-        err = RoutineRecover(ost_local->routine);
+    if (routine->panic != nullptr)
+        err = RoutineRecover(routine);
 
     return err;
 }
 
 ArObject *argon::vm::Panic(ArObject *obj) {
-    RoutineNewPanic(ost_local->routine, obj);
+    RoutineNewPanic(GetRoutine(), obj);
     return nullptr;
 }
 
 ArRoutine *argon::vm::GetRoutine() {
+    if (ost_main != nullptr)
+        return ost_main->routine;
+
     return ost_local->routine;
 }
 
 Context *argon::vm::GetContext() {
-    return ost_local->routine->context;
+    return GetRoutine()->context;
+}
+
+bool argon::vm::AcquireMain() {
+    if (ost_main == nullptr)
+        return false;
+
+    GetRoutine()->status = ArRoutineStatus::RUNNING;
+    ost_worker_count++;
+
+    return true;
 }
 
 bool argon::vm::IsPanicking() {
-    return ost_local->routine->panic != nullptr;
+    return GetRoutine()->panic != nullptr;
 }
 
 bool argon::vm::Initialize() {
@@ -415,11 +430,11 @@ bool argon::vm::Initialize() {
         goto ERROR;
 
     // Setup default OSThread
-    if ((ost_local = AllocOST()) == nullptr)
+    if ((ost_main = AllocOST()) == nullptr)
         goto ERROR;
 
     // Initialize Main ArRoutine
-    if ((ost_local->routine = RoutineNew(ArRoutineStatus::RUNNABLE)) == nullptr)
+    if ((ost_main->routine = RoutineNew(ArRoutineStatus::RUNNABLE)) == nullptr)
         goto ERROR;
 
     // Init Types
@@ -427,21 +442,21 @@ bool argon::vm::Initialize() {
         goto ERROR;
 
     // Initialize Main Context
-    if ((ost_local->routine->context = ContextNew()) == nullptr)
+    if ((ost_main->routine->context = ContextNew()) == nullptr)
         goto ERROR;
 
     return true;
 
     ERROR:
-    if (ost_local != nullptr) {
-        if (ost_local->routine != nullptr) {
-            if (ost_local->routine->context != nullptr)
-                ContextDel(ost_local->routine->context);
+    if (ost_main != nullptr) {
+        if (ost_main->routine != nullptr) {
+            if (ost_main->routine->context != nullptr)
+                ContextDel(ost_main->routine->context);
 
-            RoutineDel(ost_local->routine);
+            RoutineDel(ost_main->routine);
         }
-        FreeOST(ost_local);
-        ost_local = nullptr;
+        FreeOST(ost_main);
+        ost_main = nullptr;
     }
     vcores = nullptr;
     argon::memory::FinalizeMemory();
@@ -450,6 +465,10 @@ bool argon::vm::Initialize() {
 
 bool argon::vm::Shutdown() {
     short attempt = 10;
+
+    // only the main thread can call shutdown!
+    if (ost_main == nullptr)
+        return false;
 
     should_stop = true;
     ost_cond.notify_all();
@@ -460,10 +479,10 @@ bool argon::vm::Shutdown() {
     }
 
     if (ost_total == 0) {
-        ContextDel(ost_local->routine->context);
-        RoutineDel(ost_local->routine);
-        FreeOST(ost_local);
-        ost_local = nullptr;
+        ContextDel(ost_main->routine->context);
+        RoutineDel(ost_main->routine);
+        FreeOST(ost_main);
+        ost_main = nullptr;
         argon::memory::FinalizeMemory();
         return true;
     }
@@ -529,7 +548,16 @@ void OSTWakeRun() {
     StartOST(ost);
 }
 
+void argon::vm::ReleaseMain() {
+    if (ost_main == nullptr)
+        return;
+
+    RoutineReset(GetRoutine(), ArRoutineStatus::RUNNABLE);
+    ost_worker_count--;
+}
+
 void argon::vm::ReleaseQueue() {
-    ReleaseVCore();
+    if (ost_local != nullptr)
+        ReleaseVCore();
     OSTWakeRun();
 }

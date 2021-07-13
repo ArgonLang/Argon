@@ -23,11 +23,15 @@ namespace argon::vm {
 
     Context *GetContext();
 
+    bool AcquireMain();
+
     bool Initialize();
 
     bool IsPanicking();
 
     bool Shutdown();
+
+    void ReleaseMain();
 
     void ReleaseQueue();
 

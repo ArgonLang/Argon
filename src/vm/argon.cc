@@ -61,7 +61,6 @@ ArObject *argon::vm::EvalString(const std::string &str) {
 
 ArObject *argon::vm::EvalCode(Code *code, Namespace *globals, Tuple *args) {
     ArObject *res = nullptr;
-    ArObject *err;
     Frame *frame;
 
     // TODO: set command args!
@@ -69,14 +68,10 @@ ArObject *argon::vm::EvalCode(Code *code, Namespace *globals, Tuple *args) {
 
     }
 
-    if ((frame = FrameNew(code, globals, nullptr)) != nullptr) {
-        Release(Eval(GetRoutine(), frame));
-        if ((err = GetLastError()) != nullptr) {
-            Release(res);
-            res = err;
-        }
-        RoutineReset(GetRoutine(), ArRoutineStatus::RUNNABLE);
-    }
+    RoutineReset(GetRoutine(), ArRoutineStatus::RUNNING);
+
+    if ((frame = FrameNew(code, globals, nullptr)) != nullptr)
+        res = Eval(GetRoutine(), frame);
 
     return res;
 }
