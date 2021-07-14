@@ -87,7 +87,8 @@ ArObject *type_get_attr(ArObject *self, ArObject *key) {
         return ErrorFormat(type_type_error_, "object is not an instance of type '%s'", ancestor->name);
 
     if (AR_OBJECT_SLOT(self) == nullptr)
-        return ErrorFormat(type_attribute_error_, "object of type '%s' does not support attribute(.) operator", ancestor->name);
+        return ErrorFormat(type_attribute_error_, "object of type '%s' does not support attribute(.) operator",
+                           ancestor->name);
 
     if (argon::vm::GetRoutine()->frame != nullptr)
         instance = argon::vm::GetRoutine()->frame->instance;
@@ -454,6 +455,12 @@ ArObject *argon::object::ArObjectGCNew(const TypeInfo *type) {
     return obj;
 }
 
+ArObject * argon::object::ArObjectGCNewTrack(const TypeInfo *type) {
+    auto *obj = ArObjectGCNew(type);
+    Track(obj);
+    return obj;
+}
+
 ArObject *argon::object::ArObjectNew(RCType rc, const TypeInfo *type) {
     auto obj = (ArObject *) memory::Alloc(type->size);
 
@@ -727,7 +734,7 @@ bool InitMembers(TypeInfo *info) {
         return true;
 
     // Functions / Methods
-    if(info->obj_actions->methods!= nullptr) {
+    if (info->obj_actions->methods != nullptr) {
         for (const NativeFunc *method = info->obj_actions->methods; method->name != nullptr; method++) {
             if ((tmp = FunctionNew(nullptr, info, method, method->method)) == nullptr)
                 goto error;
@@ -741,7 +748,7 @@ bool InitMembers(TypeInfo *info) {
     }
 
     // Members
-    if(info->obj_actions->members!= nullptr) {
+    if (info->obj_actions->members != nullptr) {
         for (const NativeMember *member = info->obj_actions->members; member->name != nullptr; member++) {
             if ((tmp = NativeWrapperNew(member)) == nullptr)
                 goto error;
@@ -858,7 +865,7 @@ void argon::object::Release(ArObject *obj) {
         return;
 
     if (obj->ref_count.DecStrong()) {
-        if(obj->ref_count.IsGcObject())
+        if (obj->ref_count.IsGcObject())
             return GCFree(obj);
 
         if (obj->type->cleanup != nullptr)

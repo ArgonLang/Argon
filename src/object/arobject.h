@@ -295,12 +295,20 @@ ArObject *prefix##name##_fn(ArObject *func, ArObject *self, ArObject **argv, ArS
 
     ArObject *ArObjectGCNew(const TypeInfo *type);
 
+    ArObject *ArObjectGCNewTrack(const TypeInfo *type);
+
     ArObject *ArObjectNew(RCType rc, const TypeInfo *type);
 
     template<typename T>
     inline typename std::enable_if<std::is_base_of<ArObject, T>::value, T>::type *
     ArObjectGCNew(const TypeInfo *type) {
         return (T *) ArObjectGCNew(type);
+    }
+
+    template<typename T>
+    inline typename std::enable_if<std::is_base_of<ArObject, T>::value, T>::type *
+    ArObjectGCNewTrack(const TypeInfo *type) {
+        return (T *) ArObjectGCNewTrack(type);
     }
 
     template<typename T>

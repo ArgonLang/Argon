@@ -12,9 +12,9 @@ using namespace argon::object;
 
 /* GC variables */
 GCGeneration generations[ARGON_OBJECT_GC_GENERATIONS] = {   // Generation queues
-        {nullptr, 0,0,0,250,0},
-        {nullptr, 0,0,0,5,0},
-        {nullptr, 0,0,0,5,0},
+        {nullptr, 0, 0, 0, 250, 0},
+        {nullptr, 0, 0, 0, 5,   0},
+        {nullptr, 0, 0, 0, 5,   0},
 };
 
 GCHead *garbage = nullptr;                                  // Pointer to list of objects ready to be deleted
@@ -66,7 +66,7 @@ void InitGCRefCount(GCHead *head, ArObject *obj) {
 void GCDecRef(ArObject *obj) {
     GCHead *head;
 
-    if (GCIsTracking(obj)) {
+    if (obj != nullptr && GCIsTracking(obj)) {
         head = GCGetHead(obj);
 
         if (!head->IsVisited())
@@ -79,7 +79,7 @@ void GCDecRef(ArObject *obj) {
 void GCIncRef(ArObject *obj) {
     GCHead *head;
 
-    if (GCIsTracking(obj)) {
+    if (obj != nullptr && GCIsTracking(obj)) {
         head = GCGetHead(obj);
 
         if (head->IsVisited()) {
@@ -300,19 +300,19 @@ void argon::object::ThresholdCollect() {
     if (!enabled || allocations - deallocations < generations[0].threshold)
         return;
 
-    if(!gc_requested.compare_exchange_strong(requested, true, std::memory_order_relaxed))
+    if (!gc_requested.compare_exchange_strong(requested, true, std::memory_order_relaxed))
         return;
 
     argon::vm::StopTheWorld();
 
     Collect(0);
 
-    if(generations[0].times >= generations[1].threshold) {
+    if (generations[0].times >= generations[1].threshold) {
         Collect(1);
         generations[0].times = 0;
     }
 
-    if(generations[1].times >= generations[2].threshold) {
+    if (generations[1].times >= generations[2].threshold) {
         Collect(3);
         generations[1].times = 0;
     }
