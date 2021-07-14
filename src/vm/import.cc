@@ -615,7 +615,7 @@ Import *argon::vm::ImportNew() {
     if(!AddNativeFunction(imp->loaders, &(loader))) \
         goto error
 
-    auto imp = ArObjectGCNew<Import>(type_import_);
+    auto imp = ArObjectGCNewTrack<Import>(type_import_);
 
     if (imp != nullptr) {
         if ((imp->modules = MapNew()) == nullptr)

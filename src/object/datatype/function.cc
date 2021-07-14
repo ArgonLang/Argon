@@ -88,7 +88,7 @@ const TypeInfo FunctionType = {
 const TypeInfo *argon::object::type_function_ = &FunctionType;
 
 Function *CloneFn(const Function *func) {
-    auto fn = ArObjectGCNew<Function>(type_function_);
+    auto fn = ArObjectGCNewTrack<Function>(type_function_);
 
     if (fn != nullptr) {
         if (!func->IsNative())
@@ -112,7 +112,7 @@ Function *CloneFn(const Function *func) {
 Function *
 argon::object::FunctionNew(Namespace *gns, String *name, String *doc, Code *code, List *enclosed, unsigned short arity,
                            FunctionFlags flags) {
-    auto fn = ArObjectGCNew<Function>(type_function_);
+    auto fn = ArObjectGCNewTrack<Function>(type_function_);
 
     if (fn != nullptr) {
         fn->code = IncRef(code);
