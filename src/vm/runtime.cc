@@ -511,6 +511,7 @@ void argon::vm::StopTheWorld() {
 
 void argon::vm::StartTheWorld() {
     stw = false;
+    ost_worker_count++;
     cond_stopwait.notify_all();
 }
 
