@@ -12,7 +12,7 @@ using namespace argon::object;
 
 /* GC variables */
 GCGeneration generations[ARGON_OBJECT_GC_GENERATIONS] = {   // Generation queues
-        {nullptr, 0, 0, 0, 250, 0},
+        {nullptr, 0, 0, 0, 550, 0},
         {nullptr, 0, 0, 0, 5,   0},
         {nullptr, 0, 0, 0, 5,   0},
 };
@@ -52,10 +52,16 @@ void RemoveObject(GCHead *head) {
         head->Next()->prev = head->prev;
 }
 
-inline void ResetStats(GCGeneration *generation) {
-    generation->count = 0;
-    generation->collected = 0;
-    generation->uncollected = 0;
+inline void ResetStats(unsigned short generation) {
+    if (generation == 0) {
+        allocations = 0;
+        deallocations = 0;
+    } else
+        generations[generation - 1].times = 0;
+
+    generations[generation].count = 0;
+    generations[generation].collected = 0;
+    generations[generation].uncollected = 0;
 }
 
 void InitGCRefCount(GCHead *head, ArObject *obj) {
@@ -146,7 +152,6 @@ void Trashing(GCHead *unreachable, GCGeneration *generation, unsigned short next
             garbage_lck.lock();
             InsertObject(cursor, &garbage);
             total_tracked--;
-            deallocations++;
             garbage_lck.unlock();
             continue;
         }
@@ -181,7 +186,7 @@ ArSize argon::object::Collect(unsigned short generation) {
     if (next_gen == 0)
         next_gen = ARGON_OBJECT_GC_GENERATIONS - 1;
 
-    ResetStats(&generations[generation]);
+    ResetStats(generation);
     generations[generation].times++;
 
     if (generations[0].list == nullptr)
@@ -307,15 +312,11 @@ void argon::object::ThresholdCollect() {
 
     Collect(0);
 
-    if (generations[0].times >= generations[1].threshold) {
+    if (generations[0].times >= generations[1].threshold)
         Collect(1);
-        generations[0].times = 0;
-    }
 
-    if (generations[1].times >= generations[2].threshold) {
-        Collect(3);
-        generations[1].times = 0;
-    }
+    if (generations[1].times >= generations[2].threshold)
+        Collect(2);
 
     gc_requested = false;
 
