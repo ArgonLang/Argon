@@ -61,7 +61,7 @@ int ReadOp(ReadOpStatus *status, const char *opts, ReadOpLong *lopt, int llopt, 
             status->arg_cur++;
             for (int i = 0; i < (llopt / sizeof(ReadOpLong)); i++) {
                 if (strcmp(lopt[i].name, status->arg_cur) == 0) {
-                    ret = lopt[i].rt == 0 ? ISLOPT : lopt[i].rt;
+                    ret = lopt[i].rt == -1 ? ISLOPT : lopt[i].rt;
                     status->argc_cur++;
 
                     if (!lopt[i].harg)
