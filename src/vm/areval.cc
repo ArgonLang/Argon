@@ -418,6 +418,8 @@ ArObject *argon::vm::Eval(ArRoutine *routine) {
     if (!CheckRecursionLimit(routine))
         goto error;
 
+    STWCheckpoint();
+
     while (cu_frame->instr_ptr < (cu_code->instr + cu_code->instr_sz)) {
         switch (*(argon::lang::OpCodes *) cu_frame->instr_ptr) {
             TARGET_OP(ADD) {
@@ -442,6 +444,8 @@ ArObject *argon::vm::Eval(ArRoutine *routine) {
                     goto error;
 
                 if (helper.func->IsNative()) {
+                    STWCheckpoint();
+
                     ret = FunctionCallNative(helper.func, helper.params, helper.local_args);
                     ClearCall(&helper);
 

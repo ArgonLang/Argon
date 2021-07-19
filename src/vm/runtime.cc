@@ -297,7 +297,6 @@ void Schedule(OSThread *self) {
             break;
         }
 
-        STWCheckpoint();
         Release(Eval(self->routine));
         RoutineDel(self->routine);
         self->routine = nullptr;
@@ -305,7 +304,8 @@ void Schedule(OSThread *self) {
         if (self->current == nullptr) {
             FromActiveToIdle(self);
             goto START;
-        }
+        } else
+            STWCheckpoint();
     }
 
     // Shutdown thread
