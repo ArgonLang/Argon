@@ -85,7 +85,7 @@ namespace argon::object {
 
     bool GCIsEnabled();
 
-    void GCEnabled(bool enable);
+    bool GCEnabled(bool enable);
 
     void GCFree(ArObject *obj);
 

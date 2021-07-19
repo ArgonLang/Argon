@@ -238,8 +238,9 @@ ArSize argon::object::STWCollect() {
     return collected;
 }
 
-void argon::object::GCEnabled(bool enable) {
-    enabled = enable;
+bool argon::object::GCEnabled(bool enable) {
+    bool status = atomic_exchange(&enabled, enable);
+    return status;
 }
 
 bool argon::object::GCIsEnabled() {

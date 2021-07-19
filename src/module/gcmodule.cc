@@ -31,6 +31,20 @@ ARGON_FUNCTION(collect, "Run a collection on selected generation."
     return IntegerNew((IntegerUnderlying) STWCollect(gen));
 }
 
+ARGON_FUNCTION(disable, "Disable automatic garbage collection."
+                            ""
+                            "- Returns: GC status before this call.",
+               0, false) {
+    return BoolToArBool(GCEnabled(false));
+}
+
+ARGON_FUNCTION(enable, "Enable automatic garbage collection."
+                        ""
+                        "- Returns: GC status before this call.",
+               0, false) {
+    return BoolToArBool(GCEnabled(true));
+}
+
 ARGON_FUNCTION(collectfull, "Run a full collection."
                             ""
                             "- Returns: number of collected objects is returned.",
@@ -87,6 +101,8 @@ ARGON_FUNCTION(istracked, "Check if object is tracked by GC."
 }
 
 const PropertyBulk gc_bulk[] = {
+        MODULE_EXPORT_FUNCTION(disable_),
+        MODULE_EXPORT_FUNCTION(enable_),
         MODULE_EXPORT_FUNCTION(collect_),
         MODULE_EXPORT_FUNCTION(collectfull_),
         MODULE_EXPORT_FUNCTION(getcount_),
