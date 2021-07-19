@@ -238,7 +238,7 @@ ArSize argon::object::STWCollect() {
     return collected;
 }
 
-void argon::object::GcEnabled(bool enable) {
+void argon::object::GCEnabled(bool enable) {
     enabled = enable;
 }
 

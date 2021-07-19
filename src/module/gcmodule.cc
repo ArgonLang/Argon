@@ -92,6 +92,7 @@ const PropertyBulk gc_bulk[] = {
         MODULE_EXPORT_FUNCTION(getcount_),
         MODULE_EXPORT_FUNCTION(getweakcount_),
         MODULE_EXPORT_FUNCTION(havesidetable_),
+        MODULE_EXPORT_FUNCTION(isenabled_),
         MODULE_EXPORT_FUNCTION(isimmortal_),
         MODULE_EXPORT_FUNCTION(istracked_),
         MODULE_EXPORT_SENTINEL
