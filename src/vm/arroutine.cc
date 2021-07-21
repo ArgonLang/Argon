@@ -40,6 +40,15 @@ ArRoutine *argon::vm::RoutineNew(Frame *frame, ArRoutineStatus status) {
     return routine;
 }
 
+ArRoutine *argon::vm::RoutineNew(Frame *frame, ArRoutine *routine, ArRoutineStatus status) {
+    auto *ret = RoutineNew(frame, status);
+
+    if (ret != nullptr)
+        ret->context = routine->context;
+
+    return ret;
+}
+
 ArObject *argon::vm::RoutineRecover(ArRoutine *routine) {
     ArObject *err = nullptr;
 

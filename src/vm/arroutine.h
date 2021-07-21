@@ -80,6 +80,10 @@ namespace argon::vm {
 
     inline ArRoutine *RoutineNew(Frame *frame) { return RoutineNew(frame, ArRoutineStatus::RUNNABLE); }
 
+    ArRoutine *RoutineNew(Frame *frame, ArRoutine *routine, ArRoutineStatus status);
+
+    inline ArRoutine *RoutineNew(Frame *frame, ArRoutine *routine) { return RoutineNew(frame, routine, ArRoutineStatus::RUNNABLE); }
+
     argon::object::ArObject *RoutineRecover(ArRoutine *routine);
 
     argon::object::ArObject *RoutineReturnGet(ArRoutine *routine);
