@@ -4,6 +4,8 @@
 
 #include <vm/runtime.h>
 
+#include <object/gc.h>
+
 #include "bool.h"
 #include "error.h"
 #include "set.h"
@@ -579,6 +581,8 @@ bool argon::object::SetAdd(Set *set, ArObject *value) {
         HMapEntryToFreeNode(&set->set, entry);
         return false;
     }
+
+    TrackIf(set, value);
 
     return true;
 }

@@ -23,51 +23,77 @@ namespace argon::object {
 
         GCHead() = default;
 
-        template<typename T>
-        [[nodiscard]] T *GetObject() {
-            return (T *) (((unsigned char *) this) + sizeof(GCHead));
+        [[nodiscard]] ArObject *GetObject() {
+            return (ArObject *) (((unsigned char *) this) + sizeof(GCHead));
         }
 
-        [[nodiscard]] GCHead *Next() {
-            return (GCHead *) (((uintptr_t) this->next) & ~GCBitOffsets::VisitedMask);
+        [[nodiscard]] GCHead *Next() const {
+            return (GCHead *) (((uintptr_t) this->next) & GCBitOffsets::AddressMask);
         }
 
-        [[nodiscard]] bool IsTracked() {
+        void SetNext(GCHead *head) {
+            this->next = (GCHead *) (((uintptr_t) head) | ((uintptr_t) this->next & ~GCBitOffsets::AddressMask));
+        }
+
+        [[nodiscard]] bool IsTracked() const {
             return this->prev != nullptr;
         }
 
-        [[nodiscard]] bool IsVisited() {
+        [[nodiscard]] bool IsVisited() const {
             return ((((uintptr_t) this->next) & GCBitOffsets::VisitedMask) >> GCBitOffsets::VisitedShift);
         }
 
+        [[nodiscard]] bool IsFinalized() const {
+            return ((((uintptr_t) this->next) & GCBitOffsets::FinalizedMask) >> GCBitOffsets::FinalizedShift);
+        }
+
+        void SetFinalize(bool visited) {
+            if (visited)
+                this->next = (GCHead *) (((uintptr_t) this->next) | GCBitOffsets::FinalizedMask);
+            else
+                this->next = (GCHead *) (((uintptr_t) this->next) & ~GCBitOffsets::FinalizedMask);
+        }
+
         void SetVisited(bool visited) {
-            if (visited) {
+            if (visited)
                 this->next = (GCHead *) (((uintptr_t) this->next) | GCBitOffsets::VisitedMask);
-                return;
-            }
-            this->next = (GCHead *) (((uintptr_t) this->next) & ~GCBitOffsets::VisitedMask);
+            else
+                this->next = (GCHead *) (((uintptr_t) this->next) & ~GCBitOffsets::VisitedMask);
         }
     };
 
-    struct GCStats {
+    struct GCGeneration {
+        GCHead *list;
+
         ArSize count;
         ArSize collected;
         ArSize uncollected;
+
+        int threshold;
+        int times;
     };
 
-    ArSize Collect();
+    ArObject *GCNew(ArSize len);
 
     ArSize Collect(unsigned short generation);
 
-    void *GCNew(ArSize len);
+    ArSize Collect();
+
+    ArSize STWCollect(unsigned short generation);
+
+    ArSize STWCollect();
+
+    bool GCIsEnabled();
+
+    bool GCEnabled(bool enable);
 
     void GCFree(ArObject *obj);
-
-    GCStats GetStats(unsigned short generation);
 
     void Sweep();
 
     void Track(ArObject *obj);
+
+    void ThresholdCollect();
 
     void UnTrack(ArObject *obj);
 
@@ -80,6 +106,18 @@ namespace argon::object {
             return GCGetHead(obj)->IsTracked();
         return false;
     }
+
+    inline void TrackIf(ArObject *container, ArObject *item) {
+        if (item->ref_count.IsGcObject() && !GCIsTracking(container))
+            Track(container);
+    }
+
+    template<typename ...Items>
+    inline void TrackIf(ArObject *container, ArObject *item, Items... items) {
+        TrackIf(container, item);
+        TrackIf(container, items...);
+    }
+
 } // namespace argon::object
 
 

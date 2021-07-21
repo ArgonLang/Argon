@@ -155,7 +155,7 @@ ArObject *argon::object::StructInit(const ArObject *t_obj, ArObject **values, Ar
     if (type->obj_actions == nullptr || type->flags != TypeInfoFlags::STRUCT)
         return ErrorFormat(type_type_error_, "expected struct, found '%s'", type->type->name);
 
-    if ((instance = ArObjectGCNew(type)) == nullptr)
+    if ((instance = ArObjectGCNewTrack(type)) == nullptr)
         return nullptr;
 
     if (type->obj_actions->nsoffset < 0) {

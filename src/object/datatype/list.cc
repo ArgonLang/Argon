@@ -4,6 +4,7 @@
 
 #include <memory/memory.h>
 #include <vm/runtime.h>
+#include <object/gc.h>
 
 #include "error.h"
 #include "integer.h"
@@ -37,6 +38,7 @@ bool argon::object::ListSetItem(List *self, ArObject *obj, ArSSize index) {
     if (index < self->len) {
         Release(self->objects[index]);
         self->objects[index] = IncRef(obj);
+        TrackIf(self, obj);
         return true;
     }
 
@@ -63,12 +65,14 @@ ArObject *list_get_slice(List *self, Bounds *bounds) {
             tmp = self->objects[start];
             IncRef(tmp);
             ret->objects[i++] = tmp;
+            TrackIf(ret, tmp);
         }
     } else {
         for (ArSize i = 0; stop < start; start += step) {
             tmp = self->objects[start];
             IncRef(tmp);
             ret->objects[i++] = tmp;
+            TrackIf(ret, tmp);
         }
     }
 
@@ -120,6 +124,9 @@ List *ShiftList(List *list, ArSSize pos) {
         ret->len = list->len;
     }
 
+    if(GCIsTracking(list))
+        Track(ret);
+
     return ret;
 }
 
@@ -131,17 +138,20 @@ ArObject *list_add(ArObject *left, ArObject *right) {
     if (AR_SAME_TYPE(l, r)) {
         if ((list = ListNew(l->len + r->len)) != nullptr) {
             ArSize i = 0;
+            ArObject *itm;
 
             // copy from left (self)
             for (; i < l->len; i++) {
-                IncRef(l->objects[i]);
-                list->objects[i] = l->objects[i];
+                itm = IncRef(l->objects[i]);
+                list->objects[i] = itm;
+                TrackIf(list, itm);
             }
 
             // copy from right (other)
             for (; i < l->len + r->len; i++) {
-                IncRef(r->objects[i - l->len]);
-                list->objects[i] = r->objects[i - l->len];
+                itm = IncRef(r->objects[i - l->len]);
+                list->objects[i] =itm;
+                TrackIf(list, itm);
             }
 
             list->len = l->len + r->len;
@@ -169,6 +179,9 @@ ArObject *list_mul(ArObject *left, ArObject *right) {
             }
 
             ret->len = ret->cap;
+
+            if(GCIsTracking(list))
+                Track(ret);
         }
     }
 
@@ -550,13 +563,17 @@ template<typename T>
 List *ListClone(T *t) {
     // Simple hack to avoid to write two identical function (one for List and another for Tuple)
     // List and Tuple structures have the same field names.
+    ArObject *itm;
     List *list;
 
     if ((list = ListNew(t->len)) == nullptr)
         return nullptr;
 
-    for (ArSize i = 0; i < t->len; i++)
-        list->objects[i] = IncRef(t->objects[i]);
+    for (ArSize i = 0; i < t->len; i++) {
+        itm = IncRef(t->objects[i]);
+        list->objects[i] = itm;
+        TrackIf(list, itm);
+    }
 
     list->len = t->len;
     return list;
@@ -564,11 +581,16 @@ List *ListClone(T *t) {
 
 template<typename T>
 bool ListConcat(List *base, T *t) {
+    ArObject *itm;
+
     if (!CheckSize(base, t->len))
         return false;
 
-    for (ArSize i = 0; i < t->len; i++)
-        base->objects[base->len++] = IncRef(t->objects[i]);
+    for (ArSize i = 0; i < t->len; i++) {
+        itm = IncRef(t->objects[i]);
+        base->objects[base->len++] = itm;
+        TrackIf(base, itm);
+    }
 
     return true;
 }
@@ -651,6 +673,7 @@ bool argon::object::ListAppend(List *list, ArObject *obj) {
         return false;
 
     list->objects[list->len++] = IncRef(obj);
+    TrackIf(list, obj);
     return true;
 }
 

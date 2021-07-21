@@ -28,14 +28,17 @@ int main(int argc, char **argv) {
 
     ImportAddPath(GetContext()->import, ".");
 
+    AcquireMain();
+
     if (global_cfg->cmd != -1)
         ret = argon::vm::EvalString(argv[global_cfg->cmd]);
     else
         ret = argon::vm::EvalFile(global_cfg->argv[0]);
 
     err = 0;
-    if (!IsNull(ret)) {
-        auto *str = (String *) ToString(ret);
+
+    if(IsPanicking()){
+        auto *str = (String *) ToString(GetLastError());
         if (IsPanicking())
             str = (String *) ToString(GetLastError());
 
@@ -44,6 +47,9 @@ int main(int argc, char **argv) {
     }
 
     Release(ret);
+
+    ReleaseMain();
+
     argon::vm::Shutdown();
     return err;
 }
