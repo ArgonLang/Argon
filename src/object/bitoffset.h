@@ -46,8 +46,12 @@ namespace argon::object {
         static const unsigned char VisitedBits = 1;
         static const uintptr_t VisitedMask = Mask(Visited);
 
-        static const unsigned char AddressShift = After(Visited);
-        static const unsigned char AddressBits = CounterBits(Visited) - 1;
+        static const unsigned char FinalizedShift = After(Visited);
+        static const unsigned char FinalizedBits = 1;
+        static const uintptr_t FinalizedMask = Mask(Finalized);
+
+        static const unsigned char AddressShift = After(Finalized);
+        static const unsigned char AddressBits = CounterBits(Finalized);
         static const uintptr_t AddressMask = Mask(Address);
     };
 

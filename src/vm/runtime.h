@@ -6,20 +6,11 @@
 #define ARGON_VM_RUNTIME_H_
 
 #include <object/arobject.h>
+
 #include "arroutine.h"
 #include "context.h"
 
 namespace argon::vm {
-    bool Initialize();
-
-    bool Shutdown();
-
-    ArRoutine *GetRoutine();
-
-    Context *GetContext();
-
-    bool IsPanicking();
-
     argon::object::ArObject *GetLastError();
 
     argon::object::ArObject *Panic(argon::object::ArObject *obj);
@@ -27,6 +18,28 @@ namespace argon::vm {
     argon::object::ArObject *Call(argon::object::ArObject *callable, int argc, argon::object::ArObject **args);
 
     argon::object::ArObject *Call(argon::object::ArObject *callable, int argc, ...);
+
+    ArRoutine *GetRoutine();
+
+    Context *GetContext();
+
+    bool AcquireMain();
+
+    bool Initialize();
+
+    bool IsPanicking();
+
+    bool Shutdown();
+
+    void ReleaseMain();
+
+    void ReleaseQueue();
+
+    void StartTheWorld();
+
+    void StopTheWorld();
+
+    void STWCheckpoint();
 }
 
 #endif //ARGON_VM_RUNTIME_H_

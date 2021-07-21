@@ -163,7 +163,7 @@ bool InitGlobals(Module *module) {
 }
 
 Module *argon::object::ModuleNew(String *name, String *doc) {
-    auto module = ArObjectGCNew<Module>(type_module_);
+    auto module = ArObjectGCNewTrack<Module>(type_module_);
 
     if (module != nullptr) {
         module->name = IncRef(name);
