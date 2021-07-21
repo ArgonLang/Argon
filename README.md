@@ -69,11 +69,11 @@ through the play button(or press F5 key).
 Argon is under development, so many features are not yet active or available, a list (certainly not exhaustive) of the missing features is the following:
 * No support for interactive mode.
 * ~~Lack of most of the built-in functionality for basic DataType (e.g. bytes::find, bytestream::split, ...).~~
-* Garbage collector not enabled (currently the memory is managed only by the ARC).
+* ~~Garbage collector not enabled (currently the memory is managed only by the ARC).~~
 * Limited I/O support.
 * No multithreading support.
 * No debugging support.
-* Currently all test cases are disabled and out of date.
+* Currently, all test cases are disabled and out of date.
 
 # 🤝 Contributing
 There is currently no guide available to contribute to the development, but if you are interested you can contribute in several ways:
