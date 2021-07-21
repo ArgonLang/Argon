@@ -304,6 +304,28 @@ bool CheckVariadic(CallHelper *helper) {
     return true;
 }
 
+ArObject *BindCall(CallHelper *helper) {
+    ArObject *ret;
+
+    if (IsPartialApplication(helper)) {
+        ErrorFormat(type_type_error_, "%s() takes %d argument, but %d were given",
+                    helper->func->name->buffer, helper->func->arity, helper->total_args);
+        ClearCall(helper);
+        return nullptr;
+    }
+
+    if (!CheckVariadic(helper))
+        return nullptr;
+
+    if (helper->list_params != nullptr) {
+        ret = FunctionNew(helper->func, helper->list_params);
+        ClearCall(helper);
+    } else
+        ret = MkCurrying(helper);
+
+    return ret;
+}
+
 bool ExecDefer(ArRoutine *routine) {
     Function *func;
     Frame *frame;
@@ -489,23 +511,7 @@ ArObject *argon::vm::Eval(ArRoutine *routine) {
                 if (!PrepareCall(&helper, cu_frame))
                     goto error;
 
-                if (IsPartialApplication(&helper)) {
-                    ErrorFormat(type_type_error_, "%s() takes %d argument, but %d were given",
-                                helper.func->name->buffer, helper.func->arity, helper.total_args);
-                    ClearCall(&helper);
-                    goto error;
-                }
-
-                if (!CheckVariadic(&helper))
-                    goto error;
-
-                if (helper.list_params != nullptr) {
-                    ret = FunctionNew(helper.func, helper.list_params);
-                    ClearCall(&helper);
-                } else
-                    ret = MkCurrying(&helper);
-
-                if (ret == nullptr)
+                if((ret = BindCall(&helper))== nullptr)
                     goto error;
 
                 RoutineNewDefer(routine, ret);
@@ -972,7 +978,7 @@ ArObject *argon::vm::Eval(ArRoutine *routine) {
             TARGET_OP(SHR) {
                 BINARY_OP(routine, shr, <<);
             }
-                /*TARGET_OP(SPWN){}*/
+            /*TARGET_OP(SPWN) {}*/
             TARGET_OP(STATTR) {
                 // TODO: CHECK OutOfBound
                 ArObject *key = TupleGetItem(cu_code->statics, ARG32);
