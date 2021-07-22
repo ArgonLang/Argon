@@ -29,6 +29,8 @@ namespace argon::vm {
 
     bool IsPanicking();
 
+    bool Spawn(ArRoutine *routine);
+
     bool Shutdown();
 
     void ReleaseMain();

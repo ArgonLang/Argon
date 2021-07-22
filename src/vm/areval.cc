@@ -326,6 +326,42 @@ ArObject *BindCall(CallHelper *helper) {
     return ret;
 }
 
+bool SpawnFunction(CallHelper *helper) {
+    ArRoutine *routine;
+    Code *code;
+    Frame *frame;
+    Function *fn;
+
+    if ((fn = (Function *) BindCall(helper)) == nullptr)
+        return false;
+
+    code = fn->code;
+
+    if(fn->IsNative()) {
+        return false;
+    }
+
+    if((frame = FrameNew(code, helper->frame->globals, helper->frame->proxy_globals))== nullptr) {
+        Release(fn);
+        return false;
+    }
+
+    FrameFillForCall(frame, fn, nullptr, 0);
+    Release(fn);
+
+    if((routine = RoutineNew(frame, GetRoutine()))== nullptr) {
+        FrameDel(frame);
+        return false;
+    }
+
+    if (!Spawn(routine)) {
+        RoutineDel(routine);
+        return false;
+    }
+
+    return true;
+}
+
 bool ExecDefer(ArRoutine *routine) {
     Function *func;
     Frame *frame;
@@ -511,7 +547,7 @@ ArObject *argon::vm::Eval(ArRoutine *routine) {
                 if (!PrepareCall(&helper, cu_frame))
                     goto error;
 
-                if((ret = BindCall(&helper))== nullptr)
+                if ((ret = BindCall(&helper)) == nullptr)
                     goto error;
 
                 RoutineNewDefer(routine, ret);
@@ -978,7 +1014,17 @@ ArObject *argon::vm::Eval(ArRoutine *routine) {
             TARGET_OP(SHR) {
                 BINARY_OP(routine, shr, <<);
             }
-            /*TARGET_OP(SPWN) {}*/
+            TARGET_OP(SPWN) {
+                CallHelper helper{};
+
+                if (!PrepareCall(&helper, cu_frame))
+                    goto error;
+
+                if (!SpawnFunction(&helper))
+                    goto error;
+
+                DISPATCH4();
+            }
             TARGET_OP(STATTR) {
                 // TODO: CHECK OutOfBound
                 ArObject *key = TupleGetItem(cu_code->statics, ARG32);

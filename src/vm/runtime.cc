@@ -330,6 +330,27 @@ void StartOST(OSThread *ost) {
     ost->self = std::thread(Schedule, ost);
 }
 
+void OSTWakeRun() {
+    std::unique_lock lck(ost_lock);
+    OSThread *ost;
+
+    if (ost_idle_count > 0) {
+        ost_cond.notify_one();
+        return;
+    }
+
+    if (ost_total > OST_MAX)
+        return;
+
+    if ((ost = AllocOST()) == nullptr) {
+        // TODO: Signal Error?!
+    }
+
+    lck.unlock();
+
+    StartOST(ost);
+}
+
 ArObject *argon::vm::Call(ArObject *callable, int argc, ArObject **args) {
     auto func = (Function *) callable;
     ArObject *result = nullptr;
@@ -463,6 +484,14 @@ bool argon::vm::Initialize() {
     return false;
 }
 
+bool argon::vm::Spawn(ArRoutine *routine) {
+    if(!routine_gq.Enqueue(routine))
+        return false;
+
+    OSTWakeRun();
+    return true;
+}
+
 bool argon::vm::Shutdown() {
     short attempt = 10;
 
@@ -526,27 +555,6 @@ void argon::vm::STWCheckpoint() {
 
     cond_stopwait.wait(lck, [] { return !stw; });
     ost_worker_count++;
-}
-
-void OSTWakeRun() {
-    std::unique_lock lck(ost_lock);
-    OSThread *ost;
-
-    if (ost_idle_count > 0) {
-        ost_cond.notify_one();
-        return;
-    }
-
-    if (ost_total > OST_MAX)
-        return;
-
-    if ((ost = AllocOST()) == nullptr) {
-        // TODO: Signal Error?!
-    }
-
-    lck.unlock();
-
-    StartOST(ost);
 }
 
 void argon::vm::ReleaseMain() {
