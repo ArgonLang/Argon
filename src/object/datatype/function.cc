@@ -203,7 +203,7 @@ ArObject *argon::object::FunctionCallNative(Function *func, ArObject **args, ArS
         count--;
     }
 
-    if (func->arity > 0) {
+    if (func->arity > 0 || func->IsVariadic()) {
         if (func->currying != nullptr) {
             if (args != nullptr && count > 0) {
                 if ((arguments = ListNew(func->currying->len + count)) == nullptr)

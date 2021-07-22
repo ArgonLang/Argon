@@ -337,19 +337,26 @@ bool SpawnFunction(CallHelper *helper) {
 
     code = fn->code;
 
-    if(fn->IsNative()) {
-        return false;
+    if (fn->IsNative()) {
+        if ((code = CodeNewNativeWrapper(fn)) == nullptr) {
+            Release(fn);
+            return false;
+        }
+
+        fn = nullptr;
     }
 
-    if((frame = FrameNew(code, helper->frame->globals, helper->frame->proxy_globals))== nullptr) {
+    if ((frame = FrameNew(code, helper->frame->globals, helper->frame->proxy_globals)) == nullptr) {
         Release(fn);
         return false;
     }
 
-    FrameFillForCall(frame, fn, nullptr, 0);
-    Release(fn);
+    if (fn != nullptr) {
+        FrameFillForCall(frame, fn, nullptr, 0);
+        Release(fn);
+    }
 
-    if((routine = RoutineNew(frame, GetRoutine()))== nullptr) {
+    if ((routine = RoutineNew(frame, GetRoutine())) == nullptr) {
         FrameDel(frame);
         return false;
     }
