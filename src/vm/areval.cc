@@ -2,8 +2,7 @@
 //
 // Licensed under the Apache License v2.0
 
-#include "runtime.h"
-
+#include <object/arobject.h>
 #include <object/datatype/bool.h>
 #include <object/datatype/error.h>
 #include <object/datatype/nil.h>
@@ -12,11 +11,13 @@
 #include <object/datatype/bounds.h>
 #include <object/datatype/map.h>
 #include <object/datatype/function.h>
+#include <object/datatype/set.h>
 #include <object/datatype/struct.h>
-#include <object/arobject.h>
 
 #include <lang/opcodes.h>
-#include <object/datatype/set.h>
+
+#include "runtime.h"
+#include "callhelper.h"
 #include "areval.h"
 
 using namespace argon::vm;
@@ -66,24 +67,6 @@ ArObject *ImportModule(ArRoutine *routine, String *name) {
     return module;
 }
 
-Namespace *BuildNamespace(ArRoutine *routine, Code *code) {
-    Namespace *ns;
-    Frame *frame;
-
-    if ((ns = NamespaceNew()) == nullptr)
-        return nullptr;
-
-    if ((frame = FrameNew(code, routine->frame->globals, ns)) == nullptr) {
-        Release(ns);
-        return nullptr;
-    }
-
-    Release(Eval(routine, frame));
-    FrameDel(frame);
-
-    return ns;
-}
-
 ArObject *Subscript(ArObject *obj, ArObject *idx, ArObject *set) {
     ArObject *ret = nullptr;
 
@@ -125,19 +108,22 @@ ArObject *Subscript(ArObject *obj, ArObject *idx, ArObject *set) {
     return ret;
 }
 
-ArObject *RestElementToList(ArObject **args, ArSize count) {
-    List *rest = ListNew(count);
+Namespace *BuildNamespace(ArRoutine *routine, Code *code) {
+    Namespace *ns;
+    Frame *frame;
 
-    if (rest != nullptr) {
-        for (ArSize i = 0; i < count; i++) {
-            if (!ListAppend(rest, args[i])) {
-                Release(rest);
-                return nullptr;
-            }
-        }
+    if ((ns = NamespaceNew()) == nullptr)
+        return nullptr;
+
+    if ((frame = FrameNew(code, routine->frame->globals, ns)) == nullptr) {
+        Release(ns);
+        return nullptr;
     }
 
-    return rest;
+    Release(Eval(routine, frame));
+    FrameDel(frame);
+
+    return ns;
 }
 
 bool CheckRecursionLimit(ArRoutine *routine) {
@@ -166,203 +152,6 @@ bool CheckRecursionLimit(ArRoutine *routine) {
     if (++routine->recursion_depth > routine->context->recursion_limit) {
         ErrorFormat(type_runtime_error_, "maximum recursion depth of %d reached", routine->context->recursion_limit);
         routine->recursion_depth |= 0x01UL << flags;
-        return false;
-    }
-
-    return true;
-}
-
-struct CallHelper {
-    Frame *frame;
-    Function *func;
-    List *list_params;
-    ArObject **params;
-
-    argon::lang::OpCodeCallFlags flags;
-
-    unsigned short stack_offset;
-    unsigned short local_args;
-    unsigned short total_args;
-};
-
-bool CallSpreadExpansion(CallHelper *helper) {
-    ArObject **stack = helper->frame->eval_stack - helper->local_args;
-
-    if ((helper->list_params = ListNew(helper->local_args)) != nullptr) {
-        for (int i = 0; i < helper->local_args - 1; i++)
-            ListAppend(helper->list_params, stack[i]);
-
-        if (!ListConcat(helper->list_params, stack[helper->local_args - 1])) {
-            Release(helper->list_params);
-            return false;
-        }
-
-        // Update locals_args
-        helper->local_args = helper->list_params->len;
-        helper->params = helper->list_params->objects;
-
-        return true;
-    }
-
-    return false;
-}
-
-bool PrepareCall(CallHelper *helper, Frame *frame) {
-    helper->stack_offset = argon::lang::I32Arg(frame->instr_ptr);
-    helper->flags = (argon::lang::OpCodeCallFlags) argon::lang::I32ExtractFlag(frame->instr_ptr);
-    helper->frame = frame;
-
-    helper->func = (Function *) *(frame->eval_stack - helper->stack_offset - 1);
-
-    helper->local_args = helper->stack_offset;
-
-    if (AR_TYPEOF(helper->func, type_function_)) {
-        if (helper->local_args > 0 && *(frame->eval_stack - helper->local_args) == nullptr)
-            helper->local_args--;
-
-        helper->params = frame->eval_stack - helper->local_args;
-
-        if (ENUMBITMASK_ISTRUE(helper->flags, argon::lang::OpCodeCallFlags::SPREAD))
-            if (!CallSpreadExpansion(helper))
-                return false;
-
-        helper->total_args = helper->local_args;
-
-        if (helper->func->currying != nullptr)
-            helper->total_args += helper->func->currying->len;
-
-        return true;
-    }
-
-    ErrorFormat(type_type_error_, "'%s' object is not callable", AR_TYPE_NAME(helper->func));
-    return false;
-}
-
-void ClearCall(CallHelper *helper) {
-    for (ArSize i = helper->stack_offset + 1; i > 0; i--)
-        Release(*(--helper->frame->eval_stack));
-
-    Release(helper->list_params);
-}
-
-inline bool IsPartialApplication(CallHelper *helper) { return helper->total_args < helper->func->arity; }
-
-ArObject *MkCurrying(CallHelper *helper) {
-    List *currying;
-    ArObject *ret;
-
-    if (helper->func->arity > 0 && helper->total_args == 0) {
-        ErrorFormat(type_type_error_, "%s() takes %d argument, but 0 were given",
-                    helper->func->name->buffer, helper->func->arity);
-        ClearCall(helper);
-        return nullptr;
-    }
-
-    if ((currying = ListNew(helper->local_args)) == nullptr)
-        return nullptr;
-
-    for (ArSize i = 0; i < helper->local_args; i++) {
-        if (!ListAppend(currying, helper->params[i])) {
-            Release(currying);
-            return nullptr;
-        }
-    }
-
-    ret = FunctionNew(helper->func, currying);
-    Release(currying);
-    ClearCall(helper);
-
-    return ret;
-}
-
-bool CheckVariadic(CallHelper *helper) {
-    unsigned short exceeded = helper->total_args - helper->func->arity;
-    ArObject *ret;
-
-    if (helper->total_args > helper->func->arity) {
-        if (!helper->func->IsVariadic()) {
-            ErrorFormat(type_type_error_, "%s() takes %d argument, but %d were given",
-                        helper->func->name->buffer, helper->func->arity, helper->total_args);
-            ClearCall(helper);
-            return false;
-        }
-
-        if (!helper->func->IsNative()) {
-            ret = RestElementToList(helper->params + (helper->local_args - exceeded), exceeded);
-
-            if (ret == nullptr) {
-                ClearCall(helper);
-                return false;
-            }
-
-            Release(helper->params[(helper->local_args - exceeded)]);
-            helper->params[(helper->local_args - exceeded)] = ret;
-            helper->local_args -= exceeded - 1;
-        }
-    }
-
-    return true;
-}
-
-ArObject *BindCall(CallHelper *helper) {
-    ArObject *ret;
-
-    if (IsPartialApplication(helper)) {
-        ErrorFormat(type_type_error_, "%s() takes %d argument, but %d were given",
-                    helper->func->name->buffer, helper->func->arity, helper->total_args);
-        ClearCall(helper);
-        return nullptr;
-    }
-
-    if (!CheckVariadic(helper))
-        return nullptr;
-
-    if (helper->list_params != nullptr) {
-        ret = FunctionNew(helper->func, helper->list_params);
-        ClearCall(helper);
-    } else
-        ret = MkCurrying(helper);
-
-    return ret;
-}
-
-bool SpawnFunction(CallHelper *helper) {
-    ArRoutine *routine;
-    Code *code;
-    Frame *frame;
-    Function *fn;
-
-    if ((fn = (Function *) BindCall(helper)) == nullptr)
-        return false;
-
-    code = fn->code;
-
-    if (fn->IsNative()) {
-        if ((code = CodeNewNativeWrapper(fn)) == nullptr) {
-            Release(fn);
-            return false;
-        }
-
-        fn = nullptr;
-    }
-
-    if ((frame = FrameNew(code, helper->frame->globals, helper->frame->proxy_globals)) == nullptr) {
-        Release(fn);
-        return false;
-    }
-
-    if (fn != nullptr) {
-        FrameFillForCall(frame, fn, nullptr, 0);
-        Release(fn);
-    }
-
-    if ((routine = RoutineNew(frame, GetRoutine())) == nullptr) {
-        FrameDel(frame);
-        return false;
-    }
-
-    if (!Spawn(routine)) {
-        RoutineDel(routine);
         return false;
     }
 
@@ -494,25 +283,25 @@ ArObject *argon::vm::Eval(ArRoutine *routine) {
                 CallHelper helper{};
                 Frame *fn_frame;
 
-                if (!PrepareCall(&helper, cu_frame))
+                if (!helper.PrepareCall(cu_frame))
                     goto error;
 
-                if (IsPartialApplication(&helper)) {
-                    if ((ret = MkCurrying(&helper)) == nullptr)
+                if (helper.IsPartialApplication()) {
+                    if ((ret = helper.MkCurrying()) == nullptr)
                         goto error;
 
                     PUSH(ret);
                     DISPATCH4();
                 }
 
-                if (!CheckVariadic(&helper))
+                if (!helper.CheckVariadic())
                     goto error;
 
                 if (helper.func->IsNative()) {
                     STWCheckpoint();
 
                     ret = FunctionCallNative(helper.func, helper.params, helper.local_args);
-                    ClearCall(&helper);
+                    helper.ClearCall();
 
                     if (ret == nullptr)
                         goto error;
@@ -524,12 +313,12 @@ ArObject *argon::vm::Eval(ArRoutine *routine) {
                 // Argon Code
                 // TODO: check proxy_globals
                 if ((fn_frame = FrameNew(helper.func->code, helper.func->gns, nullptr)) == nullptr) {
-                    ClearCall(&helper);
+                    helper.ClearCall();
                     goto error;
                 }
 
                 FrameFillForCall(fn_frame, helper.func, helper.params, helper.local_args);
-                ClearCall(&helper);
+                helper.ClearCall();
 
                 // Invoke:
                 cu_frame->instr_ptr += sizeof(argon::lang::Instr32);
@@ -551,10 +340,10 @@ ArObject *argon::vm::Eval(ArRoutine *routine) {
             TARGET_OP(DFR) {
                 CallHelper helper{};
 
-                if (!PrepareCall(&helper, cu_frame))
+                if (!helper.PrepareCall(cu_frame))
                     goto error;
 
-                if ((ret = BindCall(&helper)) == nullptr)
+                if ((ret = helper.BindCall()) == nullptr)
                     goto error;
 
                 RoutineNewDefer(routine, ret);
@@ -1024,10 +813,10 @@ ArObject *argon::vm::Eval(ArRoutine *routine) {
             TARGET_OP(SPWN) {
                 CallHelper helper{};
 
-                if (!PrepareCall(&helper, cu_frame))
+                if (!helper.PrepareCall(cu_frame))
                     goto error;
 
-                if (!SpawnFunction(&helper))
+                if (!helper.SpawnFunction(routine))
                     goto error;
 
                 DISPATCH4();
