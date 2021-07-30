@@ -6,6 +6,8 @@
 #define ARGON_OBJECT_NAMESPACE_H_
 
 #include <object/arobject.h>
+#include <object/rwlock.h>
+
 #include <utils/enum_bitmask.h>
 
 #include "hmap.h"
@@ -66,6 +68,7 @@ namespace argon::object {
     };
 
     struct Namespace : ArObject {
+        RWLock lock;
         HMap hmap;
     };
 
