@@ -6,11 +6,13 @@
 #define ARGON_OBJECT_SET_H_
 
 #include <object/arobject.h>
+#include <object/rwlock.h>
 
 #include "hmap.h"
 
 namespace argon::object {
     struct Set : ArObject {
+        RWLock lock;
         HMap set;
     };
 
