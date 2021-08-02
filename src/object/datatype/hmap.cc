@@ -174,6 +174,25 @@ HEntry *argon::object::HMapRemove(HMap *hmap, ArObject *key) {
     return nullptr;
 }
 
+void argon::object::HMapClear(HMap *hmap, HMapCleanFn clean_fn) {
+    HEntry *tmp;
+
+    for (HEntry *cur = hmap->iter_begin; cur != nullptr; cur = tmp) {
+        tmp = cur->iter_next;
+
+        if (clean_fn != nullptr)
+            clean_fn(cur);
+
+        Release(cur->key);
+        HMapRemove(hmap, cur);
+    }
+
+    hmap->len = 0;
+
+    for (ArSize i = 0; i < hmap->cap; i++)
+        hmap->map[i] = nullptr;
+}
+
 void argon::object::HMapFinalize(HMap *hmap, HMapCleanFn clean_fn) {
     HEntry *tmp;
 

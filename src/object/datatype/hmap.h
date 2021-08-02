@@ -94,6 +94,8 @@ namespace argon::object {
         return entry;
     }
 
+    void HMapClear(HMap *hmap, HMapCleanFn clean_fn);
+
     inline void HMapEntryToFreeNode(HMap *hmap, HEntry *entry) {
         entry->next = hmap->free_node;
         hmap->free_node = entry;
