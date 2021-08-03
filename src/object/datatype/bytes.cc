@@ -878,7 +878,7 @@ ArObject *argon::object::BytesSplit(Bytes *bytes, unsigned char *pattern, ArSize
 
     if (maxsplit != 0) {
         while ((end = support::Find(BUFFER_GET(bytes) + idx, BUFFER_LEN(bytes) - idx, pattern, plen)) >= 0) {
-            if ((tmp = MakeSlice(bytes, idx, end - idx)) == nullptr)
+            if ((tmp = MakeSlice(bytes, idx, end)) == nullptr)
                 goto error;
 
             idx += end + plen;
