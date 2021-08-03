@@ -7,11 +7,13 @@
 
 #include <object/arobject.h>
 #include <object/bufview.h>
+#include <object/rwlock.h>
 
 #define ARGON_OBJECT_BYTES_INITIAL_CAP   16
 
 namespace argon::object {
     struct Bytes : ArObject {
+        RWLock lock;
         BufferView view;
         ArSize hash;
 
@@ -21,8 +23,6 @@ namespace argon::object {
     extern const TypeInfo *type_bytes_;
 
     Bytes *BytesNew(ArObject *object);
-
-    Bytes *BytesNew(Bytes *stream, ArSize start, ArSize len);
 
     Bytes *BytesNew(ArSize cap, bool same_len, bool fill_zero, bool frozen);
 
