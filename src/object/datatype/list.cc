@@ -608,11 +608,7 @@ List *argon::object::ListNew(ArSize cap) {
 }
 
 List *argon::object::ListNew(const ArObject *object) {
-    ArObject *iter;
-    ArObject *tmp;
     List *list;
-
-    ArSize idx = 0;
 
     if (AsSequence(object)) {
         // FAST PATH
@@ -621,20 +617,9 @@ List *argon::object::ListNew(const ArObject *object) {
             return ListClone((List *) object);
         } else if (AR_TYPEOF(object, type_tuple_))
             return ListClone((Tuple *) object);
+    }
 
-        // Generic object
-        // TODO: CHECK THIS MULTI-THREAD
-        if ((list = ListNew((ArSize) AR_SEQUENCE_SLOT(object)->length((ArObject *) object))) == nullptr)
-            return nullptr;
-
-        while (idx < list->cap) {
-            tmp = AR_SEQUENCE_SLOT(object)->get_item((ArObject *) object, idx++);
-            ListAppend(list, tmp);
-            Release(tmp);
-        }
-
-        return list;
-    } else if (IsIterable(object)) {
+    if (IsIterable(object)) {
         if ((list = ListNew()) != nullptr) {
             if (ListConcat(list, object))
                 return list;
