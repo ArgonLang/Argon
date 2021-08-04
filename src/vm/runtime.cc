@@ -432,6 +432,19 @@ bool argon::vm::AcquireMain() {
     return true;
 }
 
+bool argon::vm::DiscardErrorType(const TypeInfo *type) {
+    ArRoutine *routine = GetRoutine();
+
+    if (routine->panic != nullptr) {
+        if (!AR_TYPEOF(routine->panic->object, type))
+            return false;
+
+        RoutinePopPanics(routine);
+    }
+
+    return true;
+}
+
 bool argon::vm::IsPanicking() {
     return GetRoutine()->panic != nullptr;
 }
@@ -485,7 +498,7 @@ bool argon::vm::Initialize() {
 }
 
 bool argon::vm::Spawn(ArRoutine *routine) {
-    if(!routine_gq.Enqueue(routine))
+    if (!routine_gq.Enqueue(routine))
         return false;
 
     OSTWakeRun();

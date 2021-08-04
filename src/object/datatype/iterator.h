@@ -7,9 +7,9 @@
 
 #include <object/arobject.h>
 
-#define ITERATOR_NEW(name, ctor, cleanup, has_next, next, peek, reset)  \
+#define ITERATOR_NEW(name, ctor, cleanup, next, peek, reset)            \
 const IteratorSlots name##_iterator {                                   \
-        has_next,                                                       \
+        nullptr,                                                        \
         next,                                                           \
         peek,                                                           \
         (VoidUnaryOp)(reset)                                            \
@@ -38,14 +38,14 @@ const TypeInfo type_##name##_ = {                                       \
         nullptr                                                         \
 }
 
-#define ITERATOR_NEW_DEFAULT(name, has_next, next, peek) \
-ITERATOR_NEW(name, nullptr, argon::object::IteratorCleanup, has_next, next, peek, argon::object::IteratorReset)
+#define ITERATOR_NEW_DEFAULT(name, next, peek) \
+ITERATOR_NEW(name, nullptr, argon::object::IteratorCleanup, next, peek, argon::object::IteratorReset)
 
 namespace argon::object {
 
     struct Iterator : ArObject {
         ArObject *obj;
-        ArSize index;
+        ArSSize index;
 
         bool reversed;
     };

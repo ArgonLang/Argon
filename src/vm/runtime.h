@@ -25,6 +25,8 @@ namespace argon::vm {
 
     bool AcquireMain();
 
+    bool DiscardErrorType(const argon::object::TypeInfo *type);
+
     bool Initialize();
 
     bool IsPanicking();

@@ -55,8 +55,7 @@ ArObject *argon::vm::RoutineRecover(ArRoutine *routine) {
     if (routine != nullptr) {
         if (routine->panic != nullptr) {
             err = IncRef(routine->panic->object);
-            while (routine->panic != nullptr)
-                RoutinePopPanic(routine);
+            RoutinePopPanics(routine);
         }
     }
 
@@ -85,8 +84,7 @@ void argon::vm::RoutineReset(ArRoutine *routine, ArRoutineStatus status) {
             FrameDel(routine->frame);
         routine->frame = nullptr;
 
-        while (routine->panic != nullptr)
-            RoutinePopPanic(routine);
+        RoutinePopPanics(routine);
 
         ListClear(routine->references);
 
@@ -157,5 +155,13 @@ void argon::vm::RoutinePopPanic(ArRoutine *routine) {
         Release(panic->object);
         routine->panic = panic->panic;
         argon::memory::Free(panic);
+    }
+}
+
+void argon::vm::RoutinePopPanics(ArRoutine *routine) {
+    while (routine->panic != nullptr){
+        Release(routine->panic->object);
+        routine->panic = routine->panic->panic;
+        argon::memory::Free(routine->panic);
     }
 }
