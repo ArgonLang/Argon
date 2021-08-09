@@ -11,9 +11,10 @@
 
 #include <object/arobject.h>
 
-#define ARGON_OBJECT_HMAP_INITIAL_SIZE   12
-#define ARGON_OBJECT_HMAP_LOAD_FACTOR    0.75f
-#define ARGON_OBJECT_HMAP_MUL_FACTOR     (ARGON_OBJECT_HMAP_LOAD_FACTOR * 2)
+#define ARGON_OBJECT_HMAP_INITIAL_SIZE  12
+#define ARGON_OBJECT_HMAP_MAX_FREE_LEN  24
+#define ARGON_OBJECT_HMAP_LOAD_FACTOR   0.75f
+#define ARGON_OBJECT_HMAP_MUL_FACTOR    (ARGON_OBJECT_HMAP_LOAD_FACTOR * 2)
 
 namespace argon::object {
 
@@ -36,6 +37,9 @@ namespace argon::object {
 
         ArSize cap;
         ArSize len;
+
+        ArSize free_count;
+        ArSize free_max;
     };
 
     struct HMapIterator : ArObject {
@@ -64,7 +68,9 @@ namespace argon::object {
 
     inline void HMapIteratorCleanup(HMapIterator *iter) { Release(&iter->obj); }
 
-    bool HMapInit(HMap *hmap);
+    bool HMapInit(HMap *hmap, ArSize freenode_max);
+
+    inline bool HMapInit(HMap *hmap) {return HMapInit(hmap, ARGON_OBJECT_HMAP_MAX_FREE_LEN);}
 
     bool HMapInsert(HMap *hmap, HEntry *entry);
 
@@ -91,15 +97,13 @@ namespace argon::object {
 
         entry = (T *) hmap->free_node;
         hmap->free_node = entry->next;
+        hmap->free_count--;
         return entry;
     }
 
     void HMapClear(HMap *hmap, HMapCleanFn clean_fn);
 
-    inline void HMapEntryToFreeNode(HMap *hmap, HEntry *entry) {
-        entry->next = hmap->free_node;
-        hmap->free_node = entry;
-    }
+    void HMapEntryToFreeNode(HMap *hmap, HEntry *entry);
 
     void HMapFinalize(HMap *hmap, HMapCleanFn clean_fn);
 

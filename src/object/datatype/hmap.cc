@@ -92,7 +92,7 @@ void RemoveIterItem(HMap *hmap, HEntry *entry) {
     entry->iter_prev = nullptr;
 }
 
-bool argon::object::HMapInit(HMap *hmap) {
+bool argon::object::HMapInit(HMap *hmap, ArSize freenode_max) {
     hmap->map = (HEntry **) Alloc(ARGON_OBJECT_HMAP_INITIAL_SIZE * sizeof(void *));
 
     if (hmap->map != nullptr) {
@@ -102,6 +102,8 @@ bool argon::object::HMapInit(HMap *hmap) {
 
         hmap->cap = ARGON_OBJECT_HMAP_INITIAL_SIZE;
         hmap->len = 0;
+        hmap->free_count = 0;
+        hmap->free_max = freenode_max;
 
         MemoryZero(hmap->map, hmap->cap * sizeof(void *));
 
@@ -218,6 +220,17 @@ void argon::object::HMapRemove(HMap *hmap, HEntry *entry) {
     RemoveIterItem(hmap, entry);
     HMapEntryToFreeNode(hmap, entry);
     hmap->len--;
+}
+
+void argon::object::HMapEntryToFreeNode(HMap *hmap, HEntry *entry) {
+    if (hmap->free_count + 1 > hmap->free_max) {
+        Free(entry);
+        return;
+    }
+
+    entry->next = hmap->free_node;
+    hmap->free_node = entry;
+    hmap->free_count++;
 }
 
 ArObject *argon::object::HMapIteratorNew(const TypeInfo *type, ArObject *iterable, HMap *map, bool reversed) {
