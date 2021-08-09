@@ -17,16 +17,13 @@ ArObject *namespace_iter_next(HMapIterator *iter) {
     ArObject *ret;
     NsEntry *entry;
 
-    if (iter->current == nullptr)
+    if(!HMapIteratorIsValid(iter))
         return nullptr;
-
-    if (iter->used != iter->map->len)
-        return ErrorFormat(type_runtime_error_, "Map changed size during iteration");
 
     entry = ((NsEntry *) iter->current);
 
     ret = entry->info.IsWeak() ? ReturnNil(entry->weak.GetObject()) : IncRef(entry->value);
-    iter->current = iter->reversed ? iter->current->iter_prev : iter->current->iter_next;
+    HMapIteratorNext(iter);
 
     return ret;
 }
@@ -35,11 +32,8 @@ ArObject *namespace_iter_peak(HMapIterator *iter) {
     ArObject *ret;
     NsEntry *entry;
 
-    if (iter->current == nullptr)
+    if(!HMapIteratorIsValid(iter))
         return nullptr;
-
-    if (iter->used != iter->map->len)
-        return ErrorFormat(type_runtime_error_, "Map changed size during iteration");
 
     entry = ((NsEntry *) iter->current);
     ret = entry->info.IsWeak() ? ReturnNil(entry->weak.GetObject()) : IncRef(entry->value);

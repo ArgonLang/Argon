@@ -18,16 +18,13 @@ using namespace argon::object;
 ArObject *map_iter_next(HMapIterator *iter) {
     Tuple *ret;
 
-    if (iter->current == nullptr)
+    if(!HMapIteratorIsValid(iter))
         return nullptr;
-
-    if (iter->used != iter->map->len)
-        return ErrorFormat(type_runtime_error_, "Map changed size during iteration");
 
     if ((ret = TupleNew(2)) != nullptr) {
         TupleInsertAt(ret, 0, iter->current->key);
         TupleInsertAt(ret, 1, ((MapEntry *) iter->current)->value);
-        iter->current = iter->reversed ? iter->current->iter_prev : iter->current->iter_next;
+        HMapIteratorNext(iter);
     }
 
     return ret;
@@ -36,11 +33,8 @@ ArObject *map_iter_next(HMapIterator *iter) {
 ArObject *map_iter_peak(HMapIterator *iter) {
     Tuple *ret;
 
-    if (iter->current == nullptr)
+    if (!HMapIteratorIsValid(iter))
         return nullptr;
-
-    if (iter->used != iter->map->len)
-        return ErrorFormat(type_runtime_error_, "Map changed size during iteration");
 
     if ((ret = TupleNew(2)) != nullptr) {
         TupleInsertAt(ret, 0, iter->current->key);

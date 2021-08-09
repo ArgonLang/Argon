@@ -15,25 +15,19 @@ using namespace argon::object;
 ArObject *set_iter_next(HMapIterator *iter) {
     ArObject *obj;
 
-    if (iter->current == nullptr)
+    if(!HMapIteratorIsValid(iter))
         return nullptr;
 
-    if (iter->used != iter->map->len)
-        return ErrorFormat(type_runtime_error_, "Set changed size during iteration");
+    obj = IncRef(iter->current->key);
 
-    obj = iter->current->key;
+    HMapIteratorNext(iter);
 
-    iter->current = iter->reversed ? iter->current->iter_prev : iter->current->iter_next;
-
-    return IncRef(obj);
+    return obj;
 }
 
 ArObject *set_iter_peak(HMapIterator *iter) {
-    if (iter->current == nullptr)
+    if(!HMapIteratorIsValid(iter))
         return nullptr;
-
-    if (iter->used != iter->map->len)
-        return ErrorFormat(type_runtime_error_, "Set changed size during iteration");
 
     return IncRef(iter->current->key);
 }

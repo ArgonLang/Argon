@@ -5,6 +5,7 @@
 #ifndef ARGON_OBJECT_HMAP_H_
 #define ARGON_OBJECT_HMAP_H_
 
+#include <atomic>
 #include <cstring>
 
 #include <memory/memory.h>
@@ -21,6 +22,7 @@ namespace argon::object {
     using HMapCleanFn = void (*)(struct HEntry *);
 
     struct HEntry {
+        std::atomic_int ref;
         HEntry *next;
 
         HEntry *iter_next;
@@ -48,7 +50,6 @@ namespace argon::object {
         HMap *map;
         HEntry *current;
 
-        ArSize used;
         bool reversed;
     };
 
@@ -58,7 +59,13 @@ namespace argon::object {
 
     ArObject *HMapIteratorCompare(HMapIterator *self, ArObject *other, CompareMode mode);
 
+    void HMapIteratorNext(HMapIterator *self);
+
     inline bool HMapIteratorHasNext(HMapIterator *iter) { return iter->current != nullptr; }
+
+    inline bool HMapIteratorIsValid(HMapIterator *self) {
+        return self->current != nullptr && self->current->key != nullptr;
+    }
 
     inline void HMapIteratorReset(HMapIterator *iter) {
         iter->current = iter->reversed ? iter->map->iter_end : iter->map->iter_begin;
@@ -70,7 +77,7 @@ namespace argon::object {
 
     bool HMapInit(HMap *hmap, ArSize freenode_max);
 
-    inline bool HMapInit(HMap *hmap) {return HMapInit(hmap, ARGON_OBJECT_HMAP_MAX_FREE_LEN);}
+    inline bool HMapInit(HMap *hmap) { return HMapInit(hmap, ARGON_OBJECT_HMAP_MAX_FREE_LEN); }
 
     bool HMapInsert(HMap *hmap, HEntry *entry);
 
@@ -90,8 +97,10 @@ namespace argon::object {
         T *entry;
 
         if (hmap->free_node == nullptr) {
-            if ((entry = (T *) argon::memory::Alloc(sizeof(T))) != nullptr)
+            if ((entry = (T *) argon::memory::Alloc(sizeof(T))) != nullptr) {
                 argon::memory::MemoryZero(entry, sizeof(T));
+                entry->ref = 1;
+            }
             return entry;
         }
 
