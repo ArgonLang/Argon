@@ -15,6 +15,8 @@ using namespace argon::object;
 ArObject *set_iter_next(HMapIterator *iter) {
     ArObject *obj;
 
+    RWLockRead lock(iter->map->lock);
+
     if(!HMapIteratorIsValid(iter))
         return nullptr;
 
@@ -26,6 +28,8 @@ ArObject *set_iter_next(HMapIterator *iter) {
 }
 
 ArObject *set_iter_peak(HMapIterator *iter) {
+    RWLockRead lock(iter->map->lock);
+
     if(!HMapIteratorIsValid(iter))
         return nullptr;
 
@@ -33,10 +37,10 @@ ArObject *set_iter_peak(HMapIterator *iter) {
 }
 
 const IteratorSlots set_iterop = {
-        (BoolUnaryOp) HMapIteratorHasNext,
+        nullptr,
         (UnaryOp) set_iter_next,
         (UnaryOp) set_iter_peak,
-        (VoidUnaryOp) HMapIteratorReset
+        nullptr
 };
 
 const TypeInfo SetIteratorType = {
@@ -49,7 +53,7 @@ const TypeInfo SetIteratorType = {
         (VoidUnaryOp) HMapIteratorCleanup,
         (Trace) HMapIteratorTrace,
         (CompareOp) HMapIteratorCompare,
-        (BoolUnaryOp) HMapIteratorHasNext,
+        (BoolUnaryOp) HMapIteratorIsTrue,
         nullptr,
         (UnaryOp) HMapIteratorStr,
         nullptr,
@@ -82,8 +86,8 @@ ArObject *set_sub(ArObject *left, ArObject *right) {
     Set *res = nullptr;
 
     if (AR_SAME_TYPE(left, right)) {
-        RWLockRead l_lock(l->lock);
-        RWLockRead r_lock(r->lock);
+        RWLockRead l_lock(l->set.lock);
+        RWLockRead r_lock(r->set.lock);
 
         if ((res = SetNew()) == nullptr)
             return nullptr;
@@ -108,8 +112,8 @@ ArObject *set_and(ArObject *left, ArObject *right) {
     Set *res = nullptr;
 
     if (AR_SAME_TYPE(left, right)) {
-        RWLockRead l_lock(l->lock);
-        RWLockRead r_lock(r->lock);
+        RWLockRead l_lock(l->set.lock);
+        RWLockRead r_lock(r->set.lock);
 
         if ((res = SetNew()) == nullptr)
             return nullptr;
@@ -134,8 +138,8 @@ ArObject *set_or(ArObject *left, ArObject *right) {
     Set *res = nullptr;
 
     if (AR_SAME_TYPE(left, right)) {
-        RWLockRead l_lock(l->lock);
-        RWLockRead r_lock(r->lock);
+        RWLockRead l_lock(l->set.lock);
+        RWLockRead r_lock(r->set.lock);
 
         if ((res = SetNew()) == nullptr)
             return nullptr;
@@ -165,8 +169,8 @@ ArObject *set_xor(ArObject *left, ArObject *right) {
     Set *res = nullptr;
 
     if (AR_SAME_TYPE(left, right)) {
-        RWLockRead l_lock(l->lock);
-        RWLockRead r_lock(r->lock);
+        RWLockRead l_lock(l->set.lock);
+        RWLockRead r_lock(r->set.lock);
 
         if ((res = SetNew()) == nullptr)
             return nullptr;
@@ -301,10 +305,10 @@ ARGON_METHOD5(set_, diff,
         }
     }
 
-    RWLockWrite self_lock(set->lock);
+    RWLockWrite self_lock(set->set.lock);
 
     for (ArSize idx = 0; idx < count; idx++) {
-        RWLockRead other_lock(((Set *) argv[idx])->lock);
+        RWLockRead other_lock(((Set *) argv[idx])->set.lock);
 
         for (HEntry *cursor = set->set.iter_begin; cursor != nullptr; cursor = tmp) {
             tmp = cursor->iter_next;
@@ -326,7 +330,7 @@ ARGON_METHOD5(set_, discard,
     auto *set = (Set *) self;
     HEntry *tmp;
 
-    RWLockWrite lock(set->lock);
+    RWLockWrite lock(set->set.lock);
 
     for (ArSize idx = 0; idx < count; idx++) {
         if ((tmp = HMapLookup(&set->set, argv[idx])) != nullptr) {
@@ -357,11 +361,11 @@ ARGON_METHOD5(set_, intersect,
             return ErrorFormat(type_type_error_, "set::intersect() expect type Set not '%s'", AR_TYPE_NAME(argv[idx]));
     }
 
-    RWLockWrite self_lock(set->lock);
+    RWLockWrite self_lock(set->set.lock);
 
     for (ArSize idx = 0; idx < count; idx++) {
         if (argv[idx] != self) {
-            RWLockRead other_lock(((Set *) argv[idx])->lock);
+            RWLockRead other_lock(((Set *) argv[idx])->set.lock);
 
             for (HEntry *cursor = set->set.iter_begin; cursor != nullptr; cursor = tmp) {
                 tmp = cursor->iter_next;
@@ -393,8 +397,8 @@ ARGON_METHOD5(set_, symdiff,
         return IncRef(self);
     }
 
-    RWLockWrite self_lock(set->lock);
-    RWLockRead other_lock(other->lock);
+    RWLockWrite self_lock(set->set.lock);
+    RWLockRead other_lock(other->set.lock);
 
     for (HEntry *cursor = set->set.iter_begin; cursor != nullptr; cursor = tmp) {
         tmp = cursor->iter_next;
@@ -427,11 +431,11 @@ ARGON_METHOD5(set_, update,
             return ErrorFormat(type_type_error_, "set::update() expect type Set not '%s'", AR_TYPE_NAME(argv[idx]));
     }
 
-    RWLockWrite self_lock(set->lock);
+    RWLockWrite self_lock(set->set.lock);
 
     for (ArSize idx = 0; idx < count; idx++) {
         if (argv[idx] != self) {
-            RWLockRead other_lock(((Set *) argv[idx])->lock);
+            RWLockRead other_lock(((Set *) argv[idx])->set.lock);
 
             for (HEntry *cursor = ((Set *) argv[idx])->set.iter_begin; cursor != nullptr; cursor = cursor->iter_next) {
                 if (!SetAddNoLock(set, cursor->key))
@@ -495,7 +499,7 @@ ArObject *set_str(Set *self) {
     if ((rec = TrackRecursive(self)) != 0)
         return rec > 0 ? StringIntern("{...}") : nullptr;
 
-    RWLockRead lock(self->lock);
+    RWLockRead lock(self->set.lock);
 
     if (StringBuilderWrite(&sb, (unsigned char *) "{", 1, self->set.len == 0 ? 1 : 0) < 0)
         goto error;
@@ -529,10 +533,12 @@ ArObject *set_str(Set *self) {
 }
 
 ArObject *set_iter_get(Set *self) {
+    RWLockRead lock(self->set.lock);
     return HMapIteratorNew(&SetIteratorType, self, &self->set, false);
 }
 
 ArObject *set_iter_rget(Set *self) {
+    RWLockRead lock(self->set.lock);
     return HMapIteratorNew(&SetIteratorType, self, &self->set, true);
 }
 
@@ -575,12 +581,9 @@ const TypeInfo *argon::object::type_set_ = &SetType;
 Set *argon::object::SetNew() {
     auto set = ArObjectGCNew<Set>(type_set_);
 
-    if (set != nullptr) {
-        set->lock = 0;
-
+    if (set != nullptr)
         if (!HMapInit(&set->set))
             Release((ArObject **) &set);
-    }
 
     return set;
 }
@@ -616,17 +619,17 @@ Set *argon::object::SetNewFromIterable(const ArObject *iterable) {
 }
 
 bool argon::object::SetAdd(Set *set, ArObject *value) {
-    RWLockWrite lock(set->lock);
+    RWLockWrite lock(set->set.lock);
     return SetAddNoLock(set, value);
 }
 
 bool argon::object::SetContains(Set *set, ArObject *value) {
-    RWLockRead lock(set->lock);
+    RWLockRead lock(set->set.lock);
     return HMapLookup(&set->set, value) != nullptr;
 }
 
 void argon::object::SetClear(Set *set) {
-    RWLockWrite lock(set->lock);
+    RWLockWrite lock(set->set.lock);
 
     HMapClear(&set->set, nullptr);
 }

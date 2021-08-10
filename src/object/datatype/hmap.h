@@ -11,6 +11,7 @@
 #include <memory/memory.h>
 
 #include <object/arobject.h>
+#include <object/rwlock.h>
 
 #define ARGON_OBJECT_HMAP_INITIAL_SIZE  12
 #define ARGON_OBJECT_HMAP_MAX_FREE_LEN  24
@@ -32,6 +33,8 @@ namespace argon::object {
     };
 
     struct HMap {
+        RWLock lock;
+
         HEntry **map;
         HEntry *free_node;
         HEntry *iter_begin;
@@ -53,27 +56,25 @@ namespace argon::object {
         bool reversed;
     };
 
+    ArObject *HMapIteratorCompare(HMapIterator *self, ArObject *other, CompareMode mode);
+
     ArObject *HMapIteratorNew(const TypeInfo *type, ArObject *iterable, HMap *map, bool reversed);
 
     ArObject *HMapIteratorStr(HMapIterator *self);
 
-    ArObject *HMapIteratorCompare(HMapIterator *self, ArObject *other, CompareMode mode);
-
-    void HMapIteratorNext(HMapIterator *self);
-
-    inline bool HMapIteratorHasNext(HMapIterator *iter) { return iter->current != nullptr; }
+    inline bool HMapIteratorIsTrue(HMapIterator *self){return true;}
 
     inline bool HMapIteratorIsValid(HMapIterator *self) {
         return self->current != nullptr && self->current->key != nullptr;
     }
 
-    inline void HMapIteratorReset(HMapIterator *iter) {
-        iter->current = iter->reversed ? iter->map->iter_end : iter->map->iter_begin;
-    }
+    void HMapIteratorCleanup(HMapIterator *iter);
+
+    void HMapIteratorNext(HMapIterator *self);
 
     inline void HMapIteratorTrace(HMapIterator *iter, VoidUnaryOp trace) { trace(iter->obj); }
 
-    inline void HMapIteratorCleanup(HMapIterator *iter) { Release(&iter->obj); }
+    // *** HMap
 
     bool HMapInit(HMap *hmap, ArSize freenode_max);
 

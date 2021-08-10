@@ -17,6 +17,8 @@ ArObject *namespace_iter_next(HMapIterator *iter) {
     ArObject *ret;
     NsEntry *entry;
 
+    RWLockRead lock(iter->map->lock);
+
     if(!HMapIteratorIsValid(iter))
         return nullptr;
 
@@ -32,6 +34,8 @@ ArObject *namespace_iter_peak(HMapIterator *iter) {
     ArObject *ret;
     NsEntry *entry;
 
+    RWLockRead lock(iter->map->lock);
+
     if(!HMapIteratorIsValid(iter))
         return nullptr;
 
@@ -42,10 +46,10 @@ ArObject *namespace_iter_peak(HMapIterator *iter) {
 }
 
 const IteratorSlots namespace_iterop = {
-        (BoolUnaryOp) HMapIteratorHasNext,
+        nullptr,
         (UnaryOp) namespace_iter_next,
         (UnaryOp) namespace_iter_peak,
-        (VoidUnaryOp) HMapIteratorReset
+        nullptr
 };
 
 const TypeInfo NamespaceIteratorType = {
@@ -58,7 +62,7 @@ const TypeInfo NamespaceIteratorType = {
         (VoidUnaryOp) HMapIteratorCleanup,
         (Trace) HMapIteratorTrace,
         (CompareOp) HMapIteratorCompare,
-        (BoolUnaryOp) HMapIteratorHasNext,
+        (BoolUnaryOp) HMapIteratorIsTrue,
         nullptr,
         (UnaryOp) HMapIteratorStr,
         nullptr,
@@ -144,8 +148,8 @@ ArObject *namespace_compare(Namespace *self, ArObject *other, CompareMode mode) 
         return nullptr;
 
     if (self != other) {
-        RWLockRead self_lock(self->lock);
-        RWLockRead other_lock(o->lock);
+        RWLockRead self_lock(self->hmap.lock);
+        RWLockRead other_lock(o->hmap.lock);
 
         for (cursor = (MapEntry *) self->hmap.iter_begin; cursor != nullptr; cursor = (MapEntry *) cursor->iter_next) {
             if ((tmp = (MapEntry *) HMapLookup(&o->hmap, cursor->key)) == nullptr)
@@ -163,11 +167,13 @@ ArObject *namespace_str(Namespace *str) {
     return nullptr;
 }
 
-ArObject *namespace_iter_get(Map *self) {
+ArObject *namespace_iter_get(Namespace *self) {
+    RWLockRead lock(self->hmap.lock);
     return HMapIteratorNew(&NamespaceIteratorType, self, &self->hmap, false);
 }
 
-ArObject *namespace_iter_rget(Map *self) {
+ArObject *namespace_iter_rget(Namespace *self) {
+    RWLockRead lock(self->hmap.lock);
     return HMapIteratorNew(&NamespaceIteratorType, self, &self->hmap, true);
 }
 
@@ -217,18 +223,15 @@ const TypeInfo *argon::object::type_namespace_ = &NamespaceType;
 Namespace *argon::object::NamespaceNew() {
     auto ns = ArObjectGCNew<Namespace>(type_namespace_);
 
-    if (ns != nullptr) {
-        ns->lock = 0;
-
+    if (ns != nullptr)
         if (!HMapInit(&ns->hmap))
             Release((ArObject **) &ns);
-    }
 
     return ns;
 }
 
 Namespace *argon::object::NamespaceNew(Namespace *ns, PropertyType ignore) {
-    RWLockRead lock(ns->lock);
+    RWLockRead lock(ns->hmap.lock);
     Namespace *ret;
 
     if ((ret = NamespaceNew()) == nullptr)
@@ -247,7 +250,7 @@ Namespace *argon::object::NamespaceNew(Namespace *ns, PropertyType ignore) {
 }
 
 ArObject *argon::object::NamespaceGetValue(Namespace *ns, ArObject *key, PropertyInfo *info) {
-    RWLockRead lock(ns->lock);
+    RWLockRead lock(ns->hmap.lock);
     NsEntry *entry;
 
     if ((entry = (NsEntry *) HMapLookup(&ns->hmap, key)) != nullptr) {
@@ -268,8 +271,8 @@ bool argon::object::NamespaceMerge(Namespace *dst, Namespace *src) {
     if (dst == src)
         return true;
 
-    RWLockWrite dst_lock(dst->lock);
-    RWLockRead src_lock(src->lock);
+    RWLockWrite dst_lock(dst->hmap.lock);
+    RWLockRead src_lock(src->hmap.lock);
 
     for (auto *cur = (NsEntry *) src->hmap.iter_begin; cur != nullptr; cur = (NsEntry *) cur->iter_next) {
         if (!AddNewSymbol(dst, cur->key, cur->value, (PropertyType) cur->info))
@@ -283,8 +286,8 @@ bool argon::object::NamespaceMergePublic(Namespace *dst, Namespace *src) {
     if (dst == src)
         return true;
 
-    RWLockWrite dst_lock(dst->lock);
-    RWLockRead src_lock(src->lock);
+    RWLockWrite dst_lock(dst->hmap.lock);
+    RWLockRead src_lock(src->hmap.lock);
 
     for (auto *cur = (NsEntry *) src->hmap.iter_begin; cur != nullptr; cur = (NsEntry *) cur->iter_next) {
         if ((cur->info & PropertyType::PUBLIC) == PropertyType::PUBLIC) {
@@ -303,7 +306,7 @@ bool argon::object::NamespaceNewSymbol(Namespace *ns, ArObject *key, ArObject *v
     if (value == nullptr)
         value = IncRef(NilVal);
 
-    RWLockWrite lock(ns->lock);
+    RWLockWrite lock(ns->hmap.lock);
     return AddNewSymbol(ns, key, value, info);
 }
 
@@ -326,7 +329,7 @@ bool argon::object::NamespaceSetValue(Namespace *ns, ArObject *key, ArObject *va
     if (!IsHashable(key))
         return false;
 
-    RWLockWrite lock(ns->lock);
+    RWLockWrite lock(ns->hmap.lock);
 
     if ((entry = (NsEntry *) HMapLookup(&ns->hmap, key)) != nullptr) {
         SetValueToEntry(entry, value, ns);
@@ -337,7 +340,7 @@ bool argon::object::NamespaceSetValue(Namespace *ns, ArObject *key, ArObject *va
 }
 
 bool argon::object::NamespaceSetValue(Namespace *ns, const char *key, ArObject *value) {
-    RWLockWrite lock(ns->lock);
+    RWLockWrite lock(ns->hmap.lock);
     NsEntry *entry;
 
     if ((entry = (NsEntry *) HMapLookup(&ns->hmap, key)) != nullptr) {
@@ -349,7 +352,7 @@ bool argon::object::NamespaceSetValue(Namespace *ns, const char *key, ArObject *
 }
 
 bool argon::object::NamespaceContains(Namespace *ns, ArObject *key, PropertyInfo *info) {
-    RWLockRead lock(ns->lock);
+    RWLockRead lock(ns->hmap.lock);
     NsEntry *entry;
 
     if ((entry = (NsEntry *) HMapLookup(&ns->hmap, key)) != nullptr) {
@@ -363,7 +366,7 @@ bool argon::object::NamespaceContains(Namespace *ns, ArObject *key, PropertyInfo
 }
 
 bool argon::object::NamespaceRemove(Namespace *ns, ArObject *key) {
-    RWLockWrite lock(ns->lock);
+    RWLockWrite lock(ns->hmap.lock);
     NsEntry *entry;
 
     if ((entry = (NsEntry *) HMapRemove(&ns->hmap, key)) != nullptr) {
@@ -379,7 +382,7 @@ int argon::object::NamespaceSetPositional(Namespace *ns, ArObject **values, ArSi
     ArSize idx = 0;
     ArSize ns_len = 0;
 
-    RWLockWrite lock(ns->lock);
+    RWLockWrite lock(ns->hmap.lock);
 
     for (auto *cur = (NsEntry *) ns->hmap.iter_begin; cur != nullptr; cur = (NsEntry *) cur->iter_next) {
         if (idx >= count)

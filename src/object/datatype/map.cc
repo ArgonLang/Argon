@@ -7,7 +7,6 @@
 
 #include "bool.h"
 #include "error.h"
-#include "hash_magic.h"
 #include "list.h"
 #include "option.h"
 #include "tuple.h"
@@ -17,6 +16,8 @@ using namespace argon::object;
 
 ArObject *map_iter_next(HMapIterator *iter) {
     Tuple *ret;
+
+    RWLockRead lock(iter->map->lock);
 
     if(!HMapIteratorIsValid(iter))
         return nullptr;
@@ -33,6 +34,8 @@ ArObject *map_iter_next(HMapIterator *iter) {
 ArObject *map_iter_peak(HMapIterator *iter) {
     Tuple *ret;
 
+    RWLockRead lock(iter->map->lock);
+
     if (!HMapIteratorIsValid(iter))
         return nullptr;
 
@@ -45,10 +48,10 @@ ArObject *map_iter_peak(HMapIterator *iter) {
 }
 
 const IteratorSlots map_iterop = {
-        (BoolUnaryOp) HMapIteratorHasNext,
+        nullptr,
         (UnaryOp) map_iter_next,
         (UnaryOp) map_iter_peak,
-        (VoidUnaryOp) HMapIteratorReset
+        nullptr
 };
 
 const TypeInfo MapIteratorType = {
@@ -61,7 +64,7 @@ const TypeInfo MapIteratorType = {
         (VoidUnaryOp) HMapIteratorCleanup,
         (Trace) HMapIteratorTrace,
         (CompareOp) HMapIteratorCompare,
-        (BoolUnaryOp) HMapIteratorHasNext,
+        (BoolUnaryOp) HMapIteratorIsTrue,
         nullptr,
         (UnaryOp) HMapIteratorStr,
         nullptr,
@@ -82,7 +85,7 @@ ArSize map_len(Map *self) {
 }
 
 ArObject *argon::object::MapGetNoException(Map *map, ArObject *key) {
-    RWLockRead lock(map->lock);
+    RWLockRead lock(map->hmap.lock);
     MapEntry *entry;
 
     if ((entry = (MapEntry *) HMapLookup(&map->hmap, key)) != nullptr) {
@@ -94,7 +97,7 @@ ArObject *argon::object::MapGetNoException(Map *map, ArObject *key) {
 }
 
 bool argon::object::MapInsert(Map *map, ArObject *key, ArObject *value) {
-    RWLockWrite lock(map->lock);
+    RWLockWrite lock(map->hmap.lock);
     MapEntry *entry;
 
     if ((entry = (MapEntry *) HMapLookup(&map->hmap, key)) != nullptr) {
@@ -170,7 +173,7 @@ ARGON_METHOD5(map_, get,
               ""
               "- Parameter key: map key."
               "- Returns: Option<?>.", 1, false) {
-    RWLockRead lock(((Map *) self)->lock);
+    RWLockRead lock(((Map *) self)->hmap.lock);
     MapEntry *entry;
 
     if ((entry = (MapEntry *) HMapLookup(&((Map *) self)->hmap, argv[0])) == nullptr) {
@@ -191,7 +194,7 @@ ARGON_METHOD5(map_, items,
     List *ret;
     Tuple *tmp;
 
-    RWLockRead lock(map->lock);
+    RWLockRead lock(map->hmap.lock);
     if ((ret = ListNew(map->hmap.len)) != nullptr) {
         for (auto *cur = (MapEntry *) map->hmap.iter_begin; cur != nullptr; cur = (MapEntry *) cur->iter_next) {
             if ((tmp = TupleNew(2)) == nullptr) {
@@ -217,7 +220,7 @@ ARGON_METHOD5(map_, keys,
     auto *map = ((Map *) self);
     List *ret;
 
-    RWLockRead lock(map->lock);
+    RWLockRead lock(map->hmap.lock);
     if ((ret = ListNew(map->hmap.len)) != nullptr) {
         for (auto *cur = (MapEntry *) map->hmap.iter_begin; cur != nullptr; cur = (MapEntry *) cur->iter_next)
             ListAppend(ret, cur->key);
@@ -235,7 +238,7 @@ ARGON_METHOD5(map_, pop,
     MapEntry *entry;
     Option *ret;
 
-    RWLockWrite lock(map->lock);
+    RWLockWrite lock(map->hmap.lock);
     if ((entry = (MapEntry *) HMapRemove(&map->hmap, argv[0])) != nullptr) {
         ret = OptionNew(entry->value);
         Release(entry->key);
@@ -253,7 +256,7 @@ ARGON_METHOD5(map_, values, "Returns a list of all the values in the map."
     auto *map = ((Map *) self);
     List *ret;
 
-    RWLockRead lock(map->lock);
+    RWLockRead lock(map->hmap.lock);
     if ((ret = ListNew(map->hmap.len)) != nullptr) {
         for (auto *cur = (MapEntry *) map->hmap.iter_begin; cur != nullptr; cur = (MapEntry *) cur->iter_next)
             ListAppend(ret, cur->value);
@@ -318,7 +321,7 @@ ArObject *map_str(Map *self) {
     if ((rec = TrackRecursive(self)) != 0)
         return rec > 0 ? StringIntern("{...}") : nullptr;
 
-    RWLockRead lock(self->lock);
+    RWLockRead lock(self->hmap.lock);
 
     if (StringBuilderWrite(&sb, (unsigned char *) "{", 1, self->hmap.len == 0 ? 1 : 0) < 0)
         goto error;
@@ -363,10 +366,12 @@ ArObject *map_str(Map *self) {
 }
 
 ArObject *map_iter_get(Map *self) {
+    RWLockRead lock(self->hmap.lock);
     return HMapIteratorNew(&MapIteratorType, self, &self->hmap, false);
 }
 
 ArObject *map_iter_rget(Map *self) {
+    RWLockRead lock(self->hmap.lock);
     return HMapIteratorNew(&MapIteratorType, self, &self->hmap, true);
 }
 
@@ -382,7 +387,7 @@ void map_cleanup(Map *self) {
 }
 
 ArObject *argon::object::MapGetFrmStr(Map *map, const char *key, ArSize len) {
-    RWLockRead lock(map->lock);
+    RWLockRead lock(map->hmap.lock);
     auto *entry = (MapEntry *) HMapLookup(&map->hmap, key, len);
 
     if (entry != nullptr) {
@@ -394,7 +399,7 @@ ArObject *argon::object::MapGetFrmStr(Map *map, const char *key, ArSize len) {
 }
 
 bool argon::object::MapRemove(Map *map, ArObject *key) {
-    RWLockWrite lock(map->lock);
+    RWLockWrite lock(map->hmap.lock);
     MapEntry *entry;
 
     if ((entry = (MapEntry *) HMapRemove(&map->hmap, key)) != nullptr) {
@@ -436,12 +441,9 @@ const TypeInfo *argon::object::type_map_ = &MapType;
 Map *argon::object::MapNew() {
     auto map = ArObjectGCNew<Map>(type_map_);
 
-    if (map != nullptr) {
-        map->lock = 0;
-
+    if (map != nullptr)
         if (!HMapInit(&map->hmap))
             Release((ArObject **) &map);
-    }
 
     return map;
 }
@@ -492,7 +494,7 @@ Map *argon::object::MapNewFromIterable(const ArObject *iterable) {
 }
 
 void argon::object::MapClear(Map *map) {
-    RWLockWrite lock(map->lock);
+    RWLockWrite lock(map->hmap.lock);
 
     HMapClear(&map->hmap, [](HEntry *entry) {
         Release(((MapEntry *) entry)->value);
