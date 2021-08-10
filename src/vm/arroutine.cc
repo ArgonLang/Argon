@@ -159,9 +159,12 @@ void argon::vm::RoutinePopPanic(ArRoutine *routine) {
 }
 
 void argon::vm::RoutinePopPanics(ArRoutine *routine) {
+    Panic *tmp;
+
     while (routine->panic != nullptr){
         Release(routine->panic->object);
-        routine->panic = routine->panic->panic;
+        tmp = routine->panic->panic;
         argon::memory::Free(routine->panic);
+        routine->panic = tmp;
     }
 }
