@@ -45,38 +45,7 @@ ArObject *namespace_iter_peak(HMapIterator *iter) {
     return ret;
 }
 
-const IteratorSlots namespace_iterop = {
-        nullptr,
-        (UnaryOp) namespace_iter_next,
-        (UnaryOp) namespace_iter_peak,
-        nullptr
-};
-
-const TypeInfo NamespaceIteratorType = {
-        TYPEINFO_STATIC_INIT,
-        "namespace_iterator",
-        nullptr,
-        sizeof(HMapIterator),
-        TypeInfoFlags::BASE,
-        nullptr,
-        (VoidUnaryOp) HMapIteratorCleanup,
-        (Trace) HMapIteratorTrace,
-        (CompareOp) HMapIteratorCompare,
-        (BoolUnaryOp) HMapIteratorIsTrue,
-        nullptr,
-        (UnaryOp) HMapIteratorStr,
-        nullptr,
-        nullptr,
-        nullptr,
-        &namespace_iterop,
-        nullptr,
-        nullptr,
-        nullptr,
-        nullptr,
-        nullptr,
-        nullptr,
-        nullptr
-};
+HMAP_ITERATOR(namespace_iterator, namespace_iter_next, namespace_iter_peak);
 
 void SetValueToEntry(NsEntry *entry, ArObject *value, Namespace *ns) {
     if (entry->info.IsWeak()) {
@@ -169,12 +138,12 @@ ArObject *namespace_str(Namespace *str) {
 
 ArObject *namespace_iter_get(Namespace *self) {
     RWLockRead lock(self->hmap.lock);
-    return HMapIteratorNew(&NamespaceIteratorType, self, &self->hmap, false);
+    return HMapIteratorNew(&type_namespace_iterator_, self, &self->hmap, false);
 }
 
 ArObject *namespace_iter_rget(Namespace *self) {
     RWLockRead lock(self->hmap.lock);
-    return HMapIteratorNew(&NamespaceIteratorType, self, &self->hmap, true);
+    return HMapIteratorNew(&type_namespace_iterator_, self, &self->hmap, true);
 }
 
 void namespace_trace(Namespace *self, VoidUnaryOp trace) {

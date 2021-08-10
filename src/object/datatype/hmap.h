@@ -18,6 +18,39 @@
 #define ARGON_OBJECT_HMAP_LOAD_FACTOR   0.75f
 #define ARGON_OBJECT_HMAP_MUL_FACTOR    (ARGON_OBJECT_HMAP_LOAD_FACTOR * 2)
 
+#define HMAP_ITERATOR(name, next, peek)                                 \
+const IteratorSlots name {                                              \
+        nullptr,                                                        \
+        (UnaryOp) next,                                                 \
+        (UnaryOp) peek,                                                 \
+        nullptr                                                         \
+};                                                                      \
+const TypeInfo type_##name##_ = {                                       \
+        TYPEINFO_STATIC_INIT,                                           \
+        #name,                                                          \
+        nullptr,                                                        \
+        sizeof(HMapIterator),                                           \
+        TypeInfoFlags::BASE,                                            \
+        nullptr,                                                        \
+        (VoidUnaryOp) HMapIteratorCleanup,                              \
+        (Trace) HMapIteratorTrace,                                      \
+        (CompareOp) HMapIteratorCompare,                                \
+        (BoolUnaryOp) HMapIteratorIsTrue,                               \
+        nullptr,                                                        \
+        (UnaryOp) HMapIteratorStr,                                      \
+        nullptr,                                                        \
+        nullptr,                                                        \
+        nullptr,                                                        \
+        &name,                                                          \
+        nullptr,                                                        \
+        nullptr,                                                        \
+        nullptr,                                                        \
+        nullptr,                                                        \
+        nullptr,                                                        \
+        nullptr,                                                        \
+        nullptr                                                         \
+}
+
 namespace argon::object {
 
     using HMapCleanFn = void (*)(struct HEntry *);

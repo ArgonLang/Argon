@@ -47,38 +47,7 @@ ArObject *map_iter_peak(HMapIterator *iter) {
     return ret;
 }
 
-const IteratorSlots map_iterop = {
-        nullptr,
-        (UnaryOp) map_iter_next,
-        (UnaryOp) map_iter_peak,
-        nullptr
-};
-
-const TypeInfo MapIteratorType = {
-        TYPEINFO_STATIC_INIT,
-        "map_iterator",
-        nullptr,
-        sizeof(HMapIterator),
-        TypeInfoFlags::BASE,
-        nullptr,
-        (VoidUnaryOp) HMapIteratorCleanup,
-        (Trace) HMapIteratorTrace,
-        (CompareOp) HMapIteratorCompare,
-        (BoolUnaryOp) HMapIteratorIsTrue,
-        nullptr,
-        (UnaryOp) HMapIteratorStr,
-        nullptr,
-        nullptr,
-        nullptr,
-        &map_iterop,
-        nullptr,
-        nullptr,
-        nullptr,
-        nullptr,
-        nullptr,
-        nullptr,
-        nullptr
-};
+HMAP_ITERATOR(map_iterator, map_iter_next, map_iter_peak);
 
 ArSize map_len(Map *self) {
     return self->hmap.len;
@@ -367,12 +336,12 @@ ArObject *map_str(Map *self) {
 
 ArObject *map_iter_get(Map *self) {
     RWLockRead lock(self->hmap.lock);
-    return HMapIteratorNew(&MapIteratorType, self, &self->hmap, false);
+    return HMapIteratorNew(&type_map_iterator_, self, &self->hmap, false);
 }
 
 ArObject *map_iter_rget(Map *self) {
     RWLockRead lock(self->hmap.lock);
-    return HMapIteratorNew(&MapIteratorType, self, &self->hmap, true);
+    return HMapIteratorNew(&type_map_iterator_, self, &self->hmap, true);
 }
 
 void map_trace(Map *self, VoidUnaryOp trace) {

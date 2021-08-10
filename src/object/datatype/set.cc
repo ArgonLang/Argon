@@ -36,38 +36,7 @@ ArObject *set_iter_peak(HMapIterator *iter) {
     return IncRef(iter->current->key);
 }
 
-const IteratorSlots set_iterop = {
-        nullptr,
-        (UnaryOp) set_iter_next,
-        (UnaryOp) set_iter_peak,
-        nullptr
-};
-
-const TypeInfo SetIteratorType = {
-        TYPEINFO_STATIC_INIT,
-        "set_iterator",
-        nullptr,
-        sizeof(HMapIterator),
-        TypeInfoFlags::BASE,
-        nullptr,
-        (VoidUnaryOp) HMapIteratorCleanup,
-        (Trace) HMapIteratorTrace,
-        (CompareOp) HMapIteratorCompare,
-        (BoolUnaryOp) HMapIteratorIsTrue,
-        nullptr,
-        (UnaryOp) HMapIteratorStr,
-        nullptr,
-        nullptr,
-        nullptr,
-        &set_iterop,
-        nullptr,
-        nullptr,
-        nullptr,
-        nullptr,
-        nullptr,
-        nullptr,
-        nullptr
-};
+HMAP_ITERATOR(set_iterator, set_iter_next, set_iter_peak);
 
 ArSize set_len(Set *self) {
     return self->set.len;
@@ -534,12 +503,12 @@ ArObject *set_str(Set *self) {
 
 ArObject *set_iter_get(Set *self) {
     RWLockRead lock(self->set.lock);
-    return HMapIteratorNew(&SetIteratorType, self, &self->set, false);
+    return HMapIteratorNew(&type_set_iterator_, self, &self->set, false);
 }
 
 ArObject *set_iter_rget(Set *self) {
     RWLockRead lock(self->set.lock);
-    return HMapIteratorNew(&SetIteratorType, self, &self->set, true);
+    return HMapIteratorNew(&type_set_iterator_, self, &self->set, true);
 }
 
 void set_cleanup(Set *self) {
