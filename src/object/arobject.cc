@@ -22,10 +22,10 @@ ArObject *MROSearch(const TypeInfo *type, ArObject *key, PropertyInfo *pinfo) {
 
     if (type->mro != nullptr) {
         for (ArSize i = 0; i < ((Tuple *) type->mro)->len; i++) {
-            type = (TypeInfo *) ((Tuple *) type->mro)->objects[i];
+            auto *cursor = (TypeInfo *) ((Tuple *) type->mro)->objects[i];
 
-            if (type->tp_map != nullptr) {
-                if ((obj = NamespaceGetValue((Namespace *) type->tp_map, key, pinfo)) != nullptr)
+            if (cursor->tp_map != nullptr) {
+                if ((obj = NamespaceGetValue((Namespace *) cursor->tp_map, key, pinfo)) != nullptr)
                     break;
             }
         }
