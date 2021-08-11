@@ -6,13 +6,14 @@
 #define ARGON_OBJECT_ITERATOR_H_
 
 #include <object/arobject.h>
+#include <object/rwlock.h>
 
-#define ITERATOR_NEW(name, ctor, cleanup, next, peek, reset)            \
-const IteratorSlots name##_iterator {                                   \
+#define ITERATOR_NEW(name, next, peek)                                  \
+const IteratorSlots name {                                              \
         nullptr,                                                        \
-        next,                                                           \
-        peek,                                                           \
-        (VoidUnaryOp)(reset)                                            \
+        (UnaryOp) next,                                                 \
+        (UnaryOp) peek,                                                 \
+        nullptr                                                         \
 };                                                                      \
 const TypeInfo type_##name##_ = {                                       \
         TYPEINFO_STATIC_INIT,                                           \
@@ -20,8 +21,8 @@ const TypeInfo type_##name##_ = {                                       \
         nullptr,                                                        \
         sizeof(Iterator),                                               \
         TypeInfoFlags::BASE,                                            \
-        ctor,                                                           \
-        (VoidUnaryOp)(cleanup),                                         \
+        nullptr,                                                        \
+        (VoidUnaryOp)IteratorCleanup,                                   \
         nullptr,                                                        \
         (CompareOp) IteratorCompare,                                    \
         nullptr,                                                        \
@@ -30,7 +31,9 @@ const TypeInfo type_##name##_ = {                                       \
         nullptr,                                                        \
         nullptr,                                                        \
         nullptr,                                                        \
-        &name##_iterator,                                               \
+        &name,                                                          \
+        nullptr,                                                        \
+        nullptr,                                                        \
         nullptr,                                                        \
         nullptr,                                                        \
         nullptr,                                                        \
@@ -38,12 +41,11 @@ const TypeInfo type_##name##_ = {                                       \
         nullptr                                                         \
 }
 
-#define ITERATOR_NEW_DEFAULT(name, next, peek) \
-ITERATOR_NEW(name, nullptr, argon::object::IteratorCleanup, next, peek, argon::object::IteratorReset)
-
 namespace argon::object {
 
     struct Iterator : ArObject {
+        SimpleLock lock;
+
         ArObject *obj;
         ArSSize index;
 
@@ -52,6 +54,10 @@ namespace argon::object {
 
     extern const TypeInfo *type_iterator_;
 
+    ArObject *IteratorCompare(Iterator *self, ArObject *other, CompareMode mode);
+
+    ArObject *IteratorStr(Iterator *iterator);
+
     Iterator *IteratorNew(const TypeInfo *type, ArObject *iterable, bool reversed);
 
     inline Iterator *IteratorNew(ArObject *iterable, bool reversed) {
@@ -59,12 +65,6 @@ namespace argon::object {
     }
 
     inline void IteratorCleanup(Iterator *iterator) { Release(iterator->obj); }
-
-    ArObject *IteratorCompare(Iterator *iterator, ArObject *other, CompareMode mode);
-
-    ArObject *IteratorStr(Iterator *iterator);
-
-    void IteratorReset(Iterator *iterator);
 
 } // namespace argon::object
 

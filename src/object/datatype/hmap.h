@@ -81,6 +81,7 @@ namespace argon::object {
     };
 
     struct HMapIterator : ArObject {
+        SimpleLock lock;
         ArObject *obj;
 
         HMap *map;

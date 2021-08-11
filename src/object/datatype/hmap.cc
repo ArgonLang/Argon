@@ -19,8 +19,11 @@ ArObject *argon::object::HMapIteratorCompare(HMapIterator *self, ArObject *other
     if (!AR_SAME_TYPE(self, other) || mode != CompareMode::EQ)
         return nullptr;
 
+    UniqueLock self_lock(self->lock);
+    UniqueLock o_lock(o->lock);
+
     if (self != other)
-        return BoolToArBool(self->reversed == o->reversed && Equal(self->obj, o->obj));
+        return BoolToArBool(self->reversed == o->reversed && self->current == o->current && Equal(self->obj, o->obj));
 
     return BoolToArBool(true);
 }
@@ -29,6 +32,7 @@ ArObject *argon::object::HMapIteratorNew(const TypeInfo *type, ArObject *iterabl
     auto iter = ArObjectGCNew<HMapIterator>(type);
 
     if (iter != nullptr) {
+        iter->lock = false;
         iter->obj = IncRef(iterable);
         iter->map = map;
         iter->current = reversed ? iter->map->iter_end : iter->map->iter_begin;
@@ -53,6 +57,7 @@ void argon::object::HMapIteratorCleanup(HMapIterator *self) {
 }
 
 void argon::object::HMapIteratorNext(HMapIterator *self) {
+    UniqueLock lock(self->lock);
     HEntry *current = self->current;
 
     self->current = self->reversed ? self->current->iter_prev : self->current->iter_next;

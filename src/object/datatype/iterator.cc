@@ -12,6 +12,7 @@
 using namespace argon::object;
 
 ArObject *iterator_next(Iterator *self) {
+    UniqueLock lock(self->lock);
     ArObject *ret;
 
     if (!self->reversed) {
@@ -25,16 +26,28 @@ ArObject *iterator_next(Iterator *self) {
             self->index--;
     }
 
+    lock.RelinquishLock();
+
     argon::vm::DiscardErrorType(type_overflow_error_);
     return ret;
 }
 
 ArObject *iterator_peek(Iterator *self) {
-    auto idx = self->index;
-    auto ret = iterator_next(self);
+    UniqueLock lock(self->lock);
+    ArObject *ret;
 
-    self->index = idx;
+    if (!self->reversed)
+        ret = AR_SEQUENCE_SLOT(self->obj)->get_item(self->obj, self->index);
+    else {
+        if (self->index == 0)
+            return nullptr;
 
+        ret = AR_SEQUENCE_SLOT(self->obj)->get_item(self->obj, self->index - 1);
+    }
+
+    lock.RelinquishLock();
+
+    argon::vm::DiscardErrorType(type_overflow_error_);
     return ret;
 }
 
@@ -42,21 +55,24 @@ const IteratorSlots iterator_slots = {
         nullptr,
         (UnaryOp) iterator_next,
         (UnaryOp) iterator_peek,
-        (VoidUnaryOp) IteratorReset
+        nullptr
 };
 
 bool iterator_is_true(ArObject *self){
     return true;
 }
 
-ArObject *argon::object::IteratorCompare(Iterator *iterator, ArObject *other, CompareMode mode) {
+ArObject *argon::object::IteratorCompare(Iterator *self, ArObject *other, CompareMode mode) {
     auto *o = (Iterator *) other;
 
-    if (!AR_SAME_TYPE(iterator, other) || mode != CompareMode::EQ)
+    if (!AR_SAME_TYPE(self, other) || mode != CompareMode::EQ)
         return nullptr;
 
-    return BoolToArBool(iterator->reversed == o->reversed && iterator->index == o->index
-                        && Equal(iterator->obj, o->obj));
+    UniqueLock self_lock(self->lock);
+    UniqueLock o_lock(o->lock);
+
+    return BoolToArBool(self->reversed == o->reversed && self->index == o->index
+                        && Equal(self->obj, o->obj));
 }
 
 ArObject *argon::object::IteratorStr(Iterator *iterator) {
@@ -102,8 +118,9 @@ Iterator *argon::object::IteratorNew(const TypeInfo *type, ArObject *iterable, b
                                         AR_TYPE_NAME(iterable));
 
     if ((iter = ArObjectNew<Iterator>(RCType::INLINE, type)) != nullptr) {
-        iter->obj = IncRef(iterable);
+        iter->lock = false;
 
+        iter->obj = IncRef(iterable);
         iter->index = 0;
 
         if (reversed)
@@ -113,13 +130,4 @@ Iterator *argon::object::IteratorNew(const TypeInfo *type, ArObject *iterable, b
     }
 
     return iter;
-}
-
-void argon::object::IteratorReset(Iterator *iterator) {
-    if (iterator->reversed) {
-        iterator->index = AR_SEQUENCE_SLOT(iterator->obj)->length(iterator->obj);
-        return;
-    }
-
-    iterator->index = 0;
 }
