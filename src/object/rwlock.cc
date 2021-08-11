@@ -19,6 +19,22 @@ using namespace argon::object;
 #define UNSETW(counter)     ((counter) & COUNTER_NEG)
 #define WREQUIRED(counter)  ((((counter) & COUNTER_WIDTH)) == COUNTER_WIDTH)
 
+void SimpleLock::Lock() {
+    bool current = false;
+    short idle_times = IDLE_TIMES;
+
+    while (!this->flag.compare_exchange_weak(current, true)) {
+        if (--idle_times == 0) {
+            std::this_thread::yield();
+            idle_times = IDLE_TIMES;
+        }
+    }
+}
+
+void SimpleLock::Unlock() {
+    assert(this->flag.exchange(false) == true);
+}
+
 void RWLock::Lock() {
     unsigned int current;
     bool ok = false;

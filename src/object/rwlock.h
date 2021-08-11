@@ -8,6 +8,22 @@
 #include <atomic>
 
 namespace argon::object {
+    class SimpleLock{
+        std::atomic_bool flag;
+
+    public:
+        SimpleLock() : flag(false) {}
+
+        SimpleLock &operator=(bool status) {
+            this->flag.store(status);
+            return *this;
+        }
+
+        void Lock();
+
+        void Unlock();
+    };
+
     class RWLock {
         std::atomic_uint cf;
 
@@ -64,6 +80,7 @@ namespace argon::object {
     };
 
     using RWLockWrite = WriteLock<RWLock>;
+    using UniqueLock = WriteLock<SimpleLock>;
 
 } // namespace argon::object
 
