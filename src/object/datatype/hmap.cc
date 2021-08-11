@@ -50,7 +50,7 @@ ArObject *argon::object::HMapIteratorStr(HMapIterator *self) {
 }
 
 void argon::object::HMapIteratorCleanup(HMapIterator *self) {
-    if (self->current->ref.fetch_sub(1) == 1)
+    if (self->current != nullptr && self->current->ref.fetch_sub(1) == 1)
         Free(self->current);
 
     Release(&self->obj);
