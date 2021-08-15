@@ -179,6 +179,14 @@ bool ExecDefer(ArRoutine *routine) {
         }
 
         Release(FunctionCallNative(func, nullptr, 0));
+
+        if (routine->status != ArRoutineStatus::RUNNING) {
+            if (routine->status != ArRoutineStatus::BLOCKED)
+                RoutinePopDefer(routine);
+
+            return false;
+        }
+
         RoutinePopDefer(routine);
     }
 
@@ -188,10 +196,10 @@ bool ExecDefer(ArRoutine *routine) {
 ArObject *argon::vm::Eval(ArRoutine *routine, Frame *frame) {
     ArObject *ret;
 
-    frame->back = routine->frame;
+    frame->back = FRAME_TAG(routine->frame);
     routine->frame = frame;
     ret = Eval(routine);
-    routine->frame = frame->back;
+    routine->frame = FRAME_UNTAG(frame->back);
 
     return ret;
 }
@@ -261,8 +269,6 @@ ArObject *argon::vm::Eval(ArRoutine *routine) {
     DISPATCH()
 
     // FUNCTION START
-    Frame *first_frame = routine->frame;
-
     begin:
     Frame *cu_frame = routine->frame;
     Code *cu_code = cu_frame->code;
@@ -307,6 +313,12 @@ ArObject *argon::vm::Eval(ArRoutine *routine) {
                         goto error;
 
                     PUSH(ret);
+
+                    if (routine->status == ArRoutineStatus::SUSPENDED) {
+                        cu_frame->instr_ptr += sizeof(argon::lang::Instr32);
+                        return nullptr;
+                    }
+
                     DISPATCH4();
                 }
 
@@ -944,13 +956,16 @@ ArObject *argon::vm::Eval(ArRoutine *routine) {
                 ErrorFormat(type_runtime_error_, "unknown opcode: 0x%X", (unsigned char) (*cu_frame->instr_ptr));
         }
         error:
+        if (routine->status == ArRoutineStatus::BLOCKED)
+            return nullptr;
+
         STACK_REWIND(cu_frame->eval_stack - cu_frame->stack_extra_base);
         break;
     }
 
     end_function:
 
-    assert(cu_frame->stack_extra_base == cu_frame->eval_stack);
+    assert(cu_frame->eval_stack == nullptr || cu_frame->stack_extra_base == cu_frame->eval_stack);
 
     // Disabled frame stack to prevent a deferred function from writing a return value.
     cu_frame->eval_stack = nullptr;
@@ -959,7 +974,12 @@ ArObject *argon::vm::Eval(ArRoutine *routine) {
         if (ExecDefer(routine))
             goto begin;
 
-        if (routine->frame->back == nullptr || routine->frame == first_frame)
+        if (routine->status != ArRoutineStatus::RUNNING) {
+            cu_frame->instr_ptr = (unsigned char *) cu_code->instr + cu_code->instr_sz;
+            return nullptr;
+        }
+
+        if (routine->frame->back == nullptr || FRAME_TAGGED(routine->frame->back))
             break;
 
         routine->frame = cu_frame->back;

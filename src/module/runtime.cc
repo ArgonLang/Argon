@@ -2,17 +2,46 @@
 //
 // Licensed under the Apache License v2.0
 
-#include <object/datatype/io/io.h>
-#include <object/datatype/tuple.h>
+#include <vm/runtime.h>
 #include <vm/config.h>
 
 #include <utils/macros.h>
+
+#include <object/datatype/io/io.h>
+#include <object/datatype/nil.h>
+#include <object/datatype/tuple.h>
 
 #include "modules.h"
 
 using namespace argon::object;
 using namespace argon::module;
 using namespace argon::vm;
+
+ARGON_FUNCTION5(runtime_, yield, "Give another ArRoutine a chance to run on this thread."
+                                 ""
+                                 "If this ArRoutine cannot be suspended and rescheduled, "
+                                 "an operating system this_thread::yield call will be invoked."
+                                 ""
+                                 "- Returns: nil",0,false){
+    SchedYield(false);
+    return IncRef(NilVal);
+}
+
+ARGON_FUNCTION5(runtime_, lockthread, "Wire the currently running ArRoutine with this OS thread."
+                                      ""
+                                      "This call prevents another ArRoutine from running on this thread. "
+                                      "If this call is invoked by the main routine, it becomes a no-op call."
+                                      ""
+                                      "- Returns: nil",0,false){
+    LockOsThread();
+    return IncRef(NilVal);
+}
+
+const PropertyBulk runtime_bulk[] = {
+        MODULE_EXPORT_FUNCTION(runtime_lockthread_),
+        MODULE_EXPORT_FUNCTION(runtime_yield_),
+        MODULE_EXPORT_SENTINEL
+};
 
 bool InitFDs(io::File **in, io::File **out, io::File **err) {
     if ((*in = io::FdOpen(STDIN_FILENO, io::FileMode::READ)) == nullptr)
@@ -112,7 +141,7 @@ const ModuleInit module_runtime = {
         "runtime",
         "Interact with ArgonVM. Access directly to objects used or maintained by Argon"
         "and to functions that interact strongly with it.",
-        nullptr,
+        runtime_bulk,
         runtime_init,
         nullptr
 };

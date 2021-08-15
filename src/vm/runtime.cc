@@ -175,15 +175,17 @@ OSThread *AllocOST() {
 
         ost->spinning = false;
 
-        ost->self = std::thread();
+        new(&ost->self) std::thread();
     }
 
     return ost;
 }
 
 inline void FreeOST(OSThread *ost) {
-    if (ost != nullptr)
+    if (ost != nullptr) {
+        ost->self.~thread();
         argon::memory::Free(ost);
+    }
 }
 
 void OSTSleep() {
@@ -260,6 +262,7 @@ void FromIdleToActive(OSThread *ost) {
 }
 
 void Schedule(OSThread *self) {
+    ArRoutine *routine;
     ost_local = self;
 
     START:
@@ -297,7 +300,35 @@ void Schedule(OSThread *self) {
             break;
         }
 
-        Release(Eval(self->routine));
+        while (self->routine->status != ArRoutineStatus::RUNNING) {
+            self->routine->status = ArRoutineStatus::RUNNING;
+            Release(Eval(self->routine));
+
+            STWCheckpoint();
+
+            if (self->routine->status != ArRoutineStatus::RUNNING) {
+                if (self->current == nullptr) {
+                    std::this_thread::yield();
+                    continue;
+                }
+
+                // Local queue
+                routine = ost_local->current->queue.Dequeue();
+
+                if (routine == nullptr) {
+                    routine = FindExecutable();
+
+                    if (self->spinning)
+                        ResetSpinning();
+                }
+
+                if (routine != nullptr) {
+                    self->current->queue.Enqueue(self->routine);
+                    self->routine = routine;
+                }
+            }
+        }
+
         RoutineDel(self->routine);
         self->routine = nullptr;
 
@@ -497,6 +528,29 @@ bool argon::vm::Initialize() {
     return false;
 }
 
+bool argon::vm::SchedYield(bool resume_last) {
+    ArRoutineStatus status = ArRoutineStatus::SUSPENDED;
+
+    if (resume_last)
+        status = ArRoutineStatus::SUSPENDED;
+
+    if (ost_main != nullptr) {
+        std::this_thread::yield();
+        return false;
+    }
+
+    // Check for a nested, non-interruptible call to Eval
+    for (Frame *cursor = GetRoutine()->frame->back; cursor != nullptr; cursor = cursor->back) {
+        if (FRAME_TAGGED(cursor)) {
+            std::this_thread::yield();
+            return false;
+        }
+    }
+
+    GetRoutine()->status = status;
+    return true;
+}
+
 bool argon::vm::Spawn(ArRoutine *routine) {
     if (!routine_gq.Enqueue(routine))
         return false;
@@ -530,6 +584,13 @@ bool argon::vm::Shutdown() {
     }
 
     return false;
+}
+
+void argon::vm::LockOsThread() {
+    if (ost_main == nullptr)
+        return;
+
+    ReleaseQueue();
 }
 
 void argon::vm::StopTheWorld() {

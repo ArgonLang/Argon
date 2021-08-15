@@ -31,9 +31,13 @@ namespace argon::vm {
 
     bool IsPanicking();
 
+    bool SchedYield(bool resume_last);
+
     bool Spawn(ArRoutine *routine);
 
     bool Shutdown();
+
+    void LockOsThread();
 
     void ReleaseMain();
 

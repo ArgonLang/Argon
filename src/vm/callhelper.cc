@@ -207,8 +207,13 @@ bool CallHelper::SpawnFunction(ArRoutine *routine) {
 }
 
 void CallHelper::ClearCall() const {
+    Release(this->list_params);
+
+    // If routine status == ArRoutineStatus::BLOCKED, do not attempt to clear the stack!
+    // Because will be used at the routine resume.
+    if (argon::vm::GetRoutine()->status == ArRoutineStatus::BLOCKED)
+        return;
+
     for (ArSize i = this->stack_offset + 1; i > 0; i--)
         Release(*(--this->frame->eval_stack));
-
-    Release(this->list_params);
 }

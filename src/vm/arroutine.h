@@ -17,7 +17,8 @@ namespace argon::vm {
     enum class ArRoutineStatus : unsigned char {
         RUNNING,
         RUNNABLE,
-        BLOCKED
+        BLOCKED,
+        SUSPENDED
     };
 
     struct Panic {
