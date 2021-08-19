@@ -14,7 +14,7 @@ namespace argon::vm {
     class ArRoutineQueue {
         ArRoutine *head_ = nullptr;
         ArRoutine *tail_ = nullptr;
-        unsigned int len_ = 32;
+        unsigned int len_ = 0;
         unsigned int limit_ = 0; // unlimited
 
         // TODO: For future implementation: this queue should be lock free! :(
@@ -25,11 +25,13 @@ namespace argon::vm {
 
         explicit ArRoutineQueue(unsigned int max_len) : limit_(max_len) {};
 
-        bool Enqueue(ArRoutine *routine);
-
         ArRoutine *Dequeue();
 
         ArRoutine *StealQueue(unsigned int min_len, ArRoutineQueue &queue);
+
+        bool Enqueue(ArRoutine *routine);
+
+        bool EnqueueHead(ArRoutine *routine);
 
         unsigned int GrabHalfQueue(unsigned int min_len, ArRoutineQueue &queue);
     };
