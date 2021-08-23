@@ -71,6 +71,9 @@ namespace argon::vm {
         /* Current recursion depth */
         argon::object::ArSize recursion_depth;
 
+        /* Used by NotifyQueue to manage the queue */
+        argon::object::ArSize ticket;
+
         /* Routine status */
         ArRoutineStatus status;
     };

@@ -25,6 +25,8 @@ ArRoutine *argon::vm::RoutineNew(ArRoutineStatus status) {
         }
 
         routine->recursion_depth = 0;
+        routine->ticket = 0;
+
         routine->status = status;
     }
 
@@ -91,6 +93,7 @@ void argon::vm::RoutineReset(ArRoutine *routine, ArRoutineStatus status) {
         assert(routine->cu_defer == nullptr);
 
         routine->recursion_depth = 0;
+        routine->ticket = 0;
         routine->status = status;
     }
 }
@@ -161,7 +164,7 @@ void argon::vm::RoutinePopPanic(ArRoutine *routine) {
 void argon::vm::RoutinePopPanics(ArRoutine *routine) {
     Panic *tmp;
 
-    while (routine->panic != nullptr){
+    while (routine->panic != nullptr) {
         Release(routine->panic->object);
         tmp = routine->panic->panic;
         argon::memory::Free(routine->panic);
