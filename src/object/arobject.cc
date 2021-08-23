@@ -569,7 +569,8 @@ ArObject *argon::object::ToString(ArObject *obj) {
     if (AR_GET_TYPE(obj)->str != nullptr)
         return AR_GET_TYPE(obj)->str(obj);
 
-    return ErrorFormat(type_runtime_error_, "unimplemented slot 'str' for object '%s'", AR_TYPE_NAME(obj));
+    return StringNewFormat("<object %s @%p>", AR_TYPE_NAME(obj), obj);
+    // return ErrorFormat(type_runtime_error_, "unimplemented slot 'str' for object '%s'", AR_TYPE_NAME(obj));
 }
 
 ArObject *argon::object::TypeNew(const TypeInfo *meta, const char *name, ArObject *ns, TypeInfo **bases, ArSize count) {
