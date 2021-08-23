@@ -9,7 +9,7 @@
 #include <object/setup.h>
 #include <object/datatype/error.h>
 
-#include "routine_queue.h"
+#include "routinequeue.h"
 #include "runtime.h"
 #include "areval.h"
 
@@ -42,6 +42,7 @@ struct OSThread {
     VCore *old;
 
     bool spinning;
+    bool ignore_routine;
 
     std::thread self;
 };
@@ -174,6 +175,7 @@ OSThread *AllocOST() {
         ost->old = nullptr;
 
         ost->spinning = false;
+        ost->ignore_routine = false;
 
         new(&ost->self) std::thread();
     }
@@ -303,6 +305,12 @@ void Schedule(OSThread *self) {
         while (self->routine->status != ArRoutineStatus::RUNNING) {
             self->routine->status = ArRoutineStatus::RUNNING;
             Release(Eval(self->routine));
+
+            if (self->ignore_routine) {
+                self->routine = nullptr;
+                self->ignore_routine = false;
+                break;
+            }
 
             STWCheckpoint();
 
@@ -449,6 +457,21 @@ ArRoutine *argon::vm::GetRoutine() {
     return ost_local->routine;
 }
 
+ArRoutine *argon::vm::UnschedRoutine(bool resume_last) {
+    ArRoutine *routine = GetRoutine();
+    ArRoutineStatus status = ArRoutineStatus::SUSPENDED;
+
+    if (resume_last)
+        status = ArRoutineStatus::BLOCKED;
+
+    if (!CanSpin())
+        return nullptr;
+
+    ost_local->ignore_routine = true;
+    routine->status = status;
+    return routine;
+}
+
 Context *argon::vm::GetContext() {
     return GetRoutine()->context;
 }
@@ -459,6 +482,19 @@ bool argon::vm::AcquireMain() {
 
     GetRoutine()->status = ArRoutineStatus::RUNNING;
     ost_worker_count++;
+
+    return true;
+}
+
+bool argon::vm::CanSpin() {
+    if (ost_main != nullptr)
+        return false;
+
+    // Check for a nested, non-interruptible call to Eval
+    for (Frame *cursor = GetRoutine()->frame->back; cursor != nullptr; cursor = cursor->back) {
+        if (FRAME_TAGGED(cursor))
+            return false;
+    }
 
     return true;
 }
@@ -532,19 +568,32 @@ bool argon::vm::SchedYield(bool resume_last) {
     ArRoutineStatus status = ArRoutineStatus::SUSPENDED;
 
     if (resume_last)
-        status = ArRoutineStatus::SUSPENDED;
+        status = ArRoutineStatus::BLOCKED;
 
-    if (ost_main != nullptr) {
+    if (!CanSpin()) {
         std::this_thread::yield();
         return false;
     }
 
-    // Check for a nested, non-interruptible call to Eval
-    for (Frame *cursor = GetRoutine()->frame->back; cursor != nullptr; cursor = cursor->back) {
-        if (FRAME_TAGGED(cursor)) {
-            std::this_thread::yield();
-            return false;
-        }
+    GetRoutine()->status = status;
+    return true;
+}
+
+bool argon::vm::SchedYield(bool resume_last, ArRoutine *routine) {
+    ArRoutineStatus status = ArRoutineStatus::SUSPENDED;
+
+    if (resume_last)
+        status = ArRoutineStatus::BLOCKED;
+
+    if (!CanSpin()) {
+        Spawn(routine);
+        std::this_thread::yield();
+        return false;
+    }
+
+    if (!ost_local->current->queue.EnqueueHead(routine)){
+        routine_gq.EnqueueHead(routine);
+        OSTWakeRun();
     }
 
     GetRoutine()->status = status;
@@ -556,6 +605,20 @@ bool argon::vm::Spawn(ArRoutine *routine) {
         return false;
 
     OSTWakeRun();
+    return true;
+}
+
+bool argon::vm::Spawns(ArRoutine *routines) {
+    ArRoutine *next;
+
+    for (ArRoutine *cursor = routines; cursor != nullptr; cursor = next) {
+        next = cursor->next;
+
+        cursor->next = nullptr;
+        routine_gq.Enqueue(cursor);
+        OSTWakeRun();
+    }
+
     return true;
 }
 

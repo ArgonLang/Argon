@@ -1,0 +1,69 @@
+/*
+ * This source file is part of the Argon project.
+ *
+ * Licensed under the Apache License v2.0
+*/
+
+from _sync import *
+from error import TypeError
+
+/*
+    The Locker trait is natively implemented,
+    its implementation in Argon is similar to the following:
+
+    trait Locker {
+        pub func lock {
+
+        }
+
+        pub func unlock {
+
+        }
+    }
+*/
+
+pub struct Cond {
+    var lock
+    var queue
+
+    pub let new = (lock) => {
+        if !isimpl(lock, Locker) {
+            panic(TypeError::new("Cond::new required an object that implement Locker trait"))
+        }
+        return Cond!{lock, NotifyQueue::new()}
+    }
+
+    pub func wait() {
+        var ticket = self.queue.getticket();
+        self.lock.unlock()
+        self.queue.wait(ticket)
+        self.lock.lock()
+    }
+
+    pub func signal() {
+        self.queue.notify();
+    }
+
+    pub func broadcast() {
+        self.queue.notifyall();
+    }
+}
+
+pub struct Once {
+    var executed
+    var mutex
+
+    pub let new = () => {
+        return Once!{false, Mutex::new()}
+    }
+
+    pub func do(fn) {
+        self.mutex.lock()
+        defer self.mutex.unlock()
+
+        if !self.executed {
+            defer fn()
+            self.executed = true
+        }
+    }
+}
