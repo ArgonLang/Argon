@@ -24,6 +24,7 @@ ArRoutine *argon::vm::RoutineNew(ArRoutineStatus status) {
             return nullptr;
         }
 
+        routine->reason = 0;
         routine->recursion_depth = 0;
         routine->ticket = 0;
 
@@ -92,6 +93,7 @@ void argon::vm::RoutineReset(ArRoutine *routine, ArRoutineStatus status) {
 
         assert(routine->cu_defer == nullptr);
 
+        routine->reason = 0;
         routine->recursion_depth = 0;
         routine->ticket = 0;
         routine->status = status;

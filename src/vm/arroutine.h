@@ -71,6 +71,9 @@ namespace argon::vm {
         /* Current recursion depth */
         argon::object::ArSize recursion_depth;
 
+        /* Suspension reason */
+        argon::object::ArSize reason;
+
         /* Used by NotifyQueue to manage the queue */
         argon::object::ArSize ticket;
 
@@ -86,7 +89,9 @@ namespace argon::vm {
 
     ArRoutine *RoutineNew(Frame *frame, ArRoutine *routine, ArRoutineStatus status);
 
-    inline ArRoutine *RoutineNew(Frame *frame, ArRoutine *routine) { return RoutineNew(frame, routine, ArRoutineStatus::RUNNABLE); }
+    inline ArRoutine *RoutineNew(Frame *frame, ArRoutine *routine) {
+        return RoutineNew(frame, routine, ArRoutineStatus::RUNNABLE);
+    }
 
     argon::object::ArObject *RoutineRecover(ArRoutine *routine);
 
