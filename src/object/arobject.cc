@@ -455,7 +455,7 @@ ArObject *argon::object::ArObjectGCNew(const TypeInfo *type) {
     return obj;
 }
 
-ArObject * argon::object::ArObjectGCNewTrack(const TypeInfo *type) {
+ArObject *argon::object::ArObjectGCNewTrack(const TypeInfo *type) {
     auto *obj = ArObjectGCNew(type);
     Track(obj);
     return obj;
@@ -479,6 +479,19 @@ ArObject *argon::object::InstanceGetMethod(const ArObject *instance, const ArObj
         if (is_meth != nullptr)
             *is_meth = AR_TYPEOF(ret, type_function_) && ((Function *) ret)->IsMethod();
     }
+
+    return ret;
+}
+
+ArObject *argon::object::InstanceGetMethod(const ArObject *instance, const char *key, bool *is_meth) {
+    ArObject *ret;
+    String *akey;
+
+    if ((akey = StringNew(key)) == nullptr)
+        return nullptr;
+
+    ret = InstanceGetMethod(instance, akey, is_meth);
+    Release(akey);
 
     return ret;
 }
