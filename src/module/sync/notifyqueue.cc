@@ -2,10 +2,7 @@
 //
 // Licensed under the Apache License v2.0
 
-#include <condition_variable>
-
-#include <vm/runtime.h>
-#include <vm/notifyqueue.h>
+#include <vm/sync/queue.h>
 
 #include <object/datatype/integer.h>
 #include <object/datatype/nil.h>
@@ -17,30 +14,29 @@ using namespace argon::object;
 using namespace argon::module::sync;
 
 struct NotifyQueue : ArObject {
-    argon::vm::ArRoutineNotifyQueue queue;
-
-    std::mutex os_lock;
-    std::condition_variable os_cond;
+    argon::vm::sync::Queue queue;
 };
 
 ARGON_FUNCTION5(nq_, new, "", 0, false) {
     auto *nq = ArObjectNew<NotifyQueue>(RCType::INLINE, type_notifyqueue_);
 
-    if (nq != nullptr) {
-        new(&nq->queue) argon::vm::ArRoutineNotifyQueue();
-        new(&nq->os_lock) std::mutex();
-        new(&nq->os_cond) std::condition_variable();
-    }
+    if (nq != nullptr)
+        new(&nq->queue) argon::vm::sync::Queue();
 
     return nq;
 }
 
-ARGON_METHOD5(nq_, getticket, "", 0, false) {
+ARGON_METHOD5(nq_, getticket, "Returns a ticket for the queue."
+                              ""
+                              "- Returns: Integer that represent a ticket.", 0, false) {
     auto *nq = (NotifyQueue *) self;
     return IntegerNew(nq->queue.GetTicket());
 }
 
-ARGON_METHOD5(nq_, wait, "", 1, false) {
+ARGON_METHOD5(nq_, wait, "Wait in the queue."
+                         ""
+                         "- Parameter ticket: ticket."
+                         "- Returns: nil", 1, false) {
     auto *nq = (NotifyQueue *) self;
     IntegerUnderlying ticket;
 
@@ -49,41 +45,27 @@ ARGON_METHOD5(nq_, wait, "", 1, false) {
 
     ticket = ((Integer *) argv[0])->integer;
 
-    if (argon::vm::CanSpin()) {
-        if (nq->queue.Wait(argon::vm::GetRoutine(), ticket))
-            argon::vm::UnschedRoutine(false);
-    } else {
-        argon::vm::ReleaseQueue();
-
-        std::unique_lock lock(nq->os_lock);
-        nq->os_cond.wait(lock, [nq, ticket] {
-            return nq->queue.IsTicketExpired(ticket);
-        });
-    }
+    nq->queue.Enqueue(false, 0, ticket);
 
     return IncRef(NilVal);
 }
 
-ARGON_METHOD5(nq_, notify, "", 0, false) {
+ARGON_METHOD5(nq_, notify, "Wakes next routine in Queue."
+                           ""
+                           "- Returns: nil", 0, false) {
     auto *nq = (NotifyQueue *) self;
-    argon::vm::ArRoutine *routine;
 
-    nq->os_cond.notify_one();
-
-    if ((routine = nq->queue.Notify()) != nullptr)
-        argon::vm::SchedYield(false, routine);
+    nq->queue.Notify();
 
     return IncRef(NilVal);
 }
 
-ARGON_METHOD5(nq_, notifyall, "", 0, false) {
+ARGON_METHOD5(nq_, notifyall, "Wakes all routine waiting on Queue."
+                              ""
+                              "- Returns: nil", 0, false) {
     auto *nq = (NotifyQueue *) self;
-    argon::vm::ArRoutine *routines;
 
-    nq->os_cond.notify_all();
-
-    routines = nq->queue.NotifyAll();
-    argon::vm::Spawns(routines);
+    nq->queue.Broadcast();
 
     return IncRef(NilVal);
 }
@@ -109,9 +91,7 @@ const ObjectSlots nq_obj = {
 };
 
 void nq_cleanup(NotifyQueue *self) {
-    self->queue.~ArRoutineNotifyQueue();
-    self->os_cond.~condition_variable();
-    self->os_lock.~mutex();
+    self->queue.~Queue();
 }
 
 const TypeInfo NotifyQueueType = {

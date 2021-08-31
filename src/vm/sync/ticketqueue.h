@@ -2,14 +2,14 @@
 //
 // Licensed under the Apache License v2.0
 
-#ifndef ARGON_VM_NOTIFYQUEUE_H_
-#define ARGON_VM_NOTIFYQUEUE_H_
+#ifndef ARGON_VM_SYNC_TICKETQUEUE_H_
+#define ARGON_VM_SYNC_TICKETQUEUE_H_
 
 #include <mutex>
 
-#include "arroutine.h"
+#include <vm/arroutine.h>
 
-namespace argon::vm {
+namespace argon::vm::sync {
 
     class ArRoutineNotifyQueue {
         ArRoutine *head_ = nullptr;
@@ -41,6 +41,6 @@ namespace argon::vm {
         unsigned int GetTicket();
     };
 
-} // namespace argon::vm
+} // namespace argon::vm::sync
 
-#endif // !ARGON_VM_NOTIFYQUEUE_H_
+#endif // !ARGON_VM_SYNC_TICKETQUEUE_H_

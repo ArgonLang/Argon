@@ -5,7 +5,6 @@
 */
 
 from _sync import *
-from error import TypeError
 
 /*
     The Locker trait is natively implemented,
@@ -21,33 +20,6 @@ from error import TypeError
         }
     }
 */
-
-pub struct Cond {
-    var lock
-    var queue
-
-    pub let new = (lock) => {
-        if !isimpl(lock, Locker) {
-            panic(TypeError::new("Cond::new required an object that implement Locker trait"))
-        }
-        return Cond!{lock, NotifyQueue::new()}
-    }
-
-    pub func wait() {
-        var ticket = self.queue.getticket();
-        self.lock.unlock()
-        self.queue.wait(ticket)
-        self.lock.lock()
-    }
-
-    pub func signal() {
-        self.queue.notify();
-    }
-
-    pub func broadcast() {
-        self.queue.notifyall();
-    }
-}
 
 pub struct Once {
     var executed

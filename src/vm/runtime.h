@@ -20,9 +20,14 @@ namespace argon::vm {
 
     argon::object::ArObject *Call(argon::object::ArObject *callable, int argc, ...);
 
+    argon::object::ArObject *
+    CallMethod(argon::object::ArObject *instance, const char *name, int argc, argon::object::ArObject **args);
+
     ArRoutine *GetRoutine();
 
-    ArRoutine *UnschedRoutine(bool resume_last);
+    ArRoutine *UnschedRoutine(bool resume_last, unsigned long reason);
+
+    inline ArRoutine *UnschedRoutine(bool resume_last) { return UnschedRoutine(resume_last, 0); }
 
     Context *GetContext();
 
@@ -45,6 +50,8 @@ namespace argon::vm {
     bool Spawns(ArRoutine *routines);
 
     bool Shutdown();
+
+    unsigned long SuspensionReason();
 
     void LockOsThread();
 

@@ -8,8 +8,10 @@
 #include <object/arobject.h>
 
 namespace argon::module::sync {
+    extern const argon::object::TypeInfo *type_cond_;
     extern const argon::object::TypeInfo *type_locker_;
     extern const argon::object::TypeInfo *type_mutex_;
+    extern const argon::object::TypeInfo *type_rwmutex_;
     extern const argon::object::TypeInfo *type_notifyqueue_;
 } // namespace argon::module
 

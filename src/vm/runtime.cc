@@ -413,7 +413,7 @@ ArObject *argon::vm::Call(ArObject *callable, int argc, ArObject **args) {
     return result;
 }
 
-argon::object::ArObject *argon::vm::Call(argon::object::ArObject *callable, int argc, ...) {
+ArObject *argon::vm::Call(ArObject *callable, int argc, ...) {
     ArObject **args;
     ArObject *result;
 
@@ -433,6 +433,20 @@ argon::object::ArObject *argon::vm::Call(argon::object::ArObject *callable, int 
     memory::Free(args);
 
     return result;
+}
+
+ArObject *argon::vm::CallMethod(ArObject *instance, const char *name, int argc, ArObject **args) {
+    ArObject *ret;
+    ArObject *meth;
+    bool meth_found;
+
+    if ((meth = InstanceGetMethod(instance, name, &meth_found)) == nullptr)
+        return nullptr;
+
+    ret = Call(meth, argc, args);
+    Release(meth);
+
+    return ret;
 }
 
 ArObject *argon::vm::GetLastError() {
@@ -457,18 +471,21 @@ ArRoutine *argon::vm::GetRoutine() {
     return ost_local->routine;
 }
 
-ArRoutine *argon::vm::UnschedRoutine(bool resume_last) {
+ArRoutine *argon::vm::UnschedRoutine(bool resume_last, unsigned long reason) {
     ArRoutine *routine = GetRoutine();
     ArRoutineStatus status = ArRoutineStatus::SUSPENDED;
 
-    if (resume_last)
+    if (resume_last) {
         status = ArRoutineStatus::BLOCKED;
+        routine->reason = reason;
+    }
 
     if (!CanSpin())
         return nullptr;
 
-    ost_local->ignore_routine = true;
     routine->status = status;
+
+    ost_local->ignore_routine = true;
     return routine;
 }
 
@@ -591,7 +608,7 @@ bool argon::vm::SchedYield(bool resume_last, ArRoutine *routine) {
         return false;
     }
 
-    if (!ost_local->current->queue.EnqueueHead(routine)){
+    if (!ost_local->current->queue.EnqueueHead(routine)) {
         routine_gq.EnqueueHead(routine);
         OSTWakeRun();
     }
@@ -647,6 +664,16 @@ bool argon::vm::Shutdown() {
     }
 
     return false;
+}
+
+unsigned long argon::vm::SuspensionReason() {
+    ArRoutine *routine = GetRoutine();
+    unsigned long reason;
+
+    reason = routine->reason;
+    routine->reason = 0;
+
+    return reason;
 }
 
 void argon::vm::LockOsThread() {

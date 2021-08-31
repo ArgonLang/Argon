@@ -16,16 +16,28 @@ bool sync_init(Module *self) {
     if (!TypeInit((TypeInfo *) type_locker_, nullptr))
         return false;
 
+    if (!TypeInit((TypeInfo *) type_cond_, nullptr))
+        return false;
+
     if (!TypeInit((TypeInfo *) type_mutex_, nullptr))
         return false;
 
+    if (!TypeInit((TypeInfo *) type_rwmutex_, nullptr))
+        return false;
+
     if (!TypeInit((TypeInfo *) type_notifyqueue_, nullptr))
+        return false;
+
+    if (!ModuleAddProperty(self, "Cond", (ArObject *) type_cond_, MODULE_ATTRIBUTE_PUB_CONST))
         return false;
 
     if (!ModuleAddProperty(self, "Locker", (ArObject *) type_locker_, MODULE_ATTRIBUTE_PUB_CONST))
         return false;
 
     if (!ModuleAddProperty(self, "Mutex", (ArObject *) type_mutex_, MODULE_ATTRIBUTE_PUB_CONST))
+        return false;
+
+    if (!ModuleAddProperty(self, "RWMutex", (ArObject *) type_rwmutex_, MODULE_ATTRIBUTE_PUB_CONST))
         return false;
 
     if (!ModuleAddProperty(self, "NotifyQueue", (ArObject *) type_notifyqueue_, MODULE_ATTRIBUTE_PUB_CONST))

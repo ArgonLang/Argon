@@ -2,9 +2,10 @@
 //
 // Licensed under the Apache License v2.0
 
-#include "notifyqueue.h"
+#include "ticketqueue.h"
 
 using namespace argon::vm;
+using namespace argon::vm::sync;
 
 ArRoutine *ArRoutineNotifyQueue::Notify() {
     ArRoutine *back = nullptr;
