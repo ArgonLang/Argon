@@ -17,7 +17,7 @@ namespace argon::vm::sync {
         std::mutex notify_lock_;
 
         std::atomic_ulong next_ = 0;
-        std::atomic_ulong wait_ = 0;
+        std::atomic_ulong wait_ = 1;
 
     public:
         ArRoutineNotifyQueue() = default;
