@@ -33,7 +33,7 @@ ARGON_METHOD5(nq_, getticket, "Returns a ticket for the queue."
     return IntegerNew(nq->queue.GetTicket());
 }
 
-ARGON_METHOD5(nq_, wait, "Wait in the queue."
+ARGON_METHOD5(nq_, wait, "Wait in the queue using a previously obtained ticket."
                          ""
                          "- Parameter ticket: ticket."
                          "- Returns: nil", 1, false) {
@@ -46,6 +46,16 @@ ARGON_METHOD5(nq_, wait, "Wait in the queue."
     ticket = ((Integer *) argv[0])->integer;
 
     nq->queue.Enqueue(false, 0, ticket);
+
+    return IncRef(NilVal);
+}
+
+ARGON_METHOD5(nq_, waitnow, "Wait in the queue."
+                         ""
+                         "- Returns: nil", 0, false) {
+    auto *nq = (NotifyQueue *) self;
+
+    nq->queue.Enqueue(false, 0, nq->queue.GetTicket());
 
     return IncRef(NilVal);
 }
@@ -75,6 +85,7 @@ const NativeFunc nq_methods[] = {
         nq_notify_,
         nq_notifyall_,
         nq_wait_,
+        nq_waitnow_,
         nq_new_,
         ARGON_METHOD_SENTINEL
 };
