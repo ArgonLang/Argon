@@ -150,7 +150,7 @@ bool type_set_attr(ArObject *obj, ArObject *key, ArObject *value) {
         return false;
     }
 
-    if (!pinfo.IsPublic() && instance != obj) {
+    if (!pinfo.IsPublic() && !AR_SAME_TYPE(instance, obj)) {
         ErrorFormat(type_access_violation_, "access violation, member '%s' of '%s' are private",
                     ((String *) key)->buffer, AR_TYPE_NAME(obj));
         Release(actual);
