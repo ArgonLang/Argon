@@ -4,6 +4,7 @@
  * Licensed under the Apache License v2.0
 */
 
+from error import TypeError
 from sync import NotifyQueue
 
 let P_PENDING = 0
@@ -11,18 +12,20 @@ let P_FULFILLED = 1
 let P_REJECTED = 2
 
 pub struct Promise {
-    var status = P_PENDING
+    var status
     var value
     var queue
 
-    func resolve(value) {
-        self.value = value
-        self.status = P_FULFILLED
-    }
+    pub let new = (executor) => {
+        if executor != nil && !callable(executor) {
+            panic(TypeError::new("Promise::new argument is not a function"))
+        }
 
-    func rejected(value) {
-        self.value = value
-        self.status = P_REJECTED
+        var promise = Promise!{P_PENDING, nil, NotifyQueue::new()}
+
+        spawn promise.do(executor)
+
+        return promise;
     }
 
     func do_recover() {
@@ -35,59 +38,94 @@ pub struct Promise {
     }
 
     pub func do(executor) {
+        if executor == nil {
+            return nil
+        }
+
         defer self.queue.notifyall()
         defer self.do_recover()
 
-        executor(Promise::resolve(self), Promise::rejected(self))
+        executor(self.resolve(), self.rejected())
     }
 
-    pub let new = (executor) => {
-        var t = Promise!{P_PENDING, nil, NotifyQueue::new()}
-
-        spawn t.do(executor)
-
-        return t
+    func resolve(value) {
+        self.status = P_FULFILLED
+        self.value = value
     }
 
-    func protected_handler(handler) {
-        defer () => {
-            var r = recover()
-
-            if r != nil {
-                returns(Promise!{P_REJECTED, r})
-            }
-        }()
-
-        return handler(self.value)
+    func rejected(value) {
+        self.status = P_REJECTED
+        self.value = value
     }
 
-    func exec_handler(status, handler) {
-        var res
+    func set_status(status, value) {
+        self.status = status
+        self.value = value
+
+        self.queue.notifyall()
+    }
+
+    func handler_recover(promise) {
+        var r = recover()
+
+        if r != nil {
+            promise.rejected(r)
+        }
+    }
+
+    func exec_handler(promise, handler, status) {
+        defer self.handler_recover(promise)
 
         if self.status == P_PENDING {
-            self.queue.wait(self.queue.getticket())
+            self.queue.waitnow()
         }
 
-        if self.status == status {
-            if handler != nil {
-                res = self.protected_handler(handler)
-            }
-
-            if type(res) == Promise {
-                return res
-            }
-
-            return Promise!{status, res}
+        if self.status != status {
+            return promise.set_status(self.status, self.value)
         }
 
-        return self
+        var res = handler(self.value)
+
+        if type(res) == Promise {
+            if res.status == P_PENDING {
+                res.queue.waitnow()
+            }
+
+            return promise.set_status(res.status, res.value)
+        }
+
+        promise.set_status(status, res)
     }
 
-    pub func then(fulfilled) {
-        return self.exec_handler(P_FULFILLED, fulfilled)
+    pub func then(handler) {
+        if !callable(handler) {
+            panic(TypeError::new("Promise::then argument is not a function"))
+        }
+
+        var promise = Promise::new(nil)
+
+        spawn self.exec_handler(promise, handler, P_FULFILLED)
+
+        return promise
     }
 
-    pub func catch(rejected) {
-        return self.exec_handler(P_REJECTED, rejected)
+    pub func catch(handler) {
+        if !callable(handler) {
+            panic(TypeError::new("Promise::catch argument is not a function"))
+        }
+
+        var promise = Promise::new(nil)
+
+        spawn self.exec_handler(promise, handler, P_REJECTED)
+
+        return promise
+    }
+
+    pub func get() {
+        if self.status == P_PENDING {
+            self.queue.waitnow()
+        }
+
+        return self.value, self.status == P_FULFILLED ? true : false
     }
 }
