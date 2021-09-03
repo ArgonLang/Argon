@@ -814,6 +814,7 @@ ArObject *argon::vm::Eval(ArRoutine *routine) {
                     cu_frame->return_value = TOP_BACK();
                 }
 
+                STACK_REWIND(cu_frame->eval_stack - cu_frame->stack_extra_base);
                 goto end_function;
             }
             TARGET_OP(SHL) {
