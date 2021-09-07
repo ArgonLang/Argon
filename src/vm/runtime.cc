@@ -403,7 +403,7 @@ ArObject *argon::vm::Call(ArObject *callable, int argc, ArObject **args) {
 
     if ((frame = FrameNew(func->code, func->gns, nullptr)) != nullptr) {
         FrameFillForCall(frame, func, args, argc);
-        result = Eval(ost_local->routine, frame);
+        result = Eval(GetRoutine(), frame);
         FrameDel(frame);
     }
 
