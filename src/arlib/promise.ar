@@ -11,6 +11,10 @@ let P_PENDING = 0
 let P_FULFILLED = 1
 let P_REJECTED = 2
 
+let STATUS_STRING = ["Pending",
+                    "Fulfilled",
+                    "Rejected"]
+
 pub struct Promise {
     var status
     var value
@@ -26,6 +30,74 @@ pub struct Promise {
         spawn promise.do(executor)
 
         return promise;
+    }
+
+    pub let new_resolved = (value) => {
+        return Promise!{P_FULFILLED, value, nil}
+    }
+
+    pub let new_rejected = (value) => {
+        return Promise!{P_REJECTED, value, nil}
+    }
+
+    pub let all = (promises) => {
+        if type(promises) != list && type(promises) != tuple {
+            panic(TypeError::new("Promise::all argument is not a list"))
+        }
+
+        if !promises {
+            return Promise::new_resolved([])
+        }
+
+        return Promise::new((f, r) => {
+            var ret = []
+            var status
+            var value
+            
+            var cursor
+
+            for cursor in promises {
+                if type(cursor) == Promise {
+                    value, status = cursor.get()
+                    
+                    if !status {
+                        return r(value)
+                    }
+
+                    ret.append(value)
+                    continue
+                }
+
+                ret.append(cursor)
+            }
+
+            f(ret)
+        })
+    }
+
+    pub let wait = (promises) => {
+        if type(promises) != list && type(promises) != tuple {
+            panic(TypeError::new("Promise::wait argument is not a list"))
+        }
+
+        if !promises {
+            return Promise::new_resolved([])
+        }
+
+        return Promise::new((f, r) => {
+            var ret = []
+            var cursor
+
+            for cursor in promises {
+                if type(cursor) == Promise {
+                    cursor.get()
+                }
+
+                ret.append(cursor)
+            }
+
+            f(ret)
+        })
     }
 
     func do_recover() {
@@ -127,5 +199,9 @@ pub struct Promise {
         }
 
         return self.value, self.status == P_FULFILLED ? true : false
+    }
+
+    pub func __str() {
+        return "<Promise: status: %s, value: %s>" % (STATUS_STRING[self.status], self.value)
     }
 }
