@@ -6,6 +6,7 @@
 #define ARGON_LANG_SCANNER_SCANNER2_H
 
 #include <cstdio>
+#include <cstring>
 
 #include "token2.h"
 
@@ -87,6 +88,8 @@ namespace argon::lang::scanner2 {
         int PeekChar() noexcept;
 
         int NextChar() noexcept;
+
+        Token MakeTkWithValue(Pos start, TokenType type);
 
         Token TokenizeBinary(Pos start);
 

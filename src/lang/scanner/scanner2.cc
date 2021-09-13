@@ -433,6 +433,15 @@ int Scanner::NextChar() noexcept {
     return this->Peek(true);
 }
 
+Token Scanner::MakeTkWithValue(Pos start, TokenType type) {
+    unsigned char *tmp = this->TkGetValue();
+
+    if (tmp == nullptr)
+        return {TokenType::ERROR, start, this->pos_};
+
+    return {type, start, this->pos_, tmp};
+}
+
 Token Scanner::TokenizeBinary(Pos start) {
     int value = this->PeekChar();
 
@@ -443,7 +452,7 @@ Token Scanner::TokenizeBinary(Pos start) {
         value = this->PeekChar();
     }
 
-    return Token(TokenType::NUMBER_BIN, start, this->pos_, this->TkGetValue());
+    return this->MakeTkWithValue(start, TokenType::NUMBER_BIN);
 }
 
 Token Scanner::TokenizeChar(Pos start) {
@@ -474,7 +483,7 @@ Token Scanner::TokenizeChar(Pos start) {
         goto ERROR;
     }
 
-    return Token(TokenType::NUMBER_CHR, start, this->pos_, this->TkGetValue());
+    return this->MakeTkWithValue(start, TokenType::NUMBER_CHR);
 
     ERROR:
     return Token(TokenType::ERROR, start, this->pos_);
@@ -512,7 +521,7 @@ Token Scanner::TokenizeComment(Pos start, bool inline_comment) {
     }
 
     this->NextChar();
-    return Token(type, start, this->pos_, this->TkGetValue());
+    return this->MakeTkWithValue(start, type);
 
     ERROR:
     return Token(TokenType::ERROR, start, this->pos_);
@@ -544,7 +553,7 @@ Token Scanner::TokenizeDecimal(Pos start, bool begin_zero) {
         type = TokenType::DECIMAL;
     }
 
-    return Token(type, start, this->pos_, this->TkGetValue());
+    return this->MakeTkWithValue(start, type);
 }
 
 Token Scanner::TokenizeHex(Pos start) {
@@ -557,7 +566,7 @@ Token Scanner::TokenizeHex(Pos start) {
         value = this->PeekChar();
     }
 
-    return Token(TokenType::NUMBER_HEX, start, this->pos_, this->TkGetValue());
+    return this->MakeTkWithValue(start, TokenType::NUMBER_HEX);
 }
 
 Token Scanner::TokenizeOctal(Pos start) {
@@ -570,7 +579,7 @@ Token Scanner::TokenizeOctal(Pos start) {
         value = this->PeekChar();
     }
 
-    return Token(TokenType::NUMBER_OCT, start, this->pos_, this->TkGetValue());
+    return this->MakeTkWithValue(start, TokenType::NUMBER_OCT);
 }
 
 Token Scanner::TokenizeNumber() {
@@ -640,7 +649,7 @@ Token Scanner::TokenizeRawString(Pos start) {
                 }
                 continue;
             }
-            return Token(TokenType::RAW_STRING, start, this->pos_, this->TkGetValue());
+            return this->MakeTkWithValue(start, TokenType::RAW_STRING);
         }
 
         if (!this->TkPutChar())
@@ -690,7 +699,7 @@ Token Scanner::TokenizeString(Pos start, bool byte_string) {
         value = this->NextChar();
     }
 
-    return Token(type, start, this->pos_, this->TkGetValue());
+    return this->MakeTkWithValue(start, type);
 
     ERROR:
     return Token(TokenType::ERROR, start, this->pos_);
@@ -722,7 +731,7 @@ Token Scanner::TokenizeWord() {
 
     // keywords are longer than one letter
     if ((this->pos_ - start) > 1) {
-        for (KwToken kt : kw2tktype) {
+        for (KwToken kt: kw2tktype) {
             if (argon::memory::MemoryCompare(kt.keyword, this->tkval.start_, this->pos_ - start) == 0) {
                 type = kt.type;
                 break;
@@ -730,7 +739,7 @@ Token Scanner::TokenizeWord() {
         }
     }
 
-    return Token(type, start, this->pos_, this->TkGetValue());
+    return this->MakeTkWithValue(start, type);
 }
 
 unsigned char *Scanner::TkGetValue() {
