@@ -177,6 +177,9 @@ ERROR_SIMPLE(UnicodeIndex, "", argon::object::type_unicode_index_error_);
 ERROR_SIMPLE(ValueError, "", argon::object::type_value_error_);
 ERROR_SIMPLE(ZeroDivision, "", type_zero_division_);
 
+// Compiler errors
+ERROR_SIMPLE(SyntaxError, "", argon::object::type_syntax_error_);
+
 // IO Error
 ERROR_SIMPLE(BlockingIO, "", argon::object::type_blocking_io_);
 ERROR_SIMPLE(BrokenPipe, "", argon::object::type_broken_pipe_);
@@ -368,6 +371,9 @@ bool argon::object::ErrorInit() {
         Release(msg);
         return false;
     }
+
+    // Compiler
+    INIT(argon::object::type_syntax_error_);
 
     // IO
     INIT(argon::object::type_blocking_io_);

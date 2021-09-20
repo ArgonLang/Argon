@@ -50,6 +50,9 @@ namespace argon::object {
     extern const TypeInfo *type_unicode_index_error_;
     extern const TypeInfo *type_value_error_;
 
+    // Compiler errors
+    extern const TypeInfo *type_syntax_error_;
+
     // IO errors
     extern const TypeInfo *type_blocking_io_;
     extern const TypeInfo *type_broken_pipe_;
