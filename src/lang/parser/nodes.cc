@@ -95,6 +95,7 @@ UNARY_NEW(Identifier, "", argon::lang::parser::type_ast_identifier_);
 UNARY_NEW(List, "", argon::lang::parser::type_ast_list_);
 UNARY_NEW(Tuple, "", argon::lang::parser::type_ast_tuple_);
 UNARY_NEW(RestId, "", argon::lang::parser::type_ast_restid_);
+UNARY_NEW(Spread, "", argon::lang::parser::type_ast_spread_);
 UNARY_NEW(Map, "", argon::lang::parser::type_ast_map_);
 UNARY_NEW(Set, "", argon::lang::parser::type_ast_set_);
 UNARY_NEW(Expression, "", argon::lang::parser::type_ast_expression_);
@@ -104,6 +105,7 @@ BINARY_NEW(Selector, "", argon::lang::parser::type_ast_selector_);
 BINARY_NEW(StructInit, "", argon::lang::parser::type_ast_init_);
 BINARY_NEW(StructKwInit, "", argon::lang::parser::type_ast_kwinit_);
 BINARY_NEW(Assignment, "", argon::lang::parser::type_ast_assignment_);
+BINARY_NEW(Call, "", argon::lang::parser::type_ast_call_);
 
 NODE_GENERIC(Update, "", sizeof(argon::lang::parser::UpdateIncDec), update_cleanup, nullptr, nullptr, nullptr,
              argon::lang::parser::type_ast_update_);
@@ -132,6 +134,21 @@ Unary *argon::lang::parser::UnaryNew(TokenType kind, Pos start, Node *right) {
         unary->end = right->end;
 
         unary->value = right;
+    }
+
+    return unary;
+}
+
+Unary *argon::lang::parser::SpreadNew(Node *left, scanner2::Pos end) {
+    Unary *unary;
+
+    if ((unary = ArObjectNew<Unary>(RCType::INLINE, type_ast_spread_)) != nullptr) {
+        unary->start = left->start;
+        unary->end = end;
+        unary->colno = 0;
+        unary->lineno = 0;
+
+        unary->value = left;
     }
 
     return unary;

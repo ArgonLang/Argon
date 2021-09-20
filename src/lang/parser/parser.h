@@ -53,6 +53,8 @@ namespace argon::lang::parser {
 
         [[nodiscard]] inline Node *ParseExpr() { return this->ParseExpr(0); }
 
+        [[nodiscard]] Node *ParseFnCall(Node *left);
+
         [[nodiscard]] Node *ParseIdentifier();
 
         [[nodiscard]] Node *ParseList();

@@ -52,6 +52,7 @@ int PeekPrecedence(TokenType type) {
         case TokenType::PLUS_PLUS:
         case TokenType::MINUS_MINUS:
         case TokenType::LEFT_SQUARE:
+        case TokenType::LEFT_ROUND:
         case TokenType::DOT:
         case TokenType::QUESTION_DOT:
             return 100;
@@ -138,6 +139,8 @@ LedMeth Parser::LookupLed() const {
             return &Parser::ParseSubscript;
         case TokenType::LEFT_BRACES:
             return &Parser::ParseInitialization;
+        case TokenType::LEFT_ROUND:
+            return &Parser::ParseFnCall;
         case TokenType::ELVIS:
             return &Parser::ParseElvis;
         case TokenType::QUESTION:
@@ -332,6 +335,70 @@ Node *Parser::ParseExpr(int precedence) {
     }
 
     return left;
+}
+
+Node *Parser::ParseFnCall(Node *left) {
+    Node *arg;
+    Node *tmp;
+    List *args;
+
+    Pos end;
+
+    bool exit = false;
+
+    this->Eat();
+
+    if ((args = ListNew()) == nullptr)
+        return nullptr;
+
+    if (!this->Match(TokenType::RIGHT_ROUND)) {
+        do {
+            if ((arg = this->ParseExpr()) == nullptr) {
+                Release(args);
+                return nullptr;
+            }
+
+            if (this->Match(TokenType::ELLIPSIS)) {
+                if ((tmp = SpreadNew(arg, this->tkcur_.end)) == nullptr)
+                    goto ERROR;
+
+                arg = tmp;
+                exit = true;
+                this->Eat();
+            }
+
+            if (!ListAppend(args, arg))
+                goto ERROR;
+
+            Release(arg);
+        } while (!exit && this->MatchEat(TokenType::COMMA, true));
+    }
+
+    end = this->tkcur_.end;
+
+    if (!this->MatchEat(TokenType::RIGHT_ROUND, true)) {
+        ErrorFormat(type_syntax_error_, "expected ')' after last argument of function call");
+        goto ERROR;
+    }
+
+    if ((tmp = ArObjectNew<Binary>(RCType::INLINE, type_ast_call_)) == nullptr) {
+        Release(args);
+        return nullptr;
+    }
+
+    tmp->start = left->start;
+    tmp->end = end;
+    tmp->colno = 0;
+    tmp->lineno = 0;
+
+    ((Binary *) tmp)->left = left;
+    ((Binary *) tmp)->right = args;
+    return tmp;
+
+    ERROR:
+    Release(arg);
+    Release(args);
+    return nullptr;
 }
 
 Node *Parser::ParseIdentifier() {

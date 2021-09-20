@@ -11,7 +11,6 @@
 #include <object/datatype/list.h>
 #include <object/datatype/string.h>
 
-
 namespace argon::lang::parser {
     struct Node : object::ArObject {
         scanner2::TokenType kind;
@@ -32,6 +31,7 @@ namespace argon::lang::parser {
     extern const object::TypeInfo *type_ast_literal_;
     extern const object::TypeInfo *type_ast_identifier_;
     extern const object::TypeInfo *type_ast_restid_;
+    extern const object::TypeInfo *type_ast_spread_;
     extern const object::TypeInfo *type_ast_list_;
     extern const object::TypeInfo *type_ast_tuple_;
     extern const object::TypeInfo *type_ast_map_;
@@ -47,6 +47,7 @@ namespace argon::lang::parser {
     extern const object::TypeInfo *type_ast_init_;
     extern const object::TypeInfo *type_ast_kwinit_;
     extern const object::TypeInfo *type_ast_assignment_;
+    extern const object::TypeInfo *type_ast_call_;
 
     struct UpdateIncDec : Node {
         object::ArObject *value;
@@ -79,6 +80,8 @@ namespace argon::lang::parser {
     extern const object::TypeInfo *type_ast_file_;
 
     Unary *UnaryNew(scanner2::TokenType kind, scanner2::Pos start, Node *right);
+
+    Unary *SpreadNew(Node *left, scanner2::Pos end);
 
     UpdateIncDec *UpdateNew(scanner2::TokenType kind, scanner2::Pos start_end, bool prefix, Node *value);
 
