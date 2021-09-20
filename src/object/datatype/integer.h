@@ -21,6 +21,8 @@ namespace argon::object {
 
     Integer *IntegerNew(IntegerUnderlying number);
 
+    Integer *IntegerNew(const char *string, int base);
+
     Integer *IntegerNewFromString(const std::string &string, int base);
 
     int IntegerCountBits(Integer *number);
