@@ -50,9 +50,20 @@ void test_cleanup(Test *self) {
     Release(self->orelse);
 }
 
+void assignment_cleanup(Assignment *self) {
+    Release(self->name);
+    Release(self->value);
+}
+
 void file_cleanup(File *self) {
     Release(self->name);
     Release(self->decls);
+}
+
+void construct_cleanup(Construct *self) {
+    Release(self->name);
+    Release(self->params);
+    Release(self->block);
 }
 
 #define NODE_GENERIC(name, doc, size, dtor, compare, str, obslot, ptr_name) \
@@ -96,9 +107,12 @@ UNARY_NEW(List, "", argon::lang::parser::type_ast_list_);
 UNARY_NEW(Tuple, "", argon::lang::parser::type_ast_tuple_);
 UNARY_NEW(RestId, "", argon::lang::parser::type_ast_restid_);
 UNARY_NEW(Spread, "", argon::lang::parser::type_ast_spread_);
+UNARY_NEW(Scope, "", argon::lang::parser::type_ast_scope_);
 UNARY_NEW(Map, "", argon::lang::parser::type_ast_map_);
 UNARY_NEW(Set, "", argon::lang::parser::type_ast_set_);
 UNARY_NEW(Expression, "", argon::lang::parser::type_ast_expression_);
+UNARY_NEW(DeclList, "", argon::lang::parser::type_ast_list_decl_);
+UNARY_NEW(Block, "", argon::lang::parser::type_ast_block_);
 
 BINARY_NEW(Binary, "", argon::lang::parser::type_ast_binary_);
 BINARY_NEW(Selector, "", argon::lang::parser::type_ast_selector_);
@@ -106,6 +120,12 @@ BINARY_NEW(StructInit, "", argon::lang::parser::type_ast_init_);
 BINARY_NEW(StructKwInit, "", argon::lang::parser::type_ast_kwinit_);
 BINARY_NEW(Assignment, "", argon::lang::parser::type_ast_assignment_);
 BINARY_NEW(Call, "", argon::lang::parser::type_ast_call_);
+
+NODE_GENERIC(LetDecl, "", sizeof(argon::lang::parser::Assignment), assignment_cleanup, nullptr, nullptr, nullptr,
+             argon::lang::parser::type_ast_let_);
+
+NODE_GENERIC(VarDecl, "", sizeof(argon::lang::parser::Assignment), assignment_cleanup, nullptr, nullptr, nullptr,
+             argon::lang::parser::type_ast_var_);
 
 NODE_GENERIC(Update, "", sizeof(argon::lang::parser::UpdateIncDec), update_cleanup, nullptr, nullptr, nullptr,
              argon::lang::parser::type_ast_update_);
@@ -124,6 +144,15 @@ NODE_GENERIC(Subscript, "", sizeof(argon::lang::parser::Subscript), subscript_cl
 
 NODE_GENERIC(File, "", sizeof(argon::lang::parser::File), file_cleanup, nullptr, nullptr, nullptr,
              argon::lang::parser::type_ast_file_);
+
+NODE_GENERIC(FuncDecl, "", sizeof(argon::lang::parser::Construct), construct_cleanup, nullptr, nullptr, nullptr,
+             argon::lang::parser::type_ast_func_);
+
+NODE_GENERIC(TraitDecl, "", sizeof(argon::lang::parser::Construct), construct_cleanup, nullptr, nullptr, nullptr,
+             argon::lang::parser::type_ast_trait_);
+
+NODE_GENERIC(StructDecl, "", sizeof(argon::lang::parser::Construct), construct_cleanup, nullptr, nullptr, nullptr,
+             argon::lang::parser::type_ast_struct_);
 
 Unary *argon::lang::parser::UnaryNew(TokenType kind, Pos start, Node *right) {
     Unary *unary;
@@ -222,3 +251,47 @@ Subscript *argon::lang::parser::SubscriptNew(ArObject *left, bool slice) {
     return subscript;
 }
 
+Assignment *argon::lang::parser::AssignmentNew(scanner2::Token &token, bool constant, bool pub, bool weak) {
+    Assignment *assignment;
+    const TypeInfo *type = type_ast_var_;
+
+    if (constant)
+        type = type_ast_let_;
+
+    if ((assignment = ArObjectNew<Assignment>(RCType::INLINE, type)) != nullptr) {
+        assignment->start = token.start;
+        assignment->end = token.end;
+        assignment->colno = 0;
+        assignment->lineno = 0;
+
+        if ((assignment->name = StringNew((const char *) token.buf)) == nullptr) {
+            Release(assignment);
+            return nullptr;
+        }
+
+        assignment->value = nullptr;
+
+        assignment->pub = pub;
+        assignment->weak = !constant && weak;
+    }
+
+    return assignment;
+}
+
+Construct *argon::lang::parser::FunctionNew(Pos start, String *name, List *params, Node *block, bool pub) {
+    Construct *func;
+
+    if ((func = ArObjectNew<Construct>(RCType::INLINE, type_ast_func_)) != nullptr) {
+        func->start = start;
+        func->end = block->end;
+        func->colno = 0;
+        func->lineno = 0;
+
+        func->name = name;
+        func->params = params;
+        func->block = block;
+        func->pub = pub;
+    }
+
+    return nullptr;
+}

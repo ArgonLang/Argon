@@ -24,12 +24,23 @@ namespace argon::lang::parser {
 
     // extern const object::TypeInfo *type_ast_node_;
 
+    struct Assignment : Node {
+        bool pub;
+        bool weak;
+
+        object::ArObject *name;
+        object::ArObject *value;
+    };
+    extern const object::TypeInfo *type_ast_let_;
+    extern const object::TypeInfo *type_ast_var_;
+
     struct Unary : Node {
         object::ArObject *value;
     };
     extern const object::TypeInfo *type_ast_unary_;
     extern const object::TypeInfo *type_ast_literal_;
     extern const object::TypeInfo *type_ast_identifier_;
+    extern const object::TypeInfo *type_ast_scope_;
     extern const object::TypeInfo *type_ast_restid_;
     extern const object::TypeInfo *type_ast_spread_;
     extern const object::TypeInfo *type_ast_list_;
@@ -37,6 +48,8 @@ namespace argon::lang::parser {
     extern const object::TypeInfo *type_ast_map_;
     extern const object::TypeInfo *type_ast_set_;
     extern const object::TypeInfo *type_ast_expression_;
+    extern const object::TypeInfo *type_ast_list_decl_;
+    extern const object::TypeInfo *type_ast_block_;
 
     struct Binary : Node {
         object::ArObject *left;
@@ -79,6 +92,17 @@ namespace argon::lang::parser {
     };
     extern const object::TypeInfo *type_ast_file_;
 
+    struct Construct : Node {
+        object::String *name;
+        object::ArObject *params;
+        Node *block;
+
+        bool pub;
+    };
+    extern const object::TypeInfo *type_ast_func_;
+    extern const object::TypeInfo *type_ast_trait_;
+    extern const object::TypeInfo *type_ast_struct_;
+
     Unary *UnaryNew(scanner2::TokenType kind, scanner2::Pos start, Node *right);
 
     Unary *SpreadNew(Node *left, scanner2::Pos end);
@@ -90,6 +114,10 @@ namespace argon::lang::parser {
     Binary *InitNew(Node *left, object::ArObject *args, scanner2::Pos end, bool kwinit);
 
     Subscript *SubscriptNew(object::ArObject *left, bool slice);
+
+    Assignment *AssignmentNew(scanner2::Token &token, bool constant, bool pub, bool weak);
+
+    Construct *FunctionNew(scanner2::Pos start, argon::object::String *name, object::List *params, Node *block, bool pub);
 }
 
 #endif // !ARGON_LANG_PARSER_NODES_H_

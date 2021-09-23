@@ -45,7 +45,17 @@ namespace argon::lang::parser {
         [[nodiscard]] argon::object::ArObject *
         ParseArgsKwargs(const char *partial_error, const char *error, bool *is_kwargs);
 
+        [[nodiscard]] argon::object::ArObject *TraitList();
+
+        [[nodiscard]] Node *ParseBlock();
+
+        [[nodiscard]] Node *TypeDeclBlock(bool is_struct);
+
+        [[nodiscard]] Node *ParseScope();
+
         [[nodiscard]] Node *Expression();
+
+        [[nodiscard]] Node *ParseVarDecl(bool constant, bool pub);
 
         [[nodiscard]] Node *ParseElvis(Node *left);
 
@@ -54,6 +64,8 @@ namespace argon::lang::parser {
         [[nodiscard]] inline Node *ParseExpr() { return this->ParseExpr(0); }
 
         [[nodiscard]] Node *ParseFnCall(Node *left);
+
+        [[nodiscard]] Node *FuncDecl(bool pub);
 
         [[nodiscard]] Node *ParseIdentifier();
 
@@ -75,13 +87,23 @@ namespace argon::lang::parser {
 
         [[nodiscard]] Node *ParsePrefix();
 
+        [[nodiscard]] Node *ParseDecls();
+
+        [[nodiscard]] Node *ParseStatement();
+
+        [[nodiscard]] Node *StructDecl(bool pub);
+
         [[nodiscard]] Node *ParseSubscript(Node *left);
 
         [[nodiscard]] Node *ParseTernary(Node *left);
 
         [[nodiscard]] Node *ParseTestList();
 
+        [[nodiscard]] Node *TraitDecl(bool pub);
+
         [[nodiscard]] Node *ParseTupleLambda();
+
+        [[nodiscard]] Node *SmallDecl(bool pub);
 
         [[nodiscard]] NudMeth LookupNud();
 
@@ -92,7 +114,6 @@ namespace argon::lang::parser {
 
         File *Parse();
     };
-
 
 }  // namespace argon::lang::parser
 
