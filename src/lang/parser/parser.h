@@ -45,7 +45,11 @@ namespace argon::lang::parser {
         [[nodiscard]] argon::object::ArObject *
         ParseArgsKwargs(const char *partial_error, const char *error, bool *is_kwargs);
 
+        [[nodiscard]] object::ArObject *ScopeAsNameList(bool id_only, bool with_alias);
+
         [[nodiscard]] argon::object::ArObject *TraitList();
+
+        [[nodiscard]] Node *ParseOOBCall();
 
         [[nodiscard]] Node *ParseBlock();
 
@@ -65,17 +69,29 @@ namespace argon::lang::parser {
 
         [[nodiscard]] Node *ParseFnCall(Node *left);
 
+        [[nodiscard]] Node *ParseFromImport();
+
+        [[nodiscard]] Node *ParseFor();
+
         [[nodiscard]] Node *FuncDecl(bool pub);
 
         [[nodiscard]] Node *ParseIdentifier();
+
+        [[nodiscard]] Node *ParseJmpStmt();
 
         [[nodiscard]] Node *ParseList();
 
         [[nodiscard]] Node *ParseLiteral();
 
+        [[nodiscard]] Node *ParseLoop();
+
+        [[nodiscard]] Node *ParseIf();
+
         [[nodiscard]] Node *ParseInfix(Node *left);
 
         [[nodiscard]] Node *ParseInitialization(Node *left);
+
+        [[nodiscard]] Node *ParseImport();
 
         [[nodiscard]] Node *ParseMapSet();
 
@@ -87,9 +103,15 @@ namespace argon::lang::parser {
 
         [[nodiscard]] Node *ParsePrefix();
 
+        [[nodiscard]] Node *ParseReturn();
+
         [[nodiscard]] Node *ParseDecls();
 
         [[nodiscard]] Node *ParseStatement();
+
+        [[nodiscard]] Node *SwitchCase();
+
+        [[nodiscard]] Node *SwitchDecl();
 
         [[nodiscard]] Node *StructDecl(bool pub);
 
@@ -103,11 +125,15 @@ namespace argon::lang::parser {
 
         [[nodiscard]] Node *ParseTupleLambda();
 
+        [[nodiscard]] Node *ScopeAsName(bool id_only, bool with_alias);
+
         [[nodiscard]] Node *SmallDecl(bool pub);
 
         [[nodiscard]] NudMeth LookupNud();
 
         void Eat();
+
+        void EatTerm();
 
     public:
         Parser(scanner2::Scanner *scanner, const char *filename);

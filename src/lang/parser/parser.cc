@@ -17,6 +17,22 @@ using namespace argon::object;
 using namespace argon::lang::scanner2;
 using namespace argon::lang::parser;
 
+bool IsIdentifiersList(Node *node) {
+    auto *ast_list = (Unary *) node;
+    auto *list = (List *) ast_list->value;
+
+    if (!AR_TYPEOF(node, type_ast_list_))
+        return false;
+
+    // All items into list must be IDENTIFIER
+    for (int i = 0; i < list->len; i++) {
+        if (!AR_TYPEOF(list->objects[i], type_ast_identifier_))
+            return false;
+    }
+
+    return true;
+}
+
 int PeekPrecedence(TokenType type) {
     switch (type) {
         case TokenType::ELVIS:
@@ -70,24 +86,22 @@ inline bool Parser::IsLiteral() {
 }
 
 bool Parser::MatchEat(TokenType type, bool eat_nl) {
-    if (!this->Match(type)) {
-        if (eat_nl) {
-            while (this->Match(TokenType::END_OF_LINE, TokenType::SEMICOLON))
-                this->Eat();
+    bool match;
 
-            if (this->Match(type)) {
-                while (this->Match(TokenType::END_OF_LINE, TokenType::SEMICOLON))
-                    this->Eat();
-
-                return true;
-            }
-        }
-
-        return false;
+    if (eat_nl) {
+        while (this->Match(TokenType::END_OF_LINE))
+            this->Eat();
     }
 
-    this->Eat();
-    return true;
+    if ((match = this->Match(type)))
+        this->Eat();
+
+    if (eat_nl) {
+        while (this->Match(TokenType::END_OF_LINE))
+            this->Eat();
+    }
+
+    return match;
 }
 
 bool Parser::TokenInRange(TokenType begin, TokenType end) const {
@@ -182,7 +196,9 @@ ArObject *Parser::ParseArgsKwargs(const char *partial_error, const char *error, 
 
     *is_kwargs = true;
 
-    if (!this->MatchEat(TokenType::RIGHT_BRACES, true)) {
+    this->EatTerm();
+
+    if (!this->Match(TokenType::RIGHT_BRACES)) {
         *is_kwargs = false;
         do {
             count++;
@@ -245,6 +261,71 @@ argon::object::ArObject *Parser::TraitList() {
     return traits;
 }
 
+ArObject *Parser::ScopeAsNameList(bool id_only, bool with_alias) {
+    List *imports = nullptr;
+    Node *imp;
+
+    if ((imp = this->ScopeAsName(id_only, with_alias)) == nullptr)
+        return nullptr;
+
+    if (this->Match(TokenType::COMMA)) {
+        if ((imports = ListNew()) == nullptr) {
+            Release(imp);
+            return nullptr;
+        }
+
+        if (!ListAppend(imports, imp)) {
+            Release(imp);
+            Release(imports);
+            return nullptr;
+        }
+
+        Release(imp);
+
+        while (this->MatchEat(TokenType::COMMA, false)) {
+            if ((imp = this->ScopeAsName(id_only, with_alias)) == nullptr) {
+                Release(imports);
+                return nullptr;
+            }
+
+            if (!ListAppend(imports, imp)) {
+                Release(imp);
+                Release(imports);
+                return nullptr;
+            }
+
+            Release(imp);
+        }
+    }
+
+    if (imports != nullptr)
+        return imports;
+
+    return imp;
+}
+
+Node *Parser::ParseOOBCall() {
+    Pos start = this->tkcur_.start;
+    TokenType kind = this->tkcur_.type;
+    Node *call;
+
+    this->Eat();
+
+    if ((call = this->ParseExpr()) == nullptr)
+        return nullptr;
+
+    if (!AR_TYPEOF(call, type_ast_call_)) {
+        Release(call);
+        return (Node *) ErrorFormat(type_syntax_error_, "%s expect call expression",
+                                    kind == TokenType::DEFER ? "defer" : "spawn");
+    }
+
+    call->start = start;
+    call->kind = kind;
+
+    return call;
+}
+
 Node *Parser::ParseBlock() {
     Node *tmp;
     List *stmt;
@@ -259,6 +340,7 @@ Node *Parser::ParseBlock() {
     if ((stmt = ListNew()) == nullptr)
         return nullptr;
 
+    end = this->tkcur_.end;
     while (!this->MatchEat(TokenType::RIGHT_BRACES, true)) {
         if ((tmp = this->SmallDecl(false)) == nullptr) {
             Release(stmt);
@@ -567,7 +649,7 @@ Node *Parser::ParseVarDecl(bool constant, bool pub) {
             }
 
             end = tmp->end;
-            ((Assignment *) lets->objects[index++])->end = tmp->end;
+            ((Assignment *) lets->objects[index])->end = tmp->end;
             ((Assignment *) lets->objects[index++])->value = tmp;
         } while (this->MatchEat(TokenType::COMMA, true));
     } else {
@@ -719,6 +801,129 @@ Node *Parser::ParseFnCall(Node *left) {
     return nullptr;
 }
 
+Node *Parser::ParseFromImport() {
+    ArObject *imports = nullptr;
+    Node *module;
+    ImportDecl *ret;
+    Pos start;
+    Pos end;
+
+    start = this->tkcur_.start;
+    this->Eat();
+
+    if ((module = this->ScopeAsName(false, false)) == nullptr)
+        return nullptr;
+
+    if (!this->MatchEat(TokenType::IMPORT, false)) {
+        Release(module);
+        return nullptr;
+    }
+
+    if (!this->Match(TokenType::ASTERISK)) {
+        if ((imports = this->ScopeAsNameList(true, true)) == nullptr) {
+            Release(module);
+            return nullptr;
+        }
+    } else {
+        end = this->tkcur_.end;
+        this->Eat();
+    }
+
+    if ((ret = ImportNew(module, imports, start)) == nullptr) {
+        Release(module);
+        Release(imports);
+        return nullptr;
+    }
+
+    if (imports == nullptr)
+        ret->end = end;
+
+    return ret;
+}
+
+Node *Parser::ParseFor() {
+    const TypeInfo *type = type_ast_for_;
+    Node *init = nullptr;
+    Node *test = nullptr;
+    Node *inc = nullptr;
+    Node *body = nullptr;
+    Loop *loop;
+    Pos start;
+
+    start = this->tkcur_.start;
+    this->Eat();
+
+    if (!this->MatchEat(TokenType::SEMICOLON, false)) {
+        if (this->Match(TokenType::VAR))
+            init = this->ParseVarDecl(false, false);
+        else
+            init = this->ParseTestList();
+
+        if (init == nullptr)
+            goto ERROR;
+    }
+
+    if (this->MatchEat(TokenType::IN, false)) {
+        type = type_ast_for_in_;
+
+        if (init == nullptr || (!AR_TYPEOF(init, type_ast_identifier_) && !AR_TYPEOF(init, type_ast_list_))) {
+            Release(init);
+            return (Node *) ErrorFormat(type_syntax_error_, "expected identifier or tuple before 'in'");
+        }
+
+        if (!IsIdentifiersList(init)) {
+            Release(init);
+            return (Node *) ErrorFormat(type_syntax_error_, "expected identifiers list");
+        }
+    } else {
+        if (!this->MatchEat(TokenType::SEMICOLON, true)) {
+            Release(init);
+            return (Node *) ErrorFormat(type_syntax_error_, "expected ';' after for 'init'");
+        }
+    }
+
+    if (type == type_ast_for_) {
+        if ((test = this->ParseExpr()) == nullptr)
+            goto ERROR;
+
+        if (!this->MatchEat(TokenType::SEMICOLON, true)) {
+            ErrorFormat(type_syntax_error_, "expected ';' after for 'test'");
+            goto ERROR;
+        }
+
+        if ((inc = this->ParseExpr()) == nullptr)
+            goto ERROR;
+    } else {
+        if ((test = this->ParseExpr()) == nullptr)
+            goto ERROR;
+    }
+
+    if ((body = this->ParseBlock()) == nullptr)
+        goto ERROR;
+
+    if ((loop = ArObjectNew<Loop>(RCType::INLINE, type)) == nullptr)
+        goto ERROR;
+
+    loop->start = start;
+    loop->end = body->end;
+    loop->colno = 0;
+    loop->lineno = 0;
+
+    loop->init = init;
+    loop->test = test;
+    loop->inc = inc;
+    loop->body = body;
+
+    return loop;
+
+    ERROR:
+    Release(init);
+    Release(test);
+    Release(inc);
+    Release(body);
+    return nullptr;
+}
+
 Node *Parser::FuncDecl(bool pub) {
     String *name = nullptr;
     List *params = nullptr;
@@ -801,6 +1006,37 @@ Node *Parser::ParseIdentifier() {
     this->Eat();
 
     return id;
+}
+
+Node *Parser::ParseJmpStmt() {
+    Pos start = this->tkcur_.start;
+    Pos end = this->tkcur_.end;
+    TokenType kind = this->tkcur_.type;
+    Node *label = nullptr;
+    Unary *ret;
+
+    this->Eat();
+
+    if (this->Match(TokenType::IDENTIFIER)) {
+        if ((label = this->ParseIdentifier()) == nullptr)
+            return nullptr;
+        end = label->end;
+    }
+
+    if ((ret = ArObjectNew<Unary>(RCType::INLINE, type_ast_jmp_)) == nullptr) {
+        Release(label);
+        return nullptr;
+    }
+
+    ret->kind = kind;
+    ret->start = start;
+    ret->end = end;
+
+    ret->colno = 0;
+    ret->lineno = 0;
+
+    ret->value = label;
+    return ret;
 }
 
 Node *Parser::ParseList() {
@@ -907,6 +1143,81 @@ Node *Parser::ParseLiteral() {
     return literal;
 }
 
+Node *Parser::ParseLoop() {
+    Loop *loop;
+
+    if ((loop = ArObjectNew<Loop>(RCType::INLINE, type_ast_loop_)) == nullptr)
+        return nullptr;
+
+    loop->start = this->tkcur_.start;
+    loop->colno = 0;
+    loop->lineno = 0;
+
+    loop->init = nullptr;
+    loop->test = nullptr;
+    loop->inc = nullptr;
+
+    this->Eat();
+
+    if (this->Match(TokenType::LEFT_BRACES)) {
+        if ((loop->body = this->ParseBlock()) == nullptr) {
+            Release(loop);
+            return nullptr;
+        }
+    } else {
+        if ((loop->test = this->ParseExpr()) == nullptr) {
+            Release(loop);
+            return nullptr;
+        }
+
+        if ((loop->body = this->ParseBlock()) == nullptr) {
+            Release(loop);
+            return nullptr;
+        }
+    }
+
+    loop->end = loop->body->end;
+
+    return loop;
+}
+
+Node *Parser::ParseIf() {
+    Test *test;
+
+    if ((test = ArObjectNew<Test>(RCType::INLINE, type_ast_test_)) == nullptr)
+        return nullptr;
+
+    test->start = this->tkcur_.start;
+
+    this->Eat();
+
+    if ((test->test = this->ParseExpr()) == nullptr)
+        goto ERROR;
+
+    if ((test->body = this->ParseBlock()) == nullptr)
+        goto ERROR;
+
+    test->end = ((Node *) test->body)->end;
+
+    if (this->MatchEat(TokenType::ELIF, false)) {
+        if ((test->orelse = this->ParseIf()) == nullptr)
+            goto ERROR;
+
+        test->end = ((Node *) test->orelse)->end;
+    } else if (this->MatchEat(TokenType::ELSE, false)) {
+        if ((test->orelse = this->ParseBlock()) == nullptr)
+            goto ERROR;
+
+        test->end = ((Node *) test->orelse)->end;
+    }
+
+    return test;
+
+    ERROR:
+    Release(test);
+    return nullptr;
+}
+
 Node *Parser::ParseInfix(Node *left) {
     TokenType kind = this->tkcur_.type;
     Node *right;
@@ -949,6 +1260,24 @@ Node *Parser::ParseInitialization(Node *left) {
         Release(list);
 
     return init;
+}
+
+Node *Parser::ParseImport() {
+    Pos start = this->tkcur_.start;
+    ArObject *imports;
+    ImportDecl *ret;
+
+    this->Eat();
+
+    if ((imports = this->ScopeAsNameList(false, true)) == nullptr)
+        return nullptr;
+
+    if ((ret = ImportNew(nullptr, imports, start)) == nullptr) {
+        Release(imports);
+        return nullptr;
+    }
+
+    return ret;
 }
 
 Node *Parser::ParseMapSet() {
@@ -1068,6 +1397,35 @@ Node *Parser::ParsePrefix() {
     return unary;
 }
 
+Node *Parser::ParseReturn() {
+    Pos start = this->tkcur_.start;
+    Pos end;
+    Unary *tmp;
+
+    this->Eat();
+
+    if ((tmp = ArObjectNew<Unary>(RCType::INLINE, type_ast_ret_)) == nullptr)
+        return nullptr;
+
+    tmp->start = start;
+    tmp->end = this->tkcur_.end;
+    tmp->colno = 0;
+    tmp->lineno = 0;
+
+    tmp->value = nullptr;
+
+    if (!this->Match(TokenType::END_OF_LINE, TokenType::END_OF_FILE, TokenType::SEMICOLON)) {
+        if ((tmp->value = this->ParseTestList()) == nullptr) {
+            Release(tmp);
+            return nullptr;
+        }
+
+        tmp->end = ((Node *) tmp->value)->end;
+    }
+
+    return tmp;
+}
+
 Node *Parser::ParseDecls() {
     Pos start = this->tkcur_.start;
     bool pub = false;
@@ -1094,6 +1452,246 @@ Node *Parser::ParseDecls() {
 }
 
 Node *Parser::ParseStatement() {
+    Pos start = this->tkcur_.start;
+    Node *label = nullptr;
+    Node *tmp;
+    Binary *ret;
+
+    do {
+        if (this->TokenInRange(TokenType::KEYWORD_BEGIN, TokenType::KEYWORD_END)) {
+            switch (this->tkcur_.type) {
+                case TokenType::DEFER:
+                case TokenType::SPAWN:
+                    tmp = this->ParseOOBCall();
+                    break;
+                case TokenType::RETURN:
+                    tmp = this->ParseReturn();
+                    break;
+                case TokenType::IMPORT:
+                    tmp = this->ParseImport();
+                    break;
+                case TokenType::FROM:
+                    tmp = this->ParseFromImport();
+                    break;
+                case TokenType::FOR:
+                    tmp = this->ParseFor();
+                    break;
+                case TokenType::LOOP:
+                    tmp = this->ParseLoop();
+                    break;
+                case TokenType::IF:
+                    tmp = this->ParseIf();
+                    break;
+                case TokenType::SWITCH:
+                    tmp = this->SwitchDecl();
+                    break;
+                case TokenType::BREAK:
+                case TokenType::CONTINUE:
+                case TokenType::FALLTHROUGH:
+                    tmp = this->ParseJmpStmt();
+                    break;
+                default:
+                    break;
+            }
+        } else
+            tmp = this->Expression();
+
+        if (tmp == nullptr) {
+            Release(label);
+            return nullptr;
+        }
+
+        if (!AR_TYPEOF(tmp, type_ast_identifier_) || !this->MatchEat(TokenType::COLON, false))
+            break;
+
+        // Label stmt
+        this->EatTerm();
+
+        if (label != nullptr) {
+            Release(tmp);
+            Release(label);
+            return (Node *) ErrorFormat(type_syntax_error_, "expected statement after label");
+        }
+        label = tmp;
+    } while (true);
+
+    if (label != nullptr) {
+        if ((ret = ArObjectNew<Binary>(RCType::INLINE, type_ast_label_)) == nullptr) {
+            Release(tmp);
+            Release(label);
+            return nullptr;
+        }
+
+        ret->start = start;
+        ret->end = tmp->end;
+        ret->colno = 0;
+        ret->lineno = 0;
+
+        ret->left = label;
+        ret->right = tmp;
+
+        return ret;
+    }
+
+    return tmp;
+}
+
+Node *Parser::SwitchCase() {
+    int last_fallthrough = -1;
+    List *conditions = nullptr;
+    List *body = nullptr;
+    Node *tmp = nullptr;
+    Binary *ret;
+
+    Pos start;
+    Pos end;
+
+    start = this->tkcur_.start;
+
+    if (this->MatchEat(TokenType::CASE, false)) {
+        if ((conditions = ListNew()) == nullptr)
+            return nullptr;
+
+        do {
+            if ((tmp = this->ParseExpr()) == nullptr)
+                goto ERROR;
+
+            if (!ListAppend(conditions, tmp)) {
+                Release(tmp);
+                goto ERROR;
+            }
+
+            end = tmp->end;
+            Release(tmp);
+        } while (this->MatchEat(TokenType::SEMICOLON, true));
+    } else if (!this->MatchEat(TokenType::DEFAULT, false))
+        return (Node *) ErrorFormat(type_syntax_error_, "expected 'case' or 'default' label");
+
+    if (!this->MatchEat(TokenType::COLON, true)) {
+        Release(conditions);
+        return (Node *) ErrorFormat(type_syntax_error_, "expected ':' after %s label",
+                                    conditions == nullptr ? "default" : "case");
+    }
+
+    while (!this->Match(TokenType::CASE, TokenType::DEFAULT, TokenType::RIGHT_BRACES)) {
+        if ((body = ListNew()) == nullptr)
+            goto ERROR;
+
+        if ((tmp = this->SmallDecl(false)) == nullptr)
+            goto ERROR;
+
+        if (!ListAppend(body, tmp)) {
+            Release(tmp);
+            goto ERROR;
+        }
+
+        if (AR_TYPEOF(tmp, type_ast_jmp_) && tmp->kind == TokenType::FALLTHROUGH)
+            last_fallthrough = (int) body->len;
+
+        end = tmp->end;
+        Release(tmp);
+
+        this->EatTerm();
+    }
+
+    // Check fallthrough
+    if (last_fallthrough != -1 && last_fallthrough != body->len - 1) {
+        Release(conditions);
+        Release(body);
+        return (Node *) ErrorFormat(type_syntax_error_, "fallthrough statement out of place");
+    }
+
+    if ((ret = ArObjectNew<Binary>(RCType::INLINE, type_ast_switch_case_)) == nullptr)
+        goto ERROR;
+
+    ret->start = start;
+    ret->end = end;
+    ret->colno = 0;
+    ret->lineno = 0;
+
+    ret->left = conditions;
+    ret->right = body;
+
+    return ret;
+
+    ERROR:
+    Release(conditions);
+    Release(body);
+    return nullptr;
+}
+
+Node *Parser::SwitchDecl() {
+    List *cases = nullptr;
+    Node *test = nullptr;
+    Node *tmp;
+    Binary *ret;
+    Pos start;
+    Pos end;
+
+    bool def = false;
+
+    start = this->tkcur_.start;
+    this->Eat();
+
+    if (!this->Match(TokenType::LEFT_BRACES))
+        if ((test = this->ParseExpr()) == nullptr)
+            return nullptr;
+
+    if (!this->MatchEat(TokenType::LEFT_BRACES, false)) {
+        Release(test);
+        return (Node *) ErrorFormat(type_syntax_error_, "expected '{' after switch declaration");
+    }
+
+    this->EatTerm();
+
+    if ((cases = ListNew()) == nullptr) {
+        Release(test);
+        return nullptr;
+    }
+
+    while (this->Match(TokenType::CASE, TokenType::DEFAULT)) {
+        if (this->Match(TokenType::DEFAULT)) {
+            if (def) {
+                ErrorFormat(type_syntax_error_, "default case already defined");
+                goto ERROR;
+            }
+            def = true;
+        }
+
+        if ((tmp = this->SwitchCase()) == nullptr)
+            goto ERROR;
+
+        if (!ListAppend(cases, tmp)) {
+            Release(tmp);
+            goto ERROR;
+        }
+
+        Release(tmp);
+    }
+
+    end = this->tkcur_.end;
+
+    if (this->MatchEat(TokenType::RIGHT_BRACES, true)) {
+        ErrorFormat(type_syntax_error_, "expected '}' after switch declaration");
+        goto ERROR;
+    }
+
+    if ((ret = ArObjectNew<Binary>(RCType::INLINE, type_ast_switch_)) == nullptr)
+        goto ERROR;
+
+    ret->start = start;
+    ret->end = end;
+    ret->colno = 0;
+    ret->lineno = 0;
+
+    ret->left = test;
+    ret->right = cases;
+
+    return ret;
+
+    ERROR:
+    Release(test);
+    Release(cases);
     return nullptr;
 }
 
@@ -1251,6 +1849,7 @@ Node *Parser::ParseTernary(Node *left) {
 Node *Parser::ParseTestList() {
     List *list = nullptr;
     Node *tmp;
+    Unary *ret;
     Pos start;
     Pos end;
 
@@ -1258,35 +1857,41 @@ Node *Parser::ParseTestList() {
     start = tmp->start;
     end = tmp->end;
 
-    while (this->MatchEat(TokenType::COMMA, true)) {
-        if (list == nullptr) {
-            if ((list = ListNew()) == nullptr) {
+    this->EatTerm();
+
+    if (this->Match(TokenType::COMMA)) {
+        do {
+            if (list == nullptr) {
+                if ((list = ListNew()) == nullptr) {
+                    Release(tmp);
+                    return nullptr;
+                }
+            } else
+                tmp = this->ParseExpr();
+
+            if (!ListAppend(list, tmp)) {
                 Release(tmp);
+                Release(list);
                 return nullptr;
             }
-        } else
-            tmp = this->ParseExpr();
 
-        if (!ListAppend(list, tmp)) {
+            end = tmp->end;
             Release(tmp);
+        } while (this->MatchEat(TokenType::COMMA, true));
+
+        if ((ret = ArObjectNew<Unary>(RCType::INLINE, type_ast_list_)) == nullptr) {
             Release(list);
             return nullptr;
         }
 
-        end = tmp->end;
-        Release(tmp);
-    }
+        ret->start = start;
+        ret->end = end;
+        ret->colno = 0;
+        ret->lineno = 0;
+        ((Unary *) ret)->value = list;
 
-    if ((tmp = ArObjectNew<Unary>(RCType::INLINE, type_ast_list_)) == nullptr) {
-        Release(list);
-        return nullptr;
+        return ret;
     }
-
-    tmp->start = start;
-    tmp->end = end;
-    tmp->colno = 0;
-    tmp->lineno = 0;
-    ((Unary *) tmp)->value = list;
 
     return tmp;
 }
@@ -1439,6 +2044,113 @@ Node *Parser::ParseTupleLambda() {
     return nullptr;
 }
 
+Node *Parser::ScopeAsName(bool id_only, bool with_alias) {
+    Binary *ret;
+    String *id;
+    String *paths;
+    String *scope_sep;
+    String *tmp;
+
+    Pos start;
+    Pos end;
+
+    if (!this->Match(TokenType::IDENTIFIER)) {
+        if (id_only)
+            return (Node *) ErrorFormat(type_syntax_error_, "expected name");
+        return (Node *) ErrorFormat(type_syntax_error_, "expected name or scope path");
+    }
+
+    if ((paths = StringNew((const char *) this->tkcur_.buf)) == nullptr)
+        return nullptr;
+
+    start = this->tkcur_.start;
+    this->Eat();
+
+    if (this->MatchEat(TokenType::SCOPE, false)) {
+        if (id_only) {
+            Release(paths);
+            return (Node *) ErrorFormat(type_syntax_error_, "expected name not scope path");
+        }
+
+        if ((scope_sep = StringIntern("::")) == nullptr) {
+            Release(paths);
+            return nullptr;
+        }
+
+        do {
+            if ((tmp = StringConcat(paths, scope_sep)) == nullptr)
+                goto ERROR;
+
+            Release(paths);
+
+            paths = tmp;
+
+            if (!this->Match(TokenType::IDENTIFIER)) {
+                ErrorFormat(type_syntax_error_, "expected name after scope separator");
+                goto ERROR;
+            }
+
+            if ((id = StringNew((const char *) this->tkcur_.buf)) == nullptr)
+                goto ERROR;
+
+            end = this->tkcur_.end;
+            this->Eat();
+
+            if ((tmp = StringConcat(paths, id)) == nullptr) {
+                Release(id);
+                goto ERROR;
+            }
+            Release(id);
+            Release(paths);
+
+            paths = tmp;
+
+        } while (this->MatchEat(TokenType::SCOPE, false));
+
+        Release(scope_sep);
+    }
+
+    id = nullptr;
+
+    if (with_alias) {
+        if (this->MatchEat(TokenType::AS, false)) {
+            if (!this->Match(TokenType::IDENTIFIER)) {
+                Release(paths);
+                return (Node *) ErrorFormat(type_syntax_error_, "expected alias name");
+            }
+
+            if ((id = StringNew((const char *) this->tkcur_.buf)) == nullptr) {
+                Release(paths);
+                return nullptr;
+            }
+
+            end = this->tkcur_.end;
+            this->Eat();
+        }
+    }
+
+    if ((ret = ArObjectNew<Binary>(RCType::INLINE, type_ast_import_name_)) == nullptr) {
+        Release(paths);
+        Release(id);
+        return nullptr;
+    }
+
+    ret->start = start;
+    ret->end = end;
+    ret->lineno = 0;
+    ret->colno = 0;
+
+    ret->left = paths;
+    ret->right = id;
+
+    return ret;
+
+    ERROR:
+    Release(paths);
+    Release(scope_sep);
+    return nullptr;
+}
+
 Node *Parser::SmallDecl(bool pub) {
     switch (this->tkcur_.type) {
         case TokenType::WEAK:
@@ -1483,6 +2195,11 @@ NudMeth Parser::LookupNud() {
 
 void Parser::Eat() {
     this->tkcur_ = this->scanner_->NextToken();
+}
+
+void Parser::EatTerm() {
+    while (this->Match(TokenType::END_OF_LINE, TokenType::SEMICOLON))
+        this->Eat();
 }
 
 Parser::Parser(Scanner *scanner, const char *filename) {

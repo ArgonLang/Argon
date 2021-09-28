@@ -66,6 +66,18 @@ void construct_cleanup(Construct *self) {
     Release(self->block);
 }
 
+void loop_cleanup(Loop *self){
+    Release(self->init);
+    Release(self->test);
+    Release(self->inc);
+    Release(self->body);
+}
+
+void import_cleanup(ImportDecl *self){
+    Release(self->module);
+    Release(self->names);
+}
+
 #define NODE_GENERIC(name, doc, size, dtor, compare, str, obslot, ptr_name) \
 const TypeInfo name##_ = {                                                  \
     TYPEINFO_STATIC_INIT,                                                   \
@@ -113,6 +125,8 @@ UNARY_NEW(Set, "", argon::lang::parser::type_ast_set_);
 UNARY_NEW(Expression, "", argon::lang::parser::type_ast_expression_);
 UNARY_NEW(DeclList, "", argon::lang::parser::type_ast_list_decl_);
 UNARY_NEW(Block, "", argon::lang::parser::type_ast_block_);
+UNARY_NEW(Return, "", argon::lang::parser::type_ast_ret_);
+UNARY_NEW(JmpDecl, "", argon::lang::parser::type_ast_jmp_);
 
 BINARY_NEW(Binary, "", argon::lang::parser::type_ast_binary_);
 BINARY_NEW(Selector, "", argon::lang::parser::type_ast_selector_);
@@ -120,6 +134,10 @@ BINARY_NEW(StructInit, "", argon::lang::parser::type_ast_init_);
 BINARY_NEW(StructKwInit, "", argon::lang::parser::type_ast_kwinit_);
 BINARY_NEW(Assignment, "", argon::lang::parser::type_ast_assignment_);
 BINARY_NEW(Call, "", argon::lang::parser::type_ast_call_);
+BINARY_NEW(ImportName, "", argon::lang::parser::type_ast_import_name_);
+BINARY_NEW(SwitchCase, "", argon::lang::parser::type_ast_switch_case_);
+BINARY_NEW(Switch, "", argon::lang::parser::type_ast_switch_);
+BINARY_NEW(Label, "", argon::lang::parser::type_ast_label_);
 
 NODE_GENERIC(LetDecl, "", sizeof(argon::lang::parser::Assignment), assignment_cleanup, nullptr, nullptr, nullptr,
              argon::lang::parser::type_ast_let_);
@@ -153,6 +171,18 @@ NODE_GENERIC(TraitDecl, "", sizeof(argon::lang::parser::Construct), construct_cl
 
 NODE_GENERIC(StructDecl, "", sizeof(argon::lang::parser::Construct), construct_cleanup, nullptr, nullptr, nullptr,
              argon::lang::parser::type_ast_struct_);
+
+NODE_GENERIC(Loop, "", sizeof(argon::lang::parser::Loop), loop_cleanup, nullptr, nullptr, nullptr,
+             argon::lang::parser::type_ast_loop_);
+
+NODE_GENERIC(ForDecl, "", sizeof(argon::lang::parser::Loop), loop_cleanup, nullptr, nullptr, nullptr,
+             argon::lang::parser::type_ast_for_);
+
+NODE_GENERIC(ForInDecl, "", sizeof(argon::lang::parser::Loop), loop_cleanup, nullptr, nullptr, nullptr,
+             argon::lang::parser::type_ast_for_in_);
+
+NODE_GENERIC(ImportDecl, "", sizeof(argon::lang::parser::ImportDecl), import_cleanup, nullptr, nullptr, nullptr,
+             argon::lang::parser::type_ast_import_decl_);
 
 Unary *argon::lang::parser::UnaryNew(TokenType kind, Pos start, Node *right) {
     Unary *unary;
@@ -294,4 +324,30 @@ Construct *argon::lang::parser::FunctionNew(Pos start, String *name, List *param
     }
 
     return nullptr;
+}
+
+ImportDecl *argon::lang::parser::ImportNew(Node *module, object::ArObject *names, scanner2::Pos start) {
+    ImportDecl *imp;
+
+    if ((imp = ArObjectNew<ImportDecl>(RCType::INLINE, type_ast_import_decl_)) != nullptr) {
+        imp->start = start;
+        imp->star = true;
+
+        if (names != nullptr) {
+            imp->star = false;
+            if (AR_TYPEOF(names, type_list_)) {
+                auto *list = (List *) names;
+                imp->end = ((Node *) list->objects[list->len - 1])->end;
+            } else
+                imp->end = ((Node *) names)->end;
+        }
+
+        imp->colno = 0;
+        imp->lineno = 0;
+
+        imp->module = module;
+        imp->names = names;
+    }
+
+    return imp;
 }

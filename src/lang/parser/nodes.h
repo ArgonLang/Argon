@@ -50,6 +50,8 @@ namespace argon::lang::parser {
     extern const object::TypeInfo *type_ast_expression_;
     extern const object::TypeInfo *type_ast_list_decl_;
     extern const object::TypeInfo *type_ast_block_;
+    extern const object::TypeInfo *type_ast_ret_;
+    extern const object::TypeInfo *type_ast_jmp_;
 
     struct Binary : Node {
         object::ArObject *left;
@@ -61,6 +63,10 @@ namespace argon::lang::parser {
     extern const object::TypeInfo *type_ast_kwinit_;
     extern const object::TypeInfo *type_ast_assignment_;
     extern const object::TypeInfo *type_ast_call_;
+    extern const object::TypeInfo *type_ast_import_name_;
+    extern const object::TypeInfo *type_ast_switch_case_;
+    extern const object::TypeInfo *type_ast_switch_;
+    extern const object::TypeInfo *type_ast_label_;
 
     struct UpdateIncDec : Node {
         object::ArObject *value;
@@ -86,6 +92,16 @@ namespace argon::lang::parser {
     extern const object::TypeInfo *type_ast_elvis_;
     extern const object::TypeInfo *type_ast_test_;
 
+    struct Loop : Node {
+        Node *init;
+        Node *test;
+        Node *inc;
+        Node *body;
+    };
+    extern const object::TypeInfo *type_ast_loop_;
+    extern const object::TypeInfo *type_ast_for_;
+    extern const object::TypeInfo *type_ast_for_in_;
+
     struct File : Node {
         object::String *name;
         object::List *decls;
@@ -103,6 +119,13 @@ namespace argon::lang::parser {
     extern const object::TypeInfo *type_ast_trait_;
     extern const object::TypeInfo *type_ast_struct_;
 
+    struct ImportDecl : Node {
+        Node *module;
+        object::ArObject *names;
+        bool star;
+    };
+    extern const object::TypeInfo *type_ast_import_decl_;
+
     Unary *UnaryNew(scanner2::TokenType kind, scanner2::Pos start, Node *right);
 
     Unary *SpreadNew(Node *left, scanner2::Pos end);
@@ -117,7 +140,10 @@ namespace argon::lang::parser {
 
     Assignment *AssignmentNew(scanner2::Token &token, bool constant, bool pub, bool weak);
 
-    Construct *FunctionNew(scanner2::Pos start, argon::object::String *name, object::List *params, Node *block, bool pub);
+    Construct *
+    FunctionNew(scanner2::Pos start, argon::object::String *name, object::List *params, Node *block, bool pub);
+
+    ImportDecl *ImportNew(Node *module, object::ArObject *names, scanner2::Pos start);
 }
 
 #endif // !ARGON_LANG_PARSER_NODES_H_
