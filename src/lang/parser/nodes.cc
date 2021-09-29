@@ -323,7 +323,7 @@ Construct *argon::lang::parser::FunctionNew(Pos start, String *name, List *param
         func->pub = pub;
     }
 
-    return nullptr;
+    return func;
 }
 
 ImportDecl *argon::lang::parser::ImportNew(Node *module, object::ArObject *names, scanner2::Pos start) {

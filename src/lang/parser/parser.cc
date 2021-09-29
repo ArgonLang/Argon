@@ -35,43 +35,45 @@ bool IsIdentifiersList(Node *node) {
 
 int PeekPrecedence(TokenType type) {
     switch (type) {
+        case TokenType::LEFT_BRACES:
+            return 10;
         case TokenType::ELVIS:
         case TokenType::QUESTION:
-            return 5;
-        case TokenType::OR:
-            return 10;
-        case TokenType::AND:
             return 20;
-        case TokenType::PIPE:
+        case TokenType::OR:
             return 30;
-        case TokenType::CARET:
+        case TokenType::AND:
             return 40;
+        case TokenType::PIPE:
+            return 50;
+        case TokenType::CARET:
+            return 60;
         case TokenType::EQUAL_EQUAL:
         case TokenType::NOT_EQUAL:
-            return 50;
+            return 70;
         case TokenType::LESS:
         case TokenType::LESS_EQ:
         case TokenType::GREATER:
         case TokenType::GREATER_EQ:
-            return 60;
+            return 80;
         case TokenType::SHL:
         case TokenType::SHR:
-            return 70;
+            return 90;
         case TokenType::PLUS:
         case TokenType::MINUS:
-            return 80;
+            return 100;
         case TokenType::ASTERISK:
         case TokenType::SLASH:
         case TokenType::SLASH_SLASH:
         case TokenType::PERCENT:
-            return 90;
+            return 110;
         case TokenType::PLUS_PLUS:
         case TokenType::MINUS_MINUS:
         case TokenType::LEFT_SQUARE:
         case TokenType::LEFT_ROUND:
         case TokenType::DOT:
         case TokenType::QUESTION_DOT:
-            return 100;
+            return 120;
         default:
             return 1000;
     }
@@ -194,12 +196,11 @@ ArObject *Parser::ParseArgsKwargs(const char *partial_error, const char *error, 
     if ((list = ListNew()) == nullptr)
         return nullptr;
 
-    *is_kwargs = true;
+    *is_kwargs = false;
 
     this->EatTerm();
 
     if (!this->Match(TokenType::RIGHT_BRACES)) {
-        *is_kwargs = false;
         do {
             count++;
             while (true) {
@@ -521,8 +522,8 @@ Node *Parser::ParseScope() {
 }
 
 Node *Parser::Expression() {
+    Node *right = nullptr;
     Node *left;
-    Node *right;
     Node *ret;
 
     TokenType kind;
@@ -883,7 +884,7 @@ Node *Parser::ParseFor() {
     }
 
     if (type == type_ast_for_) {
-        if ((test = this->ParseExpr()) == nullptr)
+        if ((test = this->ParseExpr(11)) == nullptr)
             goto ERROR;
 
         if (!this->MatchEat(TokenType::SEMICOLON, true)) {
@@ -891,10 +892,10 @@ Node *Parser::ParseFor() {
             goto ERROR;
         }
 
-        if ((inc = this->ParseExpr()) == nullptr)
+        if ((inc = this->ParseExpr(11)) == nullptr)
             goto ERROR;
     } else {
-        if ((test = this->ParseExpr()) == nullptr)
+        if ((test = this->ParseExpr(11)) == nullptr)
             goto ERROR;
     }
 
@@ -1165,7 +1166,7 @@ Node *Parser::ParseLoop() {
             return nullptr;
         }
     } else {
-        if ((loop->test = this->ParseExpr()) == nullptr) {
+        if ((loop->test = this->ParseExpr(11)) == nullptr) {
             Release(loop);
             return nullptr;
         }
@@ -1191,7 +1192,7 @@ Node *Parser::ParseIf() {
 
     this->Eat();
 
-    if ((test->test = this->ParseExpr()) == nullptr)
+    if ((test->test = this->ParseExpr(11)) == nullptr)
         goto ERROR;
 
     if ((test->body = this->ParseBlock()) == nullptr)
@@ -1853,7 +1854,9 @@ Node *Parser::ParseTestList() {
     Pos start;
     Pos end;
 
-    tmp = this->ParseExpr();
+    if((tmp = this->ParseExpr())== nullptr)
+        return nullptr;
+    
     start = tmp->start;
     end = tmp->end;
 
@@ -1994,7 +1997,8 @@ Node *Parser::ParseTupleLambda() {
     if (this->MatchEat(TokenType::ARROW, false)) {
         // All items into params list must be IDENTIFIER
         for (int i = 0; i < args->len; i++) {
-            if (!AR_TYPEOF(args->objects[i], type_ast_identifier_)) {
+            auto *obj = args->objects[i];
+            if (!AR_TYPEOF(obj, type_ast_identifier_) && !AR_TYPEOF(obj, type_ast_restid_)) {
                 Release(args);
                 return (Node *) ErrorFormat(type_syntax_error_,
                                             "expected identifier as %d element in arrow definition", i);
