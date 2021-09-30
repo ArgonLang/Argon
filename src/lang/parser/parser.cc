@@ -13,6 +13,10 @@
 
 #include "parser.h"
 
+#define EXPR_NO_ASSIGN      11
+#define EXPR_NO_LIST        21
+#define EXPR_NO_STRUCT_INIT 31
+
 using namespace argon::object;
 using namespace argon::lang::scanner2;
 using namespace argon::lang::parser;
@@ -35,45 +39,53 @@ bool IsIdentifiersList(Node *node) {
 
 int PeekPrecedence(TokenType type) {
     switch (type) {
-        case TokenType::LEFT_BRACES:
+        case TokenType::EQUAL:
+        case TokenType::PLUS_EQ:
+        case TokenType::MINUS_EQ:
+        case TokenType::ASTERISK_EQ:
+        case TokenType::SLASH_EQ:
             return 10;
+        case TokenType::COMMA:
+            return 20;
+        case TokenType::LEFT_BRACES:
+            return 30;
         case TokenType::ELVIS:
         case TokenType::QUESTION:
-            return 20;
-        case TokenType::OR:
-            return 30;
-        case TokenType::AND:
             return 40;
-        case TokenType::PIPE:
+        case TokenType::OR:
             return 50;
-        case TokenType::CARET:
+        case TokenType::AND:
             return 60;
+        case TokenType::PIPE:
+            return 70;
+        case TokenType::CARET:
+            return 80;
         case TokenType::EQUAL_EQUAL:
         case TokenType::NOT_EQUAL:
-            return 70;
+            return 90;
         case TokenType::LESS:
         case TokenType::LESS_EQ:
         case TokenType::GREATER:
         case TokenType::GREATER_EQ:
-            return 80;
+            return 100;
         case TokenType::SHL:
         case TokenType::SHR:
-            return 90;
+            return 110;
         case TokenType::PLUS:
         case TokenType::MINUS:
-            return 100;
+            return 120;
         case TokenType::ASTERISK:
         case TokenType::SLASH:
         case TokenType::SLASH_SLASH:
         case TokenType::PERCENT:
-            return 110;
+            return 130;
         case TokenType::PLUS_PLUS:
         case TokenType::MINUS_MINUS:
         case TokenType::LEFT_SQUARE:
         case TokenType::LEFT_ROUND:
         case TokenType::DOT:
         case TokenType::QUESTION_DOT:
-            return 120;
+            return 140;
         default:
             return 1000;
     }
@@ -163,6 +175,14 @@ LedMeth Parser::LookupLed() const {
             return &Parser::ParseElvis;
         case TokenType::QUESTION:
             return &Parser::ParseTernary;
+        case TokenType::EQUAL:
+        case TokenType::PLUS_EQ:
+        case TokenType::MINUS_EQ:
+        case TokenType::ASTERISK_EQ:
+        case TokenType::SLASH_EQ:
+            return &Parser::ParseAssignment;
+        case TokenType::COMMA:
+            return &Parser::ParseExprList;
         case TokenType::PLUS:
         case TokenType::MINUS:
         case TokenType::ASTERISK:
@@ -204,7 +224,7 @@ ArObject *Parser::ParseArgsKwargs(const char *partial_error, const char *error, 
         do {
             count++;
             while (true) {
-                if ((tmp = this->ParseExpr()) == nullptr)
+                if ((tmp = this->ParseExpr(EXPR_NO_LIST)) == nullptr)
                     goto ERROR;
 
                 if (!ListAppend(list, tmp))
@@ -303,6 +323,43 @@ ArObject *Parser::ScopeAsNameList(bool id_only, bool with_alias) {
         return imports;
 
     return imp;
+}
+
+Node *Parser::ParseAssignment(Node *left) {
+    TokenType kind = this->tkcur_.type;
+    Node *right;
+    Binary *ret;
+
+    this->Eat();
+
+    if (!AR_TYPEOF(left, type_ast_identifier_) && !AR_TYPEOF(left, type_ast_list_))
+        return (Node *) ErrorFormat(type_syntax_error_,
+                                    "expected identifier or list to the left of the assignment expression");
+
+    if (AR_TYPEOF(left, type_ast_list_)) {
+        auto *list = (List *) ((Unary *) left)->value;
+
+        for (int i = 0; i < list->len; i++) {
+            if (!AR_TYPEOF(list->objects[i], type_ast_identifier_)) {
+                Release(left);
+                return (Node *) ErrorFormat(type_syntax_error_,
+                                            "expected identifier as %d element in assignment definition", i);
+            }
+        }
+    }
+
+    if ((right = this->ParseExpr(EXPR_NO_ASSIGN)) == nullptr) {
+        Release(left);
+        return nullptr;
+    }
+
+    if ((ret = BinaryNew(kind, type_ast_assignment_, left, right)) == nullptr) {
+        Release(left);
+        Release(right);
+        return nullptr;
+    }
+
+    return ret;
 }
 
 Node *Parser::ParseOOBCall() {
@@ -526,61 +583,25 @@ Node *Parser::Expression() {
     Node *left;
     Node *ret;
 
-    TokenType kind;
-
-    if ((left = this->ParseTestList()) == nullptr)
+    if ((left = this->ParseExpr()) == nullptr)
         return nullptr;
 
-    kind = this->tkcur_.type;
-
-    if (this->TokenInRange(TokenType::ASSIGNMENT_BEGIN, TokenType::ASSIGNMENT_END)) {
-        this->Eat();
-
-        if (!AR_TYPEOF(left, type_ast_identifier_) && !AR_TYPEOF(left, type_ast_list_)) {
-            Release(left);
-            return (Node *) ErrorFormat(type_syntax_error_,
-                                        "expected identifier to the left of the assignment expression");
-        }
-
-        if (AR_TYPEOF(left, type_ast_list_)) {
-            auto *list = (List *) ((Unary *) left)->value;
-
-            for (int i = 0; i < list->len; i++) {
-                if (!AR_TYPEOF(list->objects[i], type_ast_identifier_)) {
-                    Release(left);
-                    return (Node *) ErrorFormat(type_syntax_error_,
-                                                "expected identifier as %d element in assignment definition", i);
-                }
-            }
-        }
-
-        if ((right = this->ParseTestList()) == nullptr) {
+    if (!AR_TYPEOF(left, type_ast_assignment_)) {
+        if ((ret = ArObjectNew<Unary>(RCType::INLINE, type_ast_expression_)) == nullptr) {
             Release(left);
             return nullptr;
         }
 
-        if ((ret = BinaryNew(kind, type_ast_assignment_, left, right)) == nullptr) {
-            Release(left);
-            Release(right);
-            return nullptr;
-        }
+        ret->start = left->start;
+        ret->end = left->end;
+        ret->colno = 0;
+        ret->lineno = 0;
+        ((Unary *) ret)->value = left;
 
         return ret;
     }
 
-    // expression
-    if ((ret = ArObjectNew<Unary>(RCType::INLINE, type_ast_expression_)) == nullptr) {
-        Release(left);
-        return nullptr;
-    }
-
-    ret->start = left->start;
-    ret->end = left->end;
-    ret->colno = 0;
-    ret->lineno = 0;
-    ((Unary *) ret)->value = left;
-
-    return ret;
+    return left;
 }
 
 Node *Parser::ParseVarDecl(bool constant, bool pub) {
@@ -634,7 +655,7 @@ Node *Parser::ParseVarDecl(bool constant, bool pub) {
 
     if (this->MatchEat(TokenType::EQUAL, true)) {
         do {
-            if ((tmp = this->ParseExpr()) == nullptr)
+            if ((tmp = this->ParseExpr(EXPR_NO_LIST)) == nullptr)
                 goto ERROR;
 
             if (lets == nullptr) {
@@ -754,7 +775,7 @@ Node *Parser::ParseFnCall(Node *left) {
 
     if (!this->Match(TokenType::RIGHT_ROUND)) {
         do {
-            if ((arg = this->ParseExpr()) == nullptr) {
+            if ((arg = this->ParseExpr(EXPR_NO_LIST)) == nullptr) {
                 Release(args);
                 return nullptr;
             }
@@ -858,7 +879,7 @@ Node *Parser::ParseFor() {
         if (this->Match(TokenType::VAR))
             init = this->ParseVarDecl(false, false);
         else
-            init = this->ParseTestList();
+            init = this->ParseExpr();
 
         if (init == nullptr)
             goto ERROR;
@@ -884,7 +905,7 @@ Node *Parser::ParseFor() {
     }
 
     if (type == type_ast_for_) {
-        if ((test = this->ParseExpr(11)) == nullptr)
+        if ((test = this->ParseExpr(EXPR_NO_STRUCT_INIT)) == nullptr)
             goto ERROR;
 
         if (!this->MatchEat(TokenType::SEMICOLON, true)) {
@@ -892,10 +913,10 @@ Node *Parser::ParseFor() {
             goto ERROR;
         }
 
-        if ((inc = this->ParseExpr(11)) == nullptr)
+        if ((inc = this->ParseExpr(EXPR_NO_STRUCT_INIT)) == nullptr)
             goto ERROR;
     } else {
-        if ((test = this->ParseExpr(11)) == nullptr)
+        if ((test = this->ParseExpr(EXPR_NO_STRUCT_INIT)) == nullptr)
             goto ERROR;
     }
 
@@ -1052,7 +1073,7 @@ Node *Parser::ParseList() {
 
     if (!this->MatchEat(TokenType::RIGHT_SQUARE, true)) {
         do {
-            if ((tmp = this->ParseExpr()) == nullptr)
+            if ((tmp = this->ParseExpr(EXPR_NO_LIST)) == nullptr)
                 goto ERROR;
 
             if (!ListAppend(list, tmp))
@@ -1166,7 +1187,7 @@ Node *Parser::ParseLoop() {
             return nullptr;
         }
     } else {
-        if ((loop->test = this->ParseExpr(11)) == nullptr) {
+        if ((loop->test = this->ParseExpr(EXPR_NO_STRUCT_INIT)) == nullptr) {
             Release(loop);
             return nullptr;
         }
@@ -1192,7 +1213,7 @@ Node *Parser::ParseIf() {
 
     this->Eat();
 
-    if ((test->test = this->ParseExpr(11)) == nullptr)
+    if ((test->test = this->ParseExpr(EXPR_NO_STRUCT_INIT)) == nullptr)
         goto ERROR;
 
     if ((test->body = this->ParseBlock()) == nullptr)
@@ -1416,7 +1437,7 @@ Node *Parser::ParseReturn() {
     tmp->value = nullptr;
 
     if (!this->Match(TokenType::END_OF_LINE, TokenType::END_OF_FILE, TokenType::SEMICOLON)) {
-        if ((tmp->value = this->ParseTestList()) == nullptr) {
+        if ((tmp->value = this->ParseExpr(EXPR_NO_ASSIGN)) == nullptr) {
             Release(tmp);
             return nullptr;
         }
@@ -1847,56 +1868,53 @@ Node *Parser::ParseTernary(Node *left) {
     return test;
 }
 
-Node *Parser::ParseTestList() {
-    List *list = nullptr;
-    Node *tmp;
-    Unary *ret;
-    Pos start;
+Node *Parser::ParseExprList(Node *left) {
+    int precedence = PeekPrecedence(this->tkcur_.type);
     Pos end;
+    Unary *ret;
+    Node *tmp;
+    List *list;
 
-    if((tmp = this->ParseExpr())== nullptr)
+    if ((list = ListNew()) == nullptr)
         return nullptr;
-    
-    start = tmp->start;
-    end = tmp->end;
 
-    this->EatTerm();
+    if (!ListAppend(list, left)) {
+        Release(list);
+        return nullptr;
+    }
 
-    if (this->Match(TokenType::COMMA)) {
-        do {
-            if (list == nullptr) {
-                if ((list = ListNew()) == nullptr) {
-                    Release(tmp);
-                    return nullptr;
-                }
-            } else
-                tmp = this->ParseExpr();
+    this->Eat();
 
-            if (!ListAppend(list, tmp)) {
-                Release(tmp);
-                Release(list);
-                return nullptr;
-            }
-
-            end = tmp->end;
-            Release(tmp);
-        } while (this->MatchEat(TokenType::COMMA, true));
-
-        if ((ret = ArObjectNew<Unary>(RCType::INLINE, type_ast_list_)) == nullptr) {
+    do {
+        if ((tmp = this->ParseExpr(precedence)) == nullptr) {
             Release(list);
             return nullptr;
         }
 
-        ret->start = start;
-        ret->end = end;
-        ret->colno = 0;
-        ret->lineno = 0;
-        ((Unary *) ret)->value = list;
+        if (!ListAppend(list, tmp)) {
+            Release(list);
+            Release(tmp);
+            return nullptr;
+        }
 
-        return ret;
+        end = tmp->end;
+        Release(tmp);
+    } while (this->MatchEat(TokenType::COMMA, true));
+
+    if ((ret = ArObjectNew<Unary>(RCType::INLINE, type_ast_list_)) == nullptr) {
+        Release(list);
+        return nullptr;
     }
 
-    return tmp;
+    Release(left); // Already in List!
+
+    ret->start = left->start;
+    ret->end = end;
+    ret->colno = 0;
+    ret->lineno = 0;
+    ((Unary *) ret)->value = list;
+
+    return ret;
 }
 
 Node *Parser::TraitDecl(bool pub) {
@@ -1973,7 +1991,7 @@ Node *Parser::ParseTupleLambda() {
                 if (this->ParseRestElement(&tmp))
                     must_fn = true;
                 else
-                    tmp = this->ParseExpr();
+                    tmp = this->ParseExpr(EXPR_NO_LIST);
 
                 if (tmp == nullptr || !ListAppend(args, tmp))
                     goto ERROR;
@@ -2254,3 +2272,7 @@ File *Parser::Parse() {
 
     return program;
 }
+
+#undef EXPR_NO_ASSIGN
+#undef EXPR_NO_LIST
+#undef EXPR_NO_STRUCT_INIT

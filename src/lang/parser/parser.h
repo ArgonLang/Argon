@@ -49,6 +49,8 @@ namespace argon::lang::parser {
 
         [[nodiscard]] argon::object::ArObject *TraitList();
 
+        [[nodiscard]] Node *ParseAssignment(Node *left);
+
         [[nodiscard]] Node *ParseOOBCall();
 
         [[nodiscard]] Node *ParseBlock();
@@ -119,7 +121,7 @@ namespace argon::lang::parser {
 
         [[nodiscard]] Node *ParseTernary(Node *left);
 
-        [[nodiscard]] Node *ParseTestList();
+        [[nodiscard]] Node *ParseExprList(Node *left);
 
         [[nodiscard]] Node *TraitDecl(bool pub);
 
