@@ -706,9 +706,10 @@ Token Scanner::TokenizeString(Pos start, bool byte_string) {
 }
 
 Token Scanner::TokenizeWord() {
+    TokenType type = TokenType::IDENTIFIER;
     Pos start = this->pos_;
     int value = this->NextChar();
-    TokenType type = TokenType::IDENTIFIER;
+    long delta;
 
     if (value == 'b' && this->PeekChar() == '"') {
         this->NextChar(); // Discard "
@@ -732,7 +733,9 @@ Token Scanner::TokenizeWord() {
     // keywords are longer than one letter
     if ((this->pos_ - start) > 1) {
         for (KwToken kt: kw2tktype) {
-            if (argon::memory::MemoryCompare(kt.keyword, this->tkval.start_, this->pos_ - start) == 0) {
+            delta = this->pos_ - start;
+            if (strlen(kt.keyword) == delta &&
+                argon::memory::MemoryCompare(kt.keyword, this->tkval.start_, delta) == 0) {
                 type = kt.type;
                 break;
             }
