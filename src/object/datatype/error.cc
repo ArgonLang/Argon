@@ -82,7 +82,7 @@ const NativeFunc error_methods[] = {
 };
 
 const NativeMember error_members[] = {
-        {"error",  NativeMemberType::AROBJECT, offsetof(Error, obj), true},
+        {"error", NativeMemberType::AROBJECT, offsetof(Error, obj), true},
         ARGON_MEMBER_SENTINEL
 };
 
@@ -179,6 +179,7 @@ ERROR_SIMPLE(ZeroDivision, "", type_zero_division_);
 
 // Compiler errors
 ERROR_SIMPLE(SyntaxError, "", argon::object::type_syntax_error_);
+ERROR_SIMPLE(CompileError, "", argon::object::type_compile_error_);
 
 // IO Error
 ERROR_SIMPLE(BlockingIO, "", argon::object::type_blocking_io_);
@@ -374,6 +375,7 @@ bool argon::object::ErrorInit() {
 
     // Compiler
     INIT(argon::object::type_syntax_error_);
+    INIT(argon::object::type_compile_error_);
 
     // IO
     INIT(argon::object::type_blocking_io_);
