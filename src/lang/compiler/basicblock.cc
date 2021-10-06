@@ -44,6 +44,9 @@ Instr *argon::lang::compiler::BasicBlockAddInstr(BasicBlock *block, OpCodes op, 
         case OpCodes::LSTATIC:
             op_size = 4;
             break;
+        case OpCodes::CMP:
+            op_size = 2;
+            break;
         default:
             op_size = 1;
     }

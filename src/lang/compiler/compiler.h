@@ -25,6 +25,8 @@ namespace argon::lang::compiler {
 
         bool CompileBinary(argon::lang::parser::Binary *expr);
 
+        bool CompileUnary(argon::lang::parser::Unary *expr);
+
         bool Emit(argon::lang::OpCodes op, int arg);
 
         bool TScopeNew(argon::object::String *name, TUScope scope);

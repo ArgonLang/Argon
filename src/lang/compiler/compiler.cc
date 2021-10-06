@@ -14,14 +14,18 @@ using namespace argon::lang::compiler;
 using namespace argon::object;
 
 bool Compiler::Compile_(Node *node) {
-    if (AR_TYPEOF(node, type_ast_expression_))
-        return this->CompileExpression((Unary *) ((Unary *) node)->value);
+    if (AR_TYPEOF(node, type_ast_expression_)) {
+        if (!this->CompileExpression((Unary *) ((Unary *) node)->value))
+            return false;
+
+        this->Emit(OpCodes::POP, 0);
+    }
 
     ErrorFormat(type_compile_error_, "invalid AST node: %s", AR_TYPE_NAME(node));
     return false;
 }
 
-bool Compiler::CompileBinary(argon::lang::parser::Binary *expr) {
+bool Compiler::CompileBinary(Binary *expr) {
     bool ok = false;
 
     if (!this->CompileExpression((Unary *) expr->left))
@@ -49,6 +53,65 @@ bool Compiler::CompileBinary(argon::lang::parser::Binary *expr) {
         case TokenType::PERCENT:
             ok = this->Emit(OpCodes::MOD, 0);
             break;
+
+            // EQUALITY
+        case TokenType::EQUAL_EQUAL:
+            ok = this->Emit(OpCodes::CMP, (int) CompareMode::EQ);
+            break;
+        case TokenType::NOT_EQUAL:
+            ok = this->Emit(OpCodes::CMP, (int) CompareMode::NE);
+            break;
+
+            // LOGICAL
+        case TokenType::AMPERSAND:
+            ok = this->Emit(OpCodes::LAND, 0);
+            break;
+        case TokenType::CARET:
+            ok = this->Emit(OpCodes::LXOR, 0);
+            break;
+        case TokenType::PIPE:
+            ok = this->Emit(OpCodes::LOR, 0);
+            break;
+
+            // RELATIONAL
+        case TokenType::GREATER:
+            ok = this->Emit(OpCodes::CMP, (int) CompareMode::GE);
+            break;
+        case TokenType::GREATER_EQ:
+            ok = this->Emit(OpCodes::CMP, (int) CompareMode::GEQ);
+            break;
+        case TokenType::LESS:
+            ok = this->Emit(OpCodes::CMP, (int) CompareMode::LE);
+            break;
+        case TokenType::LESS_EQ:
+            ok = this->Emit(OpCodes::CMP, (int) CompareMode::LEQ);
+            break;
+        default:
+            break;
+    }
+
+    return ok;
+}
+
+bool Compiler::CompileUnary(Unary *expr) {
+    bool ok = false;
+
+    if (!this->CompileExpression((Node *) expr->value))
+        return false;
+
+    switch (expr->kind) {
+        case TokenType::EXCLAMATION:
+            ok = this->Emit(OpCodes::NOT, 0);
+            break;
+        case TokenType::TILDE:
+            ok = this->Emit(OpCodes::INV, 0);
+            break;
+        case TokenType::PLUS:
+            ok = this->Emit(OpCodes::POS, 0);
+            break;
+        case TokenType::MINUS:
+            ok = this->Emit(OpCodes::NEG, 0);
+            break;
         default:
             break;
     }
@@ -65,6 +128,8 @@ bool Compiler::CompileExpression(Node *expr) {
             return true;
     } else if (AR_TYPEOF(expr, type_ast_binary_))
         return this->CompileBinary((Binary *) expr);
+    else if (AR_TYPEOF(expr, type_ast_unary_))
+        return this->CompileUnary((Unary *) expr);
 
     return false;
 }
@@ -135,6 +200,8 @@ bool Compiler::Emit(OpCodes op, int arg) {
         case OpCodes::DIV:
         case OpCodes::IDIV:
         case OpCodes::MOD:
+        case OpCodes::CMP:
+        case OpCodes::POP:
             TranslationUnitDecStack(this->unit_, 1);
             break;
         default:
