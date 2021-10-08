@@ -638,7 +638,7 @@ Node *Parser::ParseVarDecl(bool constant, bool pub) {
             goto ERROR;
         }
 
-        if ((assign = AssignmentNew(this->tkcur_, true, pub, weak)) == nullptr)
+        if ((assign = AssignmentNew(this->tkcur_, constant, pub, weak)) == nullptr)
             goto ERROR;
 
         end = this->tkcur_.end;
