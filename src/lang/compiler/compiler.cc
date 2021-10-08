@@ -4,6 +4,7 @@
 
 #include <object/datatype/error.h>
 #include <object/datatype/integer.h>
+#include <object/datatype/nil.h>
 
 #include "basicblock.h"
 #include "compiler.h"
@@ -18,7 +19,42 @@ bool Compiler::Compile_(Node *node) {
         if (!this->CompileExpression((Unary *) ((Unary *) node)->value))
             return false;
 
-        this->Emit(OpCodes::POP, 0);
+        return this->Emit(OpCodes::POP, 0, nullptr);
+    } else if (AR_TYPEOF(node, type_ast_let_)) {
+        auto *variable = (Assignment *) node;
+        PropertyType flags = PropertyType::CONST;
+
+        if (variable->pub)
+            flags |= PropertyType::PUBLIC;
+
+        if (!this->CompileExpression((Unary *) variable->value))
+            return false;
+
+        if (!this->IdentifierNew((String *) variable->name, SymbolType::CONSTANT, flags, true))
+            return false;
+
+        return true;
+    } else if (AR_TYPEOF(node, type_ast_var_)) {
+        auto *variable = (Assignment *) node;
+        PropertyType flags{};
+
+        if (variable->pub)
+            flags |= PropertyType::PUBLIC;
+        if (variable->weak)
+            flags |= PropertyType::WEAK;
+
+        if (variable->value == nullptr) {
+            if (!this->PushStatic(NilVal, true, true))
+                return false;
+        } else {
+            if (!this->CompileExpression((Unary *) variable->value))
+                return false;
+        }
+
+        if (!this->IdentifierNew((String *) variable->name, SymbolType::VARIABLE, flags, true))
+            return false;
+
+        return true;
     }
 
     ErrorFormat(type_compile_error_, "invalid AST node: %s", AR_TYPE_NAME(node));
@@ -36,55 +72,55 @@ bool Compiler::CompileBinary(Binary *expr) {
 
     switch (expr->kind) {
         case TokenType::PLUS:
-            ok = this->Emit(OpCodes::ADD, 0);
+            ok = this->Emit(OpCodes::ADD, 0, nullptr);
             break;
         case TokenType::MINUS:
-            ok = this->Emit(OpCodes::SUB, 0);
+            ok = this->Emit(OpCodes::SUB, 0, nullptr);
             break;
         case TokenType::ASTERISK:
-            ok = this->Emit(OpCodes::MUL, 0);
+            ok = this->Emit(OpCodes::MUL, 0, nullptr);
             break;
         case TokenType::SLASH:
-            ok = this->Emit(OpCodes::DIV, 0);
+            ok = this->Emit(OpCodes::DIV, 0, nullptr);
             break;
         case TokenType::SLASH_SLASH:
-            ok = this->Emit(OpCodes::IDIV, 0);
+            ok = this->Emit(OpCodes::IDIV, 0, nullptr);
             break;
         case TokenType::PERCENT:
-            ok = this->Emit(OpCodes::MOD, 0);
+            ok = this->Emit(OpCodes::MOD, 0, nullptr);
             break;
 
             // EQUALITY
         case TokenType::EQUAL_EQUAL:
-            ok = this->Emit(OpCodes::CMP, (int) CompareMode::EQ);
+            ok = this->Emit(OpCodes::CMP, (int) CompareMode::EQ, nullptr);
             break;
         case TokenType::NOT_EQUAL:
-            ok = this->Emit(OpCodes::CMP, (int) CompareMode::NE);
+            ok = this->Emit(OpCodes::CMP, (int) CompareMode::NE, nullptr);
             break;
 
             // LOGICAL
         case TokenType::AMPERSAND:
-            ok = this->Emit(OpCodes::LAND, 0);
+            ok = this->Emit(OpCodes::LAND, 0, nullptr);
             break;
         case TokenType::CARET:
-            ok = this->Emit(OpCodes::LXOR, 0);
+            ok = this->Emit(OpCodes::LXOR, 0, nullptr);
             break;
         case TokenType::PIPE:
-            ok = this->Emit(OpCodes::LOR, 0);
+            ok = this->Emit(OpCodes::LOR, 0, nullptr);
             break;
 
             // RELATIONAL
         case TokenType::GREATER:
-            ok = this->Emit(OpCodes::CMP, (int) CompareMode::GE);
+            ok = this->Emit(OpCodes::CMP, (int) CompareMode::GE, nullptr);
             break;
         case TokenType::GREATER_EQ:
-            ok = this->Emit(OpCodes::CMP, (int) CompareMode::GEQ);
+            ok = this->Emit(OpCodes::CMP, (int) CompareMode::GEQ, nullptr);
             break;
         case TokenType::LESS:
-            ok = this->Emit(OpCodes::CMP, (int) CompareMode::LE);
+            ok = this->Emit(OpCodes::CMP, (int) CompareMode::LE, nullptr);
             break;
         case TokenType::LESS_EQ:
-            ok = this->Emit(OpCodes::CMP, (int) CompareMode::LEQ);
+            ok = this->Emit(OpCodes::CMP, (int) CompareMode::LEQ, nullptr);
             break;
         default:
             break;
@@ -101,16 +137,16 @@ bool Compiler::CompileUnary(Unary *expr) {
 
     switch (expr->kind) {
         case TokenType::EXCLAMATION:
-            ok = this->Emit(OpCodes::NOT, 0);
+            ok = this->Emit(OpCodes::NOT, 0, nullptr);
             break;
         case TokenType::TILDE:
-            ok = this->Emit(OpCodes::INV, 0);
+            ok = this->Emit(OpCodes::INV, 0, nullptr);
             break;
         case TokenType::PLUS:
-            ok = this->Emit(OpCodes::POS, 0);
+            ok = this->Emit(OpCodes::POS, 0, nullptr);
             break;
         case TokenType::MINUS:
-            ok = this->Emit(OpCodes::NEG, 0);
+            ok = this->Emit(OpCodes::NEG, 0, nullptr);
             break;
         default:
             break;
@@ -126,7 +162,9 @@ bool Compiler::CompileExpression(Node *expr) {
 
         if (this->PushStatic(((Unary *) expr)->value, true, true) >= 0)
             return true;
-    } else if (AR_TYPEOF(expr, type_ast_binary_))
+    } else if (AR_TYPEOF(expr, type_ast_identifier_))
+        return this->IdentifierLoad((String *) ((Unary *) expr)->value);
+    else if (AR_TYPEOF(expr, type_ast_binary_))
         return this->CompileBinary((Binary *) expr);
     else if (AR_TYPEOF(expr, type_ast_unary_))
         return this->CompileUnary((Unary *) expr);
@@ -175,7 +213,7 @@ int Compiler::PushStatic(ArObject *obj, bool store, bool emit) {
     Release(tmp);
     Release(obj);
 
-    if (emit && !this->Emit(OpCodes::LSTATIC, (int) idx))
+    if (emit && !this->Emit(OpCodes::LSTATIC, (int) idx, nullptr))
         return -1;
 
     return (int) idx;
@@ -187,11 +225,14 @@ int Compiler::PushStatic(ArObject *obj, bool store, bool emit) {
     return -1;
 }
 
-bool Compiler::Emit(OpCodes op, int arg) {
+bool Compiler::Emit(OpCodes op, int arg, BasicBlock *dest) {
     Instr *instr;
 
     switch (op) {
         case OpCodes::LSTATIC:
+        case OpCodes::LDGBL:
+        case OpCodes::LDLC:
+        case OpCodes::LDENC:
             TranslationUnitIncStack(this->unit_, 1);
             break;
         case OpCodes::ADD:
@@ -202,6 +243,9 @@ bool Compiler::Emit(OpCodes op, int arg) {
         case OpCodes::MOD:
         case OpCodes::CMP:
         case OpCodes::POP:
+        case OpCodes::JF:
+        case OpCodes::NGV:
+        case OpCodes::STLC:
             TranslationUnitDecStack(this->unit_, 1);
             break;
         default:
@@ -211,13 +255,139 @@ bool Compiler::Emit(OpCodes op, int arg) {
     if ((instr = BasicBlockAddInstr(this->unit_->bb.cur, op, arg)) == nullptr)
         return false;
 
+    instr->jmp = dest;
+
+    return true;
+}
+
+bool Compiler::Emit(OpCodes op, unsigned char flags, unsigned short arg) {
+    int combined = flags << 16 | arg;
+    return this->Emit(op, combined, nullptr);
+}
+
+bool Compiler::IdentifierLoad(String *name) {
+    // N.B. Unknown variable, by default does not raise an error,
+    // but tries to load it from the global namespace.
+    Symbol *sym;
+
+    if ((sym = this->IdentifierLookupOrCreate(name, SymbolType::VARIABLE)) == nullptr)
+        return false;
+
+    if (this->unit_->scope == TUScope::FUNCTION || sym->nested > 0) {
+        if (sym->declared) {
+            if (!this->Emit(OpCodes::LDLC, (int) sym->id, nullptr))
+                goto ERROR;
+
+            Release(sym);
+            return true;
+        }
+
+        if (sym->free) {
+            if (!this->Emit(OpCodes::LDENC, (int) sym->id, nullptr))
+                goto ERROR;
+
+            Release(sym);
+            return true;
+        }
+    }
+
+    if (!this->Emit(OpCodes::LDGBL, (int) sym->id, nullptr))
+        goto ERROR;
+
+    Release(sym);
+    return true;
+
+    ERROR:
+    Release(sym);
+    return false;
+}
+
+bool Compiler::IdentifierNew(String *name, SymbolType stype, PropertyType ptype, bool emit) {
+    List *dest = this->unit_->names;
+    ArObject *arname;
+    Symbol *sym;
+    bool inserted;
+
+    if ((sym = SymbolTableInsert(this->unit_->symt, name, stype, &inserted)) == nullptr)
+        return false;
+
+    sym->declared = true;
+
+    if (this->unit_->scope != TUScope::FUNCTION || sym->nested == 0) {
+        if (emit) {
+            if (!this->Emit(OpCodes::NGV, (unsigned char) ptype, !inserted ? sym->id : dest->len)) {
+                Release(sym);
+                return false;
+            }
+        }
+
+        if (!inserted) {
+            Release(sym);
+            return true;
+        }
+    } else {
+        dest = this->unit_->locals;
+        if (emit) {
+            if (!this->Emit(OpCodes::STLC, (int) dest->len, nullptr)) {
+                Release(sym);
+                return false;
+            }
+        }
+    }
+
+    if (!inserted)
+        arname = ListGetItem(!sym->free ? this->unit_->names : this->unit_->enclosed, sym->id);
+    else
+        arname = IncRef(name);
+
+    sym->id = dest->len;
+    Release(sym);
+
+    if (!ListAppend(dest, arname)) {
+        Release(arname);
+        return false;
+    }
+
+    Release(arname);
     return true;
 }
 
 bool Compiler::TScopeNew(String *name, TUScope scope) {
-    auto *unit = TranslationUnitNew(name, scope);
+    SymbolTable *table = this->symt;
+    Symbol *symbol;
+    TranslationUnit *unit;
+    SymbolType sym_kind;
 
-    if (unit != nullptr) {
+    if (this->unit_ != nullptr) {
+        if ((table = SymbolTableNew(table)) == nullptr)
+            return false;
+
+        switch (scope) {
+            case TUScope::FUNCTION:
+                sym_kind = SymbolType::FUNC;
+                break;
+            case TUScope::STRUCT:
+                sym_kind = SymbolType::STRUCT;
+                break;
+            case TUScope::TRAIT:
+                sym_kind = SymbolType::TRAIT;
+                break;
+            default:
+                assert(false);
+        }
+
+        if ((symbol = SymbolTableInsert(this->unit_->symt, name, sym_kind, nullptr)) == nullptr) {
+            Release(table);
+            return false;
+        }
+
+        assert(symbol->symt == nullptr);
+
+        symbol->symt = table;
+        Release(symbol);
+    }
+
+    if ((unit = TranslationUnitNew(name, scope, table)) != nullptr) {
         // Create first BasicBlock
         if (TranslationUnitBlockNew(unit) == nullptr) {
             TranslationUnitDel(unit);
@@ -230,6 +400,30 @@ bool Compiler::TScopeNew(String *name, TUScope scope) {
     }
 
     return false;
+}
+
+Symbol *Compiler::IdentifierLookupOrCreate(String *name, SymbolType type) {
+    List *dst = this->unit_->names;
+    Symbol *sym;
+
+    if ((sym = SymbolTableLookup(this->unit_->symt, name)) == nullptr) {
+        if ((sym = SymbolTableInsert(this->unit_->symt, name, type, nullptr)) == nullptr)
+            return nullptr;
+
+        if (TranslationUnitIsFreeVar(this->unit_, name)) {
+            dst = this->unit_->enclosed;
+            sym->free = true;
+        }
+
+        sym->id = dst->len;
+
+        if (!ListAppend(dst, name)) {
+            Release(sym);
+            return nullptr;
+        }
+    }
+
+    return sym;
 }
 
 void Compiler::TScopeClear() {
@@ -248,6 +442,12 @@ Code *Compiler::Compile(File *node) {
     if (!AR_TYPEOF(node, type_ast_file_))
         return (Code *) ErrorFormat(type_compile_error_, "expected %s node, found: %s", type_ast_file_->name,
                                     AR_TYPE_NAME(node));
+
+    // Initialize SymbolTable
+    if (this->symt == nullptr) {
+        if ((this->symt = SymbolTableNew(nullptr)) == nullptr)
+            return nullptr;
+    }
 
     // Initialize global_statics
     if (this->statics_globals_ == nullptr) {

@@ -6,6 +6,7 @@ set(SRC scanner/scanner2.cc scanner/token2.cc
         compiler/compiler.cc
         compiler/translation_unit.cc
         compiler/basicblock.cc
+        compiler/symtable.cc
 
         scanner/scanner.cc parser.cc compiler.cc transl_unit.cc basicblock.cc symtable.cc)
 list(TRANSFORM SRC PREPEND ${CMAKE_CURRENT_LIST_DIR}/)

@@ -10,6 +10,7 @@
 #include <object/datatype/string.h>
 
 #include "basicblock.h"
+#include "symtable.h"
 
 namespace argon::lang::compiler {
 
@@ -23,6 +24,8 @@ namespace argon::lang::compiler {
     struct TranslationUnit {
         /* Pointer to prev translation unit */
         TranslationUnit *prev;
+
+        SymbolTable *symt;
 
         /* Name of translation unit */
         argon::object::String *name;
@@ -55,11 +58,15 @@ namespace argon::lang::compiler {
         } stack;
     };
 
-    TranslationUnit *TranslationUnitNew(argon::object::String *name, TUScope scope);
+    bool TranslationUnitIsFreeVar(TranslationUnit *unit, argon::object::String *name);
+
+    TranslationUnit *TranslationUnitNew(argon::object::String *name, TUScope scope, SymbolTable *symt);
 
     TranslationUnit *TranslationUnitDel(TranslationUnit *unit);
 
     BasicBlock *TranslationUnitBlockNew(TranslationUnit *unit);
+
+    void TranslationUnitBlockAppend(TranslationUnit *unit, BasicBlock *block);
 
     void TranslationUnitDecStack(TranslationUnit *unit, unsigned short size);
 

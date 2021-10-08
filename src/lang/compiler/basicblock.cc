@@ -42,6 +42,13 @@ Instr *argon::lang::compiler::BasicBlockAddInstr(BasicBlock *block, OpCodes op, 
 
     switch (op) {
         case OpCodes::LSTATIC:
+        case OpCodes::JF:
+        case OpCodes::JMP:
+        case OpCodes::NGV:
+        case OpCodes::STLC:
+        case OpCodes::LDGBL:
+        case OpCodes::LDLC:
+        case OpCodes::LDENC:
             op_size = 4;
             break;
         case OpCodes::CMP:
