@@ -192,6 +192,31 @@ Symbol *argon::lang::compiler::SymbolTableInsert(SymbolTable *symt, String *name
     return sym;
 }
 
+Symbol *argon::lang::compiler::SymbolTableInsertNs(SymbolTable *symt, String *name, SymbolType kind) {
+    SymbolTable *st;
+    Symbol *sym;
+    bool inserted;
+
+    if ((sym = SymbolTableInsert(symt, name, kind, &inserted)) == nullptr)
+        return nullptr;
+
+    if (inserted) {
+        Release(sym);
+        return (Symbol *) ErrorFormat(type_compile_error_, "%s %s already defined",
+                                      SymbolType2Name[(int) sym->kind], name->buffer);
+    }
+
+    if ((st = SymbolTableNew(symt)) == nullptr) {
+        Release(sym);
+        return nullptr;
+    }
+
+    sym->declared = true;
+    sym->symt = st;
+
+    return sym;
+}
+
 Symbol *argon::lang::compiler::SymbolTableLookup(SymbolTable *symt, String *name) {
     Symbol *sym = nullptr;
 

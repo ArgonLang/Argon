@@ -52,6 +52,8 @@ namespace argon::lang::compiler {
 
     Symbol *SymbolTableInsert(SymbolTable *symt, argon::object::String *name, SymbolType kind, bool *out_inserted);
 
+    Symbol *SymbolTableInsertNs(SymbolTable *symt, argon::object::String *name, SymbolType kind);
+
     Symbol *SymbolTableLookup(SymbolTable *symt, argon::object::String *name);
 }
 

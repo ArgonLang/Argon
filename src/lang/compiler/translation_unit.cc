@@ -11,6 +11,34 @@
 using namespace argon::lang::compiler;
 using namespace argon::object;
 
+bool MakeQName(TranslationUnit *prev, TranslationUnit *unit, String *name) {
+    String *tmp;
+    String *sep;
+
+    if (prev != nullptr && name != nullptr && !StringEmpty(name)) {
+        if ((sep = StringIntern("::")) == nullptr)
+            return false;
+
+        if ((tmp = StringConcat(prev->name, sep)) == nullptr) {
+            Release(sep);
+            return false;
+        }
+
+        Release(sep);
+
+        if ((unit->qname = StringConcat(tmp, name)) == nullptr) {
+            Release(tmp);
+            return false;
+        }
+
+        Release(tmp);
+    } else
+        unit->qname = IncRef(name);
+
+    unit->name = IncRef(name);
+    return true;
+}
+
 bool argon::lang::compiler::TranslationUnitIsFreeVar(TranslationUnit *unit, String *name) {
     // Look back in the TranslationUnits,
     // if a variable with the same name exists and is declared or free
@@ -31,44 +59,48 @@ bool argon::lang::compiler::TranslationUnitIsFreeVar(TranslationUnit *unit, Stri
     return false;
 }
 
-TranslationUnit *argon::lang::compiler::TranslationUnitNew(String *name, TUScope scope, SymbolTable *symt) {
+TranslationUnit *
+argon::lang::compiler::TranslationUnitNew(TranslationUnit *prev, String *name, TUScope scope, SymbolTable *symt) {
     auto *tu = (TranslationUnit *) argon::memory::Alloc(sizeof(TranslationUnit));
 
-    if (tu != nullptr) {
-        argon::memory::MemoryZero(tu, sizeof(TranslationUnit));
-
-        if ((tu->symt = symt) == nullptr)
-            goto ERROR;
-
-        if ((tu->statics_map = MapNew()) == nullptr)
-            goto ERROR;
-
-        if ((tu->statics = ListNew()) == nullptr)
-            goto ERROR;
-
-        if ((tu->names = ListNew()) == nullptr)
-            goto ERROR;
-
-        if ((tu->locals = ListNew()) == nullptr)
-            goto ERROR;
-
-        if ((tu->enclosed = ListNew()) == nullptr)
-            goto ERROR;
-
-        tu->name = IncRef(name);
-        tu->scope = scope;
-    } else
+    if (tu == nullptr) {
         argon::vm::Panic(argon::object::error_out_of_memory);
+        return nullptr;
+    }
+
+    argon::memory::MemoryZero(tu, sizeof(TranslationUnit));
+
+    if ((tu->symt = symt) == nullptr)
+        goto ERROR;
+
+    if ((tu->statics_map = MapNew()) == nullptr)
+        goto ERROR;
+
+    if ((tu->statics = ListNew()) == nullptr)
+        goto ERROR;
+
+    if ((tu->names = ListNew()) == nullptr)
+        goto ERROR;
+
+    if ((tu->locals = ListNew()) == nullptr)
+        goto ERROR;
+
+    if ((tu->enclosed = ListNew()) == nullptr)
+        goto ERROR;
+
+    if (TranslationUnitBlockNew(tu) == nullptr)
+        goto ERROR;
+
+    if (!MakeQName(prev, tu, name))
+        goto ERROR;
+
+    tu->scope = scope;
+    tu->prev = prev;
 
     return tu;
 
     ERROR:
-    Release(tu->statics_map);
-    Release(tu->statics);
-    Release(tu->names);
-    Release(tu->locals);
-    Release(tu->enclosed);
-    argon::memory::Free(tu);
+    TranslationUnitDel(tu);
     return nullptr;
 }
 
@@ -80,6 +112,7 @@ TranslationUnit *argon::lang::compiler::TranslationUnitDel(TranslationUnit *unit
     while ((tmp = BasicBlockDel(tmp)) != nullptr);
 
     Release(unit->name);
+    Release(unit->qname);
     Release(unit->statics_map);
     Release(unit->statics);
     Release(unit->names);

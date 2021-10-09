@@ -30,6 +30,9 @@ namespace argon::lang::compiler {
         /* Name of translation unit */
         argon::object::String *name;
 
+        /* Qualified name of translation unit */
+        argon::object::String *qname;
+
         /* Local statics map */
         argon::object::Map *statics_map;
 
@@ -60,7 +63,7 @@ namespace argon::lang::compiler {
 
     bool TranslationUnitIsFreeVar(TranslationUnit *unit, argon::object::String *name);
 
-    TranslationUnit *TranslationUnitNew(argon::object::String *name, TUScope scope, SymbolTable *symt);
+    TranslationUnit *TranslationUnitNew(TranslationUnit *prev, argon::object::String *name, TUScope scope, SymbolTable *symt);
 
     TranslationUnit *TranslationUnitDel(TranslationUnit *unit);
 

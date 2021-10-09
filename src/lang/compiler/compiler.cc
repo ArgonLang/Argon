@@ -359,9 +359,6 @@ bool Compiler::TScopeNew(String *name, TUScope scope) {
     SymbolType sym_kind;
 
     if (this->unit_ != nullptr) {
-        if ((table = SymbolTableNew(table)) == nullptr)
-            return false;
-
         switch (scope) {
             case TUScope::FUNCTION:
                 sym_kind = SymbolType::FUNC;
@@ -376,25 +373,14 @@ bool Compiler::TScopeNew(String *name, TUScope scope) {
                 assert(false);
         }
 
-        if ((symbol = SymbolTableInsert(this->unit_->symt, name, sym_kind, nullptr)) == nullptr) {
-            Release(table);
+        if ((symbol = SymbolTableInsertNs(this->unit_->symt, name, sym_kind)) == nullptr)
             return false;
-        }
 
-        assert(symbol->symt == nullptr);
-
-        symbol->symt = table;
+        table = symbol->symt;
         Release(symbol);
     }
 
-    if ((unit = TranslationUnitNew(name, scope, table)) != nullptr) {
-        // Create first BasicBlock
-        if (TranslationUnitBlockNew(unit) == nullptr) {
-            TranslationUnitDel(unit);
-            return false;
-        }
-
-        unit->prev = this->unit_;
+    if ((unit = TranslationUnitNew(this->unit_, name, scope, table)) != nullptr) {
         this->unit_ = unit;
         return true;
     }
