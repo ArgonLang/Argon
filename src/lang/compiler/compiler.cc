@@ -55,10 +55,50 @@ bool Compiler::Compile_(Node *node) {
             return false;
 
         return true;
-    }
+    } else if (AR_TYPEOF(node, type_ast_test_))
+        return this->CompileTest((Test *) node);
+    else if (AR_TYPEOF(node, type_ast_block_))
+        return this->CompileBlock((Unary *) node, true);
 
     ErrorFormat(type_compile_error_, "invalid AST node: %s", AR_TYPE_NAME(node));
     return false;
+}
+
+bool Compiler::CompileBlock(Unary *block, bool enter_sub) {
+    ArObject *iter;
+    ArObject *tmp;
+
+    if (!AR_TYPEOF(block->value, type_list_)) {
+        ErrorFormat(type_compile_error_, "unexpected value in ((Unary *)block)->value, expected 'list' not '%s'",
+                    AR_TYPE_NAME(block->value));
+        return false;
+    }
+
+    if (enter_sub && !TranslationUnitEnterSub(this->unit_))
+        return false;
+
+    if ((iter = IteratorGet(block->value)) == nullptr) {
+        TranslationUnitExitSub(this->unit_);
+        return false;
+    }
+
+    while ((tmp = IteratorNext(iter)) != nullptr) {
+        if (!this->Compile_((Node *) tmp)) {
+            TranslationUnitExitSub(this->unit_);
+            Release(iter);
+            Release(tmp);
+            return false;
+        }
+
+        Release(tmp);
+    }
+
+    Release(iter);
+
+    if (enter_sub)
+        TranslationUnitExitSub(this->unit_);
+
+    return true;
 }
 
 bool Compiler::CompileBinary(Binary *expr) {
@@ -127,6 +167,43 @@ bool Compiler::CompileBinary(Binary *expr) {
     }
 
     return ok;
+}
+
+bool Compiler::CompileTest(Test *test) {
+    auto *end = BasicBlockNew();
+
+    if (end == nullptr)
+        return false;
+
+    if (!this->CompileExpression((Node *) test->test))
+        goto ERROR;
+
+    if (!this->Emit(OpCodes::JF, 0, end))
+        goto ERROR;
+
+    if (!TranslationUnitBlockNew(this->unit_))
+        goto ERROR;
+
+    if (!this->CompileBlock((Unary *) test->body, true))
+        goto ERROR;
+
+    if (test->orelse != nullptr) {
+        if (!this->Emit(OpCodes::JMP, 0, end))
+            goto ERROR;
+
+        if (!TranslationUnitBlockNew(this->unit_))
+            goto ERROR;
+
+        if (!this->Compile_((Node *) test->orelse))
+            goto ERROR;
+    }
+
+    TranslationUnitBlockAppend(this->unit_, end);
+    return true;
+
+    ERROR:
+    BasicBlockDel(end);
+    return false;
 }
 
 bool Compiler::CompileUnary(Unary *expr) {
@@ -313,7 +390,7 @@ bool Compiler::IdentifierNew(String *name, SymbolType stype, PropertyType ptype,
 
     sym->declared = true;
 
-    if (this->unit_->scope != TUScope::FUNCTION || sym->nested == 0) {
+    if (this->unit_->scope != TUScope::FUNCTION && sym->nested == 0) {
         if (emit) {
             if (!this->Emit(OpCodes::NGV, (unsigned char) ptype, !inserted ? sym->id : dest->len)) {
                 Release(sym);
