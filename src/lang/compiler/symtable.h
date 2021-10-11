@@ -41,12 +41,17 @@ namespace argon::lang::compiler {
     Symbol *SymbolNew();
 
     struct SymbolTable : object::ArObject {
+        // Weak reference to the parent SymT
         SymbolTable *prev;
 
         argon::object::Map *map;
         argon::object::List *namespaces;
+
+        unsigned short nested;
     };
     extern const object::TypeInfo *type_symtable_;
+
+    bool SymbolTableEnterSub(SymbolTable **symt);
 
     SymbolTable *SymbolTableNew(SymbolTable *prev);
 
@@ -55,6 +60,8 @@ namespace argon::lang::compiler {
     Symbol *SymbolTableInsertNs(SymbolTable *symt, argon::object::String *name, SymbolType kind);
 
     Symbol *SymbolTableLookup(SymbolTable *symt, argon::object::String *name);
+
+    void SymbolTableExitSub(SymbolTable **symt);
 }
 
 #endif // !ARGON_LANG_COMPILER_SYMTABLE_H_

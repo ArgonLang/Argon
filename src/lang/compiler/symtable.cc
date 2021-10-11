@@ -140,6 +140,19 @@ const TypeInfo SymbolTableType = {
 };
 const TypeInfo *argon::lang::compiler::type_symtable_ = &SymbolTableType;
 
+bool argon::lang::compiler::SymbolTableEnterSub(SymbolTable **symt) {
+    auto *st = SymbolTableNew(*symt);
+
+    if (st == nullptr || !ListAppend((*symt)->namespaces, st)) {
+        Release(st);
+        return false;
+    }
+
+    Release(st);
+    *symt = st;
+    return true;
+}
+
 SymbolTable *argon::lang::compiler::SymbolTableNew(SymbolTable *prev) {
     auto *symt = ArObjectNew<SymbolTable>(RCType::INLINE, type_symtable_);
 
@@ -155,6 +168,10 @@ SymbolTable *argon::lang::compiler::SymbolTableNew(SymbolTable *prev) {
             Release(symt);
             return nullptr;
         }
+
+        symt->nested = 0;
+        if (symt->prev != nullptr)
+            symt->nested = prev->nested + 1;
     }
 
     return symt;
@@ -182,6 +199,7 @@ Symbol *argon::lang::compiler::SymbolTableInsert(SymbolTable *symt, String *name
         }
 
         sym->kind = kind;
+        sym->nested = symt->nested;
 
         inserted = true;
     }
@@ -226,4 +244,11 @@ Symbol *argon::lang::compiler::SymbolTableLookup(SymbolTable *symt, String *name
     }
 
     return sym;
+}
+
+void argon::lang::compiler::SymbolTableExitSub(SymbolTable **symt) {
+    SymbolTable *current = *symt;
+
+    if (current->prev != nullptr)
+        *symt = current->prev;
 }
