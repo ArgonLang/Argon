@@ -31,11 +31,21 @@ namespace argon::lang::compiler {
 
         bool CompileBinary(argon::lang::parser::Binary *expr);
 
+        bool CompileForLoop(argon::lang::parser::Loop *loop);
+
+        bool CompileForInLoop(argon::lang::parser::Loop *loop);
+
+        bool CompileLoop(argon::lang::parser::Loop *loop);
+
         bool CompileTest(argon::lang::parser::Test *test);
 
         bool CompileUnary(argon::lang::parser::Unary *expr);
 
+        bool CompileJump(argon::lang::parser::Unary *jmp);
+
         bool Emit(argon::lang::OpCodes op, int arg, BasicBlock *dest);
+
+        bool Emit(argon::lang::OpCodes op,BasicBlock *dest, BasicBlock *next);
 
         bool Emit(argon::lang::OpCodes op, unsigned char flags, unsigned short arg);
 

@@ -55,10 +55,25 @@ bool Compiler::Compile_(Node *node) {
             return false;
 
         return true;
-    } else if (AR_TYPEOF(node, type_ast_test_))
+    } else if (AR_TYPEOF(node, type_ast_label_)) {
+        auto *label = (Binary *) node;
+
+        if (TranslationUnitJBNew(this->unit_, (String *) label->left) == nullptr)
+            return false;
+
+        return this->Compile_((Node *) label->right);
+    } else if (AR_TYPEOF(node, type_ast_jmp_))
+        return this->CompileJump((Unary *) node);
+    else if (AR_TYPEOF(node, type_ast_test_))
         return this->CompileTest((Test *) node);
     else if (AR_TYPEOF(node, type_ast_block_))
         return this->CompileBlock((Unary *) node, true);
+    else if (AR_TYPEOF(node, type_ast_loop_))
+        return this->CompileLoop((Loop *) node);
+    else if (AR_TYPEOF(node, type_ast_for_))
+        return this->CompileForLoop((Loop *) node);
+    else if (AR_TYPEOF(node, type_ast_for_in_))
+        return this->CompileForInLoop((Loop *) node);
 
     ErrorFormat(type_compile_error_, "invalid AST node: %s", AR_TYPE_NAME(node));
     return false;
@@ -169,6 +184,158 @@ bool Compiler::CompileBinary(Binary *expr) {
     return ok;
 }
 
+bool Compiler::CompileForLoop(Loop *loop) {
+    BasicBlock *begin;
+    BasicBlock *end;
+    JBlock *jb;
+
+    if (!TranslationUnitEnterSub(this->unit_))
+        return false;
+
+    if (loop->init != nullptr) {
+        if (!this->Compile_(loop->init))
+            return false;
+    }
+
+    if ((begin = TranslationUnitBlockNew(this->unit_)) == nullptr)
+        return false;
+
+    if ((end = BasicBlockNew()) == nullptr)
+        return false;
+
+    if ((jb = TranslationUnitJBNewLoop(this->unit_, begin, end)) == nullptr)
+        goto ERROR;
+
+    // Compile test
+
+    if (!this->CompileExpression(loop->test))
+        goto ERROR;
+
+    if (!this->Emit(OpCodes::JF, end, nullptr))
+        goto ERROR;
+
+    // Compile body
+
+    if (!this->Compile_(loop->body))
+        goto ERROR;
+
+    // Compile Inc
+
+    if (loop->inc != nullptr) {
+        if (!this->CompileExpression(loop->inc))
+            goto ERROR;
+    }
+
+    if (!this->Emit(OpCodes::JMP, begin, end)){
+        TranslationUnitExitSub(this->unit_);
+        return false;
+    }
+
+    TranslationUnitJBPop(this->unit_, jb);
+    TranslationUnitExitSub(this->unit_);
+
+    return true;
+
+    ERROR:
+    BasicBlockDel(end);
+    TranslationUnitExitSub(this->unit_);
+    return false;
+}
+
+bool Compiler::CompileForInLoop(Loop *loop) {
+    BasicBlock *end = nullptr;
+    BasicBlock *begin;
+    JBlock *jb;
+
+    if (!TranslationUnitEnterSub(this->unit_))
+        return false;
+
+    if (!this->Compile_(loop->test))
+        goto ERROR;
+
+    if (!this->Emit(OpCodes::LDITER, 0, nullptr))
+        goto ERROR;
+
+    if ((begin = TranslationUnitBlockNew(this->unit_)) == nullptr)
+        goto ERROR;
+
+    if ((end = BasicBlockNew()) == nullptr)
+        goto ERROR;
+
+    if ((jb=TranslationUnitJBNewLoop(this->unit_, begin, end))== nullptr)
+        goto ERROR;
+
+    if (!this->Emit(OpCodes::NJE, end, nullptr))
+        goto ERROR;
+
+    // ASSIGN
+    if (!this->Compile_(loop->init))
+        goto ERROR;
+
+    if (!this->Compile_(loop->body))
+        goto ERROR;
+
+    if (!this->Emit(OpCodes::JMP, begin, end)) {
+        TranslationUnitExitSub(this->unit_);
+        return false;
+    }
+
+    TranslationUnitJBPop(this->unit_, jb);
+    TranslationUnitExitSub(this->unit_);
+    TranslationUnitDecStack(this->unit_, 1); // Remove iterator from eval stack
+
+    return true;
+
+    ERROR:
+    BasicBlockDel(end);
+    TranslationUnitExitSub(this->unit_);
+    return false;
+}
+
+bool Compiler::CompileLoop(Loop *loop) {
+    BasicBlock *begin;
+    BasicBlock *end;
+    JBlock *jb;
+
+    if ((begin = TranslationUnitBlockNew(this->unit_)) == nullptr)
+        return false;
+
+    if ((end = BasicBlockNew()) == nullptr)
+        return false;
+
+    if ((jb = TranslationUnitJBNewLoop(this->unit_, begin, end)) == nullptr)
+        goto ERROR;
+
+    if (loop->test != nullptr) {
+        if (!this->CompileExpression(loop->test))
+            goto ERROR;
+
+        if (!this->Emit(OpCodes::JF, end, nullptr))
+            goto ERROR;
+    }
+
+    if (!TranslationUnitEnterSub(this->unit_))
+        goto ERROR;
+
+    if (!this->CompileBlock((Unary *) loop->body, true))
+        goto ERROR;
+
+    if (!this->Emit(OpCodes::JMP, begin, end)){
+        TranslationUnitExitSub(this->unit_);
+        return false;
+    }
+
+    TranslationUnitJBPop(this->unit_, jb);
+    TranslationUnitExitSub(this->unit_);
+
+    return true;
+
+    ERROR:
+    BasicBlockDel(end);
+    TranslationUnitExitSub(this->unit_);
+    return false;
+}
+
 bool Compiler::CompileTest(Test *test) {
     auto *end = BasicBlockNew();
 
@@ -178,20 +345,14 @@ bool Compiler::CompileTest(Test *test) {
     if (!this->CompileExpression((Node *) test->test))
         goto ERROR;
 
-    if (!this->Emit(OpCodes::JF, 0, end))
-        goto ERROR;
-
-    if (!TranslationUnitBlockNew(this->unit_))
+    if (!this->Emit(OpCodes::JF, end, nullptr))
         goto ERROR;
 
     if (!this->CompileBlock((Unary *) test->body, true))
         goto ERROR;
 
     if (test->orelse != nullptr) {
-        if (!this->Emit(OpCodes::JMP, 0, end))
-            goto ERROR;
-
-        if (!TranslationUnitBlockNew(this->unit_))
+        if (!this->Emit(OpCodes::JMP, end, nullptr))
             goto ERROR;
 
         if (!this->Compile_((Node *) test->orelse))
@@ -230,6 +391,26 @@ bool Compiler::CompileUnary(Unary *expr) {
     }
 
     return ok;
+}
+
+bool Compiler::CompileJump(Unary *jmp) {
+    BasicBlock *dst = nullptr;
+    JBlock *jb;
+
+    if (jmp->kind == TokenType::BREAK || jmp->kind == TokenType::CONTINUE) {
+        if ((jb = TranslationUnitJBFindLoop(this->unit_, (String *) jmp->value)) == nullptr) {
+            ErrorFormat(type_compile_error_, "unknown \"loop label\", the loop named '%s' cannot be %s",
+                        ((String *) jmp->value)->buffer, jmp->kind == TokenType::BREAK ? "breaked" : "continued");
+            return false;
+        }
+
+        dst = jb->end;
+
+        if (jmp->kind == TokenType::CONTINUE)
+            dst = jb->start;
+    }
+
+    return this->Emit(OpCodes::JMP, dst, nullptr);
 }
 
 bool Compiler::CompileExpression(Node *expr) {
@@ -310,6 +491,7 @@ bool Compiler::Emit(OpCodes op, int arg, BasicBlock *dest) {
         case OpCodes::LDGBL:
         case OpCodes::LDLC:
         case OpCodes::LDENC:
+        case OpCodes::NJE:
             TranslationUnitIncStack(this->unit_, 1);
             break;
         case OpCodes::ADD:
@@ -333,6 +515,19 @@ bool Compiler::Emit(OpCodes op, int arg, BasicBlock *dest) {
         return false;
 
     instr->jmp = dest;
+
+    return true;
+}
+
+bool Compiler::Emit(argon::lang::OpCodes op, BasicBlock *dest, BasicBlock *next) {
+    if (!this->Emit(op, 0, dest))
+        return false;
+
+    if (next == nullptr) {
+        if (!TranslationUnitBlockNew(this->unit_))
+            return false;
+    } else
+        TranslationUnitBlockAppend(this->unit_, next);
 
     return true;
 }

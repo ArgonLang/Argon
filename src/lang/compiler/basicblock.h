@@ -5,6 +5,8 @@
 #ifndef ARGON_LANG_COMPILER_BASICBLOCK_H_
 #define ARGON_LANG_COMPILER_BASICBLOCK_H_
 
+#include <object/datatype/string.h>
+
 #include <lang/opcodes.h>
 
 namespace argon::lang::compiler {
@@ -31,11 +33,27 @@ namespace argon::lang::compiler {
         bool seen;
     };
 
+    struct JBlock {
+        JBlock *prev;
+
+        argon::object::String *label;
+
+        BasicBlock *start;
+        BasicBlock *end;
+
+        unsigned short nested;
+        bool loop;
+    };
+
     BasicBlock *BasicBlockNew();
 
     BasicBlock *BasicBlockDel(BasicBlock *block);
 
     Instr *BasicBlockAddInstr(BasicBlock *block, lang::OpCodes op, int arg);
+
+    JBlock *JBlockNew(JBlock *prev, argon::object::String *label, unsigned short nested);
+
+    JBlock *JBlockDel(JBlock *jb);
 }
 
 #endif // !ARGON_LANG_COMPILER_BASICBLOCK_H_

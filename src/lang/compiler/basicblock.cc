@@ -4,11 +4,14 @@
 
 #include <memory/memory.h>
 #include <vm/runtime.h>
+
+#include <object/datatype/string.h>
 #include <object/datatype/error.h>
 
 #include "basicblock.h"
 
 using namespace argon::lang::compiler;
+using namespace argon::object;
 
 BasicBlock *argon::lang::compiler::BasicBlockNew() {
     auto *bb = (BasicBlock *) argon::memory::Alloc(sizeof(BasicBlock));
@@ -23,8 +26,13 @@ BasicBlock *argon::lang::compiler::BasicBlockNew() {
 }
 
 BasicBlock *argon::lang::compiler::BasicBlockDel(BasicBlock *block) {
-    BasicBlock *prev = block->next;
+    BasicBlock *prev;
     Instr *tmp;
+
+    if (block == nullptr)
+        return nullptr;
+
+    prev = block->next;
 
     // Cleanup instr
     for (Instr *cur = block->instr.head; cur != nullptr; cur = tmp) {
@@ -44,6 +52,7 @@ Instr *argon::lang::compiler::BasicBlockAddInstr(BasicBlock *block, OpCodes op, 
         case OpCodes::LSTATIC:
         case OpCodes::JF:
         case OpCodes::JMP:
+        case OpCodes::NJE:
         case OpCodes::NGV:
         case OpCodes::STLC:
         case OpCodes::LDGBL:
@@ -77,4 +86,31 @@ Instr *argon::lang::compiler::BasicBlockAddInstr(BasicBlock *block, OpCodes op, 
         argon::vm::Panic(argon::object::error_out_of_memory);
 
     return instr;
+}
+
+JBlock *argon::lang::compiler::JBlockNew(JBlock *prev, String *label, unsigned short nested) {
+    auto *j = (JBlock *) argon::memory::Alloc(sizeof(JBlock));
+
+    if (j == nullptr) {
+        argon::vm::Panic(argon::object::error_out_of_memory);
+        return nullptr;
+    }
+
+    j->prev = prev;
+    j->label = IncRef(label);
+    j->start = nullptr;
+    j->end = nullptr;
+    j->nested = nested;
+    j->loop = false;
+
+    return j;
+}
+
+JBlock *argon::lang::compiler::JBlockDel(JBlock *jb) {
+    JBlock *prev = jb->prev;
+
+    Release(jb->label);
+    argon::memory::Free(jb);
+
+    return prev;
 }

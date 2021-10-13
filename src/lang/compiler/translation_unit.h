@@ -48,6 +48,8 @@ namespace argon::lang::compiler {
         /* Closure */
         argon::object::List *enclosed;
 
+        JBlock *jstack;
+
         struct {
             BasicBlock *start;
             BasicBlock *cur;
@@ -61,7 +63,7 @@ namespace argon::lang::compiler {
         } stack;
     };
 
-   inline bool TranslationUnitEnterSub(TranslationUnit *unit) {
+    inline bool TranslationUnitEnterSub(TranslationUnit *unit) {
         return SymbolTableEnterSub(&unit->symt);
     }
 
@@ -74,6 +76,12 @@ namespace argon::lang::compiler {
 
     BasicBlock *TranslationUnitBlockNew(TranslationUnit *unit);
 
+    JBlock *TranslationUnitJBNew(TranslationUnit *unit, argon::object::String *label);
+
+    JBlock *TranslationUnitJBNewLoop(TranslationUnit *unit, BasicBlock *begin, BasicBlock *end);
+
+    JBlock *TranslationUnitJBFindLoop(TranslationUnit *unit, argon::object::String *label);
+
     inline void TranslationUnitExitSub(TranslationUnit *unit) {
         SymbolTableEnterSub(&unit->symt);
     }
@@ -83,6 +91,10 @@ namespace argon::lang::compiler {
     void TranslationUnitDecStack(TranslationUnit *unit, unsigned short size);
 
     void TranslationUnitIncStack(TranslationUnit *unit, unsigned short size);
+
+    void TranslationUnitJBSet(TranslationUnit *unit, BasicBlock *begin, BasicBlock *end, bool loop);
+
+    void TranslationUnitJBPop(TranslationUnit *unit, JBlock *block);
 }
 
 #endif // !ARGON_LANG_COMPILER_TRANSLATION_UNIT_H_

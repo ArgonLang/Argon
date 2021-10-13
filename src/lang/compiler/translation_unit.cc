@@ -94,6 +94,7 @@ argon::lang::compiler::TranslationUnitNew(TranslationUnit *prev, String *name, T
     if (!MakeQName(prev, tu, name))
         goto ERROR;
 
+    tu->jstack = nullptr;
     tu->scope = scope;
     tu->prev = prev;
 
@@ -107,9 +108,13 @@ argon::lang::compiler::TranslationUnitNew(TranslationUnit *prev, String *name, T
 TranslationUnit *argon::lang::compiler::TranslationUnitDel(TranslationUnit *unit) {
     TranslationUnit *prev = unit->prev;
     BasicBlock *tmp = unit->bb.start;
+    JBlock *jb = unit->jstack;
 
     // Free all BasicBlock
     while ((tmp = BasicBlockDel(tmp)) != nullptr);
+
+    // Free all JBlock
+    while ((jb = JBlockDel(jb)) != nullptr);
 
     Release(unit->name);
     Release(unit->qname);
@@ -130,6 +135,65 @@ BasicBlock *argon::lang::compiler::TranslationUnitBlockNew(TranslationUnit *unit
         TranslationUnitBlockAppend(unit, bb);
 
     return bb;
+}
+
+JBlock *argon::lang::compiler::TranslationUnitJBNew(TranslationUnit *unit, String *label) {
+    JBlock *block = unit->jstack;
+    BasicBlock *begin = unit->bb.cur;
+
+    for (; block != nullptr; block = block->prev) {
+        if (StringCompare(block->label, label) == 0 && block->nested == unit->symt->nested)
+            break;
+    }
+
+    if (block == nullptr) {
+        if (unit->bb.cur->i_size > 0) {
+            if ((begin = TranslationUnitBlockNew(unit)) == nullptr)
+                return nullptr;
+        }
+
+        if ((block = JBlockNew(unit->jstack, label, unit->symt->nested)) != nullptr) {
+            block->start = begin;
+            unit->jstack = block;
+        }
+    }
+
+    return block;
+}
+
+JBlock *argon::lang::compiler::TranslationUnitJBNewLoop(TranslationUnit *unit, BasicBlock *begin, BasicBlock *end) {
+    String *label = nullptr;
+    JBlock *block;
+
+    if (unit->jstack != nullptr) {
+        if (unit->jstack->start->i_size == 0)
+            label = unit->jstack->label;
+    }
+
+    if ((block = JBlockNew(unit->jstack, label, unit->symt->nested)) != nullptr) {
+        block->start = begin;
+        block->end = end;
+        block->loop = true;
+        unit->jstack = block;
+    }
+
+    return block;
+}
+
+JBlock *argon::lang::compiler::TranslationUnitJBFindLoop(TranslationUnit *unit, String *label) {
+    JBlock *block = unit->jstack;
+
+    for (; block != nullptr; block = block->prev) {
+        if (label != nullptr) {
+            if (StringCompare(block->label, label) != 0 || !block->loop)
+                continue;
+        }
+
+        if (block->loop)
+            break;
+    }
+
+    return block;
 }
 
 void argon::lang::compiler::TranslationUnitBlockAppend(TranslationUnit *unit, BasicBlock *block) {
@@ -153,3 +217,30 @@ void argon::lang::compiler::TranslationUnitIncStack(TranslationUnit *unit, unsig
         unit->stack.required = unit->stack.current;
 }
 
+void argon::lang::compiler::TranslationUnitJBSet(TranslationUnit *unit, BasicBlock *begin, BasicBlock *end, bool loop) {
+    if (unit->jstack == nullptr)
+        return;
+
+    if (unit->jstack->start == nullptr && unit->jstack->end == nullptr) {
+        unit->jstack->start = begin;
+        unit->jstack->end = end;
+        unit->jstack->loop = loop;
+    }
+}
+
+void argon::lang::compiler::TranslationUnitJBPop(TranslationUnit *unit, JBlock *block) {
+    JBlock *tmp = unit->jstack;
+
+    if (tmp == block) {
+        unit->jstack = JBlockDel(tmp);
+        return;
+    }
+
+    for (JBlock *cur = unit->jstack->prev; cur != nullptr; cur = tmp) {
+        if (cur == block) {
+            tmp->prev = JBlockDel(cur);
+            break;
+        }
+        tmp = cur;
+    }
+}
