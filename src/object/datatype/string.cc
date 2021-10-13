@@ -117,7 +117,7 @@ String *StringInit(ArSize len, bool mkbuf) {
     return str;
 }
 
-int StringCompare(String *self, String *other) {
+int argon::object::StringCompare(String *self, String *other) {
     ArSize idx1 = 0;
     ArSize idx2 = 0;
 

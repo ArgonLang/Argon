@@ -131,6 +131,8 @@ namespace argon::object {
 
     bool StringEq(String *string, const unsigned char *c_str, ArSize len);
 
+    int StringCompare(String *left, String *right);
+
     int StringIntToUTF8(unsigned int glyph, unsigned char *buf);
 
     ArSize StringLen(const String *str);
