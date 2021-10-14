@@ -579,12 +579,14 @@ Node *Parser::ParseScope() {
 }
 
 Node *Parser::Expression() {
-    Node *right = nullptr;
     Node *left;
     Node *ret;
 
     if ((left = this->ParseExpr()) == nullptr)
         return nullptr;
+
+    if (this->Match(TokenType::COLON))
+        return left; // Return identifier, this is a label!
 
     if (!AR_TYPEOF(left, type_ast_assignment_)) {
         if ((ret = ArObjectNew<Unary>(RCType::INLINE, type_ast_expression_)) == nullptr) {
@@ -825,7 +827,8 @@ Node *Parser::ParseFnCall(Node *left) {
 
 Node *Parser::ParseFromImport() {
     ArObject *imports = nullptr;
-    Node *module;
+    ArObject *module;
+    String *path;
     ImportDecl *ret;
     Pos start;
     Pos end;
@@ -836,14 +839,17 @@ Node *Parser::ParseFromImport() {
     if ((module = this->ScopeAsName(false, false)) == nullptr)
         return nullptr;
 
+    path = (String *) IncRef(((Binary *) module)->left);
+    Release(module);
+
     if (!this->MatchEat(TokenType::IMPORT, false)) {
-        Release(module);
+        Release(path);
         return nullptr;
     }
 
     if (!this->Match(TokenType::ASTERISK)) {
         if ((imports = this->ScopeAsNameList(true, true)) == nullptr) {
-            Release(module);
+            Release(path);
             return nullptr;
         }
     } else {
@@ -851,8 +857,8 @@ Node *Parser::ParseFromImport() {
         this->Eat();
     }
 
-    if ((ret = ImportNew(module, imports, start)) == nullptr) {
-        Release(module);
+    if ((ret = ImportNew(path, imports, start)) == nullptr) {
+        Release(path);
         Release(imports);
         return nullptr;
     }
@@ -1034,6 +1040,7 @@ Node *Parser::ParseJmpStmt() {
     Pos start = this->tkcur_.start;
     Pos end = this->tkcur_.end;
     TokenType kind = this->tkcur_.type;
+    String *id = nullptr;
     Node *label = nullptr;
     Unary *ret;
 
@@ -1043,6 +1050,9 @@ Node *Parser::ParseJmpStmt() {
         if ((label = this->ParseIdentifier()) == nullptr)
             return nullptr;
         end = label->end;
+
+        id = (String *) IncRef(((Unary *) label)->value);
+        Release(label);
     }
 
     if ((ret = ArObjectNew<Unary>(RCType::INLINE, type_ast_jmp_)) == nullptr) {
@@ -1057,7 +1067,7 @@ Node *Parser::ParseJmpStmt() {
     ret->colno = 0;
     ret->lineno = 0;
 
-    ret->value = label;
+    ret->value = id;
     return ret;
 }
 
@@ -1071,7 +1081,8 @@ Node *Parser::ParseList() {
     if ((list = ListNew()) == nullptr)
         return nullptr;
 
-    if (!this->MatchEat(TokenType::RIGHT_SQUARE, true)) {
+    if (!this->Match(TokenType::RIGHT_SQUARE)) {
+        this->EatTerm();
         do {
             if ((tmp = this->ParseExpr(EXPR_NO_LIST)) == nullptr)
                 goto ERROR;
@@ -1549,8 +1560,10 @@ Node *Parser::ParseStatement() {
         ret->colno = 0;
         ret->lineno = 0;
 
-        ret->left = label;
+        ret->left = IncRef(((Unary *) label)->value);
         ret->right = tmp;
+
+        Release(label);
 
         return ret;
     }
@@ -2067,8 +2080,8 @@ Node *Parser::ParseTupleLambda() {
 }
 
 Node *Parser::ScopeAsName(bool id_only, bool with_alias) {
+    String *id = nullptr;
     Binary *ret;
-    String *id;
     String *paths;
     String *scope_sep;
     String *tmp;
@@ -2112,17 +2125,17 @@ Node *Parser::ScopeAsName(bool id_only, bool with_alias) {
                 goto ERROR;
             }
 
+            Release(id);
+
             if ((id = StringNew((const char *) this->tkcur_.buf)) == nullptr)
                 goto ERROR;
 
             end = this->tkcur_.end;
             this->Eat();
 
-            if ((tmp = StringConcat(paths, id)) == nullptr) {
-                Release(id);
+            if ((tmp = StringConcat(paths, id)) == nullptr)
                 goto ERROR;
-            }
-            Release(id);
+
             Release(paths);
 
             paths = tmp;
@@ -2130,16 +2143,17 @@ Node *Parser::ScopeAsName(bool id_only, bool with_alias) {
         } while (this->MatchEat(TokenType::SCOPE, false));
 
         Release(scope_sep);
-    }
-
-    id = nullptr;
+    } else
+        id = IncRef(paths);
 
     if (with_alias) {
         if (this->MatchEat(TokenType::AS, false)) {
             if (!this->Match(TokenType::IDENTIFIER)) {
-                Release(paths);
-                return (Node *) ErrorFormat(type_syntax_error_, "expected alias name");
+                ErrorFormat(type_syntax_error_, "expected alias name");
+                goto ERROR;
             }
+
+            Release(id);
 
             if ((id = StringNew((const char *) this->tkcur_.buf)) == nullptr) {
                 Release(paths);
@@ -2168,6 +2182,7 @@ Node *Parser::ScopeAsName(bool id_only, bool with_alias) {
     return ret;
 
     ERROR:
+    Release(id);
     Release(paths);
     Release(scope_sep);
     return nullptr;

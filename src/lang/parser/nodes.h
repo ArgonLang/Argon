@@ -120,7 +120,7 @@ namespace argon::lang::parser {
     extern const object::TypeInfo *type_ast_struct_;
 
     struct ImportDecl : Node {
-        Node *module;
+        object::String *module;
         object::ArObject *names;
         bool star;
     };
@@ -143,7 +143,7 @@ namespace argon::lang::parser {
     Construct *
     FunctionNew(scanner2::Pos start, argon::object::String *name, object::List *params, Node *block, bool pub);
 
-    ImportDecl *ImportNew(Node *module, object::ArObject *names, scanner2::Pos start);
+    ImportDecl *ImportNew(object::String *module, object::ArObject *names, scanner2::Pos start);
 }
 
 #endif // !ARGON_LANG_PARSER_NODES_H_

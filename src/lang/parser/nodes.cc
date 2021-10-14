@@ -326,7 +326,7 @@ Construct *argon::lang::parser::FunctionNew(Pos start, String *name, List *param
     return func;
 }
 
-ImportDecl *argon::lang::parser::ImportNew(Node *module, object::ArObject *names, scanner2::Pos start) {
+ImportDecl *argon::lang::parser::ImportNew(object::String *module, object::ArObject *names, scanner2::Pos start) {
     ImportDecl *imp;
 
     if ((imp = ArObjectNew<ImportDecl>(RCType::INLINE, type_ast_import_decl_)) != nullptr) {
