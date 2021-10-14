@@ -74,6 +74,10 @@ bool Compiler::Compile_(Node *node) {
         }
 
         return this->Emit(OpCodes::RET, 0, nullptr);
+    } else if (AR_TYPEOF(node, type_ast_import_decl_)) {
+        if (((ImportDecl *) node)->module != nullptr)
+            return this->CompileImportFrom((ImportDecl *) node);
+        return this->CompileImport((ImportDecl *) node);
     } else if (AR_TYPEOF(node, type_ast_struct_) || AR_TYPEOF(node, type_ast_trait_))
         return this->CompileConstruct((Construct *) node);
     else if (AR_TYPEOF(node, type_ast_jmp_))
@@ -91,6 +95,88 @@ bool Compiler::Compile_(Node *node) {
 
     ErrorFormat(type_compile_error_, "invalid AST node: %s", AR_TYPE_NAME(node));
     return false;
+}
+
+bool Compiler::CompileImportAlias(argon::lang::parser::Binary *alias, bool impfrm) {
+    OpCodes code = OpCodes::IMPMOD;
+    int idx;
+
+    if (impfrm)
+        code = OpCodes::IMPFRM;
+
+    if ((idx = this->PushStatic(alias->left, true, false)) < 0)
+        return false;
+
+    if (!this->Emit(code, idx, nullptr))
+        return false;
+
+    if (!this->IdentifierNew((String *) alias->right, SymbolType::VARIABLE, PropertyType{}, true))
+        return false;
+
+    return true;
+}
+
+bool Compiler::CompileImport(ImportDecl *import) {
+    ArObject *iter;
+    ArObject *tmp;
+
+    if (AR_TYPEOF(import->names, type_ast_import_name_))
+        return this->CompileImportAlias((Binary *) import->names, false);
+
+    if ((iter = IteratorGet(import->names)) == nullptr)
+        return false;
+
+    while ((tmp = IteratorNext(iter)) != nullptr) {
+        if (!this->CompileImportAlias((Binary *) tmp, false)) {
+            Release(tmp);
+            Release(iter);
+            return false;
+        }
+
+        Release(tmp);
+    }
+
+    Release(iter);
+    return true;
+}
+
+bool Compiler::CompileImportFrom(ImportDecl *import) {
+    ArObject *iter;
+    ArObject *tmp;
+    int idx;
+
+    if ((idx = this->PushStatic(import->module, true, false)))
+        return false;
+
+    if (!this->Emit(OpCodes::IMPMOD, idx, nullptr))
+        return false;
+
+    if (!import->star) {
+        if (!AR_TYPEOF(import->names, type_ast_import_name_)) {
+            if ((iter = IteratorGet(import->names)) == nullptr)
+                return false;
+
+            while ((tmp = IteratorNext(iter)) != nullptr) {
+                if (!this->CompileImportAlias((Binary *) tmp, true)) {
+                    Release(tmp);
+                    Release(iter);
+                    return false;
+                }
+
+                Release(tmp);
+            }
+
+            Release(iter);
+        } else {
+            if (!this->CompileImportAlias((Binary *) import->names, false))
+                return false;
+        }
+    } else {
+        if (!this->Emit(OpCodes::IMPALL, 0, nullptr))
+            return false;
+    }
+
+    return this->Emit(OpCodes::POP, 0, nullptr);
 }
 
 bool Compiler::CompileBlock(Unary *block, bool enter_sub) {
@@ -695,6 +781,8 @@ bool Compiler::Emit(OpCodes op, int arg, BasicBlock *dest) {
         case OpCodes::MK_MAP:
         case OpCodes::MK_STRUCT:
         case OpCodes::MK_TRAIT:
+        case OpCodes::IMPMOD:
+        case OpCodes::IMPFRM:
             TranslationUnitIncStack(this->unit_, 1);
             break;
         case OpCodes::ADD:

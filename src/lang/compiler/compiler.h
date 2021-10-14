@@ -35,6 +35,12 @@ namespace argon::lang::compiler {
 
         bool CompileExpression(argon::lang::parser::Node *expr);
 
+        bool CompileImport(argon::lang::parser::ImportDecl *import);
+
+        bool CompileImportFrom(argon::lang::parser::ImportDecl *import);
+
+        bool CompileImportAlias(argon::lang::parser::Binary *alias, bool impfrm);
+
         bool CompileBinary(argon::lang::parser::Binary *expr);
 
         bool CompileForLoop(argon::lang::parser::Loop *loop);
