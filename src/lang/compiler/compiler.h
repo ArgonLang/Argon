@@ -25,6 +25,8 @@ namespace argon::lang::compiler {
 
         bool Compile_(argon::lang::parser::Node *node);
 
+        bool CompileCall(argon::lang::parser::Binary *call);
+
         bool CompileBlock(argon::lang::parser::Unary *block, bool enter_sub);
 
         bool CompileExpression(argon::lang::parser::Node *expr);

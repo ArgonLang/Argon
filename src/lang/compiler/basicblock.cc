@@ -59,6 +59,9 @@ Instr *argon::lang::compiler::BasicBlockAddInstr(BasicBlock *block, OpCodes op, 
         case OpCodes::LDGBL:
         case OpCodes::LDLC:
         case OpCodes::LDENC:
+        case OpCodes::CALL:
+        case OpCodes::DFR:
+        case OpCodes::SPWN:
             op_size = 4;
             break;
         case OpCodes::CMP:
@@ -108,9 +111,15 @@ JBlock *argon::lang::compiler::JBlockNew(JBlock *prev, String *label, unsigned s
 }
 
 JBlock *argon::lang::compiler::JBlockDel(JBlock *jb) {
-    JBlock *prev = jb->prev;
+    JBlock *prev;
+
+    if (jb == nullptr)
+        return nullptr;
+
+    prev = jb->prev;
 
     Release(jb->label);
+
     argon::memory::Free(jb);
 
     return prev;

@@ -62,6 +62,18 @@ bool Compiler::Compile_(Node *node) {
             return false;
 
         return this->Compile_((Node *) label->right);
+    } else if (AR_TYPEOF(node, type_ast_ret_)) {
+        auto *ret = (Unary *) node;
+
+        if (ret->value != nullptr) {
+            if (!this->CompileExpression((Node *) ret->value))
+                return false;
+        } else {
+            if (this->PushStatic(NilVal, true, true) < 0)
+                return false;
+        }
+
+        return this->Emit(OpCodes::RET, 0, nullptr);
     } else if (AR_TYPEOF(node, type_ast_jmp_))
         return this->CompileJump((Unary *) node);
     else if (AR_TYPEOF(node, type_ast_test_))
@@ -112,6 +124,59 @@ bool Compiler::CompileBlock(Unary *block, bool enter_sub) {
 
     if (enter_sub)
         TranslationUnitExitSub(this->unit_);
+
+    return true;
+}
+
+bool Compiler::CompileCall(Binary *call) {
+    auto *left = (Node *) call->left;
+    OpCodeCallFlags flags{};
+    OpCodes code = OpCodes::CALL;
+    int args = 0;
+
+    ArObject *iter;
+    ArObject *tmp;
+
+    if (!this->CompileExpression(left))
+        return false;
+
+    if (AR_TYPEOF(left, type_ast_selector_) && left->kind != TokenType::SCOPE)
+        flags |= OpCodeCallFlags::METHOD;
+
+    if ((iter = IteratorGet(call->right)) == nullptr)
+        return false;
+
+    while ((tmp = IteratorNext(iter)) != nullptr) {
+        args++;
+        if (AR_TYPEOF(tmp, type_ast_spread_)) {
+            if (!this->CompileExpression((Node *) ((Unary *) tmp)->value)) {
+                Release(tmp);
+                Release(iter);
+                return false;
+            }
+            flags |= OpCodeCallFlags::SPREAD;
+        } else {
+            if (!this->CompileExpression((Node *) tmp)) {
+                Release(tmp);
+                Release(iter);
+                return false;
+            }
+        }
+
+        Release(tmp);
+    }
+
+    Release(iter);
+
+    TranslationUnitDecStack(this->unit_, args);
+
+    if (call->kind == TokenType::DEFER)
+        code = OpCodes::DFR;
+    else if (call->kind == TokenType::SPAWN)
+        code = OpCodes::SPWN;
+
+    if (!this->Emit(code, (unsigned char) flags, args))
+        return false;
 
     return true;
 }
@@ -442,7 +507,9 @@ bool Compiler::CompileExpression(Node *expr) {
 
         TranslationUnitBlockAppend(this->unit_, end);
         return true;
-    } else if (AR_TYPEOF(expr, type_ast_identifier_))
+    } else if (AR_TYPEOF(expr, type_ast_call_))
+        return this->CompileCall((Binary *) expr);
+    else if (AR_TYPEOF(expr, type_ast_identifier_))
         return this->IdentifierLoad((String *) ((Unary *) expr)->value);
     else if (AR_TYPEOF(expr, type_ast_binary_))
         return this->CompileBinary((Binary *) expr);
@@ -514,6 +581,9 @@ bool Compiler::Emit(OpCodes op, int arg, BasicBlock *dest) {
         case OpCodes::LDLC:
         case OpCodes::LDENC:
         case OpCodes::NJE:
+        case OpCodes::CALL:
+        case OpCodes::DFR:
+        case OpCodes::SPWN:
             TranslationUnitIncStack(this->unit_, 1);
             break;
         case OpCodes::ADD:
@@ -527,6 +597,7 @@ bool Compiler::Emit(OpCodes op, int arg, BasicBlock *dest) {
         case OpCodes::JF:
         case OpCodes::NGV:
         case OpCodes::STLC:
+        case OpCodes::RET:
             TranslationUnitDecStack(this->unit_, 1);
             break;
         default:
