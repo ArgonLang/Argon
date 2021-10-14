@@ -31,6 +31,8 @@ namespace argon::lang::compiler {
 
         bool CompileCompound(argon::lang::parser::Unary *call);
 
+        bool CompileConstruct(argon::lang::parser::Construct *construct);
+
         bool CompileExpression(argon::lang::parser::Node *expr);
 
         bool CompileBinary(argon::lang::parser::Binary *expr);

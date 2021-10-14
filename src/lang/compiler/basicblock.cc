@@ -68,6 +68,8 @@ Instr *argon::lang::compiler::BasicBlockAddInstr(BasicBlock *block, OpCodes op, 
         case OpCodes::MK_MAP:
             op_size = 4;
             break;
+        case OpCodes::MK_STRUCT:
+        case OpCodes::MK_TRAIT:
         case OpCodes::CMP:
             op_size = 2;
             break;

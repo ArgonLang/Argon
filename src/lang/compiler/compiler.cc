@@ -74,7 +74,9 @@ bool Compiler::Compile_(Node *node) {
         }
 
         return this->Emit(OpCodes::RET, 0, nullptr);
-    } else if (AR_TYPEOF(node, type_ast_jmp_))
+    } else if (AR_TYPEOF(node, type_ast_struct_) || AR_TYPEOF(node, type_ast_trait_))
+        return this->CompileConstruct((Construct *) node);
+    else if (AR_TYPEOF(node, type_ast_jmp_))
         return this->CompileJump((Unary *) node);
     else if (AR_TYPEOF(node, type_ast_test_))
         return this->CompileTest((Test *) node);
@@ -284,6 +286,67 @@ bool Compiler::CompileCompound(Unary *list) {
     TranslationUnitDecStack(this->unit_, items);
 
     return this->Emit(code, items, nullptr);
+}
+
+bool Compiler::CompileConstruct(Construct *construct) {
+    TUScope scope = TUScope::STRUCT;
+    OpCodes opcode = OpCodes::MK_STRUCT;
+    Code *code = nullptr;
+    int impls = 0;
+
+    ArObject *iter;
+    ArObject *tmp;
+
+    if (AR_TYPEOF(construct, type_ast_trait_)) {
+        scope = TUScope::TRAIT;
+        opcode = OpCodes::MK_TRAIT;
+    }
+
+    if (!this->TScopeNew(construct->name, scope))
+        return false;
+
+    if (!this->Compile_(construct->block))
+        return false;
+
+    // TODO: code = this->Assemble();
+
+    this->TScopeExit();
+
+    if (!this->PushStatic(code, false, true)) {
+        Release(code);
+        return false;
+    }
+
+    Release(code);
+
+    // TODO: push qname instead of name
+    if (!this->PushStatic(construct->name, true, true))
+        return false;
+
+    // Impls
+    if ((iter = IteratorGet(construct->params)) == nullptr)
+        return false;
+
+    while ((tmp = IteratorNext(iter)) != nullptr) {
+        impls++;
+        if (!this->CompileExpression((Node *) tmp)) {
+            Release(tmp);
+            Release(iter);
+            return false;
+        }
+
+        Release(tmp);
+    }
+
+    Release(iter);
+
+    if (!this->Emit(opcode, impls, nullptr))
+        return false;
+
+    TranslationUnitDecStack(this->unit_, impls + 1); // +1 is name
+
+    return this->IdentifierNew(construct->name, scope == TUScope::STRUCT ? SymbolType::STRUCT : SymbolType::TRAIT,
+                               construct->pub ? PropertyType::PUBLIC : PropertyType{}, true);
 }
 
 bool Compiler::CompileForLoop(Loop *loop) {
@@ -630,6 +693,8 @@ bool Compiler::Emit(OpCodes op, int arg, BasicBlock *dest) {
         case OpCodes::MK_TUPLE:
         case OpCodes::MK_SET:
         case OpCodes::MK_MAP:
+        case OpCodes::MK_STRUCT:
+        case OpCodes::MK_TRAIT:
             TranslationUnitIncStack(this->unit_, 1);
             break;
         case OpCodes::ADD:
