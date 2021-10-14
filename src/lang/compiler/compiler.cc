@@ -226,7 +226,7 @@ bool Compiler::CompileForLoop(Loop *loop) {
             goto ERROR;
     }
 
-    if (!this->Emit(OpCodes::JMP, begin, end)){
+    if (!this->Emit(OpCodes::JMP, begin, end)) {
         TranslationUnitExitSub(this->unit_);
         return false;
     }
@@ -262,7 +262,7 @@ bool Compiler::CompileForInLoop(Loop *loop) {
     if ((end = BasicBlockNew()) == nullptr)
         goto ERROR;
 
-    if ((jb=TranslationUnitJBNewLoop(this->unit_, begin, end))== nullptr)
+    if ((jb = TranslationUnitJBNewLoop(this->unit_, begin, end)) == nullptr)
         goto ERROR;
 
     if (!this->Emit(OpCodes::NJE, end, nullptr))
@@ -320,7 +320,7 @@ bool Compiler::CompileLoop(Loop *loop) {
     if (!this->CompileBlock((Unary *) loop->body, true))
         goto ERROR;
 
-    if (!this->Emit(OpCodes::JMP, begin, end)){
+    if (!this->Emit(OpCodes::JMP, begin, end)) {
         TranslationUnitExitSub(this->unit_);
         return false;
     }
@@ -420,6 +420,28 @@ bool Compiler::CompileExpression(Node *expr) {
 
         if (this->PushStatic(((Unary *) expr)->value, true, true) >= 0)
             return true;
+    } else if (AR_TYPEOF(expr, type_ast_elvis_)) {
+        auto *elvis = (Test *) expr;
+        BasicBlock *end;
+
+        if (!this->CompileExpression((Node *) elvis->test))
+            return false;
+
+        if ((end = BasicBlockNew()) == nullptr)
+            return false;
+
+        if (!this->Emit(OpCodes::JTOP, end, nullptr)) {
+            BasicBlockDel(end);
+            return false;
+        }
+
+        if (!this->CompileExpression((Node *) elvis->orelse)) {
+            BasicBlockDel(end);
+            return false;
+        }
+
+        TranslationUnitBlockAppend(this->unit_, end);
+        return true;
     } else if (AR_TYPEOF(expr, type_ast_identifier_))
         return this->IdentifierLoad((String *) ((Unary *) expr)->value);
     else if (AR_TYPEOF(expr, type_ast_binary_))
