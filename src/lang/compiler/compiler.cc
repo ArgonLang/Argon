@@ -128,59 +128,6 @@ bool Compiler::CompileBlock(Unary *block, bool enter_sub) {
     return true;
 }
 
-bool Compiler::CompileCall(Binary *call) {
-    auto *left = (Node *) call->left;
-    OpCodeCallFlags flags{};
-    OpCodes code = OpCodes::CALL;
-    int args = 0;
-
-    ArObject *iter;
-    ArObject *tmp;
-
-    if (!this->CompileExpression(left))
-        return false;
-
-    if (AR_TYPEOF(left, type_ast_selector_) && left->kind != TokenType::SCOPE)
-        flags |= OpCodeCallFlags::METHOD;
-
-    if ((iter = IteratorGet(call->right)) == nullptr)
-        return false;
-
-    while ((tmp = IteratorNext(iter)) != nullptr) {
-        args++;
-        if (AR_TYPEOF(tmp, type_ast_spread_)) {
-            if (!this->CompileExpression((Node *) ((Unary *) tmp)->value)) {
-                Release(tmp);
-                Release(iter);
-                return false;
-            }
-            flags |= OpCodeCallFlags::SPREAD;
-        } else {
-            if (!this->CompileExpression((Node *) tmp)) {
-                Release(tmp);
-                Release(iter);
-                return false;
-            }
-        }
-
-        Release(tmp);
-    }
-
-    Release(iter);
-
-    TranslationUnitDecStack(this->unit_, args);
-
-    if (call->kind == TokenType::DEFER)
-        code = OpCodes::DFR;
-    else if (call->kind == TokenType::SPAWN)
-        code = OpCodes::SPWN;
-
-    if (!this->Emit(code, (unsigned char) flags, args))
-        return false;
-
-    return true;
-}
-
 bool Compiler::CompileBinary(Binary *expr) {
     bool ok = false;
 
@@ -247,6 +194,96 @@ bool Compiler::CompileBinary(Binary *expr) {
     }
 
     return ok;
+}
+
+bool Compiler::CompileCall(Binary *call) {
+    auto *left = (Node *) call->left;
+    OpCodeCallFlags flags{};
+    OpCodes code = OpCodes::CALL;
+    int args = 0;
+
+    ArObject *iter;
+    ArObject *tmp;
+
+    if (!this->CompileExpression(left))
+        return false;
+
+    if (AR_TYPEOF(left, type_ast_selector_) && left->kind != TokenType::SCOPE)
+        flags |= OpCodeCallFlags::METHOD;
+
+    if ((iter = IteratorGet(call->right)) == nullptr)
+        return false;
+
+    while ((tmp = IteratorNext(iter)) != nullptr) {
+        args++;
+        if (AR_TYPEOF(tmp, type_ast_spread_)) {
+            if (!this->CompileExpression((Node *) ((Unary *) tmp)->value)) {
+                Release(tmp);
+                Release(iter);
+                return false;
+            }
+            flags |= OpCodeCallFlags::SPREAD;
+        } else {
+            if (!this->CompileExpression((Node *) tmp)) {
+                Release(tmp);
+                Release(iter);
+                return false;
+            }
+        }
+
+        Release(tmp);
+    }
+
+    Release(iter);
+
+    TranslationUnitDecStack(this->unit_, args);
+
+    if (call->kind == TokenType::DEFER)
+        code = OpCodes::DFR;
+    else if (call->kind == TokenType::SPAWN)
+        code = OpCodes::SPWN;
+
+    if (!this->Emit(code, (unsigned char) flags, args))
+        return false;
+
+    return true;
+}
+
+bool Compiler::CompileCompound(Unary *list) {
+    OpCodes code = OpCodes::MK_LIST;
+    int items = 0;
+
+    ArObject *iter;
+    ArObject *tmp;
+
+    if ((iter = IteratorGet(list->value)) == nullptr)
+        return false;
+
+
+    while ((tmp = IteratorNext(iter)) != nullptr) {
+        items++;
+        if (!this->CompileExpression((Node *) tmp)) {
+            Release(tmp);
+            Release(iter);
+            return false;
+        }
+
+        Release(tmp);
+    }
+
+    Release(iter);
+
+    if (AR_TYPEOF(list, type_ast_tuple_))
+        code = OpCodes::MK_TRAIT;
+    else if (AR_TYPEOF(list, type_ast_map_)) {
+        code = OpCodes::MK_MAP;
+        items /= 2;
+    } else if (AR_TYPEOF(list, type_ast_set_))
+        code = OpCodes::MK_SET;
+
+    TranslationUnitDecStack(this->unit_, items);
+
+    return this->Emit(code, items, nullptr);
 }
 
 bool Compiler::CompileForLoop(Loop *loop) {
@@ -507,7 +544,12 @@ bool Compiler::CompileExpression(Node *expr) {
 
         TranslationUnitBlockAppend(this->unit_, end);
         return true;
-    } else if (AR_TYPEOF(expr, type_ast_call_))
+    } else if (AR_TYPEOF(expr, type_ast_list_)
+               || AR_TYPEOF(expr, type_ast_tuple_)
+               || AR_TYPEOF(expr, type_ast_map_)
+               || AR_TYPEOF(expr, type_ast_set_))
+        return this->CompileCompound((Unary *) expr);
+    else if (AR_TYPEOF(expr, type_ast_call_))
         return this->CompileCall((Binary *) expr);
     else if (AR_TYPEOF(expr, type_ast_identifier_))
         return this->IdentifierLoad((String *) ((Unary *) expr)->value);
@@ -584,6 +626,10 @@ bool Compiler::Emit(OpCodes op, int arg, BasicBlock *dest) {
         case OpCodes::CALL:
         case OpCodes::DFR:
         case OpCodes::SPWN:
+        case OpCodes::MK_LIST:
+        case OpCodes::MK_TUPLE:
+        case OpCodes::MK_SET:
+        case OpCodes::MK_MAP:
             TranslationUnitIncStack(this->unit_, 1);
             break;
         case OpCodes::ADD:
