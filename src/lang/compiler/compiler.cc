@@ -5,6 +5,7 @@
 #include <object/datatype/error.h>
 #include <object/datatype/integer.h>
 #include <object/datatype/nil.h>
+#include <object/datatype/function.h>
 
 #include "basicblock.h"
 #include "compiler.h"
@@ -44,7 +45,7 @@ bool Compiler::Compile_(Node *node) {
             flags |= PropertyType::WEAK;
 
         if (variable->value == nullptr) {
-            if (!this->PushStatic(NilVal, true, true))
+            if (this->PushStatic(NilVal, true, true) < 0)
                 return false;
         } else {
             if (!this->CompileExpression((Unary *) variable->value))
@@ -80,6 +81,8 @@ bool Compiler::Compile_(Node *node) {
         return this->CompileImport((ImportDecl *) node);
     } else if (AR_TYPEOF(node, type_ast_struct_) || AR_TYPEOF(node, type_ast_trait_))
         return this->CompileConstruct((Construct *) node);
+    else if (AR_TYPEOF(node, type_ast_func_))
+        return this->CompileFunction((Construct *) node);
     else if (AR_TYPEOF(node, type_ast_jmp_))
         return this->CompileJump((Unary *) node);
     else if (AR_TYPEOF(node, type_ast_test_))
@@ -391,14 +394,14 @@ bool Compiler::CompileConstruct(Construct *construct) {
     if (!this->TScopeNew(construct->name, scope))
         return false;
 
-    if (!this->Compile_(construct->block))
+    if (!this->CompileBlock((Unary *) construct->block, false))
         return false;
 
     // TODO: code = this->Assemble();
 
     this->TScopeExit();
 
-    if (!this->PushStatic(code, false, true)) {
+    if (this->PushStatic(code, false, true) < 0) {
         Release(code);
         return false;
     }
@@ -406,7 +409,7 @@ bool Compiler::CompileConstruct(Construct *construct) {
     Release(code);
 
     // TODO: push qname instead of name
-    if (!this->PushStatic(construct->name, true, true))
+    if (this->PushStatic(construct->name, true, true) < 0)
         return false;
 
     // Impls
@@ -433,6 +436,134 @@ bool Compiler::CompileConstruct(Construct *construct) {
 
     return this->IdentifierNew(construct->name, scope == TUScope::STRUCT ? SymbolType::STRUCT : SymbolType::TRAIT,
                                construct->pub ? PropertyType::PUBLIC : PropertyType{}, true);
+}
+
+bool Compiler::CompileFunction(Construct *func) {
+    Code *fu_code = nullptr;
+    String *fname = IncRef(func->name);
+    FunctionFlags fun_flags{};
+    short p_count = 0;
+
+    ArObject *iter;
+    ArObject *tmp;
+
+    if (fname == nullptr) {
+        if ((fname = StringNewFormat("<anonymous_%d>", this->unit_->anon_count++)) == nullptr)
+            return false;
+    }
+
+    if (!this->TScopeNew(fname, TUScope::FUNCTION)) {
+        Release(fname);
+        return false;
+    }
+
+    // Push self as first param in method definition
+    if (this->unit_->scope == TUScope::STRUCT || this->unit_->scope == TUScope::TRAIT) {
+        if (func->name != nullptr) {
+            if (!this->IdentifierNew("self", SymbolType::VARIABLE, PropertyType{}, false)) {
+                Release(fname);
+                return false;
+            }
+
+            fun_flags |= FunctionFlags::METHOD;
+            p_count++;
+        }
+    }
+
+    // Store params name
+    if (func->params != nullptr) {
+        if ((iter = IteratorGet(func->params)) == nullptr) {
+            Release(fname);
+            return false;
+        }
+
+        while ((tmp = IteratorNext(iter)) != nullptr) {
+            if (!this->IdentifierNew((String *) ((Unary *) tmp)->value, SymbolType::VARIABLE, PropertyType{}, false)) {
+                Release(tmp);
+                Release(iter);
+                Release(fname);
+                return false;
+            }
+
+            p_count++;
+
+            if (AR_TYPEOF(tmp, type_ast_restid_)) {
+                fun_flags |= FunctionFlags::VARIADIC;
+                p_count--;
+            }
+
+            Release(tmp);
+        }
+
+        Release(iter);
+    }
+
+    if (!this->CompileBlock((Unary *) func->block, false)) {
+        Release(fname);
+        return false;
+    }
+
+    // If the function is empty or the last statement is not return,
+    // forcefully enter return as last statement
+    if (this->unit_->bb.cur->instr.tail == nullptr
+        || this->unit_->bb.cur->instr.tail->opcode != (unsigned char) OpCodes::RET) {
+
+        if (this->PushStatic(NilVal, true, true) < 0) {
+            Release(fname);
+            return false;
+        }
+
+        if (!this->Emit(OpCodes::RET, 0, nullptr)) {
+            Release(fname);
+            return false;
+        }
+    }
+
+    // TODO: fu_code = this->Assemble();
+
+    this->TScopeExit();
+
+    // TODO: push qname instead of name
+    if (this->PushStatic(fname, true, true) < 0) {
+        Release(fname);
+        return false;
+    }
+
+    Release(fname);
+
+    if (this->PushStatic(fu_code, false, true) < 0) {
+        Release(fu_code);
+        return false;
+    }
+
+    // Load closure
+    if (fu_code->enclosed->len > 0) {
+        for (ArSize i = 0; i < fu_code->enclosed->len; i++) {
+            if (!this->IdentifierLoad((String *) fu_code->enclosed->objects[i])) {
+                Release(fu_code);
+                return false;
+            }
+        }
+        TranslationUnitDecStack(this->unit_, fu_code->enclosed->len);
+
+        if (!this->Emit(OpCodes::MK_LIST, fu_code->enclosed->len, nullptr)) {
+            Release(fu_code);
+            return false;
+        }
+
+        fun_flags |= FunctionFlags::CLOSURE;
+    }
+
+    Release(fu_code);
+
+    if (!this->Emit(OpCodes::MK_FUNC, (unsigned char) fun_flags, p_count))
+        return false;
+
+    if (func->name != nullptr)
+        return this->IdentifierNew(func->name, SymbolType::FUNC,
+                                   func->pub ? PropertyType::PUBLIC : PropertyType{}, true);
+
+    return true;
 }
 
 bool Compiler::CompileForLoop(Loop *loop) {
@@ -698,6 +829,8 @@ bool Compiler::CompileExpression(Node *expr) {
                || AR_TYPEOF(expr, type_ast_map_)
                || AR_TYPEOF(expr, type_ast_set_))
         return this->CompileCompound((Unary *) expr);
+    else if (AR_TYPEOF(expr, type_ast_func_))
+        return this->CompileFunction((Construct *) expr);
     else if (AR_TYPEOF(expr, type_ast_call_))
         return this->CompileCall((Binary *) expr);
     else if (AR_TYPEOF(expr, type_ast_identifier_))
@@ -914,6 +1047,20 @@ bool Compiler::IdentifierNew(String *name, SymbolType stype, PropertyType ptype,
 
     Release(arname);
     return true;
+}
+
+bool Compiler::IdentifierNew(const char *name, SymbolType stype, PropertyType ptype, bool emit) {
+    String *aname;
+    bool ok;
+
+    if ((aname = StringIntern(name)) == nullptr)
+        return false;
+
+    ok = this->IdentifierNew(aname, stype, ptype, emit);
+
+    Release(aname);
+
+    return ok;
 }
 
 bool Compiler::TScopeNew(String *name, TUScope scope) {

@@ -61,6 +61,8 @@ namespace argon::lang::compiler {
             unsigned int required;
             unsigned int current;
         } stack;
+
+        unsigned short anon_count;
     };
 
     inline bool TranslationUnitEnterSub(TranslationUnit *unit) {

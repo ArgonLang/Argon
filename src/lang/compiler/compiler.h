@@ -43,6 +43,8 @@ namespace argon::lang::compiler {
 
         bool CompileBinary(argon::lang::parser::Binary *expr);
 
+        bool CompileFunction(argon::lang::parser::Construct *func);
+
         bool CompileForLoop(argon::lang::parser::Loop *loop);
 
         bool CompileForInLoop(argon::lang::parser::Loop *loop);
@@ -64,6 +66,8 @@ namespace argon::lang::compiler {
         bool IdentifierLoad(argon::object::String *name);
 
         bool IdentifierNew(argon::object::String *name, SymbolType stype, object::PropertyType ptype, bool emit);
+
+        bool IdentifierNew(const char *name, SymbolType stype, object::PropertyType ptype, bool emit);
 
         bool TScopeNew(argon::object::String *name, TUScope scope);
 

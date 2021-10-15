@@ -96,6 +96,7 @@ argon::lang::compiler::TranslationUnitNew(TranslationUnit *prev, String *name, T
 
     tu->jstack = nullptr;
     tu->scope = scope;
+    tu->anon_count = 0;
     tu->prev = prev;
 
     return tu;
