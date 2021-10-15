@@ -993,7 +993,7 @@ Node *Parser::FuncDecl(bool pub) {
             tmp = nullptr;
         } while (!exit && this->MatchEat(TokenType::COMMA, true));
 
-        if (!this->Match(TokenType::RIGHT_ROUND)) {
+        if (!this->MatchEat(TokenType::RIGHT_ROUND, true)) {
             ErrorFormat(type_syntax_error_, "expected ')' after function params");
             goto ERROR;
         }
@@ -1986,7 +1986,9 @@ Node *Parser::ParseTupleLambda() {
         return nullptr;
 
     must_fn = false;
-    if (!this->MatchEat(TokenType::RIGHT_ROUND, true)) {
+
+    this->EatTerm();
+    if (!this->Match(TokenType::RIGHT_ROUND)) {
         must_fn = true;
         if (this->ParseRestElement(&tmp)) {
             if (tmp == nullptr || !ListAppend(args, tmp))

@@ -218,7 +218,7 @@ Symbol *argon::lang::compiler::SymbolTableInsertNs(SymbolTable *symt, String *na
     if ((sym = SymbolTableInsert(symt, name, kind, &inserted)) == nullptr)
         return nullptr;
 
-    if (inserted) {
+    if (!inserted) {
         Release(sym);
         return (Symbol *) ErrorFormat(type_compile_error_, "%s %s already defined",
                                       SymbolType2Name[(int) sym->kind], name->buffer);
