@@ -182,6 +182,58 @@ bool Compiler::CompileImportFrom(ImportDecl *import) {
     return this->Emit(OpCodes::POP, 0, nullptr);
 }
 
+bool Compiler::CompileInit(Binary *init) {
+    OpCodeINITFlags flag = OpCodeINITFlags::LIST;
+    int items = 0;
+
+    ArObject *iter;
+    ArObject *tmp;
+
+    if (!this->CompileExpression((Node *) init->left))
+        return false;
+
+    if ((iter = IteratorGet(init->right)) == nullptr)
+        return false;
+
+    if (AR_TYPEOF(init, type_ast_kwinit_)) {
+        while ((tmp = IteratorNext(iter)) != nullptr) {
+            if (items++ & 0x01) {
+                if (!this->CompileExpression((Node *) tmp)) {
+                    Release(tmp);
+                    Release(iter);
+                    return false;
+                }
+            } else {
+                if (this->PushStatic((String *) tmp, true, true) < 0) {
+                    Release(tmp);
+                    Release(iter);
+                    return false;
+                }
+            }
+
+            Release(tmp);
+        }
+    } else {
+        while ((tmp = IteratorNext(iter)) != nullptr) {
+            items++;
+
+            if (!this->CompileExpression((Node *) tmp)) {
+                Release(tmp);
+                Release(iter);
+                return false;
+            }
+
+            Release(tmp);
+        }
+    }
+
+    Release(iter);
+
+    TranslationUnitDecStack(this->unit_, items + 1); // +1 init->left
+
+    return this->Emit(OpCodes::INIT, (unsigned char) flag, items);
+}
+
 bool Compiler::CompileBlock(Unary *block, bool enter_sub) {
     ArObject *iter;
     ArObject *tmp;
@@ -566,6 +618,51 @@ bool Compiler::CompileFunction(Construct *func) {
     return true;
 }
 
+bool Compiler::CompileSelector(Binary *selector, bool dup, bool emit) {
+    Binary *cursor = selector;
+    int deep = 0;
+    int idx;
+
+    OpCodes code;
+
+    while (AR_TYPEOF(cursor->left, type_ast_selector_)) {
+        cursor = (Binary *) cursor->left;
+        deep++;
+    }
+
+    if (!this->CompileExpression((Node *) cursor->left))
+        return false;
+
+    do {
+        if (cursor->kind == TokenType::SCOPE)
+            code = OpCodes::LDSCOPE;
+        else if (cursor->kind == TokenType::DOT)
+            code = OpCodes::LDATTR;
+
+        if ((idx = this->PushStatic((String *) cursor->right, true, false)) < 0)
+            return false;
+
+        if(deep>0 || emit) {
+            if (!this->Emit(code, idx, nullptr))
+                return false;
+        }
+
+        deep--;
+        cursor = selector;
+        for (int i = 0; i < deep; i++)
+            cursor = (Binary *) selector->left;
+    } while (deep >= 0);
+
+    if (dup) {
+        if (!this->Emit(OpCodes::DUP, 1, nullptr))
+            return false;
+
+        TranslationUnitIncStack(this->unit_, 1);
+    }
+
+    return true;
+}
+
 bool Compiler::CompileForLoop(Loop *loop) {
     BasicBlock *begin;
     BasicBlock *end;
@@ -829,6 +926,10 @@ bool Compiler::CompileExpression(Node *expr) {
                || AR_TYPEOF(expr, type_ast_map_)
                || AR_TYPEOF(expr, type_ast_set_))
         return this->CompileCompound((Unary *) expr);
+    else if (AR_TYPEOF(expr, type_ast_init_) || AR_TYPEOF(expr, type_ast_kwinit_))
+        return this->CompileInit((Binary *) expr);
+    else if (AR_TYPEOF(expr, type_ast_selector_))
+            return this->CompileSelector((Binary *) expr, false, true);
     else if (AR_TYPEOF(expr, type_ast_func_))
         return this->CompileFunction((Construct *) expr);
     else if (AR_TYPEOF(expr, type_ast_call_))
@@ -914,6 +1015,7 @@ bool Compiler::Emit(OpCodes op, int arg, BasicBlock *dest) {
         case OpCodes::MK_MAP:
         case OpCodes::MK_STRUCT:
         case OpCodes::MK_TRAIT:
+        case OpCodes::INIT:
         case OpCodes::IMPMOD:
         case OpCodes::IMPFRM:
             TranslationUnitIncStack(this->unit_, 1);

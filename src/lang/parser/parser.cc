@@ -1349,6 +1349,7 @@ Node *Parser::ParseMapSet() {
 
 Node *Parser::ParseMemberAccess(Node *left) {
     TokenType kind = this->tkcur_.type;
+    String *id = nullptr;
     Binary *binary;
     Node *right;
 
@@ -1360,6 +1361,11 @@ Node *Parser::ParseMemberAccess(Node *left) {
     if ((right = this->ParseExpr(PeekPrecedence(kind))) == nullptr)
         return nullptr;
 
+    if (AR_TYPEOF(right, type_ast_identifier_)) {
+        id = (String *) IncRef(((Unary *) right)->value);
+        Release(right);
+    }
+
     if ((binary = ArObjectNew<Binary>(RCType::INLINE, type_ast_selector_)) == nullptr)
         Release(right);
 
@@ -1369,7 +1375,7 @@ Node *Parser::ParseMemberAccess(Node *left) {
     binary->colno = 0;
     binary->lineno = 0;
     binary->left = left;
-    binary->right = right;
+    binary->right = id != nullptr ? (ArObject *) id : right;
 
     return binary;
 }

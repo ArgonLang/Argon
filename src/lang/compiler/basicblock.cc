@@ -66,13 +66,17 @@ Instr *argon::lang::compiler::BasicBlockAddInstr(BasicBlock *block, OpCodes op, 
         case OpCodes::MK_TUPLE:
         case OpCodes::MK_SET:
         case OpCodes::MK_MAP:
+        case OpCodes::INIT:
         case OpCodes::IMPMOD:
         case OpCodes::IMPFRM:
+        case OpCodes::LDSCOPE:
+        case OpCodes::LDATTR:
             op_size = 4;
             break;
         case OpCodes::MK_STRUCT:
         case OpCodes::MK_TRAIT:
         case OpCodes::CMP:
+        case OpCodes::DUP:
             op_size = 2;
             break;
         default:
