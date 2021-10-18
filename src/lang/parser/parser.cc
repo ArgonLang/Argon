@@ -332,7 +332,9 @@ Node *Parser::ParseAssignment(Node *left) {
 
     this->Eat();
 
-    if (!AR_TYPEOF(left, type_ast_identifier_) && !AR_TYPEOF(left, type_ast_list_))
+    if (!AR_TYPEOF(left, type_ast_identifier_)
+        && !AR_TYPEOF(left, type_ast_list_)
+        && !AR_TYPEOF(left, type_ast_selector_))
         return (Node *) ErrorFormat(type_syntax_error_,
                                     "expected identifier or list to the left of the assignment expression");
 

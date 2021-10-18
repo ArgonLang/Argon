@@ -937,7 +937,7 @@ Token Scanner::NextToken() noexcept {
                 return Token(TokenType::GREATER, start, this->pos_);
             case '?':
                 CHECK_AGAIN(':', TokenType::ELVIS)
-                CHECK_AGAIN('<', TokenType::QUESTION_DOT)
+                CHECK_AGAIN('.', TokenType::QUESTION_DOT)
                 return Token(TokenType::QUESTION, start, this->pos_);
             case '[':
                 return Token(TokenType::LEFT_SQUARE, start, this->pos_);
