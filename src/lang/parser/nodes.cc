@@ -127,6 +127,7 @@ UNARY_NEW(DeclList, "", argon::lang::parser::type_ast_list_decl_);
 UNARY_NEW(Block, "", argon::lang::parser::type_ast_block_);
 UNARY_NEW(Return, "", argon::lang::parser::type_ast_ret_);
 UNARY_NEW(JmpDecl, "", argon::lang::parser::type_ast_jmp_);
+UNARY_NEW(SafeExpr, "", argon::lang::parser::type_ast_safe_);
 
 BINARY_NEW(Binary, "", argon::lang::parser::type_ast_binary_);
 BINARY_NEW(Selector, "", argon::lang::parser::type_ast_selector_);

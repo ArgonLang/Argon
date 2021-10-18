@@ -590,7 +590,12 @@ Node *Parser::Expression() {
     if (this->Match(TokenType::COLON))
         return left; // Return identifier, this is a label!
 
-    if (!AR_TYPEOF(left, type_ast_assignment_)) {
+    // This trick allows us to check if there is an assignment expression under the Null Safety expression.
+    ret = left;
+    if (AR_TYPEOF(ret, type_ast_safe_))
+        ret = (Node *) ((Unary *) ret)->value;
+
+    if (!AR_TYPEOF(ret, type_ast_assignment_)) {
         if ((ret = ArObjectNew<Unary>(RCType::INLINE, type_ast_expression_)) == nullptr) {
             Release(left);
             return nullptr;
@@ -734,6 +739,7 @@ Node *Parser::ParseElvis(Node *left) {
 }
 
 Node *Parser::ParseExpr(int precedence) {
+    bool safe = false;
     LedMeth led;
     NudMeth nud;
 
@@ -757,7 +763,27 @@ Node *Parser::ParseExpr(int precedence) {
             return nullptr;
         }
 
+        if (left->kind == TokenType::QUESTION_DOT || right->kind == TokenType::QUESTION_DOT)
+            safe = true;
+
         left = right;
+    }
+
+    if (safe) {
+        // Encapsulates "null safety" expressions, e.g.: a?.b, a.b?.c(), a?.b = c?.o
+        if ((right = ArObjectNew<Unary>(RCType::INLINE, type_ast_safe_)) == nullptr) {
+            Release(left);
+            return nullptr;
+        }
+
+        right->start = 0;
+        right->end = 0;
+        right->colno = 0;
+        right->lineno = 0;
+
+        ((Unary *) right)->value = left;
+
+        return right;
     }
 
     return left;

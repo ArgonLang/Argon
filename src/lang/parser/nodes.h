@@ -52,6 +52,7 @@ namespace argon::lang::parser {
     extern const object::TypeInfo *type_ast_block_;
     extern const object::TypeInfo *type_ast_ret_;
     extern const object::TypeInfo *type_ast_jmp_;
+    extern const object::TypeInfo *type_ast_safe_;
 
     struct Binary : Node {
         object::ArObject *left;
