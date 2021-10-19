@@ -73,6 +73,8 @@ namespace argon::lang::compiler {
 
         bool IdentifierLoad(argon::object::String *name);
 
+        bool VariableStore(argon::object::String *name);
+
         bool IdentifierNew(argon::object::String *name, SymbolType stype, object::PropertyType ptype, bool emit);
 
         bool IdentifierNew(const char *name, SymbolType stype, object::PropertyType ptype, bool emit);

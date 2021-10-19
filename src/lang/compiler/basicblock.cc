@@ -56,10 +56,7 @@ Instr *argon::lang::compiler::BasicBlockAddInstr(BasicBlock *block, OpCodes op, 
         case OpCodes::JNIL:
         case OpCodes::NJE:
         case OpCodes::NGV:
-        case OpCodes::STLC:
         case OpCodes::LDGBL:
-        case OpCodes::LDLC:
-        case OpCodes::LDENC:
         case OpCodes::CALL:
         case OpCodes::DFR:
         case OpCodes::SPWN:
@@ -74,6 +71,10 @@ Instr *argon::lang::compiler::BasicBlockAddInstr(BasicBlock *block, OpCodes op, 
         case OpCodes::LDATTR:
             op_size = 4;
             break;
+        case OpCodes::STLC:
+        case OpCodes::LDLC:
+        case OpCodes::LDENC:
+        case OpCodes::STENC:
         case OpCodes::MK_STRUCT:
         case OpCodes::MK_TRAIT:
         case OpCodes::MK_BOUNDS:

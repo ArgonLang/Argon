@@ -1112,7 +1112,9 @@ bool Compiler::Emit(OpCodes op, int arg, BasicBlock *dest) {
         case OpCodes::POP:
         case OpCodes::JF:
         case OpCodes::NGV:
+        case OpCodes::STGBL:
         case OpCodes::STLC:
+        case OpCodes::STENC:
         case OpCodes::RET:
         case OpCodes::SUBSCR:
             TranslationUnitDecStack(this->unit_, 1);
@@ -1182,6 +1184,25 @@ bool Compiler::IdentifierLoad(String *name) {
     ERROR:
     Release(sym);
     return false;
+}
+
+bool Compiler::VariableStore(String *name) {
+    OpCodes code = OpCodes::STGBL;
+    Symbol *sym;
+    bool ok;
+
+    if ((sym = this->IdentifierLookupOrCreate(name, SymbolType::VARIABLE)) == nullptr)
+        return false;
+
+    if(sym->declared && (this->unit_->scope==TUScope::FUNCTION || sym->nested>0))
+        code = OpCodes::STLC;
+    else if(sym->free)
+        code = OpCodes::STENC;
+
+    ok = this->Emit(code, sym->id, nullptr);
+
+    Release(sym);
+    return ok;
 }
 
 bool Compiler::IdentifierNew(String *name, SymbolType stype, PropertyType ptype, bool emit) {
