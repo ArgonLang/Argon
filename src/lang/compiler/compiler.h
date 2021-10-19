@@ -49,6 +49,8 @@ namespace argon::lang::compiler {
 
         bool CompileSelector(argon::lang::parser::Binary *selector, bool dup, bool emit);
 
+        bool CompileSafe(argon::lang::parser::Unary *safe);
+
         bool CompileForLoop(argon::lang::parser::Loop *loop);
 
         bool CompileForInLoop(argon::lang::parser::Loop *loop);

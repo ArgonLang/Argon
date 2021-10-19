@@ -81,6 +81,8 @@ bool Compiler::Compile_(Node *node) {
         return this->CompileImport((ImportDecl *) node);
     } else if (AR_TYPEOF(node, type_ast_struct_) || AR_TYPEOF(node, type_ast_trait_))
         return this->CompileConstruct((Construct *) node);
+    else if (AR_TYPEOF(node, type_ast_safe_))
+        return this->CompileSafe((Unary *) node);
     else if (AR_TYPEOF(node, type_ast_func_))
         return this->CompileFunction((Construct *) node);
     else if (AR_TYPEOF(node, type_ast_jmp_))
@@ -638,11 +640,15 @@ bool Compiler::CompileSelector(Binary *selector, bool dup, bool emit) {
             code = OpCodes::LDSCOPE;
         else if (cursor->kind == TokenType::DOT)
             code = OpCodes::LDATTR;
+        else if (cursor->kind == TokenType::QUESTION_DOT) {
+            if(!this->Emit(OpCodes::JNIL, this->unit_->jstack->end, nullptr))
+                return false;
+        }
 
         if ((idx = this->PushStatic((String *) cursor->right, true, false)) < 0)
             return false;
 
-        if(deep>0 || emit) {
+        if (deep > 0 || emit) {
             if (!this->Emit(code, idx, nullptr))
                 return false;
         }
@@ -660,6 +666,32 @@ bool Compiler::CompileSelector(Binary *selector, bool dup, bool emit) {
         TranslationUnitIncStack(this->unit_, 1);
     }
 
+    return true;
+}
+
+bool Compiler::CompileSafe(Unary *safe) {
+    BasicBlock *end;
+    JBlock *jb;
+    bool ok;
+
+    if ((end = BasicBlockNew()) == nullptr)
+        return false;
+
+    if ((jb = TranslationUnitJBNew(this->unit_, nullptr, end)) == nullptr) {
+        BasicBlockDel(end);
+        return false;
+    }
+
+    ok = AR_TYPEOF(safe->value, type_ast_assignment_) ?
+         this->Compile_((Node *) safe->value) : this->CompileExpression((Node *) safe->value);
+
+    if (!ok) {
+        BasicBlockDel(end);
+        return false;
+    }
+
+    TranslationUnitBlockAppend(this->unit_, end);
+    TranslationUnitJBPop(this->unit_, jb);
     return true;
 }
 
@@ -929,7 +961,7 @@ bool Compiler::CompileExpression(Node *expr) {
     else if (AR_TYPEOF(expr, type_ast_init_) || AR_TYPEOF(expr, type_ast_kwinit_))
         return this->CompileInit((Binary *) expr);
     else if (AR_TYPEOF(expr, type_ast_selector_))
-            return this->CompileSelector((Binary *) expr, false, true);
+        return this->CompileSelector((Binary *) expr, false, true);
     else if (AR_TYPEOF(expr, type_ast_func_))
         return this->CompileFunction((Construct *) expr);
     else if (AR_TYPEOF(expr, type_ast_call_))
@@ -940,6 +972,8 @@ bool Compiler::CompileExpression(Node *expr) {
         return this->CompileBinary((Binary *) expr);
     else if (AR_TYPEOF(expr, type_ast_unary_))
         return this->CompileUnary((Unary *) expr);
+    else if (AR_TYPEOF(expr, type_ast_safe_))
+        return this->CompileSafe((Unary *) expr);
 
     return false;
 }

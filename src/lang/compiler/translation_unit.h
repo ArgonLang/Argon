@@ -80,6 +80,13 @@ namespace argon::lang::compiler {
 
     JBlock *TranslationUnitJBNew(TranslationUnit *unit, argon::object::String *label);
 
+    inline JBlock *TranslationUnitJBNew(TranslationUnit *unit, argon::object::String *label, BasicBlock *end) {
+        auto *jb = TranslationUnitJBNew(unit, label);
+        if (jb != nullptr)
+            jb->end = end;
+        return jb;
+    }
+
     JBlock *TranslationUnitJBNewLoop(TranslationUnit *unit, BasicBlock *begin, BasicBlock *end);
 
     JBlock *TranslationUnitJBFindLoop(TranslationUnit *unit, argon::object::String *label);
