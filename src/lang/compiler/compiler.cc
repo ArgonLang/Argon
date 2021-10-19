@@ -641,7 +641,7 @@ bool Compiler::CompileSelector(Binary *selector, bool dup, bool emit) {
         else if (cursor->kind == TokenType::DOT)
             code = OpCodes::LDATTR;
         else if (cursor->kind == TokenType::QUESTION_DOT) {
-            if(!this->Emit(OpCodes::JNIL, this->unit_->jstack->end, nullptr))
+            if (!this->Emit(OpCodes::JNIL, this->unit_->jstack->end, nullptr))
                 return false;
         }
 
@@ -693,6 +693,51 @@ bool Compiler::CompileSafe(Unary *safe) {
     TranslationUnitBlockAppend(this->unit_, end);
     TranslationUnitJBPop(this->unit_, jb);
     return true;
+}
+
+bool Compiler::CompileSubscr(Subscript *subscr, bool dup, bool emit) {
+    if (!this->CompileExpression((Node *) subscr->left))
+        return false;
+
+    if (subscr->low != nullptr) {
+        if (!this->CompileExpression((Node *) subscr->low))
+            return false;
+    } else {
+        if (!this->PushStatic(NilVal, true, true))
+            return false;
+    }
+
+    if (AR_TYPEOF(subscr, type_ast_subscript_)) {
+        if (subscr->high != nullptr) {
+            if (!this->CompileExpression((Node *) subscr->high))
+                return false;
+        } else {
+            if (!this->PushStatic(NilVal, true, true))
+                return false;
+        }
+
+        if (subscr->high != nullptr) {
+            if (!this->CompileExpression((Node *) subscr->high))
+                return false;
+        } else {
+            if (!this->PushStatic(NilVal, true, true))
+                return false;
+        }
+
+        TranslationUnitDecStack(this->unit_, 3);
+
+        if (!this->Emit(OpCodes::MK_BOUNDS, 3, nullptr))
+            return false;
+    }
+
+
+    if (dup) {
+        if (!this->Emit(OpCodes::DUP, 2, nullptr))
+            return false;
+        TranslationUnitIncStack(this->unit_, 2);
+    }
+
+    return !emit || this->Emit(OpCodes::SUBSCR, 0, nullptr);
 }
 
 bool Compiler::CompileForLoop(Loop *loop) {
@@ -974,6 +1019,8 @@ bool Compiler::CompileExpression(Node *expr) {
         return this->CompileUnary((Unary *) expr);
     else if (AR_TYPEOF(expr, type_ast_safe_))
         return this->CompileSafe((Unary *) expr);
+    else if (AR_TYPEOF(expr, type_ast_index_) || AR_TYPEOF(expr, type_ast_subscript_))
+        return this->CompileSubscr((Subscript *) expr, false, true);
 
     return false;
 }
@@ -1049,6 +1096,7 @@ bool Compiler::Emit(OpCodes op, int arg, BasicBlock *dest) {
         case OpCodes::MK_MAP:
         case OpCodes::MK_STRUCT:
         case OpCodes::MK_TRAIT:
+        case OpCodes::MK_BOUNDS:
         case OpCodes::INIT:
         case OpCodes::IMPMOD:
         case OpCodes::IMPFRM:
@@ -1066,6 +1114,7 @@ bool Compiler::Emit(OpCodes op, int arg, BasicBlock *dest) {
         case OpCodes::NGV:
         case OpCodes::STLC:
         case OpCodes::RET:
+        case OpCodes::SUBSCR:
             TranslationUnitDecStack(this->unit_, 1);
             break;
         default:

@@ -51,6 +51,8 @@ namespace argon::lang::compiler {
 
         bool CompileSafe(argon::lang::parser::Unary *safe);
 
+        bool CompileSubscr(argon::lang::parser::Subscript *subscr, bool dup, bool emit);
+
         bool CompileForLoop(argon::lang::parser::Loop *loop);
 
         bool CompileForInLoop(argon::lang::parser::Loop *loop);
