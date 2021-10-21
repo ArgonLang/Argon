@@ -68,7 +68,9 @@ Instr *argon::lang::compiler::BasicBlockAddInstr(BasicBlock *block, OpCodes op, 
         case OpCodes::IMPMOD:
         case OpCodes::IMPFRM:
         case OpCodes::LDSCOPE:
+        case OpCodes::STSCOPE:
         case OpCodes::LDATTR:
+        case OpCodes::STATTR:
             op_size = 4;
             break;
         case OpCodes::STLC:
@@ -80,6 +82,7 @@ Instr *argon::lang::compiler::BasicBlockAddInstr(BasicBlock *block, OpCodes op, 
         case OpCodes::MK_BOUNDS:
         case OpCodes::CMP:
         case OpCodes::DUP:
+        case OpCodes::PB_HEAD:
             op_size = 2;
             break;
         default:

@@ -620,7 +620,7 @@ bool Compiler::CompileFunction(Construct *func) {
     return true;
 }
 
-bool Compiler::CompileSelector(Binary *selector, bool dup, bool emit) {
+int Compiler::CompileSelector(Binary *selector, bool dup, bool emit) {
     Binary *cursor = selector;
     int deep = 0;
     int idx;
@@ -633,7 +633,7 @@ bool Compiler::CompileSelector(Binary *selector, bool dup, bool emit) {
     }
 
     if (!this->CompileExpression((Node *) cursor->left))
-        return false;
+        return -1;
 
     do {
         if (cursor->kind == TokenType::SCOPE)
@@ -646,11 +646,11 @@ bool Compiler::CompileSelector(Binary *selector, bool dup, bool emit) {
         }
 
         if ((idx = this->PushStatic((String *) cursor->right, true, false)) < 0)
-            return false;
+            return -1;
 
         if (deep > 0 || emit) {
             if (!this->Emit(code, idx, nullptr))
-                return false;
+                return -1;
         }
 
         deep--;
@@ -661,12 +661,12 @@ bool Compiler::CompileSelector(Binary *selector, bool dup, bool emit) {
 
     if (dup) {
         if (!this->Emit(OpCodes::DUP, 1, nullptr))
-            return false;
+            return -1;
 
         TranslationUnitIncStack(this->unit_, 1);
     }
 
-    return true;
+    return idx;
 }
 
 bool Compiler::CompileSafe(Unary *safe) {
@@ -949,6 +949,69 @@ bool Compiler::CompileUnary(Unary *expr) {
     return ok;
 }
 
+bool Compiler::CompileUpdate(UpdateIncDec *update) {
+    OpCodes code = OpCodes::INC;
+    int idx;
+
+    if (update->kind == TokenType::MINUS_MINUS)
+        code = OpCodes::DEC;
+
+    if (AR_TYPEOF(update->value, type_ast_identifier_)) {
+        if (!this->IdentifierLoad((String *) ((Unary *) update->value)->value))
+            return false;
+    } else if (AR_TYPEOF(update->value, type_ast_index_)) {
+        if (!this->CompileSubscr((Subscript *) update->value, true, true))
+            return false;
+    } else if (AR_TYPEOF(update->value, type_ast_selector_)) {
+        if ((idx = this->CompileSelector((Binary *) update->value, true, true)) < 0)
+            return false;
+    }
+
+    if (update->prefix) {
+        if (!this->Emit(code, 0, nullptr))
+            return false;
+    }
+
+    if (!this->Emit(OpCodes::DUP, 1, nullptr))
+        return false;
+
+    TranslationUnitIncStack(this->unit_, 1);
+
+    if (!update->prefix) {
+        if (!this->Emit(code, 0, nullptr))
+            return false;
+    }
+
+    if (AR_TYPEOF(update->value, type_ast_identifier_)) {
+        if (!this->VariableStore((String *) ((Unary *) update->value)->value))
+            return false;
+    } else if (AR_TYPEOF(update->value, type_ast_index_)) {
+        if (!this->Emit(OpCodes::PB_HEAD, 3, nullptr))
+            return false;
+
+        if (!this->Emit(OpCodes::PB_HEAD, 3, nullptr))
+            return false;
+
+        if (!this->Emit(OpCodes::STSUBSCR, 0, nullptr))
+            return false;
+    } else if (AR_TYPEOF(update->value, type_ast_selector_)) {
+        if (!this->Emit(OpCodes::PB_HEAD, 2, nullptr))
+            return false;
+
+        if (!this->Emit(OpCodes::PB_HEAD, 2, nullptr))
+            return false;
+
+        code = OpCodes::STATTR;
+        if (((Node *) update->value)->kind == TokenType::SCOPE)
+            code = OpCodes::STSCOPE;
+
+        if (!this->Emit(code, idx, nullptr))
+            return false;
+    }
+
+    return true;
+}
+
 bool Compiler::CompileJump(Unary *jmp) {
     BasicBlock *dst = nullptr;
     JBlock *jb;
@@ -1006,7 +1069,7 @@ bool Compiler::CompileExpression(Node *expr) {
     else if (AR_TYPEOF(expr, type_ast_init_) || AR_TYPEOF(expr, type_ast_kwinit_))
         return this->CompileInit((Binary *) expr);
     else if (AR_TYPEOF(expr, type_ast_selector_))
-        return this->CompileSelector((Binary *) expr, false, true);
+        return this->CompileSelector((Binary *) expr, false, true) >= 0;
     else if (AR_TYPEOF(expr, type_ast_func_))
         return this->CompileFunction((Construct *) expr);
     else if (AR_TYPEOF(expr, type_ast_call_))
@@ -1017,6 +1080,8 @@ bool Compiler::CompileExpression(Node *expr) {
         return this->CompileBinary((Binary *) expr);
     else if (AR_TYPEOF(expr, type_ast_unary_))
         return this->CompileUnary((Unary *) expr);
+    else if (AR_TYPEOF(expr, type_ast_update_))
+        return this->CompileUpdate((UpdateIncDec *) expr);
     else if (AR_TYPEOF(expr, type_ast_safe_))
         return this->CompileSafe((Unary *) expr);
     else if (AR_TYPEOF(expr, type_ast_index_) || AR_TYPEOF(expr, type_ast_subscript_))
@@ -1119,6 +1184,13 @@ bool Compiler::Emit(OpCodes op, int arg, BasicBlock *dest) {
         case OpCodes::SUBSCR:
             TranslationUnitDecStack(this->unit_, 1);
             break;
+        case OpCodes::STSCOPE:
+        case OpCodes::STATTR:
+            TranslationUnitDecStack(this->unit_, 2);
+            break;
+        case OpCodes::STSUBSCR:
+            TranslationUnitDecStack(this->unit_, 3);
+            break;
         default:
             break;
     }
@@ -1194,9 +1266,9 @@ bool Compiler::VariableStore(String *name) {
     if ((sym = this->IdentifierLookupOrCreate(name, SymbolType::VARIABLE)) == nullptr)
         return false;
 
-    if(sym->declared && (this->unit_->scope==TUScope::FUNCTION || sym->nested>0))
+    if (sym->declared && (this->unit_->scope == TUScope::FUNCTION || sym->nested > 0))
         code = OpCodes::STLC;
-    else if(sym->free)
+    else if (sym->free)
         code = OpCodes::STENC;
 
     ok = this->Emit(code, sym->id, nullptr);

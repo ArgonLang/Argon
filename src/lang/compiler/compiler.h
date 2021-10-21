@@ -47,7 +47,7 @@ namespace argon::lang::compiler {
 
         bool CompileFunction(argon::lang::parser::Construct *func);
 
-        bool CompileSelector(argon::lang::parser::Binary *selector, bool dup, bool emit);
+        int CompileSelector(argon::lang::parser::Binary *selector, bool dup, bool emit);
 
         bool CompileSafe(argon::lang::parser::Unary *safe);
 
@@ -62,6 +62,8 @@ namespace argon::lang::compiler {
         bool CompileTest(argon::lang::parser::Test *test);
 
         bool CompileUnary(argon::lang::parser::Unary *expr);
+
+        bool CompileUpdate(argon::lang::parser::UpdateIncDec *update);
 
         bool CompileJump(argon::lang::parser::Unary *jmp);
 
