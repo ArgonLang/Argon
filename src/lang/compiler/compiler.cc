@@ -81,6 +81,8 @@ bool Compiler::Compile_(Node *node) {
         return this->CompileImport((ImportDecl *) node);
     } else if (AR_TYPEOF(node, type_ast_struct_) || AR_TYPEOF(node, type_ast_trait_))
         return this->CompileConstruct((Construct *) node);
+    else if (AR_TYPEOF(node, type_ast_assignment_))
+        return this->CompileAssignment((Binary *) node);
     else if (AR_TYPEOF(node, type_ast_safe_))
         return this->CompileSafe((Unary *) node);
     else if (AR_TYPEOF(node, type_ast_func_))
@@ -100,6 +102,104 @@ bool Compiler::Compile_(Node *node) {
 
     ErrorFormat(type_compile_error_, "invalid AST node: %s", AR_TYPE_NAME(node));
     return false;
+}
+
+bool Compiler::CompileAssignment(Binary *assignment) {
+    if (assignment->kind != TokenType::EQUAL)
+        return this->CompileAugAssignment(assignment);
+
+    if (!this->CompileExpression((Node *) assignment->right))
+        return false;
+
+    if (AR_TYPEOF(assignment->left, type_ast_identifier_))
+        return this->VariableStore((String *) ((Unary *) assignment->left)->value);
+    else if (AR_TYPEOF(assignment->left, type_ast_selector_)) {
+        if (this->CompileSelector((Binary *) assignment->left, false, false) < 0)
+            return false;
+
+        if (((Binary *) assignment->left)->kind == TokenType::SCOPE)
+            return this->Emit(OpCodes::STSCOPE, 0, nullptr);
+
+        return this->Emit(OpCodes::STATTR, 0, nullptr);
+    } else if (AR_TYPEOF(assignment->left, type_ast_subscript_)) {
+        if (!this->CompileSubscr((Subscript *) assignment->left, false, false))
+            return false;
+
+        return this->Emit(OpCodes::STSUBSCR, 0, nullptr);
+    } else if (AR_TYPEOF(assignment->left, type_ast_tuple_)) {
+        auto *list = (List *) ((Unary *) assignment->left)->value;
+
+        if (!this->Emit(OpCodes::UNPACK, list->len, nullptr))
+            return false;
+
+        TranslationUnitIncStack(this->unit_, list->len);
+        return true;
+    }
+
+    return false;
+}
+
+bool Compiler::CompileAugAssignment(Binary *assignment) {
+#define COMPILE_OP()                                                \
+        if (!this->CompileExpression((Node *) assignment->right))   \
+            return false;                                           \
+        if (!this->Emit(opcode, 0, nullptr))                        \
+            return false
+
+    OpCodes opcode = OpCodes::IPADD;
+
+    // Select opcode
+    switch (assignment->kind) {
+        case TokenType::PLUS_EQ:
+            opcode = OpCodes::IPADD;
+            break;
+        case TokenType::MINUS_EQ:
+            opcode = OpCodes::IPSUB;
+            break;
+        case TokenType::ASTERISK_EQ:
+            opcode = OpCodes::IPMUL;
+            break;
+        case TokenType::SLASH_EQ:
+            opcode = OpCodes::IPDIV;
+            break;
+        default:
+            assert(false);
+    }
+
+    if (AR_TYPEOF(assignment->left, type_ast_identifier_)) {
+        if (!this->IdentifierLoad((String *) ((Unary *) assignment->left)->value))
+            return false;
+
+        COMPILE_OP();
+
+        return this->VariableStore((String *) ((Unary *) assignment->left)->value);
+    } else if (AR_TYPEOF(assignment->left, type_ast_selector_)) {
+        if (this->CompileSelector((Binary *) assignment->left, true, true) < 0)
+            return false;
+
+        COMPILE_OP();
+
+        if (!this->Emit(OpCodes::PB_HEAD, 1, nullptr))
+            return false;
+
+        if (((Binary *) assignment->left)->kind == TokenType::SCOPE)
+            return this->Emit(OpCodes::STSCOPE, 0, nullptr);
+
+        return this->Emit(OpCodes::STATTR, 0, nullptr);
+    } else if (AR_TYPEOF(assignment->left, type_ast_subscript_)) {
+        if (!this->CompileSubscr((Subscript *) assignment->left, true, true))
+            return false;
+
+        COMPILE_OP();
+
+        if (!this->Emit(OpCodes::PB_HEAD, 3, nullptr))
+            return false;
+
+        return this->Emit(OpCodes::STSUBSCR, 0, nullptr);
+    }
+
+    return false;
+#undef COMPILE_OP
 }
 
 bool Compiler::CompileImportAlias(argon::lang::parser::Binary *alias, bool impfrm) {
@@ -1168,9 +1268,13 @@ bool Compiler::Emit(OpCodes op, int arg, BasicBlock *dest) {
             TranslationUnitIncStack(this->unit_, 1);
             break;
         case OpCodes::ADD:
+        case OpCodes::IPADD:
         case OpCodes::SUB:
+        case OpCodes::IPSUB:
         case OpCodes::MUL:
+        case OpCodes::IPMUL:
         case OpCodes::DIV:
+        case OpCodes::IPDIV:
         case OpCodes::IDIV:
         case OpCodes::MOD:
         case OpCodes::CMP:
@@ -1182,6 +1286,7 @@ bool Compiler::Emit(OpCodes op, int arg, BasicBlock *dest) {
         case OpCodes::STENC:
         case OpCodes::RET:
         case OpCodes::SUBSCR:
+        case OpCodes::UNPACK:
             TranslationUnitDecStack(this->unit_, 1);
             break;
         case OpCodes::STSCOPE:
