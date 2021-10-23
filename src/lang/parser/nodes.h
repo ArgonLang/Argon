@@ -66,7 +66,6 @@ namespace argon::lang::parser {
     extern const object::TypeInfo *type_ast_call_;
     extern const object::TypeInfo *type_ast_import_name_;
     extern const object::TypeInfo *type_ast_switch_case_;
-    extern const object::TypeInfo *type_ast_switch_;
     extern const object::TypeInfo *type_ast_label_;
 
     struct UpdateIncDec : Node {
@@ -92,6 +91,7 @@ namespace argon::lang::parser {
     };
     extern const object::TypeInfo *type_ast_elvis_;
     extern const object::TypeInfo *type_ast_test_;
+    extern const object::TypeInfo *type_ast_switch_;
 
     struct Loop : Node {
         Node *init;

@@ -1693,7 +1693,7 @@ Node *Parser::SwitchDecl() {
     List *cases = nullptr;
     Node *test = nullptr;
     Node *tmp;
-    Binary *ret;
+    Test *ret;
     Pos start;
     Pos end;
 
@@ -1745,7 +1745,7 @@ Node *Parser::SwitchDecl() {
         goto ERROR;
     }
 
-    if ((ret = ArObjectNew<Binary>(RCType::INLINE, type_ast_switch_)) == nullptr)
+    if ((ret = ArObjectNew<Test>(RCType::INLINE, type_ast_switch_)) == nullptr)
         goto ERROR;
 
     ret->start = start;
@@ -1753,8 +1753,9 @@ Node *Parser::SwitchDecl() {
     ret->colno = 0;
     ret->lineno = 0;
 
-    ret->left = test;
-    ret->right = cases;
+    ret->test = test;
+    ret->body = cases;
+    ret->orelse = nullptr;
 
     return ret;
 

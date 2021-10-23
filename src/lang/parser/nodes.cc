@@ -66,14 +66,14 @@ void construct_cleanup(Construct *self) {
     Release(self->block);
 }
 
-void loop_cleanup(Loop *self){
+void loop_cleanup(Loop *self) {
     Release(self->init);
     Release(self->test);
     Release(self->inc);
     Release(self->body);
 }
 
-void import_cleanup(ImportDecl *self){
+void import_cleanup(ImportDecl *self) {
     Release(self->module);
     Release(self->names);
 }
@@ -137,7 +137,6 @@ BINARY_NEW(Assignment, "", argon::lang::parser::type_ast_assignment_);
 BINARY_NEW(Call, "", argon::lang::parser::type_ast_call_);
 BINARY_NEW(ImportName, "", argon::lang::parser::type_ast_import_name_);
 BINARY_NEW(SwitchCase, "", argon::lang::parser::type_ast_switch_case_);
-BINARY_NEW(Switch, "", argon::lang::parser::type_ast_switch_);
 BINARY_NEW(Label, "", argon::lang::parser::type_ast_label_);
 
 NODE_GENERIC(LetDecl, "", sizeof(argon::lang::parser::Assignment), assignment_cleanup, nullptr, nullptr, nullptr,
@@ -154,6 +153,9 @@ NODE_GENERIC(Elvis, "", sizeof(argon::lang::parser::Test), test_cleanup, nullptr
 
 NODE_GENERIC(Test, "", sizeof(argon::lang::parser::Test), test_cleanup, nullptr, nullptr, nullptr,
              argon::lang::parser::type_ast_test_);
+
+NODE_GENERIC(SwitchDecl, "", sizeof(argon::lang::parser::Test), test_cleanup, nullptr, nullptr, nullptr,
+             argon::lang::parser::type_ast_switch_);
 
 NODE_GENERIC(Index, "", sizeof(argon::lang::parser::Subscript), subscript_cleanup, nullptr, nullptr, nullptr,
              argon::lang::parser::type_ast_index_);
