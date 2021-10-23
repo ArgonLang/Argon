@@ -840,6 +840,48 @@ bool Compiler::CompileSubscr(Subscript *subscr, bool dup, bool emit) {
     return !emit || this->Emit(OpCodes::SUBSCR, 0, nullptr);
 }
 
+bool Compiler::CompileSwitch(Test *sw) {
+    ArObject *iter = nullptr;
+    Binary *tmp = nullptr;
+    BasicBlock *end = nullptr;
+    bool as_if = true;
+
+    if (sw->test != nullptr) {
+        if (!this->CompileExpression((Node *) sw->test))
+            return false;
+
+        as_if = false;
+    }
+
+    if ((iter = IteratorGet(sw->body)) == nullptr)
+        return false;
+
+    if ((end = BasicBlockNew()) == nullptr) {
+        Release(iter);
+        return false;
+    }
+
+    while ((tmp = (Binary *) IteratorNext(iter)) != nullptr) {
+
+        Release(tmp);
+    }
+
+    Release(iter);
+
+    return true;
+
+    ERROR:
+    Release(iter);
+    Release(tmp);
+    BasicBlockDel(end);
+
+    return false;
+}
+
+bool Compiler::CompileSwitchCase(Binary *binary) {
+
+}
+
 bool Compiler::CompileForLoop(Loop *loop) {
     BasicBlock *begin;
     BasicBlock *end;

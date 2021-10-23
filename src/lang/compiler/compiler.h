@@ -57,6 +57,10 @@ namespace argon::lang::compiler {
 
         bool CompileSubscr(argon::lang::parser::Subscript *subscr, bool dup, bool emit);
 
+        bool CompileSwitch(argon::lang::parser::Test *sw);
+
+        bool CompileSwitchCase(argon::lang::parser::Binary *binary);
+
         bool CompileForLoop(argon::lang::parser::Loop *loop);
 
         bool CompileForInLoop(argon::lang::parser::Loop *loop);
