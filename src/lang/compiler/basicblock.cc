@@ -51,6 +51,7 @@ Instr *argon::lang::compiler::BasicBlockAddInstr(BasicBlock *block, OpCodes op, 
     switch (op) {
         case OpCodes::LSTATIC:
         case OpCodes::JF:
+        case OpCodes::JT:
         case OpCodes::JMP:
         case OpCodes::JTOP:
         case OpCodes::JNIL:

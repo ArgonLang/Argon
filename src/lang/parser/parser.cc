@@ -1643,7 +1643,7 @@ Node *Parser::SwitchCase() {
     }
 
     while (!this->Match(TokenType::CASE, TokenType::DEFAULT, TokenType::RIGHT_BRACES)) {
-        if ((body = ListNew()) == nullptr)
+        if (body == nullptr && (body = ListNew()) == nullptr)
             goto ERROR;
 
         if ((tmp = this->SmallDecl(false)) == nullptr)
@@ -1664,7 +1664,7 @@ Node *Parser::SwitchCase() {
     }
 
     // Check fallthrough
-    if (last_fallthrough != -1 && last_fallthrough != body->len - 1) {
+    if (last_fallthrough != -1 && last_fallthrough != body->len) {
         Release(conditions);
         Release(body);
         return (Node *) ErrorFormat(type_syntax_error_, "fallthrough statement out of place");
@@ -1740,7 +1740,7 @@ Node *Parser::SwitchDecl() {
 
     end = this->tkcur_.end;
 
-    if (this->MatchEat(TokenType::RIGHT_BRACES, true)) {
+    if (!this->MatchEat(TokenType::RIGHT_BRACES, true)) {
         ErrorFormat(type_syntax_error_, "expected '}' after switch declaration");
         goto ERROR;
     }

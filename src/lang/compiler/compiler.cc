@@ -99,6 +99,8 @@ bool Compiler::Compile_(Node *node) {
         return this->CompileForLoop((Loop *) node);
     else if (AR_TYPEOF(node, type_ast_for_in_))
         return this->CompileForInLoop((Loop *) node);
+    else if (AR_TYPEOF(node, type_ast_switch_))
+        return this->CompileSwitch((Test *) node);
 
     ErrorFormat(type_compile_error_, "invalid AST node: %s", AR_TYPE_NAME(node));
     return false;
@@ -843,12 +845,33 @@ bool Compiler::CompileSubscr(Subscript *subscr, bool dup, bool emit) {
 bool Compiler::CompileSwitch(Test *sw) {
     ArObject *iter = nullptr;
     Binary *tmp = nullptr;
-    BasicBlock *end = nullptr;
+
+    BasicBlock *ltest = nullptr;
+    BasicBlock *lbody = nullptr;
+    BasicBlock *_default = nullptr;
+    BasicBlock *tests;
+    BasicBlock *bodies;
+    BasicBlock *end;
+
     bool as_if = true;
+
+    if ((tests = TranslationUnitBlockNew(this->unit_)) == nullptr)
+        return false;
+
+    if ((bodies = BasicBlockNew()) == nullptr)
+        return false;
+
+    if ((end = BasicBlockNew()) == nullptr) {
+        BasicBlockDel(bodies);
+        return false;
+    }
+
+    ltest = tests;
+    lbody = bodies;
 
     if (sw->test != nullptr) {
         if (!this->CompileExpression((Node *) sw->test))
-            return false;
+            goto ERROR;
 
         as_if = false;
     }
@@ -856,30 +879,129 @@ bool Compiler::CompileSwitch(Test *sw) {
     if ((iter = IteratorGet(sw->body)) == nullptr)
         return false;
 
-    if ((end = BasicBlockNew()) == nullptr) {
-        Release(iter);
-        return false;
-    }
-
     while ((tmp = (Binary *) IteratorNext(iter)) != nullptr) {
+        if (tmp->left == nullptr && _default == nullptr)
+            _default = lbody;
+
+        if (!this->CompileSwitchCase(tmp, &ltest, &lbody, end, as_if)) {
+            return false;
+        }
+
+        // Switch to test thread
+        this->unit_->bb.cur = ltest;
 
         Release(tmp);
     }
 
     Release(iter);
 
+    // End of test thread
+    if (!as_if) {
+        if (!this->Emit(OpCodes::POP, 0, nullptr))
+            goto ERROR;
+    }
+
+    if (!this->Emit(OpCodes::JMP, 0, _default == nullptr ? end : _default))
+        goto ERROR;
+
+    // Set test bodies
+
+    // *** Remove last useless jmp instruction ***
+    for (Instr *cursor = lbody->instr.head; cursor != nullptr; cursor = cursor->next) {
+        if (cursor->next != nullptr && cursor->next->jmp == end) {
+            argon::memory::Free(cursor->next);
+            cursor->next = nullptr;
+            lbody->instr.tail = cursor;
+            break;
+        }
+    }
+    // *******************************************
+
+    TranslationUnitBlockAppend(this->unit_, bodies);
+    this->unit_->bb.cur = lbody;
+
+    // Set end block
+    TranslationUnitBlockAppend(this->unit_, end);
     return true;
 
     ERROR:
     Release(iter);
     Release(tmp);
+    while ((bodies = BasicBlockDel(bodies)) != nullptr);
     BasicBlockDel(end);
-
+    this->unit_->bb.cur = ltest;
     return false;
 }
 
-bool Compiler::CompileSwitchCase(Binary *binary) {
+bool Compiler::CompileSwitchCase(Binary *binary, BasicBlock **ltest, BasicBlock **lbody, BasicBlock *end, bool as_if) {
+    bool fallthrough = false;
+    ArObject *iter;
+    Node *tmp;
 
+    if (binary->left != nullptr) {
+        if ((iter = IteratorGet(binary->left)) == nullptr)
+            return false;
+
+        while ((tmp = (Node *) IteratorNext(iter)) != nullptr) {
+            if (!this->CompileExpression(tmp))
+                goto ERROR;
+
+            if (!as_if) {
+                if (!this->Emit(OpCodes::TEST, 0, nullptr))
+                    goto ERROR;
+            }
+
+            if (!this->Emit(OpCodes::JT, 0, *lbody))
+                goto ERROR;
+
+            // Save last test block
+            if ((*ltest = TranslationUnitBlockNew(this->unit_)) == nullptr)
+                goto ERROR;
+
+            Release(tmp);
+        }
+
+        Release(iter);
+    }
+
+    // Switch to bodies thread
+    this->unit_->bb.cur = *lbody;
+    if ((*lbody)->i_size > 0) {
+        if (TranslationUnitBlockNew(this->unit_) == nullptr)
+            return false;
+    }
+
+    // Process body
+    if(binary->right!= nullptr) {
+        if ((iter = IteratorGet(binary->right)) == nullptr)
+            return false;
+
+        while ((tmp = (Node *) IteratorNext(iter)) != nullptr) {
+            if (!AR_TYPEOF(tmp, type_ast_jmp_) || tmp->kind != TokenType::FALLTHROUGH) {
+                fallthrough = false;
+                if (!this->Compile_(tmp))
+                    goto ERROR;
+            } else
+                fallthrough = true;
+
+            Release(tmp);
+        }
+
+        Release(iter);
+    }
+
+    if (!fallthrough) {
+        if (!this->Emit(OpCodes::JMP, 0, end))
+            return false;
+    }
+
+    *lbody = this->unit_->bb.cur;
+    return true;
+
+    ERROR:
+    Release(iter);
+    Release(tmp);
+    return false;
 }
 
 bool Compiler::CompileForLoop(Loop *loop) {
@@ -1322,6 +1444,7 @@ bool Compiler::Emit(OpCodes op, int arg, BasicBlock *dest) {
         case OpCodes::CMP:
         case OpCodes::POP:
         case OpCodes::JF:
+        case OpCodes::JT:
         case OpCodes::NGV:
         case OpCodes::STGBL:
         case OpCodes::STLC:
@@ -1329,6 +1452,7 @@ bool Compiler::Emit(OpCodes op, int arg, BasicBlock *dest) {
         case OpCodes::RET:
         case OpCodes::SUBSCR:
         case OpCodes::UNPACK:
+        case OpCodes::TEST:
             TranslationUnitDecStack(this->unit_, 1);
             break;
         case OpCodes::STSCOPE:
