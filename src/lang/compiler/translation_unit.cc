@@ -59,6 +59,43 @@ bool argon::lang::compiler::TranslationUnitIsFreeVar(TranslationUnit *unit, Stri
     return false;
 }
 
+Code *argon::lang::compiler::TranslationUnitAssemble(TranslationUnit *unit) {
+    unsigned int instr_sz = 0;
+    unsigned int arg;
+    unsigned char *buf;
+    unsigned char *bcur;
+
+    Code *code;
+
+    for (BasicBlock *cursor = unit->bb.start; cursor != nullptr; cursor = cursor->next) {
+        cursor->i_offset = instr_sz;
+        instr_sz += cursor->i_size;
+    }
+
+    if ((buf = (unsigned char *) argon::memory::Alloc(instr_sz)) == nullptr)
+        return (Code *) argon::vm::Panic(error_out_of_memory);
+
+    bcur = buf;
+    for (BasicBlock *cursor = unit->bb.start; cursor != nullptr; cursor = cursor->next) {
+        for (Instr *instr = cursor->instr.head; instr != nullptr; instr = instr->next) {
+            arg = instr->oparg & 0x00FFFFFF; // extract arg
+
+            if (instr->jmp != nullptr)
+                arg = instr->jmp->i_offset;
+
+            *((Instr32 *) bcur) = arg << 8 | instr->opcode;
+            bcur += (instr->oparg & 0xFF000000) >> 24u;
+        }
+    }
+
+    code = CodeNew(buf, instr_sz, unit->stack.required, unit->statics, unit->names, unit->locals, unit->enclosed);
+
+    if(code == nullptr)
+        argon::memory::Free(buf);
+
+    return code;
+}
+
 TranslationUnit *
 argon::lang::compiler::TranslationUnitNew(TranslationUnit *prev, String *name, TUScope scope, SymbolTable *symt) {
     auto *tu = (TranslationUnit *) argon::memory::Alloc(sizeof(TranslationUnit));

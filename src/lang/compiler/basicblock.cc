@@ -105,7 +105,7 @@ Instr *argon::lang::compiler::BasicBlockAddInstr(BasicBlock *block, OpCodes op, 
         }
 
         instr->opcode = (unsigned char) op;
-        instr->oparg = op_size << 3 | arg; // | instr_len | argument |
+        instr->oparg = op_size << 24u | arg; // | instr_len | argument |
     } else
         argon::vm::Panic(argon::object::error_out_of_memory);
 

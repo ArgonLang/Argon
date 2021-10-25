@@ -59,7 +59,9 @@ namespace argon::lang::compiler {
 
         bool CompileSwitch(argon::lang::parser::Test *sw);
 
-        bool CompileSwitchCase(argon::lang::parser::Binary *binary, BasicBlock **ltest, BasicBlock **lbody, BasicBlock *end, bool as_if);
+        bool
+        CompileSwitchCase(argon::lang::parser::Binary *binary, BasicBlock **ltest, BasicBlock **lbody, BasicBlock *end,
+                          bool as_if);
 
         bool CompileForLoop(argon::lang::parser::Loop *loop);
 
@@ -77,7 +79,7 @@ namespace argon::lang::compiler {
 
         bool Emit(argon::lang::OpCodes op, int arg, BasicBlock *dest);
 
-        bool Emit(argon::lang::OpCodes op,BasicBlock *dest, BasicBlock *next);
+        bool Emit(argon::lang::OpCodes op, BasicBlock *dest, BasicBlock *next);
 
         bool Emit(argon::lang::OpCodes op, unsigned char flags, unsigned short arg);
 
@@ -101,6 +103,8 @@ namespace argon::lang::compiler {
 
     public:
         Compiler() noexcept = default;
+
+        ~Compiler();
 
         [[nodiscard]] argon::object::Code *Compile(argon::lang::parser::File *node);
     };

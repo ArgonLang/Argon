@@ -5,6 +5,7 @@
 #ifndef ARGON_LANG_COMPILER_TRANSLATION_UNIT_H_
 #define ARGON_LANG_COMPILER_TRANSLATION_UNIT_H_
 
+#include <object/datatype/code.h>
 #include <object/datatype/list.h>
 #include <object/datatype/map.h>
 #include <object/datatype/string.h>
@@ -70,6 +71,8 @@ namespace argon::lang::compiler {
     }
 
     bool TranslationUnitIsFreeVar(TranslationUnit *unit, argon::object::String *name);
+
+    object::Code *TranslationUnitAssemble(TranslationUnit *unit);
 
     TranslationUnit *
     TranslationUnitNew(TranslationUnit *prev, argon::object::String *name, TUScope scope, SymbolTable *symt);

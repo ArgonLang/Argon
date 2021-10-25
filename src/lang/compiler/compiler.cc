@@ -553,7 +553,8 @@ bool Compiler::CompileConstruct(Construct *construct) {
     if (!this->CompileBlock((Unary *) construct->block, false))
         return false;
 
-    // TODO: code = this->Assemble();
+    if ((code = TranslationUnitAssemble(this->unit_)) == nullptr)
+        return false;
 
     this->TScopeExit();
 
@@ -675,7 +676,8 @@ bool Compiler::CompileFunction(Construct *func) {
         }
     }
 
-    // TODO: fu_code = this->Assemble();
+    if ((fu_code = TranslationUnitAssemble(this->unit_)) == nullptr)
+        return false;
 
     this->TScopeExit();
 
@@ -972,7 +974,7 @@ bool Compiler::CompileSwitchCase(Binary *binary, BasicBlock **ltest, BasicBlock 
     }
 
     // Process body
-    if(binary->right!= nullptr) {
+    if (binary->right != nullptr) {
         if ((iter = IteratorGet(binary->right)) == nullptr)
             return false;
 
@@ -1684,6 +1686,7 @@ void Compiler::TScopeExit() {
 Code *Compiler::Compile(File *node) {
     ArObject *decl_iter;
     ArObject *decl;
+    Code *code;
 
     if (!AR_TYPEOF(node, type_ast_file_))
         return (Code *) ErrorFormat(type_compile_error_, "expected %s node, found: %s", type_ast_file_->name,
@@ -1723,5 +1726,15 @@ Code *Compiler::Compile(File *node) {
     }
     Release(decl_iter);
 
-    return nullptr;
+    code = TranslationUnitAssemble(this->unit_);
+
+    this->TScopeExit();
+
+    return code;
+}
+
+Compiler::~Compiler() {
+    while ((this->unit_ = TranslationUnitDel(this->unit_)) != nullptr);
+    Release(this->symt);
+    Release(this->statics_globals_);
 }
