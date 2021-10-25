@@ -92,7 +92,7 @@ namespace argon::lang::compiler {
     JBlock *TranslationUnitJBFindLoop(TranslationUnit *unit, argon::object::String *label);
 
     inline void TranslationUnitExitSub(TranslationUnit *unit) {
-        SymbolTableEnterSub(&unit->symt);
+        SymbolTableExitSub(&unit->symt);
     }
 
     void TranslationUnitBlockAppend(TranslationUnit *unit, BasicBlock *block);
@@ -100,8 +100,6 @@ namespace argon::lang::compiler {
     void TranslationUnitDecStack(TranslationUnit *unit, unsigned short size);
 
     void TranslationUnitIncStack(TranslationUnit *unit, unsigned short size);
-
-    void TranslationUnitJBSet(TranslationUnit *unit, BasicBlock *begin, BasicBlock *end, bool loop);
 
     void TranslationUnitJBPop(TranslationUnit *unit, JBlock *block);
 }

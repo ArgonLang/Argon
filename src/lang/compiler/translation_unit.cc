@@ -218,17 +218,6 @@ void argon::lang::compiler::TranslationUnitIncStack(TranslationUnit *unit, unsig
         unit->stack.required = unit->stack.current;
 }
 
-void argon::lang::compiler::TranslationUnitJBSet(TranslationUnit *unit, BasicBlock *begin, BasicBlock *end, bool loop) {
-    if (unit->jstack == nullptr)
-        return;
-
-    if (unit->jstack->start == nullptr && unit->jstack->end == nullptr) {
-        unit->jstack->start = begin;
-        unit->jstack->end = end;
-        unit->jstack->loop = loop;
-    }
-}
-
 void argon::lang::compiler::TranslationUnitJBPop(TranslationUnit *unit, JBlock *block) {
     JBlock *tmp = unit->jstack;
 
