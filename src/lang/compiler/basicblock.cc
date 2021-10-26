@@ -91,7 +91,7 @@ Instr *argon::lang::compiler::BasicBlockAddInstr(BasicBlock *block, OpCodes op, 
             op_size = 1;
     }
 
-    block->i_size = op_size;
+    block->i_size += op_size;
 
     if ((instr = (Instr *) argon::memory::Alloc(sizeof(Instr))) != nullptr) {
         argon::memory::MemoryZero(instr, sizeof(Instr));

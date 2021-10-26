@@ -286,22 +286,18 @@ bool Scanner::UnderflowFile() {
     if (rsize > 0) {
         read = std::fread(this->buffers.inp_, 1, rsize, this->fd_);
 
-        if (ferror(this->fd_) != 0)
+        if (ferror(this->fd_) != 0 || read==0 && feof(this->fd_) != 0)
             return false;
 
         this->buffers.inp_ += read;
-
-        if (feof(this->fd_) != 0)
-            return true;
     }
 
     // Backward reading
     rsize = this->buffers.cur_ - this->buffers.start_;
-
     if (rsize > 0) {
         read = std::fread(this->buffers.start_, 1, rsize, this->fd_);
 
-        if (ferror(this->fd_) != 0)
+        if (ferror(this->fd_) != 0 || read==0 && feof(this->fd_) != 0)
             return false;
 
         this->buffers.inp_ = this->buffers.start_ + read;
@@ -960,7 +956,10 @@ Token Scanner::NextToken() noexcept {
         }
     }
 
-    return Token(TokenType::END_OF_FILE, this->pos_, this->pos_);
+    if (this->status != ScannerStatus::GOOD)
+        return {TokenType::ERROR, start, this->pos_};
+
+    return {TokenType::END_OF_FILE, this->pos_, this->pos_};
 #undef CHECK_AGAIN
 }
 
