@@ -90,7 +90,7 @@ Code *argon::lang::compiler::TranslationUnitAssemble(TranslationUnit *unit) {
 
     code = CodeNew(buf, instr_sz, unit->stack.required, unit->statics, unit->names, unit->locals, unit->enclosed);
 
-    if(code == nullptr)
+    if (code == nullptr)
         argon::memory::Free(buf);
 
     return code;
@@ -144,9 +144,16 @@ argon::lang::compiler::TranslationUnitNew(TranslationUnit *prev, String *name, T
 }
 
 TranslationUnit *argon::lang::compiler::TranslationUnitDel(TranslationUnit *unit) {
-    TranslationUnit *prev = unit->prev;
-    BasicBlock *tmp = unit->bb.start;
-    JBlock *jb = unit->jstack;
+    TranslationUnit *prev;
+    BasicBlock *tmp;
+    JBlock *jb;
+
+    if (unit == nullptr)
+        return nullptr;
+
+    prev = unit->prev;
+    tmp = unit->bb.start;
+    jb = unit->jstack;
 
     // Free all BasicBlock
     while ((tmp = BasicBlockDel(tmp)) != nullptr);
