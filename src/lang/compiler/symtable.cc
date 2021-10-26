@@ -185,9 +185,9 @@ Symbol *argon::lang::compiler::SymbolTableInsert(SymbolTable *symt, String *name
         if (sym->kind != SymbolType::UNKNOWN) {
             Release(sym);
             return (Symbol *) ErrorFormat(type_compile_error_,
-                                          "redeclaration of '%s %s' previously known as '%s %s'",
-                                          SymbolType2Name[(int) sym->kind], name->buffer,
-                                          SymbolType2Name[(int) kind], name->buffer);
+                                          "redeclaration of '%s(%s)' previously known as '%s %s'",
+                                          name->buffer, SymbolType2Name[(int) kind],
+                                          SymbolType2Name[(int) sym->kind], name->buffer);
         }
     } else {
         if ((sym = SymbolNew()) == nullptr)

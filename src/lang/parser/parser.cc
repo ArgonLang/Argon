@@ -2247,6 +2247,7 @@ NudMeth Parser::LookupNud() {
 
     switch (this->tkcur_.type) {
         case TokenType::IDENTIFIER:
+        case TokenType::SELF:
             return &Parser::ParseIdentifier;
         case TokenType::LEFT_SQUARE:
             return &Parser::ParseList;
@@ -2268,7 +2269,8 @@ NudMeth Parser::LookupNud() {
 }
 
 void Parser::Eat() {
-    this->tkcur_ = this->scanner_->NextToken();
+    if (this->tkcur_.type != TokenType::END_OF_FILE)
+        this->tkcur_ = this->scanner_->NextToken();
 }
 
 void Parser::EatTerm() {
