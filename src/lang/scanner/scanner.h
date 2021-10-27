@@ -2,76 +2,136 @@
 //
 // Licensed under the Apache License v2.0
 
-#ifndef ARGON_LANG_SCANNER_SCANNER_H_
-#define ARGON_LANG_SCANNER_SCANNER_H_
+#ifndef ARGON_LANG_SCANNER_SCANNER2_H
+#define ARGON_LANG_SCANNER_SCANNER2_H
 
-#include <iostream>
+#include <cstdio>
+#include <cstring>
 
 #include "token.h"
 
+#define ARGON_LANG_SCANNER_FILE_BUFSIZ      1024
+#define ARGON_LANG_SCANNER_PROMPT_BUFSIZ    256
+
 namespace argon::lang::scanner {
-    constexpr bool IsSpace(int chr) { return chr == 0x09 || chr == 0x20; }
 
-    constexpr bool IsAlpha(int chr) { return (chr >= 'a' && chr <= 'z') || (chr >= 'A' && chr <= 'Z') || chr == '_'; }
+    enum class ScannerStatus {
+        EMPTY_SQUOTE,
+        INVALID_BSTR,
+        INVALID_BYTE_ULONG,
+        INVALID_BYTE_USHORT,
+        INVALID_HEX_BYTE,
+        INVALID_LC,
+        INVALID_RSTR,
+        INVALID_RS_PROLOGUE,
+        INVALID_SQUOTE,
+        INVALID_STR,
+        INVALID_TK,
+        INVALID_UCHR,
+        NOMEM,
+        GOOD
+    };
 
-    constexpr bool IsDigit(int chr) { return chr >= '0' && chr <= '9'; }
-
-    constexpr bool IsOctDigit(int chr) { return chr >= '0' && chr <= '7'; }
-
-    constexpr bool IsHexDigit(int chr) {
-        return (chr >= '0' && chr <= '9') || (tolower(chr) >= 'a' && tolower(chr) <= 'f');
-    }
-
-    constexpr unsigned char HexDigitToNumber(int chr) {
-        return (IsDigit(chr)) ? ((char) chr) - '0' : 10 + (tolower(chr) - 'a');
-    }
+    using InteractiveFn = int (*)(FILE *fd, const char *prompt, void *buf, int len);
 
     class Scanner {
-    private:
-        std::istream *source_;
-        Token peeked_token_;
-        bool peeked_ = false;
+        const char *prompt_ = nullptr;
+        const char *next_prompt_ = nullptr;
+
+        struct {
+            unsigned char *start_ = nullptr;
+            unsigned char *cur_ = nullptr;
+            unsigned char *inp_ = nullptr;
+            unsigned char *end_ = nullptr;
+        } buffers;
+
+        struct {
+            unsigned char *start_ = nullptr;
+            unsigned char *cur_ = nullptr;
+            unsigned char *end_ = nullptr;
+        } tkval;
+
+        FILE *fd_ = nullptr;
+
+        InteractiveFn promptfn_ = nullptr;
+
         Pos pos_ = 1;
 
-        bool ParseEscape(int stopChr, bool ignore_unicode_escape, std::string &dest, std::string &error);
+        bool TkEnlarge(int len);
 
-        bool ParseUnicodeEscape(std::string &dest, std::string &error, bool extended);
+        bool TkInitBuf();
 
-        bool ParseOctEscape(std::string &dest, std::string &error, int value);
+        bool TkPutChar(int value);
 
-        bool ParseHexEscape(std::string &dest, std::string &error);
+        bool TkPutChar();
 
-        bool ParseHexToByte(unsigned char &byte);
+        bool TkPutStr(const unsigned char *str, int len);
 
-        std::string ParseComment(bool inline_comment);
+        bool ProcessEscape(int stop, bool ignore_unicode);
 
-        Token ParseBinary(Pos start);
+        bool ProcessEscapeHex();
 
-        Token ParseOctal(Pos start);
+        bool ProcessEscapeOct(int value);
 
-        Token ParseHex(Pos start);
+        bool ProcessUnicode(bool extended);
 
-        Token ParseDecimal(Pos start);
+        bool UnderflowFile();
 
-        Token ParseNumber();
+        bool UnderflowInteractive();
 
-        Token ParseString(Pos start, bool byte_string);
+        int ExpandBuffer(int newsize);
 
-        Token ParseRawString(Pos start);
+        int HexToByte();
 
-        Token ParseWord();
+        int Peek(bool advance);
 
-        Token NextToken();
+        int PeekChar() noexcept;
 
-        int GetCh();
+        int NextChar() noexcept;
+
+        Token MakeTkWithValue(Pos start, TokenType type);
+
+        Token TokenizeBinary(Pos start);
+
+        Token TokenizeChar(Pos start);
+
+        Token TokenizeComment(Pos start, bool inline_comment);
+
+        Token TokenizeDecimal(Pos start, bool begin_zero);
+
+        Token TokenizeHex(Pos start);
+
+        Token TokenizeNumber();
+
+        Token TokenizeOctal(Pos start);
+
+        Token TokenizeRawString(Pos start);
+
+        Token TokenizeString(Pos start, bool byte_string);
+
+        Token TokenizeWord();
+
+        [[nodiscard]] unsigned char *TkGetValue();
 
     public:
-        explicit Scanner(std::istream *source) : source_(source) {};
+        ScannerStatus status = ScannerStatus::GOOD;
 
-        Token Peek();
+        Scanner(FILE *fd, const char *ps1, const char *ps2) noexcept;
 
-        Token Next();
+        Scanner(const char *str, unsigned long len) noexcept;
+
+        explicit Scanner(const char *str) noexcept: Scanner(str, strlen(str)) {};
+
+        ~Scanner() noexcept;
+
+        bool Reset();
+
+        const char *GetStatusMessage();
+
+        Token NextToken() noexcept;
+
+        void SetPromptFn(InteractiveFn fn);
     };
-}  // namespace lang::scanner
+}
 
-#endif // !ARGON_LANG_SCANNER_SCANNER_H_
+#endif // !ARGON_LANG_SCANNER_SCANNER2_H

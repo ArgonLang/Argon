@@ -5,9 +5,9 @@
 #include <memory/memory.h>
 #include <cstring>
 
-#include "token2.h"
+#include "token.h"
 
-using namespace argon::lang::scanner2;
+using namespace argon::lang::scanner;
 
 Token::Token(TokenType type, Pos start, Pos end, const unsigned char *buf) {
     this->type = type;

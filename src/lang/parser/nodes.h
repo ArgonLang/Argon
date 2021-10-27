@@ -5,7 +5,7 @@
 #ifndef ARGON_LANG_PARSER_NODES_H_
 #define ARGON_LANG_PARSER_NODES_H_
 
-#include <lang/scanner/token2.h>
+#include <lang/scanner/token.h>
 
 #include <object/arobject.h>
 #include <object/datatype/list.h>
@@ -13,13 +13,13 @@
 
 namespace argon::lang::parser {
     struct Node : object::ArObject {
-        scanner2::TokenType kind;
+        scanner::TokenType kind;
 
-        argon::lang::scanner2::Pos start;
-        argon::lang::scanner2::Pos end;
+        argon::lang::scanner::Pos start;
+        argon::lang::scanner::Pos end;
 
-        argon::lang::scanner2::Pos colno;
-        argon::lang::scanner2::Pos lineno;
+        argon::lang::scanner::Pos colno;
+        argon::lang::scanner::Pos lineno;
     };
 
     // extern const object::TypeInfo *type_ast_node_;
@@ -127,24 +127,24 @@ namespace argon::lang::parser {
     };
     extern const object::TypeInfo *type_ast_import_decl_;
 
-    Unary *UnaryNew(scanner2::TokenType kind, scanner2::Pos start, Node *right);
+    Unary *UnaryNew(scanner::TokenType kind, scanner::Pos start, Node *right);
 
-    Unary *SpreadNew(Node *left, scanner2::Pos end);
+    Unary *SpreadNew(Node *left, scanner::Pos end);
 
-    UpdateIncDec *UpdateNew(scanner2::TokenType kind, scanner2::Pos start_end, bool prefix, Node *value);
+    UpdateIncDec *UpdateNew(scanner::TokenType kind, scanner::Pos start_end, bool prefix, Node *value);
 
-    Binary *BinaryNew(scanner2::TokenType kind, const argon::object::TypeInfo *type, Node *left, Node *right);
+    Binary *BinaryNew(scanner::TokenType kind, const argon::object::TypeInfo *type, Node *left, Node *right);
 
-    Binary *InitNew(Node *left, object::ArObject *args, scanner2::Pos end, bool kwinit);
+    Binary *InitNew(Node *left, object::ArObject *args, scanner::Pos end, bool kwinit);
 
     Subscript *SubscriptNew(object::ArObject *left, bool slice);
 
-    Assignment *AssignmentNew(scanner2::Token &token, bool constant, bool pub, bool weak);
+    Assignment *AssignmentNew(scanner::Token &token, bool constant, bool pub, bool weak);
 
     Construct *
-    FunctionNew(scanner2::Pos start, argon::object::String *name, object::List *params, Node *block, bool pub);
+    FunctionNew(scanner::Pos start, argon::object::String *name, object::List *params, Node *block, bool pub);
 
-    ImportDecl *ImportNew(object::String *module, object::ArObject *names, scanner2::Pos start);
+    ImportDecl *ImportNew(object::String *module, object::ArObject *names, scanner::Pos start);
 }
 
 #endif // !ARGON_LANG_PARSER_NODES_H_

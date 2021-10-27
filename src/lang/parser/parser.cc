@@ -1,6 +1,7 @@
 // This source file is part of the Argon project.
 //
 // Licensed under the Apache License v2.0
+// 05/12/2019 <3
 
 #include <object/datatype/bool.h>
 #include <object/datatype/bytes.h>
@@ -18,7 +19,7 @@
 #define EXPR_NO_STRUCT_INIT 31
 
 using namespace argon::object;
-using namespace argon::lang::scanner2;
+using namespace argon::lang::scanner;
 using namespace argon::lang::parser;
 
 bool IsIdentifiersList(Node *node) {

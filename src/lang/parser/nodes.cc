@@ -7,7 +7,7 @@
 #include "nodes.h"
 
 using namespace argon::object;
-using namespace argon::lang::scanner2;
+using namespace argon::lang::scanner;
 using namespace argon::lang::parser;
 
 bool node_is_true(ArObject *self) {
@@ -201,7 +201,7 @@ Unary *argon::lang::parser::UnaryNew(TokenType kind, Pos start, Node *right) {
     return unary;
 }
 
-Unary *argon::lang::parser::SpreadNew(Node *left, scanner2::Pos end) {
+Unary *argon::lang::parser::SpreadNew(Node *left, scanner::Pos end) {
     Unary *unary;
 
     if ((unary = ArObjectNew<Unary>(RCType::INLINE, type_ast_spread_)) != nullptr) {
@@ -216,7 +216,7 @@ Unary *argon::lang::parser::SpreadNew(Node *left, scanner2::Pos end) {
     return unary;
 }
 
-Binary *argon::lang::parser::BinaryNew(scanner2::TokenType kind, const TypeInfo *type, Node *left, Node *right) {
+Binary *argon::lang::parser::BinaryNew(scanner::TokenType kind, const TypeInfo *type, Node *left, Node *right) {
     Binary *binary;
 
     if ((binary = ArObjectNew<Binary>(RCType::INLINE, type)) != nullptr) {
@@ -285,7 +285,7 @@ Subscript *argon::lang::parser::SubscriptNew(ArObject *left, bool slice) {
     return subscript;
 }
 
-Assignment *argon::lang::parser::AssignmentNew(scanner2::Token &token, bool constant, bool pub, bool weak) {
+Assignment *argon::lang::parser::AssignmentNew(scanner::Token &token, bool constant, bool pub, bool weak) {
     Assignment *assignment;
     const TypeInfo *type = type_ast_var_;
 
@@ -330,7 +330,7 @@ Construct *argon::lang::parser::FunctionNew(Pos start, String *name, List *param
     return func;
 }
 
-ImportDecl *argon::lang::parser::ImportNew(object::String *module, object::ArObject *names, scanner2::Pos start) {
+ImportDecl *argon::lang::parser::ImportNew(object::String *module, object::ArObject *names, scanner::Pos start) {
     ImportDecl *imp;
 
     if ((imp = ArObjectNew<ImportDecl>(RCType::INLINE, type_ast_import_decl_)) != nullptr) {

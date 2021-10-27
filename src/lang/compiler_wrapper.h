@@ -10,11 +10,11 @@
 #include <object/datatype/code.h>
 #include <object/datatype/String.h>
 
-#include <lang/scanner/scanner2.h>
+#include <lang/scanner/scanner.h>
 
 namespace argon::lang {
     class CompilerWrapper {
-        object::Code *Compile(const char *file_name, scanner2::Scanner *scanner);
+        object::Code *Compile(const char *file_name, scanner::Scanner *scanner);
 
     public:
         object::Code *Compile(const char *file_name, const char *code, unsigned long code_sz);

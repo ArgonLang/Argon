@@ -10,7 +10,7 @@
 #include "basicblock.h"
 #include "compiler.h"
 
-using namespace argon::lang::scanner2;
+using namespace argon::lang::scanner;
 using namespace argon::lang::parser;
 using namespace argon::lang::compiler;
 using namespace argon::object;
