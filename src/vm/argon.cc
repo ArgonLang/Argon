@@ -2,10 +2,9 @@
 //
 // Licensed under the Apache License v2.0
 
-#include <sstream>
-#include <fstream>
+#include <object/datatype/error.h>
 
-#include <lang/compiler.h>
+#include <lang/compiler_wrapper.h>
 
 #include "areval.h"
 #include "argon.h"
@@ -29,32 +28,32 @@ int argon::vm::Main(int argc, char **argv) {
 }
 
 argon::object::ArObject *argon::vm::EvalFile(const char *file) {
-    ArObject *res;
+    lang::CompilerWrapper cw;
+    ArObject *res = nullptr;
     Code *code;
-    lang::Compiler compiler;
+    FILE *f;
 
-    std::ifstream in(file, std::ifstream::in);
+    if ((f = fopen(file, "r")) == nullptr)
+        return ErrorSetFromErrno();
 
-    code = compiler.Compile(&in);
+    if ((code = cw.Compile("main", f)) != nullptr) {
+        res = EvalCode(code, nullptr);
+        Release(code);
+    }
 
-    res = EvalCode(code, nullptr);
-
-    Release(code);
+    fclose(f);
     return res;
 }
 
-ArObject *argon::vm::EvalString(const std::string &str) {
-    ArObject *res;
+ArObject *argon::vm::EvalString(const char *str) {
+    lang::CompilerWrapper cw;
+    ArObject *res = nullptr;
     Code *code;
 
-    argon::lang::Compiler compiler;
-    std::istringstream iss(str);
-
-    code = compiler.Compile(&iss);
-
-    res = EvalCode(code, nullptr);
-
-    Release(code);
+    if ((code = cw.Compile("main", str)) != nullptr) {
+        res = EvalCode(code, nullptr);
+        Release(code);
+    }
 
     return res;
 }

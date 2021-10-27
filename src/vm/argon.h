@@ -16,7 +16,7 @@ namespace argon::vm {
 
     argon::object::ArObject *EvalFile(const char *file);
 
-    argon::object::ArObject *EvalString(const std::string &str);
+    argon::object::ArObject *EvalString(const char *str);
 
     argon::object::ArObject *EvalCode(argon::object::Code *code, argon::object::Namespace *globals,
                                       argon::object::Tuple *args);
