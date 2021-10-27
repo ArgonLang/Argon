@@ -452,11 +452,19 @@ bool Compiler::CompileCall(Binary *call) {
     ArObject *iter;
     ArObject *tmp;
 
-    if (!this->CompileExpression(left))
-        return false;
+    if (AR_TYPEOF(left, type_ast_selector_) && left->kind != TokenType::SCOPE) {
+        if ((args = this->CompileSelector((Binary *) left, false, false)) < 0)
+            return false;
 
-    if (AR_TYPEOF(left, type_ast_selector_) && left->kind != TokenType::SCOPE)
+        if (!this->Emit(OpCodes::LDMETH, args, nullptr))
+            return false;
+
+        args = 1;
         flags |= OpCodeCallFlags::METHOD;
+    } else {
+        if (!this->CompileExpression(left))
+            return false;
+    }
 
     if ((iter = IteratorGet(call->right)) == nullptr)
         return false;
@@ -569,22 +577,24 @@ bool Compiler::CompileConstruct(Construct *construct) {
     if (this->PushStatic(construct->name, true, true) < 0)
         return false;
 
-    // Impls
-    if ((iter = IteratorGet(construct->params)) == nullptr)
-        return false;
-
-    while ((tmp = IteratorNext(iter)) != nullptr) {
-        impls++;
-        if (!this->CompileExpression((Node *) tmp)) {
-            Release(tmp);
-            Release(iter);
+    if (construct->params != nullptr) {
+        // Impls
+        if ((iter = IteratorGet(construct->params)) == nullptr)
             return false;
+
+        while ((tmp = IteratorNext(iter)) != nullptr) {
+            impls++;
+            if (!this->CompileExpression((Node *) tmp)) {
+                Release(tmp);
+                Release(iter);
+                return false;
+            }
+
+            Release(tmp);
         }
 
-        Release(tmp);
+        Release(iter);
     }
-
-    Release(iter);
 
     if (!this->Emit(opcode, impls, nullptr))
         return false;
@@ -615,8 +625,8 @@ bool Compiler::CompileFunction(Construct *func) {
     }
 
     // Push self as first param in method definition
-    if (this->unit_->scope == TUScope::STRUCT || this->unit_->scope == TUScope::TRAIT) {
-        if (func->name != nullptr) {
+    if (func->name != nullptr && this->unit_->prev != nullptr) {
+        if (this->unit_->prev->scope == TUScope::STRUCT || this->unit_->prev->scope == TUScope::TRAIT) {
             if (!this->IdentifierNew("self", SymbolType::VARIABLE, PropertyType{}, false)) {
                 Release(fname);
                 return false;
@@ -1417,6 +1427,7 @@ bool Compiler::Emit(OpCodes op, int arg, BasicBlock *dest) {
         case OpCodes::LDGBL:
         case OpCodes::LDLC:
         case OpCodes::LDENC:
+        case OpCodes::LDMETH:
         case OpCodes::NJE:
         case OpCodes::CALL:
         case OpCodes::DFR:
@@ -1502,7 +1513,7 @@ bool Compiler::IdentifierLoad(String *name) {
     if ((sym = this->IdentifierLookupOrCreate(name, SymbolType::VARIABLE)) == nullptr)
         return false;
 
-    if (this->unit_->scope == TUScope::FUNCTION || sym->nested > 0) {
+    if ((this->unit_->scope != TUScope::STRUCT && this->unit_->scope != TUScope::TRAIT) && sym->nested > 0) {
         if (sym->declared) {
             if (!this->Emit(OpCodes::LDLC, (int) sym->id, nullptr))
                 goto ERROR;
@@ -1561,7 +1572,7 @@ bool Compiler::IdentifierNew(String *name, SymbolType stype, PropertyType ptype,
 
     sym->declared = true;
 
-    if (this->unit_->scope != TUScope::FUNCTION && sym->nested == 0) {
+    if ((this->unit_->scope == TUScope::TRAIT || this->unit_->scope == TUScope::STRUCT || sym->nested == 0)) {
         if (emit) {
             if (!this->Emit(OpCodes::NGV, (unsigned char) ptype, !inserted ? sym->id : dest->len)) {
                 Release(sym);
@@ -1617,8 +1628,9 @@ bool Compiler::IdentifierNew(const char *name, SymbolType stype, PropertyType pt
 bool Compiler::TScopeNew(String *name, TUScope scope) {
     SymbolTable *table = this->symt;
     Symbol *symbol;
-    TranslationUnit *unit;
+    String *mangled;
     SymbolType sym_kind;
+    TranslationUnit *unit;
 
     if (this->unit_ != nullptr) {
         switch (scope) {
@@ -1635,9 +1647,15 @@ bool Compiler::TScopeNew(String *name, TUScope scope) {
                 assert(false);
         }
 
-        if ((symbol = SymbolTableInsertNs(this->unit_->symt, name, sym_kind)) == nullptr)
+        if ((mangled = StringNewFormat("%s_symt_", name->buffer)) == nullptr)
             return false;
 
+        if ((symbol = SymbolTableInsertNs(this->unit_->symt, mangled, sym_kind)) == nullptr) {
+            Release(mangled);
+            return false;
+        }
+
+        Release(mangled);
         table = symbol->symt;
         Release(symbol);
     }

@@ -73,6 +73,7 @@ Instr *argon::lang::compiler::BasicBlockAddInstr(BasicBlock *block, OpCodes op, 
         case OpCodes::STSCOPE:
         case OpCodes::LDATTR:
         case OpCodes::STATTR:
+        case OpCodes::LDMETH:
         case OpCodes::UNPACK:
             op_size = 4;
             break;
