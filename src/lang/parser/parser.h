@@ -5,7 +5,7 @@
 #ifndef ARGON_LANG_PARSER_PARSER_H_
 #define ARGON_LANG_PARSER_PARSER_H_
 
-#include <lang/scanner/scanner2.h>
+#include <lang/scanner/scanner.h>
 
 #include "nodes.h"
 
@@ -16,27 +16,27 @@ namespace argon::lang::parser {
     using LedMeth = Node *(Parser::*)(Node *left);
 
     class Parser {
-        scanner2::Scanner *scanner_;
+        scanner::Scanner *scanner_;
         const char *filename_;
 
-        scanner2::Token tkcur_;
+        scanner::Token tkcur_;
 
         bool IsLiteral();
 
-        [[nodiscard]] bool Match(scanner2::TokenType type) const {
+        [[nodiscard]] bool Match(scanner::TokenType type) const {
             return this->tkcur_.type == type;
         }
 
         template<typename ...TokenTypes>
-        [[nodiscard]] bool Match(scanner2::TokenType type, TokenTypes... types) const {
+        [[nodiscard]] bool Match(scanner::TokenType type, TokenTypes... types) const {
             if (!this->Match(type))
                 return this->Match(types...);
             return true;
         }
 
-        [[nodiscard]] bool MatchEat(scanner2::TokenType type, bool eat_nl);
+        [[nodiscard]] bool MatchEat(scanner::TokenType type, bool eat_nl);
 
-        [[nodiscard]] bool TokenInRange(scanner2::TokenType begin, scanner2::TokenType end) const;
+        [[nodiscard]] bool TokenInRange(scanner::TokenType begin, scanner::TokenType end) const;
 
         [[nodiscard]] bool ParseRestElement(Node **rest_node);
 
@@ -138,7 +138,7 @@ namespace argon::lang::parser {
         void EatTerm();
 
     public:
-        Parser(scanner2::Scanner *scanner, const char *filename);
+        Parser(scanner::Scanner *scanner, const char *filename);
 
         File *Parse();
     };

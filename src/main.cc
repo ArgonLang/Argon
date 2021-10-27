@@ -10,20 +10,9 @@
 using namespace argon::object;
 using namespace argon::vm;
 
-#include <lang/scanner/scanner2.h>
-
-using namespace argon::lang::scanner2;
-
 int main(int argc, char **argv) {
     ArObject *ret;
     int err;
-
-    Scanner scn(stdin, ">>", "..");
-    Token tok = Token(TokenType::ERROR,0,0);
-
-
-    for(int i=0;i<30;i++)
-        tok = scn.NextToken();
 
     if (argc < 2) {
         std::cerr << "missing script name" << std::endl;

@@ -5,10 +5,10 @@
 #include <gtest/gtest.h>
 #include <codecvt>
 
-#include <lang/scanner/scanner2.h>
-#include <lang/scanner/token2.h>
+#include <lang/scanner/scanner.h>
+#include <lang/scanner/token.h>
 
-using namespace argon::lang::scanner2;
+using namespace argon::lang::scanner;
 
 void TokenEq(Token &tk, TokenType type, Pos start, Pos end, const char *value) {
     ASSERT_EQ(tk.type, type);

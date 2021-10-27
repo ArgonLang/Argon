@@ -5,10 +5,10 @@
 #include <gtest/gtest.h>
 #include <codecvt>
 
-#include <lang/scanner/scanner2.h>
+#include <lang/scanner/scanner.h>
 #include <lang/parser/parser.h>
 
-using namespace argon::lang::scanner2;
+using namespace argon::lang::scanner;
 using namespace argon::lang::parser;
 
 TEST(Parser, EmptyInput) {
