@@ -8,7 +8,7 @@
 #include <string>
 
 #include <object/datatype/code.h>
-#include <object/datatype/String.h>
+#include <object/datatype/string.h>
 
 #include <lang/scanner/scanner.h>
 
