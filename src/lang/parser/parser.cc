@@ -1792,6 +1792,7 @@ Node *Parser::StructDecl(bool pub) {
         }
     }
 
+    construct->params = nullptr;
     if ((construct->block = this->TypeDeclBlock(true)) == nullptr) {
         Release(construct);
         return nullptr;
@@ -2270,7 +2271,12 @@ NudMeth Parser::LookupNud() {
 }
 
 void Parser::Eat() {
-    if (this->tkcur_.type != TokenType::END_OF_FILE)
+    if (this->tkcur_.type == TokenType::END_OF_FILE)
+        return;
+
+    this->tkcur_ = this->scanner_->NextToken();
+
+    while (this->tkcur_.type == TokenType::INLINE_COMMENT || this->tkcur_.type == TokenType::COMMENT)
         this->tkcur_ = this->scanner_->NextToken();
 }
 
