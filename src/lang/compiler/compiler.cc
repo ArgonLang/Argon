@@ -83,6 +83,8 @@ bool Compiler::Compile_(Node *node) {
         return this->CompileConstruct((Construct *) node);
     else if (AR_TYPEOF(node, type_ast_assignment_))
         return this->CompileAssignment((Binary *) node);
+    else if (AR_TYPEOF(node, type_ast_call_))
+        return this->CompileCall((Binary *) node);
     else if (AR_TYPEOF(node, type_ast_safe_))
         return this->CompileSafe((Unary *) node);
     else if (AR_TYPEOF(node, type_ast_func_))
@@ -599,7 +601,7 @@ bool Compiler::CompileConstruct(Construct *construct) {
     if (!this->Emit(opcode, impls, nullptr))
         return false;
 
-    TranslationUnitDecStack(this->unit_, impls + 1); // +1 is name
+    TranslationUnitDecStack(this->unit_, impls);
 
     return this->IdentifierNew(construct->name, scope == TUScope::STRUCT ? SymbolType::STRUCT : SymbolType::TRAIT,
                                construct->pub ? PropertyType::PUBLIC : PropertyType{}, true);
@@ -1429,15 +1431,10 @@ bool Compiler::Emit(OpCodes op, int arg, BasicBlock *dest) {
         case OpCodes::LDENC:
         case OpCodes::LDMETH:
         case OpCodes::NJE:
-        case OpCodes::CALL:
-        case OpCodes::DFR:
-        case OpCodes::SPWN:
         case OpCodes::MK_LIST:
         case OpCodes::MK_TUPLE:
         case OpCodes::MK_SET:
         case OpCodes::MK_MAP:
-        case OpCodes::MK_STRUCT:
-        case OpCodes::MK_TRAIT:
         case OpCodes::MK_BOUNDS:
         case OpCodes::INIT:
         case OpCodes::IMPMOD:
@@ -1466,6 +1463,11 @@ bool Compiler::Emit(OpCodes op, int arg, BasicBlock *dest) {
         case OpCodes::SUBSCR:
         case OpCodes::UNPACK:
         case OpCodes::TEST:
+        case OpCodes::MK_FUNC:
+        case OpCodes::MK_STRUCT:
+        case OpCodes::MK_TRAIT:
+        case OpCodes::DFR:
+        case OpCodes::SPWN:
             TranslationUnitDecStack(this->unit_, 1);
             break;
         case OpCodes::STSCOPE:
@@ -1697,8 +1699,10 @@ void Compiler::TScopeClear() {
 }
 
 void Compiler::TScopeExit() {
-    if (this->unit_ != nullptr)
+    if (this->unit_ != nullptr) {
+        assert(this->unit_->stack.current == 0);
         this->unit_ = TranslationUnitDel(this->unit_);
+    }
 }
 
 Code *Compiler::Compile(File *node) {
