@@ -14,9 +14,11 @@
 
 #include "parser.h"
 
-#define EXPR_NO_ASSIGN      11
-#define EXPR_NO_LIST        21
-#define EXPR_NO_STRUCT_INIT 31
+#define EXPR_NO_ASSIGN_NO_INIT  -11
+#define EXPR_ALL_NO_STRUCT_INIT -1
+#define EXPR_NO_ASSIGN          11
+#define EXPR_NO_LIST            21
+#define EXPR_NO_STRUCT_INIT     31
 
 using namespace argon::object;
 using namespace argon::lang::scanner;
@@ -26,7 +28,7 @@ bool IsIdentifiersList(Node *node) {
     auto *ast_list = (Unary *) node;
     auto *list = (List *) ast_list->value;
 
-    if (!AR_TYPEOF(node, type_ast_list_))
+    if (!AR_TYPEOF(node, type_ast_tuple_))
         return false;
 
     // All items into list must be IDENTIFIER
@@ -334,12 +336,13 @@ Node *Parser::ParseAssignment(Node *left) {
     this->Eat();
 
     if (!AR_TYPEOF(left, type_ast_identifier_)
-        && !AR_TYPEOF(left, type_ast_list_)
+        && !AR_TYPEOF(left, type_ast_index_)
+        && !AR_TYPEOF(left, type_ast_tuple_)
         && !AR_TYPEOF(left, type_ast_selector_))
         return (Node *) ErrorFormat(type_syntax_error_,
                                     "expected identifier or list to the left of the assignment expression");
 
-    if (AR_TYPEOF(left, type_ast_list_)) {
+    if (AR_TYPEOF(left, type_ast_tuple_)) {
         auto *list = (List *) ((Unary *) left)->value;
 
         for (int i = 0; i < list->len; i++) {
@@ -351,7 +354,7 @@ Node *Parser::ParseAssignment(Node *left) {
         }
     }
 
-    if ((right = this->ParseExpr(EXPR_NO_ASSIGN)) == nullptr) {
+    if ((right = this->ParseExpr(EXPR_NO_ASSIGN_NO_INIT)) == nullptr) {
         Release(left);
         return nullptr;
     }
@@ -581,11 +584,11 @@ Node *Parser::ParseScope() {
 
 }
 
-Node *Parser::Expression() {
+Node *Parser::Expression(int precedence) {
     Node *left;
     Node *ret;
 
-    if ((left = this->ParseExpr()) == nullptr)
+    if ((left = this->ParseExpr(precedence)) == nullptr)
         return nullptr;
 
     if (this->Match(TokenType::COLON))
@@ -741,11 +744,15 @@ Node *Parser::ParseElvis(Node *left) {
 
 Node *Parser::ParseExpr(int precedence) {
     bool safe = false;
+    bool no_init = precedence < 0;
     LedMeth led;
     NudMeth nud;
 
     Node *left;
     Node *right;
+
+    if (no_init)
+        precedence = -precedence;
 
     if ((nud = this->LookupNud()) == nullptr)
         return (Node *) ErrorFormat(type_syntax_error_, "invalid token found");
@@ -755,6 +762,9 @@ Node *Parser::ParseExpr(int precedence) {
 
     while (!this->Match(TokenType::END_OF_LINE, TokenType::SEMICOLON)
            && precedence < PeekPrecedence(this->tkcur_.type)) {
+
+        if (this->tkcur_.type == TokenType::LEFT_BRACES && no_init)
+            break;
 
         if ((led = this->LookupLed()) == nullptr)
             break;
@@ -923,14 +933,11 @@ Node *Parser::ParseFor() {
     if (this->MatchEat(TokenType::IN, false)) {
         type = type_ast_for_in_;
 
-        if (init == nullptr || (!AR_TYPEOF(init, type_ast_identifier_) && !AR_TYPEOF(init, type_ast_list_))) {
-            Release(init);
-            return (Node *) ErrorFormat(type_syntax_error_, "expected identifier or tuple before 'in'");
-        }
-
-        if (!IsIdentifiersList(init)) {
-            Release(init);
-            return (Node *) ErrorFormat(type_syntax_error_, "expected identifiers list");
+        if (init == nullptr || !AR_TYPEOF(init, type_ast_identifier_)) {
+            if (!AR_TYPEOF(init, type_ast_tuple_) || !IsIdentifiersList(init)) {
+                Release(init);
+                return (Node *) ErrorFormat(type_syntax_error_, "expected identifier or tuple before 'in'");
+            }
         }
     } else {
         if (!this->MatchEat(TokenType::SEMICOLON, true)) {
@@ -948,7 +955,7 @@ Node *Parser::ParseFor() {
             goto ERROR;
         }
 
-        if ((inc = this->ParseExpr(EXPR_NO_STRUCT_INIT)) == nullptr)
+        if ((inc = this->Expression(EXPR_ALL_NO_STRUCT_INIT)) == nullptr)
             goto ERROR;
     } else {
         if ((test = this->ParseExpr(EXPR_NO_STRUCT_INIT)) == nullptr)
@@ -1562,7 +1569,7 @@ Node *Parser::ParseStatement() {
                     break;
             }
         } else
-            tmp = this->Expression();
+            tmp = this->Expression(0);
 
         if (tmp == nullptr) {
             Release(label);
@@ -2334,6 +2341,8 @@ File *Parser::Parse() {
     return program;
 }
 
+#undef EXPR_NO_ASSIGN_NO_INIT
+#undef EXPR_ALL_NO_STRUCT_INIT
 #undef EXPR_NO_ASSIGN
 #undef EXPR_NO_LIST
 #undef EXPR_NO_STRUCT_INIT

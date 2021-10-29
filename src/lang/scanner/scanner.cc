@@ -286,7 +286,7 @@ bool Scanner::UnderflowFile() {
     if (rsize > 0) {
         read = std::fread(this->buffers.inp_, 1, rsize, this->fd_);
 
-        if (ferror(this->fd_) != 0 || read==0 && feof(this->fd_) != 0)
+        if (ferror(this->fd_) != 0 || read == 0 && feof(this->fd_) != 0)
             return false;
 
         this->buffers.inp_ += read;
@@ -297,10 +297,13 @@ bool Scanner::UnderflowFile() {
     if (rsize > 0) {
         read = std::fread(this->buffers.start_, 1, rsize, this->fd_);
 
-        if (ferror(this->fd_) != 0 || read==0 && feof(this->fd_) != 0)
+        if (ferror(this->fd_) != 0 || read == 0 && feof(this->fd_) != 0)
             return false;
 
         this->buffers.inp_ = this->buffers.start_ + read;
+
+        if (this->buffers.cur_ == this->buffers.end_)
+            this->buffers.cur_ = this->buffers.start_;
     }
 
     return true;

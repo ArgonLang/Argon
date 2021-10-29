@@ -1050,13 +1050,13 @@ bool Compiler::CompileForLoop(Loop *loop) {
 
     // Compile body
 
-    if (!this->Compile_(loop->body))
+    if (!this->CompileBlock((Unary *) loop->body, false))
         goto ERROR;
 
     // Compile Inc
 
     if (loop->inc != nullptr) {
-        if (!this->CompileExpression(loop->inc))
+        if (!this->Compile_(loop->inc))
             goto ERROR;
     }
 
@@ -1450,6 +1450,9 @@ bool Compiler::Emit(OpCodes op, int arg, BasicBlock *dest) {
         case OpCodes::DIV:
         case OpCodes::IPDIV:
         case OpCodes::IDIV:
+        case OpCodes::LAND:
+        case OpCodes::LXOR:
+        case OpCodes::LOR:
         case OpCodes::MOD:
         case OpCodes::CMP:
         case OpCodes::POP:

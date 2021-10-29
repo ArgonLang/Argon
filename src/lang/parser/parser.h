@@ -59,7 +59,7 @@ namespace argon::lang::parser {
 
         [[nodiscard]] Node *ParseScope();
 
-        [[nodiscard]] Node *Expression();
+        [[nodiscard]] Node *Expression(int precedence);
 
         [[nodiscard]] Node *ParseVarDecl(bool constant, bool pub);
 
