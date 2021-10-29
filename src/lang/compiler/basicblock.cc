@@ -54,6 +54,7 @@ Instr *argon::lang::compiler::BasicBlockAddInstr(BasicBlock *block, OpCodes op, 
         case OpCodes::JT:
         case OpCodes::JMP:
         case OpCodes::JTOP:
+        case OpCodes::JFOP:
         case OpCodes::JNIL:
         case OpCodes::NJE:
         case OpCodes::NGV:

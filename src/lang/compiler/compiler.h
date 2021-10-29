@@ -69,7 +69,9 @@ namespace argon::lang::compiler {
 
         bool CompileLoop(argon::lang::parser::Loop *loop);
 
-        bool CompileTest(argon::lang::parser::Test *test);
+        bool CompileIf(argon::lang::parser::Test *test);
+
+        bool CompileTest(argon::lang::parser::Binary *test);
 
         bool CompileUnary(argon::lang::parser::Unary *expr);
 

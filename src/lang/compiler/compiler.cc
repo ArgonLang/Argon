@@ -92,7 +92,7 @@ bool Compiler::Compile_(Node *node) {
     else if (AR_TYPEOF(node, type_ast_jmp_))
         return this->CompileJump((Unary *) node);
     else if (AR_TYPEOF(node, type_ast_test_))
-        return this->CompileTest((Test *) node);
+        return this->CompileIf((Test *) node);
     else if (AR_TYPEOF(node, type_ast_block_))
         return this->CompileBlock((Unary *) node, true);
     else if (AR_TYPEOF(node, type_ast_loop_))
@@ -1170,7 +1170,7 @@ bool Compiler::CompileLoop(Loop *loop) {
     return false;
 }
 
-bool Compiler::CompileTest(Test *test) {
+bool Compiler::CompileIf(Test *test) {
     auto *end = BasicBlockNew();
 
     if (end == nullptr)
@@ -1194,6 +1194,53 @@ bool Compiler::CompileTest(Test *test) {
     }
 
     TranslationUnitBlockAppend(this->unit_, end);
+    return true;
+
+    ERROR:
+    BasicBlockDel(end);
+    return false;
+}
+
+bool Compiler::CompileTest(argon::lang::parser::Binary *test) {
+    Binary *cursor = test;
+    BasicBlock *end;
+    int deep = 0;
+
+    if ((end = BasicBlockNew()) == nullptr)
+        return false;
+
+    while (((Node *) cursor->left)->kind == TokenType::AND || ((Node *) cursor->left)->kind == TokenType::OR) {
+        cursor = (Binary *) cursor->left;
+        deep++;
+    }
+
+    if (!this->CompileExpression((Node *) cursor->left))
+        goto ERROR;
+
+    do {
+        if (cursor->kind == TokenType::AND) {
+            if (!this->Emit(OpCodes::JFOP, 0, end))
+                goto ERROR;
+        } else if (cursor->kind == TokenType::OR) {
+            if (!this->Emit(OpCodes::JTOP, 0, end))
+                goto ERROR;
+        } else
+            assert(false);
+
+        if (!TranslationUnitBlockNew(this->unit_))
+            goto ERROR;
+
+        if (!this->CompileExpression((Node *) cursor->right))
+            goto ERROR;
+
+        deep--;
+        cursor = test;
+        for (int i = 0; i < deep; i++)
+            cursor = (Binary *) test->left;
+    } while (deep >= 0);
+
+    TranslationUnitBlockAppend(this->unit_, end);
+
     return true;
 
     ERROR:
@@ -1354,9 +1401,12 @@ bool Compiler::CompileExpression(Node *expr) {
         return this->CompileCall((Binary *) expr);
     else if (AR_TYPEOF(expr, type_ast_identifier_))
         return this->IdentifierLoad((String *) ((Unary *) expr)->value);
-    else if (AR_TYPEOF(expr, type_ast_binary_))
+    else if (AR_TYPEOF(expr, type_ast_binary_)) {
+        if (expr->kind == TokenType::AND || expr->kind == TokenType::OR)
+            return this->CompileTest((Binary *) expr);
+
         return this->CompileBinary((Binary *) expr);
-    else if (AR_TYPEOF(expr, type_ast_unary_))
+    } else if (AR_TYPEOF(expr, type_ast_unary_))
         return this->CompileUnary((Unary *) expr);
     else if (AR_TYPEOF(expr, type_ast_update_))
         return this->CompileUpdate((UpdateIncDec *) expr);
@@ -1471,6 +1521,8 @@ bool Compiler::Emit(OpCodes op, int arg, BasicBlock *dest) {
         case OpCodes::MK_TRAIT:
         case OpCodes::DFR:
         case OpCodes::SPWN:
+        case OpCodes::JFOP:
+        case OpCodes::JTOP:
             TranslationUnitDecStack(this->unit_, 1);
             break;
         case OpCodes::STSCOPE:
