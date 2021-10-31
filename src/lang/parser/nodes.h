@@ -90,6 +90,7 @@ namespace argon::lang::parser {
         object::ArObject *orelse;
     };
     extern const object::TypeInfo *type_ast_elvis_;
+    extern const object::TypeInfo *type_ast_ternary_;
     extern const object::TypeInfo *type_ast_test_;
     extern const object::TypeInfo *type_ast_switch_;
 

@@ -1907,7 +1907,7 @@ Node *Parser::ParseTernary(Node *left) {
         return nullptr;
     }
 
-    if ((test = ArObjectNew<Test>(RCType::INLINE, type_ast_test_)) == nullptr) {
+    if ((test = ArObjectNew<Test>(RCType::INLINE, type_ast_ternary_)) == nullptr) {
         Release(body);
         Release(orelse);
         return nullptr;
@@ -1958,7 +1958,7 @@ Node *Parser::ParseExprList(Node *left) {
         Release(tmp);
     } while (this->MatchEat(TokenType::COMMA, true));
 
-    if ((ret = ArObjectNew<Unary>(RCType::INLINE, type_ast_list_)) == nullptr) {
+    if ((ret = ArObjectNew<Unary>(RCType::INLINE, type_ast_tuple_)) == nullptr) {
         Release(list);
         return nullptr;
     }

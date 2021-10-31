@@ -151,6 +151,9 @@ NODE_GENERIC(Update, "", sizeof(argon::lang::parser::UpdateIncDec), update_clean
 NODE_GENERIC(Elvis, "", sizeof(argon::lang::parser::Test), test_cleanup, nullptr, nullptr, nullptr,
              argon::lang::parser::type_ast_elvis_);
 
+NODE_GENERIC(Ternary, "", sizeof(argon::lang::parser::Test), test_cleanup, nullptr, nullptr, nullptr,
+             argon::lang::parser::type_ast_ternary_);
+
 NODE_GENERIC(Test, "", sizeof(argon::lang::parser::Test), test_cleanup, nullptr, nullptr, nullptr,
              argon::lang::parser::type_ast_test_);
 
