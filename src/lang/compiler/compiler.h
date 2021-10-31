@@ -73,11 +73,15 @@ namespace argon::lang::compiler {
 
         bool CompileTest(argon::lang::parser::Binary *test);
 
+        bool CompileTernary(argon::lang::parser::Test *ternary);
+
         bool CompileUnary(argon::lang::parser::Unary *expr);
 
         bool CompileUpdate(argon::lang::parser::UpdateIncDec *update);
 
         bool CompileJump(argon::lang::parser::Unary *jmp);
+
+        bool CompileUnpack(argon::object::List* list);
 
         bool Emit(argon::lang::OpCodes op, int arg, BasicBlock *dest);
 

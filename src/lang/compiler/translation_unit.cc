@@ -83,8 +83,19 @@ Code *argon::lang::compiler::TranslationUnitAssemble(TranslationUnit *unit) {
             if (instr->jmp != nullptr)
                 arg = instr->jmp->i_offset;
 
-            *((Instr32 *) bcur) = arg << 8 | instr->opcode;
-            bcur += (instr->oparg & 0xFF000000) >> 24u;
+            switch ((instr->oparg & 0xFF000000) >> 24u) {
+                case 4:
+                    *((Instr32 *) bcur) = arg << 8 | instr->opcode;
+                    bcur += 4;
+                    break;
+                case 2:
+                    *((Instr16 *) bcur) = arg << 8 | instr->opcode;
+                    bcur += 2;
+                    break;
+                default:
+                    *((Instr8 *) bcur) = instr->opcode;
+                    bcur++;
+            }
         }
     }
 

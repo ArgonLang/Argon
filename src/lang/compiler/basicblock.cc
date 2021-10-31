@@ -74,6 +74,7 @@ Instr *argon::lang::compiler::BasicBlockAddInstr(BasicBlock *block, OpCodes op, 
         case OpCodes::STSCOPE:
         case OpCodes::LDATTR:
         case OpCodes::STATTR:
+        case OpCodes::STGBL:
         case OpCodes::LDMETH:
         case OpCodes::UNPACK:
             op_size = 4;
@@ -146,4 +147,8 @@ JBlock *argon::lang::compiler::JBlockDel(JBlock *jb) {
     argon::memory::Free(jb);
 
     return prev;
+}
+
+void argon::lang::compiler::InstrSetArg(Instr *instr, int arg) {
+    instr->oparg = ((instr->oparg & 0xFF000000) >> 24u) << 24u | arg;
 }

@@ -125,20 +125,13 @@ bool Compiler::CompileAssignment(Binary *assignment) {
             return this->Emit(OpCodes::STSCOPE, 0, nullptr);
 
         return this->Emit(OpCodes::STATTR, 0, nullptr);
-    } else if (AR_TYPEOF(assignment->left, type_ast_subscript_)) {
+    } else if (AR_TYPEOF(assignment->left, type_ast_subscript_) | AR_TYPEOF(assignment->left, type_ast_index_)) {
         if (!this->CompileSubscr((Subscript *) assignment->left, false, false))
             return false;
 
         return this->Emit(OpCodes::STSUBSCR, 0, nullptr);
-    } else if (AR_TYPEOF(assignment->left, type_ast_tuple_)) {
-        auto *list = (List *) ((Unary *) assignment->left)->value;
-
-        if (!this->Emit(OpCodes::UNPACK, list->len, nullptr))
-            return false;
-
-        TranslationUnitIncStack(this->unit_, list->len);
-        return true;
-    }
+    } else if (AR_TYPEOF(assignment->left, type_ast_tuple_))
+        return this->CompileUnpack((List *) ((Unary *) assignment->left)->value);
 
     return false;
 }
@@ -406,6 +399,13 @@ bool Compiler::CompileBinary(Binary *expr) {
             ok = this->Emit(OpCodes::MOD, 0, nullptr);
             break;
 
+        case TokenType::SHL:
+            ok = this->Emit(OpCodes::SHL, 0, nullptr);
+            break;
+        case TokenType::SHR:
+            ok = this->Emit(OpCodes::SHR, 0, nullptr);
+            break;
+
             // EQUALITY
         case TokenType::EQUAL_EQUAL:
             ok = this->Emit(OpCodes::CMP, (int) CompareMode::EQ, nullptr);
@@ -531,7 +531,7 @@ bool Compiler::CompileCompound(Unary *list) {
     Release(iter);
 
     if (AR_TYPEOF(list, type_ast_tuple_))
-        code = OpCodes::MK_TRAIT;
+        code = OpCodes::MK_TUPLE;
     else if (AR_TYPEOF(list, type_ast_map_)) {
         code = OpCodes::MK_MAP;
         items /= 2;
@@ -1084,7 +1084,7 @@ bool Compiler::CompileForInLoop(Loop *loop) {
     if (!TranslationUnitEnterSub(this->unit_))
         return false;
 
-    if (!this->Compile_(loop->test))
+    if (!this->CompileExpression(loop->test))
         goto ERROR;
 
     if (!this->Emit(OpCodes::LDITER, 0, nullptr))
@@ -1103,8 +1103,13 @@ bool Compiler::CompileForInLoop(Loop *loop) {
         goto ERROR;
 
     // ASSIGN
-    if (!this->Compile_(loop->init))
-        goto ERROR;
+    if (AR_TYPEOF(loop->init, type_ast_identifier_)) {
+        if (!this->VariableStore((String *) ((Unary *) loop->init)->value))
+            goto ERROR;
+    } else if (AR_TYPEOF(loop->init, type_ast_tuple_)) {
+        if (!this->CompileUnpack((List *) ((Unary *) loop->init)->value))
+            goto ERROR;
+    }
 
     if (!this->Compile_(loop->body))
         goto ERROR;
@@ -1171,23 +1176,33 @@ bool Compiler::CompileLoop(Loop *loop) {
 }
 
 bool Compiler::CompileIf(Test *test) {
-    auto *end = BasicBlockNew();
+    BasicBlock *orelse;
+    BasicBlock *end;
 
-    if (end == nullptr)
+    if ((end = BasicBlockNew()) == nullptr)
         return false;
+
+    orelse = end;
 
     if (!this->CompileExpression((Node *) test->test))
         goto ERROR;
 
-    if (!this->Emit(OpCodes::JF, end, nullptr))
+    if (!this->Emit(OpCodes::JF, orelse, nullptr))
         goto ERROR;
 
     if (!this->CompileBlock((Unary *) test->body, true))
         goto ERROR;
 
     if (test->orelse != nullptr) {
-        if (!this->Emit(OpCodes::JMP, end, nullptr))
+        if ((end = BasicBlockNew()) == nullptr) {
+            BasicBlockDel(orelse);
+            return false;
+        }
+
+        if (!this->Emit(OpCodes::JMP, end, orelse)) {
+            BasicBlockDel(orelse);
             goto ERROR;
+        }
 
         if (!this->Compile_((Node *) test->orelse))
             goto ERROR;
@@ -1244,6 +1259,48 @@ bool Compiler::CompileTest(argon::lang::parser::Binary *test) {
     return true;
 
     ERROR:
+    BasicBlockDel(end);
+    return false;
+}
+
+bool Compiler::CompileTernary(Test *ternary) {
+    BasicBlock *orelse;
+    BasicBlock *end;
+
+    if ((orelse = BasicBlockNew()) == nullptr)
+        return false;
+
+    if ((end = BasicBlockNew()) == nullptr) {
+        BasicBlockDel(orelse);
+        return false;
+    }
+
+    if (!this->CompileExpression((Node *) ternary->test))
+        goto ERROR;
+
+    if (!this->Emit(OpCodes::JF, orelse, nullptr))
+        goto ERROR;
+
+    if (!this->CompileExpression((Unary *) ternary->body))
+        goto ERROR;
+
+    if (!this->Emit(OpCodes::JMP, end, nullptr))
+        goto ERROR;
+
+    TranslationUnitDecStack(this->unit_, 1);
+
+    TranslationUnitBlockAppend(this->unit_, orelse);
+
+    if (!this->CompileExpression((Node *) ternary->orelse)) {
+        BasicBlockDel(end);
+        return false;
+    }
+
+    TranslationUnitBlockAppend(this->unit_, end);
+    return true;
+
+    ERROR:
+    BasicBlockDel(orelse);
     BasicBlockDel(end);
     return false;
 }
@@ -1414,8 +1471,43 @@ bool Compiler::CompileExpression(Node *expr) {
         return this->CompileSafe((Unary *) expr);
     else if (AR_TYPEOF(expr, type_ast_index_) || AR_TYPEOF(expr, type_ast_subscript_))
         return this->CompileSubscr((Subscript *) expr, false, true);
+    else if (AR_TYPEOF(expr, type_ast_ternary_))
+        return this->CompileTernary((Test *) expr);
 
     return false;
+}
+
+bool Compiler::CompileUnpack(List *list) {
+    Instr *iptr;
+    ArObject *iter;
+    ArObject *tmp;
+
+    int items = 0;
+
+    if (!this->Emit(OpCodes::UNPACK, 0, nullptr))
+        return false;
+
+    iptr = this->unit_->bb.cur->instr.tail;
+
+    if ((iter = IteratorGet(list)) == nullptr)
+        return false;
+
+    while ((tmp = IteratorNext(iter)) != nullptr) {
+        TranslationUnitIncStack(this->unit_, 1);
+        if (!this->VariableStore((String *) ((Unary *) tmp)->value)) {
+            Release(tmp);
+            Release(iter);
+            return false;
+        }
+        Release(tmp);
+        items++;
+    }
+
+    Release(iter);
+
+    InstrSetArg(iptr, items);
+
+    return true;
 }
 
 int Compiler::PushStatic(ArObject *obj, bool store, bool emit) {
@@ -1500,6 +1592,8 @@ bool Compiler::Emit(OpCodes op, int arg, BasicBlock *dest) {
         case OpCodes::DIV:
         case OpCodes::IPDIV:
         case OpCodes::IDIV:
+        case OpCodes::SHL:
+        case OpCodes::SHR:
         case OpCodes::LAND:
         case OpCodes::LXOR:
         case OpCodes::LOR:

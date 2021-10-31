@@ -54,6 +54,8 @@ namespace argon::lang::compiler {
     JBlock *JBlockNew(JBlock *prev, argon::object::String *label, unsigned short nested);
 
     JBlock *JBlockDel(JBlock *jb);
+
+    void InstrSetArg(Instr *instr, int arg);
 }
 
 #endif // !ARGON_LANG_COMPILER_BASICBLOCK_H_
