@@ -258,6 +258,7 @@ UpdateIncDec *argon::lang::parser::UpdateNew(TokenType kind, Pos start_end, bool
     if ((update = ArObjectNew<UpdateIncDec>(RCType::INLINE, type_ast_update_)) != nullptr) {
         update->kind = kind;
         update->value = value;
+        update->prefix = prefix;
 
         if (prefix) {
             update->start = start_end;

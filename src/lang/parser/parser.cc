@@ -1434,7 +1434,7 @@ Node *Parser::ParsePostUpdate(Node *left) {
 Node *Parser::ParsePreUpdate() {
     TokenType kind = this->tkcur_.type;
     Pos start = this->tkcur_.start;
-    Unary *unary;
+    UpdateIncDec *update;
     Node *right;
 
     this->Eat();
@@ -1449,10 +1449,10 @@ Node *Parser::ParsePreUpdate() {
         return (Node *) ErrorFormat(type_syntax_error_, "unexpected update operator");
     }
 
-    if ((unary = UnaryNew(kind, start, right)) == nullptr)
+    if((update = UpdateNew(this->tkcur_.type, this->tkcur_.end, true, right))== nullptr)
         Release(right);
 
-    return unary;
+    return update;
 }
 
 Node *Parser::ParsePrefix() {
