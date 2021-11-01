@@ -722,6 +722,8 @@ bool Compiler::CompileFunction(Construct *func) {
         }
 
         fun_flags |= FunctionFlags::CLOSURE;
+
+        TranslationUnitDecStack(this->unit_, 1);
     }
 
     Release(fu_code);
@@ -1325,7 +1327,7 @@ bool Compiler::CompileUnary(Unary *expr) {
             ok = this->Emit(OpCodes::NEG, 0, nullptr);
             break;
         default:
-            break;
+            assert(false);
     }
 
     return ok;

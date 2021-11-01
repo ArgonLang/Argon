@@ -45,8 +45,8 @@ bool argon::lang::compiler::TranslationUnitIsFreeVar(TranslationUnit *unit, Stri
     // in turn then this is a free variable
     Symbol *sym;
 
-    for (TranslationUnit *tu = unit; tu != nullptr && tu->scope == TUScope::FUNCTION; tu = tu->prev) {
-        sym = SymbolTableLookup(unit->symt, name);
+    for (TranslationUnit *tu = unit->prev; tu != nullptr && tu->scope == TUScope::FUNCTION; tu = tu->prev) {
+        sym = SymbolTableLookup(tu->symt, name);
         if (sym != nullptr) {
             if ((sym->declared || sym->free)) {
                 Release(sym);

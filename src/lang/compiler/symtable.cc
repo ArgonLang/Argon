@@ -224,10 +224,12 @@ Symbol *argon::lang::compiler::SymbolTableInsertNs(SymbolTable *symt, String *na
                                       SymbolType2Name[(int) sym->kind], name->buffer);
     }
 
-    if ((st = SymbolTableNew(symt)) == nullptr) {
+    if ((st = SymbolTableNew(nullptr)) == nullptr) {
         Release(sym);
         return nullptr;
     }
+
+    st->nested = symt->nested + 1;
 
     sym->declared = true;
     sym->symt = st;
