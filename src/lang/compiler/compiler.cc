@@ -56,7 +56,9 @@ bool Compiler::Compile_(Node *node) {
             return false;
 
         return true;
-    } else if (AR_TYPEOF(node, type_ast_label_)) {
+    } else if (AR_TYPEOF(node, type_ast_list_decl_))
+        return this->CompileDeclarations((Unary *) node);
+    else if (AR_TYPEOF(node, type_ast_label_)) {
         auto *label = (Binary *) node;
 
         if (TranslationUnitJBNew(this->unit_, (String *) label->left) == nullptr)
@@ -106,6 +108,23 @@ bool Compiler::Compile_(Node *node) {
 
     ErrorFormat(type_compile_error_, "invalid AST node: %s", AR_TYPE_NAME(node));
     return false;
+}
+
+bool Compiler::CompileDeclarations(Unary *declist) {
+    ArObject *iter;
+    Assignment *decl;
+    bool ok = true;
+
+    if ((iter = IteratorGet(declist->value)) == nullptr)
+        return false;
+
+    while (ok && (decl = (Assignment *) IteratorNext(iter)) != nullptr) {
+        ok = this->Compile_(decl);
+        Release(decl);
+    }
+
+    Release(iter);
+    return ok;
 }
 
 bool Compiler::CompileAssignment(Binary *assignment) {

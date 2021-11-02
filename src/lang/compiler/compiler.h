@@ -37,6 +37,8 @@ namespace argon::lang::compiler {
 
         bool CompileConstruct(argon::lang::parser::Construct *construct);
 
+        bool CompileDeclarations(argon::lang::parser::Unary *declist);
+
         bool CompileExpression(argon::lang::parser::Node *expr);
 
         bool CompileImport(argon::lang::parser::ImportDecl *import);
@@ -81,7 +83,7 @@ namespace argon::lang::compiler {
 
         bool CompileJump(argon::lang::parser::Unary *jmp);
 
-        bool CompileUnpack(argon::object::List* list);
+        bool CompileUnpack(argon::object::List *list);
 
         bool Emit(argon::lang::OpCodes op, int arg, BasicBlock *dest);
 
