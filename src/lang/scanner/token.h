@@ -15,6 +15,7 @@ namespace argon::lang::scanner {
         END_OF_LINE,
         EXCLAMATION,
         EXCLAMATION_LBRACES,
+        BLANK,
         NOT_EQUAL,
 
         STRING_BEGIN,

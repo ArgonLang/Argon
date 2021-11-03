@@ -1682,6 +1682,11 @@ bool Compiler::IdentifierLoad(String *name) {
     // but tries to load it from the global namespace.
     Symbol *sym;
 
+    if (StringEq(name, (const unsigned char *) "_", 1)) {
+        ErrorFormat(type_compile_error_, "cannot use '_' as value");
+        return false;
+    }
+
     if ((sym = this->IdentifierLookupOrCreate(name, SymbolType::VARIABLE)) == nullptr)
         return false;
 
@@ -1719,6 +1724,9 @@ bool Compiler::VariableStore(String *name) {
     Symbol *sym;
     bool ok;
 
+    if (StringEq(name, (const unsigned char *) "_", 1))
+        return this->Emit(OpCodes::POP, 0, nullptr);
+
     if ((sym = this->IdentifierLookupOrCreate(name, SymbolType::VARIABLE)) == nullptr)
         return false;
 
@@ -1738,6 +1746,11 @@ bool Compiler::IdentifierNew(String *name, SymbolType stype, PropertyType ptype,
     ArObject *arname;
     Symbol *sym;
     bool inserted;
+
+    if (StringEq(name, (const unsigned char *) "_", 1)) {
+        ErrorFormat(type_compile_error_, "cannot use '_' as name of identifier");
+        return false;
+    }
 
     if ((sym = SymbolTableInsert(this->unit_->symt, name, stype, &inserted)) == nullptr)
         return false;

@@ -741,6 +741,9 @@ Token Scanner::TokenizeWord() {
         }
     }
 
+    if (*this->tkval.start_ == '_' && this->tkval.cur_ - this->tkval.start_ == 1)
+        type = TokenType::BLANK;
+
     return this->MakeTkWithValue(start, type);
 }
 

@@ -1062,6 +1062,7 @@ Node *Parser::ParseIdentifier() {
 
         id->start = this->tkcur_.start;
         id->end = this->tkcur_.end;
+        id->kind = this->tkcur_.type;
         id->colno = 0;
         id->lineno = 0;
         id->value = str;
@@ -2256,6 +2257,7 @@ NudMeth Parser::LookupNud() {
 
     switch (this->tkcur_.type) {
         case TokenType::IDENTIFIER:
+        case TokenType::BLANK:
         case TokenType::SELF:
             return &Parser::ParseIdentifier;
         case TokenType::LEFT_SQUARE:
