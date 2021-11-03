@@ -135,6 +135,8 @@ namespace argon::object {
 
     int StringIntToUTF8(unsigned int glyph, unsigned char *buf);
 
+    int StringUTF8toInt(const unsigned char *buf);
+
     ArSize StringLen(const String *str);
 
     String *StringConcat(String *left, String *right);

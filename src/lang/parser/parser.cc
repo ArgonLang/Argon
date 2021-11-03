@@ -1174,8 +1174,8 @@ Node *Parser::ParseLiteral() {
             value = DecimalNew((const char *) this->tkcur_.buf);
             break;
         case TokenType::NUMBER_CHR:
-            // TODO: number_chr
-            assert(false);
+            value = IntegerNew(StringUTF8toInt((const unsigned char *) this->tkcur_.buf));
+            break;
         case TokenType::STRING:
         case TokenType::RAW_STRING:
             value = StringNew((const char *) this->tkcur_.buf);
@@ -1449,7 +1449,7 @@ Node *Parser::ParsePreUpdate() {
         return (Node *) ErrorFormat(type_syntax_error_, "unexpected update operator");
     }
 
-    if((update = UpdateNew(this->tkcur_.type, this->tkcur_.end, true, right))== nullptr)
+    if ((update = UpdateNew(this->tkcur_.type, this->tkcur_.end, true, right)) == nullptr)
         Release(right);
 
     return update;

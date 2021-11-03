@@ -958,7 +958,7 @@ bool FmtParseOptionStar(StringFormatter *fmt, StringArg *arg, bool prec) {
         return false;
     }
 
-    opt = (int)num->integer;
+    opt = (int) num->integer;
 
     if (opt < 0) {
         if (!prec)
@@ -1525,6 +1525,20 @@ int argon::object::StringIntToUTF8(unsigned int glyph, unsigned char *buf) {
     }
 
     return 0;
+}
+
+int argon::object::StringUTF8toInt(const unsigned char *buf) {
+    if(*buf > 0xF0)
+        return -1;
+
+    if ((*buf & 0xF0) == 0xF0)
+        return (*buf & 0x07) << 21 | (buf[1] & 0x3F) << 12 | (buf[2] & 0x3F) << 6 | buf[3] & 0x3F;
+    else if ((*buf & 0xE0) == 0xE0)
+        return (*buf & 0x0F) << 12 | (buf[1] & 0x3F) << 6 | buf[2] & 0x3F;
+    else if ((*buf & 0xC0) == 0xC0)
+        return (*buf & 0x1F) << 6 | buf[1] & 0x3F;
+
+    return *buf;
 }
 
 String *argon::object::StringConcat(String *left, String *right) {
