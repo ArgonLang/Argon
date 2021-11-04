@@ -266,7 +266,7 @@ bool Compiler::CompileImportFrom(ImportDecl *import) {
     ArObject *tmp;
     int idx;
 
-    if ((idx = this->PushStatic(import->module, true, false))<0)
+    if ((idx = this->PushStatic(import->module, true, false)) < 0)
         return false;
 
     if (!this->Emit(OpCodes::IMPMOD, idx, nullptr))
@@ -867,7 +867,6 @@ bool Compiler::CompileSubscr(Subscript *subscr, bool dup, bool emit) {
             return false;
     }
 
-
     if (dup) {
         if (!this->Emit(OpCodes::DUP, 2, nullptr))
             return false;
@@ -915,12 +914,11 @@ bool Compiler::CompileSwitch(Test *sw) {
         return false;
 
     while ((tmp = (Binary *) IteratorNext(iter)) != nullptr) {
+        if (!this->CompileSwitchCase(tmp, &ltest, &lbody, end, as_if))
+            return false;
+
         if (tmp->left == nullptr && _default == nullptr)
             _default = lbody;
-
-        if (!this->CompileSwitchCase(tmp, &ltest, &lbody, end, as_if)) {
-            return false;
-        }
 
         // Switch to test thread
         this->unit_->bb.cur = ltest;
@@ -947,6 +945,7 @@ bool Compiler::CompileSwitch(Test *sw) {
             argon::memory::Free(cursor->next);
             cursor->next = nullptr;
             lbody->instr.tail = cursor;
+            lbody->i_size -= 4;
             break;
         }
     }
@@ -970,6 +969,7 @@ bool Compiler::CompileSwitch(Test *sw) {
 
 bool Compiler::CompileSwitchCase(Binary *binary, BasicBlock **ltest, BasicBlock **lbody, BasicBlock *end, bool as_if) {
     bool fallthrough = false;
+    BasicBlock *test_curr = *ltest;
     ArObject *iter;
     Node *tmp;
 
@@ -1004,6 +1004,9 @@ bool Compiler::CompileSwitchCase(Binary *binary, BasicBlock **ltest, BasicBlock 
     if ((*lbody)->i_size > 0) {
         if (TranslationUnitBlockNew(this->unit_) == nullptr)
             return false;
+
+        if (binary->left != nullptr)
+            test_curr->instr.tail->jmp = this->unit_->bb.cur; // Adjust jump to correct block
     }
 
     // Process body
@@ -1630,7 +1633,6 @@ bool Compiler::Emit(OpCodes op, int arg, BasicBlock *dest) {
         case OpCodes::RET:
         case OpCodes::SUBSCR:
         case OpCodes::UNPACK:
-        case OpCodes::TEST:
         case OpCodes::MK_FUNC:
         case OpCodes::MK_STRUCT:
         case OpCodes::MK_TRAIT:
