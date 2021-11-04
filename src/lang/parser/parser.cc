@@ -76,6 +76,8 @@ int PeekPrecedence(TokenType type) {
             return 110;
         case TokenType::PLUS:
         case TokenType::MINUS:
+        case TokenType::EXCLAMATION:
+        case TokenType::TILDE:
             return 120;
         case TokenType::ASTERISK:
         case TokenType::SLASH:
@@ -1269,6 +1271,7 @@ Node *Parser::ParseIf() {
 
     test->end = ((Node *) test->body)->end;
 
+    test->orelse = nullptr;
     if (this->MatchEat(TokenType::ELIF, false)) {
         if ((test->orelse = this->ParseIf()) == nullptr)
             goto ERROR;

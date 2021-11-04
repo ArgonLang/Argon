@@ -266,7 +266,7 @@ bool Compiler::CompileImportFrom(ImportDecl *import) {
     ArObject *tmp;
     int idx;
 
-    if ((idx = this->PushStatic(import->module, true, false)))
+    if ((idx = this->PushStatic(import->module, true, false))<0)
         return false;
 
     if (!this->Emit(OpCodes::IMPMOD, idx, nullptr))
