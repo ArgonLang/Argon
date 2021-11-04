@@ -14,11 +14,8 @@
 
 #include "parser.h"
 
-#define EXPR_NO_ASSIGN_NO_INIT  -11
-#define EXPR_ALL_NO_STRUCT_INIT -1
 #define EXPR_NO_ASSIGN          11
 #define EXPR_NO_LIST            21
-#define EXPR_NO_STRUCT_INIT     31
 
 using namespace argon::object;
 using namespace argon::lang::scanner;
@@ -356,7 +353,7 @@ Node *Parser::ParseAssignment(Node *left) {
         }
     }
 
-    if ((right = this->ParseExpr(EXPR_NO_ASSIGN_NO_INIT)) == nullptr) {
+    if ((right = this->ParseExpr(EXPR_NO_ASSIGN)) == nullptr) {
         Release(left);
         return nullptr;
     }
@@ -586,11 +583,11 @@ Node *Parser::ParseScope() {
 
 }
 
-Node *Parser::Expression(int precedence) {
+Node *Parser::Expression() {
     Node *left;
     Node *ret;
 
-    if ((left = this->ParseExpr(precedence)) == nullptr)
+    if ((left = this->ParseExpr()) == nullptr)
         return nullptr;
 
     if (this->Match(TokenType::COLON))
@@ -745,16 +742,13 @@ Node *Parser::ParseElvis(Node *left) {
 }
 
 Node *Parser::ParseExpr(int precedence) {
+    bool no_init = this->no_init_;
     bool safe = false;
-    bool no_init = precedence < 0;
     LedMeth led;
     NudMeth nud;
 
     Node *left;
     Node *right;
-
-    if (no_init)
-        precedence = -precedence;
 
     if ((nud = this->LookupNud()) == nullptr)
         return (Node *) ErrorFormat(type_syntax_error_, "invalid token found");
@@ -949,7 +943,7 @@ Node *Parser::ParseFor() {
     }
 
     if (type == type_ast_for_) {
-        if ((test = this->ParseExpr(EXPR_NO_STRUCT_INIT)) == nullptr)
+        if ((test = this->ParseExpr(EXPR_NO_ASSIGN)) == nullptr)
             goto ERROR;
 
         if (!this->MatchEat(TokenType::SEMICOLON, true)) {
@@ -957,11 +951,15 @@ Node *Parser::ParseFor() {
             goto ERROR;
         }
 
-        if ((inc = this->Expression(EXPR_ALL_NO_STRUCT_INIT)) == nullptr)
+        this->no_init_ = true;
+        if ((inc = this->Expression()) == nullptr)
             goto ERROR;
+        this->no_init_ = false;
     } else {
-        if ((test = this->ParseExpr(EXPR_NO_STRUCT_INIT)) == nullptr)
+        this->no_init_ = true;
+        if ((test = this->ParseExpr(EXPR_NO_ASSIGN)) == nullptr)
             goto ERROR;
+        this->no_init_ = false;
     }
 
     if ((body = this->ParseBlock()) == nullptr)
@@ -1237,10 +1235,12 @@ Node *Parser::ParseLoop() {
             return nullptr;
         }
     } else {
-        if ((loop->test = this->ParseExpr(EXPR_NO_STRUCT_INIT)) == nullptr) {
+        this->no_init_ = true;
+        if ((loop->test = this->ParseExpr(EXPR_NO_ASSIGN)) == nullptr) {
             Release(loop);
             return nullptr;
         }
+        this->no_init_ = false;
 
         if ((loop->body = this->ParseBlock()) == nullptr) {
             Release(loop);
@@ -1263,8 +1263,10 @@ Node *Parser::ParseIf() {
 
     this->Eat();
 
-    if ((test->test = this->ParseExpr(EXPR_NO_STRUCT_INIT)) == nullptr)
+    this->no_init_ = true;
+    if ((test->test = this->ParseExpr(EXPR_NO_ASSIGN)) == nullptr)
         goto ERROR;
+    this->no_init_ = false;
 
     if ((test->body = this->ParseBlock()) == nullptr)
         goto ERROR;
@@ -1573,7 +1575,7 @@ Node *Parser::ParseStatement() {
                     break;
             }
         } else
-            tmp = this->Expression(0);
+            tmp = this->Expression();
 
         if (tmp == nullptr) {
             Release(label);
@@ -1714,9 +1716,12 @@ Node *Parser::SwitchDecl() {
     start = this->tkcur_.start;
     this->Eat();
 
-    if (!this->Match(TokenType::LEFT_BRACES))
-        if ((test = this->ParseExpr()) == nullptr)
+    if (!this->Match(TokenType::LEFT_BRACES)) {
+        this->no_init_ = true;
+        if ((test = this->ParseExpr(EXPR_NO_ASSIGN)) == nullptr)
             return nullptr;
+        this->no_init_ = false;
+    }
 
     if (!this->MatchEat(TokenType::LEFT_BRACES, false)) {
         Release(test);
@@ -1997,6 +2002,7 @@ Node *Parser::TraitDecl(bool pub) {
 
     this->Eat();
 
+    construct->params = nullptr;
     if (this->MatchEat(TokenType::COLON, true)) {
         if ((construct->params = (List *) this->TraitList()) == nullptr) {
             Release(construct);
@@ -2313,6 +2319,8 @@ File *Parser::Parse() {
     // Initialize parser
     this->Eat();
 
+    this->no_init_ = false;
+
     while (!this->MatchEat(TokenType::END_OF_FILE, true)) {
         if ((tmp = this->ParseDecls()) == nullptr) {
             Release(decls);
@@ -2346,8 +2354,5 @@ File *Parser::Parse() {
     return program;
 }
 
-#undef EXPR_NO_ASSIGN_NO_INIT
-#undef EXPR_ALL_NO_STRUCT_INIT
 #undef EXPR_NO_ASSIGN
 #undef EXPR_NO_LIST
-#undef EXPR_NO_STRUCT_INIT

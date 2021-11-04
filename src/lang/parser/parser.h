@@ -21,6 +21,8 @@ namespace argon::lang::parser {
 
         scanner::Token tkcur_;
 
+        bool no_init_;
+
         bool IsLiteral();
 
         [[nodiscard]] bool Match(scanner::TokenType type) const {
@@ -59,7 +61,7 @@ namespace argon::lang::parser {
 
         [[nodiscard]] Node *ParseScope();
 
-        [[nodiscard]] Node *Expression(int precedence);
+        [[nodiscard]] Node *Expression();
 
         [[nodiscard]] Node *ParseVarDecl(bool constant, bool pub);
 
