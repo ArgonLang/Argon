@@ -128,6 +128,8 @@ bool Compiler::CompileDeclarations(Unary *declist) {
 }
 
 bool Compiler::CompileAssignment(Binary *assignment) {
+    int idx;
+
     if (assignment->kind != TokenType::EQUAL)
         return this->CompileAugAssignment(assignment);
 
@@ -137,13 +139,13 @@ bool Compiler::CompileAssignment(Binary *assignment) {
     if (AR_TYPEOF(assignment->left, type_ast_identifier_))
         return this->VariableStore((String *) ((Unary *) assignment->left)->value);
     else if (AR_TYPEOF(assignment->left, type_ast_selector_)) {
-        if (this->CompileSelector((Binary *) assignment->left, false, false) < 0)
+        if ((idx=this->CompileSelector((Binary *) assignment->left, false, false)) < 0)
             return false;
 
         if (((Binary *) assignment->left)->kind == TokenType::SCOPE)
-            return this->Emit(OpCodes::STSCOPE, 0, nullptr);
+            return this->Emit(OpCodes::STSCOPE, idx, nullptr);
 
-        return this->Emit(OpCodes::STATTR, 0, nullptr);
+        return this->Emit(OpCodes::STATTR, idx, nullptr);
     } else if (AR_TYPEOF(assignment->left, type_ast_subscript_) | AR_TYPEOF(assignment->left, type_ast_index_)) {
         if (!this->CompileSubscr((Subscript *) assignment->left, false, false))
             return false;
@@ -784,6 +786,13 @@ int Compiler::CompileSelector(Binary *selector, bool dup, bool emit) {
         if ((idx = this->PushStatic((String *) cursor->right, true, false)) < 0)
             return -1;
 
+        if (dup && deep == 0) {
+            if (!this->Emit(OpCodes::DUP, 1, nullptr))
+                return -1;
+
+            TranslationUnitIncStack(this->unit_, 1);
+        }
+
         if (deep > 0 || emit) {
             if (!this->Emit(code, idx, nullptr))
                 return -1;
@@ -794,13 +803,6 @@ int Compiler::CompileSelector(Binary *selector, bool dup, bool emit) {
         for (int i = 0; i < deep; i++)
             cursor = (Binary *) selector->left;
     } while (deep >= 0);
-
-    if (dup) {
-        if (!this->Emit(OpCodes::DUP, 1, nullptr))
-            return -1;
-
-        TranslationUnitIncStack(this->unit_, 1);
-    }
 
     return idx;
 }
