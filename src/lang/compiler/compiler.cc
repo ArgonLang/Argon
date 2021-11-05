@@ -289,7 +289,7 @@ bool Compiler::CompileImportFrom(ImportDecl *import) {
 
             Release(iter);
         } else {
-            if (!this->CompileImportAlias((Binary *) import->names, false))
+            if (!this->CompileImportAlias((Binary *) import->names, true))
                 return false;
         }
     } else {
@@ -1549,6 +1549,7 @@ int Compiler::PushStatic(ArObject *obj, bool store, bool emit) {
                 // recover already existing object and discard the actual one
                 Release(obj);
                 obj = tmp;
+                tmp = nullptr;
             } else {
                 if (!MapInsert(this->statics_globals_, obj, obj))
                     goto ERROR;

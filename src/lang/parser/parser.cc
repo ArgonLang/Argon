@@ -1260,6 +1260,8 @@ Node *Parser::ParseIf() {
         return nullptr;
 
     test->start = this->tkcur_.start;
+    test->body = nullptr;
+    test->orelse = nullptr;
 
     this->Eat();
 
@@ -1273,8 +1275,7 @@ Node *Parser::ParseIf() {
 
     test->end = ((Node *) test->body)->end;
 
-    test->orelse = nullptr;
-    if (this->MatchEat(TokenType::ELIF, false)) {
+    if (this->Match(TokenType::ELIF)) {
         if ((test->orelse = this->ParseIf()) == nullptr)
             goto ERROR;
 
