@@ -551,15 +551,14 @@ bool Compiler::CompileCompound(Unary *list) {
 
     if (AR_TYPEOF(list, type_ast_tuple_))
         code = OpCodes::MK_TUPLE;
-    else if (AR_TYPEOF(list, type_ast_map_)) {
+    else if (AR_TYPEOF(list, type_ast_map_))
         code = OpCodes::MK_MAP;
-        items /= 2;
-    } else if (AR_TYPEOF(list, type_ast_set_))
+    else if (AR_TYPEOF(list, type_ast_set_))
         code = OpCodes::MK_SET;
 
     TranslationUnitDecStack(this->unit_, items);
 
-    return this->Emit(code, items, nullptr);
+    return this->Emit(code, code == OpCodes::MK_MAP ? items / 2 : items, nullptr);
 }
 
 bool Compiler::CompileConstruct(Construct *construct) {
