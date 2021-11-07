@@ -1371,6 +1371,10 @@ Node *Parser::ParseMapSet() {
     if (list == nullptr)
         return nullptr;
 
+    // An empty {}, is considered as empty map!
+    if (!is_map && ((List *) list)->len == 0)
+        is_map = true;
+
     if ((tmp = ArObjectNew<Unary>(RCType::INLINE, is_map ? type_ast_map_ : type_ast_set_)) == nullptr) {
         Release(list);
         return nullptr;
