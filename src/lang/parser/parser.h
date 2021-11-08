@@ -36,7 +36,7 @@ namespace argon::lang::parser {
             return true;
         }
 
-        [[nodiscard]] bool MatchEat(scanner::TokenType type, bool eat_nl);
+        bool MatchEat(scanner::TokenType type, bool eat_nl);
 
         [[nodiscard]] bool TokenInRange(scanner::TokenType begin, scanner::TokenType end) const;
 
@@ -137,7 +137,9 @@ namespace argon::lang::parser {
 
         void Eat();
 
-        void EatTerm();
+        void EatTerm(scanner::TokenType stop);
+
+        void EatTerm() { this->EatTerm(scanner::TokenType::END_OF_FILE); }
 
     public:
         Parser(scanner::Scanner *scanner, const char *filename);

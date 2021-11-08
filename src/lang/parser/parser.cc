@@ -104,17 +104,14 @@ inline bool Parser::IsLiteral() {
 bool Parser::MatchEat(TokenType type, bool eat_nl) {
     bool match;
 
-    if (eat_nl) {
-        while (this->Match(TokenType::END_OF_LINE))
-            this->Eat();
-    }
+    if (eat_nl)
+        this->EatTerm(type);
 
-    if ((match = this->Match(type)))
+    if ((match = this->Match(type))) {
         this->Eat();
 
-    if (eat_nl) {
-        while (this->Match(TokenType::END_OF_LINE))
-            this->Eat();
+        if (eat_nl)
+            this->EatTerm(TokenType::END_OF_FILE);
     }
 
     return match;
@@ -2303,9 +2300,11 @@ void Parser::Eat() {
         this->tkcur_ = this->scanner_->NextToken();
 }
 
-void Parser::EatTerm() {
-    while (this->Match(TokenType::END_OF_LINE, TokenType::SEMICOLON))
-        this->Eat();
+void Parser::EatTerm(TokenType stop) {
+    if(!this->Match(stop)) {
+        while (this->Match(TokenType::END_OF_LINE, TokenType::SEMICOLON))
+            this->Eat();
+    }
 }
 
 Parser::Parser(Scanner *scanner, const char *filename) {
