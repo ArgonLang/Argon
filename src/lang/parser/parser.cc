@@ -2121,7 +2121,7 @@ Node *Parser::ParseTupleLambda() {
     }
 
     // it's definitely a tuple
-    if ((tmp = ArObjectNew<Unary>(RCType::INLINE, type_ast_list_)) == nullptr) {
+    if ((tmp = ArObjectNew<Unary>(RCType::INLINE, type_ast_tuple_)) == nullptr) {
         Release(args);
         return nullptr;
     }
