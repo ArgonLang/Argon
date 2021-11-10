@@ -141,6 +141,8 @@ namespace argon::object {
 
     String *StringConcat(String *left, String *right);
 
+    String *StringConcat(String *left, const char *right, bool internal);
+
     String *StringFormat(String *fmt, ArObject *args);
 
     String *StringCFormat(const char *fmt, ArObject *args);

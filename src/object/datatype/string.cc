@@ -1528,7 +1528,7 @@ int argon::object::StringIntToUTF8(unsigned int glyph, unsigned char *buf) {
 }
 
 int argon::object::StringUTF8toInt(const unsigned char *buf) {
-    if(*buf > 0xF0)
+    if (*buf > 0xF0)
         return -1;
 
     if ((*buf & 0xF0) == 0xF0)
@@ -1554,6 +1554,23 @@ String *argon::object::StringConcat(String *left, String *right) {
         ret->cp_len = left->cp_len + right->cp_len;
     }
 
+    return ret;
+}
+
+String *argon::object::StringConcat(String *left, const char *right, bool internal) {
+    String *ret = nullptr;
+    String *astr;
+
+    astr = internal ? StringIntern(right) : StringNew(right);
+
+    if (astr != nullptr) {
+        if ((ret = StringConcat(left, astr)) == nullptr) {
+            Release(astr);
+            return nullptr;
+        }
+    }
+
+    Release(astr);
     return ret;
 }
 
