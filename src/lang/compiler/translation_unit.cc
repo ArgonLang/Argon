@@ -13,18 +13,10 @@ using namespace argon::object;
 
 bool MakeQName(TranslationUnit *prev, TranslationUnit *unit, String *name) {
     String *tmp;
-    String *sep;
 
     if (prev != nullptr && name != nullptr && !StringEmpty(name)) {
-        if ((sep = StringIntern("::")) == nullptr)
+        if ((tmp = StringConcat(prev->name, "::", true)) == nullptr)
             return false;
-
-        if ((tmp = StringConcat(prev->name, sep)) == nullptr) {
-            Release(sep);
-            return false;
-        }
-
-        Release(sep);
 
         if ((unit->qname = StringConcat(tmp, name)) == nullptr) {
             Release(tmp);

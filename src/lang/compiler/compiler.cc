@@ -15,6 +15,22 @@ using namespace argon::lang::parser;
 using namespace argon::lang::compiler;
 using namespace argon::object;
 
+String *MakeQName(String *base, String *name) {
+    String *tmp;
+    String *ret;
+
+    if (StringEmpty(base))
+        return IncRef(name);
+
+    if ((tmp = StringConcat(base, "::", true)) == nullptr)
+        return nullptr;
+
+    ret = StringConcat(tmp, name);
+    Release(tmp);
+
+    return ret;
+}
+
 bool Compiler::Compile_(Node *node) {
     if (AR_TYPEOF(node, type_ast_expression_)) {
         if (!this->CompileExpression((Unary *) ((Unary *) node)->value))
@@ -139,7 +155,7 @@ bool Compiler::CompileAssignment(Binary *assignment) {
     if (AR_TYPEOF(assignment->left, type_ast_identifier_))
         return this->VariableStore((String *) ((Unary *) assignment->left)->value);
     else if (AR_TYPEOF(assignment->left, type_ast_selector_)) {
-        if ((idx=this->CompileSelector((Binary *) assignment->left, false, false)) < 0)
+        if ((idx = this->CompileSelector((Binary *) assignment->left, false, false)) < 0)
             return false;
 
         if (((Binary *) assignment->left)->kind == TokenType::SCOPE)
@@ -713,13 +729,19 @@ bool Compiler::CompileFunction(Construct *func) {
 
     this->TScopeExit();
 
-    // TODO: push qname instead of name
-    if (this->PushStatic(fname, true, true) < 0) {
+    if ((tmp = MakeQName(this->unit_->qname, fname)) == nullptr) {
         Release(fname);
         return false;
     }
 
     Release(fname);
+
+    if (this->PushStatic(tmp, true, true) < 0) {
+        Release(tmp);
+        return false;
+    }
+
+    Release(tmp);
 
     if (this->PushStatic(fu_code, false, true) < 0) {
         Release(fu_code);
