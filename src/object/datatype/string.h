@@ -151,8 +151,16 @@ namespace argon::object {
         return support::Find(string->buffer, string->len, pattern->buffer, pattern->len, false);
     }
 
+    inline ArSSize StringFind(String *string, const char *pattern) {
+        return support::Find(string->buffer, string->len, (const unsigned char *) pattern, strlen(pattern), false);
+    }
+
     inline ArSSize StringRFind(String *string, String *pattern) {
         return support::Find(string->buffer, string->len, pattern->buffer, pattern->len, true);
+    }
+
+    inline ArSSize StringRFind(String *string, const char *pattern) {
+        return support::Find(string->buffer, string->len, (const unsigned char *) pattern, strlen(pattern), true);
     }
 
     String *StringReplace(String *string, String *old, String *nval, ArSSize n);
