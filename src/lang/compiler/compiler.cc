@@ -644,10 +644,12 @@ bool Compiler::CompileConstruct(Construct *construct) {
 }
 
 bool Compiler::CompileFunction(Construct *func) {
-    Code *fu_code = nullptr;
+    PropertyType ptype = PropertyType::CONST;
     String *fname = IncRef(func->name);
-    FunctionFlags fun_flags{};
+    Code *fu_code = nullptr;
     short p_count = 0;
+
+    FunctionFlags fun_flags{};
 
     ArObject *iter;
     ArObject *tmp;
@@ -773,9 +775,12 @@ bool Compiler::CompileFunction(Construct *func) {
     if (!this->Emit(OpCodes::MK_FUNC, (unsigned char) fun_flags, p_count))
         return false;
 
-    if (func->name != nullptr)
-        return this->IdentifierNew(func->name, SymbolType::FUNC,
-                                   func->pub ? PropertyType::PUBLIC : PropertyType{}, true);
+    if (func->name != nullptr) {
+        if (func->pub)
+            ptype |= PropertyType::PUBLIC;
+
+        return this->IdentifierNew(func->name, SymbolType::FUNC, ptype, true);
+    }
 
     return true;
 }
