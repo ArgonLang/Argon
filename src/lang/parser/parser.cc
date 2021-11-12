@@ -1115,8 +1115,8 @@ Node *Parser::ParseList() {
     if ((list = ListNew()) == nullptr)
         return nullptr;
 
+    this->EatTerm();
     if (!this->Match(TokenType::RIGHT_SQUARE)) {
-        this->EatTerm();
         do {
             if ((tmp = this->ParseExpr(EXPR_NO_LIST)) == nullptr)
                 goto ERROR;
