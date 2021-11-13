@@ -14,33 +14,6 @@ using namespace argon::object;
 using namespace argon::module;
 using namespace argon::vm;
 
-bool InitFDs(io::File **in, io::File **out, io::File **err) {
-    if ((*in = io::FdOpen(STDIN_FILENO, io::FileMode::READ)) == nullptr)
-        return false;
-
-    if ((*out = io::FdOpen(STDOUT_FILENO, io::FileMode::WRITE)) == nullptr) {
-        Release((ArObject **) in);
-        return false;
-    }
-
-    if ((*err = io::FdOpen(STDERR_FILENO, io::FileMode::WRITE)) == nullptr) {
-        Release((ArObject **) in);
-        Release((ArObject **) out);
-        return false;
-    }
-
-    if(global_cfg->unbuffered)
-        io::SetBuffer(*out, nullptr, 0, io::FileBufferMode::NONE);
-
-    io::SetBuffer(*err, nullptr, 0, io::FileBufferMode::NONE);
-    return true;
-}
-
-bool GetOS(String **name) {
-    *name = StringIntern(_ARGON_PLATFORM_NAME);
-    return *name != nullptr;
-}
-
 Tuple *ParseCMDArgs(int argc, char **argv) {
     Tuple *args;
     String *tmp;
@@ -59,53 +32,125 @@ Tuple *ParseCMDArgs(int argc, char **argv) {
     return args;
 }
 
-bool runtime_init(Module *module) {
-#define ADD_PROPERTY(name, object, pinfo)               \
-    if(!ModuleAddProperty(module, name, object, pinfo)) \
-        goto error
-
-    String *os_name = nullptr;
-    Tuple *argv = nullptr;
-
-    io::File *in = nullptr;
-    io::File *out = nullptr;
+bool InitFD(Module *module) {
+    io::File *in;
+    io::File *out;
     io::File *err = nullptr;
 
     bool ok = false;
 
-    // Init IO
-    if (!InitFDs(&in, &out, &err))
-        goto error;
+    if ((in = io::FdOpen(STDIN_FILENO, io::FileMode::READ)) == nullptr)
+        return false;
 
-    if((argv = ParseCMDArgs(global_cfg->argc, global_cfg->argv)) == nullptr)
-        goto error;
+    if ((out = io::FdOpen(STDOUT_FILENO, io::FileMode::WRITE)) == nullptr)
+        goto ERROR;
 
-    ADD_PROPERTY("__stdin", in, MODULE_ATTRIBUTE_PUB_CONST);
-    ADD_PROPERTY("__stdout", out, MODULE_ATTRIBUTE_PUB_CONST);
-    ADD_PROPERTY("__stderr", err, MODULE_ATTRIBUTE_PUB_CONST);
+    if ((err = io::FdOpen(STDOUT_FILENO, io::FileMode::WRITE)) == nullptr)
+        goto ERROR;
 
-    ADD_PROPERTY("stdin", in, PropertyType::PUBLIC);
-    ADD_PROPERTY("stdout", out, PropertyType::PUBLIC);
-    ADD_PROPERTY("stderr", err, PropertyType::PUBLIC);
+    io::SetBuffer(err, nullptr, 0, io::FileBufferMode::NONE);
 
-    ADD_PROPERTY("argv", argv, MODULE_ATTRIBUTE_PUB_CONST);
+    if (global_cfg->unbuffered)
+        io::SetBuffer(out, nullptr, 0, io::FileBufferMode::NONE);
 
-    if (!GetOS(&os_name))
-        goto error;
+    // FDs backup
+    if (!ModuleAddProperty(module, "__stdin", in, MODULE_ATTRIBUTE_PUB_CONST))
+        goto ERROR;
 
-    ADD_PROPERTY("os", os_name, MODULE_ATTRIBUTE_PUB_CONST);
+    if (!ModuleAddProperty(module, "__stdout", out, MODULE_ATTRIBUTE_PUB_CONST))
+        goto ERROR;
+
+    if (!ModuleAddProperty(module, "__stderr", err, MODULE_ATTRIBUTE_PUB_CONST))
+        goto ERROR;
+
+    // FDs
+    if (!ModuleAddProperty(module, "stdin", in, PropertyType::PUBLIC))
+        goto ERROR;
+
+    if (!ModuleAddProperty(module, "stdout", out, PropertyType::PUBLIC))
+        goto ERROR;
+
+    if (!ModuleAddProperty(module, "stderr", err, PropertyType::PUBLIC))
+        goto ERROR;
 
     ok = true;
 
-    error:
+    ERROR:
     Release(in);
     Release(out);
     Release(err);
-    Release(os_name);
-    Release(argv);
     return ok;
+}
 
-#undef ADD_PROPERTY
+bool SetArgs(Module *module) {
+    Tuple *args;
+
+    if ((args = ParseCMDArgs(global_cfg->argc, global_cfg->argv)) == nullptr)
+        return false;
+
+    if (!ModuleAddProperty(module, "args", args, PropertyType::PUBLIC)) {
+        Release(args);
+        return false;
+    }
+
+    Release(args);
+    return true;
+}
+
+bool SetOsName(Module *module) {
+    String *name;
+
+    if ((name = StringIntern(_ARGON_PLATFORM_NAME)) == nullptr)
+        return false;
+
+    if (!ModuleAddProperty(module, "os", name, MODULE_ATTRIBUTE_PUB_CONST)) {
+        Release(name);
+        return false;
+    }
+
+    Release(name);
+    return true;
+}
+
+bool SetPS(Module *module) {
+    bool ok = false;
+    String *ps1;
+    String *ps2;
+
+    if ((ps1 = StringIntern("Ar> ")) == nullptr)
+        return false;
+
+    if ((ps2 = StringIntern("... ")) == nullptr)
+        goto ERROR;
+
+    if (!ModuleAddProperty(module, "ps1", ps1, PropertyType::PUBLIC))
+        goto ERROR;
+
+    if (!ModuleAddProperty(module, "ps2", ps2, PropertyType::PUBLIC))
+        goto ERROR;
+
+    ok = true;
+
+    ERROR:
+    Release(ps1);
+    Release(ps2);
+    return ok;
+}
+
+bool runtime_init(Module *module) {
+    if (!InitFD(module))
+        return false;
+
+    if (!SetOsName(module))
+        return false;
+
+    if (!SetPS(module))
+        return false;
+
+    if (!SetArgs(module))
+        return false;
+
+    return true;
 }
 
 const ModuleInit module_runtime = {
