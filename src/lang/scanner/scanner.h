@@ -32,7 +32,7 @@ namespace argon::lang::scanner {
         GOOD
     };
 
-    using InteractiveFn = int (*)(FILE *fd, const char *prompt, void *buf, int len);
+    using InteractiveFn = int (*)(class Scanner *scanner, FILE *fd, const char *prompt);
 
     class Scanner {
         const char *prompt_ = nullptr;
@@ -57,6 +57,8 @@ namespace argon::lang::scanner {
 
         Pos pos_ = 1;
 
+        int par_ = -1;
+
         bool TkEnlarge(int len);
 
         bool TkInitBuf();
@@ -78,8 +80,6 @@ namespace argon::lang::scanner {
         bool UnderflowFile();
 
         bool UnderflowInteractive();
-
-        int ExpandBuffer(int newsize);
 
         int HexToByte();
 
@@ -123,6 +123,8 @@ namespace argon::lang::scanner {
         explicit Scanner(const char *str) noexcept: Scanner(str, strlen(str)) {};
 
         ~Scanner() noexcept;
+
+        bool AppendUserInput(unsigned char *buf, int bufsiz);
 
         bool Reset();
 

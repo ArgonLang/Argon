@@ -65,16 +65,42 @@ inline unsigned char HexDigitToNumber(int chr) {
     return (IsDigit(chr)) ? ((char) chr) - '0' : 10 + (tolower(chr) - 'a');
 }
 
-int DefaultPrompt(FILE *fd, const char *prompt, void *buf, int blen) {
+int DefaultPrompt(Scanner *scanner, FILE *fd, const char *prompt) {
+    int length = ARGON_LANG_SCANNER_PROMPT_BUFSIZ;
+    int cur = 0;
+
+    unsigned char *buf = nullptr;
+    unsigned char *tmp;
+
     printf("%s", prompt);
 
-    if (std::fgets((char *) buf, blen, fd) == nullptr) {
-        if (feof(fd) != 0)
-            return 0;
-        return -1;
-    }
+    do {
+        length += cur >> 1;
 
-    return (int) strlen((char *) buf);
+        if ((tmp = (unsigned char *) argon::memory::Realloc(buf, length)) == nullptr) {
+            cur = -1;
+            goto ERROR;
+        }
+
+        buf = tmp;
+
+        if (std::fgets((char *) buf + cur, length - cur, fd) == nullptr) {
+            cur = -1;
+
+            if (feof(fd) != 0)
+                cur = 0;
+
+            goto ERROR;
+        }
+
+        cur += (int) strlen((char *) buf + cur);
+    } while (*((buf + cur) - 1) != '\n');
+
+    scanner->AppendUserInput(buf, cur);
+
+    ERROR:
+    argon::memory::Free(buf);
+    return cur;
 }
 
 // EOL
@@ -310,64 +336,15 @@ bool Scanner::UnderflowFile() {
 }
 
 bool Scanner::UnderflowInteractive() {
-    int bufsz = this->ExpandBuffer(ARGON_LANG_SCANNER_PROMPT_BUFSIZ);
-
-    bufsz = this->promptfn_(this->fd_, this->prompt_, this->buffers.inp_, bufsz);
-
-    if (bufsz == -1) {
+    if (this->promptfn_(this, this->fd_, this->prompt_) == -1 || this->status == ScannerStatus::NOMEM) {
         this->status = ScannerStatus::NOMEM;
         return false;
     }
-
-    this->buffers.inp_ += bufsz;
 
     if (this->next_prompt_ != nullptr)
         this->prompt_ = this->next_prompt_;
 
     return true;
-}
-
-int Scanner::ExpandBuffer(int newsize) {
-    unsigned char *tmp;
-    long oldsize;
-    long cur;
-    long inp;
-    long end;
-
-    if (this->buffers.start_ == nullptr) {
-        this->buffers.start_ = (unsigned char *) argon::memory::Alloc(newsize);
-
-        if (this->buffers.start_ == nullptr) {
-            this->status = ScannerStatus::NOMEM;
-            return -1;
-        }
-
-        this->buffers.cur_ = this->buffers.start_;
-        this->buffers.inp_ = this->buffers.start_;
-        this->buffers.end_ = this->buffers.start_ + newsize;
-        return newsize;
-    }
-
-    oldsize = this->buffers.end_ - this->buffers.inp_;
-
-    if ((newsize >> 1) >= oldsize) {
-        cur = this->buffers.cur_ - this->buffers.start_;
-        inp = this->buffers.inp_ - this->buffers.start_;
-        end = this->buffers.end_ - this->buffers.start_;
-
-        tmp = (unsigned char *) argon::memory::Realloc(this->buffers.start_, end + (newsize - oldsize));
-        if (tmp == nullptr) {
-            this->status = ScannerStatus::NOMEM;
-            return -1;
-        }
-
-        this->buffers.start_ = tmp;
-        this->buffers.cur_ = tmp + cur;
-        this->buffers.inp_ = tmp + inp;
-        this->buffers.end_ = tmp + (end + (newsize - oldsize));
-    }
-
-    return (int) (newsize - oldsize);
 }
 
 int Scanner::HexToByte() {
@@ -413,9 +390,12 @@ int Scanner::Peek(bool advance) {
         if (this->fd_ == nullptr)
             return -1;
 
-        if (this->prompt_ != nullptr)
+        if (this->prompt_ != nullptr) {
+            if (this->par_ == 0)
+                return -1;
+
             ok = this->UnderflowInteractive();
-        else
+        } else
             ok = this->UnderflowFile();
 
         if (!ok)
@@ -792,6 +772,49 @@ Scanner::~Scanner() noexcept {
     argon::memory::Free(this->tkval.start_);
 }
 
+bool Scanner::AppendUserInput(unsigned char *buf, int bufsiz) {
+    unsigned char *tmp;
+    long cur;
+    long inp;
+    long end;
+
+    if (this->buffers.start_ == nullptr) {
+        this->buffers.start_ = (unsigned char *) argon::memory::Alloc(bufsiz);
+
+        if (this->buffers.start_ == nullptr) {
+            this->status = ScannerStatus::NOMEM;
+            return false;
+        }
+
+        this->buffers.cur_ = this->buffers.start_;
+        //this->buffers.inp_ = this->buffers.start_;
+        this->buffers.end_ = this->buffers.start_ + bufsiz;
+
+        this->buffers.inp_ = (unsigned char *) argon::memory::MemoryCopy(this->buffers.start_, buf, bufsiz);
+
+        return true;
+    }
+
+    cur = this->buffers.cur_ - this->buffers.start_;
+    inp = this->buffers.inp_ - this->buffers.start_;
+    end = this->buffers.end_ - this->buffers.start_;
+
+    tmp = (unsigned char *) argon::memory::Realloc(this->buffers.start_, end + bufsiz);
+    if (tmp == nullptr) {
+        this->status = ScannerStatus::NOMEM;
+        return false;
+    }
+
+    this->buffers.start_ = tmp;
+    this->buffers.cur_ = tmp + cur;
+    //this->buffers.inp_ = tmp + inp;
+    this->buffers.end_ = tmp + (end + bufsiz);
+
+    this->buffers.inp_ = (unsigned char *) argon::memory::MemoryCopy(tmp + inp, buf, bufsiz);
+
+    return true;
+}
+
 bool Scanner::Reset() {
     // Buffers
     this->buffers.cur_ = this->buffers.start_;
@@ -842,6 +865,9 @@ Token Scanner::NextToken() noexcept {
     while ((value = this->PeekChar()) > 0) {
         start = this->pos_;
 
+        if (this->par_ == -1)
+            this->par_ = 0;
+
         // Skip spaces
         if (IsSpace(value)) {
             for (; IsSpace(this->PeekChar()); this->NextChar());
@@ -872,7 +898,6 @@ Token Scanner::NextToken() noexcept {
                 continue;
             case '!':
                 CHECK_AGAIN('=', TokenType::NOT_EQUAL)
-                CHECK_AGAIN('{', TokenType::EXCLAMATION_LBRACES)
                 return Token(TokenType::EXCLAMATION, start, this->pos_);
             case '"':
                 return this->TokenizeString(start, false);
@@ -886,8 +911,10 @@ Token Scanner::NextToken() noexcept {
             case '\'':
                 return this->TokenizeChar(start);
             case '(':
+                this->par_++;
                 return Token(TokenType::LEFT_ROUND, start, this->pos_);
             case ')':
+                this->par_--;
                 return Token(TokenType::RIGHT_ROUND, start, this->pos_);
             case '*':
                 CHECK_AGAIN('=', TokenType::ASTERISK_EQ)
@@ -942,17 +969,21 @@ Token Scanner::NextToken() noexcept {
                 CHECK_AGAIN('.', TokenType::QUESTION_DOT)
                 return Token(TokenType::QUESTION, start, this->pos_);
             case '[':
+                this->par_++;
                 return Token(TokenType::LEFT_SQUARE, start, this->pos_);
             case ']':
+                this->par_--;
                 return Token(TokenType::RIGHT_SQUARE, start, this->pos_);
             case '^':
                 return Token(TokenType::CARET, start, this->pos_);
             case '{':
+                this->par_++;
                 return Token(TokenType::LEFT_BRACES, start, this->pos_);
             case '|':
                 CHECK_AGAIN('|', TokenType::OR)
                 return Token(TokenType::PIPE, start, this->pos_);
             case '}':
+                this->par_--;
                 return Token(TokenType::RIGHT_BRACES, start, this->pos_);
             case '~':
                 return Token(TokenType::TILDE, start, this->pos_);
