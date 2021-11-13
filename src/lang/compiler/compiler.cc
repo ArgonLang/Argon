@@ -1923,6 +1923,7 @@ Code *Compiler::Compile(File *node) {
     ArObject *decl_iter;
     ArObject *decl;
     Code *code;
+    Instr *last;
 
     if (!AR_TYPEOF(node, type_ast_file_))
         return (Code *) ErrorFormat(type_compile_error_, "expected %s node, found: %s", type_ast_file_->name,
@@ -1961,6 +1962,30 @@ Code *Compiler::Compile(File *node) {
         Release(decl);
     }
     Release(decl_iter);
+
+    /*
+     * If module is empty or last instruction is not a POP:
+     *      LSTATIC nil
+     *      RET
+     *
+     * If last instruction is POP:
+     *      replace POP with RET
+     *
+     * These changes allow to correctly manage the output in interactive mode!
+     */
+
+    last = this->unit_->bb.cur->instr.tail;
+
+    if (last == nullptr || (OpCodes) last->opcode != OpCodes::POP) {
+        if (this->PushStatic(NilVal, true, true) < 0)
+            return nullptr;
+
+        if (!this->Emit(OpCodes::RET, 0, nullptr))
+            return nullptr;
+    } else
+        last->opcode = (unsigned char) OpCodes::RET;
+
+    // EOL
 
     code = TranslationUnitAssemble(this->unit_);
 
