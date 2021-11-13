@@ -881,11 +881,11 @@ bool Compiler::CompileSubscr(Subscript *subscr, bool dup, bool emit) {
                 return false;
         }
 
-        if (subscr->high != nullptr) {
-            if (!this->CompileExpression((Node *) subscr->high))
+        if (subscr->step != nullptr) {
+            if (!this->CompileExpression((Node *) subscr->step))
                 return false;
         } else {
-            if (!this->PushStatic(NilVal, true, true))
+            if (this->PushStatic(NilVal, true, true)<0)
                 return false;
         }
 
