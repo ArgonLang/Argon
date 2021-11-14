@@ -834,7 +834,8 @@ Node *Parser::ParseFnCall(Node *left) {
 
     if (!this->MatchEat(TokenType::RIGHT_ROUND, true)) {
         ErrorFormat(type_syntax_error_, "expected ')' after last argument of function call");
-        goto ERROR;
+        Release(args);
+        return nullptr;
     }
 
     if ((tmp = ArObjectNew<Binary>(RCType::INLINE, type_ast_call_)) == nullptr) {
