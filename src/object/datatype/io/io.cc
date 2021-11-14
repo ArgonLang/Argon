@@ -939,6 +939,34 @@ ArSSize argon::object::io::WriteObject(File *file, ArObject *obj) {
     return nbytes;
 }
 
+ArSSize argon::object::io::WriteObjectStr(File *file, ArObject *obj) {
+    ArBuffer buffer = {};
+    ArObject *to_buf;
+    ArSSize nbytes = -1;
+
+    to_buf = IncRef(obj);
+
+    if (!IsBufferable(to_buf)) {
+        String *str;
+
+        if ((str = (String *) ToString(obj)) == nullptr)
+            goto ERROR;
+
+        Release(to_buf);
+        to_buf = str;
+    }
+
+    if (!BufferGet(to_buf, &buffer, ArBufferFlags::READ))
+        goto ERROR;
+
+    nbytes = Write(file, buffer.buffer, buffer.len);
+    BufferRelease(&buffer);
+
+    ERROR:
+    Release(to_buf);
+    return nbytes;
+}
+
 void argon::object::io::Close(File *file) {
     int err;
 

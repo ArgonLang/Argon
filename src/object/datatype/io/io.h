@@ -90,6 +90,8 @@ namespace argon::object::io {
 
     ArSSize WriteObject(File *file, argon::object::ArObject *obj);
 
+    ArSSize WriteObjectStr(File *file, argon::object::ArObject *obj);
+
     void Close(File *file);
 
 } // namespace argon::object::io
