@@ -336,15 +336,15 @@ bool Scanner::UnderflowFile() {
 }
 
 bool Scanner::UnderflowInteractive() {
-    if (this->promptfn_(this, this->fd_, this->prompt_) == -1 || this->status == ScannerStatus::NOMEM) {
+    int err = this->promptfn_(this, this->fd_, this->prompt_);
+
+    if (err == -1 || this->status == ScannerStatus::NOMEM)
         this->status = ScannerStatus::NOMEM;
-        return false;
-    }
 
     if (this->next_prompt_ != nullptr)
         this->prompt_ = this->next_prompt_;
 
-    return true;
+    return err > 0;
 }
 
 int Scanner::HexToByte() {
@@ -398,8 +398,10 @@ int Scanner::Peek(bool advance) {
         } else
             ok = this->UnderflowFile();
 
-        if (!ok)
+        if (!ok) {
+            this->status = ScannerStatus::END_OF_FILE;
             return -1;
+        }
 
     } while (true);
 }
@@ -834,6 +836,7 @@ bool Scanner::Reset() {
 const char *Scanner::GetStatusMessage() {
     static const char *messages[] = {
             "empty '' not allowed",
+            "end of file reached",
             "byte string can only contain ASCII literal characters",
             "can't decode bytes in unicode sequence, escape format must be: \\Uhhhhhhhh",
             "can't decode bytes in unicode sequence, escape format must be: \\uhhhh",
@@ -993,7 +996,7 @@ Token Scanner::NextToken() noexcept {
         }
     }
 
-    if (this->status != ScannerStatus::GOOD)
+    if (this->status != ScannerStatus::GOOD && this->status != ScannerStatus::END_OF_FILE)
         return {TokenType::ERROR, start, this->pos_};
 
     return {TokenType::END_OF_FILE, this->pos_, this->pos_};

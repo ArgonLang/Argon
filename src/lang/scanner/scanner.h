@@ -17,6 +17,7 @@ namespace argon::lang::scanner {
 
     enum class ScannerStatus {
         EMPTY_SQUOTE,
+        END_OF_FILE,
         INVALID_BSTR,
         INVALID_BYTE_ULONG,
         INVALID_BYTE_USHORT,
