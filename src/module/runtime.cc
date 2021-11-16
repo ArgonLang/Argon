@@ -2,11 +2,12 @@
 //
 // Licensed under the Apache License v2.0
 
+#include <object/datatype/integer.h>
 #include <object/datatype/io/io.h>
 #include <object/datatype/tuple.h>
 #include <vm/config.h>
 
-#include <utils/macros.h>
+#include <vm/version.h>
 
 #include "modules.h"
 
@@ -82,6 +83,54 @@ bool InitFD(Module *module) {
     return ok;
 }
 
+bool SetAbout(Module *module) {
+#define ADD_INFO(macro, key)                                                \
+    if ((tmp = StringNew(macro)) == nullptr)                                \
+        return false;                                                       \
+    if (!ModuleAddProperty(module, key, tmp, MODULE_ATTRIBUTE_PUB_CONST))   \
+        goto ERROR;                                                         \
+    Release(tmp)
+
+    bool ok = false;
+    ArObject *tmp;
+
+    ADD_INFO(AR_RELEASE_LEVEL, "version_level");
+    ADD_INFO(AR_VERSION, "version");
+    ADD_INFO(AR_VERSION_EX, "version_ex");
+
+    if ((tmp = IntegerNew(AR_MAJOR)) == nullptr)
+        goto ERROR;
+
+    if (!ModuleAddProperty(module, "version_major", tmp, MODULE_ATTRIBUTE_PUB_CONST))
+        goto ERROR;
+
+    Release(tmp);
+
+    if ((tmp = IntegerNew(AR_MINOR)) == nullptr)
+        goto ERROR;
+
+    if (!ModuleAddProperty(module, "version_minor", tmp, MODULE_ATTRIBUTE_PUB_CONST))
+        goto ERROR;
+
+    Release(tmp);
+
+    if ((tmp = IntegerNew(AR_PATCH)) == nullptr)
+        goto ERROR;
+
+    if (!ModuleAddProperty(module, "version_patch", tmp, MODULE_ATTRIBUTE_PUB_CONST))
+        goto ERROR;
+
+    Release(tmp);
+
+    ok = true;
+    tmp = nullptr;
+
+    ERROR:
+    Release(tmp);
+    return ok;
+#undef ADD_INFO
+}
+
 bool SetArgs(Module *module) {
     Tuple *args;
 
@@ -145,6 +194,9 @@ bool runtime_init(Module *module) {
         return false;
 
     if (!SetPS(module))
+        return false;
+
+    if (!SetAbout(module))
         return false;
 
     if (!SetArgs(module))
