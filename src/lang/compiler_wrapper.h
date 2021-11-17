@@ -14,9 +14,9 @@
 
 namespace argon::lang {
     class CompilerWrapper {
+    public:
         object::Code *Compile(const char *file_name, scanner::Scanner *scanner);
 
-    public:
         object::Code *Compile(const char *file_name, const char *code, unsigned long code_sz);
 
         object::Code *Compile(const char *file_name, FILE *fd);

@@ -12,8 +12,11 @@ namespace argon::vm {
         char **argv;
         int argc;
 
+        bool interactive;
+        bool quiet;
         bool unbuffered;
         int cmd;
+        int file;
     };
 
     extern const _ARGONAPI Config *global_cfg;

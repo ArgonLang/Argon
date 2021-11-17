@@ -18,10 +18,13 @@ namespace argon::vm {
 
     argon::object::ArObject *EvalString(const char *str);
 
-    argon::object::ArObject *EvalCode(argon::object::Code *code, argon::object::Namespace *globals,
-                                      argon::object::Tuple *args);
+    argon::object::ArObject *EvalCode(argon::object::Code *code, argon::object::Namespace *globals);
 
-    argon::object::ArObject *EvalCode(argon::object::Code *code, argon::object::Tuple *args);
+    argon::object::ArObject *EvalCode(argon::object::Code *code);
+
+    void EvalInteractive();
+
+    int StartInteractiveLoop();
 
 } // namespace argon
 
