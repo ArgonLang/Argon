@@ -7,6 +7,7 @@
 
 #include <vm/runtime.h>
 
+#include <object/datatype/io/io.h>
 #include "bool.h"
 #include "integer.h"
 #include "nil.h"
@@ -388,4 +389,48 @@ bool argon::object::ErrorInit() {
     INIT(argon::object::type_is_directory_);
 
     return true;
+}
+
+void argon::object::ErrorPrint(ArObject *object) {
+    char emsg[100];
+    ArObject *last_error;
+    String *str;
+    io::File *err;
+
+    int count = 0;
+
+    if(object== nullptr)
+        return;
+
+    err = (io::File *) vm::ContextRuntimeGetProperty("stderr", nullptr);
+
+    if (err == nullptr || !AR_TYPEOF(err, io::type_file_)) {
+        // Silently discard error and continue
+        Release(err);
+        return;
+    }
+
+    last_error = IncRef(object);
+
+    while ((str = (String *) ToString(last_error)) == nullptr && count++ < 3) {
+        snprintf(emsg, 100, "an error occurred while trying to show a previous error from '%s' object:\n",
+                 AR_TYPE_NAME(last_error));
+
+        Release(last_error);
+
+        last_error = vm::GetLastError();
+
+        io::WriteString(err, emsg);
+
+        for (int i = 0; i < count; i++)
+            io::WriteString(err, "\t");
+    }
+
+    Release(last_error);
+
+    if (io::WriteObject(err, str) >= 0)
+        io::WriteString(err, "\n");
+
+    Release(str);
+    Release(err);
 }

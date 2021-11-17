@@ -28,6 +28,8 @@ namespace argon::object {
 
     bool ErrorInit();
 
+    void ErrorPrint(ArObject *object);
+
     extern const ArObject *error_types;
 
     extern const TypeInfo *type_error_wrap_;
