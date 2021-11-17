@@ -868,7 +868,7 @@ bool Compiler::CompileSubscr(Subscript *subscr, bool dup, bool emit) {
         if (!this->CompileExpression((Node *) subscr->low))
             return false;
     } else {
-        if (!this->PushStatic(NilVal, true, true))
+        if (this->PushStatic(NilVal, true, true)<0)
             return false;
     }
 
@@ -877,7 +877,7 @@ bool Compiler::CompileSubscr(Subscript *subscr, bool dup, bool emit) {
             if (!this->CompileExpression((Node *) subscr->high))
                 return false;
         } else {
-            if (!this->PushStatic(NilVal, true, true))
+            if (this->PushStatic(NilVal, true, true)<0)
                 return false;
         }
 
