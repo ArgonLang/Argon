@@ -123,7 +123,15 @@ namespace argon::object {
 
     // Common Operations
 
-    ArObject *StringSplit(String *string, String *pattern, ArSSize maxsplit);
+    ArObject *StringSplit(String *string, const unsigned char *c_str, ArSize len, ArSSize maxsplit);
+
+    inline ArObject *StringSplit(String *string, const char *c_str, ArSSize maxsplit) {
+        return StringSplit(string, (const unsigned char *) c_str, strlen(c_str), maxsplit);
+    }
+
+    inline ArObject *StringSplit(String *string, String *pattern, ArSSize maxsplit) {
+        return StringSplit(string, pattern->buffer, pattern->len, maxsplit);
+    }
 
     inline bool StringEmpty(String *string) { return string->len == 0; }
 

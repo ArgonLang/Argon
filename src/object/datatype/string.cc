@@ -1435,7 +1435,7 @@ String *FmtFormatArgs(StringFormatter *fmt) {
 
 // Common Operations
 
-ArObject *argon::object::StringSplit(String *string, String *pattern, ArSSize maxsplit) {
+ArObject *argon::object::StringSplit(String *string, const unsigned char *c_str, ArSize plen, ArSSize maxsplit) {
     String *tmp;
     List *ret;
 
@@ -1447,11 +1447,11 @@ ArObject *argon::object::StringSplit(String *string, String *pattern, ArSSize ma
         return nullptr;
 
     if (maxsplit != 0) {
-        while ((end = support::Find(string->buffer + idx, string->len - idx, pattern->buffer, pattern->len)) >= 0) {
+        while ((end = support::Find(string->buffer + idx, string->len - idx, c_str, plen)) >= 0) {
             if ((tmp = StringNew((const char *) string->buffer + idx, end)) == nullptr)
                 goto error;
 
-            idx += end + pattern->len;
+            idx += end + plen;
 
             if (!ListAppend(ret, tmp))
                 goto error;
