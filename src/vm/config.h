@@ -7,6 +7,8 @@
 
 #include <utils/macros.h>
 
+#define ARGON_ENVVAR_ARGONPATH  "ARGONPATH"
+
 namespace argon::vm {
     struct Config {
         char **argv;

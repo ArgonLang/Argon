@@ -44,6 +44,78 @@ void Print(ArObject *obj) {
     Release(str);
 }
 
+bool SetUpArgonHome() {
+    ArObject *err;
+    String *home;
+    String *basedir;
+
+    ArSSize last;
+
+    if ((home = (String *) ContextRuntimeGetProperty("executable", type_string_)) == nullptr) {
+        err = GetLastError();
+        ErrorPrint(err);
+        Release(err);
+        return false;
+    }
+
+    if ((last = StringRFind(home, GetContext()->import->path_sep)) <= 0) {
+        Release(home);
+        return true;
+    }
+
+    if ((basedir = StringSubs(home, 0, last + 1)) == nullptr) {
+        Release(home);
+        return false;
+    }
+
+    Release(home);
+
+    if (!ImportAddPath(GetContext()->import, basedir)) {
+        Release(basedir);
+        return false;
+    }
+
+    Release(basedir);
+    return true;
+}
+
+bool SetUpImportPaths() {
+    const char *arpaths = std::getenv(ARGON_ENVVAR_ARGONPATH);
+    String *path;
+    List *paths;
+
+    if (!SetUpArgonHome())
+        return false;
+
+    if (arpaths == nullptr)
+        return true;
+
+    if ((path = StringNew(arpaths)) == nullptr)
+        return false;
+
+#if _ARGON_PLATFORM_WINDOWS
+    if ((paths = (List *) StringSplit(path, ";", -1)) == nullptr) {
+        Release(path);
+        return false;
+    }
+#else
+    if ((paths = (List *) StringSplit(path, ":", -1)) == nullptr) {
+        Release(path);
+        return false;
+    }
+#endif
+
+    Release(path);
+
+    if (!ImportAddPaths(GetContext()->import, paths)) {
+        Release(paths);
+        return false;
+    }
+
+    Release(paths);
+    return true;
+}
+
 int argon::vm::Main(int argc, char **argv) {
     ArObject *tmp;
 
@@ -51,6 +123,9 @@ int argon::vm::Main(int argc, char **argv) {
         return EXIT_FAILURE;
 
     if (!Initialize())
+        return EXIT_FAILURE;
+
+    if (!SetUpImportPaths())
         return EXIT_FAILURE;
 
     AcquireMain();

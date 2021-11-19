@@ -2,6 +2,16 @@
 //
 // Licensed under the Apache License v2.0
 
+#include <utils/macros.h>
+
+#ifdef _ARGON_PLATFORM_WINDOWS
+
+#else
+
+#include <unistd.h>
+
+#endif
+
 #include <object/datatype/integer.h>
 #include <object/datatype/io/io.h>
 #include <object/datatype/tuple.h>
@@ -146,6 +156,41 @@ bool SetArgs(Module *module) {
     return true;
 }
 
+bool SetExecutable(Module *module) {
+    unsigned long size = 1024;
+    String *path;
+    char *path_buf;
+
+    if ((path_buf = (char *) argon::memory::Alloc(size)) == nullptr)
+        return false;
+
+#if defined(_ARGON_PLATFORM_WINDOWS)
+
+    if ((size = GetModuleFileNameA(nullptr, path_buf, size)) == 0)
+        size = -1;
+
+#elif defined(_ARGON_PLATFORM_LINUX)
+
+    size = readlink("/proc/self/exe", path_buf, size);
+
+#elif defined(_ARGON_PLATFORM_DARWIN)
+
+    size = _NSGetExecutablePath(path_buf, &size);
+
+#endif
+
+    path = size != -1 ? StringNew(path_buf) : StringIntern("");
+    argon::memory::Free(path_buf);
+
+    size = 0;
+    if (path != nullptr) {
+        size = ModuleAddProperty(module, "executable", path, MODULE_ATTRIBUTE_PUB_CONST);
+        Release(path);
+    }
+
+    return size;
+}
+
 bool SetOsName(Module *module) {
     String *name;
 
@@ -200,6 +245,9 @@ bool runtime_init(Module *module) {
         return false;
 
     if (!SetArgs(module))
+        return false;
+
+    if (!SetExecutable(module))
         return false;
 
     return true;

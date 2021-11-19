@@ -28,6 +28,16 @@ static const char usage[] =
         "-u             : force the stdout stream to be unbuffered\n"
         "-v, --version  : print Argon version and exit\n";
 
+static const char usage_env[] =
+        "\nEnvironment variables:\n"
+        "ARGONPATH      : Augment the default search path for modules. One or more directories separated by "
+#ifdef _ARGON_PLATFORM_WIDNOWS
+        "';' "
+#else
+        "':' "
+#endif
+    "as the shell's PATH";
+
 // ---------------------------------------------------------------------------------------------
 
 struct ReadOpStatus {
@@ -115,6 +125,7 @@ const Config *argon::vm::global_cfg = &config;
 void Help(const char *name) {
     printf(usage_line, name);
     puts(usage);
+    puts(usage_env);
 }
 
 void ParseEnvs() {
