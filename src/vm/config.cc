@@ -30,13 +30,14 @@ static const char usage[] =
 
 static const char usage_env[] =
         "\nEnvironment variables:\n"
-        "ARGONPATH      : Augment the default search path for modules. One or more directories separated by "
-#ifdef _ARGON_PLATFORM_WIDNOWS
+        "ARGONPATH      : augment the default search path for modules. One or more directories separated by "
+        #ifdef _ARGON_PLATFORM_WIDNOWS
         "';' "
-#else
+        #else
         "':' "
-#endif
-    "as the shell's PATH";
+        #endif
+        "as the shell's PATH\n"
+        "ARGONUBUFFERED : it is equivalent to specifying the -u option\n";
 
 // ---------------------------------------------------------------------------------------------
 
@@ -129,7 +130,8 @@ void Help(const char *name) {
 }
 
 void ParseEnvs() {
-    // todo: env flags
+    if (std::getenv(ARGON_ENVVAR_ARGONUNBUFFERED) != nullptr)
+        config.unbuffered = true;
 }
 
 int argon::vm::ConfigInit(int argc, char **argv) {
