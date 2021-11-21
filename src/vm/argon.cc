@@ -44,38 +44,47 @@ void Print(ArObject *obj) {
     Release(str);
 }
 
-bool SetUpArgonHome() {
+bool SetupImportBases() {
     ArObject *err;
-    String *home;
+    String *tmp;
     String *basedir;
 
     ArSSize last;
 
-    if ((home = (String *) ContextRuntimeGetProperty("executable", type_string_)) == nullptr) {
+    if ((tmp = (String *) ContextRuntimeGetProperty("executable", type_string_)) == nullptr) {
         err = GetLastError();
         ErrorPrint(err);
         Release(err);
         return false;
     }
 
-    if ((last = StringRFind(home, GetContext()->import->path_sep)) <= 0) {
-        Release(home);
+    if ((last = StringRFind(tmp, GetContext()->import->path_sep)) == -1) {
+        Release(tmp);
         return true;
     }
 
-    if ((basedir = StringSubs(home, 0, last + 1)) == nullptr) {
-        Release(home);
+    basedir = StringSubs(tmp, 0, last + 1);
+
+    Release(tmp);
+
+    if (basedir == nullptr || !ImportAddPath(GetContext()->import, basedir)) {
+        Release(basedir);
         return false;
     }
 
-    Release(home);
-
-    if (!ImportAddPath(GetContext()->import, basedir)) {
+    if((tmp = StringConcat(basedir, "packages", true)) == nullptr){
         Release(basedir);
         return false;
     }
 
     Release(basedir);
+
+    if (tmp == nullptr || !ImportAddPath(GetContext()->import, tmp)) {
+        Release(tmp);
+        return false;
+    }
+
+    Release(tmp);
     return true;
 }
 
@@ -84,7 +93,7 @@ bool SetUpImportPaths() {
     String *path;
     List *paths;
 
-    if (!SetUpArgonHome())
+    if (!SetupImportBases())
         return false;
 
     if (arpaths == nullptr)

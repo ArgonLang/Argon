@@ -4,13 +4,20 @@
 
 #include <utils/macros.h>
 
-#ifdef _ARGON_PLATFORM_WINDOWS
+#if defined(_ARGON_PLATFORM_WINDOWS)
+
+#include <windows.h>
+
+#elif defined(_ARGON_PLATFORM_DARWIN)
+
+#include <mach-o/dyld.h>
 
 #else
 
 #include <unistd.h>
 
 #endif
+
 
 #include <object/datatype/integer.h>
 #include <object/datatype/io/io.h>
@@ -175,7 +182,7 @@ bool SetExecutable(Module *module) {
 
 #elif defined(_ARGON_PLATFORM_DARWIN)
 
-    size = _NSGetExecutablePath(path_buf, &size);
+    size = _NSGetExecutablePath(path_buf, (unsigned int *) &size);
 
 #endif
 
