@@ -6,7 +6,7 @@
 
 #if defined(_ARGON_PLATFORM_WINDOWS)
 
-#include <windows.h>
+#include <module/nt/nt.h>
 
 #elif defined(_ARGON_PLATFORM_DARWIN)
 
@@ -173,8 +173,7 @@ bool SetExecutable(Module *module) {
 
 #if defined(_ARGON_PLATFORM_WINDOWS)
 
-    if ((size = GetModuleFileNameA(nullptr, path_buf, size)) == 0)
-        size = -1;
+    size = nt::GetExecutablePath(path_buf, (int) size);
 
 #elif defined(_ARGON_PLATFORM_LINUX)
 

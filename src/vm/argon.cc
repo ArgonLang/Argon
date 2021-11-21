@@ -102,7 +102,7 @@ bool SetUpImportPaths() {
     if ((path = StringNew(arpaths)) == nullptr)
         return false;
 
-#if _ARGON_PLATFORM_WINDOWS
+#ifdef _ARGON_PLATFORM_WINDOWS
     if ((paths = (List *) StringSplit(path, ";", -1)) == nullptr) {
         Release(path);
         return false;
