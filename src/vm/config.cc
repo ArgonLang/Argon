@@ -153,6 +153,7 @@ int argon::vm::ConfigInit(int argc, char **argv) {
                 break;
             case 'c':
                 config.cmd = status.argc_cur;
+                config.interactive = interactive;
                 break;
             case 'h':
                 Help(*argv);
