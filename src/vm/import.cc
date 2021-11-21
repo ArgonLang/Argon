@@ -479,7 +479,7 @@ String *FindSourceInPaths(Import *import, String *mod_path, String *mod_name) {
     if ((iter = IteratorGet(import->paths)) == nullptr)
         return nullptr;
 
-    while ((path = (String *) IteratorNext(iter)) != nullptr) {
+    while (file == nullptr && (path = (String *) IteratorNext(iter)) != nullptr) {
         if (!AR_TYPEOF(path, type_string_)) {
             Release(path);
             continue;
