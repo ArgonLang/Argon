@@ -683,6 +683,15 @@ Node *Parser::ParseVarDecl(bool constant, bool pub) {
             ((Assignment *) lets->objects[index])->end = tmp->end;
             ((Assignment *) lets->objects[index++])->value = tmp;
         } while (this->MatchEat(TokenType::COMMA, true));
+
+        if (constant) {
+            if (lets != nullptr && index < lets->len && ((Assignment *) lets->objects[index])->value == nullptr) {
+                tmp = nullptr;
+                ErrorFormat(type_syntax_error_, "all constants declared must have a value. '%s' doesn't have one",
+                            ((Assignment *) lets->objects[index])->name);
+                goto ERROR;
+            }
+        }
     } else {
         if (constant) {
             ErrorFormat(type_syntax_error_, "expected = after identifier/s in let declaration");
@@ -2302,7 +2311,7 @@ void Parser::Eat() {
 }
 
 void Parser::EatTerm(TokenType stop) {
-    if(!this->Match(stop)) {
+    if (!this->Match(stop)) {
         while (this->Match(TokenType::END_OF_LINE, TokenType::SEMICOLON))
             this->Eat();
     }
