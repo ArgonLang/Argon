@@ -7,8 +7,9 @@
 
 #include <utils/macros.h>
 
-#define ARGON_ENVVAR_ARGONPATH          "ARGONPATH"
-#define ARGON_ENVVAR_ARGONUNBUFFERED    "ARGONUNBUFFERED"
+#define ARGON_ENVVAR_PATH       "ARGONPATH"
+#define ARGON_ENVVAR_UNBUFFERED "ARGONUNBUFFERED"
+#define ARGON_ENVVAR_STARTUP    "ARGONSTARTUP"
 
 namespace argon::vm {
     struct Config {

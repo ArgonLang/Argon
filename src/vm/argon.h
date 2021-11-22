@@ -22,7 +22,7 @@ namespace argon::vm {
 
     argon::object::ArObject *EvalCode(argon::object::Code *code);
 
-    void EvalInteractive();
+    int EvalInteractive();
 
     int StartInteractiveLoop();
 

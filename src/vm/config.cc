@@ -30,6 +30,7 @@ static const char usage[] =
 
 static const char usage_env[] =
         "\nEnvironment variables:\n"
+        "ARGONUBUFFERED : it is equivalent to specifying the -u option\n"
         "ARGONPATH      : augment the default search path for modules. One or more directories separated by "
         #ifdef _ARGON_PLATFORM_WIDNOWS
         "';' "
@@ -37,7 +38,8 @@ static const char usage_env[] =
         "':' "
         #endif
         "as the shell's PATH\n"
-        "ARGONUBUFFERED : it is equivalent to specifying the -u option\n";
+        "ARGONSTARTUP   : specifies the script that must be run before the interactive prompt is shown for "
+        "the first time\n";
 
 // ---------------------------------------------------------------------------------------------
 
@@ -130,7 +132,7 @@ void Help(const char *name) {
 }
 
 void ParseEnvs() {
-    if (std::getenv(ARGON_ENVVAR_ARGONUNBUFFERED) != nullptr)
+    if (std::getenv(ARGON_ENVVAR_UNBUFFERED) != nullptr)
         config.unbuffered = true;
 }
 

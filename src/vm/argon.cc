@@ -72,7 +72,7 @@ bool SetupImportBases() {
         return false;
     }
 
-    if((tmp = StringConcat(basedir, "packages", true)) == nullptr){
+    if ((tmp = StringConcat(basedir, "packages", true)) == nullptr) {
         Release(basedir);
         return false;
     }
@@ -89,7 +89,7 @@ bool SetupImportBases() {
 }
 
 bool SetUpImportPaths() {
-    const char *arpaths = std::getenv(ARGON_ENVVAR_ARGONPATH);
+    const char *arpaths = std::getenv(ARGON_ENVVAR_PATH);
     String *path;
     List *paths;
 
@@ -126,6 +126,7 @@ bool SetUpImportPaths() {
 }
 
 int argon::vm::Main(int argc, char **argv) {
+    int exit = EXIT_SUCCESS;
     ArObject *tmp;
 
     if (argon::vm::ConfigInit(argc, argv) <= 0)
@@ -164,11 +165,11 @@ int argon::vm::Main(int argc, char **argv) {
     ReleaseMain();
 
     if (global_cfg->interactive)
-        EvalInteractive();
+        exit = EvalInteractive();
 
     Shutdown();
 
-    return EXIT_SUCCESS;
+    return exit;
 }
 
 argon::object::ArObject *argon::vm::EvalFile(const char *file) {
@@ -226,9 +227,21 @@ ArObject *argon::vm::EvalCode(Code *code) {
     return res;
 }
 
-void argon::vm::EvalInteractive() {
+int argon::vm::EvalInteractive() {
+    const char *startup = std::getenv(ARGON_ENVVAR_STARTUP);
     ArObject *ret;
     ArObject *err;
+
+    if (startup != nullptr) {
+        Release(EvalFile(startup));
+
+        if (IsPanicking()) {
+            err = GetLastError();
+            ErrorPrint(err);
+            Release(err);
+            return EXIT_FAILURE;
+        }
+    }
 
     if (!global_cfg->quiet) {
         if ((ret = ContextRuntimeGetProperty("version_ex", type_string_)) == nullptr) {
@@ -241,7 +254,7 @@ void argon::vm::EvalInteractive() {
         Release(ret);
     }
 
-    StartInteractiveLoop();
+    return StartInteractiveLoop();
 }
 
 void GetCPS(ArObject **ps, unsigned char **c_ps) {
