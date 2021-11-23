@@ -18,12 +18,13 @@
 
 #endif
 
-
+#include <object/datatype/error.h>
 #include <object/datatype/integer.h>
 #include <object/datatype/io/io.h>
 #include <object/datatype/tuple.h>
-#include <vm/config.h>
 
+#include <vm/runtime.h>
+#include <vm/config.h>
 #include <vm/version.h>
 
 #include "modules.h"
@@ -259,11 +260,23 @@ bool runtime_init(Module *module) {
     return true;
 }
 
+ARGON_FUNCTION5(runtime_, exit, "Exit to the system with specified status."
+                                ""
+                                "- Parameter status: an integer value that defines the exit status."
+                                "- Returns: this function does not return to the caller.", 1, false) {
+    return argon::vm::Panic(ErrorNew(type_runtime_exit_error_, argv[0]));
+}
+
+const PropertyBulk runtime_bulk[] = {
+        MODULE_EXPORT_FUNCTION(runtime_exit_),
+        MODULE_EXPORT_SENTINEL
+};
+
 const ModuleInit module_runtime = {
         "runtime",
         "Interact with ArgonVM. Access directly to objects used or maintained by Argon"
         "and to functions that interact strongly with it.",
-        nullptr,
+        runtime_bulk,
         runtime_init,
         nullptr
 };

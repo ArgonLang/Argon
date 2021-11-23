@@ -169,6 +169,7 @@ ERROR_SIMPLE(NotImplemented, "", argon::object::type_not_implemented_);
 ERROR_SIMPLE(OutOfMemory, "", type_out_of_memory_);
 ERROR_SIMPLE(OverflowError, "", argon::object::type_overflow_error_);
 ERROR_SIMPLE(RuntimeError, "", argon::object::type_runtime_error_);
+ERROR_SIMPLE(RuntimeExit, "", argon::object::type_runtime_exit_error_);
 ERROR_SIMPLE(ScopeError, "", argon::object::type_scope_error_);
 ERROR_SIMPLE(TypeError, "", argon::object::type_type_error_);
 ERROR_SIMPLE(UnassignableError, "", argon::object::type_unassignable_error_);
@@ -357,6 +358,7 @@ bool argon::object::ErrorInit() {
     INIT(argon::object::type_not_implemented_);
     INIT(argon::object::type_overflow_error_);
     INIT(argon::object::type_runtime_error_);
+    INIT(argon::object::type_runtime_exit_error_);
     INIT(argon::object::type_scope_error_);
     INIT(argon::object::type_type_error_);
     INIT(argon::object::type_unassignable_error_);

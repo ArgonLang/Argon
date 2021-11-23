@@ -4,13 +4,13 @@
 
 #include <iostream>
 
+#include <object/datatype/integer.h>
 #include <object/datatype/error.h>
-
+#include <object/datatype/nil.h>
 #include <object/datatype/io/io.h>
 
 #include <lang/scanner/scanner.h>
 #include <lang/compiler_wrapper.h>
-#include <object/datatype/nil.h>
 
 #include "areval.h"
 #include "config.h"
@@ -18,6 +18,34 @@
 
 using namespace argon::object;
 using namespace argon::vm;
+
+int ErrorWrapper(bool *must_exit) {
+    ArObject *err = GetLastError();
+    int exit = EXIT_FAILURE;
+
+    if (must_exit != nullptr)
+        *must_exit = false;
+
+    if (AR_TYPEOF(err, type_runtime_exit_error_)) {
+        if (must_exit != nullptr)
+            *must_exit = true;
+
+        if(((Error *) err)->obj == NilVal){
+            Release(err);
+            return EXIT_SUCCESS;
+        }
+
+        if (AR_TYPEOF(((Error *) err)->obj, type_integer_)) {
+            exit = (int) ((Integer *) ((Error *) err)->obj)->integer;
+            Release(err);
+            return exit;
+        }
+    }
+
+    ErrorPrint(err);
+    Release(err);
+    return exit;
+}
 
 void Print(ArObject *obj) {
     auto *out = (io::File *) ContextRuntimeGetProperty("stdout", io::type_file_);
@@ -127,7 +155,6 @@ bool SetUpImportPaths() {
 
 int argon::vm::Main(int argc, char **argv) {
     int exit = EXIT_SUCCESS;
-    ArObject *tmp;
 
     if (argon::vm::ConfigInit(argc, argv) <= 0)
         return EXIT_FAILURE;
@@ -143,23 +170,15 @@ int argon::vm::Main(int argc, char **argv) {
     if (global_cfg->file > -1) {
         Release(EvalFile(argv[global_cfg->file]));
 
-        if (IsPanicking()) {
-            tmp = GetLastError();
-            ErrorPrint(tmp);
-            Release(tmp);
-            return EXIT_FAILURE;
-        }
+        if (IsPanicking())
+            return ErrorWrapper(nullptr);
     }
 
     if (global_cfg->cmd > -1) {
         Release(EvalString(argv[global_cfg->cmd]));
 
-        if (IsPanicking()) {
-            tmp = GetLastError();
-            ErrorPrint(tmp);
-            Release(tmp);
-            return EXIT_FAILURE;
-        }
+        if (IsPanicking())
+            return ErrorWrapper(nullptr);
     }
 
     ReleaseMain();
@@ -230,28 +249,19 @@ ArObject *argon::vm::EvalCode(Code *code) {
 int argon::vm::EvalInteractive() {
     const char *startup = std::getenv(ARGON_ENVVAR_STARTUP);
     ArObject *ret;
-    ArObject *err;
 
     if (startup != nullptr) {
         Release(EvalFile(startup));
 
-        if (IsPanicking()) {
-            err = GetLastError();
-            ErrorPrint(err);
-            Release(err);
-            return EXIT_FAILURE;
-        }
+        if (IsPanicking())
+            return ErrorWrapper(nullptr);
     }
 
     if (!global_cfg->quiet) {
-        if ((ret = ContextRuntimeGetProperty("version_ex", type_string_)) == nullptr) {
-            err = GetLastError();
-            ErrorPrint(err);
-            Release(err);
-        }
+        if ((ret = ContextRuntimeGetProperty("version_ex", type_string_)) == nullptr)
+            return ErrorWrapper(nullptr);
 
         Print(ret);
-        Release(ret);
     }
 
     return StartInteractiveLoop();
@@ -295,6 +305,8 @@ int argon::vm::StartInteractiveLoop() {
 
     bool eof = false;
 
+    int exit;
+
     while (!eof) {
         ps1 = ContextRuntimeGetProperty("ps1", nullptr);
         GetCPS(&ps1, (unsigned char **) &c_ps1);
@@ -311,17 +323,13 @@ int argon::vm::StartInteractiveLoop() {
         AcquireMain();
 
         if (code != nullptr) {
-            if ((ret = EvalCode(code)) == nullptr) {
-                ret = GetLastError();
-                ErrorPrint(ret);
-            } else {
-                if (ret != NilVal)
-                    Print(ret);
-            }
-        } else {
-            ret = GetLastError();
-            ErrorPrint(ret);
+            if ((ret = EvalCode(code)) != nullptr && ret != NilVal)
+                Print(ret);
         }
+
+        exit = EXIT_SUCCESS;
+        if (code == nullptr || ret == nullptr)
+            exit = ErrorWrapper(&eof);
 
         Release(ret);
         Release(ps1);
@@ -330,5 +338,5 @@ int argon::vm::StartInteractiveLoop() {
         ReleaseMain();
     }
 
-    return 0;
+    return exit;
 }

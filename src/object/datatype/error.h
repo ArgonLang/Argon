@@ -44,6 +44,7 @@ namespace argon::object {
     extern const TypeInfo *type_not_implemented_;
     extern const TypeInfo *type_overflow_error_;
     extern const TypeInfo *type_runtime_error_;
+    extern const TypeInfo *type_runtime_exit_error_;
     extern const TypeInfo *type_scope_error_;
     extern const TypeInfo *type_type_error_;
     extern const TypeInfo *type_unassignable_error_;
