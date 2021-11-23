@@ -865,6 +865,9 @@ Token Scanner::NextToken() noexcept {
     int value;
     Pos start;
 
+    // Reset error status
+    this->status = ScannerStatus::GOOD;
+
     while ((value = this->PeekChar()) > 0) {
         start = this->pos_;
 
