@@ -816,6 +816,7 @@ Node *Parser::ParseFnCall(Node *left) {
     if ((args = ListNew()) == nullptr)
         return nullptr;
 
+    this->EatTerm();
     if (!this->Match(TokenType::RIGHT_ROUND)) {
         do {
             if ((arg = this->ParseExpr(EXPR_NO_LIST)) == nullptr) {
@@ -841,7 +842,7 @@ Node *Parser::ParseFnCall(Node *left) {
 
     end = this->tkcur_.end;
 
-    if (!this->MatchEat(TokenType::RIGHT_ROUND, true)) {
+    if (!this->MatchEat(TokenType::RIGHT_ROUND, false)) {
         ErrorFormat(type_syntax_error_, "expected ')' after last argument of function call");
         Release(args);
         return nullptr;
