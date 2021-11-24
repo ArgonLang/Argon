@@ -32,4 +32,4 @@ set(CMAKE_WINDOWS_EXPORT_ALL_SYMBOLS ON)
 include_directories(src)
 
 add_subdirectory(src)
-add_subdirectory(test)
+#add_subdirectory(test)
