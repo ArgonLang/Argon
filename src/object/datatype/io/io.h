@@ -5,6 +5,8 @@
 #ifndef ARGON_OBJECT_IO_IO_H_
 #define ARGON_OBJECT_IO_IO_H_
 
+#include <cstring>
+
 #include <object/arobject.h>
 #include <utils/enum_bitmask.h>
 
@@ -88,7 +90,13 @@ namespace argon::object::io {
 
     ArSSize Write(File *file, unsigned char *buf, ArSize count);
 
+    inline ArSSize WriteString(File *file, const char *str) {
+        return Write(file, (unsigned char *) str, strlen(str));
+    }
+
     ArSSize WriteObject(File *file, argon::object::ArObject *obj);
+
+    ArSSize WriteObjectStr(File *file, argon::object::ArObject *obj);
 
     void Close(File *file);
 

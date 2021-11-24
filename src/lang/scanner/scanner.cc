@@ -2,181 +2,228 @@
 //
 // Licensed under the Apache License v2.0
 
+#include <iostream>
+
+#include <memory/memory.h>
+
 #include "scanner.h"
 
 using namespace argon::lang::scanner;
 
-Token Scanner::ParseBinary(Pos start) {
-    int value = this->source_->peek();
-    std::string number;
+struct KwToken {
+    const char *keyword;
+    TokenType type;
+};
 
-    while (value >= '0' && value <= '1') {
-        number += (char) value;
-        this->GetCh();
-        value = this->source_->peek();
-    }
+KwToken kw2tktype[] = {
+        {"as",          TokenType::AS},
+        {"break",       TokenType::BREAK},
+        {"case",        TokenType::CASE},
+        {"continue",    TokenType::CONTINUE},
+        {"default",     TokenType::DEFAULT},
+        {"defer",       TokenType::DEFER},
+        {"elif",        TokenType::ELIF},
+        {"else",        TokenType::ELSE},
+        {"fallthrough", TokenType::FALLTHROUGH},
+        {"false",       TokenType::FALSE},
+        {"for",         TokenType::FOR},
+        {"from",        TokenType::FROM},
+        {"func",        TokenType::FUNC},
+        //{"goto",        TokenType::GOTO},
+        {"if",          TokenType::IF},
+        {"in",          TokenType::IN},
+        {"impl",        TokenType::IMPL},
+        {"import",      TokenType::IMPORT},
+        {"let",         TokenType::LET},
+        {"loop",        TokenType::LOOP},
+        {"nil",         TokenType::NIL},
+        {"pub",         TokenType::PUB},
+        {"return",      TokenType::RETURN},
+        {"self",        TokenType::SELF},
+        {"spawn",       TokenType::SPAWN},
+        {"struct",      TokenType::STRUCT},
+        {"switch",      TokenType::SWITCH},
+        {"trait",       TokenType::TRAIT},
+        {"true",        TokenType::TRUE},
+        {"var",         TokenType::VAR},
+        {"weak",        TokenType::WEAK}
+};
 
-    return Token(TokenType::NUMBER_BIN, start, this->pos_, number);
+// UTILITIES
+
+inline bool IsAlpha(int chr) { return (chr >= 'a' && chr <= 'z') || (chr >= 'A' && chr <= 'Z') || chr == '_'; }
+
+inline bool IsDigit(int chr) { return chr >= '0' && chr <= '9'; }
+
+inline bool IsHexDigit(int chr) { return (chr >= '0' && chr <= '9') || (tolower(chr) >= 'a' && tolower(chr) <= 'f'); }
+
+inline bool IsOctDigit(int chr) { return chr >= '0' && chr <= '7'; }
+
+inline bool IsSpace(int chr) { return chr == 0x09 || chr == 0x20; }
+
+inline unsigned char HexDigitToNumber(int chr) {
+    return (IsDigit(chr)) ? ((char) chr) - '0' : 10 + (tolower(chr) - 'a');
 }
 
-Token Scanner::ParseOctal(Pos start) {
-    int value = this->source_->peek();
-    std::string number;
+int DefaultPrompt(Scanner *scanner, FILE *fd, const char *prompt) {
+    int length = ARGON_LANG_SCANNER_PROMPT_BUFSIZ;
+    int cur = 0;
 
-    while (value >= '0' && value <= '7') {
-        number += (char) value;
-        this->GetCh();
-        value = this->source_->peek();
-    }
+    unsigned char *buf = nullptr;
+    unsigned char *tmp;
 
-    return Token(TokenType::NUMBER_OCT, start, this->pos_, number);
-}
+    printf("%s", prompt);
 
-Token Scanner::ParseHex(Pos start) {
-    int value = this->source_->peek();
-    std::string number;
+    do {
+        length += cur >> 1;
 
-    while (IsHexDigit(value)) {
-        number += (char) value;
-        this->GetCh();
-        value = this->source_->peek();
-    }
-
-    return Token(TokenType::NUMBER_HEX, start, this->pos_, number);
-}
-
-Token Scanner::ParseDecimal(Pos start) {
-    TokenType type = TokenType::NUMBER;
-    std::string number;
-
-    for (; IsDigit(this->source_->peek()); number += (char) this->GetCh());
-
-    // Look for a fractional part.
-    if (this->source_->peek() == '.') {
-        number += (char) this->GetCh();
-        for (; IsDigit(this->source_->peek()); number += (char) this->GetCh());
-        type = TokenType::DECIMAL;
-    }
-
-    return Token(type, start, this->pos_, number);
-}
-
-Token Scanner::ParseNumber() {
-    Pos start = this->pos_;
-    Token tk;
-
-    if (this->source_->peek() == '0') {
-        this->GetCh();
-        switch (tolower(this->source_->peek())) {
-            case 'b':
-                this->GetCh();
-                return this->ParseBinary(start);
-            case 'o':
-                this->GetCh();
-                return this->ParseOctal(start);
-            case 'x':
-                this->GetCh();
-                return this->ParseHex(start);
+        if ((tmp = (unsigned char *) argon::memory::Realloc(buf, length)) == nullptr) {
+            cur = -1;
+            goto ERROR;
         }
 
-        if (!IsDigit(this->source_->peek()) && this->source_->peek() != '.')
-            return Token(TokenType::NUMBER, start, this->pos_, "0");
-    }
+        buf = tmp;
 
-    return this->ParseDecimal(start);
+        if (std::fgets((char *) buf + cur, length - cur, fd) == nullptr) {
+            cur = -1;
+
+            if (feof(fd) != 0)
+                cur = 0;
+
+            goto ERROR;
+        }
+
+        cur += (int) strlen((char *) buf + cur);
+    } while (*((buf + cur) - 1) != '\n');
+
+    scanner->AppendUserInput(buf, cur);
+
+    ERROR:
+    argon::memory::Free(buf);
+    return cur;
 }
 
-bool Scanner::ParseEscape(int stopChr, bool ignore_unicode_escape, std::string &dest, std::string &error) {
-    int op = this->GetCh();
+// EOL
 
-    if (op == stopChr) {
-        dest += (char) stopChr;
-        return true;
+bool Scanner::TkEnlarge(int len) {
+    unsigned char *tmp;
+    unsigned long sz;
+    unsigned long cur;
+
+    if (this->tkval.end_ - this->tkval.cur_ < len) {
+        sz = this->tkval.end_ - this->tkval.start_;
+        cur = this->tkval.cur_ - this->tkval.start_;
+
+        tmp = (unsigned char *) argon::memory::Realloc(this->tkval.start_, sz + len);
+        if (tmp == nullptr) {
+            this->status = ScannerStatus::NOMEM;
+            return false;
+        }
+        this->tkval.start_ = tmp;
+        this->tkval.cur_ = this->tkval.start_ + cur;
+        this->tkval.end_ = this->tkval.start_ + (sz + len);
     }
 
-    if (!ignore_unicode_escape) {
-        if (op == 'u')
-            return this->ParseUnicodeEscape(dest, error, false);
-        else if (op == 'U')
-            return this->ParseUnicodeEscape(dest, error, true);
+    return true;
+}
+
+bool Scanner::TkInitBuf() {
+    if (this->tkval.start_ == nullptr) {
+        this->tkval.start_ = (unsigned char *) argon::memory::Alloc(8);
+        if (this->tkval.start_ == nullptr) {
+            this->status = ScannerStatus::NOMEM;
+            return false;
+        }
+        this->tkval.cur_ = this->tkval.start_;
+        this->tkval.end_ = this->tkval.start_ + 8;
     }
 
-    switch (op) {
+    return true;
+}
+
+bool Scanner::TkPutChar(int value) {
+    if (!this->TkInitBuf())
+        return false;
+
+    do {
+        if (this->tkval.cur_ != this->tkval.end_) {
+            *this->tkval.cur_ = value;
+            this->tkval.cur_++;
+            return true;
+        }
+
+        if (!this->TkEnlarge(8))
+            return false;
+
+    } while (true);
+}
+
+bool Scanner::TkPutChar() {
+    return this->TkPutChar(this->NextChar());
+}
+
+bool Scanner::TkPutStr(const unsigned char *str, int len) {
+    if (!this->TkEnlarge(len))
+        return false;
+
+    this->tkval.cur_ = (unsigned char *) argon::memory::MemoryCopy(this->tkval.cur_, str, len);
+
+    return true;
+}
+
+bool Scanner::ProcessEscape(int stop, bool ignore_unicode) {
+    int value = this->NextChar();
+
+    if (value == stop)
+        return this->TkPutChar(value);
+
+    if (!ignore_unicode) {
+        if (value == 'u')
+            return this->ProcessUnicode(false);
+
+        if (value == 'U')
+            return this->ProcessUnicode(true);
+    }
+
+    switch (value) {
         case 'a':
-            dest += (char) 0x07;
-            break;
+            return this->TkPutChar(0x07);
         case 'b':
-            dest += (char) 0x08;
-            break;
+            return this->TkPutChar(0x08);
         case 'f':
-            dest += (char) 0x0C;
-            break;
+            return this->TkPutChar(0x0C);
         case 'n':
-            dest += (char) 0x0A;
-            break;
+            return this->TkPutChar(0x0A);
         case 'r':
-            dest += (char) 0x0D;
-            break;
+            return this->TkPutChar(0x0D);
         case 't':
-            dest += (char) 0x09;
-            break;
+            return this->TkPutChar(0x09);
         case 'v':
-            dest += (char) 0x0B;
-            break;
+            return this->TkPutChar(0x0B);
         case 'x':
-            return this->ParseHexEscape(dest, error);
+            return this->ProcessEscapeHex();
         default:
-            if (!this->ParseOctEscape(dest, error, op)) {
-                dest += '\\';
-                dest += (char) op;
+            if (!this->ProcessEscapeOct(value)) {
+                if (this->TkPutChar('\\'))
+                    return this->TkPutChar(value);
+                return false;
             }
     }
     return true;
 }
 
-bool Scanner::ParseUnicodeEscape(std::string &dest, std::string &error, bool extended) {
-    unsigned char sequence[] = {0, 0, 0, 0};
-    unsigned int *sq_ptr = (unsigned int *) sequence;
-    unsigned char byte;
-    int width = 2;
+bool Scanner::ProcessEscapeHex() {
+    int byte;
 
-    if (extended)
-        width = 4;
-
-    for (int i = 0; i < width; i++) {
-        if (!this->ParseHexToByte(byte)) {
-            if (!extended)
-                error = "can't decode bytes in unicode sequence, escape format must be: \\uhhhh";
-            else
-                error = "can't decode bytes in unicode sequence, escape format must be: \\Uhhhhhhhh";
-            return false;
-        }
-        sequence[(width - 1) - i] = byte;
-    }
-
-    if (*sq_ptr < 0x80)
-        dest += (*sq_ptr) >> 0 & 0x7F;
-    else if (*sq_ptr < 0x0800) {
-        dest += (*sq_ptr) >> 6 & 0x1F | 0xC0;
-        dest += (*sq_ptr) >> 0 & 0xBF;
-    } else if (*sq_ptr < 0x010000) {
-        dest += (*sq_ptr) >> 12 & 0x0F | 0xE0;
-        dest += (*sq_ptr) >> 6 & 0x3F | 0x80;
-        dest += (*sq_ptr) >> 0 & 0x3F | 0x80;
-    } else if (*sq_ptr < 0x110000) {
-        dest += (*sq_ptr) >> 18 & 0x07 | 0xF0;
-        dest += (*sq_ptr) >> 12 & 0x3F | 0x80;
-        dest += (*sq_ptr) >> 6 & 0x3F | 0x80;
-        dest += (*sq_ptr) >> 0 & 0x3F | 0x80;
-    } else {
-        error = "illegal Unicode character";
+    if ((byte = this->HexToByte()) < 0) {
+        this->status = ScannerStatus::INVALID_HEX_BYTE;
         return false;
     }
 
-    return true;
+    return this->TkPutChar(byte);
 }
 
-bool Scanner::ParseOctEscape(std::string &dest, std::string &error, int value) {
+bool Scanner::ProcessEscapeOct(int value) {
     unsigned char sequence[] = {0, 0, 0};
     unsigned char byte = 0;
 
@@ -185,8 +232,8 @@ bool Scanner::ParseOctEscape(std::string &dest, std::string &error, int value) {
 
     sequence[2] = HexDigitToNumber(value);
 
-    for (int i = 1; i >= 0 && IsOctDigit(this->source_->peek()); i--)
-        sequence[i] = HexDigitToNumber(this->GetCh());
+    for (int i = 1; i >= 0 && IsOctDigit(this->PeekChar()); i--)
+        sequence[i] = HexDigitToNumber(this->NextChar());
 
     for (int i = 0, mul = 0; i < 3; i++) {
         byte |= sequence[i] << (unsigned char) (mul * 3);
@@ -194,394 +241,771 @@ bool Scanner::ParseOctEscape(std::string &dest, std::string &error, int value) {
             mul++;
     }
 
-    dest += byte;
-    return true;
+    return this->TkPutChar(byte);
 }
 
-bool Scanner::ParseHexEscape(std::string &dest, std::string &error) {
-    unsigned char byte;
+bool Scanner::ProcessUnicode(bool extended) {
+    unsigned char sequence[] = {0, 0, 0, 0};
+    unsigned char buf[4] = {};
 
-    if (!this->ParseHexToByte(byte)) {
-        error = "can't decode byte, hex escape must be: \\xhh";
+    auto *sq_ptr = (unsigned int *) sequence;
+    unsigned char byte;
+    int width = 2;
+    int len = 1;
+
+    if (extended)
+        width = 4;
+
+    for (int i = 0; i < width; i++) {
+        if ((byte = this->HexToByte()) < 0) {
+            this->status = ScannerStatus::INVALID_BYTE_USHORT;
+            if (extended)
+                this->status = ScannerStatus::INVALID_BYTE_ULONG;
+            return false;
+        }
+        sequence[(width - 1) - i] = byte;
+    }
+
+    if (*sq_ptr < 0x80)
+        buf[0] = (*sq_ptr) >> 0 & 0x7F;
+    else if (*sq_ptr < 0x0800) {
+        buf[0] = (*sq_ptr) >> 6 & 0x1F | 0xC0;
+        buf[1] = (*sq_ptr) >> 0 & 0xBF;
+        len = 2;
+    } else if (*sq_ptr < 0x010000) {
+        buf[0] = (*sq_ptr) >> 12 & 0x0F | 0xE0;
+        buf[1] = (*sq_ptr) >> 6 & 0x3F | 0x80;
+        buf[2] = (*sq_ptr) >> 0 & 0x3F | 0x80;
+        len = 3;
+    } else if (*sq_ptr < 0x110000) {
+        buf[0] = (*sq_ptr) >> 18 & 0x07 | 0xF0;
+        buf[1] = (*sq_ptr) >> 12 & 0x3F | 0x80;
+        buf[2] = (*sq_ptr) >> 6 & 0x3F | 0x80;
+        buf[3] = (*sq_ptr) >> 0 & 0x3F | 0x80;
+        len = 4;
+    } else {
+        this->status = ScannerStatus::INVALID_UCHR;
         return false;
     }
 
-    dest += byte;
+    return this->TkPutStr(buf, len);
+}
+
+bool Scanner::UnderflowFile() {
+    unsigned long read;
+    long rsize;
+
+    // Build circular-buffer
+    if (this->buffers.start_ == nullptr) {
+        this->buffers.start_ = (unsigned char *) argon::memory::Alloc(ARGON_LANG_SCANNER_FILE_BUFSIZ);
+
+        if (this->buffers.start_ == nullptr)
+            return false;
+
+        this->buffers.cur_ = this->buffers.start_;
+        this->buffers.inp_ = this->buffers.start_;
+        this->buffers.end_ = this->buffers.start_ + ARGON_LANG_SCANNER_FILE_BUFSIZ;
+    }
+
+    // Forward reading
+    rsize = this->buffers.end_ - this->buffers.inp_;
+    if (rsize > 0) {
+        read = std::fread(this->buffers.inp_, 1, rsize, this->fd_);
+
+        if (ferror(this->fd_) != 0 || read == 0 && feof(this->fd_) != 0)
+            return false;
+
+        this->buffers.inp_ += read;
+    }
+
+    // Backward reading
+    rsize = this->buffers.cur_ - this->buffers.start_;
+    if (rsize > 0) {
+        read = std::fread(this->buffers.start_, 1, rsize, this->fd_);
+
+        if (ferror(this->fd_) != 0 || read == 0 && feof(this->fd_) != 0)
+            return false;
+
+        this->buffers.inp_ = this->buffers.start_ + read;
+
+        if (this->buffers.cur_ == this->buffers.end_)
+            this->buffers.cur_ = this->buffers.start_;
+    }
 
     return true;
 }
 
-bool Scanner::ParseHexToByte(unsigned char &byte) {
+bool Scanner::UnderflowInteractive() {
+    int err = this->promptfn_(this, this->fd_, this->prompt_);
+
+    if (err == -1 || this->status == ScannerStatus::NOMEM)
+        this->status = ScannerStatus::NOMEM;
+
+    if (this->next_prompt_ != nullptr)
+        this->prompt_ = this->next_prompt_;
+
+    return err > 0;
+}
+
+int Scanner::HexToByte() {
+    int byte = 0;
     int curr;
 
-    byte = 0;
-
     for (int i = 1; i >= 0; i--) {
-        if (!IsHexDigit(curr = this->GetCh()))
-            return false;
+        curr = this->NextChar();
+
+        if (!IsHexDigit(curr))
+            return -1;
+
         byte |= HexDigitToNumber(curr) << (unsigned char) (i * 4);
     }
-    return true;
+
+    return byte;
 }
 
-Token Scanner::ParseString(Pos start, bool byte_string) {
-    int curr = this->GetCh();
-    std::string string;
+int Scanner::Peek(bool advance) {
+    int chr;
+    bool ok;
 
-    while (curr != '"') {
-        if (!this->source_->good() || curr == '\n')
-            return Token(TokenType::ERROR, start, this->pos_, "unterminated string");
+    do {
+        if (this->buffers.cur_ != this->buffers.inp_) {
+            chr = *this->buffers.cur_;
 
-        // Byte string accept byte in range (0x00 - 0x7F)
-        if (byte_string && curr > 0x7F)
-            return Token(TokenType::ERROR, start, this->pos_, "byte string can only contain ASCII literal characters");
+            if (this->buffers.cur_ >= this->buffers.end_)
+                chr = *this->buffers.start_; // Circular buffer
 
-        if (curr == '\\') {
-            if (this->source_->peek() != '\\') {
-                if (!this->ParseEscape('"', byte_string, string, string))
-                    return Token(TokenType::ERROR, start, this->pos_, string);
-                curr = this->GetCh();
-                continue;
+            if (advance) {
+                if (this->buffers.cur_ >= this->buffers.end_) {
+                    this->buffers.cur_ = this->buffers.start_;
+                    return chr;
+                }
+
+                this->buffers.cur_++;
+                this->pos_++;
             }
-            curr = this->GetCh();
+
+            return chr;
         }
-        string += (char) curr;
-        curr = this->GetCh();
+
+        if (this->fd_ == nullptr)
+            return -1;
+
+        if (this->prompt_ != nullptr) {
+            if (this->par_ == 0)
+                return -1;
+
+            ok = this->UnderflowInteractive();
+        } else
+            ok = this->UnderflowFile();
+
+        if (!ok) {
+            this->status = ScannerStatus::END_OF_FILE;
+            return -1;
+        }
+
+    } while (true);
+}
+
+int Scanner::PeekChar() noexcept {
+    return this->Peek(false);
+}
+
+int Scanner::NextChar() noexcept {
+    return this->Peek(true);
+}
+
+Token Scanner::MakeTkWithValue(Pos start, TokenType type) {
+    unsigned char *tmp = this->TkGetValue();
+
+    if (tmp == nullptr)
+        return {TokenType::ERROR, start, this->pos_};
+
+    return {type, start, this->pos_, tmp};
+}
+
+Token Scanner::TokenizeBinary(Pos start) {
+    int value = this->PeekChar();
+
+    while (value >= '0' && value <= '1') {
+        if (!this->TkPutChar())
+            return Token(TokenType::ERROR, start, this->pos_);
+
+        value = this->PeekChar();
     }
 
-    if (byte_string)
-        return Token(TokenType::BYTE_STRING, start, this->pos_, string);
-    return Token(TokenType::STRING, start, this->pos_, string);
+    return this->MakeTkWithValue(start, TokenType::NUMBER_BIN);
 }
 
-Token Scanner::ParseRawString(Pos start) {
-    std::string raw;
+Token Scanner::TokenizeChar(Pos start) {
+    int value = this->PeekChar();
+
+    if (value == '\'') {
+        this->status = ScannerStatus::EMPTY_SQUOTE;
+        goto ERROR;
+    }
+
+    if (value == '\\') {
+        this->NextChar();
+
+        if (this->PeekChar() != '\\') {
+            if (!this->ProcessEscape('\'', false))
+                goto ERROR;
+        } else {
+            if (!this->TkPutChar())
+                goto ERROR;
+        }
+    } else {
+        if (!this->TkPutChar())
+            goto ERROR;
+    }
+
+    if (this->NextChar() != '\'') {
+        this->status = ScannerStatus::INVALID_SQUOTE;
+        goto ERROR;
+    }
+
+    return this->MakeTkWithValue(start, TokenType::NUMBER_CHR);
+
+    ERROR:
+    return Token(TokenType::ERROR, start, this->pos_);
+}
+
+Token Scanner::TokenizeComment(Pos start, bool inline_comment) {
+    TokenType type = TokenType::COMMENT;
+
+    if (inline_comment)
+        type = TokenType::INLINE_COMMENT;
+
+    // Skip newline/whitespace at comment start
+    for (int skip = this->PeekChar();
+         IsSpace(skip) || (!inline_comment && skip == '\n');
+         this->NextChar(), skip = this->PeekChar());
+
+    while (this->PeekChar() > 0) {
+        if (this->PeekChar() == '\n' && inline_comment)
+            break;
+
+        if (this->PeekChar() == '*') {
+            this->NextChar();
+
+            if (this->PeekChar() == '/')
+                break;
+
+            if (!this->TkPutChar('*'))
+                goto ERROR;
+
+            continue;
+        }
+
+        if (!this->TkPutChar())
+            goto ERROR;
+    }
+
+    this->NextChar();
+    return this->MakeTkWithValue(start, type);
+
+    ERROR:
+    return Token(TokenType::ERROR, start, this->pos_);
+}
+
+Token Scanner::TokenizeDecimal(Pos start, bool begin_zero) {
+    TokenType type = TokenType::NUMBER;
+
+    if (begin_zero) {
+        if (!this->TkPutChar('0'))
+            return Token(TokenType::ERROR, start, this->pos_);
+    }
+
+    while (IsDigit(this->PeekChar())) {
+        if (!this->TkPutChar())
+            return Token(TokenType::ERROR, start, this->pos_);
+    }
+
+    // Look for a fractional part.
+    if (this->PeekChar() == '.') {
+        if (!this->TkPutChar())
+            return Token(TokenType::ERROR, start, this->pos_);
+
+        while (IsDigit(this->PeekChar())) {
+            if (!this->TkPutChar())
+                return Token(TokenType::ERROR, start, this->pos_);
+        }
+
+        type = TokenType::DECIMAL;
+    }
+
+    return this->MakeTkWithValue(start, type);
+}
+
+Token Scanner::TokenizeHex(Pos start) {
+    int value = this->PeekChar();
+
+    while (IsHexDigit(value)) {
+        if (!this->TkPutChar())
+            return Token(TokenType::ERROR, start, this->pos_);
+
+        value = this->PeekChar();
+    }
+
+    return this->MakeTkWithValue(start, TokenType::NUMBER_HEX);
+}
+
+Token Scanner::TokenizeOctal(Pos start) {
+    int value = this->PeekChar();
+
+    while (value >= '0' && value <= '7') {
+        if (!this->TkPutChar())
+            return Token(TokenType::ERROR, start, this->pos_);
+
+        value = this->PeekChar();
+    }
+
+    return this->MakeTkWithValue(start, TokenType::NUMBER_OCT);
+}
+
+Token Scanner::TokenizeNumber() {
+    Pos start = this->pos_;
+    int peeked;
+    bool begin_zero = false;
+
+    if (this->PeekChar() == '0') {
+        begin_zero = true;
+        this->NextChar();
+        switch (tolower(this->PeekChar())) {
+            case 'b':
+                this->NextChar();
+                return this->TokenizeBinary(start);
+            case 'o':
+                this->NextChar();
+                return this->TokenizeOctal(start);
+            case 'x':
+                this->NextChar();
+                return this->TokenizeHex(start);
+            default:
+                peeked = this->PeekChar();
+                if (!IsDigit(peeked) && peeked != '.') {
+                    auto zero = (unsigned char *) argon::memory::Alloc(2);
+
+                    if (zero == nullptr) {
+                        this->status = ScannerStatus::NOMEM;
+                        return Token(TokenType::ERROR, start, this->pos_);
+                    }
+
+                    zero[0] = '0';
+                    zero[1] = '\0';
+
+                    return Token(TokenType::NUMBER, start, this->pos_, zero);
+                }
+        }
+    }
+
+    return this->TokenizeDecimal(start, begin_zero);
+}
+
+Token Scanner::TokenizeRawString(Pos start) {
     int hashes = 0;
     int count = 0;
+    int value;
 
-    for (; this->source_->peek() == '#'; this->GetCh(), hashes++);
+    // Count beginning hashes
+    for (; this->PeekChar() == '#'; this->NextChar(), hashes++);
 
-    if (this->GetCh() != '"')
-        return Token(TokenType::ERROR, start, this->pos_, "invalid raw string prologue");
+    if (this->NextChar() != '"') {
+        this->status = ScannerStatus::INVALID_RS_PROLOGUE;
+        return Token(TokenType::ERROR, start, this->pos_);
+    }
 
-    while (this->source_->good()) {
-        if (this->source_->peek() == '"') {
-            this->GetCh();
-            for (; this->source_->peek() == '#' && count != hashes; this->GetCh(), count++);
+    while ((value = this->PeekChar()) > 0) {
+        if (value == '"') {
+            this->NextChar();
+            for (; this->PeekChar() == '#'; this->NextChar(), count++);
             if (count != hashes) {
-                raw += '"';
+                if (!this->TkPutChar('"'))
+                    goto ERROR;
+
                 while (count > 0) {
-                    raw += '#';
+                    if (!this->TkPutChar('#'))
+                        goto ERROR;
                     count--;
                 }
                 continue;
             }
-            return Token(TokenType::RAW_STRING, start, this->pos_, raw);
+            return this->MakeTkWithValue(start, TokenType::RAW_STRING);
         }
-        raw += (char) this->GetCh();
+
+        if (!this->TkPutChar())
+            goto ERROR;
     }
 
-    return Token(TokenType::ERROR, start, this->pos_, "unterminated raw string");
+    this->status = ScannerStatus::INVALID_RSTR;
+
+    ERROR:
+    return Token(TokenType::ERROR, start, this->pos_);
 }
 
-Token Scanner::ParseWord() {
-    Pos start = this->pos_;
-    int value = this->GetCh();
-    std::string word;
+Token Scanner::TokenizeString(Pos start, bool byte_string) {
+    TokenType type = TokenType::STRING;
+    int value = this->NextChar();
 
-    if (value == 'b') {
-        if (this->source_->peek() == '"') {
-            this->GetCh();
-            return this->ParseString(start, true);
+    if (byte_string)
+        type = TokenType::BYTE_STRING;
+
+    while (value != '"') {
+        if (value < 0 || value == '\n') {
+            this->status = ScannerStatus::INVALID_STR;
+            goto ERROR;
         }
+
+        // Byte string accept byte in range (0x00 - 0x7F)
+        if (byte_string && value > 0x7F) {
+            this->status = ScannerStatus::INVALID_BSTR;
+            goto ERROR;
+        }
+
+        if (value == '\\') {
+            if (this->PeekChar() != '\\') {
+                if (!this->ProcessEscape('"', byte_string))
+                    goto ERROR;
+
+                value = this->NextChar();
+                continue;
+            }
+
+            value = this->NextChar();
+        }
+
+        if (!this->TkPutChar(value))
+            goto ERROR;
+
+        value = this->NextChar();
     }
 
-    if (value == 'r') {
-        if (this->source_->peek() == '#' || this->source_->peek() == '"')
-            return this->ParseRawString(start);
+    return this->MakeTkWithValue(start, type);
+
+    ERROR:
+    return Token(TokenType::ERROR, start, this->pos_);
+}
+
+Token Scanner::TokenizeWord() {
+    TokenType type = TokenType::IDENTIFIER;
+    Pos start = this->pos_;
+    int value = this->NextChar();
+    long delta;
+
+    if (value == 'b' && this->PeekChar() == '"') {
+        this->NextChar(); // Discard "
+        return this->TokenizeString(start, true);
     }
 
-    word += (char) value;
-    value = this->source_->peek();
+    if (value == 'r' && (this->PeekChar() == '#' || this->PeekChar() == '"'))
+        return this->TokenizeRawString(start);
+
+    if (!this->TkPutChar(value))
+        return Token(TokenType::ERROR, start, this->pos_);
+
+    value = this->PeekChar();
 
     while (IsAlpha(value) || IsDigit(value)) {
-        word += (char) value;
-        this->GetCh();
-        value = this->source_->peek();
+        if (!this->TkPutChar())
+            return Token(TokenType::ERROR, start, this->pos_);
+        value = this->PeekChar();
     }
 
     // keywords are longer than one letter
-    if (word.size() > 1) {
-        if (Keywords.find(word) != Keywords.end())
-            return Token(Keywords.at(word), start, this->pos_, word);
-    }
-
-    return Token(TokenType::IDENTIFIER, start, this->pos_, word);
-}
-
-std::string Scanner::ParseComment(bool inline_comment) {
-    std::string comment;
-
-    // Skip newline/whitespace at comment start
-    for (int skip = this->source_->peek();
-         IsSpace(skip) || (!inline_comment && skip == '\n');
-         this->GetCh(), skip = this->source_->peek());
-
-    while (this->source_->good()) {
-        if (this->source_->peek() == '\n' && inline_comment)
-            break;
-
-        if (this->source_->peek() == '*') {
-            this->GetCh();
-            if (this->source_->peek() == '/')
+    if ((this->pos_ - start) > 1) {
+        for (KwToken kt: kw2tktype) {
+            delta = this->pos_ - start;
+            if (strlen(kt.keyword) == delta &&
+                argon::memory::MemoryCompare(kt.keyword, this->tkval.start_, delta) == 0) {
+                type = kt.type;
                 break;
-            comment += '*';
-            continue;
+            }
         }
-        comment += (char) this->GetCh();
     }
-    this->GetCh();
-    return comment;
+
+    if (*this->tkval.start_ == '_' && this->tkval.cur_ - this->tkval.start_ == 1)
+        type = TokenType::BLANK;
+
+    return this->MakeTkWithValue(start, type);
 }
 
-Token Scanner::NextToken() {
-    Pos start;
+unsigned char *Scanner::TkGetValue() {
+    unsigned char *tmp;
+
+    if (this->tkval.cur_ == nullptr || *this->tkval.cur_ != '\0') {
+        if (this->tkval.cur_ + 1 >= this->tkval.end_) {
+            if (!this->TkEnlarge(1))
+                return nullptr;
+        }
+
+        *this->tkval.cur_ = '\0';
+        this->tkval.cur_++;
+    }
+
+    tmp = this->tkval.start_;
+    this->tkval.start_ = nullptr;
+    this->tkval.cur_ = nullptr;
+    this->tkval.end_ = nullptr;
+
+    return tmp;
+}
+
+// PUBLIC
+
+Scanner::Scanner(FILE *fd, const char *ps1, const char *ps2) noexcept {
+    this->fd_ = fd;
+    this->prompt_ = ps1;
+    this->next_prompt_ = ps2;
+
+    this->promptfn_ = DefaultPrompt;
+}
+
+Scanner::Scanner(const char *str, unsigned long len) noexcept {
+    this->buffers.start_ = (unsigned char *) str;
+    this->buffers.cur_ = this->buffers.start_;
+    this->buffers.inp_ = this->buffers.start_ + len;
+    this->buffers.end_ = this->buffers.start_ + len;
+}
+
+Scanner::~Scanner() noexcept {
+    if (this->prompt_ != nullptr)
+        argon::memory::Free(this->buffers.start_);
+
+    argon::memory::Free(this->tkval.start_);
+}
+
+bool Scanner::AppendUserInput(unsigned char *buf, int bufsiz) {
+    unsigned char *tmp;
+    long cur;
+    long inp;
+    long end;
+
+    if (this->buffers.start_ == nullptr) {
+        this->buffers.start_ = (unsigned char *) argon::memory::Alloc(bufsiz);
+
+        if (this->buffers.start_ == nullptr) {
+            this->status = ScannerStatus::NOMEM;
+            return false;
+        }
+
+        this->buffers.cur_ = this->buffers.start_;
+        //this->buffers.inp_ = this->buffers.start_;
+        this->buffers.end_ = this->buffers.start_ + bufsiz;
+
+        this->buffers.inp_ = (unsigned char *) argon::memory::MemoryCopy(this->buffers.start_, buf, bufsiz);
+
+        return true;
+    }
+
+    cur = this->buffers.cur_ - this->buffers.start_;
+    inp = this->buffers.inp_ - this->buffers.start_;
+    end = this->buffers.end_ - this->buffers.start_;
+
+    tmp = (unsigned char *) argon::memory::Realloc(this->buffers.start_, end + bufsiz);
+    if (tmp == nullptr) {
+        this->status = ScannerStatus::NOMEM;
+        return false;
+    }
+
+    this->buffers.start_ = tmp;
+    this->buffers.cur_ = tmp + cur;
+    //this->buffers.inp_ = tmp + inp;
+    this->buffers.end_ = tmp + (end + bufsiz);
+
+    this->buffers.inp_ = (unsigned char *) argon::memory::MemoryCopy(tmp + inp, buf, bufsiz);
+
+    return true;
+}
+
+bool Scanner::Reset() {
+    // Buffers
+    this->buffers.cur_ = this->buffers.start_;
+    this->buffers.inp_ = this->buffers.start_;
+
+    // TokenVal
+    this->tkval.cur_ = this->tkval.start_;
+
+    this->pos_ = 1;
+
+    if (this->fd_ != nullptr)
+        return fseek(this->fd_, 0, SEEK_SET) == 0;
+
+    return true;
+}
+
+const char *Scanner::GetStatusMessage() {
+    static const char *messages[] = {
+            "empty '' not allowed",
+            "end of file reached",
+            "byte string can only contain ASCII literal characters",
+            "can't decode bytes in unicode sequence, escape format must be: \\Uhhhhhhhh",
+            "can't decode bytes in unicode sequence, escape format must be: \\uhhhh",
+            "can't decode byte, hex escape must be: \\xhh",
+            "expected new-line after line continuation character",
+            "unterminated string",
+            "invalid raw string prologue",
+            "expected '",
+            "unterminated string",
+            "invalid token",
+            "illegal Unicode character",
+            "not enough memory",
+            "ok"
+    };
+
+    return messages[(int) this->status];
+}
+
+Token Scanner::NextToken() noexcept {
+#define CHECK_AGAIN(chr, type)                      \
+    if(this->PeekChar() == (chr))   {               \
+        this->NextChar();                           \
+        return Token((type), start, this->pos_);    \
+    }
+
     int value;
+    Pos start;
 
-    this->source_->peek(); // INIT
+    // Reset error status
+    this->status = ScannerStatus::GOOD;
 
-    while (this->source_->good()) {
-        value = this->source_->peek();
+    while ((value = this->PeekChar()) > 0) {
         start = this->pos_;
 
+        if (this->par_ == -1)
+            this->par_ = 0;
+
+        // Skip spaces
         if (IsSpace(value)) {
-            for (; IsSpace(this->source_->peek()); this->GetCh());
+            for (; IsSpace(this->PeekChar()); this->NextChar());
             continue;
-        } // Skip spaces
+        }
 
         if (IsAlpha(value))
-            return this->ParseWord();
+            return this->TokenizeWord();
 
+        // Numbers
         if (IsDigit(value))
-            return this->ParseNumber();
+            return this->TokenizeNumber();
+
+        this->NextChar();
 
         switch (value) {
-            case 0x0A: // NewLine
-                for (; this->source_->peek() == '\n'; this->GetCh());
-                return Token(TokenType::END_OF_LINE, start, this->pos_, "");
+            case '\n': // NewLine
+                for (; this->PeekChar() == '\n'; this->NextChar());
+                return Token(TokenType::END_OF_LINE, start, this->pos_);
+            case '\r': // \r\n
+                CHECK_AGAIN('\n', TokenType::END_OF_LINE)
+                return Token(TokenType::ERROR, start, this->pos_);
+            case '\\':
+                if (this->NextChar() != '\n') {
+                    this->status = ScannerStatus::INVALID_LC;
+                    return Token(TokenType::ERROR, start, this->pos_);
+                }
+                continue;
             case '!':
-                this->GetCh();
-                if (this->source_->peek() == '=') {
-                    this->GetCh();
-                    return Token(TokenType::NOT_EQUAL, start, this->pos_, "");
-                }
-                if (this->source_->peek() == '.') {
-                    this->GetCh();
-                    return Token(TokenType::EXCLAMATION_DOT, start, this->pos_, "");
-                }
-                if (this->source_->peek() == '{') {
-                    this->GetCh();
-                    return Token(TokenType::EXCLAMATION_LBRACES, start, this->pos_, "");
-                }
-                return Token(TokenType::EXCLAMATION, start, this->pos_, "");
+                CHECK_AGAIN('=', TokenType::NOT_EQUAL)
+                return Token(TokenType::EXCLAMATION, start, this->pos_);
             case '"':
-                this->GetCh();
-                return this->ParseString(start, false);
-            case '#': {
-                this->GetCh();
-                auto comment = this->ParseComment(true);
-                return Token(TokenType::INLINE_COMMENT, start, this->pos_, comment);
-            }
+                return this->TokenizeString(start, false);
+            case '#':
+                return this->TokenizeComment(start, true);
             case '%':
-                this->GetCh();
-                return Token(TokenType::PERCENT, start, this->pos_, "");
+                return Token(TokenType::PERCENT, start, this->pos_);
             case '&':
-                this->GetCh();
-                if (this->source_->peek() == '&') {
-                    this->GetCh();
-                    return Token(TokenType::AND, start, this->pos_, "");
-                }
-                return Token(TokenType::AMPERSAND, start, this->pos_, "");
+                CHECK_AGAIN('&', TokenType::AND)
+                return Token(TokenType::AMPERSAND, start, this->pos_);
             case '\'':
-                this->GetCh();
-                break;
+                return this->TokenizeChar(start);
             case '(':
-                this->GetCh();
-                return Token(TokenType::LEFT_ROUND, start, this->pos_, "");
+                this->par_++;
+                return Token(TokenType::LEFT_ROUND, start, this->pos_);
             case ')':
-                this->GetCh();
-                return Token(TokenType::RIGHT_ROUND, start, this->pos_, "");
+                this->par_--;
+                return Token(TokenType::RIGHT_ROUND, start, this->pos_);
             case '*':
-                this->GetCh();
-                if (this->source_->peek() == '=') {
-                    this->GetCh();
-                    return Token(TokenType::ASTERISK_EQ, start, this->pos_, "");
-                }
-                return Token(TokenType::ASTERISK, start, this->pos_, "");
+                CHECK_AGAIN('=', TokenType::ASTERISK_EQ)
+                return Token(TokenType::ASTERISK, start, this->pos_);
             case '+':
-                this->GetCh();
-                if (this->source_->peek() == '=') {
-                    this->GetCh();
-                    return Token(TokenType::PLUS_EQ, start, this->pos_, "");
-                }
-                if (this->source_->peek() == '+') {
-                    this->GetCh();
-                    return Token(TokenType::PLUS_PLUS, start, this->pos_, "");
-                }
-                return Token(TokenType::PLUS, start, this->pos_, "");
+                CHECK_AGAIN('=', TokenType::PLUS_EQ)
+                CHECK_AGAIN('+', TokenType::PLUS_PLUS)
+                return Token(TokenType::PLUS, start, this->pos_);
             case ',':
-                this->GetCh();
-                return Token(TokenType::COMMA, start, this->pos_, "");
+                return Token(TokenType::COMMA, start, this->pos_);
             case '-':
-                this->GetCh();
-                if (this->source_->peek() == '=') {
-                    this->GetCh();
-                    return Token(TokenType::MINUS_EQ, start, this->pos_, "");
-                }
-                if (this->source_->peek() == '-') {
-                    this->GetCh();
-                    return Token(TokenType::MINUS_MINUS, start, this->pos_, "");
-                }
-                return Token(TokenType::MINUS, start, this->pos_, "");
+                CHECK_AGAIN('=', TokenType::MINUS_EQ)
+                CHECK_AGAIN('-', TokenType::MINUS_MINUS)
+                return Token(TokenType::MINUS, start, this->pos_);
             case '.':
-                this->GetCh();
-                if (this->source_->peek() == '.') {
-                    this->GetCh();
-                    if (this->source_->peek() == '.') {
-                        this->GetCh();
-                        return Token(TokenType::ELLIPSIS, start, this->pos_, "");
-                    }
-                    this->source_->seekg(this->source_->tellg().operator-(1));
-                    this->pos_--;
+                if (this->PeekChar() == '.') {
+                    this->NextChar();
+                    if (this->NextChar() == '.')
+                        return Token(TokenType::ELLIPSIS, start, this->pos_);
+
+                    this->status = ScannerStatus::INVALID_TK;
+                    return Token(TokenType::ERROR, start, this->pos_);
                 }
-                return Token(TokenType::DOT, start, this->pos_, "");
+                return Token(TokenType::DOT, start, this->pos_);
             case '/':
-                this->GetCh();
-                if (this->source_->peek() == '/') {
-                    this->GetCh();
-                    return Token(TokenType::SLASH_SLASH, start, this->pos_, "");
+                CHECK_AGAIN('/', TokenType::SLASH_SLASH)
+                CHECK_AGAIN('=', TokenType::SLASH_EQ)
+                if (this->PeekChar() == '*') {
+                    this->NextChar();
+                    return this->TokenizeComment(start, false);
                 }
-                if (this->source_->peek() == '=') {
-                    this->GetCh();
-                    return Token(TokenType::SLASH_EQ, start, this->pos_, "");
-                }
-                if (this->source_->peek() == '*') {
-                    this->GetCh();
-                    auto comment = this->ParseComment(false);
-                    return Token(TokenType::COMMENT, start, this->pos_, comment);
-                }
-                return Token(TokenType::SLASH, start, this->pos_, "");
+                return Token(TokenType::SLASH, start, this->pos_);
             case ':':
-                this->GetCh();
-                if (this->source_->peek() == ':') {
-                    this->GetCh();
-                    return Token(TokenType::SCOPE, start, this->pos_, "");
-                }
-                return Token(TokenType::COLON, start, this->pos_, "");
+                CHECK_AGAIN(':', TokenType::SCOPE)
+                return Token(TokenType::COLON, start, this->pos_);
             case ';':
-                this->GetCh();
-                return Token(TokenType::SEMICOLON, start, this->pos_, "");
+                return Token(TokenType::SEMICOLON, start, this->pos_);
             case '<':
-                this->GetCh();
-                if (this->source_->peek() == '=') {
-                    this->GetCh();
-                    return Token(TokenType::LESS_EQ, start, this->pos_, "");
-                }
-                if (this->source_->peek() == '<') {
-                    this->GetCh();
-                    return Token(TokenType::SHL, start, this->pos_, "");
-                }
-                return Token(TokenType::LESS, start, this->pos_, "");
+                CHECK_AGAIN('=', TokenType::LESS_EQ)
+                CHECK_AGAIN('<', TokenType::SHL)
+                return Token(TokenType::LESS, start, this->pos_);
             case '=':
-                this->GetCh();
-                if (this->source_->peek() == '=') {
-                    this->GetCh();
-                    return Token(TokenType::EQUAL_EQUAL, start, this->pos_, "");
-                }
-                if (this->source_->peek() == '>') {
-                    this->GetCh();
-                    return Token(TokenType::ARROW, start, this->pos_, "");
-                }
-                return Token(TokenType::EQUAL, start, this->pos_, "");
+                CHECK_AGAIN('=', TokenType::EQUAL_EQUAL)
+                CHECK_AGAIN('>', TokenType::ARROW)
+                return Token(TokenType::EQUAL, start, this->pos_);
             case '>':
-                this->GetCh();
-                if (this->source_->peek() == '=') {
-                    this->GetCh();
-                    return Token(TokenType::GREATER_EQ, start, this->pos_, "");
-                }
-                if (this->source_->peek() == '>') {
-                    this->GetCh();
-                    return Token(TokenType::SHR, start, this->pos_, "");
-                }
-                return Token(TokenType::GREATER, start, this->pos_, "");
+                CHECK_AGAIN('=', TokenType::GREATER_EQ)
+                CHECK_AGAIN('>', TokenType::SHR)
+                return Token(TokenType::GREATER, start, this->pos_);
             case '?':
-                this->GetCh();
-                if (this->source_->peek() == ':') {
-                    this->GetCh();
-                    return Token(TokenType::ELVIS, start, this->pos_, "");
-                }
-                if (this->source_->peek() == '.') {
-                    this->GetCh();
-                    return Token(TokenType::QUESTION_DOT, start, this->pos_, "");
-                }
-                return Token(TokenType::QUESTION, start, this->pos_, "");
+                CHECK_AGAIN(':', TokenType::ELVIS)
+                CHECK_AGAIN('.', TokenType::QUESTION_DOT)
+                return Token(TokenType::QUESTION, start, this->pos_);
             case '[':
-                this->GetCh();
-                return Token(TokenType::LEFT_SQUARE, start, this->pos_, "");
+                this->par_++;
+                return Token(TokenType::LEFT_SQUARE, start, this->pos_);
             case ']':
-                this->GetCh();
-                return Token(TokenType::RIGHT_SQUARE, start, this->pos_, "");
+                this->par_--;
+                return Token(TokenType::RIGHT_SQUARE, start, this->pos_);
             case '^':
-                this->GetCh();
-                return Token(TokenType::CARET, start, this->pos_, "");
+                return Token(TokenType::CARET, start, this->pos_);
             case '{':
-                this->GetCh();
-                return Token(TokenType::LEFT_BRACES, start, this->pos_, "");
+                this->par_++;
+                return Token(TokenType::LEFT_BRACES, start, this->pos_);
             case '|':
-                this->GetCh();
-                if (this->source_->peek() == '|') {
-                    this->GetCh();
-                    return Token(TokenType::OR, start, this->pos_, "");
-                }
-                return Token(TokenType::PIPE, start, this->pos_, "");
+                CHECK_AGAIN('|', TokenType::OR)
+                return Token(TokenType::PIPE, start, this->pos_);
             case '}':
-                this->GetCh();
-                return Token(TokenType::RIGHT_BRACES, start, this->pos_, "");
+                this->par_--;
+                return Token(TokenType::RIGHT_BRACES, start, this->pos_);
             case '~':
-                this->GetCh();
-                return Token(TokenType::TILDE, start, this->pos_, "");
+                return Token(TokenType::TILDE, start, this->pos_);
             default:
-                return Token(TokenType::ERROR, start, this->pos_, "invalid token");
+                this->status = ScannerStatus::INVALID_TK;
+                return Token(TokenType::ERROR, start, this->pos_);
         }
     }
 
-    return Token(TokenType::END_OF_FILE, this->pos_, this->pos_, "");
+    if (this->status != ScannerStatus::GOOD && this->status != ScannerStatus::END_OF_FILE)
+        return {TokenType::ERROR, start, this->pos_};
+
+    return {TokenType::END_OF_FILE, this->pos_, this->pos_};
+#undef CHECK_AGAIN
 }
 
-int Scanner::GetCh() {
-    int value = this->source_->get();
-    if (!this->source_->eof()) {
-        this->pos_ = (Pos) this->source_->tellg();
-        this->pos_++;
-    }
-    return value;
-}
-
-Token Scanner::Peek() {
-    if (!this->peeked_) {
-        this->peeked_token_ = this->NextToken();
-        this->peeked_ = true;
-        return this->peeked_token_;
-    }
-
-    return this->peeked_token_;
-}
-
-Token Scanner::Next() {
-    if (this->peeked_) {
-        this->peeked_ = false;
-        return this->peeked_token_;
-    }
-
-    return this->NextToken();
+void Scanner::SetPromptFn(InteractiveFn fn) {
+    this->promptfn_ = fn;
 }

@@ -52,7 +52,9 @@ const ObjectSlots random_obj = {
         nullptr,
         nullptr,
         nullptr,
-        nullptr
+        nullptr,
+        nullptr,
+        -1
 };
 
 const TypeInfo RandomTraitType = {
@@ -177,7 +179,8 @@ const ObjectSlots rdengine_obj = {
         nullptr,
         nullptr,
         nullptr,
-        nullptr
+        nullptr,
+        -1
 };
 
 ArObject *rdengine_str(RdEngine *self) {

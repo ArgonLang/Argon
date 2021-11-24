@@ -123,7 +123,15 @@ namespace argon::object {
 
     // Common Operations
 
-    ArObject *StringSplit(String *string, String *pattern, ArSSize maxsplit);
+    ArObject *StringSplit(String *string, const unsigned char *c_str, ArSize len, ArSSize maxsplit);
+
+    inline ArObject *StringSplit(String *string, const char *c_str, ArSSize maxsplit) {
+        return StringSplit(string, (const unsigned char *) c_str, strlen(c_str), maxsplit);
+    }
+
+    inline ArObject *StringSplit(String *string, String *pattern, ArSSize maxsplit) {
+        return StringSplit(string, pattern->buffer, pattern->len, maxsplit);
+    }
 
     inline bool StringEmpty(String *string) { return string->len == 0; }
 
@@ -131,11 +139,17 @@ namespace argon::object {
 
     bool StringEq(String *string, const unsigned char *c_str, ArSize len);
 
+    int StringCompare(String *left, String *right);
+
     int StringIntToUTF8(unsigned int glyph, unsigned char *buf);
+
+    int StringUTF8toInt(const unsigned char *buf);
 
     ArSize StringLen(const String *str);
 
     String *StringConcat(String *left, String *right);
+
+    String *StringConcat(String *left, const char *right, bool internal);
 
     String *StringFormat(String *fmt, ArObject *args);
 
@@ -145,8 +159,16 @@ namespace argon::object {
         return support::Find(string->buffer, string->len, pattern->buffer, pattern->len, false);
     }
 
+    inline ArSSize StringFind(String *string, const char *pattern) {
+        return support::Find(string->buffer, string->len, (const unsigned char *) pattern, strlen(pattern), false);
+    }
+
     inline ArSSize StringRFind(String *string, String *pattern) {
         return support::Find(string->buffer, string->len, pattern->buffer, pattern->len, true);
+    }
+
+    inline ArSSize StringRFind(String *string, const char *pattern) {
+        return support::Find(string->buffer, string->len, (const unsigned char *) pattern, strlen(pattern), true);
     }
 
     String *StringReplace(String *string, String *old, String *nval, ArSSize n);

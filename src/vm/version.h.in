@@ -7,10 +7,37 @@
 
 #define AR_RELEASE_LEVEL    "@AR_RELEASE_LEVEL@"
 
+#define AR_NAME             "Argon"
 #define AR_MAJOR            @AR_MAJOR@
 #define AR_MINOR            @AR_MINOR@
 #define AR_PATCH            @AR_PATCH@
 
-#define AR_VERSION          "@AR_VERSION@"
+#define STRINGIFY_NX(A)     #A
+#define STRINGIFY(A)        STRINGIFY_NX(A)
+
+#define AR_VERSION \
+    STRINGIFY(AR_MAJOR) "." STRINGIFY(AR_MINOR) "." STRINGIFY(AR_PATCH) "-" AR_RELEASE_LEVEL
+
+// Compiler specific macros
+#if defined(__GNUC__)
+#define _AR_C_NAME  "GCC"
+#define _AR_C_VER   STRINGIFY(__GNUC__) "." STRINGIFY(__GNUC_MINOR__)
+#elif defined(__clang__)
+#define _AR_C_NAME  "CLang"
+#define _AR_C_VER   STRINGIFY(__clang_major__) "." STRINGIFY(__clang_minor__) "." STRINGIFY(__clang_patchlevel__)
+#elif defined(_MSC_VER)
+#define _AR_C_NAME  "MSC"
+#define _AR_C_VER   STRINGIFY(_MSC_VER)
+#elif defined(__MINGW32__)
+#define _AR_C_NAME  "MinGW"
+#define _AR_C_VER   STRINGIFY(__MINGW32_MAJOR_VERSION) "." STRINGIFY(__MINGW32_MINOR_VERSION)
+#else
+#define _AR_C_NAME  "unknown"
+#define _AR_C_VER   ""
+#endif
+
+#define AR_VERSION_EX                                                                       \
+    AR_NAME " " STRINGIFY(AR_MAJOR) "." STRINGIFY(AR_MINOR) "." STRINGIFY(AR_PATCH)         \
+    " (" AR_RELEASE_LEVEL ", " __DATE__ ", " __TIME__ ") [" _AR_C_NAME " v." _AR_C_VER "]"
 
 #endif // !ARGON_VERSION_H_

@@ -1140,7 +1140,7 @@ ArObject *argon::vm::Eval(ArRoutine *routine) {
         RoutinePopDefer(routine);
     }
 
-    return cu_frame->return_value;
+    return IncRef(cu_frame->return_value);
 
 #undef TARGET_OP
 #undef DISPATCH

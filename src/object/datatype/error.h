@@ -28,6 +28,8 @@ namespace argon::object {
 
     bool ErrorInit();
 
+    void ErrorPrint(ArObject *object);
+
     extern const ArObject *error_types;
 
     extern const TypeInfo *type_error_wrap_;
@@ -42,6 +44,7 @@ namespace argon::object {
     extern const TypeInfo *type_not_implemented_;
     extern const TypeInfo *type_overflow_error_;
     extern const TypeInfo *type_runtime_error_;
+    extern const TypeInfo *type_runtime_exit_error_;
     extern const TypeInfo *type_scope_error_;
     extern const TypeInfo *type_type_error_;
     extern const TypeInfo *type_unassignable_error_;
@@ -49,6 +52,10 @@ namespace argon::object {
     extern const TypeInfo *type_unhashable_error_;
     extern const TypeInfo *type_unicode_index_error_;
     extern const TypeInfo *type_value_error_;
+
+    // Compiler errors
+    extern const TypeInfo *type_syntax_error_;
+    extern const TypeInfo *type_compile_error_;
 
     // IO errors
     extern const TypeInfo *type_blocking_io_;
