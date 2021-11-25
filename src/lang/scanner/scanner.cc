@@ -732,7 +732,10 @@ Token Scanner::TokenizeWord() {
 unsigned char *Scanner::TkGetValue() {
     unsigned char *tmp;
 
-    if (this->tkval.cur_ == nullptr || *this->tkval.cur_ != '\0') {
+    if(!this->TkInitBuf())
+        return nullptr;
+
+    if (*this->tkval.cur_ != '\0') {
         if (this->tkval.cur_ + 1 >= this->tkval.end_) {
             if (!this->TkEnlarge(1))
                 return nullptr;
@@ -862,8 +865,8 @@ Token Scanner::NextToken() noexcept {
         return Token((type), start, this->pos_);    \
     }
 
+    Pos start = this->pos_;
     int value;
-    Pos start;
 
     // Reset error status
     this->status = ScannerStatus::GOOD;

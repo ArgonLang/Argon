@@ -806,8 +806,12 @@ int Compiler::CompileSelector(Binary *selector, bool dup, bool emit) {
         else if (cursor->kind == TokenType::DOT)
             code = OpCodes::LDATTR;
         else if (cursor->kind == TokenType::QUESTION_DOT) {
+            code = OpCodes::LDATTR;
             if (!this->Emit(OpCodes::JNIL, this->unit_->jstack->end, nullptr))
-                return false;
+                return -1;
+        } else {
+            ErrorFormat(type_compile_error_, "unexpected TokenType in selector expression");
+            return -1;
         }
 
         if ((idx = this->PushStatic((String *) cursor->right, true, false)) < 0)
@@ -868,7 +872,7 @@ bool Compiler::CompileSubscr(Subscript *subscr, bool dup, bool emit) {
         if (!this->CompileExpression((Node *) subscr->low))
             return false;
     } else {
-        if (this->PushStatic(NilVal, true, true)<0)
+        if (this->PushStatic(NilVal, true, true) < 0)
             return false;
     }
 
@@ -877,7 +881,7 @@ bool Compiler::CompileSubscr(Subscript *subscr, bool dup, bool emit) {
             if (!this->CompileExpression((Node *) subscr->high))
                 return false;
         } else {
-            if (this->PushStatic(NilVal, true, true)<0)
+            if (this->PushStatic(NilVal, true, true) < 0)
                 return false;
         }
 
@@ -885,7 +889,7 @@ bool Compiler::CompileSubscr(Subscript *subscr, bool dup, bool emit) {
             if (!this->CompileExpression((Node *) subscr->step))
                 return false;
         } else {
-            if (this->PushStatic(NilVal, true, true)<0)
+            if (this->PushStatic(NilVal, true, true) < 0)
                 return false;
         }
 
@@ -1399,6 +1403,9 @@ bool Compiler::CompileUpdate(UpdateIncDec *update) {
     } else if (AR_TYPEOF(update->value, type_ast_selector_)) {
         if ((idx = this->CompileSelector((Binary *) update->value, true, true)) < 0)
             return false;
+    } else {
+        ErrorFormat(type_compile_error_, "unable to compile update expression on node '%s'", AR_TYPE_NAME(update));
+        return false;
     }
 
     if (update->prefix) {

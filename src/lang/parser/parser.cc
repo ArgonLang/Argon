@@ -136,7 +136,7 @@ bool Parser::ParseRestElement(Node **rest_node) {
         if ((id = ArObjectNew<Unary>(RCType::INLINE, type_ast_restid_)) != nullptr) {
             if ((str = StringNew((const char *) this->tkcur_.buf)) == nullptr) {
                 Release(id);
-                return true;
+                return false;
             }
 
             id->start = start;
@@ -146,10 +146,10 @@ bool Parser::ParseRestElement(Node **rest_node) {
             id->value = str;
 
             *rest_node = id;
-        }
 
-        this->Eat();
-        return true;
+            this->Eat();
+            return true;
+        }
     }
 
     return false;
@@ -1407,6 +1407,7 @@ Node *Parser::ParseMemberAccess(Node *left) {
     String *id = nullptr;
     Binary *binary;
     Node *right;
+    Pos end;
 
     this->Eat();
 
@@ -1416,21 +1417,24 @@ Node *Parser::ParseMemberAccess(Node *left) {
     if ((right = this->ParseExpr(PeekPrecedence(kind))) == nullptr)
         return nullptr;
 
+    end = right->end;
+
     if (AR_TYPEOF(right, type_ast_identifier_)) {
         id = (String *) IncRef(((Unary *) right)->value);
-        Release(right);
+        Release((ArObject **) &right);
     }
 
-    if ((binary = ArObjectNew<Binary>(RCType::INLINE, type_ast_selector_)) == nullptr)
-        Release(right);
+    if ((binary = ArObjectNew<Binary>(RCType::INLINE, type_ast_selector_)) != nullptr) {
+        binary->kind = kind;
+        binary->start = left->start;
+        binary->end = end;
+        binary->colno = 0;
+        binary->lineno = 0;
+        binary->left = left;
+        binary->right = id != nullptr ? (ArObject *) id : IncRef(right);
+    }
 
-    binary->kind = kind;
-    binary->start = left->start;
-    binary->end = right->end;
-    binary->colno = 0;
-    binary->lineno = 0;
-    binary->left = left;
-    binary->right = id != nullptr ? (ArObject *) id : right;
+    Release(right);
 
     return binary;
 }
@@ -1585,7 +1589,7 @@ Node *Parser::ParseStatement() {
                     tmp = this->ParseJmpStmt();
                     break;
                 default:
-                    break;
+                    assert(false);
             }
         } else
             tmp = this->Expression();
@@ -1639,10 +1643,8 @@ Node *Parser::SwitchCase() {
     Node *tmp = nullptr;
     Binary *ret;
 
-    Pos start;
-    Pos end;
-
-    start = this->tkcur_.start;
+    Pos start = this->tkcur_.start;
+    Pos end = this->tkcur_.end;
 
     if (this->MatchEat(TokenType::CASE, false)) {
         if ((conditions = ListNew()) == nullptr)
@@ -2053,6 +2055,7 @@ Node *Parser::ParseTupleLambda() {
         return nullptr;
 
     must_fn = false;
+    last_is_comma = false;
 
     this->EatTerm();
     if (!this->Match(TokenType::RIGHT_ROUND)) {
@@ -2150,13 +2153,13 @@ Node *Parser::ParseTupleLambda() {
 
 Node *Parser::ScopeAsName(bool id_only, bool with_alias) {
     String *id = nullptr;
+    String *scope_sep = nullptr;
     Binary *ret;
     String *paths;
-    String *scope_sep;
     String *tmp;
 
-    Pos start;
-    Pos end;
+    Pos start = this->tkcur_.start;
+    Pos end = this->tkcur_.end;
 
     if (!this->Match(TokenType::IDENTIFIER)) {
         if (id_only)
@@ -2167,7 +2170,6 @@ Node *Parser::ScopeAsName(bool id_only, bool with_alias) {
     if ((paths = StringNew((const char *) this->tkcur_.buf)) == nullptr)
         return nullptr;
 
-    start = this->tkcur_.start;
     this->Eat();
 
     if (this->MatchEat(TokenType::SCOPE, false)) {

@@ -143,6 +143,8 @@ const TypeInfo *argon::lang::compiler::type_symtable_ = &SymbolTableType;
 bool argon::lang::compiler::SymbolTableEnterSub(SymbolTable **symt) {
     auto *st = SymbolTableNew(*symt);
 
+    assert(symt != nullptr && (*symt)->namespaces != nullptr);
+
     if (st == nullptr || !ListAppend((*symt)->namespaces, st)) {
         Release(st);
         return false;
@@ -183,11 +185,9 @@ Symbol *argon::lang::compiler::SymbolTableInsert(SymbolTable *symt, String *name
 
     if ((sym = (Symbol *) MapGetNoException(symt->map, name)) != nullptr) {
         if (sym->kind != SymbolType::UNKNOWN) {
-            Release(sym);
-            return (Symbol *) ErrorFormat(type_compile_error_,
-                                          "redeclaration of '%s(%s)' previously known as '%s %s'",
-                                          name->buffer, SymbolType2Name[(int) kind],
-                                          SymbolType2Name[(int) sym->kind], name->buffer);
+            ErrorFormat(type_compile_error_, "redeclaration of '%s(%s)' previously known as '%s %s'", name->buffer,
+                        SymbolType2Name[(int) kind], SymbolType2Name[(int) sym->kind], name->buffer);
+            Release((ArObject **) &sym);
         }
     } else {
         if ((sym = SymbolNew()) == nullptr)

@@ -30,7 +30,7 @@ int ErrorWrapper(bool *must_exit) {
         if (must_exit != nullptr)
             *must_exit = true;
 
-        if(((Error *) err)->obj == NilVal){
+        if (((Error *) err)->obj == NilVal) {
             Release(err);
             return EXIT_SUCCESS;
         }
@@ -270,13 +270,15 @@ int argon::vm::EvalInteractive() {
 void GetCPS(ArObject **ps, unsigned char **c_ps) {
     String *tmp;
 
-    *c_ps = (unsigned char *) "";
-
-    if (*ps == nullptr)
+    if (ps == nullptr || *ps == nullptr || c_ps == nullptr)
         return;
 
-    if (AR_TYPEOF(*ps, type_string_))
-        *c_ps = ((String *) ps)->buffer;
+    *c_ps = (unsigned char *) "";
+
+    if (AR_TYPEOF(*ps, type_string_)) {
+        *c_ps = ((String *) *ps)->buffer;
+        return;
+    }
 
     if ((tmp = (String *) ToString(*ps)) == nullptr)
         return;
@@ -322,6 +324,7 @@ int argon::vm::StartInteractiveLoop() {
 
         AcquireMain();
 
+        ret = nullptr;
         if (code != nullptr) {
             if ((ret = EvalCode(code)) != nullptr && ret != NilVal)
                 Print(ret);
