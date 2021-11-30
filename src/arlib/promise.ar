@@ -25,7 +25,7 @@ pub struct Promise {
             panic(TypeError::new("Promise::new argument is not a function"))
         }
 
-        var promise = Promise!{P_PENDING, nil, NotifyQueue::new()}
+        var promise = Promise{P_PENDING, nil, NotifyQueue::new()}
 
         spawn promise.do(executor)
 
@@ -33,11 +33,11 @@ pub struct Promise {
     }
 
     pub let new_resolved = (value) => {
-        return Promise!{P_FULFILLED, value, nil}
+        return Promise{P_FULFILLED, value, nil}
     }
 
     pub let new_rejected = (value) => {
-        return Promise!{P_REJECTED, value, nil}
+        return Promise{P_REJECTED, value, nil}
     }
 
     pub let all = (promises) => {
