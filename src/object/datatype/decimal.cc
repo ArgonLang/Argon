@@ -368,6 +368,16 @@ Decimal *argon::object::DecimalNew(DecimalUnderlying number) {
     return decimal;
 }
 
+Decimal *argon::object::DecimalNew(const char *string) {
+    auto decimal = ArObjectNew<Decimal>(RCType::INLINE, type_decimal_);
+    ArSize idx;
+
+    if (decimal != nullptr)
+        decimal->decimal = std::stold(string, &idx);
+
+    return decimal;
+}
+
 Decimal *argon::object::DecimalNewFromString(const std::string &string) {
     auto decimal = ArObjectNew<Decimal>(RCType::INLINE, type_decimal_);
     ArSize idx;

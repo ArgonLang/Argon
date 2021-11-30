@@ -117,7 +117,7 @@ String *StringInit(ArSize len, bool mkbuf) {
     return str;
 }
 
-int StringCompare(String *self, String *other) {
+int argon::object::StringCompare(String *self, String *other) {
     ArSize idx1 = 0;
     ArSize idx2 = 0;
 
@@ -958,7 +958,7 @@ bool FmtParseOptionStar(StringFormatter *fmt, StringArg *arg, bool prec) {
         return false;
     }
 
-    opt = (int)num->integer;
+    opt = (int) num->integer;
 
     if (opt < 0) {
         if (!prec)
@@ -1435,7 +1435,7 @@ String *FmtFormatArgs(StringFormatter *fmt) {
 
 // Common Operations
 
-ArObject *argon::object::StringSplit(String *string, String *pattern, ArSSize maxsplit) {
+ArObject *argon::object::StringSplit(String *string, const unsigned char *c_str, ArSize plen, ArSSize maxsplit) {
     String *tmp;
     List *ret;
 
@@ -1447,11 +1447,11 @@ ArObject *argon::object::StringSplit(String *string, String *pattern, ArSSize ma
         return nullptr;
 
     if (maxsplit != 0) {
-        while ((end = support::Find(string->buffer + idx, string->len - idx, pattern->buffer, pattern->len)) >= 0) {
+        while ((end = support::Find(string->buffer + idx, string->len - idx, c_str, plen)) >= 0) {
             if ((tmp = StringNew((const char *) string->buffer + idx, end)) == nullptr)
                 goto error;
 
-            idx += end + pattern->len;
+            idx += end + plen;
 
             if (!ListAppend(ret, tmp))
                 goto error;
@@ -1527,6 +1527,20 @@ int argon::object::StringIntToUTF8(unsigned int glyph, unsigned char *buf) {
     return 0;
 }
 
+int argon::object::StringUTF8toInt(const unsigned char *buf) {
+    if (*buf > 0xF0)
+        return -1;
+
+    if ((*buf & 0xF0) == 0xF0)
+        return (*buf & 0x07) << 21 | (buf[1] & 0x3F) << 12 | (buf[2] & 0x3F) << 6 | buf[3] & 0x3F;
+    else if ((*buf & 0xE0) == 0xE0)
+        return (*buf & 0x0F) << 12 | (buf[1] & 0x3F) << 6 | buf[2] & 0x3F;
+    else if ((*buf & 0xC0) == 0xC0)
+        return (*buf & 0x1F) << 6 | buf[1] & 0x3F;
+
+    return *buf;
+}
+
 String *argon::object::StringConcat(String *left, String *right) {
     String *ret = StringInit(left->len + right->len, true);
 
@@ -1540,6 +1554,23 @@ String *argon::object::StringConcat(String *left, String *right) {
         ret->cp_len = left->cp_len + right->cp_len;
     }
 
+    return ret;
+}
+
+String *argon::object::StringConcat(String *left, const char *right, bool internal) {
+    String *ret = nullptr;
+    String *astr;
+
+    astr = internal ? StringIntern(right) : StringNew(right);
+
+    if (astr != nullptr) {
+        if ((ret = StringConcat(left, astr)) == nullptr) {
+            Release(astr);
+            return nullptr;
+        }
+    }
+
+    Release(astr);
     return ret;
 }
 

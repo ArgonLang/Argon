@@ -7,6 +7,7 @@
 
 #include <vm/runtime.h>
 
+#include <object/datatype/io/io.h>
 #include "bool.h"
 #include "integer.h"
 #include "nil.h"
@@ -82,7 +83,7 @@ const NativeFunc error_methods[] = {
 };
 
 const NativeMember error_members[] = {
-        {"error",  NativeMemberType::AROBJECT, offsetof(Error, obj), true},
+        {"error", NativeMemberType::AROBJECT, offsetof(Error, obj), true},
         ARGON_MEMBER_SENTINEL
 };
 
@@ -168,6 +169,7 @@ ERROR_SIMPLE(NotImplemented, "", argon::object::type_not_implemented_);
 ERROR_SIMPLE(OutOfMemory, "", type_out_of_memory_);
 ERROR_SIMPLE(OverflowError, "", argon::object::type_overflow_error_);
 ERROR_SIMPLE(RuntimeError, "", argon::object::type_runtime_error_);
+ERROR_SIMPLE(RuntimeExit, "", argon::object::type_runtime_exit_error_);
 ERROR_SIMPLE(ScopeError, "", argon::object::type_scope_error_);
 ERROR_SIMPLE(TypeError, "", argon::object::type_type_error_);
 ERROR_SIMPLE(UnassignableError, "", argon::object::type_unassignable_error_);
@@ -176,6 +178,10 @@ ERROR_SIMPLE(UnhashableError, "", argon::object::type_unhashable_error_);
 ERROR_SIMPLE(UnicodeIndex, "", argon::object::type_unicode_index_error_);
 ERROR_SIMPLE(ValueError, "", argon::object::type_value_error_);
 ERROR_SIMPLE(ZeroDivision, "", type_zero_division_);
+
+// Compiler errors
+ERROR_SIMPLE(SyntaxError, "", argon::object::type_syntax_error_);
+ERROR_SIMPLE(CompileError, "", argon::object::type_compile_error_);
 
 // IO Error
 ERROR_SIMPLE(BlockingIO, "", argon::object::type_blocking_io_);
@@ -352,6 +358,7 @@ bool argon::object::ErrorInit() {
     INIT(argon::object::type_not_implemented_);
     INIT(argon::object::type_overflow_error_);
     INIT(argon::object::type_runtime_error_);
+    INIT(argon::object::type_runtime_exit_error_);
     INIT(argon::object::type_scope_error_);
     INIT(argon::object::type_type_error_);
     INIT(argon::object::type_unassignable_error_);
@@ -369,6 +376,10 @@ bool argon::object::ErrorInit() {
         return false;
     }
 
+    // Compiler
+    INIT(argon::object::type_syntax_error_);
+    INIT(argon::object::type_compile_error_);
+
     // IO
     INIT(argon::object::type_blocking_io_);
     INIT(argon::object::type_broken_pipe_);
@@ -380,4 +391,48 @@ bool argon::object::ErrorInit() {
     INIT(argon::object::type_is_directory_);
 
     return true;
+}
+
+void argon::object::ErrorPrint(ArObject *object) {
+    char emsg[100];
+    ArObject *last_error;
+    String *str;
+    io::File *err;
+
+    int count = 0;
+
+    if(object== nullptr)
+        return;
+
+    err = (io::File *) vm::ContextRuntimeGetProperty("stderr", nullptr);
+
+    if (err == nullptr || !AR_TYPEOF(err, io::type_file_)) {
+        // Silently discard error and continue
+        Release(err);
+        return;
+    }
+
+    last_error = IncRef(object);
+
+    while ((str = (String *) ToString(last_error)) == nullptr && count++ < 3) {
+        snprintf(emsg, 100, "an error occurred while trying to show a previous error from '%s' object:\n",
+                 AR_TYPE_NAME(last_error));
+
+        Release(last_error);
+
+        last_error = vm::GetLastError();
+
+        io::WriteString(err, emsg);
+
+        for (int i = 0; i < count; i++)
+            io::WriteString(err, "\t");
+    }
+
+    Release(last_error);
+
+    if (io::WriteObject(err, str) >= 0)
+        io::WriteString(err, "\n");
+
+    Release(str);
+    Release(err);
 }

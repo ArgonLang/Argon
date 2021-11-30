@@ -64,6 +64,19 @@ ARGON_FUNCTION(chdir, "Change the current working directory to path."
     return IncRef(NilVal);
 }
 
+ARGON_FUNCTION5(os_, exit, "Exit to the system with specified status, without normal exit processing."
+                          ""
+                          "- Parameter status: an integer value that defines the exit status."
+                          "- Returns: this function does not return to the caller.", 1, false) {
+    auto *astatus = (Integer *) argv[0];
+    int status = EXIT_FAILURE;
+
+    if (AR_TYPEOF(astatus, type_integer_))
+        status = (int) astatus->integer;
+
+    exit(status);
+}
+
 ARGON_FUNCTION(getcwd, "Return a string representing the current working directory."
                        ""
                        "- Returns: a string with the current working directory.", 0, false) {
@@ -246,6 +259,7 @@ bool os_init(Module *self) {
 
 const PropertyBulk os_bulk[] = {
         MODULE_EXPORT_FUNCTION(chdir_),
+        MODULE_EXPORT_FUNCTION(os_exit_),
         MODULE_EXPORT_FUNCTION(getcwd_),
         MODULE_EXPORT_FUNCTION(getenv_),
         MODULE_EXPORT_FUNCTION(getlogin_),

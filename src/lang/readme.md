@@ -5,26 +5,23 @@
 | \<program\>          | \<declaration\>* %EOF%                                       |
 | \<declaration\>      | \<impl_decl\> \| \<access_modifier\>                         |
 | \<access_modifier\>  | ['pub'] (\<const_decl\> \| \<trait_decl\> \| \<small_decl\>) \| \<statement\> |
-| \<small_decl\>       | \<var_modifier\> \| \<alias_decl\> \| \<func_decl\> \| \<struct_decl\> |
-| \<alias_decl\>       | 'using' %IDENTIFIER% 'as' \<scope\>                          |
-| \<const_decl\>       | 'let' %IDENTIFIER% '=' \<testlist\>                          |
-| \<var_modifier\>     | \['atomic'\] \['weak'\] \<var_decl\>                         |
-| \<var_decl\>         | 'var' %IDENTIFIER% \[\<var_annotation\>\]\['=' \<testlist\>\] |
-| \<var_annotation\>   | ':' \<scope\>                                                |
+| \<small_decl\>       | \<var_modifier\> \| \<func_decl\> \| \<struct_decl\> |
+| \<const_decl\>       | 'let' %IDENTIFIER% (',' %IDENTIFIER%)\* '=' \<test\> (','\<test\>) \*
+| \<var_modifier\>     | \['weak'\] \<var_decl\>                         |
+| \<var_decl\>         | 'var' %IDENTIFIER% (',' %IDENTIFIER%)\* \['=' \<test\> (',' \<test\>)\*\]
 | \<func_decl\>        | 'func' %IDENTIFIER% ['(' \<param\> ')'] \<block\>            |
 | \<variadic\>         | '...' %IDENTIFIER%                                           |
 | \<struct_decl\>      | 'struct' %IDENTIFIER% ['impl' \<trait_list\>] \<struct_block\> |
 | \<struct_block\>     | '{' (['pub'] (\<const_decl\> \| \<var_modifier\> \| \<func_decl\>))* '}' |
 | \<trait_decl\>       | 'trait' %IDENTIFIER% [':' \<trait_list\>] \<trait_block\>    |
 | \<trait_block\>      | '{' (['pub'] (\<func_decl\> \| \<const_decl\>))* '}'         |
-| \<trait_list\>       | \<scope\> (',' \<scope\>)*                                   |
-| \<impl_decl\>        | 'impl' \<scope\> ['for' \<scope\>] \<trait_block\>           |
+| \<trait_list\>       | \<scope_string\> (',' \<scope_string\>)*                                   |
 |                      |                                                              |
 | \<statement\>        | [ %IDENTIFIER% ':' ] \<expression\><br />\| \<spawn_stmt\><br />\| \<defer_stmt\><br />\| \<return_stmt\><br />\| \<import_stmt\><br />\| \<from_import_stmt\><br />\| \<for_stmt\><br />\| \<loop_stmt\><br />\| \<if_stmt\><br />\| \<switch_stmt\><br />\| \<jmp_stmt\> |
 | \<import_stmt\>      | 'import' \<scope_as_name\> (',' \<scope_as_name\>)*          |
-| \<from_import_stmt\> | 'from' \<scope\> 'import' \<import_as_name\> (',' \<import_as_name\>)* |
+| \<from_import_stmt\> | 'from' \<scope_string\> 'import' \<import_as_name\> (',' \<import_as_name\>)* |
 | \<import_as_name\>   | %IDENTIFIER% ['as' %IDENTIFIER%]                             |
-| \<scope_as_name\>    | \<scope\> ['as' %IDENTIFIER%]                                |
+| \<scope_as_name\>    | \<scope_string\> ['as' %IDENTIFIER%]                                |
 | \<spawn_stmt\>       | 'spawn' \<test\>                                             |
 | \<defer_stmt\>       | 'defer' \<test\>                                             |
 | \<return_stmt\>      | 'return' \<testlist\>                                        |
@@ -54,16 +51,16 @@
 | \<mult_expr\>        | \<unary_expr\> (('\*' \| '/' \| '%' \| '//') \<unary_expr\>)* |
 | \<unary_expr\>       | ('!' \| '~' \| '-' \| '+' \| '++' \| '--') \<unary\> \| \<atom_expr\> |
 | \<atom_expr\>        | \<atom\> \<trailer\>* [\<initializer\> (\<member_access\> \<trailer\>* [\<initializer\>])*]  [ '++' \| '--' ] |
-| \<initializer\>      | '!{' [<br />\<test\> (',' \<test\>)* \|<br />%IDENTIFIER% ':' \<test\> (',' %IDENTIFIER% ':' \<test\>)<br />] '}' |
+| \<initializer\>      | '{' [<br />\<test\> (',' \<test\>)* \|<br />%IDENTIFIER% ':' \<test\> (',' %IDENTIFIER% ':' \<test\>)\*<br />] '}' |
 | \<trailers\>         | '(' \<arguments\> ')' \| \<subscript\> \| \<member_access\>  |
 | \<arguments\>        | [ \<test\> (',' \<test\>)* [',' \<test\> '...'] ] \| \<test\> '...' |
 | \<subscript\>        | '[' \<test\> [':' \<test\> [':' \<test\> ] ] ']'             |
-| \<member_access\>    | '.' \<scope\> \| '?.' \<scope\><br />                        |
-| \<atom\>             | 'false' \| 'true' \| 'nil' \| 'self'<br />\| \<number\><br />\| \<string\><br />\| \<list\><br />\| \<maporset\><br />\| \<scope\><br />\| \<arrow\> |
+| \<member_access\>    | '.' \<atom_expr\> \| '?.' \<atom_expr\> \| '::' \<atom_expr\><br />                        |
+| \<atom\>             | 'false' \| 'true' \| 'nil' \| 'self'<br /> \| %IDENTIFIER% <br /> \| \<number\><br />\| \<string\><br />\| \<list\><br />\| \<maporset\><br />\| \<arrow\> |
 | \<arrow\>            | \<peap\> '=>' \<block\>                                      |
 | \<peap\>             | '(' [ \<test\> (',' \<test\>)* [',' \<variadic\>] ] \| \<variadic\> ')' |
 | \<list\>             | '[' [ \<test\> (',' \<test\>)* ] ']'                         |
 | \<maporset\>         | '{' [<br />\<test\> ':' \<test\> ( ',' \<test\> ':' \<test\>)* \|<br />\<test\> (',' \<test\>)*<br />] '}' |
-| \<scope\>            | %IDENTIFIER% ('::' %IDENTIFIER%)                             |
 | \<number\>           | %NUMBER% \| %NUMBER_BIN% \| %NUMBER_OCT% \| %NUMBER_HEX% \| %DECIMAL% |
 | \<string\>           | %STRING% \| %BYTE_STRING% \| %RAW_STRING%                    |
+| \<scope_string\>     | %IDENTIFIER% ('::' %IDENTIFIER%)*	|

@@ -20,7 +20,7 @@ pub struct DecodeError {
     pub var index
 
     pub let new = (msg, buffer, index) => {
-        return DecodeError!{msg, buffer, index}
+        return DecodeError{msg, buffer, index}
     }
 
     pub func __str() {

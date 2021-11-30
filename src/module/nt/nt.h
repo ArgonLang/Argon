@@ -11,6 +11,8 @@ namespace argon::module::nt {
 
      argon::object::ArObject *GetLogin();
 
+     int GetExecutablePath(char *out_buf, int size);
+
 } // namespace argon::module::nt
 
 #endif // !ARGON_MODULE_NT_H_

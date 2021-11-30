@@ -27,4 +27,11 @@ ArObject *argon::module::nt::GetLogin() {
     return nullptr;
 }
 
+int argon::module::nt::GetExecutablePath(char* out_buf, int size) {
+    if ((size = GetModuleFileNameA(nullptr, out_buf, size)) == 0)
+        size = -1;
+
+    return size;
+}
+
 #endif

@@ -39,8 +39,7 @@ ArSize function_hash(Function *self) {
 }
 
 ArObject *function_str(Function *self) {
-    // TODO: improve this: self->name->buffer
-    return StringNewFormat("<function %s at %p>", self->name->buffer, self);
+    return StringNewFormat("<function %s at %p>", self->qname->buffer, self);
 }
 
 void function_trace(Function *self, VoidUnaryOp trace) {
@@ -54,6 +53,7 @@ void function_cleanup(Function *fn) {
         Release(fn->code);
 
     Release(fn->name);
+    Release(fn->qname);
     Release(fn->currying);
     Release(fn->enclosed);
     Release(fn->base);
@@ -97,6 +97,7 @@ Function *CloneFn(const Function *func) {
             fn->native_fn = func->native_fn;
 
         fn->name = IncRef(func->name);
+        fn->qname = IncRef(func->qname);
         fn->doc = IncRef(func->doc);
         fn->currying = IncRef(func->currying);
         fn->enclosed = IncRef(func->enclosed);
@@ -113,10 +114,10 @@ Function *
 argon::object::FunctionNew(Namespace *gns, String *name, String *doc, Code *code, List *enclosed, unsigned short arity,
                            FunctionFlags flags) {
     auto fn = ArObjectGCNewTrack<Function>(type_function_);
+    ArSSize last_sep;
 
     if (fn != nullptr) {
         fn->code = IncRef(code);
-        fn->name = IncRef(name);
         fn->doc = IncRef(doc);
         fn->currying = nullptr;
         fn->enclosed = IncRef(enclosed);
@@ -124,6 +125,17 @@ argon::object::FunctionNew(Namespace *gns, String *name, String *doc, Code *code
         fn->gns = IncRef(gns);
         fn->arity = arity;
         fn->flags = flags;
+
+        if ((last_sep = StringRFind(name, "::")) < 0) {
+            fn->name = IncRef(name);
+            fn->qname = IncRef(name);
+        } else {
+            if ((fn->name = StringSubs(name, last_sep + 2, 0)) == nullptr) {
+                Release(fn);
+                return nullptr;
+            }
+            fn->qname = IncRef(name);
+        }
     }
 
     return fn;
@@ -135,7 +147,9 @@ Function *argon::object::FunctionNew(Namespace *gns, TypeInfo *base, const Nativ
     String *name;
     String *doc;
 
-    if ((name = StringNew(native->name)) == nullptr)
+    name = base == nullptr ? StringNew(native->name) : StringNewFormat("%s::%s", base->name, native->name);
+
+    if (name == nullptr)
         return nullptr;
 
     if ((doc = StringNew(native->doc)) == nullptr) {
@@ -167,7 +181,7 @@ Function *argon::object::FunctionNew(const Function *func, List *currying) {
 
     if (fn == nullptr)
         return nullptr;
-    
+
     if (fn->currying == nullptr) {
         fn->currying = IncRef(currying);
         return fn;
@@ -217,8 +231,8 @@ ArObject *argon::object::FunctionCallNative(Function *func, ArObject **args, ArS
 
         if (!TraitIsImplemented(instance, func->base)) {
             Release(arguments);
-            return ErrorFormat(type_type_error_, "method %s::%s doesn't apply to '%s' type",
-                               func->base->name, func->name->buffer, AR_TYPE_NAME(instance));
+            return ErrorFormat(type_type_error_, "method %s doesn't apply to '%s' type", func->qname->buffer,
+                               AR_TYPE_NAME(instance));
         }
 
         args++;

@@ -36,6 +36,9 @@ namespace argon::object {
         /* Function name */
         String *name;
 
+        /* Function qualified name */
+        String *qname;
+
         /* Function docs */
         String *doc;
 

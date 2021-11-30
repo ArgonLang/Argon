@@ -79,6 +79,27 @@ ARGON_FUNCTION(callable,
     return False;
 }
 
+ARGON_FUNCTION(exit,
+               "Close STDIN and starts panicking state with RuntimeExit error."
+               ""
+               "This is a convenient function to terminate your interactive session."
+               ""
+               "- Returns: this function does not return to the caller.",
+               0, false) {
+    auto *in = (io::File *) argon::vm::ContextRuntimeGetProperty("stdin", io::type_file_);
+
+    if (in != nullptr) {
+        io::Close(in);
+
+        // If fail, just ignore it and move on
+        if (argon::vm::IsPanicking())
+            Release(argon::vm::GetLastError());
+    }
+
+    Release(in);
+    return argon::vm::Panic(ErrorNew(type_runtime_exit_error_, NilVal));
+}
+
 ARGON_FUNCTION(hasnext,
                "Return true if the iterator has more elements."
                ""
@@ -372,6 +393,7 @@ const PropertyBulk builtins_bulk[] = {
         // Functions
         MODULE_EXPORT_FUNCTION(bind_),
         MODULE_EXPORT_FUNCTION(callable_),
+        MODULE_EXPORT_FUNCTION(exit_),
         MODULE_EXPORT_FUNCTION(input_),
         MODULE_EXPORT_FUNCTION(isinstance_),
         MODULE_EXPORT_FUNCTION(isimpl_),
