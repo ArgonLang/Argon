@@ -4,7 +4,7 @@
 
 #include <fstream>
 
-#include <lang/compiler.h>
+#include <lang/compiler_wrapper.h>
 
 #include <module/modules.h>
 
@@ -272,8 +272,7 @@ ARGON_FUNCTION5(import_, source_loader,
     Code *code = nullptr;
     Module *module = nullptr;
     Frame *frame;
-    argon::lang::Compiler compiler;
-    std::filebuf infile;
+    FILE *infille;
 
     if (!AR_TYPEOF(import, type_import_))
         return ErrorFormat(type_type_error_, "expected Import as first arg, found '%s'", AR_TYPE_NAME(import));
@@ -281,10 +280,12 @@ ARGON_FUNCTION5(import_, source_loader,
     if (!AR_TYPEOF(spec, type_import_spec_))
         return ErrorFormat(type_type_error_, "expected ImportSpec as second arg, found '%s'", AR_TYPE_NAME(spec));
 
-    if (infile.open((char *) spec->origin->buffer, std::ios::in)) {
-        std::istream is(&infile);
-        code = compiler.Compile(&is);
-        infile.close();
+    if ((infille = fopen((const char *) spec->origin->buffer, "r")) != nullptr) {
+        argon::lang::CompilerWrapper cw;
+
+        code = cw.Compile((const char *) spec->name->buffer, infille);
+
+        fclose(infille);
     }
 
     if (code != nullptr) {
@@ -373,7 +374,7 @@ ARGON_FUNCTION5(import_, builtins_locator,
     import = (Import *) argv[0];
     name = (String *) argv[1];
 
-    for (auto &builtin : builtins) {
+    for (auto &builtin: builtins) {
         if (StringEq(name, (unsigned char *) builtin->name, strlen(builtin->name))) {
             if ((loader = FindFuncFromNative(import->loaders, &import_builtins_loader_)) == nullptr)
                 return nullptr;
@@ -478,7 +479,7 @@ String *FindSourceInPaths(Import *import, String *mod_path, String *mod_name) {
     if ((iter = IteratorGet(import->paths)) == nullptr)
         return nullptr;
 
-    while ((path = (String *) IteratorNext(iter)) != nullptr) {
+    while (file == nullptr && (path = (String *) IteratorNext(iter)) != nullptr) {
         if (!AR_TYPEOF(path, type_string_)) {
             Release(path);
             continue;

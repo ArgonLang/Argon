@@ -28,6 +28,8 @@ namespace argon::object {
 
     Decimal *DecimalNew(DecimalUnderlying number);
 
+    Decimal *DecimalNew(const char *string);
+
     Decimal *DecimalNewFromString(const std::string &string);
 
     bool DecimalCanConvertFromInt(IntegerUnderlying integer, DecimalUnderlying *decimal);

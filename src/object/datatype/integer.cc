@@ -285,6 +285,15 @@ Integer *argon::object::IntegerNewFromString(const std::string &string, int base
     return integer;
 }
 
+Integer *argon::object::IntegerNew(const char *string, int base) {
+    auto integer = ArObjectNew<Integer>(RCType::INLINE, type_integer_);
+
+    if (integer != nullptr)
+        integer->integer = std::strtol(string, nullptr, base);
+
+    return integer;
+}
+
 int argon::object::IntegerCountBits(Integer *number) {
     IntegerUnderlying i = number->integer;
     int count = 0;

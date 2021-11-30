@@ -87,7 +87,7 @@ pub struct Encoder {
 				buffer += b"\t" * self.indent
 			}
 
-			self.encode(key, buffer)
+			buffer += b"\"" + str::new(key) + b"\""
 			buffer += keysep
 			self.encode(value, buffer)
 

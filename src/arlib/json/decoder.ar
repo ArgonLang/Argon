@@ -170,7 +170,7 @@ func is_hex(buffer, index, min) {
         }
 
         index = index + 1
-        min--;
+        min--
     }
 
     if min != 0 {

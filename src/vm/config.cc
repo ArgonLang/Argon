@@ -22,9 +22,24 @@ static const char usage[] =
         "\nOptions and arguments:\n"
         "-c cmd         : program string\n"
         "-h, --help     : print this help message and exit\n"
+        "-i             : start interactive mode after running script\n"
         "--nogc         : disable garbage collector\n"
+        "-q             : don't print version messages on interactive startup\n"
         "-u             : force the stdout stream to be unbuffered\n"
         "-v, --version  : print Argon version and exit\n";
+
+static const char usage_env[] =
+        "\nEnvironment variables:\n"
+        "ARGONUBUFFERED : it is equivalent to specifying the -u option\n"
+        "ARGONPATH      : augment the default search path for modules. One or more directories separated by "
+        #ifdef _ARGON_PLATFORM_WIDNOWS
+        "';' "
+        #else
+        "':' "
+        #endif
+        "as the shell's PATH\n"
+        "ARGONSTARTUP   : specifies the script that must be run before the interactive prompt is shown for "
+        "the first time\n";
 
 // ---------------------------------------------------------------------------------------------
 
@@ -102,7 +117,10 @@ int ReadOp(ReadOpStatus *status, const char *opts, ReadOpLong *lopt, int llopt, 
 Config config = {
         nullptr,
         0,
+        true,
         false,
+        false,
+        -1,
         -1
 };
 const Config *argon::vm::global_cfg = &config;
@@ -110,10 +128,12 @@ const Config *argon::vm::global_cfg = &config;
 void Help(const char *name) {
     printf(usage_line, name);
     puts(usage);
+    puts(usage_env);
 }
 
 void ParseEnvs() {
-    // todo: env flags
+    if (std::getenv(ARGON_ENVVAR_UNBUFFERED) != nullptr)
+        config.unbuffered = true;
 }
 
 int argon::vm::ConfigInit(int argc, char **argv) {
@@ -125,21 +145,29 @@ int argon::vm::ConfigInit(int argc, char **argv) {
     };
     ReadOpStatus status = {};
     int ret = 0;
+    bool interactive = false;
 
     status.argv = argv + 1;
     status.argc = argc - 1;
 
-    while (ret != -1 && (ret = ReadOp(&status, "c!huv", lopt, sizeof(lopt), '-')) != -1) {
+    while (ret != -1 && (ret = ReadOp(&status, "c!hiquv", lopt, sizeof(lopt), '-')) != -1) {
         switch (ret) {
             case 0: // --nogc
                 argon::object::GCEnabled(false);
                 break;
             case 'c':
                 config.cmd = status.argc_cur;
+                config.interactive = interactive;
                 break;
             case 'h':
                 Help(*argv);
                 return 0;
+            case 'i':
+                interactive = true;
+                break;
+            case 'q':
+                config.quiet = true;
+                break;
             case 'u':
                 config.unbuffered = true;
                 break;
@@ -156,8 +184,12 @@ int argon::vm::ConfigInit(int argc, char **argv) {
                 return -1;
             default:
                 // NON OPT
+                config.file = status.argc_cur;
+                config.interactive = interactive;
+
                 config.argc = argc - status.argc_cur;
                 config.argv = argv + status.argc_cur;
+
                 ret = -1;
         }
     }
