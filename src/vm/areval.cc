@@ -44,29 +44,6 @@ ArObject *Binary(ArRoutine *routine, ArObject *l, ArObject *r, int offset) {
 #undef GET_BINARY_OP
 }
 
-ArObject *ImportModule(ArRoutine *routine, String *name) {
-    ImportSpec *spec;
-    String *key;
-    String *path;
-    Module *module;
-
-    if ((key = StringIntern("__spec")) == nullptr)
-        return nullptr;
-
-    spec = (ImportSpec *) NamespaceGetValue(routine->frame->globals, key, nullptr);
-
-    path = nullptr;
-    if (!IsNull(spec))
-        path = spec->path;
-
-    module = ImportModule(routine->context->import, name, path);
-
-    Release(spec);
-    Release(key);
-
-    return module;
-}
-
 ArObject *Subscript(ArObject *obj, ArObject *idx, ArObject *set) {
     ArObject *ret = nullptr;
 
@@ -402,13 +379,22 @@ ArObject *argon::vm::Eval(ArRoutine *routine) {
             }
             TARGET_OP(IMPMOD) {
                 auto path = (String *) TupleGetItem(cu_code->statics, ARG32);
+                String *key;
+                ImportSpec *spec;
 
-                if ((ret = ::ImportModule(routine, path)) == nullptr) {
-                    Release(path);
+                if ((key = StringIntern("__spec")) == nullptr)
                     goto error;
-                }
 
+                spec = (ImportSpec *) NamespaceGetValue(routine->frame->globals, key, nullptr);
+
+                ret = ImportModule(routine->context->import, path, spec);
+                Release(key);
                 Release(path);
+                Release(spec);
+
+                if (ret == nullptr)
+                    goto error;
+
                 PUSH(ret);
                 DISPATCH4();
             }
