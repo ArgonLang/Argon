@@ -59,6 +59,8 @@ namespace argon::vm {
 
     void ReleaseQueue();
 
+    void SetVCoreTotal(unsigned int vc);
+
     void StartTheWorld();
 
     void StopTheWorld();

@@ -534,10 +534,8 @@ bool argon::vm::IsPanicking() {
 }
 
 bool argon::vm::Initialize() {
-    vc_total = std::thread::hardware_concurrency();
-
     if (vc_total == 0)
-        vc_total = VCORE_DEFAULT;
+        SetVCoreTotal(0);
 
     vc_idle_count = vc_total;
 
@@ -681,6 +679,19 @@ void argon::vm::LockOsThread() {
         return;
 
     ReleaseQueue();
+}
+
+void argon::vm::SetVCoreTotal(unsigned int vc) {
+    if (vcores != nullptr)
+        return;
+
+    vc_total = vc;
+
+    if (vc_total == 0)
+        vc_total = std::thread::hardware_concurrency();
+
+    if (vc_total == 0)
+        vc_total = VCORE_DEFAULT;
 }
 
 void argon::vm::StopTheWorld() {
