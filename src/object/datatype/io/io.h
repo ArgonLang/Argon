@@ -22,7 +22,9 @@
 #define STDERR_FILENO 2
 #endif
 
-#define ARGON_OBJECT_IO_DEFAULT_BUFSIZE 4096
+#define ARGON_OBJECT_IO_DEFAULT_BUFSIZE                 4096
+#define ARGON_OBJECT_IO_DEFAULT_READLINE_BUFSIZE        6
+#define ARGON_OBJECT_IO_DEFAULT_READLINE_BUFSIZE_INC    ARGON_OBJECT_IO_DEFAULT_READLINE_BUFSIZE
 
 namespace argon::object::io {
 
@@ -80,6 +82,8 @@ namespace argon::object::io {
 
     File *FdOpen(int fd, FileMode mode);
 
+    int Close(File *file);
+
     int GetFd(File *file);
 
     ArSSize Read(File *file, unsigned char *buf, ArSize count);
@@ -97,8 +101,6 @@ namespace argon::object::io {
     ArSSize WriteObject(File *file, argon::object::ArObject *obj);
 
     ArSSize WriteObjectStr(File *file, argon::object::ArObject *obj);
-
-    void Close(File *file);
 
 } // namespace argon::object::io
 
