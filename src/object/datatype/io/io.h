@@ -6,6 +6,7 @@
 #define ARGON_OBJECT_IO_IO_H_
 
 #include <cstring>
+#include <mutex>
 
 #include <object/arobject.h>
 #include <utils/enum_bitmask.h>
@@ -28,7 +29,7 @@
 
 namespace argon::object::io {
 
-    enum class FileMode : unsigned char {
+    enum class FileMode : unsigned int {
         READ = 1u,
         WRITE = 1u << 1u,
         APPEND = 1u << 2u,
@@ -38,7 +39,7 @@ namespace argon::object::io {
         _IS_PIPE = 1u << 4u
     };
 
-    enum class FileBufferMode {
+    enum class FileBufferMode : unsigned int {
         NONE,
         LINE,
         BLOCK
@@ -51,19 +52,21 @@ namespace argon::object::io {
     };
 
     struct File : argon::object::ArObject {
-        int fd;
-        ArSize cur;
-        FileMode mode;
+        std::mutex lock;
 
         struct {
-            FileBufferMode mode;
             unsigned char *buf;
             unsigned char *cur;
 
             long cap;
             long len;
             long wlen;
+            FileBufferMode mode;
         } buffer;
+
+        FileMode mode;
+        ArSize cur;
+        int fd;
     };
 
     extern const argon::object::TypeInfo *type_file_;

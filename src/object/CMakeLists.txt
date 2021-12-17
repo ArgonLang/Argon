@@ -13,7 +13,6 @@ set(SRC
         datatype/hash_magic.cc
         datatype/hmap.cc
         datatype/io/io.cc
-        datatype/io/io_base.cc
         datatype/integer.cc
         datatype/iterator.cc
         datatype/list.cc
