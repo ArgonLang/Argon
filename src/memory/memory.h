@@ -9,7 +9,8 @@
 #include <new>
 #include <cstddef>
 
-#define ARGON_MEMORY_MINIMUM_POOL  16 // Minimum number of arenas, Argon WILL NEVER release this memory to the OS.
+#define ARGON_MEMORY_MINIMUM_POOL       16 // Minimum number of arenas, Argon WILL NEVER release this memory to the OS.
+#define ARGON_MEMORY_REALLOC_THRESHOLD  10
 
 namespace argon::memory {
     void *Alloc(size_t size) noexcept;
