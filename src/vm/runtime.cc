@@ -694,6 +694,11 @@ void argon::vm::SetVCoreTotal(unsigned int vc) {
         vc_total = VCORE_DEFAULT;
 }
 
+void argon::vm::Sleep(unsigned int sec) {
+    ReleaseQueue();
+    std::this_thread::sleep_for(std::chrono::seconds(sec));
+}
+
 void argon::vm::StopTheWorld() {
     std::unique_lock lck(stw_lock);
 
@@ -741,7 +746,15 @@ void argon::vm::ReleaseMain() {
 }
 
 void argon::vm::ReleaseQueue() {
-    if (ost_local != nullptr)
+    if (ost_local != nullptr) {
         ReleaseVCore();
-    OSTWakeRun();
+        OSTWakeRun();
+    }
+}
+
+void argon::vm::USleep(unsigned int usec) {
+    if (usec > 300000)
+        ReleaseQueue();
+
+    std::this_thread::sleep_for(std::chrono::microseconds(usec));
 }

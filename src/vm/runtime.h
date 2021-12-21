@@ -51,6 +51,10 @@ namespace argon::vm {
 
     bool Shutdown();
 
+    void Sleep(unsigned int sec);
+
+    void USleep(unsigned int usec);
+
     unsigned long SuspensionReason();
 
     void LockOsThread();
