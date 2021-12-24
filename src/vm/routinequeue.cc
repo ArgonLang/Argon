@@ -66,6 +66,11 @@ bool ArRoutineQueue::EnqueueHead(ArRoutine *routine) {
     return true;
 }
 
+unsigned int ArRoutineQueue::Length() {
+    std::unique_lock lck(this->queue_lock);
+    return this->len_;
+}
+
 unsigned int ArRoutineQueue::GrabHalfQueue(unsigned int min_len, ArRoutineQueue &queue) {
     std::unique_lock<std::mutex> uniqueLock(this->queue_lock);
 

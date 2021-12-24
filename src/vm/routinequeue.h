@@ -33,6 +33,8 @@ namespace argon::vm {
 
         bool EnqueueHead(ArRoutine *routine);
 
+        unsigned int Length();
+
         unsigned int GrabHalfQueue(unsigned int min_len, ArRoutineQueue &queue);
     };
 

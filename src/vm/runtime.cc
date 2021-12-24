@@ -25,6 +25,9 @@ enum class VCoreStatus {
 };
 
 struct VCore {
+    VCore *next;
+    VCore **prev;
+
     struct OSThread *ost;
 
     ArRoutineQueue queue;   // ArRoutine queue (No lock needed... In the future, I hope ...))
@@ -70,6 +73,7 @@ std::condition_variable cond_stopwait;
 
 // VCore variables
 VCore *vcores = nullptr;                    // List of instantiated VCore
+VCore *vcores_active = nullptr;             // List of suspended VCores that have at least 1 ArRoutine in the queue
 unsigned int vc_total = 0;                  // Maximum concurrent VCore
 std::atomic_uint vc_idle_count = 0;         // IDLE VCore
 
@@ -130,6 +134,15 @@ bool WireVCore(VCore *vcore) {
     if (vcore != nullptr && vcore->ost == nullptr) {
         vcore->ost = ost_local;
         vcore->status = VCoreStatus::RUNNING;
+
+        if (vcore->prev != nullptr) {
+            *(vcore->prev) = vcore->next;
+            vcore->next->prev = vcore->prev;
+
+            vcore->next = nullptr;
+            vcore->prev = nullptr;
+        }
+
         ost_local->current = vcore;
         vc_idle_count--;
         ok = true;
@@ -140,6 +153,11 @@ bool WireVCore(VCore *vcore) {
 
 bool AcquireVCore() {
     std::unique_lock lck(vc_lock);
+
+    for (VCore *cursor = vcores_active; cursor != nullptr; cursor = cursor->next) {
+        if (WireVCore(cursor))
+            return true;
+    }
 
     for (unsigned int i = 0; i < vc_total; i++) {
         if ((WireVCore(vcores + i)))
@@ -154,6 +172,8 @@ bool InitializeVCores() {
         return false;
 
     for (unsigned int i = 0; i < vc_total; i++) {
+        vcores[i].next = nullptr;
+        vcores[i].prev = nullptr;
         vcores[i].ost = nullptr;
         new(&((vcores + i)->queue))ArRoutineQueue(ARGON_VM_QUEUE_MAX_ROUTINES);
         vcores[i].status = VCoreStatus::IDLE;
@@ -217,6 +237,17 @@ void ReleaseVCore() {
 
     ost_local->old = ost_local->current;
     ost_local->current->status = VCoreStatus::IDLE;
+
+    if (ost_local->current->queue.Length() > 0) {
+        std::unique_lock lck(vc_lock);
+        VCore **next = &vcores_active;
+
+        while (*next != nullptr)
+            next = &((*next)->next);
+
+        *next = ost_local->current;
+        ost_local->current->prev = next;
+    }
 
     ost_local->current->ost = nullptr;
     ost_local->current = nullptr;
@@ -360,18 +391,12 @@ void Schedule(OSThread *self) {
     ost_lock.unlock();
 }
 
-void StartOST(OSThread *ost) {
-    ost_lock.lock();
-    PushOSThread(ost, &ost_idle);
-    ost_total++;
-    ost_idle_count++;
-    ost_lock.unlock();
-    ost->self = std::thread(Schedule, ost);
-}
-
 void OSTWakeRun() {
     std::unique_lock lck(ost_lock);
     OSThread *ost;
+
+    if (routine_gq.Length() == 0 && vcores_active == nullptr)
+        return;
 
     if (ost_idle_count > 0) {
         ost_cond.notify_one();
@@ -381,13 +406,16 @@ void OSTWakeRun() {
     if (ost_total > OST_MAX)
         return;
 
-    if ((ost = AllocOST()) == nullptr) {
-        // TODO: Signal Error?!
+    if ((ost = AllocOST()) != nullptr) {
+        PushOSThread(ost, &ost_idle);
+        ost_total++;
+        ost_idle_count++;
+
+        ost_lock.unlock();
+        ost->self = std::thread(Schedule, ost);
     }
 
-    lck.unlock();
-
-    StartOST(ost);
+    // TODO: Signal Error?!
 }
 
 ArObject *argon::vm::Call(ArObject *callable, int argc, ArObject **args) {
