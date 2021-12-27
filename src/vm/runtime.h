@@ -43,8 +43,6 @@ namespace argon::vm {
 
     bool SchedYield(bool resume_last);
 
-    bool SchedYield(bool resume_last, ArRoutine *routine);
-
     bool Spawn(ArRoutine *routine);
 
     bool Spawns(ArRoutine *routines);

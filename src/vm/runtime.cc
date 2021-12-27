@@ -85,8 +85,9 @@ ArRoutineQueue routine_gq;
 ArRoutine *FindExecutable() {
     ArRoutine *routine;
     VCore *target_vc;
-    VCore *self_vc;
+    VCore *cur_vc;
 
+    unsigned short start;
     unsigned short attempts = 3;
 
     if (should_stop)
@@ -100,8 +101,7 @@ ArRoutine *FindExecutable() {
     if ((routine = routine_gq.Dequeue()) != nullptr)
         return routine;
 
-    // Try to steal work from another thread
-    //                                                  ▼▼▼▼▼ Busy VCore ▼▼▼▼▼
+    // Try to steal work from another thread         ▼▼▼▼▼ Busy VCore ▼▼▼▼▼
     if (ost_local->spinning || ost_spinning_count < (vc_total - vc_idle_count)) {
         if (!ost_local->spinning) {
             ost_local->spinning = true;
@@ -109,46 +109,44 @@ ArRoutine *FindExecutable() {
         }
 
         // Steal work from other VCore
-        self_vc = ost_local->current;
+        cur_vc = ost_local->current;
         do {
             // Scan other VCores
-            for (unsigned int i = 0; i < vc_total; i++) {
-                target_vc = vcores + i;
+            start = rand() % vc_total; // Randomize starting point
+            for (unsigned int i = start; i < (start + vc_total); i++) {
+                target_vc = vcores + (i % vc_total);
 
-                if (target_vc == self_vc)
+                if (target_vc == cur_vc)
                     continue;
 
                 // Steal from queues that contain more than one item
-                if ((routine = self_vc->queue.StealQueue(2, target_vc->queue)) != nullptr)
+                if ((routine = cur_vc->queue.StealQueue(2, target_vc->queue)) != nullptr)
                     return routine;
             }
         } while (--attempts > 0);
     }
 
-    return routine;
+    return nullptr;
 }
 
 bool WireVCore(VCore *vcore) {
-    bool ok = false;
+    if (vcore == nullptr || vcore->ost != nullptr)
+        return false;
 
-    if (vcore != nullptr && vcore->ost == nullptr) {
-        vcore->ost = ost_local;
-        vcore->status = VCoreStatus::RUNNING;
+    vcore->ost = ost_local;
+    vcore->status = VCoreStatus::RUNNING;
 
-        if (vcore->prev != nullptr) {
-            *(vcore->prev) = vcore->next;
-            vcore->next->prev = vcore->prev;
+    if (vcore->prev != nullptr) {
+        *(vcore->prev) = vcore->next;
+        vcore->next->prev = vcore->prev;
 
-            vcore->next = nullptr;
-            vcore->prev = nullptr;
-        }
-
-        ost_local->current = vcore;
-        vc_idle_count--;
-        ok = true;
+        vcore->next = nullptr;
+        vcore->prev = nullptr;
     }
 
-    return ok;
+    ost_local->current = vcore;
+    vc_idle_count--;
+    return true;
 }
 
 bool AcquireVCore() {
@@ -232,26 +230,27 @@ void PushOSThread(OSThread *ost, OSThread **list) {
 }
 
 void ReleaseVCore() {
+    VCore *current = ost_local->current;
+
     if (ost_local->current == nullptr)
         return;
 
-    ost_local->old = ost_local->current;
-    ost_local->current->status = VCoreStatus::IDLE;
+    ost_local->current = nullptr;
+    ost_local->old = current;
 
-    if (ost_local->current->queue.Length() > 0) {
+    if (current->queue.Length() > 0) {
         std::unique_lock lck(vc_lock);
         VCore **next = &vcores_active;
 
         while (*next != nullptr)
             next = &((*next)->next);
 
-        *next = ost_local->current;
-        ost_local->current->prev = next;
+        *next = current;
+        current->prev = next;
     }
 
-    ost_local->current->ost = nullptr;
-    ost_local->current = nullptr;
-
+    current->ost = nullptr;
+    current->status = VCoreStatus::IDLE;
     vc_idle_count++;
 }
 
@@ -351,15 +350,10 @@ void Schedule(OSThread *self) {
                     continue;
                 }
 
-                // Local queue
-                routine = ost_local->current->queue.Dequeue();
+                routine = FindExecutable();
 
-                if (routine == nullptr) {
-                    routine = FindExecutable();
-
-                    if (self->spinning)
-                        ResetSpinning();
-                }
+                if (self->spinning)
+                    ResetSpinning();
 
                 if (routine != nullptr) {
                     self->current->queue.Enqueue(self->routine);
@@ -493,10 +487,7 @@ ArObject *argon::vm::Panic(ArObject *obj) {
 }
 
 ArRoutine *argon::vm::GetRoutine() {
-    if (ost_main != nullptr)
-        return ost_main->routine;
-
-    return ost_local->routine;
+    return ost_main != nullptr ? ost_main->routine : ost_local->routine;
 }
 
 ArRoutine *argon::vm::UnschedRoutine(bool resume_last, unsigned long reason) {
@@ -616,27 +607,6 @@ bool argon::vm::SchedYield(bool resume_last) {
     if (!CanSpin()) {
         std::this_thread::yield();
         return false;
-    }
-
-    GetRoutine()->status = status;
-    return true;
-}
-
-bool argon::vm::SchedYield(bool resume_last, ArRoutine *routine) {
-    ArRoutineStatus status = ArRoutineStatus::SUSPENDED;
-
-    if (resume_last)
-        status = ArRoutineStatus::BLOCKED;
-
-    if (!CanSpin()) {
-        Spawn(routine);
-        std::this_thread::yield();
-        return false;
-    }
-
-    if (!ost_local->current->queue.EnqueueHead(routine)) {
-        routine_gq.EnqueueHead(routine);
-        OSTWakeRun();
     }
 
     GetRoutine()->status = status;
