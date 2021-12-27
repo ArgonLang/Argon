@@ -730,7 +730,7 @@ File *argon::object::io::FdOpen(int fd, FileMode mode) {
             buf_mode = FileBufferMode::BLOCK;
         }
 
-        if (!SetBuffer(file, nullptr, 0, buf_mode)) {
+        if (!SetBufferNB(file, nullptr, 0, buf_mode)) {
             Release(file);
             return nullptr;
         }
