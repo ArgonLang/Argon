@@ -290,12 +290,11 @@ List *BuildBasesList(TypeInfo **types, ArSize count) {
             goto error;
         }
 
-        /*
         if(types[i]->flags != TypeInfoFlags::TRAIT){
             // you can only inherit from traits
+            ErrorFormat(type_type_error_, "you can only inherit from traits and '%s' is not", types[i]->name);
             goto error;
         }
-         */
 
         if (types[i]->mro != nullptr)
             cap += ((Tuple *) types[i]->mro)->len;
