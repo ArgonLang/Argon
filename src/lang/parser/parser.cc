@@ -1816,6 +1816,7 @@ Node *Parser::StructDecl(bool pub) {
 
     this->Eat();
 
+    construct->params = nullptr;
     if (this->MatchEat(TokenType::IMPL, true)) {
         if ((construct->params = (List *) this->TraitList()) == nullptr) {
             Release(construct);
@@ -1823,7 +1824,6 @@ Node *Parser::StructDecl(bool pub) {
         }
     }
 
-    construct->params = nullptr;
     if ((construct->block = this->TypeDeclBlock(true)) == nullptr) {
         Release(construct);
         return nullptr;
