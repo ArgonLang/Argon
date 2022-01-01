@@ -990,6 +990,7 @@ Token Scanner::NextToken() noexcept {
                 return Token(TokenType::LEFT_BRACES, start, this->pos_);
             case '|':
                 CHECK_AGAIN('|', TokenType::OR)
+                CHECK_AGAIN('>', TokenType::PIPELINE)
                 return Token(TokenType::PIPE, start, this->pos_);
             case '}':
                 this->par_--;
