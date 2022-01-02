@@ -859,6 +859,7 @@ Node *Parser::ParseFnCall(Node *left) {
 
     tmp->start = left->start;
     tmp->end = end;
+    tmp->kind = TokenType::TK_NULL;
     tmp->colno = 0;
     tmp->lineno = 0;
 
@@ -1482,6 +1483,7 @@ Node *Parser::ParsePipeline(Node *left) {
 
     call->start = left->start;
     call->end = right->end;
+    call->kind = TokenType::TK_NULL;
     call->colno = 0;
     call->lineno = 0;
     return call;
