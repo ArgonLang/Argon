@@ -1451,14 +1451,14 @@ Node *Parser::ParsePipeline(Node *left) {
     this->Eat();
 
     //                                          ▼▼▼▼▼ behave like a function call ▼▼▼▼▼
-    if ((right = this->ParseExpr(PeekPrecedence(TokenType::LEFT_ROUND))) == nullptr)
+    if ((right = this->ParseExpr(PeekPrecedence(TokenType::LEFT_ROUND) - 1)) == nullptr)
         return nullptr;
 
     if (AR_TYPEOF(right, type_ast_call_)) {
         call = ((Binary *) right);
         args = (List *) call->right;
 
-        if(!ListInsertAt(args, left, 0)){
+        if (!ListInsertAt(args, left, 0)) {
             Release(right);
             return nullptr;
         }
