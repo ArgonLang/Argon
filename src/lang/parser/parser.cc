@@ -52,42 +52,44 @@ int PeekPrecedence(TokenType type) {
         case TokenType::ELVIS:
         case TokenType::QUESTION:
             return 40;
-        case TokenType::OR:
+        case TokenType::PIPELINE:
             return 50;
-        case TokenType::AND:
+        case TokenType::OR:
             return 60;
-        case TokenType::PIPE:
+        case TokenType::AND:
             return 70;
-        case TokenType::CARET:
+        case TokenType::PIPE:
             return 80;
+        case TokenType::CARET:
+            return 90;
         case TokenType::EQUAL_EQUAL:
         case TokenType::NOT_EQUAL:
-            return 90;
+            return 100;
         case TokenType::LESS:
         case TokenType::LESS_EQ:
         case TokenType::GREATER:
         case TokenType::GREATER_EQ:
-            return 100;
+            return 110;
         case TokenType::SHL:
         case TokenType::SHR:
-            return 110;
+            return 120;
         case TokenType::PLUS:
         case TokenType::MINUS:
         case TokenType::EXCLAMATION:
         case TokenType::TILDE:
-            return 120;
+            return 130;
         case TokenType::ASTERISK:
         case TokenType::SLASH:
         case TokenType::SLASH_SLASH:
         case TokenType::PERCENT:
-            return 130;
+            return 140;
         case TokenType::PLUS_PLUS:
         case TokenType::MINUS_MINUS:
         case TokenType::LEFT_SQUARE:
         case TokenType::LEFT_ROUND:
         case TokenType::DOT:
         case TokenType::QUESTION_DOT:
-            return 140;
+            return 150;
         default:
             return 1000;
     }
@@ -170,6 +172,8 @@ LedMeth Parser::LookupLed() const {
             return &Parser::ParseInitialization;
         case TokenType::LEFT_ROUND:
             return &Parser::ParseFnCall;
+        case TokenType::PIPELINE:
+            return &Parser::ParsePipeline;
         case TokenType::ELVIS:
             return &Parser::ParseElvis;
         case TokenType::QUESTION:
@@ -855,6 +859,7 @@ Node *Parser::ParseFnCall(Node *left) {
 
     tmp->start = left->start;
     tmp->end = end;
+    tmp->kind = TokenType::TK_NULL;
     tmp->colno = 0;
     tmp->lineno = 0;
 
@@ -1437,6 +1442,51 @@ Node *Parser::ParseMemberAccess(Node *left) {
     Release(right);
 
     return binary;
+}
+
+Node *Parser::ParsePipeline(Node *left) {
+    Node *right;
+    Binary *call;
+    List *args;
+
+    this->Eat();
+
+    //                                          ▼▼▼▼▼ behave like a function call ▼▼▼▼▼
+    if ((right = this->ParseExpr(PeekPrecedence(TokenType::LEFT_ROUND) - 1)) == nullptr)
+        return nullptr;
+
+    if (AR_TYPEOF(right, type_ast_call_)) {
+        call = ((Binary *) right);
+        args = (List *) call->right;
+
+        if (!ListInsertAt(args, left, 0)) {
+            Release(right);
+            return nullptr;
+        }
+    } else {
+        if ((args = ListNew()) == nullptr) {
+            Release(right);
+            return nullptr;
+        }
+
+        ListAppend(args, left);
+
+        if ((call = ArObjectNew<Binary>(RCType::INLINE, type_ast_call_)) == nullptr) {
+            Release(right);
+            Release(args);
+            return nullptr;
+        }
+
+        call->left = right;
+        call->right = args;
+    }
+
+    call->start = left->start;
+    call->end = right->end;
+    call->kind = TokenType::TK_NULL;
+    call->colno = 0;
+    call->lineno = 0;
+    return call;
 }
 
 Node *Parser::ParsePostUpdate(Node *left) {

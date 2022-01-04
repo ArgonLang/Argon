@@ -175,7 +175,7 @@ TEST(Scanner, Punctuation) {
 }
 
 TEST(Scanner, CompoundPunctuation) {
-    Scanner scanner("&& || >= <= != ... .. . += ++ -= -- *= /= << >> ==");
+    Scanner scanner("&& || >= <= != ... .. . += ++ -= -- *= /= << >> == |>");
     Token tk = scanner.NextToken();
     TokenEq(tk, TokenType::AND, 1, 3, nullptr);
     tk = scanner.NextToken();
@@ -211,7 +211,9 @@ TEST(Scanner, CompoundPunctuation) {
     tk = scanner.NextToken();
     TokenEq(tk, TokenType::EQUAL_EQUAL, 49, 51, nullptr);
     tk = scanner.NextToken();
-    TokenEq(tk, TokenType::END_OF_FILE, 51, 51, nullptr);
+    TokenEq(tk, TokenType::PIPELINE, 52, 54, nullptr);
+    tk = scanner.NextToken();
+    TokenEq(tk, TokenType::END_OF_FILE, 54, 54, nullptr);
 }
 
 TEST(Scanner, String) {

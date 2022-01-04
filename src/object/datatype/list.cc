@@ -124,7 +124,7 @@ List *ShiftList(List *list, ArSSize pos) {
         ret->len = list->len;
     }
 
-    if(GCIsTracking(list))
+    if (GCIsTracking(list))
         Track(ret);
 
     return ret;
@@ -150,7 +150,7 @@ ArObject *list_add(ArObject *left, ArObject *right) {
             // copy from right (other)
             for (; i < l->len + r->len; i++) {
                 itm = IncRef(r->objects[i - l->len]);
-                list->objects[i] =itm;
+                list->objects[i] = itm;
                 TrackIf(list, itm);
             }
 
@@ -180,7 +180,7 @@ ArObject *list_mul(ArObject *left, ArObject *right) {
 
             ret->len = ret->cap;
 
-            if(GCIsTracking(list))
+            if (GCIsTracking(list))
                 Track(ret);
         }
     }
@@ -593,6 +593,28 @@ bool ListConcat(List *base, T *t) {
     }
 
     return true;
+}
+
+bool argon::object::ListInsertAt(List *list, ArObject *obj, ArSSize index) {
+    if (index < 0)
+        index = (ArSSize) (list->len + index);
+
+    if (index < list->len) {
+        if (!CheckSize(list, 1))
+            return false;
+
+        for (ArSize i = list->len; i > index; i--)
+            list->objects[i] = list->objects[i - 1];
+
+        list->objects[index] = IncRef(obj);
+        list->len++;
+
+        TrackIf(list, obj);
+        return true;
+    }
+
+    ErrorFormat(type_overflow_error_, "list index out of range (len: %d, idx: %d)", list->len, index);
+    return false;
 }
 
 List *argon::object::ListNew(ArSize cap) {
