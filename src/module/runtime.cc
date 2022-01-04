@@ -20,6 +20,7 @@
 
 #include <object/datatype/error.h>
 #include <object/datatype/integer.h>
+#include <object/datatype/nil.h>
 #include <object/datatype/io/io.h>
 #include <object/datatype/tuple.h>
 
@@ -267,8 +268,60 @@ ARGON_FUNCTION5(runtime_, exit, "Exit to the system with specified status."
     return argon::vm::Panic(ErrorNew(type_runtime_exit_error_, argv[0]));
 }
 
+ARGON_FUNCTION5(runtime_, lockthread, "Wire the currently running ArRoutine with this OS thread."
+                                      ""
+                                      "This call prevents another ArRoutine from running on this thread. "
+                                      "If this call is invoked by the main routine, it becomes a no-op call."
+                                      ""
+                                      "- Returns: nil", 0, false) {
+    LockOsThread();
+    return IncRef(NilVal);
+}
+
+ARGON_FUNCTION5(runtime_, sleep, "Suspend execution of the calling ArRoutine for the given number of seconds."
+                                 ""
+                                 "- Parameter sec: amount of time in seconds."
+                                 "- Returns: nil", 1, false) {
+    auto *integer = (Integer *) argv[0];
+
+    if (!AR_TYPEOF(argv[0], type_integer_))
+        return ErrorFormat(type_type_error_, "sleep expected sec as integer, got: %s", AR_TYPE_NAME(argv[0]));
+
+    argon::vm::Sleep(integer->integer);
+
+    return IncRef(NilVal);
+}
+
+ARGON_FUNCTION5(runtime_, usleep, "Suspend execution of the calling ArRoutine for the given number of micro-seconds."
+                                  ""
+                                  "- Parameter usec: amount of time in micro-seconds."
+                                  "- Returns: nil", 1, false) {
+    auto *integer = (Integer *) argv[0];
+
+    if (!AR_TYPEOF(argv[0], type_integer_))
+        return ErrorFormat(type_type_error_, "usleep expected usec as integer, got: %s", AR_TYPE_NAME(argv[0]));
+
+    argon::vm::USleep(integer->integer);
+
+    return IncRef(NilVal);
+}
+
+ARGON_FUNCTION5(runtime_, yield, "Give another ArRoutine a chance to run on this thread."
+                                 ""
+                                 "If this ArRoutine cannot be suspended and rescheduled, "
+                                 "an operating system this_thread::yield call will be invoked."
+                                 ""
+                                 "- Returns: nil", 0, false) {
+    SchedYield(false);
+    return IncRef(NilVal);
+}
+
 const PropertyBulk runtime_bulk[] = {
         MODULE_EXPORT_FUNCTION(runtime_exit_),
+        MODULE_EXPORT_FUNCTION(runtime_lockthread_),
+        MODULE_EXPORT_FUNCTION(runtime_sleep_),
+        MODULE_EXPORT_FUNCTION(runtime_usleep_),
+        MODULE_EXPORT_FUNCTION(runtime_yield_),
         MODULE_EXPORT_SENTINEL
 };
 

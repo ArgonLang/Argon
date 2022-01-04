@@ -12,8 +12,13 @@ using namespace argon::object;
 using namespace argon::memory;
 
 Frame *argon::vm::FrameNew(Code *code, Namespace *globals, Namespace *proxy_globals) {
-    ArSize slots = code->stack_sz + code->locals->len;
-    auto *frame = (Frame *) Alloc(sizeof(Frame) + (slots * sizeof(void *)));
+    ArSize slots = code->stack_sz;
+    Frame *frame;
+
+    if (code->locals != nullptr)
+        slots += code->locals->len;
+
+    frame = (Frame *) Alloc(sizeof(Frame) + (slots * sizeof(void *)));
 
     if (frame != nullptr) {
         frame->back = nullptr;

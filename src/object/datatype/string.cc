@@ -87,7 +87,7 @@ ArObject *str_iter_peek(Iterator *self) {
     return ret;
 }
 
-ITERATOR_NEW_DEFAULT(str_iterator, (BoolUnaryOp) str_iter_has_next, (UnaryOp) str_iter_next, (UnaryOp) str_iter_peek);
+ITERATOR_NEW(str_iterator, str_iter_next, str_iter_peek);
 
 String *StringInit(ArSize len, bool mkbuf) {
     auto str = ArObjectNew<String>(RCType::INLINE, type_string_);

@@ -1,4 +1,4 @@
-![](https://img.shields.io/badge/version-0.2.1--alpha-red)
+![](https://img.shields.io/badge/version-0.3.0--alpha-red)
 ![https://www.apache.org/licenses/LICENSE-2.0](https://img.shields.io/badge/license-apache--2.0-blue)
 
 # The Argon Programming Language
@@ -71,7 +71,7 @@ Argon is under development, so many features are not yet active or available, a 
 * ~~Lack of most of the built-in functionality for basic DataType (e.g. bytes::find, bytestream::split, ...).~~
 * ~~Garbage collector not enabled (currently the memory is managed only by the ARC).~~
 * Limited I/O support.
-* No multithreading support.
+* ~~No multithreading support.~~
 * No debugging support.
 * Currently, all test cases are disabled ~~and out of date~~.
 

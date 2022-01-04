@@ -319,6 +319,8 @@ ArObject *prefix##name##_fn(ArObject *func, ArObject *self, ArObject **argv, ArS
 
     ArObject *InstanceGetMethod(const ArObject *instance, const ArObject *key, bool *is_meth);
 
+    ArObject *InstanceGetMethod(const ArObject *instance, const char *key, bool *is_meth);
+
     ArObject *IteratorGet(const ArObject *obj);
 
     ArObject *IteratorGetReversed(const ArObject *obj);

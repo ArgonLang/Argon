@@ -10,6 +10,10 @@
 #include <object/datatype/list.h>
 #include <object/datatype/namespace.h>
 
+#define FRAME_TAG(frame_addr)       (Frame *) ((ArSize) (frame_addr) | 0x01)
+#define FRAME_UNTAG(frame_addr)     (Frame *) ((ArSize) (frame_addr) & ~0x01)
+#define FRAME_TAGGED(frame_addr)    (((ArSize) (frame_addr) & 0x01) == 0x01)
+
 namespace argon::vm {
     struct Frame {
         /* Previous frame (caller) */

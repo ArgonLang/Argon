@@ -9,7 +9,7 @@
 #include <object/setup.h>
 #include <object/datatype/error.h>
 
-#include "routine_queue.h"
+#include "routinequeue.h"
 #include "runtime.h"
 #include "areval.h"
 
@@ -25,6 +25,9 @@ enum class VCoreStatus {
 };
 
 struct VCore {
+    VCore *next;
+    VCore **prev;
+
     struct OSThread *ost;
 
     ArRoutineQueue queue;   // ArRoutine queue (No lock needed... In the future, I hope ...))
@@ -42,6 +45,7 @@ struct OSThread {
     VCore *old;
 
     bool spinning;
+    bool ignore_routine;
 
     std::thread self;
 };
@@ -69,6 +73,7 @@ std::condition_variable cond_stopwait;
 
 // VCore variables
 VCore *vcores = nullptr;                    // List of instantiated VCore
+VCore *vcores_active = nullptr;             // List of suspended VCores that have at least 1 ArRoutine in the queue
 unsigned int vc_total = 0;                  // Maximum concurrent VCore
 std::atomic_uint vc_idle_count = 0;         // IDLE VCore
 
@@ -80,8 +85,9 @@ ArRoutineQueue routine_gq;
 ArRoutine *FindExecutable() {
     ArRoutine *routine;
     VCore *target_vc;
-    VCore *self_vc;
+    VCore *cur_vc;
 
+    unsigned short start;
     unsigned short attempts = 3;
 
     if (should_stop)
@@ -95,8 +101,7 @@ ArRoutine *FindExecutable() {
     if ((routine = routine_gq.Dequeue()) != nullptr)
         return routine;
 
-    // Try to steal work from another thread
-    //                                                  ▼▼▼▼▼ Busy VCore ▼▼▼▼▼
+    // Try to steal work from another thread         ▼▼▼▼▼ Busy VCore ▼▼▼▼▼
     if (ost_local->spinning || ost_spinning_count < (vc_total - vc_idle_count)) {
         if (!ost_local->spinning) {
             ost_local->spinning = true;
@@ -104,41 +109,53 @@ ArRoutine *FindExecutable() {
         }
 
         // Steal work from other VCore
-        self_vc = ost_local->current;
+        cur_vc = ost_local->current;
         do {
             // Scan other VCores
-            for (unsigned int i = 0; i < vc_total; i++) {
-                target_vc = vcores + i;
+            start = rand() % vc_total; // Randomize starting point
+            for (unsigned int i = start; i < (start + vc_total); i++) {
+                target_vc = vcores + (i % vc_total);
 
-                if (target_vc == self_vc)
+                if (target_vc == cur_vc)
                     continue;
 
                 // Steal from queues that contain more than one item
-                if ((routine = self_vc->queue.StealQueue(2, target_vc->queue)) != nullptr)
+                if ((routine = cur_vc->queue.StealQueue(2, target_vc->queue)) != nullptr)
                     return routine;
             }
         } while (--attempts > 0);
     }
 
-    return routine;
+    return nullptr;
 }
 
 bool WireVCore(VCore *vcore) {
-    bool ok = false;
+    if (vcore == nullptr || vcore->ost != nullptr)
+        return false;
 
-    if (vcore != nullptr && vcore->ost == nullptr) {
-        vcore->ost = ost_local;
-        vcore->status = VCoreStatus::RUNNING;
-        ost_local->current = vcore;
-        vc_idle_count--;
-        ok = true;
+    vcore->ost = ost_local;
+    vcore->status = VCoreStatus::RUNNING;
+
+    if (vcore->prev != nullptr) {
+        *(vcore->prev) = vcore->next;
+        vcore->next->prev = vcore->prev;
+
+        vcore->next = nullptr;
+        vcore->prev = nullptr;
     }
 
-    return ok;
+    ost_local->current = vcore;
+    vc_idle_count--;
+    return true;
 }
 
 bool AcquireVCore() {
     std::unique_lock lck(vc_lock);
+
+    for (VCore *cursor = vcores_active; cursor != nullptr; cursor = cursor->next) {
+        if (WireVCore(cursor))
+            return true;
+    }
 
     for (unsigned int i = 0; i < vc_total; i++) {
         if ((WireVCore(vcores + i)))
@@ -153,6 +170,8 @@ bool InitializeVCores() {
         return false;
 
     for (unsigned int i = 0; i < vc_total; i++) {
+        vcores[i].next = nullptr;
+        vcores[i].prev = nullptr;
         vcores[i].ost = nullptr;
         new(&((vcores + i)->queue))ArRoutineQueue(ARGON_VM_QUEUE_MAX_ROUTINES);
         vcores[i].status = VCoreStatus::IDLE;
@@ -174,16 +193,19 @@ OSThread *AllocOST() {
         ost->old = nullptr;
 
         ost->spinning = false;
+        ost->ignore_routine = false;
 
-        ost->self = std::thread();
+        new(&ost->self) std::thread();
     }
 
     return ost;
 }
 
 inline void FreeOST(OSThread *ost) {
-    if (ost != nullptr)
+    if (ost != nullptr) {
+        ost->self.~thread();
         argon::memory::Free(ost);
+    }
 }
 
 void OSTSleep() {
@@ -208,15 +230,27 @@ void PushOSThread(OSThread *ost, OSThread **list) {
 }
 
 void ReleaseVCore() {
+    VCore *current = ost_local->current;
+
     if (ost_local->current == nullptr)
         return;
 
-    ost_local->old = ost_local->current;
-    ost_local->current->status = VCoreStatus::IDLE;
-
-    ost_local->current->ost = nullptr;
     ost_local->current = nullptr;
+    ost_local->old = current;
 
+    if (current->queue.Length() > 0) {
+        std::unique_lock lck(vc_lock);
+        VCore **next = &vcores_active;
+
+        while (*next != nullptr)
+            next = &((*next)->next);
+
+        *next = current;
+        current->prev = next;
+    }
+
+    current->ost = nullptr;
+    current->status = VCoreStatus::IDLE;
     vc_idle_count++;
 }
 
@@ -260,6 +294,7 @@ void FromIdleToActive(OSThread *ost) {
 }
 
 void Schedule(OSThread *self) {
+    ArRoutine *routine;
     ost_local = self;
 
     START:
@@ -297,7 +332,36 @@ void Schedule(OSThread *self) {
             break;
         }
 
-        Release(Eval(self->routine));
+        while (self->routine->status != ArRoutineStatus::RUNNING) {
+            self->routine->status = ArRoutineStatus::RUNNING;
+            Release(Eval(self->routine));
+
+            if (self->ignore_routine) {
+                self->routine = nullptr;
+                self->ignore_routine = false;
+                break;
+            }
+
+            STWCheckpoint();
+
+            if (self->routine->status != ArRoutineStatus::RUNNING) {
+                if (self->current == nullptr) {
+                    std::this_thread::yield();
+                    continue;
+                }
+
+                routine = FindExecutable();
+
+                if (self->spinning)
+                    ResetSpinning();
+
+                if (routine != nullptr) {
+                    self->current->queue.Enqueue(self->routine);
+                    self->routine = routine;
+                }
+            }
+        }
+
         RoutineDel(self->routine);
         self->routine = nullptr;
 
@@ -321,13 +385,31 @@ void Schedule(OSThread *self) {
     ost_lock.unlock();
 }
 
-void StartOST(OSThread *ost) {
-    ost_lock.lock();
-    PushOSThread(ost, &ost_idle);
-    ost_total++;
-    ost_idle_count++;
-    ost_lock.unlock();
-    ost->self = std::thread(Schedule, ost);
+void OSTWakeRun() {
+    std::unique_lock lck(ost_lock);
+    OSThread *ost;
+
+    if (routine_gq.Length() == 0 && vcores_active == nullptr)
+        return;
+
+    if (ost_idle_count > 0) {
+        ost_cond.notify_one();
+        return;
+    }
+
+    if (ost_total > OST_MAX)
+        return;
+
+    if ((ost = AllocOST()) != nullptr) {
+        PushOSThread(ost, &ost_idle);
+        ost_total++;
+        ost_idle_count++;
+
+        ost_lock.unlock();
+        ost->self = std::thread(Schedule, ost);
+    }
+
+    // TODO: Signal Error?!
 }
 
 ArObject *argon::vm::Call(ArObject *callable, int argc, ArObject **args) {
@@ -353,7 +435,7 @@ ArObject *argon::vm::Call(ArObject *callable, int argc, ArObject **args) {
     return result;
 }
 
-argon::object::ArObject *argon::vm::Call(argon::object::ArObject *callable, int argc, ...) {
+ArObject *argon::vm::Call(ArObject *callable, int argc, ...) {
     ArObject **args;
     ArObject *result;
 
@@ -375,6 +457,20 @@ argon::object::ArObject *argon::vm::Call(argon::object::ArObject *callable, int 
     return result;
 }
 
+ArObject *argon::vm::CallMethod(ArObject *instance, const char *name, int argc, ArObject **args) {
+    ArObject *ret;
+    ArObject *meth;
+    bool meth_found;
+
+    if ((meth = InstanceGetMethod(instance, name, &meth_found)) == nullptr)
+        return nullptr;
+
+    ret = Call(meth, argc, args);
+    Release(meth);
+
+    return ret;
+}
+
 ArObject *argon::vm::GetLastError() {
     ArRoutine *routine = GetRoutine();
     ArObject *err = nullptr;
@@ -391,10 +487,25 @@ ArObject *argon::vm::Panic(ArObject *obj) {
 }
 
 ArRoutine *argon::vm::GetRoutine() {
-    if (ost_main != nullptr)
-        return ost_main->routine;
+    return ost_main != nullptr ? ost_main->routine : ost_local->routine;
+}
 
-    return ost_local->routine;
+ArRoutine *argon::vm::UnschedRoutine(bool resume_last, unsigned long reason) {
+    ArRoutine *routine = GetRoutine();
+    ArRoutineStatus status = ArRoutineStatus::SUSPENDED;
+
+    if (resume_last) {
+        status = ArRoutineStatus::BLOCKED;
+        routine->reason = reason;
+    }
+
+    if (!CanSpin())
+        return nullptr;
+
+    routine->status = status;
+
+    ost_local->ignore_routine = true;
+    return routine;
 }
 
 Context *argon::vm::GetContext() {
@@ -411,15 +522,39 @@ bool argon::vm::AcquireMain() {
     return true;
 }
 
+bool argon::vm::CanSpin() {
+    if (ost_main != nullptr)
+        return false;
+
+    // Check for a nested, non-interruptible call to Eval
+    for (Frame *cursor = GetRoutine()->frame->back; cursor != nullptr; cursor = cursor->back) {
+        if (FRAME_TAGGED(cursor))
+            return false;
+    }
+
+    return true;
+}
+
+bool argon::vm::DiscardErrorType(const TypeInfo *type) {
+    ArRoutine *routine = GetRoutine();
+
+    if (routine->panic != nullptr) {
+        if (!AR_TYPEOF(routine->panic->object, type))
+            return false;
+
+        RoutinePopPanics(routine);
+    }
+
+    return true;
+}
+
 bool argon::vm::IsPanicking() {
     return GetRoutine()->panic != nullptr;
 }
 
 bool argon::vm::Initialize() {
-    vc_total = std::thread::hardware_concurrency();
-
     if (vc_total == 0)
-        vc_total = VCORE_DEFAULT;
+        SetVCoreTotal(0);
 
     vc_idle_count = vc_total;
 
@@ -463,6 +598,43 @@ bool argon::vm::Initialize() {
     return false;
 }
 
+bool argon::vm::SchedYield(bool resume_last) {
+    ArRoutineStatus status = ArRoutineStatus::SUSPENDED;
+
+    if (resume_last)
+        status = ArRoutineStatus::BLOCKED;
+
+    if (!CanSpin()) {
+        std::this_thread::yield();
+        return false;
+    }
+
+    GetRoutine()->status = status;
+    return true;
+}
+
+bool argon::vm::Spawn(ArRoutine *routine) {
+    if (!routine_gq.Enqueue(routine))
+        return false;
+
+    OSTWakeRun();
+    return true;
+}
+
+bool argon::vm::Spawns(ArRoutine *routines) {
+    ArRoutine *next;
+
+    for (ArRoutine *cursor = routines; cursor != nullptr; cursor = next) {
+        next = cursor->next;
+
+        cursor->next = nullptr;
+        routine_gq.Enqueue(cursor);
+        OSTWakeRun();
+    }
+
+    return true;
+}
+
 bool argon::vm::Shutdown() {
     short attempt = 10;
 
@@ -488,6 +660,41 @@ bool argon::vm::Shutdown() {
     }
 
     return false;
+}
+
+unsigned long argon::vm::SuspensionReason() {
+    ArRoutine *routine = GetRoutine();
+    unsigned long reason;
+
+    reason = routine->reason;
+    routine->reason = 0;
+
+    return reason;
+}
+
+void argon::vm::LockOsThread() {
+    if (ost_main == nullptr)
+        return;
+
+    ReleaseQueue();
+}
+
+void argon::vm::SetVCoreTotal(unsigned int vc) {
+    if (vcores != nullptr)
+        return;
+
+    vc_total = vc;
+
+    if (vc_total == 0)
+        vc_total = std::thread::hardware_concurrency();
+
+    if (vc_total == 0)
+        vc_total = VCORE_DEFAULT;
+}
+
+void argon::vm::Sleep(unsigned int sec) {
+    ReleaseQueue();
+    std::this_thread::sleep_for(std::chrono::seconds(sec));
 }
 
 void argon::vm::StopTheWorld() {
@@ -528,27 +735,6 @@ void argon::vm::STWCheckpoint() {
     ost_worker_count++;
 }
 
-void OSTWakeRun() {
-    std::unique_lock lck(ost_lock);
-    OSThread *ost;
-
-    if (ost_idle_count > 0) {
-        ost_cond.notify_one();
-        return;
-    }
-
-    if (ost_total > OST_MAX)
-        return;
-
-    if ((ost = AllocOST()) == nullptr) {
-        // TODO: Signal Error?!
-    }
-
-    lck.unlock();
-
-    StartOST(ost);
-}
-
 void argon::vm::ReleaseMain() {
     if (ost_main == nullptr)
         return;
@@ -558,7 +744,15 @@ void argon::vm::ReleaseMain() {
 }
 
 void argon::vm::ReleaseQueue() {
-    if (ost_local != nullptr)
+    if (ost_local != nullptr) {
         ReleaseVCore();
-    OSTWakeRun();
+        OSTWakeRun();
+    }
+}
+
+void argon::vm::USleep(unsigned int usec) {
+    if (usec > 300000)
+        ReleaseQueue();
+
+    std::this_thread::sleep_for(std::chrono::microseconds(usec));
 }

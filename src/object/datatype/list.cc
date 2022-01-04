@@ -22,6 +22,8 @@ ArSize list_len(ArObject *obj) {
 }
 
 ArObject *argon::object::ListGetItem(List *self, ArSSize index) {
+    RWLockRead lock(self->lock);
+
     if (index < 0)
         index = self->len + index;
 
@@ -32,6 +34,8 @@ ArObject *argon::object::ListGetItem(List *self, ArSSize index) {
 }
 
 bool argon::object::ListSetItem(List *self, ArObject *obj, ArSSize index) {
+    RWLockWrite lock(self->lock);
+
     if (index < 0)
         index = self->len + index;
 
@@ -47,6 +51,7 @@ bool argon::object::ListSetItem(List *self, ArObject *obj, ArSSize index) {
 }
 
 ArObject *list_get_slice(List *self, Bounds *bounds) {
+    RWLockRead lock(self->lock);
     ArObject *tmp;
     List *ret;
 
@@ -114,6 +119,8 @@ bool CheckSize(List *list, ArSize count) {
 }
 
 List *ShiftList(List *list, ArSSize pos) {
+    RWLockRead lock(list->lock);
+
     auto ret = ListNew(list->len);
 
     if (ret != nullptr) {
@@ -136,6 +143,8 @@ ArObject *list_add(ArObject *left, ArObject *right) {
     List *list = nullptr;
 
     if (AR_SAME_TYPE(l, r)) {
+        RWLockRead l_lock(l->lock);
+        RWLockRead r_lock(r->lock);
         if ((list = ListNew(l->len + r->len)) != nullptr) {
             ArSize i = 0;
             ArObject *itm;
@@ -172,6 +181,7 @@ ArObject *list_mul(ArObject *left, ArObject *right) {
     }
 
     if (AR_TYPEOF(num, type_integer_)) {
+        RWLockRead lock(list->lock);
         if ((ret = ListNew(list->len * ((Integer *) num)->integer)) != nullptr) {
             for (ArSize i = 0; i < ret->cap; i++) {
                 IncRef(list->objects[i % list->len]);
@@ -216,7 +226,6 @@ ArObject *list_inp_add(ArObject *left, ArObject *right) {
 ArObject *list_inp_mul(ArObject *left, ArObject *right) {
     auto *list = (List *) left;
     auto *num = (Integer *) right;
-    ArSize nlen;
 
     if (!AR_TYPEOF(list, type_list_)) {
         list = (List *) right;
@@ -224,20 +233,8 @@ ArObject *list_inp_mul(ArObject *left, ArObject *right) {
     }
 
     if (AR_TYPEOF(num, type_integer_)) {
-        nlen = list->len * (num->integer - 1);
-
-        if (!CheckSize(list, nlen))
-            return nullptr;
-
-        for (ArSize i = list->len; i < nlen; i++) {
-            IncRef(list->objects[i % list->len]);
-            list->objects[i] = list->objects[i % list->len];
-        }
-
-        list->len += nlen;
-
-        IncRef(list);
-        return list;
+        if(ListMul(list, num->integer))
+            return  IncRef(list);
     }
 
     return nullptr;
@@ -304,22 +301,10 @@ ARGON_METHOD5(list_, extend,
               "- Parameter iterable: an iterable object."
               "- Returns: list itself."
               "- Panic TypeError: object is not iterable.", 1, false) {
-    ArObject *iter;
-    ArObject *obj;
 
-    if ((iter = IteratorGet(*argv)) == nullptr)
+    if (!ListConcat((List *) self, *argv))
         return nullptr;
 
-    while ((obj = IteratorNext(iter)) != nullptr) {
-        if (!ListAppend((List *) self, obj)) {
-            Release(obj);
-            Release(iter);
-            return nullptr;
-        }
-        Release(obj);
-    }
-
-    Release(iter);
     return IncRef(self);
 }
 
@@ -328,6 +313,7 @@ ARGON_METHOD5(list_, find,
               ""
               "- Parameter obj: object to search."
               "- Returns: index if the object was found into the list, -1 otherwise.", 1, false) {
+    RWLockRead lock(((List *) self)->lock);
     auto *list = (List *) self;
 
     for (ArSize i = 0; i < list->len; i++) {
@@ -354,10 +340,7 @@ ARGON_METHOD5(list_, insert,
 
     idx = idx = AR_NUMBER_SLOT(argv[0])->as_index(argv[0]);
 
-    if (idx > list->len)
-        return ARGON_CALL_FUNC5(list_, append, func, list, argv + 1, 1);
-
-    if (!ListSetItem(list, argv[1], idx))
+    if (!ListInsert(list, argv[1], idx))
         return nullptr;
 
     return IncRef(list);
@@ -369,6 +352,8 @@ ARGON_METHOD5(list_, pop,
               "- Returns: Option<?>", 0, false) {
     auto *list = (List *) self;
     ArObject *obj;
+
+    RWLockWrite lock(list->lock);
 
     if (list->len > 0) {
         obj = OptionNew(list->objects[list->len - 1]);
@@ -386,6 +371,8 @@ ARGON_METHOD5(list_, remove,
               "- Returns: true if obj was found and deleted, false otherwise.", 1, false) {
     auto *list = (List *) self;
     ArObject *ret = False;
+
+    RWLockWrite lock(list->lock);
 
     for (ArSize i = 0; i < list->len; i++) {
         if (Equal(list->objects[i], argv[0])) {
@@ -408,6 +395,7 @@ ARGON_METHOD5(list_, reverse,
               "Reverse the elements of the list in place."
               ""
               "- Returns: list itself.", 0, false) {
+    RWLockWrite lock(((List *) self)->lock);
     auto *list = (List *) self;
     ArSize si = list->len - 1;
     ArSize li = 0;
@@ -454,18 +442,20 @@ bool list_is_true(List *self) {
 }
 
 ArObject *list_compare(List *self, ArObject *other, CompareMode mode) {
+    auto *l2 = (List *) other;
+
     if (!AR_SAME_TYPE(self, other) || mode != CompareMode::EQ)
         return nullptr;
 
     if (self != other) {
-        auto l1 = (List *) self;
-        auto l2 = (List *) other;
+        RWLockRead self_lock(self->lock);
+        RWLockRead l2_lock(l2->lock);
 
-        if (l1->len != l2->len)
+        if (self->len != l2->len)
             return BoolToArBool(false);
 
-        for (ArSize i = 0; i < l1->len; i++)
-            if (!Equal(l1->objects[i], l2->objects[i]))
+        for (ArSize i = 0; i < self->len; i++)
+            if (!Equal(self->objects[i], l2->objects[i]))
                 return BoolToArBool(false);
     }
 
@@ -480,6 +470,7 @@ ArObject *list_str(List *self) {
     if ((rec = TrackRecursive(self)) != 0)
         return rec > 0 ? StringIntern("[...]") : nullptr;
 
+    RWLockRead lock(self->lock);
 
     if (StringBuilderWrite(&sb, (unsigned char *) "[", 1, self->len == 0 ? 1 : 0) < 0)
         goto error;
@@ -595,25 +586,27 @@ bool ListConcat(List *base, T *t) {
     return true;
 }
 
-bool argon::object::ListInsertAt(List *list, ArObject *obj, ArSSize index) {
-    if (index < 0)
-        index = (ArSSize) (list->len + index);
+bool argon::object::ListInsertAt(List *self, ArObject *obj, ArSSize index) {
+    RWLockWrite lock(self->lock);
 
-    if (index < list->len) {
-        if (!CheckSize(list, 1))
+    if (index < 0)
+        index = (ArSSize) (self->len + index);
+
+    if (index < self->len) {
+        if (!CheckSize(self, 1))
             return false;
 
-        for (ArSize i = list->len; i > index; i--)
-            list->objects[i] = list->objects[i - 1];
+        for (ArSize i = self->len; i > index; i--)
+            self->objects[i] = self->objects[i - 1];
 
-        list->objects[index] = IncRef(obj);
-        list->len++;
+        self->objects[index] = IncRef(obj);
+        self->len++;
 
-        TrackIf(list, obj);
+        TrackIf(self, obj);
         return true;
     }
 
-    ErrorFormat(type_overflow_error_, "list index out of range (len: %d, idx: %d)", list->len, index);
+    ErrorFormat(type_overflow_error_, "list index out of range (len: %d, idx: %d)", self->len, index);
     return false;
 }
 
@@ -621,6 +614,7 @@ List *argon::object::ListNew(ArSize cap) {
     auto list = ArObjectGCNew<List>(type_list_);
 
     if (list != nullptr) {
+        list->lock = 0;
         list->objects = nullptr;
 
         if (cap > 0) {
@@ -638,52 +632,26 @@ List *argon::object::ListNew(ArSize cap) {
 }
 
 List *argon::object::ListNew(const ArObject *object) {
-    ArObject *iter;
-    ArObject *tmp;
     List *list;
-
-    ArSize idx = 0;
 
     if (AsSequence(object)) {
         // FAST PATH
-        if (AR_TYPEOF(object, type_list_))
+        if (AR_TYPEOF(object, type_list_)) {
+            RWLockRead lock(((List *) object)->lock);
             return ListClone((List *) object);
-        else if (AR_TYPEOF(object, type_tuple_))
+        } else if (AR_TYPEOF(object, type_tuple_))
             return ListClone((Tuple *) object);
+    }
 
-        // Generic object
-        if ((list = ListNew((ArSize) AR_SEQUENCE_SLOT(object)->length((ArObject *) object))) == nullptr)
-            return nullptr;
+    if (IsIterable(object)) {
+        if ((list = ListNew()) != nullptr) {
+            if (ListConcat(list, object))
+                return list;
 
-        while (idx < list->cap) {
-            tmp = AR_SEQUENCE_SLOT(object)->get_item((ArObject *) object, idx++);
-            ListAppend(list, tmp);
-            Release(tmp);
+            Release(list);
         }
 
-        return list;
-    } else if (IsIterable(object)) {
-        if ((iter = IteratorGet(object)) == nullptr)
-            return nullptr;
-
-        if ((list = ListNew()) == nullptr) {
-            Release(iter);
-            return nullptr;
-        }
-
-        while ((tmp = IteratorNext(iter)) != nullptr) {
-            if (!ListAppend(list, tmp)) {
-                Release(list);
-                Release(iter);
-                Release(tmp);
-                return nullptr;
-            }
-
-            Release(tmp);
-        }
-
-        Release(iter);
-        return list;
+        return nullptr;
     }
 
     return (List *) ErrorFormat(type_not_implemented_, "no viable conversion from '%s' to list",
@@ -691,6 +659,8 @@ List *argon::object::ListNew(const ArObject *object) {
 }
 
 bool argon::object::ListAppend(List *list, ArObject *obj) {
+    RWLockWrite lock(list->lock);
+
     if (!CheckSize(list, 1))
         return false;
 
@@ -699,14 +669,21 @@ bool argon::object::ListAppend(List *list, ArObject *obj) {
     return true;
 }
 
-bool argon::object::ListConcat(List *list, ArObject *sequence) {
+bool argon::object::ListConcat(List *list, const ArObject *sequence) {
     ArObject *tmp;
     ArObject *iter;
 
-    if (AR_SAME_TYPE(list, sequence))
+    if (list == sequence)
+        return ListMul(list, 2);
+
+    if (AR_SAME_TYPE(list, sequence)) {
+        RWLockWrite lock(list->lock);
+        RWLockRead seq_lock(((List *) sequence)->lock);
         return ::ListConcat < List > (list, (List *) sequence);
-    else if (AR_TYPEOF(sequence, type_tuple_))
+    } else if (AR_TYPEOF(sequence, type_tuple_)) {
+        RWLockWrite lock(list->lock);
         return ::ListConcat < Tuple > (list, (Tuple *) sequence);
+    }
 
     if ((iter = IteratorGet(sequence)) == nullptr)
         return false;
@@ -724,7 +701,49 @@ bool argon::object::ListConcat(List *list, ArObject *sequence) {
     return true;
 }
 
+bool argon::object::ListInsert(List *list, ArObject *object, ArSSize index) {
+    RWLockWrite lock(list->lock);
+
+    if (index < 0)
+        index = list->len + index;
+
+    if (index > list->len) {
+        if (!CheckSize(list, 1))
+            return false;
+
+        list->objects[list->len++] = IncRef(object);
+        TrackIf(list, object);
+        return true;
+    }
+
+    Release(list->objects[index]);
+    list->objects[index] = IncRef(object);
+    TrackIf(list, object);
+    return true;
+}
+
+bool argon::object::ListMul(List *list, ArSSize n) {
+    RWLockWrite lock(list->lock);
+    ArSize nlen = list->len * n;
+
+    if (n == 1)
+        return true;
+
+    if (!CheckSize(list, nlen))
+        return false;
+
+    for (ArSize i = list->len; i < nlen; i++)
+        list->objects[i] = IncRef(list->objects[i % list->len]);
+
+    list->len = nlen;
+
+    IncRef(list);
+    return list;
+}
+
 void argon::object::ListClear(List *list) {
+    RWLockWrite lock(list->lock);
+
     if (list->len == 0)
         return;
 
@@ -735,6 +754,8 @@ void argon::object::ListClear(List *list) {
 }
 
 void argon::object::ListRemove(List *list, ArSSize i) {
+    RWLockWrite lock(list->lock);
+
     if (i >= list->len)
         return;
 

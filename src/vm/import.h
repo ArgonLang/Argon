@@ -5,6 +5,8 @@
 #ifndef ARGON_VM_IMPORT_H_
 #define ARGON_VM_IMPORT_H_
 
+#include <mutex>
+
 #include <object/arobject.h>
 #include <object/datatype/function.h>
 #include <object/datatype/list.h>
@@ -29,6 +31,8 @@ namespace argon::vm {
                               argon::object::Function *loader);
 
     struct Import : argon::object::ArObject {
+        std::recursive_mutex recursive_mutex;
+
         argon::object::Map *modules;
         argon::object::List *paths;
         argon::object::Tuple *extensions; // ".ar", ".arc", ".dll"/".dylib"/".so"
@@ -58,6 +62,8 @@ namespace argon::vm {
     inline argon::object::Module *ImportModule(Import *import, argon::object::String *name) {
         return ImportModule(import, name, nullptr);
     }
+
+    argon::object::Module *ImportModule(Import *import, argon::object::String *name, ImportSpec *spec);
 
 } // namespace argon::vm::import;
 

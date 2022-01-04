@@ -44,6 +44,9 @@ namespace argon::object {
                   List *names,
                   List *locals,
                   List *enclosed);
+
+    Code *CodeNewNativeWrapper(ArObject *func);
+
 } // namespace argon::object
 
 #endif // !ARGON_OBJECT_CODE_H_

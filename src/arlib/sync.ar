@@ -1,0 +1,41 @@
+/*
+ * This source file is part of the Argon project.
+ *
+ * Licensed under the Apache License v2.0
+*/
+
+from _sync import *
+
+/*
+    The Locker trait is natively implemented,
+    its implementation in Argon is similar to the following:
+
+    trait Locker {
+        pub func lock {
+
+        }
+
+        pub func unlock {
+
+        }
+    }
+*/
+
+pub struct Once {
+    var executed
+    var mutex
+
+    pub let new = () => {
+        return Once{false, Mutex::new()}
+    }
+
+    pub func do(fn) {
+        self.mutex.lock()
+        defer self.mutex.unlock()
+
+        if !self.executed {
+            defer fn()
+            self.executed = true
+        }
+    }
+}

@@ -29,6 +29,7 @@ set(SRC
         datatype/tuple.cc
         gc.cc
         refcount.cc
+        rwlock.cc
         setup.cc
 )
 

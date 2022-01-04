@@ -280,26 +280,28 @@ Tuple *argon::object::TupleNew(ArSize len) {
 }
 
 Tuple *argon::object::TupleNew(const ArObject *sequence) {
+    List *tmp;
     Tuple *tuple;
-    ArObject *ret;
-    ArSize idx = 0;
 
     if (AsSequence(sequence)) {
         // FAST PATH
-        if (AR_TYPEOF(sequence, type_list_))
+        if (AR_TYPEOF(sequence, type_list_)) {
+            RWLockRead list_lock(((List *) sequence)->lock);
             return TupleClone((List *) sequence);
+        }
         else if (AR_TYPEOF(sequence, type_tuple_))
             return TupleClone((Tuple *) sequence);
+    }
 
-        // Generic sequence
-        if ((tuple = TupleNew((ArSize) AR_SEQUENCE_SLOT(sequence)->length((ArObject *) sequence))) == nullptr)
+    if (IsIterable(sequence)) {
+        if ((tmp = ListNew(sequence)) == nullptr)
             return nullptr;
 
-        while (idx < tuple->len) {
-            ret = AR_SEQUENCE_SLOT(sequence)->get_item((ArObject *) sequence, idx);
-            TupleInsertAt(tuple, idx++, ret);
-            Release(ret);
-        }
+        tuple = TupleClone(tmp);
+        Release(tmp);
+
+        if (tuple == nullptr)
+            return nullptr;
 
         return tuple;
     }

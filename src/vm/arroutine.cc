@@ -24,7 +24,10 @@ ArRoutine *argon::vm::RoutineNew(ArRoutineStatus status) {
             return nullptr;
         }
 
+        routine->reason = 0;
         routine->recursion_depth = 0;
+        routine->ticket = 0;
+
         routine->status = status;
     }
 
@@ -40,14 +43,22 @@ ArRoutine *argon::vm::RoutineNew(Frame *frame, ArRoutineStatus status) {
     return routine;
 }
 
+ArRoutine *argon::vm::RoutineNew(Frame *frame, ArRoutine *routine, ArRoutineStatus status) {
+    auto *ret = RoutineNew(frame, status);
+
+    if (ret != nullptr)
+        ret->context = routine->context;
+
+    return ret;
+}
+
 ArObject *argon::vm::RoutineRecover(ArRoutine *routine) {
     ArObject *err = nullptr;
 
     if (routine != nullptr) {
         if (routine->panic != nullptr) {
             err = IncRef(routine->panic->object);
-            while (routine->panic != nullptr)
-                RoutinePopPanic(routine);
+            RoutinePopPanics(routine);
         }
     }
 
@@ -76,14 +87,15 @@ void argon::vm::RoutineReset(ArRoutine *routine, ArRoutineStatus status) {
             FrameDel(routine->frame);
         routine->frame = nullptr;
 
-        while (routine->panic != nullptr)
-            RoutinePopPanic(routine);
+        RoutinePopPanics(routine);
 
         ListClear(routine->references);
 
         assert(routine->cu_defer == nullptr);
 
+        routine->reason = 0;
         routine->recursion_depth = 0;
+        routine->ticket = 0;
         routine->status = status;
     }
 }
@@ -148,5 +160,16 @@ void argon::vm::RoutinePopPanic(ArRoutine *routine) {
         Release(panic->object);
         routine->panic = panic->panic;
         argon::memory::Free(panic);
+    }
+}
+
+void argon::vm::RoutinePopPanics(ArRoutine *routine) {
+    Panic *tmp;
+
+    while (routine->panic != nullptr) {
+        Release(routine->panic->object);
+        tmp = routine->panic->panic;
+        argon::memory::Free(routine->panic);
+        routine->panic = tmp;
     }
 }

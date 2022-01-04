@@ -17,7 +17,8 @@ namespace argon::vm {
     enum class ArRoutineStatus : unsigned char {
         RUNNING,
         RUNNABLE,
-        BLOCKED
+        BLOCKED,
+        SUSPENDED
     };
 
     struct Panic {
@@ -70,6 +71,12 @@ namespace argon::vm {
         /* Current recursion depth */
         argon::object::ArSize recursion_depth;
 
+        /* Suspension reason */
+        argon::object::ArSize reason;
+
+        /* Used by NotifyQueue to manage the queue */
+        argon::object::ArSize ticket;
+
         /* Routine status */
         ArRoutineStatus status;
     };
@@ -79,6 +86,12 @@ namespace argon::vm {
     ArRoutine *RoutineNew(Frame *frame, ArRoutineStatus status);
 
     inline ArRoutine *RoutineNew(Frame *frame) { return RoutineNew(frame, ArRoutineStatus::RUNNABLE); }
+
+    ArRoutine *RoutineNew(Frame *frame, ArRoutine *routine, ArRoutineStatus status);
+
+    inline ArRoutine *RoutineNew(Frame *frame, ArRoutine *routine) {
+        return RoutineNew(frame, routine, ArRoutineStatus::RUNNABLE);
+    }
 
     argon::object::ArObject *RoutineRecover(ArRoutine *routine);
 
@@ -97,6 +110,8 @@ namespace argon::vm {
     void RoutineNewPanic(ArRoutine *routine, argon::object::ArObject *object);
 
     void RoutinePopPanic(ArRoutine *routine);
+
+    void RoutinePopPanics(ArRoutine *routine);
 
     inline bool RoutineIsPanicking(ArRoutine *routine) { return routine != nullptr && routine->panic != nullptr; }
 

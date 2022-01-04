@@ -147,10 +147,7 @@ Function *argon::object::FunctionNew(Namespace *gns, TypeInfo *base, const Nativ
     String *name;
     String *doc;
 
-    if (base == nullptr)
-        name = StringNew(native->name);
-    else
-        name = StringNewFormat("%s::%s", base->name, native->name);
+    name = base == nullptr ? StringNew(native->name) : StringNewFormat("%s::%s", base->name, native->name);
 
     if (name == nullptr)
         return nullptr;
@@ -209,17 +206,7 @@ ArObject *argon::object::FunctionCallNative(Function *func, ArObject **args, ArS
     List *arguments = nullptr;
     ArObject *ret;
 
-    if (count > 0 && func->IsMethod()) {
-        instance = *args;
-
-        if (!TraitIsImplemented(instance, func->base))
-            return ErrorFormat(type_type_error_, "method %s doesn't apply to '%s' type", func->qname->buffer,
-                               AR_TYPE_NAME(instance));
-        args++;
-        count--;
-    }
-
-    if (func->arity > 0) {
+    if (func->arity > 0 || func->IsVariadic()) {
         if (func->currying != nullptr) {
             if (args != nullptr && count > 0) {
                 if ((arguments = ListNew(func->currying->len + count)) == nullptr)
@@ -237,6 +224,19 @@ ArObject *argon::object::FunctionCallNative(Function *func, ArObject **args, ArS
                 count = func->currying->len;
             }
         }
+    }
+
+    if (count > 0 && func->IsMethod()) {
+        instance = *args;
+
+        if (!TraitIsImplemented(instance, func->base)) {
+            Release(arguments);
+            return ErrorFormat(type_type_error_, "method %s doesn't apply to '%s' type", func->qname->buffer,
+                               AR_TYPE_NAME(instance));
+        }
+
+        args++;
+        count--;
     }
 
     ret = func->native_fn(func, instance, args, count);

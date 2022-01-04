@@ -22,10 +22,10 @@ ArObject *MROSearch(const TypeInfo *type, ArObject *key, PropertyInfo *pinfo) {
 
     if (type->mro != nullptr) {
         for (ArSize i = 0; i < ((Tuple *) type->mro)->len; i++) {
-            type = (TypeInfo *) ((Tuple *) type->mro)->objects[i];
+            auto *cursor = (TypeInfo *) ((Tuple *) type->mro)->objects[i];
 
-            if (type->tp_map != nullptr) {
-                if ((obj = NamespaceGetValue((Namespace *) type->tp_map, key, pinfo)) != nullptr)
+            if (cursor->tp_map != nullptr) {
+                if ((obj = NamespaceGetValue((Namespace *) cursor->tp_map, key, pinfo)) != nullptr)
                     break;
             }
         }
@@ -150,7 +150,7 @@ bool type_set_attr(ArObject *obj, ArObject *key, ArObject *value) {
         return false;
     }
 
-    if (!pinfo.IsPublic() && instance != obj) {
+    if (!pinfo.IsPublic() && !AR_SAME_TYPE(instance, obj)) {
         ErrorFormat(type_access_violation_, "access violation, member '%s' of '%s' are private",
                     ((String *) key)->buffer, AR_TYPE_NAME(obj));
         Release(actual);
@@ -454,7 +454,7 @@ ArObject *argon::object::ArObjectGCNew(const TypeInfo *type) {
     return obj;
 }
 
-ArObject * argon::object::ArObjectGCNewTrack(const TypeInfo *type) {
+ArObject *argon::object::ArObjectGCNewTrack(const TypeInfo *type) {
     auto *obj = ArObjectGCNew(type);
     Track(obj);
     return obj;
@@ -478,6 +478,19 @@ ArObject *argon::object::InstanceGetMethod(const ArObject *instance, const ArObj
         if (is_meth != nullptr)
             *is_meth = AR_TYPEOF(ret, type_function_) && ((Function *) ret)->IsMethod();
     }
+
+    return ret;
+}
+
+ArObject *argon::object::InstanceGetMethod(const ArObject *instance, const char *key, bool *is_meth) {
+    ArObject *ret;
+    String *akey;
+
+    if ((akey = StringNew(key)) == nullptr)
+        return nullptr;
+
+    ret = InstanceGetMethod(instance, akey, is_meth);
+    Release(akey);
 
     return ret;
 }
@@ -568,7 +581,8 @@ ArObject *argon::object::ToString(ArObject *obj) {
     if (AR_GET_TYPE(obj)->str != nullptr)
         return AR_GET_TYPE(obj)->str(obj);
 
-    return ErrorFormat(type_runtime_error_, "unimplemented slot 'str' for object '%s'", AR_TYPE_NAME(obj));
+    return StringNewFormat("<object %s @%p>", AR_TYPE_NAME(obj), obj);
+    // return ErrorFormat(type_runtime_error_, "unimplemented slot 'str' for object '%s'", AR_TYPE_NAME(obj));
 }
 
 ArObject *argon::object::TypeNew(const TypeInfo *meta, const char *name, ArObject *ns, TypeInfo **bases, ArSize count) {

@@ -6,6 +6,7 @@
 #define ARGON_OBJECT_IO_IO_H_
 
 #include <cstring>
+#include <mutex>
 
 #include <object/arobject.h>
 #include <utils/enum_bitmask.h>
@@ -22,11 +23,13 @@
 #define STDERR_FILENO 2
 #endif
 
-#define ARGON_OBJECT_IO_DEFAULT_BUFSIZE 4096
+#define ARGON_OBJECT_IO_DEFAULT_BUFSIZE                 4096
+#define ARGON_OBJECT_IO_DEFAULT_READLINE_BUFSIZE        6
+#define ARGON_OBJECT_IO_DEFAULT_READLINE_BUFSIZE_INC    ARGON_OBJECT_IO_DEFAULT_READLINE_BUFSIZE
 
 namespace argon::object::io {
 
-    enum class FileMode : unsigned char {
+    enum class FileMode : unsigned int {
         READ = 1u,
         WRITE = 1u << 1u,
         APPEND = 1u << 2u,
@@ -36,7 +39,7 @@ namespace argon::object::io {
         _IS_PIPE = 1u << 4u
     };
 
-    enum class FileBufferMode {
+    enum class FileBufferMode : unsigned int {
         NONE,
         LINE,
         BLOCK
@@ -49,19 +52,21 @@ namespace argon::object::io {
     };
 
     struct File : argon::object::ArObject {
-        int fd;
-        ArSize cur;
-        FileMode mode;
+        std::mutex lock;
 
         struct {
-            FileBufferMode mode;
             unsigned char *buf;
             unsigned char *cur;
 
             long cap;
             long len;
             long wlen;
+            FileBufferMode mode;
         } buffer;
+
+        FileMode mode;
+        ArSize cur;
+        int fd;
     };
 
     extern const argon::object::TypeInfo *type_file_;
@@ -80,6 +85,8 @@ namespace argon::object::io {
 
     File *FdOpen(int fd, FileMode mode);
 
+    int Close(File *file);
+
     int GetFd(File *file);
 
     ArSSize Read(File *file, unsigned char *buf, ArSize count);
@@ -97,8 +104,6 @@ namespace argon::object::io {
     ArSSize WriteObject(File *file, argon::object::ArObject *obj);
 
     ArSSize WriteObjectStr(File *file, argon::object::ArObject *obj);
-
-    void Close(File *file);
 
 } // namespace argon::object::io
 

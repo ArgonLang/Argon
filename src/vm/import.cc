@@ -133,6 +133,7 @@ ArObject *import_str(Import *self) {
 }
 
 void import_cleanup(Import *self) {
+    self->recursive_mutex.~recursive_mutex();
     Release(self->modules);
     Release(self->paths);
     Release(self->extensions);
@@ -357,7 +358,8 @@ ARGON_FUNCTION5(import_, builtins_locator,
                                            argon::module::module_math_,
                                            argon::module::module_os_,
                                            argon::module::module_random_,
-                                           argon::module::module_runtime_};
+                                           argon::module::module_runtime_,
+                                           argon::module::module_sync_};
 
     ImportSpec *spec = nullptr;
     Import *import;
@@ -619,6 +621,8 @@ Import *argon::vm::ImportNew() {
     auto imp = ArObjectGCNewTrack<Import>(type_import_);
 
     if (imp != nullptr) {
+        new(&imp->recursive_mutex) std::recursive_mutex();
+
         if ((imp->modules = MapNew()) == nullptr)
             goto error;
 
@@ -823,6 +827,7 @@ Module *Load(Import *import, ImportSpec *spec) {
 }
 
 argon::object::Module *argon::vm::ImportModule(Import *import, String *name, String *package) {
+    std::unique_lock lck(import->recursive_mutex);
     ImportSpec *spec;
     Module *module;
 
@@ -837,4 +842,13 @@ argon::object::Module *argon::vm::ImportModule(Import *import, String *name, Str
 
     Release(spec);
     return module;
+}
+
+Module *argon::vm::ImportModule(Import *import, String *name, ImportSpec *spec) {
+    String *path = nullptr;
+
+    if (!IsNull(spec))
+        path = spec->path;
+
+    return ImportModule(import, name, path);
 }
