@@ -586,25 +586,27 @@ bool ListConcat(List *base, T *t) {
     return true;
 }
 
-bool argon::object::ListInsertAt(List *list, ArObject *obj, ArSSize index) {
-    if (index < 0)
-        index = (ArSSize) (list->len + index);
+bool argon::object::ListInsertAt(List *self, ArObject *obj, ArSSize index) {
+    RWLockWrite lock(self->lock);
 
-    if (index < list->len) {
-        if (!CheckSize(list, 1))
+    if (index < 0)
+        index = (ArSSize) (self->len + index);
+
+    if (index < self->len) {
+        if (!CheckSize(self, 1))
             return false;
 
-        for (ArSize i = list->len; i > index; i--)
-            list->objects[i] = list->objects[i - 1];
+        for (ArSize i = self->len; i > index; i--)
+            self->objects[i] = self->objects[i - 1];
 
-        list->objects[index] = IncRef(obj);
-        list->len++;
+        self->objects[index] = IncRef(obj);
+        self->len++;
 
-        TrackIf(list, obj);
+        TrackIf(self, obj);
         return true;
     }
 
-    ErrorFormat(type_overflow_error_, "list index out of range (len: %d, idx: %d)", list->len, index);
+    ErrorFormat(type_overflow_error_, "list index out of range (len: %d, idx: %d)", self->len, index);
     return false;
 }
 
