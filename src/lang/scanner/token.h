@@ -83,6 +83,7 @@ namespace argon::lang::scanner {
         CARET,
         LEFT_BRACES,
         PIPE,
+        PIPELINE,
         OR,
         RIGHT_BRACES,
         TILDE,

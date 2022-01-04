@@ -36,6 +36,10 @@ namespace argon::object {
 
     bool ListSetItem(List *list, ArObject *object, ArSSize index);
 
+    bool ListInsertAt(List *list, ArObject *obj, ArSSize index);
+
+    bool ListSetItem(List *list, ArObject *obj, ArSSize index);
+
     void ListClear(List *list);
 
     void ListRemove(List *list, ArSSize i);
