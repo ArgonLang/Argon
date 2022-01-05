@@ -844,15 +844,10 @@ ArSSize ReadLineSeekable(File *file, unsigned char **buf, ArSize buf_len) {
     unsigned char *tmp_buf;
     unsigned char *cursor;
     unsigned char *nl_ptr;
-    ArSize start_pos;
-    ArSize total;
-    ArSSize err;
-
+    ArSize start_pos = Tell(file);
+    ArSize total = 0;
+    ArSSize err = 0;
     bool allocate = false;
-
-    start_pos = Tell(file);
-
-    total = 0;
 
     do {
         if (*buf == nullptr || allocate) {
@@ -915,12 +910,10 @@ ArSSize ReadLineSeekable(File *file, unsigned char **buf, ArSize buf_len) {
 ArSSize ReadLineSlow(File *file, unsigned char **buf, ArSize buf_len) {
     unsigned char *cursor = *buf;
     unsigned char *tmp_buf;
-    ArSize total;
-    ArSSize err;
+    ArSize total = 0;
+    ArSSize err = 0;
 
     bool allocate = false;
-
-    total = 0;
 
     while (buf_len != 0 || allocate && err > 0) {
         if (*buf == nullptr || allocate && buf_len == 0) {
