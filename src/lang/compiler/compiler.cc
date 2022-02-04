@@ -1537,36 +1537,64 @@ bool Compiler::CompileExpression(Node *expr) {
 }
 
 bool Compiler::CompileUnpack(List *list) {
-    Instr *iptr;
     ArObject *iter;
     ArObject *tmp;
+    Instr *iptr;
 
-    int items = 0;
+    int count = 0;
+    int total;
+    int idx;
 
     if (!this->Emit(OpCodes::UNPACK, 0, nullptr))
         return false;
 
     iptr = this->unit_->bb.cur->instr.tail;
 
+    total = (int) list->len;
+
     if ((iter = IteratorGet(list)) == nullptr)
         return false;
 
+    TranslationUnitIncStack(this->unit_, total);
     while ((tmp = IteratorNext(iter)) != nullptr) {
-        TranslationUnitIncStack(this->unit_, 1);
-        if (!this->VariableStore((String *) ((Unary *) tmp)->value)) {
-            Release(tmp);
-            Release(iter);
-            return false;
+        if (AR_TYPEOF(tmp, type_ast_identifier_)) {
+            if (!this->VariableStore((String *) ((Unary *) tmp)->value))
+                goto ERROR;
+        } else if (AR_TYPEOF(tmp, type_ast_index_)) {
+            if (!this->CompileSubscr((Subscript *) tmp, false, false))
+                goto ERROR;
+
+            if (!this->Emit(OpCodes::STSUBSCR, 0, nullptr))
+                goto ERROR;
+        } else if (AR_TYPEOF(tmp, type_ast_selector_)) {
+            if ((idx = this->CompileSelector((Binary *) tmp, false, false)) < 0)
+                goto ERROR;
+
+            if (((Binary *) tmp)->kind == TokenType::SCOPE) {
+                if (!this->Emit(OpCodes::STSCOPE, idx, nullptr))
+                    goto ERROR;
+            }
+
+            if (!this->Emit(OpCodes::STATTR, idx, nullptr))
+                goto ERROR;
         }
+
         Release(tmp);
-        items++;
+        count++;
     }
+
+    assert(count == total);
 
     Release(iter);
 
-    InstrSetArg(iptr, items);
+    InstrSetArg(iptr, count);
 
     return true;
+
+    ERROR:
+    Release(tmp);
+    Release(iter);
+    return false;
 }
 
 int Compiler::PushStatic(ArObject *obj, bool store, bool emit) {
