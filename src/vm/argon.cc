@@ -228,8 +228,10 @@ ArObject *argon::vm::EvalCode(Code *code, Namespace *globals) {
 
     RoutineReset(GetRoutine(), ArRoutineStatus::RUNNING);
 
-    if ((frame = FrameNew(code, globals, nullptr)) != nullptr)
+    if ((frame = FrameNew(code, globals, nullptr)) != nullptr) {
         res = Eval(GetRoutine(), frame);
+        FrameDel(frame);
+    }
 
     return res;
 }
@@ -334,6 +336,7 @@ int argon::vm::StartInteractiveLoop() {
         if (code == nullptr || ret == nullptr)
             exit = ErrorWrapper(&eof);
 
+        Release((ArObject **) &code);
         Release(ret);
         Release(ps1);
         Release(ps2);

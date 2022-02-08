@@ -946,11 +946,8 @@ bool Compiler::CompileSwitch(Test *sw) {
         return false;
 
     while ((tmp = (Binary *) IteratorNext(iter)) != nullptr) {
-        if (!this->CompileSwitchCase(tmp, &ltest, &lbody, end, as_if))
+        if (!this->CompileSwitchCase(tmp, &ltest, &lbody, &_default, end, as_if))
             return false;
-
-        if (tmp->left == nullptr && _default == nullptr)
-            _default = lbody;
 
         // Switch to test thread
         this->unit_->bb.cur = ltest;
@@ -999,7 +996,8 @@ bool Compiler::CompileSwitch(Test *sw) {
     return false;
 }
 
-bool Compiler::CompileSwitchCase(Binary *binary, BasicBlock **ltest, BasicBlock **lbody, BasicBlock *end, bool as_if) {
+bool Compiler::CompileSwitchCase(Binary *binary, BasicBlock **ltest, BasicBlock **lbody, BasicBlock **_default,
+                                 BasicBlock *end, bool as_if) {
     bool fallthrough = false;
     BasicBlock *test_curr = *ltest;
     ArObject *iter;
@@ -1040,6 +1038,9 @@ bool Compiler::CompileSwitchCase(Binary *binary, BasicBlock **ltest, BasicBlock 
         if (binary->left != nullptr)
             test_curr->instr.tail->jmp = this->unit_->bb.cur; // Adjust jump to correct block
     }
+
+    if (binary->left == nullptr && *_default == nullptr)
+        *_default = this->unit_->bb.cur;
 
     // Process body
     if (binary->right != nullptr) {
@@ -1537,36 +1538,64 @@ bool Compiler::CompileExpression(Node *expr) {
 }
 
 bool Compiler::CompileUnpack(List *list) {
-    Instr *iptr;
     ArObject *iter;
     ArObject *tmp;
+    Instr *iptr;
 
-    int items = 0;
+    int count = 0;
+    int total;
+    int idx;
 
     if (!this->Emit(OpCodes::UNPACK, 0, nullptr))
         return false;
 
     iptr = this->unit_->bb.cur->instr.tail;
 
+    total = (int) list->len;
+
     if ((iter = IteratorGet(list)) == nullptr)
         return false;
 
+    TranslationUnitIncStack(this->unit_, total);
     while ((tmp = IteratorNext(iter)) != nullptr) {
-        TranslationUnitIncStack(this->unit_, 1);
-        if (!this->VariableStore((String *) ((Unary *) tmp)->value)) {
-            Release(tmp);
-            Release(iter);
-            return false;
+        if (AR_TYPEOF(tmp, type_ast_identifier_)) {
+            if (!this->VariableStore((String *) ((Unary *) tmp)->value))
+                goto ERROR;
+        } else if (AR_TYPEOF(tmp, type_ast_index_)) {
+            if (!this->CompileSubscr((Subscript *) tmp, false, false))
+                goto ERROR;
+
+            if (!this->Emit(OpCodes::STSUBSCR, 0, nullptr))
+                goto ERROR;
+        } else if (AR_TYPEOF(tmp, type_ast_selector_)) {
+            if ((idx = this->CompileSelector((Binary *) tmp, false, false)) < 0)
+                goto ERROR;
+
+            if (((Binary *) tmp)->kind == TokenType::SCOPE) {
+                if (!this->Emit(OpCodes::STSCOPE, idx, nullptr))
+                    goto ERROR;
+            }
+
+            if (!this->Emit(OpCodes::STATTR, idx, nullptr))
+                goto ERROR;
         }
+
         Release(tmp);
-        items++;
+        count++;
     }
+
+    assert(count == total);
 
     Release(iter);
 
-    InstrSetArg(iptr, items);
+    InstrSetArg(iptr, count);
 
     return true;
+
+    ERROR:
+    Release(tmp);
+    Release(iter);
+    return false;
 }
 
 int Compiler::PushStatic(ArObject *obj, bool store, bool emit) {
