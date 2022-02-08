@@ -61,9 +61,8 @@ namespace argon::lang::compiler {
 
         bool CompileSwitch(argon::lang::parser::Test *sw);
 
-        bool
-        CompileSwitchCase(argon::lang::parser::Binary *binary, BasicBlock **ltest, BasicBlock **lbody, BasicBlock *end,
-                          bool as_if);
+        bool CompileSwitchCase(argon::lang::parser::Binary *binary, BasicBlock **ltest, BasicBlock **lbody,
+                          BasicBlock **_default, BasicBlock *end, bool as_if);
 
         bool CompileForLoop(argon::lang::parser::Loop *loop);
 

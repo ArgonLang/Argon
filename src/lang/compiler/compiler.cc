@@ -946,11 +946,8 @@ bool Compiler::CompileSwitch(Test *sw) {
         return false;
 
     while ((tmp = (Binary *) IteratorNext(iter)) != nullptr) {
-        if (!this->CompileSwitchCase(tmp, &ltest, &lbody, end, as_if))
+        if (!this->CompileSwitchCase(tmp, &ltest, &lbody, &_default, end, as_if))
             return false;
-
-        if (tmp->left == nullptr && _default == nullptr)
-            _default = lbody;
 
         // Switch to test thread
         this->unit_->bb.cur = ltest;
@@ -999,7 +996,8 @@ bool Compiler::CompileSwitch(Test *sw) {
     return false;
 }
 
-bool Compiler::CompileSwitchCase(Binary *binary, BasicBlock **ltest, BasicBlock **lbody, BasicBlock *end, bool as_if) {
+bool Compiler::CompileSwitchCase(Binary *binary, BasicBlock **ltest, BasicBlock **lbody, BasicBlock **_default,
+                                 BasicBlock *end, bool as_if) {
     bool fallthrough = false;
     BasicBlock *test_curr = *ltest;
     ArObject *iter;
@@ -1040,6 +1038,9 @@ bool Compiler::CompileSwitchCase(Binary *binary, BasicBlock **ltest, BasicBlock 
         if (binary->left != nullptr)
             test_curr->instr.tail->jmp = this->unit_->bb.cur; // Adjust jump to correct block
     }
+
+    if (binary->left == nullptr && *_default == nullptr)
+        *_default = this->unit_->bb.cur;
 
     // Process body
     if (binary->right != nullptr) {
