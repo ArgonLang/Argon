@@ -346,10 +346,12 @@ Node *Parser::ParseAssignment(Node *left) {
         auto *list = (List *) ((Unary *) left)->value;
 
         for (int i = 0; i < list->len; i++) {
-            if (!AR_TYPEOF(list->objects[i], type_ast_identifier_)) {
+            if (!AR_TYPEOF(list->objects[i], type_ast_identifier_) &&
+                !AR_TYPEOF(list->objects[i], type_ast_index_) &&
+                !AR_TYPEOF(list->objects[i], type_ast_selector_)) {
                 Release(left);
                 return (Node *) ErrorFormat(type_syntax_error_,
-                                            "expected identifier as %d element in assignment definition", i);
+                                            "expected identifier/selector/index as %d element in assignment definition", i);
             }
         }
     }
