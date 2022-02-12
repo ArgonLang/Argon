@@ -1,4 +1,4 @@
-![](https://img.shields.io/badge/version-0.2.3--alpha-red)
+![](https://img.shields.io/badge/version-0.2.4--alpha-red)
 ![https://www.apache.org/licenses/LICENSE-2.0](https://img.shields.io/badge/license-apache--2.0-blue)
 
 # The Argon Programming Language
