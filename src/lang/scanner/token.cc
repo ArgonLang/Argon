@@ -9,10 +9,11 @@
 
 using namespace argon::lang::scanner;
 
-Token::Token(TokenType type, Pos start, Pos end, const unsigned char *buf) {
+Token::Token(TokenType type, Pos start, Pos end, long buflen, const unsigned char *buf) {
     this->type = type;
     this->start = start;
     this->end = end;
+    this->buflen = buflen;
     this->buf = (unsigned char *) buf;
 }
 
@@ -35,12 +36,13 @@ bool Token::Clone(Token &dest) const noexcept {
     dest.start = this->start;
     dest.end = this->end;
 
+    dest.buflen = this->buflen;
+
     if (this->buf != nullptr) {
-        unsigned long bufsz = strlen((const char *) this->buf);
-        if ((dest.buf = (unsigned char *) argon::memory::Alloc(bufsz)) == nullptr)
+        if ((dest.buf = (unsigned char *) argon::memory::Alloc(this->buflen)) == nullptr)
             return false;
 
-        argon::memory::MemoryCopy(dest.buf, this->buf, bufsz);
+        argon::memory::MemoryCopy(dest.buf, this->buf, this->buflen);
     }
 
     return true;
@@ -55,6 +57,8 @@ Token &Token::operator=(Token &&token) noexcept {
         argon::memory::Free(this->buf);
 
     this->buf = token.buf;
+    this->buflen = token.buflen;
+
     token.buf = nullptr;
 
     return *this;

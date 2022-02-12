@@ -112,7 +112,7 @@ namespace argon::lang::scanner {
 
         Token TokenizeWord();
 
-        [[nodiscard]] unsigned char *TkGetValue();
+        [[nodiscard]] unsigned char *TkGetValue(long *out_len);
 
     public:
         ScannerStatus status = ScannerStatus::GOOD;
