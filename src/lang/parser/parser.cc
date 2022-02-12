@@ -1194,10 +1194,10 @@ Node *Parser::ParseLiteral() {
             break;
         case TokenType::STRING:
         case TokenType::RAW_STRING:
-            value = StringNew((const char *) this->tkcur_.buf);
+            value = StringNew((const char *) this->tkcur_.buf, this->tkcur_.buflen);
             break;
         case TokenType::BYTE_STRING:
-            value = BytesNew(this->tkcur_.buf, std::strlen((const char *) this->tkcur_.buf), true);
+            value = BytesNew(this->tkcur_.buf, this->tkcur_.buflen, true);
             break;
         case TokenType::FALSE:
             value = IncRef(False);

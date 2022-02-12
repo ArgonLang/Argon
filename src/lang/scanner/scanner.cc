@@ -415,12 +415,13 @@ int Scanner::NextChar() noexcept {
 }
 
 Token Scanner::MakeTkWithValue(Pos start, TokenType type) {
-    unsigned char *tmp = this->TkGetValue();
+    unsigned char *tmp;
+    long length;
 
-    if (tmp == nullptr)
+    if ((tmp = this->TkGetValue(&length)) == nullptr)
         return {TokenType::ERROR, start, this->pos_};
 
-    return {type, start, this->pos_, tmp};
+    return {type, start, this->pos_, length, tmp};
 }
 
 Token Scanner::TokenizeBinary(Pos start) {
@@ -594,7 +595,7 @@ Token Scanner::TokenizeNumber() {
                     zero[0] = '0';
                     zero[1] = '\0';
 
-                    return Token(TokenType::NUMBER, start, this->pos_, zero);
+                    return Token(TokenType::NUMBER, start, this->pos_, 2, zero);
                 }
         }
     }
@@ -729,10 +730,10 @@ Token Scanner::TokenizeWord() {
     return this->MakeTkWithValue(start, type);
 }
 
-unsigned char *Scanner::TkGetValue() {
+unsigned char *Scanner::TkGetValue(long *out_len) {
     unsigned char *tmp;
 
-    if(!this->TkInitBuf())
+    if (!this->TkInitBuf())
         return nullptr;
 
     if (*this->tkval.cur_ != '\0') {
@@ -742,10 +743,11 @@ unsigned char *Scanner::TkGetValue() {
         }
 
         *this->tkval.cur_ = '\0';
-        this->tkval.cur_++;
     }
 
     tmp = this->tkval.start_;
+    *out_len = this->tkval.cur_ - this->tkval.start_;
+
     this->tkval.start_ = nullptr;
     this->tkval.cur_ = nullptr;
     this->tkval.end_ = nullptr;

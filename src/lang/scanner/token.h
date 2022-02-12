@@ -132,16 +132,17 @@ namespace argon::lang::scanner {
 
     class Token {
     public:
-        TokenType type = TokenType::TK_NULL;
+        unsigned char *buf = nullptr;
+        long buflen = 0;
 
         Pos start = 0;
         Pos end = 0;
 
-        unsigned char *buf = nullptr;
+        TokenType type = TokenType::TK_NULL;
 
-        Token(TokenType type, Pos start, Pos end, const unsigned char *buf);
+        Token(TokenType type, Pos start, Pos end, long buflen, const unsigned char *buf);
 
-        Token(TokenType type, Pos start, Pos end) : Token(type, start, end, nullptr) {}
+        Token(TokenType type, Pos start, Pos end) : Token(type, start, end, 0, nullptr) {}
 
         Token() = default;
 
