@@ -166,6 +166,7 @@ HEntry *argon::object::HMapRemove(HMap *hmap, ArObject *key) {
     for (HEntry *cur = hmap->map[index]; cur != nullptr; cur = cur->next) {
         if (Equal(key, cur->key) && AR_SAME_TYPE(key, cur->key)) {
             RemoveIterItem(hmap, cur);
+            hmap->map[index] = cur->next;
             hmap->len--;
             return cur;
         }
