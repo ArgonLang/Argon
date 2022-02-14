@@ -17,7 +17,8 @@ namespace argon::object {
         NATIVE = 1,
         METHOD = 1u << 2,
         CLOSURE = 1u << 3,
-        VARIADIC = 1u << 4
+        VARIADIC = 1u << 4,
+        GENERATOR = 1u << 5
     };
 }
 

@@ -19,10 +19,11 @@ namespace argon::lang::compiler {
         STRUCT,
         TRAIT,
         UNKNOWN,
-        VARIABLE
+        VARIABLE,
+        GENERATOR
     };
 
-    static const char *SymbolType2Name[] = {"let", "func", "label", "struct", "trait", "unknown", "var"};
+    static const char *SymbolType2Name[] = {"let", "func", "label", "struct", "trait", "unknown", "var","generator"};
 
     struct Symbol : object::ArObject {
         argon::object::String *name;
