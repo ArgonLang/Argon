@@ -351,7 +351,8 @@ Node *Parser::ParseAssignment(Node *left) {
                 !AR_TYPEOF(list->objects[i], type_ast_selector_)) {
                 Release(left);
                 return (Node *) ErrorFormat(type_syntax_error_,
-                                            "expected identifier/selector/index as %d element in assignment definition", i);
+                                            "expected identifier/selector/index as %d element in assignment definition",
+                                            i);
             }
         }
     }
@@ -1563,7 +1564,6 @@ Node *Parser::ParseReturn() {
     tmp->lineno = 0;
 
     tmp->value = nullptr;
-
     if (!this->Match(TokenType::END_OF_LINE, TokenType::END_OF_FILE, TokenType::SEMICOLON)) {
         if ((tmp->value = this->ParseExpr(EXPR_NO_ASSIGN)) == nullptr) {
             Release(tmp);
@@ -1572,6 +1572,38 @@ Node *Parser::ParseReturn() {
 
         tmp->end = ((Node *) tmp->value)->end;
     }
+
+    return tmp;
+}
+
+Node *Parser::ParseYield() {
+    Pos start = this->tkcur_.start;
+    Pos end;
+    Unary *tmp;
+
+    this->Eat();
+
+    if ((tmp = ArObjectNew<Unary>(RCType::INLINE, type_ast_yield_)) == nullptr)
+        return nullptr;
+
+    tmp->start = start;
+    tmp->end = this->tkcur_.end;
+    tmp->colno = 0;
+    tmp->lineno = 0;
+
+    tmp->value = nullptr;
+
+    if (this->Match(TokenType::END_OF_LINE, TokenType::END_OF_FILE, TokenType::SEMICOLON)) {
+        Release(tmp);
+        return (Node *) ErrorFormat(type_syntax_error_, "expected expression after yield");
+    }
+
+    if ((tmp->value = this->ParseExpr(EXPR_NO_ASSIGN)) == nullptr) {
+        Release(tmp);
+        return nullptr;
+    }
+
+    tmp->end = ((Node *) tmp->value)->end;
 
     return tmp;
 }
@@ -1616,6 +1648,9 @@ Node *Parser::ParseStatement() {
                     break;
                 case TokenType::RETURN:
                     tmp = this->ParseReturn();
+                    break;
+                case TokenType::YIELD:
+                    tmp = this->ParseYield();
                     break;
                 case TokenType::IMPORT:
                     tmp = this->ParseImport();
