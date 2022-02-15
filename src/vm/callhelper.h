@@ -42,6 +42,13 @@ namespace argon::vm {
 
         void ClearCall() const;
     };
+
+    bool CallHelperInit(CallHelper *helper, Frame *frame);
+
+    bool CallHelperInit(CallHelper *helper, argon::object::ArObject **argv, int argc);
+
+    bool CallHelperCall(CallHelper *helper, Frame *frame, argon::object::ArObject **result);
+
 } // namespace argon::vm
 
 #endif // !ARGON_VM_CALLHELPER_H_

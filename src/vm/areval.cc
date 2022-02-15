@@ -264,34 +264,17 @@ ArObject *argon::vm::Eval(ArRoutine *routine) {
             }
             TARGET_OP(CALL) {
                 CallHelper helper{};
-                Frame *fn_frame;
 
-                if (!helper.PrepareCall(cu_frame))
+                if (!CallHelperInit(&helper, cu_frame))
                     goto error;
 
-                if (helper.IsPartialApplication()) {
-                    if ((ret = helper.MkCurrying()) == nullptr)
-                        goto error;
-
-                    PUSH(ret);
-                    DISPATCH4();
-                }
-
-                if (!helper.CheckVariadic())
+                if (!CallHelperCall(&helper, cu_frame, &ret))
                     goto error;
 
-                if (helper.func->IsNative()) {
-                    STWCheckpoint();
-
-                    ret = FunctionCallNative(helper.func, helper.params, helper.local_args);
-                    helper.ClearCall();
-
-                    if (ret == nullptr)
-                        goto error;
-
+                if (ret != nullptr) {
                     PUSH(ret);
 
-                    if (routine->status == ArRoutineStatus::SUSPENDED) {
+                    if (GetRoutine()->status == ArRoutineStatus::SUSPENDED) {
                         cu_frame->instr_ptr += sizeof(argon::lang::Instr32);
                         return nullptr;
                     }
@@ -299,20 +282,6 @@ ArObject *argon::vm::Eval(ArRoutine *routine) {
                     DISPATCH4();
                 }
 
-                // Argon Code
-                // TODO: check proxy_globals
-                if ((fn_frame = FrameNew(helper.func->code, helper.func->gns, nullptr)) == nullptr) {
-                    helper.ClearCall();
-                    goto error;
-                }
-
-                FrameFillForCall(fn_frame, helper.func, helper.params, helper.local_args);
-                helper.ClearCall();
-
-                // Invoke:
-                cu_frame->instr_ptr += sizeof(argon::lang::Instr32);
-                fn_frame->back = cu_frame;
-                routine->frame = fn_frame;
                 goto begin;
             }
             TARGET_OP(CMP) {
