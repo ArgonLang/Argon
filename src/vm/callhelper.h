@@ -15,7 +15,6 @@
 
 namespace argon::vm {
     struct CallHelper {
-        Frame *frame;
         argon::object::Function *func;
         argon::object::List *list_params;
         argon::object::ArObject **params;
@@ -25,22 +24,6 @@ namespace argon::vm {
         unsigned short stack_offset;
         unsigned short local_args;
         unsigned short total_args;
-
-        [[nodiscard]] argon::object::ArObject *BindCall();
-
-        [[nodiscard]] argon::object::ArObject *MkCurrying() const;
-
-        bool CallSpreadExpansion();
-
-        bool CheckVariadic();
-
-        [[nodiscard]] bool IsPartialApplication() const;
-
-        bool PrepareCall(Frame *wframe);
-
-        bool SpawnFunction(ArRoutine *routine);
-
-        void ClearCall() const;
     };
 
     bool CallHelperInit(CallHelper *helper, Frame *frame);
@@ -48,6 +31,10 @@ namespace argon::vm {
     bool CallHelperInit(CallHelper *helper, argon::object::ArObject **argv, int argc);
 
     bool CallHelperCall(CallHelper *helper, Frame *frame, argon::object::ArObject **result);
+
+    bool CallHelperSpawn(CallHelper *helper, Frame *frame);
+
+    [[nodiscard]] argon::object::Function *CallHelperBind(CallHelper *helper, Frame *frame);
 
 } // namespace argon::vm
 

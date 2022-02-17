@@ -298,10 +298,10 @@ ArObject *argon::vm::Eval(ArRoutine *routine) {
             TARGET_OP(DFR) {
                 CallHelper helper{};
 
-                if (!helper.PrepareCall(cu_frame))
+                if (!CallHelperInit(&helper, cu_frame))
                     goto error;
 
-                if ((ret = helper.BindCall()) == nullptr)
+                if ((ret = CallHelperBind(&helper, cu_frame)) == nullptr)
                     goto error;
 
                 RoutineNewDefer(routine, ret);
@@ -781,10 +781,10 @@ ArObject *argon::vm::Eval(ArRoutine *routine) {
             TARGET_OP(SPWN) {
                 CallHelper helper{};
 
-                if (!helper.PrepareCall(cu_frame))
+                if (!CallHelperInit(&helper, cu_frame))
                     goto error;
 
-                if (!helper.SpawnFunction(routine))
+                if (!CallHelperSpawn(&helper, cu_frame))
                     goto error;
 
                 DISPATCH4();
