@@ -84,7 +84,7 @@ void argon::vm::RoutineReset(ArRoutine *routine, ArRoutineStatus status) {
         routine->next = nullptr;
 
         if (routine->frame != nullptr)
-            FrameDel(routine->frame);
+            Release(routine->frame);
         routine->frame = nullptr;
 
         RoutinePopPanics(routine);

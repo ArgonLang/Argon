@@ -191,7 +191,7 @@ bool argon::vm::CallHelperCall(CallHelper *helper, Frame *frame, ArObject **resu
         return false;
     }
 
-    FrameFillForCall(fn_frame, helper->func, helper->params, helper->local_args);
+    FrameFill(fn_frame, helper->func, helper->params, helper->local_args);
     CallHelperClear(helper, frame);
 
     // Invoke
@@ -227,10 +227,10 @@ bool argon::vm::CallHelperSpawn(CallHelper *helper, Frame *frame) {
         goto error;
 
     if (s_func != nullptr)
-        FrameFillForCall(s_frame, s_func, nullptr, 0);
+        FrameFill(s_frame, s_func, nullptr, 0);
 
     if ((s_routine = RoutineNew(s_frame, GetRoutine())) == nullptr) {
-        FrameDel(s_frame);
+        Release(s_frame);
         goto error;
     }
 

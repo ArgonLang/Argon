@@ -6,9 +6,9 @@
 #define ARGON_VM_AR_ROUTINE_H_
 
 #include <object/arobject.h>
+#include <object/datatype/frame.h>
 
 #include "context.h"
-#include "frame.h"
 
 #define ARGON_VM_QUEUE_MAX_ROUTINES 255
 
@@ -40,7 +40,7 @@ namespace argon::vm {
         Defer *defer;
 
         /* Pointer to frame that has generated this defer */
-        Frame *frame;
+        argon::object::Frame *frame;
 
         /* Pointer to function object */
         argon::object::ArObject *function;
@@ -51,7 +51,7 @@ namespace argon::vm {
         ArRoutine *next;
 
         /* Current execution frame */
-        Frame *frame;
+        argon::object::Frame *frame;
 
         /* Pointer to head of deferred stack */
         Defer *defer;
@@ -83,13 +83,13 @@ namespace argon::vm {
 
     ArRoutine *RoutineNew(ArRoutineStatus status);
 
-    ArRoutine *RoutineNew(Frame *frame, ArRoutineStatus status);
+    ArRoutine *RoutineNew(argon::object::Frame *frame, ArRoutineStatus status);
 
-    inline ArRoutine *RoutineNew(Frame *frame) { return RoutineNew(frame, ArRoutineStatus::RUNNABLE); }
+    inline ArRoutine *RoutineNew(argon::object::Frame *frame) { return RoutineNew(frame, ArRoutineStatus::RUNNABLE); }
 
-    ArRoutine *RoutineNew(Frame *frame, ArRoutine *routine, ArRoutineStatus status);
+    ArRoutine *RoutineNew(argon::object::Frame *frame, ArRoutine *routine, ArRoutineStatus status);
 
-    inline ArRoutine *RoutineNew(Frame *frame, ArRoutine *routine) {
+    inline ArRoutine *RoutineNew(argon::object::Frame *frame, ArRoutine *routine) {
         return RoutineNew(frame, routine, ArRoutineStatus::RUNNABLE);
     }
 

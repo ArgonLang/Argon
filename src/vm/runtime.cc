@@ -424,9 +424,9 @@ ArObject *argon::vm::Call(ArObject *callable, int argc, ArObject **args) {
         return FunctionCallNative(func, args, argc);
 
     if ((frame = FrameNew(func->code, func->gns, nullptr)) != nullptr) {
-        FrameFillForCall(frame, func, args, argc);
+        FrameFill(frame, func, args, argc);
         result = Eval(GetRoutine(), frame);
-        FrameDel(frame);
+        Release(frame);
     }
 
     if (IsPanicking())
@@ -528,7 +528,7 @@ bool argon::vm::CanSpin() {
 
     // Check for a nested, non-interruptible call to Eval
     for (Frame *cursor = GetRoutine()->frame->back; cursor != nullptr; cursor = cursor->back) {
-        if (FRAME_TAGGED(cursor))
+        if (cursor->IsMain())
             return false;
     }
 

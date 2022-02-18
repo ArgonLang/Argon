@@ -5,6 +5,7 @@
 #include <object/arobject.h>
 #include <object/datatype/bool.h>
 #include <object/datatype/error.h>
+#include <object/datatype/frame.h>
 #include <object/datatype/nil.h>
 #include <object/datatype/list.h>
 #include <object/datatype/tuple.h>
@@ -98,7 +99,7 @@ Namespace *BuildNamespace(ArRoutine *routine, Code *code) {
     }
 
     Release(Eval(routine, frame));
-    FrameDel(frame);
+    Release(frame);
 
     return ns;
 }
@@ -148,7 +149,7 @@ bool ExecDefer(ArRoutine *routine) {
             if ((frame = FrameNew(func->code, func->gns, nullptr)) == nullptr)
                 return false;
 
-            FrameFillForCall(frame, func, nullptr, 0);
+            FrameFill(frame, func, nullptr, 0);
 
             frame->back = routine->frame;
             routine->frame = frame;
@@ -173,10 +174,14 @@ bool ExecDefer(ArRoutine *routine) {
 ArObject *argon::vm::Eval(ArRoutine *routine, Frame *frame) {
     ArObject *ret;
 
-    frame->back = FRAME_TAG(routine->frame);
+    frame->SetMain();
+
+    frame->back = routine->frame;
     routine->frame = frame;
     ret = Eval(routine);
-    routine->frame = FRAME_UNTAG(frame->back);
+    routine->frame = frame->back;
+
+    frame->UnsetMain();
 
     return ret;
 }
@@ -935,7 +940,7 @@ ArObject *argon::vm::Eval(ArRoutine *routine) {
             return nullptr;
         }
 
-        if (routine->frame->back == nullptr || FRAME_TAGGED(routine->frame->back))
+        if (routine->frame->back == nullptr || routine->frame->IsMain())
             break;
 
         routine->frame = cu_frame->back;
@@ -949,7 +954,7 @@ ArObject *argon::vm::Eval(ArRoutine *routine) {
 
             *routine->frame->eval_stack = IncRef(ret);
             routine->frame->eval_stack++;
-            FrameDel(cu_frame);
+            Release(cu_frame);
 
             if (RoutineIsPanicking(routine)) {
                 cu_frame = routine->frame;  // set cu_frame before jump to error
@@ -959,7 +964,7 @@ ArObject *argon::vm::Eval(ArRoutine *routine) {
             goto begin;
         }
 
-        FrameDel(cu_frame);
+        Release(cu_frame);
         cu_frame = routine->frame;  // set cu_frame before execute another defer
         RoutinePopDefer(routine);
     }

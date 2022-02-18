@@ -234,7 +234,7 @@ ArObject *argon::vm::EvalCode(Code *code, Namespace *globals) {
 
     if ((frame = FrameNew(code, globals, nullptr)) != nullptr) {
         res = Eval(GetRoutine(), frame);
-        FrameDel(frame);
+        Release(frame);
     }
 
     return res;

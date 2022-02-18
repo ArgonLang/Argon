@@ -8,10 +8,9 @@
 #include <lang/opcodes.h>
 
 #include <object/arobject.h>
+#include <object/datatype/frame.h>
 #include <object/datatype/function.h>
 #include <object/datatype/list.h>
-
-#include "frame.h"
 
 namespace argon::vm {
     struct CallHelper {
@@ -26,15 +25,15 @@ namespace argon::vm {
         unsigned short total_args;
     };
 
-    bool CallHelperInit(CallHelper *helper, Frame *frame);
+    bool CallHelperInit(CallHelper *helper, argon::object::Frame *frame);
 
     bool CallHelperInit(CallHelper *helper, argon::object::ArObject **argv, int argc);
 
-    bool CallHelperCall(CallHelper *helper, Frame *frame, argon::object::ArObject **result);
+    bool CallHelperCall(CallHelper *helper, argon::object::Frame *frame, argon::object::ArObject **result);
 
-    bool CallHelperSpawn(CallHelper *helper, Frame *frame);
+    bool CallHelperSpawn(CallHelper *helper, argon::object::Frame *frame);
 
-    [[nodiscard]] argon::object::Function *CallHelperBind(CallHelper *helper, Frame *frame);
+    [[nodiscard]] argon::object::Function *CallHelperBind(CallHelper *helper, argon::object::Frame *frame);
 
 } // namespace argon::vm
 

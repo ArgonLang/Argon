@@ -303,7 +303,7 @@ ARGON_FUNCTION5(import_, source_loader,
             goto error;
 
         Release(Eval(GetRoutine(), frame));
-        FrameDel(frame);
+        Release(frame);
 
         if (IsPanicking())
             goto error;

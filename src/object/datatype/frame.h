@@ -2,20 +2,25 @@
 //
 // Licensed under the Apache License v2.0
 
-#ifndef ARGON_VM_FRAME_H_
-#define ARGON_VM_FRAME_H_
+#ifndef ARGON_OBJECT_FRAME_H_
+#define ARGON_OBJECT_FRAME_H_
 
 #include <object/datatype/code.h>
 #include <object/datatype/function.h>
 #include <object/datatype/list.h>
 #include <object/datatype/namespace.h>
 
-#define FRAME_TAG(frame_addr)       (Frame *) ((ArSize) (frame_addr) | 0x01)
-#define FRAME_UNTAG(frame_addr)     (Frame *) ((ArSize) (frame_addr) & ~0x01)
-#define FRAME_TAGGED(frame_addr)    (((ArSize) (frame_addr) & 0x01) == 0x01)
+#include <object/arobject.h>
 
-namespace argon::vm {
-    struct Frame {
+namespace argon::object {
+    enum class FrameFlags {
+        CLEAR = 0,
+        MAIN = 1
+    };
+
+    struct Frame : ArObject {
+        FrameFlags flags;
+
         /* Previous frame (caller) */
         Frame *back;
 
@@ -48,14 +53,25 @@ namespace argon::vm {
 
         /* At the end of each frame there is allocated space for(in this order): eval_stack + local_variables */
         object::ArObject *stack_extra_base[];
+
+        [[nodiscard]] bool IsMain() {
+            return this->flags == FrameFlags::MAIN;
+        }
+
+        void SetMain() {
+            this->flags = FrameFlags::MAIN;
+        }
+
+        void UnsetMain() {
+            this->flags = FrameFlags::CLEAR;
+        }
     };
 
-    Frame *FrameNew(object::Code *code,object::Namespace *globals, object::Namespace *proxy_globals);
+    extern const TypeInfo *type_frame_;
 
-    void FrameDel(Frame *frame);
+    Frame *FrameNew(Code *code, Namespace *globals, Namespace *proxy);
 
-    void FrameFillForCall(Frame *frame, object::Function *callable, object::ArObject **argv, object::ArSize argc);
+    void FrameFill(Frame *frame, Function *callable, ArObject **argv, ArSize argc);
+}
 
-} // namespace argon::vm
-
-#endif // !ARGON_VM_FRAME_H_
+#endif // !ARGON_OBJECT_FRAME_H_
