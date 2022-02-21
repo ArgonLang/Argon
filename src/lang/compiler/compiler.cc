@@ -1003,6 +1003,17 @@ bool Compiler::CompileSwitchCase(Binary *binary, BasicBlock **ltest, BasicBlock 
     ArObject *iter;
     Node *tmp;
 
+    if ((*lbody)->i_size > 0) {
+        // Switch to bodies thread
+        this->unit_->bb.cur = *lbody;
+
+        if ((*lbody = TranslationUnitBlockNew(this->unit_)) == nullptr)
+            return false;
+
+        // Return to test thread
+        this->unit_->bb.cur = *ltest;
+    }
+
     if (binary->left != nullptr) {
         if ((iter = IteratorGet(binary->left)) == nullptr)
             return false;
@@ -1031,13 +1042,6 @@ bool Compiler::CompileSwitchCase(Binary *binary, BasicBlock **ltest, BasicBlock 
 
     // Switch to bodies thread
     this->unit_->bb.cur = *lbody;
-    if ((*lbody)->i_size > 0) {
-        if (TranslationUnitBlockNew(this->unit_) == nullptr)
-            return false;
-
-        if (binary->left != nullptr)
-            test_curr->instr.tail->jmp = this->unit_->bb.cur; // Adjust jump to correct block
-    }
 
     if (binary->left == nullptr && *_default == nullptr)
         *_default = this->unit_->bb.cur;
