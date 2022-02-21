@@ -185,14 +185,28 @@ bool argon::vm::CallHelperCall(CallHelper *helper, Frame *frame, ArObject **resu
         return *result != nullptr;
     }
 
-    // Call ArgonCode
-    if ((fn_frame = FrameNew(helper->func->code, helper->func->gns, nullptr)) == nullptr) {
-        CallHelperClear(helper, frame);
-        return false;
+    if (!helper->func->IsGenerator() || (fn_frame = (Frame *) helper->func->GetStatus()) == nullptr) {
+        if ((fn_frame = FrameNew(helper->func->code, helper->func->gns, nullptr)) == nullptr) {
+            CallHelperClear(helper, frame);
+            return false;
+        }
+
+        FrameFill(fn_frame, helper->func, helper->params, helper->local_args);
     }
 
-    FrameFill(fn_frame, helper->func, helper->params, helper->local_args);
     CallHelperClear(helper, frame);
+
+    if (helper->func->IsGenerator() && helper->func->status == nullptr) {
+        *result = FunctionNewStatus(helper->func, fn_frame);
+        Release(fn_frame);
+        return *result != nullptr;
+    }
+
+    if (fn_frame->eval_stack == nullptr) {
+        Release(fn_frame);
+        ErrorFormat(type_runtime_error_, "%s() exhausted", helper->func->qname->buffer);
+        return false;
+    }
 
     // Invoke
     frame->instr_ptr += sizeof(argon::lang::Instr32);
@@ -253,6 +267,11 @@ bool argon::vm::CallHelperSpawn(CallHelper *helper, Frame *frame) {
 
 Function *argon::vm::CallHelperBind(CallHelper *helper, Frame *frame) {
     Function *ret = nullptr;
+
+    if (helper->func->IsGenerator()) {
+        ErrorFormat(type_type_error_, "generator %s() not allowed here", helper->func->name->buffer);
+        goto ERROR;
+    }
 
     if (helper->total_args < helper->func->arity) {
         ErrorFormat(type_type_error_, "%s() takes %d argument, but %d were given",

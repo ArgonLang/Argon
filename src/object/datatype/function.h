@@ -55,6 +55,9 @@ namespace argon::object {
         /* Pointer to the global namespace in which this function is declared */
         Namespace *gns;
 
+        /* Pointer to status object (if this function is a Generator) */
+        ArObject *status;
+
         /* Arity of the function, how many args accepts in input?! */
         unsigned short arity;
 
@@ -78,6 +81,18 @@ namespace argon::object {
         [[nodiscard]] bool IsVariadic() const {
             return ENUMBITMASK_ISTRUE(this->flags, FunctionFlags::VARIADIC);
         }
+
+        [[nodiscard]] bool IsGenerator() const {
+            return ENUMBITMASK_ISTRUE(this->flags, FunctionFlags::GENERATOR);
+        }
+
+        [[nodiscard]] bool IsRecoverable() const {
+            return ENUMBITMASK_ISTRUE(this->flags, FunctionFlags::GENERATOR) && this->status != nullptr;
+        }
+
+        [[nodiscard]] ArObject *GetStatus() const {
+            return IncRef(this->status);
+        };
     };
 
     extern const TypeInfo *type_function_;
@@ -88,6 +103,8 @@ namespace argon::object {
     Function *FunctionNew(Namespace *gns, TypeInfo *base, const NativeFunc *native, bool method);
 
     Function *FunctionNew(const Function *func, List *currying);
+
+    Function *FunctionNewStatus(const Function *func, ArObject *status);
 
     ArObject *FunctionCallNative(Function *func, ArObject **args, ArSize count);
 

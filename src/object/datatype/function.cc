@@ -39,6 +39,16 @@ ArSize function_hash(Function *self) {
 }
 
 ArObject *function_str(Function *self) {
+    if (self->IsGenerator()) {
+        if (self->status != nullptr)
+            return StringNewFormat("<recoverable function %s at %p>", self->qname->buffer, self);
+
+        return StringNewFormat("<generator function %s at %p>", self->qname->buffer, self);
+    }
+
+    if (self->IsNative())
+        return StringNewFormat("<native function %s at %p>", self->qname->buffer, self);
+
     return StringNewFormat("<function %s at %p>", self->qname->buffer, self);
 }
 
@@ -103,6 +113,7 @@ Function *CloneFn(const Function *func) {
         fn->enclosed = IncRef(func->enclosed);
         fn->base = IncRef(func->base);
         fn->gns = IncRef(func->gns);
+        fn->status = nullptr;
         fn->arity = func->arity;
         fn->flags = func->flags;
     }
@@ -110,9 +121,8 @@ Function *CloneFn(const Function *func) {
     return fn;
 }
 
-Function *
-argon::object::FunctionNew(Namespace *gns, String *name, String *doc, Code *code, List *enclosed, unsigned short arity,
-                           FunctionFlags flags) {
+Function *argon::object::FunctionNew(Namespace *gns, String *name, String *doc, Code *code,
+                                     List *enclosed, unsigned short arity, FunctionFlags flags) {
     auto fn = ArObjectGCNewTrack<Function>(type_function_);
     ArSSize last_sep;
 
@@ -123,6 +133,7 @@ argon::object::FunctionNew(Namespace *gns, String *name, String *doc, Code *code
         fn->enclosed = IncRef(enclosed);
         fn->base = nullptr;
         fn->gns = IncRef(gns);
+        fn->status = nullptr;
         fn->arity = arity;
         fn->flags = flags;
 
@@ -199,6 +210,18 @@ Function *argon::object::FunctionNew(const Function *func, List *currying) {
     fn->currying = merged;
 
     return fn;
+}
+
+Function *argon::object::FunctionNewStatus(const Function *func, ArObject *status) {
+    Function *clone;
+
+    if ((clone = CloneFn(func)) == nullptr)
+        return nullptr;
+
+    clone->arity = 0;
+    clone->status = IncRef(status);
+
+    return clone;
 }
 
 ArObject *argon::object::FunctionCallNative(Function *func, ArObject **args, ArSize count) {

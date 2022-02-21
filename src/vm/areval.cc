@@ -749,9 +749,7 @@ ArObject *argon::vm::Eval(ArRoutine *routine) {
                 DISPATCH();
             }
             TARGET_OP(POP) {
-                // DO NOT RELEASE, it may be returned as a return value!
-                Release(cu_frame->return_value);
-                cu_frame->return_value = TOP_BACK();
+                POP();
                 DISPATCH();
             }
             TARGET_OP(POS) {
@@ -912,6 +910,25 @@ ArObject *argon::vm::Eval(ArRoutine *routine) {
 
                 Release(ret);
                 DISPATCH4();
+            }
+            TARGET_OP(YLD) {
+                cu_frame->instr_ptr += sizeof(argon::lang::Instr8);
+
+                if (routine->frame->back == nullptr || routine->frame->IsMain()) {
+                    ret = TOP_BACK();
+                    Release(cu_frame);
+                    return ret;
+                }
+
+                routine->frame = cu_frame->back;
+                routine->recursion_depth--;
+
+                *routine->frame->eval_stack = TOP_BACK();
+                routine->frame->eval_stack++;
+
+                Release(cu_frame);
+
+                goto begin;
             }
             default:
                 ErrorFormat(type_runtime_error_, "unknown opcode: 0x%X", (unsigned char) (*cu_frame->instr_ptr));
