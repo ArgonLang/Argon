@@ -14,6 +14,8 @@ using namespace argon::object;
 void frame_cleanup(Frame *self) {
     Code *code = self->code;
 
+    self->lock.~Mutex();
+
     if (code->locals != nullptr) {
         for (ArSize i = 0; i < code->locals->len; i++)
             Release(self->locals[i]);
@@ -81,6 +83,8 @@ Frame *argon::object::FrameNew(Code *code, Namespace *globals, Namespace *proxy)
         frame->type = IncRef((TypeInfo *) type_frame_);
 
         Track(frame);
+
+        new(&frame->lock)argon::vm::sync::Mutex();
 
         frame->flags = FrameFlags::CLEAR;
         frame->back = nullptr;

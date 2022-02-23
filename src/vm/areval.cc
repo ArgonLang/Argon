@@ -99,7 +99,7 @@ Namespace *BuildNamespace(ArRoutine *routine, Code *code) {
     }
 
     Release(Eval(routine, frame));
-    Release(frame);
+    FrameDel(frame);
 
     return ns;
 }
@@ -914,11 +914,8 @@ ArObject *argon::vm::Eval(ArRoutine *routine) {
             TARGET_OP(YLD) {
                 cu_frame->instr_ptr += sizeof(argon::lang::Instr8);
 
-                if (routine->frame->back == nullptr || routine->frame->IsMain()) {
-                    ret = TOP_BACK();
-                    Release(cu_frame);
-                    return ret;
-                }
+                if (routine->frame->back == nullptr || routine->frame->IsMain())
+                    return TOP_BACK();
 
                 routine->frame = cu_frame->back;
                 routine->recursion_depth--;
@@ -926,8 +923,7 @@ ArObject *argon::vm::Eval(ArRoutine *routine) {
                 *routine->frame->eval_stack = TOP_BACK();
                 routine->frame->eval_stack++;
 
-                Release(cu_frame);
-
+                FrameDel(cu_frame);
                 goto begin;
             }
             default:
@@ -971,7 +967,7 @@ ArObject *argon::vm::Eval(ArRoutine *routine) {
 
             *routine->frame->eval_stack = IncRef(ret);
             routine->frame->eval_stack++;
-            Release(cu_frame);
+            FrameDel(cu_frame);
 
             if (RoutineIsPanicking(routine)) {
                 cu_frame = routine->frame;  // set cu_frame before jump to error
@@ -981,7 +977,7 @@ ArObject *argon::vm::Eval(ArRoutine *routine) {
             goto begin;
         }
 
-        Release(cu_frame);
+        FrameDel(cu_frame);
         cu_frame = routine->frame;  // set cu_frame before execute another defer
         RoutinePopDefer(routine);
     }

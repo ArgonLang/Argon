@@ -10,7 +10,6 @@
 #include <vm/arroutine.h>
 
 namespace argon::vm::sync {
-
     class ArRoutineNotifyQueue {
         ArRoutine *head_ = nullptr;
         ArRoutine *tail_ = nullptr;

@@ -5,6 +5,8 @@
 #ifndef ARGON_OBJECT_FRAME_H_
 #define ARGON_OBJECT_FRAME_H_
 
+#include <vm/sync/mutex.h>
+
 #include <object/datatype/code.h>
 #include <object/datatype/function.h>
 #include <object/datatype/list.h>
@@ -20,6 +22,8 @@ namespace argon::object {
 
     struct Frame : ArObject {
         FrameFlags flags;
+
+        argon::vm::sync::Mutex lock;
 
         /* Previous frame (caller) */
         Frame *back;
@@ -54,12 +58,20 @@ namespace argon::object {
         /* At the end of each frame there is allocated space for(in this order): eval_stack + local_variables */
         object::ArObject *stack_extra_base[];
 
-        [[nodiscard]] bool IsMain() {
+        bool IsMain() const {
             return this->flags == FrameFlags::MAIN;
+        }
+
+        bool Lock() {
+            return this->lock.Lock();
         }
 
         void SetMain() {
             this->flags = FrameFlags::MAIN;
+        }
+
+        void Unlock() {
+            this->lock.Unlock();
         }
 
         void UnsetMain() {
@@ -72,6 +84,11 @@ namespace argon::object {
     Frame *FrameNew(Code *code, Namespace *globals, Namespace *proxy);
 
     void FrameFill(Frame *frame, Function *callable, ArObject **argv, ArSize argc);
+
+    inline void FrameDel(Frame *frame){
+        frame->Unlock();
+        Release(frame);
+    }
 }
 
 #endif // !ARGON_OBJECT_FRAME_H_

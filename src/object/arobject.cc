@@ -8,6 +8,7 @@
 
 #include <object/datatype/bool.h>
 #include <object/datatype/error.h>
+#include <object/datatype/frame.h>
 #include <object/datatype/function.h>
 #include <object/datatype/nil.h>
 #include <object/datatype/nativewrap.h>

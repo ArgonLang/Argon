@@ -194,16 +194,23 @@ bool argon::vm::CallHelperCall(CallHelper *helper, Frame *frame, ArObject **resu
         FrameFill(fn_frame, helper->func, helper->params, helper->local_args);
     }
 
-    CallHelperClear(helper, frame);
+    if (helper->func->IsGenerator()) {
+        if (helper->func->status == nullptr) {
+            *result = FunctionNewStatus(helper->func, fn_frame);
+            FrameDel(fn_frame);
+            CallHelperClear(helper, frame);
+            return *result != nullptr;
+        }
 
-    if (helper->func->IsGenerator() && helper->func->status == nullptr) {
-        *result = FunctionNewStatus(helper->func, fn_frame);
-        Release(fn_frame);
-        return *result != nullptr;
+        // Lock frame
+        if (!fn_frame->Lock())
+            return false;
     }
 
+    CallHelperClear(helper, frame);
+
     if (fn_frame->eval_stack == nullptr) {
-        Release(fn_frame);
+        FrameDel(fn_frame);
         ErrorFormat(type_runtime_error_, "%s() exhausted", helper->func->qname->buffer);
         return false;
     }
@@ -244,7 +251,7 @@ bool argon::vm::CallHelperSpawn(CallHelper *helper, Frame *frame) {
         FrameFill(s_frame, s_func, nullptr, 0);
 
     if ((s_routine = RoutineNew(s_frame, GetRoutine())) == nullptr) {
-        Release(s_frame);
+        FrameDel(s_frame);
         goto error;
     }
 

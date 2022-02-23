@@ -5,12 +5,14 @@
 #ifndef ARGON_VM_AR_ROUTINE_H_
 #define ARGON_VM_AR_ROUTINE_H_
 
-#include <object/arobject.h>
-#include <object/datatype/frame.h>
-
 #include "context.h"
 
 #define ARGON_VM_QUEUE_MAX_ROUTINES 255
+
+namespace argon::object {
+    struct ArObject;
+    struct Frame;
+}
 
 namespace argon::vm {
 

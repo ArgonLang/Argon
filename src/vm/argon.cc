@@ -2,8 +2,6 @@
 //
 // Licensed under the Apache License v2.0
 
-#include <iostream>
-
 #include <object/datatype/integer.h>
 #include <object/datatype/error.h>
 #include <object/datatype/nil.h>
@@ -234,7 +232,7 @@ ArObject *argon::vm::EvalCode(Code *code, Namespace *globals) {
 
     if ((frame = FrameNew(code, globals, nullptr)) != nullptr) {
         res = Eval(GetRoutine(), frame);
-        Release(frame);
+        FrameDel(frame);
     }
 
     return res;

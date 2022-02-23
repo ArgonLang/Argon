@@ -2,7 +2,9 @@
 //
 // Licensed under the Apache License v2.0
 
+#include <object/datatype/frame.h>
 #include <object/arobject.h>
+
 #include "arroutine.h"
 
 using namespace argon::vm;
@@ -84,7 +86,7 @@ void argon::vm::RoutineReset(ArRoutine *routine, ArRoutineStatus status) {
         routine->next = nullptr;
 
         if (routine->frame != nullptr)
-            Release(routine->frame);
+            FrameDel(routine->frame);
         routine->frame = nullptr;
 
         RoutinePopPanics(routine);
