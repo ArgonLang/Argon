@@ -21,7 +21,7 @@ namespace argon::vm {
     argon::object::ArObject *Call(argon::object::ArObject *callable, int argc, ...);
 
     argon::object::ArObject *
-    CallMethod(argon::object::ArObject *instance, const char *name, int argc, argon::object::ArObject **args);
+    CallMethod(const argon::object::ArObject *instance, const char *name, int argc, argon::object::ArObject **args);
 
     ArRoutine *GetRoutine();
 

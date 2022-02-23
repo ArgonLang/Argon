@@ -27,7 +27,7 @@ ArObject *RestElementToList(ArObject **args, ArSize count) {
 }
 
 bool SpreadExpansion(CallHelper *helper) {
-    ArObject *spread_obj = helper->params[helper->local_args - 1];
+    const ArObject *spread_obj = helper->params[helper->local_args - 1];
 
     // TODO: check spread_obj
 
@@ -42,7 +42,7 @@ bool SpreadExpansion(CallHelper *helper) {
         return false;
     }
 
-    helper->local_args = helper->list_params->len;
+    helper->local_args = (unsigned short) helper->list_params->len;
     helper->params = helper->list_params->objects;
 
     return true;
@@ -64,8 +64,8 @@ bool CheckArity(CallHelper *helper) {
                 return false;
 
             // TODO: CHECK NATIVE CALL
-            Release(helper->params[(helper->local_args - exceeded)]);
-            helper->params[(helper->local_args - exceeded)] = ret;
+            Release(helper->params[helper->local_args - exceeded]);
+            helper->params[helper->local_args - exceeded] = ret;
             helper->local_args -= exceeded - 1;
         }
     }
@@ -114,7 +114,7 @@ bool argon::vm::CallHelperInit(CallHelper *helper, Frame *frame) {
     helper->flags = (argon::lang::OpCodeCallFlags) argon::lang::I32ExtractFlag(frame->instr_ptr);
 
     // Extract number of argument passed in this call
-    helper->local_args = argon::lang::I32Arg(frame->instr_ptr);
+    helper->local_args = (unsigned short) argon::lang::I32Arg(frame->instr_ptr);
 
     // Extract function object
     helper->func = (Function *) *(frame->eval_stack - helper->local_args - 1);
@@ -134,10 +134,8 @@ bool argon::vm::CallHelperInit(CallHelper *helper, Frame *frame) {
     helper->params = frame->eval_stack - helper->local_args;
 
     helper->list_params = nullptr;
-    if (ENUMBITMASK_ISTRUE(helper->flags, argon::lang::OpCodeCallFlags::SPREAD)) {
-        if (!SpreadExpansion(helper))
-            return false;
-    }
+    if (ENUMBITMASK_ISTRUE(helper->flags, argon::lang::OpCodeCallFlags::SPREAD) && !SpreadExpansion(helper))
+        return false;
 
     helper->total_args = helper->local_args;
 
@@ -147,9 +145,15 @@ bool argon::vm::CallHelperInit(CallHelper *helper, Frame *frame) {
     return true;
 }
 
-bool argon::vm::CallHelperInit(CallHelper *helper, ArObject **argv, int argc) {
+bool argon::vm::CallHelperInit(CallHelper *helper, Function *callable, ArObject **argv, unsigned short argc) {
+    if (!AR_TYPEOF(callable, type_function_)) {
+        ErrorFormat(type_type_error_, "'%s' object is not callable", AR_TYPE_NAME(callable));
+        return false;
+    }
+
     argon::memory::MemoryZero(helper, sizeof(CallHelper));
 
+    helper->func = callable;
     helper->params = argv;
     helper->local_args = argc;
     helper->total_args = argc;
@@ -157,7 +161,7 @@ bool argon::vm::CallHelperInit(CallHelper *helper, ArObject **argv, int argc) {
     return true;
 }
 
-bool argon::vm::CallHelperCall(CallHelper *helper, Frame *frame, ArObject **result) {
+bool argon::vm::CallHelperCall(CallHelper *helper, Frame **in_out_frame, ArObject **result) {
     Frame *fn_frame;
 
     *result = nullptr;
@@ -165,14 +169,14 @@ bool argon::vm::CallHelperCall(CallHelper *helper, Frame *frame, ArObject **resu
     // Partial application
     if (helper->total_args < helper->func->arity) {
         if ((*result = MakePartialApplication(helper)) == nullptr) {
-            CallHelperClear(helper, frame);
+            CallHelperClear(helper, *in_out_frame);
             return false;
         }
         return true;
     }
 
     if (!CheckArity(helper)) {
-        CallHelperClear(helper, frame);
+        CallHelperClear(helper, *in_out_frame);
         return false;
     }
 
@@ -181,13 +185,13 @@ bool argon::vm::CallHelperCall(CallHelper *helper, Frame *frame, ArObject **resu
 
         *result = FunctionCallNative(helper->func, helper->params, helper->local_args);
 
-        CallHelperClear(helper, frame);
+        CallHelperClear(helper, *in_out_frame);
         return *result != nullptr;
     }
 
     if (!helper->func->IsGenerator() || (fn_frame = (Frame *) helper->func->GetStatus()) == nullptr) {
         if ((fn_frame = FrameNew(helper->func->code, helper->func->gns, nullptr)) == nullptr) {
-            CallHelperClear(helper, frame);
+            CallHelperClear(helper, *in_out_frame);
             return false;
         }
 
@@ -198,16 +202,16 @@ bool argon::vm::CallHelperCall(CallHelper *helper, Frame *frame, ArObject **resu
         if (helper->func->status == nullptr) {
             *result = FunctionNewStatus(helper->func, fn_frame);
             FrameDel(fn_frame);
-            CallHelperClear(helper, frame);
+            CallHelperClear(helper, *in_out_frame);
             return *result != nullptr;
         }
 
-        // Lock frame
+        // Lock in_out_frame
         if (!fn_frame->Lock())
             return false;
     }
 
-    CallHelperClear(helper, frame);
+    CallHelperClear(helper, *in_out_frame);
 
     if (fn_frame->eval_stack == nullptr) {
         FrameDel(fn_frame);
@@ -215,10 +219,7 @@ bool argon::vm::CallHelperCall(CallHelper *helper, Frame *frame, ArObject **resu
         return false;
     }
 
-    // Invoke
-    frame->instr_ptr += sizeof(argon::lang::Instr32);
-    fn_frame->back = frame;
-    GetRoutine()->frame = fn_frame;
+    *in_out_frame = fn_frame;
     return true;
 }
 
@@ -245,26 +246,26 @@ bool argon::vm::CallHelperSpawn(CallHelper *helper, Frame *frame) {
     }
 
     if ((s_frame = FrameNew(s_code, frame->globals, frame->proxy_globals)) == nullptr)
-        goto error;
+        goto ERROR;
 
     if (s_func != nullptr)
         FrameFill(s_frame, s_func, nullptr, 0);
 
     if ((s_routine = RoutineNew(s_frame, GetRoutine())) == nullptr) {
         FrameDel(s_frame);
-        goto error;
+        goto ERROR;
     }
 
     if (!Spawn(s_routine)) {
         // Do not attempt to call FrameDel here,
         // it will be invoked automatically by RoutineDel!
         RoutineDel(s_routine);
-        goto error;
+        goto ERROR;
     }
 
     ok = true;
 
-    error:
+    ERROR:
     if (s_func == nullptr)
         Release(s_code);
 

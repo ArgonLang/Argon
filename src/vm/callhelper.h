@@ -27,9 +27,9 @@ namespace argon::vm {
 
     bool CallHelperInit(CallHelper *helper, argon::object::Frame *frame);
 
-    bool CallHelperInit(CallHelper *helper, argon::object::ArObject **argv, int argc);
+    bool CallHelperInit(CallHelper *helper, argon::object::Function *callable, argon::object::ArObject **argv, unsigned short argc);
 
-    bool CallHelperCall(CallHelper *helper, argon::object::Frame *frame, argon::object::ArObject **result);
+    bool CallHelperCall(CallHelper *helper, argon::object::Frame **in_out_frame, argon::object::ArObject **result);
 
     bool CallHelperSpawn(CallHelper *helper, argon::object::Frame *frame);
 

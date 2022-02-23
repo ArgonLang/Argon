@@ -269,11 +269,12 @@ ArObject *argon::vm::Eval(ArRoutine *routine) {
             }
             TARGET_OP(CALL) {
                 CallHelper helper{};
+                Frame *fn_frame = cu_frame;
 
                 if (!CallHelperInit(&helper, cu_frame))
                     goto error;
 
-                if (!CallHelperCall(&helper, cu_frame, &ret))
+                if (!CallHelperCall(&helper, &fn_frame, &ret))
                     goto error;
 
                 if (ret != nullptr) {
@@ -287,6 +288,9 @@ ArObject *argon::vm::Eval(ArRoutine *routine) {
                     DISPATCH4();
                 }
 
+                cu_frame->instr_ptr += sizeof(argon::lang::Instr32);
+                fn_frame->back = cu_frame;
+                routine->frame = fn_frame;
                 goto begin;
             }
             TARGET_OP(CMP) {

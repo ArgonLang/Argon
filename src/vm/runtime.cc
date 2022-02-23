@@ -12,6 +12,7 @@
 #include "routinequeue.h"
 #include "runtime.h"
 #include "areval.h"
+#include "callhelper.h"
 
 using namespace argon::object;
 using namespace argon::vm;
@@ -413,24 +414,23 @@ void OSTWakeRun() {
 }
 
 ArObject *argon::vm::Call(ArObject *callable, int argc, ArObject **args) {
-    auto func = (Function *) callable;
+    CallHelper helper{};
     ArObject *result = nullptr;
-    Frame *frame;
+    Frame *frame = nullptr;
 
-    if (!AR_TYPEOF(callable, type_function_))
-        return ErrorFormat(type_type_error_, "'%s' object is not callable", AR_TYPE_NAME(func));
+    if(!CallHelperInit(&helper, (Function *) callable, args, argc))
+        return nullptr;
 
-    if (func->IsNative())
-        return FunctionCallNative(func, args, argc);
+    if (!CallHelperCall(&helper, &frame, &result))
+        return nullptr;
 
-    if ((frame = FrameNew(func->code, func->gns, nullptr)) != nullptr) {
-        FrameFill(frame, func, args, argc);
+    if (frame != nullptr) {
         result = Eval(GetRoutine(), frame);
-        Release(frame);
+        FrameDel(frame);
     }
 
     if (IsPanicking())
-        Release((ArObject **) &result);
+        Release(&result);
 
     return result;
 }
@@ -457,12 +457,13 @@ ArObject *argon::vm::Call(ArObject *callable, int argc, ...) {
     return result;
 }
 
-ArObject *argon::vm::CallMethod(ArObject *instance, const char *name, int argc, ArObject **args) {
+ArObject *argon::vm::CallMethod(const ArObject *instance, const char *name, int argc, ArObject **args) {
     ArObject *ret;
     ArObject *meth;
     bool meth_found;
 
-    if ((meth = InstanceGetMethod(instance, name, &meth_found)) == nullptr)
+    meth = InstanceGetMethod(instance, name, &meth_found);
+    if (meth == nullptr)
         return nullptr;
 
     ret = Call(meth, argc, args);
