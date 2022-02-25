@@ -58,7 +58,12 @@ namespace argon::object {
         /* At the end of each frame there is allocated space for(in this order): eval_stack + local_variables */
         object::ArObject *stack_extra_base[];
 
-        bool IsMain() const {
+        [[nodiscard]] bool IsExhausted() const {
+            return this->eval_stack == nullptr ||
+                   this->instr_ptr >= (this->code->instr + this->code->instr_sz);
+        }
+
+        [[nodiscard]] bool IsMain() const {
             return this->flags == FrameFlags::MAIN;
         }
 
@@ -85,7 +90,7 @@ namespace argon::object {
 
     void FrameFill(Frame *frame, Function *callable, ArObject **argv, ArSize argc);
 
-    inline void FrameDel(Frame *frame){
+    inline void FrameDel(Frame *frame) {
         frame->Unlock();
         Release(frame);
     }

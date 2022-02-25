@@ -213,7 +213,7 @@ bool argon::vm::CallHelperCall(CallHelper *helper, Frame **in_out_frame, ArObjec
 
     CallHelperClear(helper, *in_out_frame);
 
-    if (fn_frame->eval_stack == nullptr) {
+    if (fn_frame->IsExhausted()) {
         FrameDel(fn_frame);
         ErrorFormat(type_runtime_error_, "%s() exhausted", helper->func->qname->buffer);
         return false;
