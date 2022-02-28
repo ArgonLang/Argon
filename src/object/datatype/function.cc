@@ -2,6 +2,9 @@
 //
 // Licensed under the Apache License v2.0
 
+#include <vm/areval.h>
+#include <vm/runtime.h>
+
 #include <object/arobject.h>
 #include "bool.h"
 #include "function.h"
@@ -9,6 +12,45 @@
 
 using namespace argon::object;
 using namespace argon::memory;
+
+ArObject *function_next(Function *self) {
+    ArObject *result;
+    Frame *frame;
+
+    if (!self->IsGenerator())
+        return ErrorFormat(type_type_error_, "cannot call 'next' on a non-generator function %s",
+                           self->qname->buffer);
+
+    result = self->GetStatus();
+
+    if (result == nullptr)
+        return ErrorFormat(type_runtime_error_, "unable to call 'next' on uninitialized generator %s",
+                           self->qname->buffer);
+
+    if (self->IsNative()) {
+        Release(result);
+        return FunctionCallNative(self, nullptr, 0);
+    }
+
+    frame = (Frame *) result;
+
+    if (frame->IsExhausted()) {
+        FrameDel(frame);
+        return nullptr;
+    }
+
+    result = Eval(argon::vm::GetRoutine(), frame);
+    FrameDel(frame);
+
+    return result;
+}
+
+const IteratorSlots function_iter = {
+        nullptr,
+        (UnaryOp) function_next,
+        nullptr,
+        nullptr
+};
 
 bool function_is_true(Function *self) {
     return true;
@@ -52,6 +94,18 @@ ArObject *function_str(Function *self) {
     return StringNewFormat("<function %s at %p>", self->qname->buffer, self);
 }
 
+ArObject *function_iter_get(Function *self) {
+    if (!self->IsGenerator())
+        return ErrorFormat(type_type_error_, "cannot iterate over a non-generator function %s",
+                           self->qname->buffer);
+
+    if (self->status == nullptr)
+        return ErrorFormat(type_runtime_error_, "unable to iterate on uninitialized generator %s",
+                           self->qname->buffer);
+
+    return IncRef(self);
+}
+
 void function_trace(Function *self, VoidUnaryOp trace) {
     trace(self->currying);
     trace(self->enclosed);
@@ -83,10 +137,10 @@ const TypeInfo FunctionType = {
         (BoolUnaryOp) function_is_true,
         (SizeTUnaryOp) function_hash,
         (UnaryOp) function_str,
+        (UnaryOp) function_iter_get,
         nullptr,
         nullptr,
-        nullptr,
-        nullptr,
+        &function_iter,
         nullptr,
         nullptr,
         nullptr,
