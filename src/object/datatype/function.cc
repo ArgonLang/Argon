@@ -42,6 +42,11 @@ ArObject *function_next(Function *self) {
     result = Eval(argon::vm::GetRoutine(), frame);
     FrameDel(frame);
 
+    if(result == error_exhausted_generator){
+        Release(result);
+        return nullptr;
+    }
+
     return result;
 }
 

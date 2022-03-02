@@ -729,9 +729,16 @@ bool Compiler::CompileFunction(Construct *func) {
     if (this->unit_->bb.cur->instr.tail == nullptr
         || this->unit_->bb.cur->instr.tail->opcode != (unsigned char) OpCodes::RET) {
 
-        if (this->PushStatic(NilVal, true, true) < 0) {
-            Release(fname);
-            return false;
+        if (this->unit_->info->kind == SymbolType::GENERATOR) {
+            if (this->PushStatic(error_exhausted_generator, false, true) < 0) {
+                Release(fname);
+                return false;
+            }
+        } else {
+            if (this->PushStatic(NilVal, true, true) < 0) {
+                Release(fname);
+                return false;
+            }
         }
 
         if (!this->Emit(OpCodes::RET, 0, nullptr)) {

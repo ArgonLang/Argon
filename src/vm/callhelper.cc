@@ -215,7 +215,7 @@ bool argon::vm::CallHelperCall(CallHelper *helper, Frame **in_out_frame, ArObjec
 
     if (fn_frame->IsExhausted()) {
         FrameDel(fn_frame);
-        ErrorFormat(type_runtime_error_, "%s() exhausted", helper->func->qname->buffer);
+        ErrorFormat(type_exhausted_generator_, "%s() exhausted", helper->func->qname->buffer);
         return false;
     }
 
