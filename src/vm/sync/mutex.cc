@@ -32,6 +32,7 @@ bool Mutex::LockSlow() {
     // Slow
     ReleaseQueue();
 
+    current = false;
     if (this->flags_.compare_exchange_strong(current, true))
         return true;
 
@@ -60,7 +61,7 @@ bool Mutex::Unlock() {
     if (!this->flags_.compare_exchange_strong(current, false))
         return false;
 
-    if((routine = this->queue_.Notify()) != nullptr)
+    if ((routine = this->queue_.Notify()) != nullptr)
         Spawn(routine);
     else
         this->cond_.notify_one();
