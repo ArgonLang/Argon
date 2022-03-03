@@ -25,6 +25,10 @@ namespace argon::object {
 
         argon::vm::sync::Mutex lock;
 
+        /* Pointer to the ArRoutine in which this frame is executed */
+        /* Prevents deadlock when frame is invoked recursively by the frame itself in case of generator function */
+        argon::vm::ArRoutine *routine;
+
         /* Previous frame (caller) */
         Frame *back;
 
@@ -76,6 +80,7 @@ namespace argon::object {
         }
 
         void Unlock() {
+            this->routine = nullptr;
             this->lock.Unlock();
         }
 

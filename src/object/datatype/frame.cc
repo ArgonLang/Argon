@@ -87,6 +87,7 @@ Frame *argon::object::FrameNew(Code *code, Namespace *globals, Namespace *proxy)
         new(&frame->lock)argon::vm::sync::Mutex();
 
         frame->flags = FrameFlags::CLEAR;
+        frame->routine = nullptr;
         frame->back = nullptr;
         frame->globals = IncRef(globals);
         frame->proxy_globals = IncRef(proxy);

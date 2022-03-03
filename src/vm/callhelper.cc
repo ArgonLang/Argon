@@ -162,6 +162,7 @@ bool argon::vm::CallHelperInit(CallHelper *helper, Function *callable, ArObject 
 }
 
 bool argon::vm::CallHelperCall(CallHelper *helper, Frame **in_out_frame, ArObject **result) {
+    ArRoutine *routine;
     Frame *fn_frame;
 
     *result = nullptr;
@@ -206,9 +207,19 @@ bool argon::vm::CallHelperCall(CallHelper *helper, Frame **in_out_frame, ArObjec
             return *result != nullptr;
         }
 
+        routine = GetRoutine();
+
+        if (fn_frame->routine == routine) {
+            Release(fn_frame);
+            return ErrorFormat(type_runtime_error_, "unable to recursively call the same instance of %s generator",
+                               helper->func->qname->buffer);
+        }
+
         // Lock in_out_frame
         if (!fn_frame->Lock())
             return false;
+
+        fn_frame->routine = routine;
     }
 
     CallHelperClear(helper, *in_out_frame);
