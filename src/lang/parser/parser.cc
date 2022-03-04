@@ -1070,6 +1070,9 @@ Node *Parser::ParseIdentifier() {
     Unary *id;
     ArObject *str;
 
+    if (!this->Match(TokenType::IDENTIFIER, TokenType::BLANK, TokenType::SELF))
+        return (Node *) ErrorFormat(type_syntax_error_, "expected identifier");
+
     if ((id = ArObjectNew<Unary>(RCType::INLINE, type_ast_identifier_)) != nullptr) {
         if ((str = StringNew((const char *) this->tkcur_.buf)) == nullptr) {
             Release(id);
