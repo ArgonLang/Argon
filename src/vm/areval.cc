@@ -5,6 +5,7 @@
 #include <object/arobject.h>
 #include <object/datatype/bool.h>
 #include <object/datatype/error.h>
+#include <object/datatype/frame.h>
 #include <object/datatype/nil.h>
 #include <object/datatype/list.h>
 #include <object/datatype/tuple.h>
@@ -148,7 +149,7 @@ bool ExecDefer(ArRoutine *routine) {
             if ((frame = FrameNew(func->code, func->gns, nullptr)) == nullptr)
                 return false;
 
-            FrameFillForCall(frame, func, nullptr, 0);
+            FrameFill(frame, func, nullptr, 0);
 
             frame->back = routine->frame;
             routine->frame = frame;
@@ -173,10 +174,14 @@ bool ExecDefer(ArRoutine *routine) {
 ArObject *argon::vm::Eval(ArRoutine *routine, Frame *frame) {
     ArObject *ret;
 
-    frame->back = FRAME_TAG(routine->frame);
+    frame->SetMain();
+
+    frame->back = routine->frame;
     routine->frame = frame;
     ret = Eval(routine);
-    routine->frame = FRAME_UNTAG(frame->back);
+    routine->frame = frame->back;
+
+    frame->UnsetMain();
 
     return ret;
 }
@@ -264,34 +269,18 @@ ArObject *argon::vm::Eval(ArRoutine *routine) {
             }
             TARGET_OP(CALL) {
                 CallHelper helper{};
-                Frame *fn_frame;
+                Frame *fn_frame = cu_frame;
 
-                if (!helper.PrepareCall(cu_frame))
+                if (!CallHelperInit(&helper, cu_frame))
                     goto error;
 
-                if (helper.IsPartialApplication()) {
-                    if ((ret = helper.MkCurrying()) == nullptr)
-                        goto error;
-
-                    PUSH(ret);
-                    DISPATCH4();
-                }
-
-                if (!helper.CheckVariadic())
+                if (!CallHelperCall(&helper, &fn_frame, &ret))
                     goto error;
 
-                if (helper.func->IsNative()) {
-                    STWCheckpoint();
-
-                    ret = FunctionCallNative(helper.func, helper.params, helper.local_args);
-                    helper.ClearCall();
-
-                    if (ret == nullptr)
-                        goto error;
-
+                if (ret != nullptr) {
                     PUSH(ret);
 
-                    if (routine->status == ArRoutineStatus::SUSPENDED) {
+                    if (GetRoutine()->status == ArRoutineStatus::SUSPENDED) {
                         cu_frame->instr_ptr += sizeof(argon::lang::Instr32);
                         return nullptr;
                     }
@@ -299,17 +288,6 @@ ArObject *argon::vm::Eval(ArRoutine *routine) {
                     DISPATCH4();
                 }
 
-                // Argon Code
-                // TODO: check proxy_globals
-                if ((fn_frame = FrameNew(helper.func->code, helper.func->gns, nullptr)) == nullptr) {
-                    helper.ClearCall();
-                    goto error;
-                }
-
-                FrameFillForCall(fn_frame, helper.func, helper.params, helper.local_args);
-                helper.ClearCall();
-
-                // Invoke:
                 cu_frame->instr_ptr += sizeof(argon::lang::Instr32);
                 fn_frame->back = cu_frame;
                 routine->frame = fn_frame;
@@ -329,10 +307,10 @@ ArObject *argon::vm::Eval(ArRoutine *routine) {
             TARGET_OP(DFR) {
                 CallHelper helper{};
 
-                if (!helper.PrepareCall(cu_frame))
+                if (!CallHelperInit(&helper, cu_frame))
                     goto error;
 
-                if ((ret = helper.BindCall()) == nullptr)
+                if ((ret = CallHelperBind(&helper, cu_frame)) == nullptr)
                     goto error;
 
                 RoutineNewDefer(routine, ret);
@@ -775,9 +753,7 @@ ArObject *argon::vm::Eval(ArRoutine *routine) {
                 DISPATCH();
             }
             TARGET_OP(POP) {
-                // DO NOT RELEASE, it may be returned as a return value!
-                Release(cu_frame->return_value);
-                cu_frame->return_value = TOP_BACK();
+                POP();
                 DISPATCH();
             }
             TARGET_OP(POS) {
@@ -812,10 +788,10 @@ ArObject *argon::vm::Eval(ArRoutine *routine) {
             TARGET_OP(SPWN) {
                 CallHelper helper{};
 
-                if (!helper.PrepareCall(cu_frame))
+                if (!CallHelperInit(&helper, cu_frame))
                     goto error;
 
-                if (!helper.SpawnFunction(routine))
+                if (!CallHelperSpawn(&helper, cu_frame))
                     goto error;
 
                 DISPATCH4();
@@ -939,6 +915,21 @@ ArObject *argon::vm::Eval(ArRoutine *routine) {
                 Release(ret);
                 DISPATCH4();
             }
+            TARGET_OP(YLD) {
+                cu_frame->instr_ptr += sizeof(argon::lang::Instr8);
+
+                if (routine->frame->back == nullptr || routine->frame->IsMain())
+                    return TOP_BACK();
+
+                routine->frame = cu_frame->back;
+                routine->recursion_depth--;
+
+                *routine->frame->eval_stack = TOP_BACK();
+                routine->frame->eval_stack++;
+
+                FrameDel(cu_frame);
+                goto begin;
+            }
             default:
                 ErrorFormat(type_runtime_error_, "unknown opcode: 0x%X", (unsigned char) (*cu_frame->instr_ptr));
         }
@@ -966,7 +957,7 @@ ArObject *argon::vm::Eval(ArRoutine *routine) {
             return nullptr;
         }
 
-        if (routine->frame->back == nullptr || FRAME_TAGGED(routine->frame->back))
+        if (routine->frame->back == nullptr || routine->frame->IsMain())
             break;
 
         routine->frame = cu_frame->back;

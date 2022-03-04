@@ -106,7 +106,8 @@ namespace argon::lang {
         SUB,
         SUBSCR,
         TEST,
-        UNPACK
+        UNPACK,
+        YLD
     };
 
     enum class OpCodeINITFlags : unsigned char {

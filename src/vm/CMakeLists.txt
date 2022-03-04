@@ -14,7 +14,6 @@ set(SRC ${SYNC_SRC}
         callhelper.cc
         config.cc
         context.cc
-        frame.cc
         import.cc
         routinequeue.cc
         runtime.cc)

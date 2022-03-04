@@ -51,6 +51,7 @@ namespace argon::lang::parser {
     extern const object::TypeInfo *type_ast_list_decl_;
     extern const object::TypeInfo *type_ast_block_;
     extern const object::TypeInfo *type_ast_ret_;
+    extern const object::TypeInfo *type_ast_yield_;
     extern const object::TypeInfo *type_ast_jmp_;
     extern const object::TypeInfo *type_ast_safe_;
 

@@ -18,9 +18,6 @@ using namespace argon::object;
 
 const ArObject *argon::object::error_types = nullptr;
 
-ArObject *argon::object::error_out_of_memory = nullptr;
-ArObject *argon::object::error_zero_division = nullptr;
-
 ARGON_METHOD5(error_t_, unwrap, "", 0, false) {
     return ErrorFormat(type_not_implemented_, "you must implement %s::unwrap", AR_TYPE_NAME(self));
 }
@@ -73,7 +70,8 @@ ARGON_FUNCTION5(error_, new, "", 1, false) {
 }
 
 ARGON_METHOD5(error_, unwrap, "", 0, false) {
-    return IncRef(((Error *) self)->obj);
+    auto *err = (Error *) self;
+    return err->obj == nullptr ? IncRef(NilVal) : IncRef(err->obj);
 }
 
 const NativeFunc error_methods[] = {
@@ -106,6 +104,9 @@ const ObjectSlots error_obj = {
 ArObject *error_compare(Error *self, ArObject *other, CompareMode mode) {
     auto *o = (Error *) other;
 
+    if (self == o)
+        return BoolToArBool(true);
+
     if (!AR_SAME_TYPE(self, other) || mode != CompareMode::EQ)
         return nullptr;
 
@@ -113,13 +114,20 @@ ArObject *error_compare(Error *self, ArObject *other, CompareMode mode) {
 }
 
 ArObject *error_str(Error *self) {
-    auto *tmp = (String *) ToString(self->obj);
+    String *repr;
     String *ret;
 
-    ret = StringNewFormat("%s: %s", AR_TYPE_NAME(self), tmp->buffer);
-    Release(tmp);
+    if (self->obj != nullptr) {
+        repr = (String *) ToString(self->obj);
 
-    return ret;
+        ret = StringEmpty(repr) ? StringNew(AR_TYPE_NAME(self)) :
+              StringNewFormat("%s: %s", AR_TYPE_NAME(self), repr->buffer);
+
+        Release(repr);
+        return ret;
+    }
+
+    return StringNew(AR_TYPE_NAME(self));
 }
 
 bool error_is_true(ArObject *self) {
@@ -158,15 +166,23 @@ const TypeInfo name = {                         \
 };                                              \
 const TypeInfo *(ptr_name) = &(name)
 
+#define ERROR_SIMPLE_STATIC(name, ptr_name, etype)  \
+const argon::object::Error name = {                 \
+    {RefCount(RCType::STATIC), (etype)},            \
+    nullptr                                         \
+};                                                  \
+Error *(ptr_name) = (Error*) &(name)
+
 // Runtime error types
 ERROR_SIMPLE(AccessViolation, "", argon::object::type_access_violation_);
 ERROR_SIMPLE(AttributeError, "", argon::object::type_attribute_error_);
 ERROR_SIMPLE(BufferError, "", argon::object::type_buffer_error_);
 ERROR_SIMPLE(ExhaustedIteratorError, "", argon::object::type_exhausted_iterator_);
+ERROR_SIMPLE(ExhaustedGeneratorError, "", argon::object::type_exhausted_generator_);
 ERROR_SIMPLE(KeyNotFoundError, "", argon::object::type_key_not_found_);
 ERROR_SIMPLE(ModuleNotFound, "", argon::object::type_module_not_found_);
 ERROR_SIMPLE(NotImplemented, "", argon::object::type_not_implemented_);
-ERROR_SIMPLE(OutOfMemory, "", type_out_of_memory_);
+ERROR_SIMPLE(OutOfMemoryError, "", type_out_of_memory_);
 ERROR_SIMPLE(OverflowError, "", argon::object::type_overflow_error_);
 ERROR_SIMPLE(RuntimeError, "", argon::object::type_runtime_error_);
 ERROR_SIMPLE(RuntimeExit, "", argon::object::type_runtime_exit_error_);
@@ -177,7 +193,7 @@ ERROR_SIMPLE(UndeclaredError, "", argon::object::type_undeclared_error_);
 ERROR_SIMPLE(UnhashableError, "", argon::object::type_unhashable_error_);
 ERROR_SIMPLE(UnicodeIndex, "", argon::object::type_unicode_index_error_);
 ERROR_SIMPLE(ValueError, "", argon::object::type_value_error_);
-ERROR_SIMPLE(ZeroDivision, "", type_zero_division_);
+ERROR_SIMPLE(ZeroDivisionError, "", type_zero_division_);
 
 // Compiler errors
 ERROR_SIMPLE(SyntaxError, "", argon::object::type_syntax_error_);
@@ -192,6 +208,10 @@ ERROR_SIMPLE(FileNotFoundError, "", argon::object::type_file_not_found_);
 ERROR_SIMPLE(IOError, "", argon::object::type_io_error_);
 ERROR_SIMPLE(InterruptedError, "", argon::object::type_interrupted_error_);
 ERROR_SIMPLE(IsDirectoryError, "", argon::object::type_is_directory_);
+
+ERROR_SIMPLE_STATIC(OutOfMemory, argon::object::error_out_of_memory, type_out_of_memory_);
+ERROR_SIMPLE_STATIC(ZeroDivision, argon::object::error_zero_division, type_zero_division_);
+ERROR_SIMPLE_STATIC(ExhaustedGenerator, argon::object::error_exhausted_generator, type_exhausted_generator_);
 
 #undef ERROR_SIMPLE_STATIC
 #undef ERROR_SIMPLE
@@ -325,6 +345,27 @@ ArObject *argon::object::ErrorFormat(const TypeInfo *etype, const char *format, 
     return nullptr;
 }
 
+bool ErrorStaticInit(const char *instance_name, const char *message, Error *error) {
+    ArObject *tmp;
+    bool ok;
+
+    if(message != nullptr) {
+        if ((tmp = StringNew(message)) == nullptr)
+            return false;
+
+        if (error->obj != nullptr)
+            Release(error->obj);
+
+        error->obj = tmp;
+    }
+
+    ok = NamespaceNewSymbol((Namespace *) error_types, instance_name, (ArObject *) error,
+                            PropertyType::PUBLIC | PropertyType::CONST);
+
+    Release(error);
+    return ok;
+}
+
 bool argon::object::ErrorInit() {
 #define INIT(ERR_TYPE)                                                                          \
     if(!TypeInit((TypeInfo*) (ERR_TYPE), nullptr))                                              \
@@ -333,26 +374,20 @@ bool argon::object::ErrorInit() {
         PropertyType::CONST | PropertyType::PUBLIC))                                            \
         return false
 
-    String *msg;
-
     if ((error_types = (ArObject *) NamespaceNew()) == nullptr)
         return false;
 
     INIT(type_out_of_memory_);
 
-    if ((msg = StringNew("out of memory")) == nullptr)
+    if (!ErrorStaticInit("OutOfMemory", "out of memory", error_out_of_memory))
         return false;
-
-    if ((error_out_of_memory = ErrorNew(type_out_of_memory_, msg)) == nullptr) {
-        Release(msg);
-        return false;
-    }
 
     INIT(argon::object::type_error_wrap_);
     INIT(argon::object::type_access_violation_);
     INIT(argon::object::type_attribute_error_);
     INIT(argon::object::type_buffer_error_);
     INIT(argon::object::type_exhausted_iterator_);
+    INIT(argon::object::type_exhausted_generator_);
     INIT(argon::object::type_key_not_found_);
     INIT(argon::object::type_module_not_found_);
     INIT(argon::object::type_not_implemented_);
@@ -368,13 +403,11 @@ bool argon::object::ErrorInit() {
     INIT(argon::object::type_value_error_);
     INIT(type_zero_division_);
 
-    if ((msg = StringNew("zero division error")) == nullptr)
+    if (!ErrorStaticInit("ZeroDivision", "zero division error", error_zero_division))
         return false;
 
-    if ((error_zero_division = ErrorNew(type_zero_division_, msg)) == nullptr) {
-        Release(msg);
+    if (!ErrorStaticInit("ExhaustedGenerator", nullptr, error_exhausted_generator))
         return false;
-    }
 
     // Compiler
     INIT(argon::object::type_syntax_error_);
@@ -401,7 +434,7 @@ void argon::object::ErrorPrint(ArObject *object) {
 
     int count = 0;
 
-    if(object== nullptr)
+    if (object == nullptr)
         return;
 
     err = (io::File *) vm::ContextRuntimeGetProperty("stderr", nullptr);

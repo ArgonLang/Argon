@@ -93,6 +93,20 @@ bool Compiler::Compile_(Node *node) {
         }
 
         return this->Emit(OpCodes::RET, 0, nullptr);
+    } else if (AR_TYPEOF(node, type_ast_yield_)) {
+        auto *ret = (Unary *) node;
+
+        if (this->unit_->scope != TUScope::FUNCTION) {
+            ErrorFormat(type_compile_error_, "yield outside the function definition");
+            return false;
+        }
+
+        this->unit_->info->kind = SymbolType::GENERATOR;
+
+        if (!this->CompileExpression((Node *) ret->value))
+            return false;
+
+        return this->Emit(OpCodes::YLD, 0, nullptr);
     } else if (AR_TYPEOF(node, type_ast_import_decl_)) {
         if (((ImportDecl *) node)->module != nullptr)
             return this->CompileImportFrom((ImportDecl *) node);
@@ -715,9 +729,16 @@ bool Compiler::CompileFunction(Construct *func) {
     if (this->unit_->bb.cur->instr.tail == nullptr
         || this->unit_->bb.cur->instr.tail->opcode != (unsigned char) OpCodes::RET) {
 
-        if (this->PushStatic(NilVal, true, true) < 0) {
-            Release(fname);
-            return false;
+        if (this->unit_->info->kind == SymbolType::GENERATOR) {
+            if (this->PushStatic(error_exhausted_generator, false, true) < 0) {
+                Release(fname);
+                return false;
+            }
+        } else {
+            if (this->PushStatic(NilVal, true, true) < 0) {
+                Release(fname);
+                return false;
+            }
         }
 
         if (!this->Emit(OpCodes::RET, 0, nullptr)) {
@@ -728,6 +749,10 @@ bool Compiler::CompileFunction(Construct *func) {
 
     if ((fu_code = TranslationUnitAssemble(this->unit_)) == nullptr)
         return false;
+
+    // Update function flags if is a generator
+    if (this->unit_->info->kind == SymbolType::GENERATOR)
+        fun_flags |= FunctionFlags::GENERATOR;
 
     this->TScopeExit();
 
@@ -1709,6 +1734,7 @@ bool Compiler::Emit(OpCodes op, int arg, BasicBlock *dest) {
         case OpCodes::SPWN:
         case OpCodes::JFOP:
         case OpCodes::JTOP:
+        case OpCodes::YLD:
             TranslationUnitDecStack(this->unit_, 1);
             break;
         case OpCodes::STSCOPE:
@@ -1883,7 +1909,7 @@ bool Compiler::IdentifierNew(const char *name, SymbolType stype, PropertyType pt
 
 bool Compiler::TScopeNew(String *name, TUScope scope) {
     SymbolTable *table = this->symt;
-    Symbol *symbol;
+    Symbol *symbol = nullptr;
     String *mangled;
     SymbolType sym_kind;
     TranslationUnit *unit;
@@ -1913,10 +1939,13 @@ bool Compiler::TScopeNew(String *name, TUScope scope) {
 
         Release(mangled);
         table = symbol->symt;
+
+        // Ok, because the reference is kept only in the SymbolTable,
+        // the reference used by TranslationUnitNew is weak!
         Release(symbol);
     }
 
-    if ((unit = TranslationUnitNew(this->unit_, name, scope, table)) != nullptr) {
+    if ((unit = TranslationUnitNew(this->unit_, name, scope, table, symbol)) != nullptr) {
         this->unit_ = unit;
         return true;
     }

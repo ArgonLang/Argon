@@ -46,6 +46,7 @@ KwToken kw2tktype[] = {
         {"trait",       TokenType::TRAIT},
         {"true",        TokenType::TRUE},
         {"var",         TokenType::VAR},
+        {"yield",       TokenType::YIELD},
         {"weak",        TokenType::WEAK}
 };
 

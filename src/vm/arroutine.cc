@@ -2,7 +2,9 @@
 //
 // Licensed under the Apache License v2.0
 
+#include <object/datatype/frame.h>
 #include <object/arobject.h>
+
 #include "arroutine.h"
 
 using namespace argon::vm;

@@ -112,6 +112,7 @@ namespace argon::lang::scanner {
         //NIL,
         PUB,
         RETURN,
+        YIELD,
         //SELF,
         SPAWN,
         STRUCT,

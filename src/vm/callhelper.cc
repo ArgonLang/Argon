@@ -26,194 +26,285 @@ ArObject *RestElementToList(ArObject **args, ArSize count) {
     return rest;
 }
 
-argon::object::ArObject *CallHelper::BindCall() {
-    ArObject *ret;
+bool SpreadExpansion(CallHelper *helper) {
+    const ArObject *spread_obj = helper->params[helper->local_args - 1];
 
-    if (this->IsPartialApplication()) {
-        ErrorFormat(type_type_error_, "%s() takes %d argument, but %d were given",
-                    this->func->name->buffer, this->func->arity, this->total_args);
-        this->ClearCall();
-        return nullptr;
+    // TODO: check spread_obj
+
+    if ((helper->list_params = ListNew(helper->local_args)) == nullptr)
+        return false;
+
+    for (int i = 0; i < helper->local_args - 1; i++)
+        ListAppend(helper->list_params, helper->params[i]);
+
+    if (!ListConcat(helper->list_params, spread_obj)) {
+        Release((ArObject **) &helper->list_params);
+        return false;
     }
 
-    if (!this->CheckVariadic())
-        return nullptr;
+    helper->local_args = (unsigned short) helper->list_params->len;
+    helper->params = helper->list_params->objects;
 
-    if (this->list_params != nullptr) {
-        ret = FunctionNew(this->func, this->list_params);
-        this->ClearCall();
-    } else
-        ret = this->MkCurrying();
-
-    return ret;
+    return true;
 }
 
-argon::object::ArObject *CallHelper::MkCurrying() const {
-    List *currying;
+bool CheckArity(CallHelper *helper) {
+    unsigned short exceeded = helper->total_args - helper->func->arity;
     ArObject *ret;
 
-    if (this->func->arity > 0 && this->total_args == 0) {
-        ErrorFormat(type_type_error_, "%s() takes %d argument, but 0 were given",
-                    this->func->name->buffer, this->func->arity);
-        this->ClearCall();
-        return nullptr;
-    }
-
-    if ((currying = ListNew(this->local_args)) == nullptr)
-        return nullptr;
-
-    for (ArSize i = 0; i < this->local_args; i++) {
-        if (!ListAppend(currying, this->params[i])) {
-            Release(currying);
-            return nullptr;
-        }
-    }
-
-    ret = FunctionNew(this->func, currying);
-    Release(currying);
-    this->ClearCall();
-
-    return ret;
-}
-
-bool CallHelper::CallSpreadExpansion() {
-    ArObject **stack = this->frame->eval_stack - this->local_args;
-
-    if ((this->list_params = ListNew(this->local_args)) != nullptr) {
-        for (int i = 0; i < this->local_args - 1; i++)
-            ListAppend(this->list_params, stack[i]);
-
-        if (!ListConcat(this->list_params, stack[this->local_args - 1])) {
-            Release(this->list_params);
-            return false;
-        }
-
-        // Update locals_args
-        this->local_args = this->list_params->len;
-        this->params = this->list_params->objects;
-
-        return true;
-    }
-
-    return false;
-}
-
-bool CallHelper::CheckVariadic() {
-    unsigned short exceeded = this->total_args - this->func->arity;
-    ArObject *ret;
-
-    if (this->total_args > this->func->arity) {
-        if (!this->func->IsVariadic()) {
+    if (helper->total_args > helper->func->arity) {
+        if (!helper->func->IsVariadic()) {
             ErrorFormat(type_type_error_, "%s() takes %d argument, but %d were given",
-                        this->func->name->buffer, this->func->arity, this->total_args);
-            this->ClearCall();
+                        helper->func->name->buffer, helper->func->arity, helper->total_args);
             return false;
         }
 
-        if (!this->func->IsNative()) {
-            ret = RestElementToList(this->params + (this->local_args - exceeded), exceeded);
-
-            if (ret == nullptr) {
-                this->ClearCall();
+        if (!helper->func->IsNative()) {
+            if ((ret = RestElementToList(helper->params + (helper->local_args - exceeded), exceeded)) == nullptr)
                 return false;
-            }
 
-            Release(this->params[(this->local_args - exceeded)]);
-            this->params[(this->local_args - exceeded)] = ret;
-            this->local_args -= exceeded - 1;
+            // TODO: CHECK NATIVE CALL
+            Release(helper->params[helper->local_args - exceeded]);
+            helper->params[helper->local_args - exceeded] = ret;
+            helper->local_args -= exceeded - 1;
         }
     }
 
     return true;
 }
 
-inline bool CallHelper::IsPartialApplication() const {
-    return this->total_args < this->func->arity;
+void CallHelperClear(CallHelper *helper, Frame *frame) {
+    Release(helper->list_params);
+
+    if (frame != nullptr) {
+        // If routine status == ArRoutineStatus::BLOCKED, do not attempt to clear the stack!
+        // Because will be used at the routine resume.
+        if (argon::vm::GetRoutine()->status == ArRoutineStatus::BLOCKED)
+            return;
+
+        for (ArSize i = helper->stack_offset + 1; i > 0; i--)
+            Release(*(--frame->eval_stack));
+    }
 }
 
-bool CallHelper::PrepareCall(Frame *wframe) {
-    this->stack_offset = argon::lang::I32Arg(wframe->instr_ptr);
-    this->flags = (argon::lang::OpCodeCallFlags) argon::lang::I32ExtractFlag(wframe->instr_ptr);
-    this->frame = wframe;
+Function *MakePartialApplication(CallHelper *helper) {
+    List *currying;
+    Function *ret;
 
-    this->func = (Function *) *(wframe->eval_stack - this->stack_offset - 1);
+    if (helper->func->arity > 0 && helper->total_args == 0) {
+        ErrorFormat(type_type_error_, "%s() takes %d argument, but 0 were given",
+                    helper->func->name->buffer, helper->func->arity);
+        return nullptr;
+    }
 
-    this->local_args = this->stack_offset;
+    if ((currying = ListNew(helper->local_args)) == nullptr)
+        return nullptr;
 
-    if (AR_TYPEOF(this->func, type_function_)) {
-        if (this->local_args > 0 && *(wframe->eval_stack - this->local_args) == nullptr)
-            this->local_args--;
+    for (ArSize i = 0; i < helper->local_args; i++)
+        ListAppend(currying, helper->params[i]);
 
-        this->params = wframe->eval_stack - this->local_args;
+    ret = FunctionNew(helper->func, currying);
+    Release(currying);
 
-        if (ENUMBITMASK_ISTRUE(this->flags, argon::lang::OpCodeCallFlags::SPREAD))
-            if (!this->CallSpreadExpansion())
-                return false;
+    return ret;
+}
 
-        this->total_args = this->local_args;
+bool argon::vm::CallHelperInit(CallHelper *helper, Frame *frame) {
+    // Extract call flags
+    helper->flags = (argon::lang::OpCodeCallFlags) argon::lang::I32ExtractFlag(frame->instr_ptr);
 
-        if (this->func->currying != nullptr)
-            this->total_args += this->func->currying->len;
+    // Extract number of argument passed in this call
+    helper->local_args = (unsigned short) argon::lang::I32Arg(frame->instr_ptr);
 
+    // Extract function object
+    helper->func = (Function *) *(frame->eval_stack - helper->local_args - 1);
+
+    // TODO check
+    helper->stack_offset = helper->local_args;
+
+    if (!AR_TYPEOF(helper->func, type_function_)) {
+        ErrorFormat(type_type_error_, "'%s' object is not callable", AR_TYPE_NAME(helper->func));
+        return false;
+    }
+
+    // Ignore the nullptr instance value for FUNCTION(not method!) loaded through LDMETH
+    if (helper->local_args > 0 && *(frame->eval_stack - helper->local_args) == nullptr)
+        helper->local_args--;
+
+    helper->params = frame->eval_stack - helper->local_args;
+
+    helper->list_params = nullptr;
+    if (ENUMBITMASK_ISTRUE(helper->flags, argon::lang::OpCodeCallFlags::SPREAD) && !SpreadExpansion(helper))
+        return false;
+
+    helper->total_args = helper->local_args;
+
+    if (helper->func->currying != nullptr)
+        helper->total_args += helper->func->currying->len;
+
+    return true;
+}
+
+bool argon::vm::CallHelperInit(CallHelper *helper, Function *callable, ArObject **argv, unsigned short argc) {
+    if (!AR_TYPEOF(callable, type_function_)) {
+        ErrorFormat(type_type_error_, "'%s' object is not callable", AR_TYPE_NAME(callable));
+        return false;
+    }
+
+    argon::memory::MemoryZero(helper, sizeof(CallHelper));
+
+    helper->func = callable;
+    helper->params = argv;
+    helper->local_args = argc;
+    helper->total_args = argc;
+
+    return true;
+}
+
+bool argon::vm::CallHelperCall(CallHelper *helper, Frame **in_out_frame, ArObject **result) {
+    ArRoutine *routine;
+    Frame *fn_frame;
+
+    *result = nullptr;
+
+    // Partial application
+    if (helper->total_args < helper->func->arity) {
+        if ((*result = MakePartialApplication(helper)) == nullptr) {
+            CallHelperClear(helper, *in_out_frame);
+            return false;
+        }
         return true;
     }
 
-    ErrorFormat(type_type_error_, "'%s' object is not callable", AR_TYPE_NAME(this->func));
-    return false;
-}
-
-bool CallHelper::SpawnFunction(ArRoutine *routine) {
-    ArRoutine *s_routine;
-    Frame *s_frame;
-
-    Function *fn;
-    Code *code;
-
-    if ((fn = (Function *) this->BindCall()) == nullptr)
+    if (!CheckArity(helper)) {
+        CallHelperClear(helper, *in_out_frame);
         return false;
+    }
 
-    code = fn->code;
+    if (helper->func->IsNative()) {
+        STWCheckpoint();
 
-    if (fn->IsNative()) {
-        if ((code = CodeNewNativeWrapper(fn)) == nullptr) {
-            Release(fn);
+        *result = FunctionCallNative(helper->func, helper->params, helper->local_args);
+
+        CallHelperClear(helper, *in_out_frame);
+        return *result != nullptr;
+    }
+
+    if (!helper->func->IsGenerator() || (fn_frame = (Frame *) helper->func->GetStatus()) == nullptr) {
+        if ((fn_frame = FrameNew(helper->func->code, helper->func->gns, nullptr)) == nullptr) {
+            CallHelperClear(helper, *in_out_frame);
             return false;
         }
 
-        fn = nullptr;
+        FrameFill(fn_frame, helper->func, helper->params, helper->local_args);
     }
 
-    if ((s_frame = FrameNew(code, this->frame->globals, this->frame->proxy_globals)) == nullptr) {
-        Release(fn);
+    if (helper->func->IsGenerator()) {
+        if (helper->func->status == nullptr) {
+            *result = FunctionNewStatus(helper->func, fn_frame);
+            FrameDel(fn_frame);
+            CallHelperClear(helper, *in_out_frame);
+            return *result != nullptr;
+        }
+
+        routine = GetRoutine();
+
+        if (fn_frame->routine == routine) {
+            Release(fn_frame);
+            return ErrorFormat(type_runtime_error_, "unable to recursively call the same instance of %s generator",
+                               helper->func->qname->buffer);
+        }
+
+        // Lock in_out_frame
+        if (!fn_frame->Lock())
+            return false;
+
+        fn_frame->routine = routine;
+    }
+
+    CallHelperClear(helper, *in_out_frame);
+
+    if (fn_frame->IsExhausted()) {
+        FrameDel(fn_frame);
+        ErrorFormat(type_exhausted_generator_, "%s() exhausted", helper->func->qname->buffer);
         return false;
     }
 
-    if (fn != nullptr) {
-        FrameFillForCall(s_frame, fn, nullptr, 0);
-        Release(fn);
+    *in_out_frame = fn_frame;
+    return true;
+}
+
+bool argon::vm::CallHelperSpawn(CallHelper *helper, Frame *frame) {
+    ArRoutine *s_routine;
+    Code *s_code;
+    Function *s_func;
+    Frame *s_frame;
+
+    bool ok = false;
+
+    if ((s_func = CallHelperBind(helper, frame)) == nullptr)
+        return false;
+
+    s_code = s_func->code;
+
+    if (s_func->IsNative()) {
+        if ((s_code = CodeNewNativeWrapper(s_func)) == nullptr) {
+            Release(s_func);
+            return false;
+        }
+
+        Release((ArObject **) &s_func);
     }
 
-    if ((s_routine = RoutineNew(s_frame, routine)) == nullptr) {
+    if ((s_frame = FrameNew(s_code, frame->globals, frame->proxy_globals)) == nullptr)
+        goto ERROR;
+
+    if (s_func != nullptr)
+        FrameFill(s_frame, s_func, nullptr, 0);
+
+    if ((s_routine = RoutineNew(s_frame, GetRoutine())) == nullptr) {
         FrameDel(s_frame);
-        return false;
+        goto ERROR;
     }
 
     if (!Spawn(s_routine)) {
+        // Do not attempt to call FrameDel here,
+        // it will be invoked automatically by RoutineDel!
         RoutineDel(s_routine);
-        return false;
+        goto ERROR;
     }
 
-    return true;
+    ok = true;
+
+    ERROR:
+    if (s_func == nullptr)
+        Release(s_code);
+
+    Release(s_func);
+    return ok;
 }
 
-void CallHelper::ClearCall() const {
-    Release(this->list_params);
+Function *argon::vm::CallHelperBind(CallHelper *helper, Frame *frame) {
+    Function *ret = nullptr;
 
-    // If routine status == ArRoutineStatus::BLOCKED, do not attempt to clear the stack!
-    // Because will be used at the routine resume.
-    if (argon::vm::GetRoutine()->status == ArRoutineStatus::BLOCKED)
-        return;
+    if (helper->func->IsGenerator()) {
+        ErrorFormat(type_type_error_, "generator %s() not allowed here", helper->func->name->buffer);
+        goto ERROR;
+    }
 
-    for (ArSize i = this->stack_offset + 1; i > 0; i--)
-        Release(*(--this->frame->eval_stack));
+    if (helper->total_args < helper->func->arity) {
+        ErrorFormat(type_type_error_, "%s() takes %d argument, but %d were given",
+                    helper->func->name->buffer, helper->func->arity, helper->total_args);
+        goto ERROR;
+    }
+
+    if (!CheckArity(helper))
+        goto ERROR;
+
+    ret = helper->list_params != nullptr ?
+          FunctionNew(helper->func, helper->list_params) : MakePartialApplication(helper);
+
+    ERROR:
+    CallHelperClear(helper, frame);
+    return ret;
 }

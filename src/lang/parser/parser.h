@@ -111,6 +111,8 @@ namespace argon::lang::parser {
 
         [[nodiscard]] Node *ParseReturn();
 
+        [[nodiscard]] Node *ParseYield();
+
         [[nodiscard]] Node *ParseDecls();
 
         [[nodiscard]] Node *ParseStatement();

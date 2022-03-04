@@ -2,8 +2,6 @@
 //
 // Licensed under the Apache License v2.0
 
-#include <iostream>
-
 #include <object/datatype/integer.h>
 #include <object/datatype/error.h>
 #include <object/datatype/nil.h>

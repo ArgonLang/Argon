@@ -9,56 +9,61 @@
 using namespace argon::vm;
 using namespace argon::vm::sync;
 
-bool Mutex::LockSlow(unsigned long expected, unsigned long with_value) {
-    auto current = expected;
-    auto spin = CanSpin();
+bool Mutex::LockSlow() {
+    auto current = false;
 
-    std::unique_lock lock(this->lock_);
-
-    if (this->flags_.compare_exchange_strong(current, with_value))
+    if (this->flags_.compare_exchange_strong(current, true))
         return true;
 
-    if (spin) {
-        this->queue_.Enqueue(UnschedRoutine(true));
-        return false;
+    if (argon::vm::CanSpin()) {
+        current = false;
+
+        while (!this->flags_.compare_exchange_strong(current, true)) {
+            current = false;
+            if (this->queue_.Wait(GetRoutine(), this->queue_.GetTicket())) {
+                UnschedRoutine(true, 0);
+                return false;
+            }
+        }
+
+        return true;
     }
 
+    // Slow
     ReleaseQueue();
 
-    this->blocked_++;
-    this->cond_.wait(lock, [this, &current, expected, with_value] {
-        current = expected;
-        return this->flags_.compare_exchange_strong(current, with_value);
-    });
-    this->blocked_--;
-
-    return true;
-}
-
-bool Mutex::Lock(unsigned long expected, unsigned long with_value) {
-    auto current = expected;
-
-    if (!this->flags_.compare_exchange_strong(current, with_value))
-        return this->LockSlow(expected, with_value);
-
-    return true;
-}
-
-bool Mutex::Unlock(unsigned long expected, unsigned long with_value) {
-    auto current = expected;
-    ArRoutine *routine;
-
-    if (!this->flags_.compare_exchange_strong(current, with_value))
-        return false;
+    current = false;
+    if (this->flags_.compare_exchange_strong(current, true))
+        return true;
 
     std::unique_lock lock(this->lock_);
+    this->cond_.wait(lock, [this, &current] {
+        current = false;
+        return this->flags_.compare_exchange_strong(current, true);
+    });
 
-    if (this->blocked_ == 0) {
-        routine = this->queue_.Dequeue();
+    return true;
+}
 
-        if (routine != nullptr)
-            Spawn(routine);
-    } else
+bool Mutex::Lock() {
+    auto current = false;
+
+    if (!this->flags_.compare_exchange_strong(current, true))
+        return this->LockSlow();
+
+    return true;
+}
+
+bool Mutex::Unlock() {
+    auto current = true;
+    ArRoutine *routine;
+
+    if (!this->flags_.compare_exchange_strong(current, false))
+        return false;
+
+    if ((routine = this->queue_.Notify()) != nullptr)
+        Spawn(routine);
+    else
         this->cond_.notify_one();
 
     return true;
