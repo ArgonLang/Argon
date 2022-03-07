@@ -1211,18 +1211,27 @@ bool argon::module::socket::ArAddrToSockAddr(ArObject *araddr, sockaddr_storage 
 
             break;
         }
-#ifndef _ARGON_PLATFORM_WINDOWS
+#if defined(_ARGON_PLATFORM_LINUX)
         case AF_UNIX: {
             auto *addr = (sockaddr_un *) addrstore;
             auto *str = (String *) araddr;
-            addr->sun_len = 104;
 
-            if (str->len < addr->sun_len)
-                addr->sun_len = str->len;
-
-            argon::memory::MemoryCopy(addr->sun_path, str->buffer, addr->sun_len);
+            argon::memory::MemoryCopy(addr->sun_path, str->buffer,
+                                      str->len + 1 >= 104 ? 104 : str->len + 1);  // +1 -> '\0'
             return true;
         }
+#elif defined(_ARGON_PLATFORM_DARWIN)
+            case AF_UNIX: {
+                auto *addr = (sockaddr_un *) addrstore;
+                auto *str = (String *) araddr;
+                addr->sun_len = 104;
+
+                if (str->len + 1 < addr->sun_len)
+                    addr->sun_len = str->len + 1;
+
+                argon::memory::MemoryCopy(addr->sun_path, str->buffer, addr->sun_len);
+                return true;
+            }
 #endif
         default:
             ErrorFormat(type_os_error_, "unsupported address family");
