@@ -2,13 +2,14 @@
 //
 // Licensed under the Apache License v2.0
 
-#include <cassert>
+#include <cstdarg>
 
 #include <vm/runtime.h>
 #include <memory/memory.h>
 
 #include "bool.h"
 #include "bounds.h"
+#include "decimal.h"
 #include "error.h"
 #include "list.h"
 #include "nil.h"
@@ -288,8 +289,7 @@ Tuple *argon::object::TupleNew(const ArObject *sequence) {
         if (AR_TYPEOF(sequence, type_list_)) {
             RWLockRead list_lock(((List *) sequence)->lock);
             return TupleClone((List *) sequence);
-        }
-        else if (AR_TYPEOF(sequence, type_tuple_))
+        } else if (AR_TYPEOF(sequence, type_tuple_))
             return TupleClone((Tuple *) sequence);
     }
 
@@ -314,15 +314,11 @@ Tuple *argon::object::TupleNew(ArObject *result, ArObject *error) {
     Tuple *tuple;
 
     if ((tuple = TupleNew(2)) != nullptr) {
-        if (result == nullptr) {
-            IncRef(NilVal);
-            result = NilVal;
-        }
+        if (result == nullptr)
+            result = IncRef(NilVal);
 
-        if (error == nullptr) {
-            IncRef(NilVal);
-            error = NilVal;
-        }
+        if (error == nullptr)
+            error = IncRef(NilVal);
 
         TupleInsertAt(tuple, 0, result);
         TupleInsertAt(tuple, 1, error);
@@ -343,6 +339,69 @@ Tuple *argon::object::TupleNew(ArObject **objects, ArSize count) {
     return tuple;
 }
 
+Tuple *argon::object::TupleNew(const char *fmt, ...) {
+    va_list args;
+    ArObject *obj;
+    Tuple *tuple;
+
+    ArSize flen = strlen(fmt);
+
+    if ((tuple = TupleNew(flen)) == nullptr)
+        return nullptr;
+
+    va_start(args, fmt);
+
+    for (int i = 0; i < flen; i++) {
+        switch (fmt[i]) {
+            case 'a':
+            case 'A':
+                obj = IncRef(va_arg(args, ArObject*));
+                if (obj == nullptr)
+                    obj = ARGON_OBJECT_NIL;
+                break;
+            case 's':
+            case 'S':
+                obj = StringNew(va_arg(args, const char*));
+                break;
+            case 'd':
+            case 'D':
+            case 'f':
+            case 'F':
+                obj = DecimalNew(va_arg(args, DecimalUnderlying));
+                break;
+            case 'i':
+                obj = IntegerNew((int) va_arg(args, ArSSize));
+                break;
+            case 'I':
+                obj = IntegerNew((unsigned int) va_arg(args, ArSSize));
+                break;
+            case 'l':
+                obj = IntegerNew((long) va_arg(args, ArSSize));
+                break;
+            case 'h':
+                obj = IntegerNew((short) va_arg(args, ArSSize));
+                break;
+            case 'H':
+                obj = IntegerNew((unsigned short) va_arg(args, ArSSize));
+                break;
+            default:
+                ErrorFormat(type_value_error_, "TupleNew: unexpected '%c' in fmt string", fmt[i]);
+                Release(tuple);
+                return nullptr;
+        }
+
+        if (obj == nullptr) {
+            Release(tuple);
+            return nullptr;
+        }
+
+        TupleInsertAt(tuple, i, obj);
+        Release(obj);
+    }
+
+    return tuple;
+}
+
 bool argon::object::TupleInsertAt(Tuple *tuple, ArSize idx, ArObject *obj) {
     if (idx >= tuple->len)
         return false;
@@ -354,5 +413,87 @@ bool argon::object::TupleInsertAt(Tuple *tuple, ArSize idx, ArObject *obj) {
 
     tuple->objects[idx] = IncRef(obj);
 
+    return true;
+}
+
+bool argon::object::TupleUnpack(Tuple *tuple, const char *fmt, ...) {
+    va_list args;
+    ArObject *obj;
+    ArSize flen;
+
+    va_start(args, fmt);
+
+    flen = strlen(fmt);
+
+    if (tuple->len < flen) {
+        va_end(args);
+        return ErrorFormat(type_value_error_, "TupleUnpack: length of the tuple does not match the length of fmt");
+    }
+
+    for (int i = 0; i < flen; i++) {
+        obj = tuple->objects[i];
+        switch (fmt[i]) {
+            case 'a':
+            case 'A':
+                *va_arg(args, ArObject**) = IncRef(tuple->objects[i]);
+                break;
+            case 's':
+            case 'S':
+                if (!AR_TYPEOF(obj, type_string_)) {
+                    va_end(args);
+                    return ErrorFormat(type_type_error_, "TupleUnpack: expected '%s' in index %d, not '%s'",
+                                       type_string_->name, i, AR_TYPE_NAME(obj));
+                }
+
+                *va_arg(args, const char **) = (const char *) ((String *) obj)->buffer;
+                break;
+            case 'd':
+            case 'D':
+            case 'f':
+            case 'F':
+                if (!AR_TYPEOF(obj, type_decimal_)) {
+                    va_end(args);
+                    return ErrorFormat(type_type_error_, "TupleUnpack: expected '%s' in index %d, not '%s'",
+                                       type_decimal_->name, AR_TYPE_NAME(obj));
+                }
+
+                *va_arg(args, double *) = (double) ((Decimal *) obj)->decimal;
+                break;
+            case 'i':
+            case 'I':
+                if (!AR_TYPEOF(obj, type_integer_)) {
+                    va_end(args);
+                    return ErrorFormat(type_type_error_, "TupleUnpack: expected '%s' in index %d, not '%s'",
+                                       type_integer_->name, AR_TYPE_NAME(obj));
+                }
+
+                *va_arg(args, int *) = (int) ((Integer *) obj)->integer;
+                break;
+            case 'l':
+                if (!AR_TYPEOF(obj, type_integer_)) {
+                    va_end(args);
+                    return ErrorFormat(type_type_error_, "TupleUnpack: expected '%s' in index %d, not '%s'",
+                                       type_integer_->name, AR_TYPE_NAME(obj));
+                }
+
+                *va_arg(args, long *) = (long) ((Integer *) obj)->integer;
+                break;
+            case 'h':
+            case 'H':
+                if (!AR_TYPEOF(obj, type_integer_)) {
+                    va_end(args);
+                    return ErrorFormat(type_type_error_, "TupleUnpack: expected '%s' in index %d, not '%s'",
+                                       type_integer_->name, AR_TYPE_NAME(obj));
+                }
+
+                *va_arg(args, short *) = (short) ((Integer *) obj)->integer;
+                break;
+            default:
+                ErrorFormat(type_value_error_, "TupleUnpack: unexpected '%c' in  fmt string", fmt[i]);
+                return false;
+        }
+    }
+
+    va_end(args);
     return true;
 }

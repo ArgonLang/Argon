@@ -208,6 +208,10 @@ ERROR_SIMPLE(FileNotFoundError, "", argon::object::type_file_not_found_);
 ERROR_SIMPLE(IOError, "", argon::object::type_io_error_);
 ERROR_SIMPLE(InterruptedError, "", argon::object::type_interrupted_error_);
 ERROR_SIMPLE(IsDirectoryError, "", argon::object::type_is_directory_);
+ERROR_SIMPLE(GAIError, "", argon::object::type_gai_error_);
+ERROR_SIMPLE(WSAError, "", argon::object::type_wsa_error_);
+
+ERROR_SIMPLE(OSError, "", argon::object::type_os_error_);
 
 ERROR_SIMPLE_STATIC(OutOfMemory, argon::object::error_out_of_memory, type_out_of_memory_);
 ERROR_SIMPLE_STATIC(ZeroDivision, argon::object::error_zero_division, type_zero_division_);
@@ -262,7 +266,7 @@ const TypeInfo *argon::object::ErrorTypeFromErrno() {
         case EPIPE:
             return type_broken_pipe_;
         default:
-            return type_io_error_;
+            return type_os_error_;
     }
 }
 
@@ -366,6 +370,24 @@ bool ErrorStaticInit(const char *instance_name, const char *message, Error *erro
     return ok;
 }
 
+ArObject *argon::object::ErrorFormatNoPanic(const TypeInfo *etype, const char *format, ...) {
+    va_list args;
+    ArObject *err;
+    String *msg;
+
+    va_start(args, format);
+    msg = StringNewFormat(format, args);
+    va_end(args);
+
+    if (msg == nullptr)
+        return nullptr;
+
+    err = ErrorNew(etype, msg);
+    Release(msg);
+
+    return err;
+}
+
 bool argon::object::ErrorInit() {
 #define INIT(ERR_TYPE)                                                                          \
     if(!TypeInit((TypeInfo*) (ERR_TYPE), nullptr))                                              \
@@ -422,6 +444,10 @@ bool argon::object::ErrorInit() {
     INIT(argon::object::type_io_error_);
     INIT(argon::object::type_interrupted_error_);
     INIT(argon::object::type_is_directory_);
+    INIT(argon::object::type_gai_error_);
+    INIT(argon::object::type_wsa_error_);
+
+    INIT(argon::object::type_os_error_);
 
     return true;
 }

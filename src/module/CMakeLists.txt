@@ -1,5 +1,9 @@
 cmake_minimum_required(VERSION 3.7)
 
+set(SOCKET_SRC
+        socket/skmodule.cc
+        socket/socket.cc)
+
 set(SYNC_SRC
         sync/cond.cc
         sync/sync.cc
@@ -8,7 +12,8 @@ set(SYNC_SRC
         sync/notifyqueue.cc
         sync/locker.cc)
 
-set(SRC ${SYNC_SRC}
+set(SRC ${SOCKET_SRC}
+        ${SYNC_SRC}
         builtins.cc
         error.cc
         gcmodule.cc

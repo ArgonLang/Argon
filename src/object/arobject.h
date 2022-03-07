@@ -59,9 +59,14 @@ namespace argon::object {
 
     struct ArBuffer {
         unsigned char *buffer;
-        ArSize len;
-
         ArObject *obj;
+
+        struct {
+            ArSize itmsize;
+            ArSize nelem;
+        } geometry;
+
+        ArSize len;
         ArBufferFlags flags;
     };
 
@@ -388,12 +393,28 @@ ArObject *prefix##name##_fn(ArObject *func, ArObject *self, ArObject **argv, ArS
 
     bool BufferGet(ArObject *obj, ArBuffer *buffer, ArBufferFlags flags);
 
-    bool BufferSimpleFill(ArObject *obj, ArBuffer *buffer, ArBufferFlags flags, unsigned char *raw, ArSize len,
-                          bool writable);
+    bool BufferSimpleFill(ArObject *obj, ArBuffer *buffer, ArBufferFlags flags, unsigned char *raw,
+                          ArSize itmsize, ArSize nelem, bool writable);
+
+    bool CheckArgs(const char *desc, ArObject *func, ArObject **argv, ArSize argc, ...);
 
     bool VariadicCheckPositional(const char *name, int nargs, int min, int max);
 
     int TrackRecursive(ArObject *obj);
+
+    void *ArObjectNewRaw(ArSize size);
+
+    void *ArObjectRealloc(void *ptr, ArSize size);
+
+    template<typename T>
+    inline T ArObjectNewRaw(ArSize size) {
+        return (T) ArObjectNewRaw(size);
+    }
+
+    template<typename T>
+    inline T ArObjectRealloc(T ptr, ArSize size) {
+        return (T) ArObjectRealloc((void *) ptr, size);
+    }
 
     void UntrackRecursive(ArObject *obj);
 

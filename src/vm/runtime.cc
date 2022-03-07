@@ -482,6 +482,18 @@ ArObject *argon::vm::GetLastError() {
     return err;
 }
 
+ArObject *argon::vm::GetLastNonFatalError() {
+    ArRoutine *routine = GetRoutine();
+    ArObject *err = nullptr;
+
+    if (routine->panic != nullptr) {
+        if (routine->panic->object != error_out_of_memory)
+            err = RoutineRecover(routine);
+    }
+
+    return err;
+}
+
 ArObject *argon::vm::Panic(ArObject *obj) {
     RoutineNewPanic(GetRoutine(), obj);
     return nullptr;

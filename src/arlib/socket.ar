@@ -1,0 +1,194 @@
+/*
+ * This source file is part of the Argon project.
+ *
+ * Licensed under the Apache License v2.0
+*/
+
+from _socket import *
+from error import ValueError
+
+struct SockInfo {
+    pub var af
+    pub var type
+    pub var proto
+}
+
+func check_number(s) {
+    var i = 0
+    var length = len(s)
+
+    loop i < length && s[i] >= "0" && s[i] <= "9" {
+        i += 1
+    }
+
+    return i
+}
+
+func parse_network(network, nproto) {
+    var last = str::rfind(network, ":")
+    var proto = 0
+    var af
+    var err
+
+    if last < 0 {
+        switch network{
+            case "tcp"; "tcp4"; "tcp6":
+            case "udp"; "udp4"; "udp6":
+            case "unix"; "unixgram"; "unixpacket":
+            case "ip"; "ip4"; "ip6":
+                if nproto {
+                    return "", 0, ValueError::new("expected protocol '%s:??'" % network)
+                }
+            default:
+                return "", proto, ValueError::new("unexpected network: %s" % network)
+        }
+
+        return network, proto, nil
+    }
+
+    af = network[:last]
+
+    switch af {
+        case "ip"; "ip4"; "ip6":
+        var protostr = network[last + 1:]
+        var protonum = check_number(protostr)
+
+        if protonum > 0 {
+            proto = integer::new(protostr[:protonum])
+            _, err = getprotobynumber(proto)
+        } else {
+            protostr, err = getprotobyname(protostr)
+            if err == nil {
+                proto = protostr[2]
+            }
+        }
+
+        return err == nil ? af, proto, nil : "", 0, err
+    }
+
+    return "", 0, ValueError::new("unexpected af: %s" % af)
+}
+
+func split_host_port(address) {
+    var port = str::rfind(address, ":")
+
+    if str::count(address, ":") > 1 {
+        return "", "", ValueError::new("too many colons in address")
+    }
+
+    if port != -1 {
+        return address[:port], address[port+1:], nil
+    }
+
+    return address, "", nil
+}
+
+func resolve_address(network, address) {
+    var info = SockInfo{}
+    var afnet
+    var serv
+    var host
+    var err
+
+    if !address {
+        return nil, nil, ValueError::new("missing address")
+    }
+
+    afnet, info.proto, err = parse_network(network, true)
+    if err != nil {
+        return nil, nil, err
+    }
+
+    switch afnet {
+        case "unix":
+            info.af = AF_UNIX
+            info.type = SOCK_STREAM
+        case "unixgram":
+            info.af = AF_UNIX
+            info.type = SOCK_DGRAM
+        case "unixpacket":
+            info.af = AF_UNIX
+            info.type = SOCK_SEQPACKET
+    }
+
+    if info.type != nil {
+        return info, address, nil
+    }
+
+    host, serv, err = split_host_port(address)
+    if err != nil {
+        return nil, nil, err
+    }
+
+    # Network address
+    switch afnet {
+        case "tcp"; "tcp4":
+        info.af = AF_INET
+        info.type = SOCK_STREAM
+
+        case "udp"; "udp4":
+        info.af = AF_INET
+        info.type = SOCK_DGRAM
+
+        case "tcp6":
+        info.af = AF_INET6
+        info.type = SOCK_STREAM
+
+        case "udp6":
+        info.af = AF_INET6
+        info.type = SOCK_DGRAM
+
+        default:
+        return nil, nil, ValueError::new("unexpected network '%s'" % afnet)
+    }
+
+    host, err = getaddrinfo(host, serv, info.af, 0, 0)
+    if err != nil {
+        return nil, nil, err
+    }
+
+    return info, host[0][4], nil
+}
+
+pub func dial(network, address) {
+    var sock
+    var info
+    var host
+    var err
+
+    info, host, err = resolve_address(network, address)
+    if err != nil {
+        return nil, err
+    }
+
+    sock, err = create(info.af, info.type, info.proto)
+    if err != nil {
+        return nil, err
+    }
+
+    err = sock.connect(host)
+    if err != nil {
+        return nil, err
+    }
+
+    return sock, nil
+}
+
+pub func gethostbyname(name) {
+    var lookup, err
+
+    lookup, err = getaddrinfo(name, nil, AF_INET, 0, AI_CANONNAME)
+    if err != nil {
+        return nil, err
+    }
+
+    return lookup[0][4][0]
+}
+
+pub func aton(ip_string) {
+    return pton(AF_INET, ip_string)
+}
+
+pub func ntoa(packed_ip) {
+    return ntop(AF_INET, packed_ip)
+}

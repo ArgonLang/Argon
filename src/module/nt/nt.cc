@@ -7,7 +7,7 @@
 #ifdef _ARGON_PLATFORM_WINDOWS
 
 #include <lmcons.h>
-#include <windows.h>
+#include <Windows.h>
 
 #include <object/datatype/string.h>
 

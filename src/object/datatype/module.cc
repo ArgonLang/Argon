@@ -5,6 +5,7 @@
 #include "bool.h"
 #include "error.h"
 #include "function.h"
+#include "integer.h"
 #include "module.h"
 
 using namespace argon::object;
@@ -222,6 +223,20 @@ Module *argon::object::ModuleNew(const ModuleInit *init) {
     error:
     Release(module);
     return nullptr;
+}
+
+bool argon::object::ModuleAddIntConstant(Module *module, const char *key, ArSSize value) {
+    ArObject *intval;
+    bool ok;
+
+    if ((intval = IntegerNew(value)) == nullptr)
+        return false;
+
+    ok = NamespaceNewSymbol(module->module_ns, key, intval, MODULE_ATTRIBUTE_PUB_CONST);
+
+    Release(intval);
+
+    return ok;
 }
 
 bool argon::object::ModuleAddObjects(Module *module, const PropertyBulk *bulk) {

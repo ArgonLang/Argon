@@ -7,6 +7,8 @@
 
 #include <object/arobject.h>
 
+#define ARGON_OBJECT_NIL (argon::object::IncRef(argon::object::NilVal))
+
 namespace argon::object {
     struct Nil : public ArObject {
     };

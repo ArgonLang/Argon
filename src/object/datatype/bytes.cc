@@ -36,7 +36,7 @@ Bytes *MakeSlice(Bytes *stream, ArSize start, ArSize len) {
 }
 
 bool bytes_get_buffer(Bytes *self, ArBuffer *buffer, ArBufferFlags flags) {
-    return BufferSimpleFill(self, buffer, flags, BUFFER_GET(self), BUFFER_LEN(self), !self->frozen);
+    return BufferSimpleFill(self, buffer, flags, BUFFER_GET(self), 1, BUFFER_LEN(self), !self->frozen);
 }
 
 const BufferSlots bytes_buffer = {
@@ -789,18 +789,18 @@ ArObject *bytes_compare(Bytes *self, ArObject *other, CompareMode mode) {
         return nullptr;
 
     if (self != other) {
-        if(!self->frozen)
+        if (!self->frozen)
             self->lock.RLock();
 
-        if(!o->frozen)
+        if (!o->frozen)
             o->lock.RLock();
 
         res = MemoryCompare(BUFFER_GET(self), BUFFER_GET(o), BUFFER_MAXLEN(self, o));
 
-        if(!self->frozen)
+        if (!self->frozen)
             self->lock.RUnlock();
 
-        if(!o->frozen)
+        if (!o->frozen)
             o->lock.RUnlock();
 
         if (res < 0)

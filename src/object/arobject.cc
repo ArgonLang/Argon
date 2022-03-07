@@ -2,16 +2,22 @@
 //
 // Licensed under the Apache License v2.0
 
+#include <cstdarg>
+
 #include <memory/memory.h>
 
 #include <vm/runtime.h>
 
 #include <object/datatype/bool.h>
+#include <object/datatype/bytes.h>
+#include <object/datatype/decimal.h>
 #include <object/datatype/error.h>
 #include <object/datatype/frame.h>
 #include <object/datatype/function.h>
-#include <object/datatype/nil.h>
+#include <object/datatype/integer.h>
 #include <object/datatype/nativewrap.h>
+#include <object/datatype/nil.h>
+#include "object/datatype/set.h"
 
 #include "gc.h"
 #include "arobject.h"
@@ -291,7 +297,7 @@ List *BuildBasesList(TypeInfo **types, ArSize count) {
             goto error;
         }
 
-        if(types[i]->flags != TypeInfoFlags::TRAIT){
+        if (types[i]->flags != TypeInfoFlags::TRAIT) {
             // you can only inherit from traits
             ErrorFormat(type_type_error_, "you can only inherit from traits and '%s' is not", types[i]->name);
             goto error;
@@ -472,6 +478,22 @@ ArObject *argon::object::ArObjectNew(RCType rc, const TypeInfo *type) {
     return obj;
 }
 
+void *argon::object::ArObjectNewRaw(ArSize size) {
+    void *raw;
+
+    if ((raw = argon::memory::Alloc(size)) == nullptr)
+        return argon::vm::Panic(error_out_of_memory);
+
+    return raw;
+}
+
+void *argon::object::ArObjectRealloc(void *ptr, ArSize size) {
+    if ((ptr = argon::memory::Realloc(ptr, size)) == nullptr)
+        return argon::vm::Panic(error_out_of_memory);
+
+    return ptr;
+}
+
 ArObject *argon::object::InstanceGetMethod(const ArObject *instance, const ArObject *key, bool *is_meth) {
     ArObject *ret;
 
@@ -562,11 +584,10 @@ ArObject *argon::object::RichCompare(const ArObject *obj, const ArObject *other,
         result = AR_GET_TYPE(other)->compare((ArObject *) other, (ArObject *) obj, reverse[(int) mode]);
 
     if (result == nullptr) {
-        if (mode == CompareMode::EQ)
-            return IncRef(False);
-
-        return ErrorFormat(type_not_implemented_, "operator '%s' not supported between instance of '%s' and '%s'",
-                           str_mode[(int) mode], AR_TYPE_NAME(obj), AR_TYPE_NAME(other));
+        if (mode != CompareMode::EQ)
+            return ErrorFormat(type_not_implemented_, "operator '%s' not supported between instance of '%s' and '%s'",
+                               str_mode[(int) mode], AR_TYPE_NAME(obj), AR_TYPE_NAME(other));
+        result = IncRef(False);
     }
 
     if (ne) {
@@ -653,7 +674,7 @@ bool argon::object::BufferGet(ArObject *obj, ArBuffer *buffer, ArBufferFlags fla
 }
 
 bool argon::object::BufferSimpleFill(ArObject *obj, ArBuffer *buffer, ArBufferFlags flags, unsigned char *raw,
-                                     ArSize len, bool writable) {
+                                     ArSize itmsize, ArSize nelem, bool writable) {
     if (buffer == nullptr) {
         ErrorFormat(type_buffer_error_, "bad call to BufferSimpleFill, buffer == nullptr");
         return false;
@@ -665,9 +686,10 @@ bool argon::object::BufferSimpleFill(ArObject *obj, ArBuffer *buffer, ArBufferFl
     }
 
     buffer->buffer = raw;
-    buffer->len = len;
-    IncRef(obj);
-    buffer->obj = obj;
+    buffer->obj = IncRef(obj);
+    buffer->geometry.itmsize = itmsize;
+    buffer->geometry.nelem = nelem;
+    buffer->len = itmsize * nelem;
     buffer->flags = flags;
 
     return true;
@@ -818,6 +840,116 @@ bool argon::object::TypeInit(TypeInfo *info, ArObject *ns) {
     Release(&info->mro);
     Release(&info->tp_map);
     return false;
+}
+
+bool argon::object::CheckArgs(const char *desc, ArObject *func, ArObject **argv, ArSize argc, ...) {
+    char arg_name[20];
+    const char *fn_name = "";
+    const char *cfmt = desc;
+    const char *base;
+
+    bool ok;
+    bool nullable;
+    bool bufferable;
+    bool iterable;
+
+    va_list args;
+
+    va_start(args, argc);
+
+    if (func != nullptr && AR_TYPEOF(func, type_function_))
+        fn_name = (const char *) ((Function *) func)->qname->buffer;
+
+    for (ArSize i = 0; i < argc; i++) {
+        ok = false;
+        nullable = false;
+        bufferable = false;
+        iterable = false;
+
+        do {
+            if (!nullable)
+                nullable = *cfmt == '?';
+
+            if (!ok) {
+                if (IsNull(argv[i])) {
+                    if (*cfmt == '?')
+                        ok = true;
+                    continue;
+                }
+
+                switch (*cfmt) {
+                    case 'B':
+                        ok = IsBufferable(argv[i]);
+                        bufferable = true;
+                        break;
+                    case 'I':
+                        ok = IsIterable(argv[i]);
+                        iterable = true;
+                        break;
+                    case 'b':
+                        ok = AR_TYPEOF(argv[i], type_bool_);
+                        break;
+                    case 'e':
+                        ok = AR_TYPEOF(argv[i], type_set_);
+                        break;
+                    case 'd':
+                        ok = AR_TYPEOF(argv[i], type_decimal_);
+                        break;
+                    case 'i':
+                        ok = AR_TYPEOF(argv[i], type_integer_);
+                        break;
+                    case 'l':
+                        ok = AR_TYPEOF(argv[i], type_list_);
+                        break;
+                    case 'm':
+                        ok = AR_TYPEOF(argv[i], type_map_);
+                        break;
+                    case 's':
+                        ok = AR_TYPEOF(argv[i], type_string_);
+                        break;
+                    case 't':
+                        ok = AR_TYPEOF(argv[i], type_tuple_);
+                        break;
+                    case 'x':
+                        ok = AR_TYPEOF(argv[i], type_bytes_);
+                        break;
+                    case '*':
+                        ok = AR_TYPEOF(argv[i], va_arg(args, TypeInfo * ));
+                    default:
+                        break;
+                }
+            }
+        } while (*++cfmt != ':' && *cfmt != ',');
+
+        if (*cfmt == ':')
+            cfmt++;
+
+        base = cfmt;
+
+        // extract arg name
+        while (*cfmt++ != ',' && *cfmt != '\0');
+
+        if (!ok) {
+            if (*(cfmt - 1) == ',')
+                cfmt--;
+
+            argon::memory::MemoryCopy(arg_name, base, cfmt - base);
+            arg_name[(cfmt - base)] = '\0';
+
+            /*
+            ErrorFormat(type_type_error_, "%s() expected '%s' as %s%s, got '%s'", fn_name, arg_name,
+                        type_name, nullable ? " or nil" : "", AR_TYPE_NAME(argv[i]));
+                        */
+
+            ErrorFormat(type_type_error_, "%s() invalid type '%s' for parameter '%s'%s%s%s", fn_name,
+                        AR_TYPE_NAME(argv[i]), arg_name, nullable ? " (can be nil)" : "",
+                        bufferable ? " (can be bufferable)" : "", iterable ? " (can be iterable)" : "");
+            break;
+        }
+    }
+
+    va_end(args);
+    return ok;
 }
 
 bool argon::object::VariadicCheckPositional(const char *name, int nargs, int min, int max) {

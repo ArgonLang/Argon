@@ -62,6 +62,8 @@ namespace argon::object {
 
     Module *ModuleNew(const ModuleInit *init);
 
+    bool ModuleAddIntConstant(Module *module, const char *key, ArSSize value);
+
     bool ModuleAddObjects(Module *module, const PropertyBulk *bulk);
 
     inline bool ModuleAddProperty(Module *module, ArObject *key, ArObject *value, PropertyType info) {

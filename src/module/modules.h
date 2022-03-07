@@ -17,6 +17,7 @@ namespace argon::module {
     extern const argon::object::ModuleInit *module_random_;
     extern const argon::object::ModuleInit *module_runtime_;
     extern const argon::object::ModuleInit *module_sync_;
+    extern const argon::object::ModuleInit *module_socket_;
 } // namespace argon::module
 
 #endif // !ARGON_MODULE_MODULES_H_

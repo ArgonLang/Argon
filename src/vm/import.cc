@@ -359,6 +359,7 @@ ARGON_FUNCTION5(import_, builtins_locator,
                                            argon::module::module_os_,
                                            argon::module::module_random_,
                                            argon::module::module_runtime_,
+                                           argon::module::module_socket_,
                                            argon::module::module_sync_};
 
     ImportSpec *spec = nullptr;

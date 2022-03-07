@@ -24,6 +24,8 @@ namespace argon::object {
 
     ArObject *ErrorFormat(const TypeInfo *etype, const char *format, ...);
 
+    ArObject *ErrorFormatNoPanic(const TypeInfo *etype, const char *format, ...);
+
     const TypeInfo *ErrorTypeFromErrno();
 
     bool ErrorInit();
@@ -67,6 +69,11 @@ namespace argon::object {
     extern const TypeInfo *type_io_error_;
     extern const TypeInfo *type_interrupted_error_;
     extern const TypeInfo *type_is_directory_;
+    extern const TypeInfo *type_gai_error_;
+    extern const TypeInfo *type_wsa_error_;
+
+    extern const TypeInfo *type_os_error_;
+
 
     // ExportedErrors
     extern Error *error_zero_division;

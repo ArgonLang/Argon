@@ -166,7 +166,7 @@ ArSize FillBuffer(String *dst, ArSize offset, const unsigned char *buf, ArSize l
 }
 
 bool string_get_buffer(String *self, ArBuffer *buffer, ArBufferFlags flags) {
-    return BufferSimpleFill(self, buffer, flags, self->buffer, self->len, false);
+    return BufferSimpleFill(self, buffer, flags, self->buffer, 1, self->len, false);
 }
 
 BufferSlots string_buffer = {
