@@ -677,7 +677,7 @@ List *ParseMsgHdr(msghdr *msgs) {
 
     while (cmsg != nullptr) {
         if (cmsg->cmsg_level == SOL_SOCKET && cmsg->cmsg_type == SCM_RIGHTS) {
-            ArSize fdcount = cmsg->cmsg_len - CMSG_LEN(0);
+            ArSize fdcount = (cmsg->cmsg_len - CMSG_LEN(0)) / sizeof(int);
             int *fdptr = (int *) CMSG_DATA(cmsg);
 
             while (fdcount-- > 0)
@@ -723,7 +723,7 @@ bool PrepareRecvMsg(SockMsg *msg) {
 bool PrepareSendMsg(ArObject *iterable, msghdr *msg) {
     ArBuffer buffer{};
     cmsghdr *cmsg = nullptr;
-    ArObject *bytes;
+    ArObject *bytes = nullptr;
     ArObject *iter;
     Tuple *tuple;
     char *tmp;
@@ -978,7 +978,7 @@ ARGON_METHOD5(socket_, sendto, "Send data to the socket."
     if (!CheckArgs("B:buffer,i?:nbytes,i:flags,ts:address", func, argv, count))
         return nullptr;
 
-    if (!ArAddrToSockAddr(argv[3], &sockbuf.storage, (int *) sockbuf.namelen, socket->family)) {
+    if (!ArAddrToSockAddr(argv[3], &sockbuf.storage, (int *) &sockbuf.namelen, socket->family)) {
         if ((err = argon::vm::GetLastNonFatalError()) == nullptr)
             return nullptr;
 

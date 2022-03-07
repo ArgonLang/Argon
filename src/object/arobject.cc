@@ -848,7 +848,7 @@ bool argon::object::CheckArgs(const char *desc, ArObject *func, ArObject **argv,
     const char *cfmt = desc;
     const char *base;
 
-    bool ok;
+    bool ok = true;
     bool nullable;
     bool bufferable;
     bool iterable;
