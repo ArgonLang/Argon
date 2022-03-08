@@ -9,11 +9,9 @@
 
 namespace argon::object {
     class SimpleLock{
-        std::atomic_bool flag;
+        std::atomic_bool flag = false;
 
     public:
-        SimpleLock() : flag(false) {}
-
         SimpleLock &operator=(bool status) {
             this->flag.store(status);
             return *this;
@@ -25,11 +23,9 @@ namespace argon::object {
     };
 
     class RWLock {
-        std::atomic_uint cf;
+        std::atomic_uint cf = 0;
 
     public:
-        RWLock() : cf(0) {}
-
         RWLock &operator=(unsigned int counter) {
             this->cf.store(counter);
             return *this;

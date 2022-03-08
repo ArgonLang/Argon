@@ -7,13 +7,11 @@
 
 #include <object/arobject.h>
 #include <object/bufview.h>
-#include <object/rwlock.h>
 
 #define ARGON_OBJECT_BYTES_INITIAL_CAP   16
 
 namespace argon::object {
     struct Bytes : ArObject {
-        RWLock lock;
         BufferView view;
         ArSize hash;
 
