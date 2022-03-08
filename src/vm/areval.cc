@@ -221,23 +221,23 @@ ArObject *argon::vm::Eval(ArRoutine *routine) {
 #define PUSH(obj)                   \
     *cu_frame->eval_stack = obj;    \
     cu_frame->eval_stack++
-#define POP()       Release(*(--cu_frame->eval_stack))
-#define STACK_REWIND(offset) for(ArSize i = offset; i>0; POP(), i--)
-#define TOP()       (*(cu_frame->eval_stack-1))
-#define TOP_BACK()  (*(--cu_frame->eval_stack))
+#define POP()                   Release(*(--cu_frame->eval_stack))
+#define STACK_REWIND(offset)    for(ArSize i = offset; i>0; POP(), i--)
+#define TOP()                   (*(cu_frame->eval_stack-1))
+#define TOP_BACK()              (*(--cu_frame->eval_stack))
 #define TOP_REPLACE(obj)                \
     Release(*(cu_frame->eval_stack-1)); \
     *(cu_frame->eval_stack-1)=obj
-#define PEEK1()     (*(cu_frame->eval_stack-2))
-#define PEEK2()     (*(cu_frame->eval_stack-3))
+#define PEEK1()                 (*(cu_frame->eval_stack-2))
+#define PEEK2()                 (*(cu_frame->eval_stack-3))
 
 #define BINARY_OP(routine, op, opchar)                                                          \
     if ((ret = Binary(routine, PEEK1(), TOP(), offsetof(OpSlots, op))) == nullptr) {            \
         if (!RoutineIsPanicking(routine)) {                                                     \
-            ErrorFormat(type_type_error_, "unsupported operand type '%s' for: '%s' and '%s'",  \
+            ErrorFormat(type_type_error_, "unsupported operand type '%s' for: '%s' and '%s'",   \
             #opchar, PEEK1()->type->name, TOP()->type->name);                                   \
         }                                                                                       \
-        goto error;                                                                             \
+        goto ERROR;                                                                             \
     }                                                                                           \
     POP();                                                                                      \
     TOP_REPLACE(ret);                                                                           \
@@ -246,19 +246,19 @@ ArObject *argon::vm::Eval(ArRoutine *routine) {
 #define UNARY_OP(op)                                \
     ret = TOP();                                    \
     if((ret = ret->type->ops->op(ret)) == nullptr)  \
-        goto error;                                 \
+        goto ERROR;                                 \
     TOP_REPLACE(ret);                               \
     DISPATCH()
 
     // FUNCTION START
-    begin:
+    BEGIN:
     Frame *cu_frame = routine->frame;
     Code *cu_code = cu_frame->code;
 
     ArObject *ret = nullptr;
 
     if (!CheckRecursionLimit(routine))
-        goto error;
+        goto ERROR;
 
     STWCheckpoint();
 
@@ -272,10 +272,10 @@ ArObject *argon::vm::Eval(ArRoutine *routine) {
                 Frame *fn_frame = cu_frame;
 
                 if (!CallHelperInit(&helper, cu_frame))
-                    goto error;
+                    goto ERROR;
 
                 if (!CallHelperCall(&helper, &fn_frame, &ret))
-                    goto error;
+                    goto ERROR;
 
                 if (ret != nullptr) {
                     PUSH(ret);
@@ -291,11 +291,11 @@ ArObject *argon::vm::Eval(ArRoutine *routine) {
                 cu_frame->instr_ptr += sizeof(argon::lang::Instr32);
                 fn_frame->back = cu_frame;
                 routine->frame = fn_frame;
-                goto begin;
+                goto BEGIN;
             }
             TARGET_OP(CMP) {
                 if ((ret = RichCompare(PEEK1(), TOP(), (CompareMode) ARG16)) == nullptr)
-                    goto error;
+                    goto ERROR;
 
                 POP();
                 TOP_REPLACE(ret);
@@ -308,10 +308,10 @@ ArObject *argon::vm::Eval(ArRoutine *routine) {
                 CallHelper helper{};
 
                 if (!CallHelperInit(&helper, cu_frame))
-                    goto error;
+                    goto ERROR;
 
                 if ((ret = CallHelperBind(&helper, cu_frame)) == nullptr)
-                    goto error;
+                    goto ERROR;
 
                 RoutineNewDefer(routine, ret);
                 Release(ret);
@@ -339,7 +339,7 @@ ArObject *argon::vm::Eval(ArRoutine *routine) {
                 auto *mod = (Module *) TOP();
 
                 if (!NamespaceMergePublic(cu_frame->globals, mod->module_ns))
-                    goto error;
+                    goto ERROR;
 
                 DISPATCH();
             }
@@ -348,7 +348,7 @@ ArObject *argon::vm::Eval(ArRoutine *routine) {
 
                 if ((ret = PropertyGet(TOP(), attribute, false)) == nullptr) {
                     Release(attribute);
-                    goto error;
+                    goto ERROR;
                 }
 
                 Release(attribute);
@@ -361,7 +361,7 @@ ArObject *argon::vm::Eval(ArRoutine *routine) {
                 ImportSpec *spec;
 
                 if ((key = StringIntern("__spec")) == nullptr)
-                    goto error;
+                    goto ERROR;
 
                 spec = (ImportSpec *) NamespaceGetValue(routine->frame->globals, key, nullptr);
 
@@ -371,7 +371,7 @@ ArObject *argon::vm::Eval(ArRoutine *routine) {
                 Release(spec);
 
                 if (ret == nullptr)
-                    goto error;
+                    goto ERROR;
 
                 PUSH(ret);
                 DISPATCH4();
@@ -384,7 +384,7 @@ ArObject *argon::vm::Eval(ArRoutine *routine) {
 
                 if ((ret = StructInit(*(cu_frame->eval_stack - args - 1), cu_frame->eval_stack - args,
                                       args, argon::lang::I32ExtractFlag(cu_frame->instr_ptr))) == nullptr)
-                    goto error;
+                    goto ERROR;
 
                 STACK_REWIND(args);
                 TOP_REPLACE(ret);
@@ -458,7 +458,7 @@ ArObject *argon::vm::Eval(ArRoutine *routine) {
 
                 if ((ret = PropertyGet(TOP(), key, true)) == nullptr) {
                     Release(key);
-                    goto error;
+                    goto ERROR;
                 }
 
                 Release(key);
@@ -468,7 +468,7 @@ ArObject *argon::vm::Eval(ArRoutine *routine) {
             }
             TARGET_OP(LDENC) {
                 if ((ret = ListGetItem(cu_frame->enclosed, ARG16)) == nullptr)
-                    goto error;
+                    goto ERROR;
 
                 PUSH(ret);
                 DISPATCH2();
@@ -491,7 +491,7 @@ ArObject *argon::vm::Eval(ArRoutine *routine) {
                 if (ret == nullptr) {
                     ErrorFormat(type_undeclared_error_, "'%s' undeclared global variable",
                                 ((String *) key)->buffer);
-                    goto error;
+                    goto ERROR;
                 }
 
                 PUSH(ret);
@@ -499,7 +499,7 @@ ArObject *argon::vm::Eval(ArRoutine *routine) {
             }
             TARGET_OP(LDITER) {
                 if ((ret = IteratorGet(TOP())) == nullptr)
-                    goto error;
+                    goto ERROR;
 
                 TOP_REPLACE(ret);
                 DISPATCH();
@@ -522,7 +522,7 @@ ArObject *argon::vm::Eval(ArRoutine *routine) {
                 Release(key);
 
                 if (ret == nullptr)
-                    goto error;
+                    goto ERROR;
 
                 if (meth_found) {
                     // |method|self|arg1|arg2|....
@@ -542,7 +542,7 @@ ArObject *argon::vm::Eval(ArRoutine *routine) {
 
                 if ((ret = PropertyGet(TOP(), key, false)) == nullptr) {
                     Release(key);
-                    goto error;
+                    goto ERROR;
                 }
                 Release(key);
 
@@ -579,7 +579,7 @@ ArObject *argon::vm::Eval(ArRoutine *routine) {
                 Release(stop);
 
                 if (ret == nullptr)
-                    goto error;
+                    goto ERROR;
 
                 TOP_REPLACE(ret);
                 DISPATCH2();
@@ -600,7 +600,7 @@ ArObject *argon::vm::Eval(ArRoutine *routine) {
                 ret = FunctionNew(cu_frame->globals, name, nullptr, (Code *) ret, enclosed, ARG16, flags);
 
                 if (ret == nullptr)
-                    goto error;
+                    goto ERROR;
 
                 if (ENUMBITMASK_ISTRUE(flags, FunctionFlags::CLOSURE))
                     POP();
@@ -613,12 +613,12 @@ ArObject *argon::vm::Eval(ArRoutine *routine) {
                 auto args = ARG32;
 
                 if ((ret = ListNew(args)) == nullptr)
-                    goto error;
+                    goto ERROR;
 
                 // Fill list
                 for (ArObject **cursor = cu_frame->eval_stack - args; cursor != cu_frame->eval_stack; cursor++) {
                     if (!ListAppend((List *) ret, *cursor))
-                        goto error;
+                        goto ERROR;
                     Release(*cursor);
                 }
 
@@ -630,12 +630,12 @@ ArObject *argon::vm::Eval(ArRoutine *routine) {
                 auto args = ARG32 * 2;
 
                 if ((ret = MapNew()) == nullptr)
-                    goto error;
+                    goto ERROR;
 
                 // Fill map
                 for (ArObject **cursor = cu_frame->eval_stack - args; cursor != cu_frame->eval_stack; cursor += 2) {
                     if (!MapInsert((Map *) ret, *cursor, *(cursor + 1)))
-                        goto error;
+                        goto ERROR;
                     Release(*cursor);
                     Release(*(cursor + 1));
                 }
@@ -648,12 +648,12 @@ ArObject *argon::vm::Eval(ArRoutine *routine) {
                 auto args = ARG32;
 
                 if ((ret = SetNew()) == nullptr)
-                    goto error;
+                    goto ERROR;
 
                 // Fill set
                 for (ArObject **cursor = cu_frame->eval_stack - args; cursor != cu_frame->eval_stack; cursor++) {
                     if (!SetAdd((Set *) ret, *cursor))
-                        goto error;
+                        goto ERROR;
                     Release(*cursor);
                 }
 
@@ -670,7 +670,7 @@ ArObject *argon::vm::Eval(ArRoutine *routine) {
                 Release(ns);
 
                 if (ret == nullptr)
-                    goto error;
+                    goto ERROR;
 
                 STACK_REWIND(args + 1);
                 TOP_REPLACE(ret);
@@ -685,7 +685,7 @@ ArObject *argon::vm::Eval(ArRoutine *routine) {
                 Release(ns);
 
                 if (ret == nullptr)
-                    goto error;
+                    goto ERROR;
 
                 STACK_REWIND(args + 1);
                 TOP_REPLACE(ret);
@@ -695,13 +695,13 @@ ArObject *argon::vm::Eval(ArRoutine *routine) {
                 auto args = ARG32;
 
                 if ((ret = TupleNew(args)) == nullptr)
-                    goto error;
+                    goto ERROR;
 
                 // Fill tuple
                 unsigned int idx = 0;
                 for (ArObject **cursor = cu_frame->eval_stack - args; cursor != cu_frame->eval_stack; cursor++) {
                     if (!TupleInsertAt((Tuple *) ret, idx++, *cursor))
-                        goto error;
+                        goto ERROR;
                     Release(*cursor);
                 }
 
@@ -721,7 +721,7 @@ ArObject *argon::vm::Eval(ArRoutine *routine) {
             TARGET_OP(NJE) {
                 if ((ret = IteratorNext(TOP())) == nullptr) {
                     if (RoutineIsPanicking(routine))
-                        goto error;
+                        goto ERROR;
 
                     POP();
                     JUMPTO(ARG32);
@@ -738,7 +738,7 @@ ArObject *argon::vm::Eval(ArRoutine *routine) {
                 ret = TupleGetItem(cu_code->names, ARG16);
 
                 if (!NamespaceNewSymbol(map, ret, TOP(), (PropertyType) (ARG32 >> (unsigned char) 16)))
-                    goto error;
+                    goto ERROR;
 
                 Release(ret);
                 POP();
@@ -777,7 +777,7 @@ ArObject *argon::vm::Eval(ArRoutine *routine) {
                 }
 
                 STACK_REWIND(cu_frame->eval_stack - cu_frame->stack_extra_base);
-                goto end_function;
+                goto END_FUNCTION;
             }
             TARGET_OP(SHL) {
                 BINARY_OP(routine, shl, >>);
@@ -789,10 +789,10 @@ ArObject *argon::vm::Eval(ArRoutine *routine) {
                 CallHelper helper{};
 
                 if (!CallHelperInit(&helper, cu_frame))
-                    goto error;
+                    goto ERROR;
 
                 if (!CallHelperSpawn(&helper, cu_frame))
-                    goto error;
+                    goto ERROR;
 
                 DISPATCH4();
             }
@@ -802,7 +802,7 @@ ArObject *argon::vm::Eval(ArRoutine *routine) {
 
                 if (!PropertySet(TOP(), key, PEEK1(), true)) {
                     Release(key);
-                    goto error;
+                    goto ERROR;
                 }
 
                 Release(key);
@@ -812,7 +812,7 @@ ArObject *argon::vm::Eval(ArRoutine *routine) {
             }
             TARGET_OP(STENC) {
                 if (!ListSetItem(cu_frame->enclosed, TOP(), ARG16))
-                    goto error;
+                    goto ERROR;
 
                 POP();
                 DISPATCH2();
@@ -828,13 +828,13 @@ ArObject *argon::vm::Eval(ArRoutine *routine) {
                 if (!NamespaceContains(map, ret, &pinfo)) {
                     ErrorFormat(type_undeclared_error_, "'%s' undeclared global variable in assignment",
                                 ((String *) ret)->buffer);
-                    goto error;
+                    goto ERROR;
                 }
 
                 if (pinfo.IsConstant()) {
                     ErrorFormat(type_unassignable_error_, "unable to assign value to '%s' because is constant",
                                 ((String *) ret)->buffer);
-                    goto error;
+                    goto ERROR;
                 }
 
                 NamespaceSetValue(map, ret, TOP());
@@ -856,7 +856,7 @@ ArObject *argon::vm::Eval(ArRoutine *routine) {
 
                 if (!PropertySet(TOP(), key, PEEK1(), false)) {
                     Release(key);
-                    goto error;
+                    goto ERROR;
                 }
 
                 Release(key);
@@ -866,7 +866,7 @@ ArObject *argon::vm::Eval(ArRoutine *routine) {
             }
             TARGET_OP(STSUBSCR) {
                 if ((ret = Subscript(PEEK1(), TOP(), PEEK2())) == False)
-                    goto error;
+                    goto ERROR;
                 STACK_REWIND(3);
                 DISPATCH();
             }
@@ -875,7 +875,7 @@ ArObject *argon::vm::Eval(ArRoutine *routine) {
             }
             TARGET_OP(SUBSCR) {
                 if ((ret = Subscript(PEEK1(), TOP(), nullptr)) == nullptr)
-                    goto error;
+                    goto ERROR;
                 POP();
                 TOP_REPLACE(ret);
                 DISPATCH();
@@ -900,11 +900,11 @@ ArObject *argon::vm::Eval(ArRoutine *routine) {
                 if (!AsSequence(ret)) {
                     ErrorFormat(type_type_error_, "unpacking expression was expecting a sequence not a '%s'",
                                 AR_TYPE_NAME(ret));
-                    goto error;
+                    goto ERROR;
                 }
 
                 if ((iter = IteratorGet(ret)) == nullptr)
-                    goto error;
+                    goto ERROR;
 
                 Release(ret);
                 cu_frame->eval_stack += len - 1;
@@ -917,7 +917,7 @@ ArObject *argon::vm::Eval(ArRoutine *routine) {
                 if (count != len) {
                     ErrorFormat(type_value_error_, "incompatible number of value to unpack (expected '%d' got '%d')",
                                 len, count);
-                    goto error;
+                    goto ERROR;
                 }
 
                 DISPATCH4();
@@ -935,12 +935,12 @@ ArObject *argon::vm::Eval(ArRoutine *routine) {
                 routine->frame->eval_stack++;
 
                 FrameDel(cu_frame);
-                goto begin;
+                goto BEGIN;
             }
             default:
-                ErrorFormat(type_runtime_error_, "unknown opcode: 0x%X", (unsigned char) (*cu_frame->instr_ptr));
+                ErrorFormat(type_runtime_error_, "unknown opcode: 0x%X", *cu_frame->instr_ptr);
         }
-        error:
+        ERROR:
         if (routine->status == ArRoutineStatus::BLOCKED)
             return nullptr;
 
@@ -948,7 +948,7 @@ ArObject *argon::vm::Eval(ArRoutine *routine) {
         break;
     }
 
-    end_function:
+    END_FUNCTION:
 
     assert(cu_frame->eval_stack == nullptr || cu_frame->stack_extra_base == cu_frame->eval_stack);
 
@@ -957,7 +957,7 @@ ArObject *argon::vm::Eval(ArRoutine *routine) {
 
     while (true) {
         if (ExecDefer(routine))
-            goto begin;
+            goto BEGIN;
 
         if (routine->status != ArRoutineStatus::RUNNING) {
             cu_frame->instr_ptr = (unsigned char *) cu_code->instr + cu_code->instr_sz;
@@ -982,10 +982,10 @@ ArObject *argon::vm::Eval(ArRoutine *routine) {
 
             if (RoutineIsPanicking(routine)) {
                 cu_frame = routine->frame;  // set cu_frame before jump to error
-                goto error;
+                goto ERROR;
             }
 
-            goto begin;
+            goto BEGIN;
         }
 
         FrameDel(cu_frame);
