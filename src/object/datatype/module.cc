@@ -93,12 +93,10 @@ ArObject *module_compare(Module *self, ArObject *other, CompareMode mode) {
     if (!AR_SAME_TYPE(self, other) || mode != CompareMode::EQ)
         return nullptr;
 
-    if (self != other) {
-        if (Equal(self->name, o->name) && Equal(self->doc, o->doc))
-            return BoolToArBool(true);
-    }
+    if (self != other)
+        return BoolToArBool(Equal(self->name, o->name) && Equal(self->doc, o->doc));
 
-    return BoolToArBool(false);
+    return BoolToArBool(true);
 }
 
 void module_trace(Module *self, VoidUnaryOp trace) {
@@ -209,10 +207,10 @@ Module *argon::object::ModuleNew(const ModuleInit *init) {
     auto module = ModuleNew(init->name, init->doc);
 
     if (module != nullptr) {
-        if (init->bulk != nullptr && !ModuleAddObjects(module, init->bulk))
+        if (init->initialize != nullptr && !init->initialize(module))
             goto error;
 
-        if (init->initialize != nullptr && !init->initialize(module))
+        if (init->bulk != nullptr && !ModuleAddObjects(module, init->bulk))
             goto error;
 
         module->finalize = init->finalize;
