@@ -891,28 +891,35 @@ ArObject *argon::vm::Eval(ArRoutine *routine) {
                 DISPATCH();
             }
             TARGET_OP(UNPACK) {
-                auto len = ARG32;
+                ArObject *iter;
+                auto len = (int) ARG32;
+                int count = 0;
+
                 ret = TOP();
 
                 if (!AsSequence(ret)) {
                     ErrorFormat(type_type_error_, "unpacking expression was expecting a sequence not a '%s'",
-                                ret->type->name);
+                                AR_TYPE_NAME(ret));
                     goto error;
                 }
 
-                ArSize s_len = ret->type->sequence_actions->length(ret);
-                if (s_len != len) {
-                    ErrorFormat(type_value_error_, "incompatible number of value to unpack (expected '%d' got '%d')",
-                                len, s_len);
+                if ((iter = IteratorGet(ret)) == nullptr)
                     goto error;
-                }
-
-                cu_frame->eval_stack--;
-                while (len-- > 0) {
-                    PUSH(ret->type->sequence_actions->get_item(ret, len));
-                }
 
                 Release(ret);
+                cu_frame->eval_stack += len - 1;
+
+                while ((ret = IteratorNext(iter)) != nullptr && count++ < len)
+                    *(cu_frame->eval_stack - count) = ret;
+
+                Release(iter);
+
+                if (count != len) {
+                    ErrorFormat(type_value_error_, "incompatible number of value to unpack (expected '%d' got '%d')",
+                                len, count);
+                    goto error;
+                }
+
                 DISPATCH4();
             }
             TARGET_OP(YLD) {
