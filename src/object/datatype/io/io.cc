@@ -99,70 +99,6 @@ ARGON_METHOD5(file_, isseekable, "Test if the file is seekable."
     return BoolToArBool(IsSeekable((File *) self));
 }
 
-ARGON_FUNCTION5(file_, open, "Open file and return corresponding file object."
-                             ""
-                             "The operations that are allowed on the file and how these are performed are defined "
-                             "by the mode parameter. The parameter mode value can be one or a combination of these:"
-                             "  * O_READ"
-                             "  * O_WRITE"
-                             "  * O_APPEND"
-                             ""
-                             "- Parameters:"
-                             "  - path: file path."
-                             "  - mode: open mode."
-                             "- Returns: file object.", 2, false) {
-    File *file;
-    char *path;
-
-    FileMode flags;
-
-    if (!AR_TYPEOF(argv[0], type_string_))
-        return ErrorFormat(type_type_error_, "file::open expected path as string, not '%s'", AR_TYPE_NAME(argv[0]));
-
-    if (!AR_TYPEOF(argv[1], type_integer_))
-        return ErrorFormat(type_type_error_, "file::open expected mode as integer, not '%s'", AR_TYPE_NAME(argv[1]));
-
-    path = (char *) ((String *) argv[0])->buffer;
-    flags = (FileMode) ((Integer *) argv[1])->integer;
-
-    if ((file = Open(path, flags)) == nullptr)
-        return nullptr;
-
-    return file;
-}
-
-ARGON_FUNCTION5(file_, openfd, "Create file object from file descriptor."
-                               ""
-                               "The operations that are allowed on the file and how these are performed are defined "
-                               "by the mode parameter. The parameter mode value can be one or a combination of these:"
-                               "  * O_READ"
-                               "  * O_WRITE"
-                               "  * O_APPEND"
-                               ""
-                               "- Parameters:"
-                               "  - fd: file descriptor (integer)."
-                               "  - mode: open mode."
-                               "- Returns: file object.", 2, false) {
-    File *file;
-
-    int fd;
-    FileMode flags;
-
-    if (!AR_TYPEOF(argv[0], type_integer_))
-        return ErrorFormat(type_type_error_, "file::openfd expected fd as integer, not '%s'", AR_TYPE_NAME(argv[0]));
-
-    if (!AR_TYPEOF(argv[1], type_integer_))
-        return ErrorFormat(type_type_error_, "file::open expected mode as integer, not '%s'", AR_TYPE_NAME(argv[1]));
-
-    fd = (int) ((Integer *) argv[0])->integer;
-    flags = (FileMode) ((Integer *) argv[1])->integer;
-
-    if ((file = FdOpen(fd, flags)) == nullptr)
-        return nullptr;
-
-    return file;
-}
-
 ARGON_METHOD5(file_, read, "Read up to size bytes from the file and return them."
                            ""
                            "As a convenience, if size is unspecified or -1, all bytes until EOF are returned"
@@ -170,7 +106,7 @@ ARGON_METHOD5(file_, read, "Read up to size bytes from the file and return them.
                            "With size = -1, read() may be using multiple calls to the stream."
                            ""
                            "- Parameter size: number of bytes to read from the stream."
-                           "- Returns: bytes object.", 1, false) {
+                           "- Returns: (bytes, err)", 1, false) {
     struct stat st{};
 
     unsigned char *buf = nullptr;
@@ -185,17 +121,15 @@ ARGON_METHOD5(file_, read, "Read up to size bytes from the file and return them.
 
     bool known_len = true;
 
-    if (!AR_TYPEOF(*argv, type_integer_))
-        return ErrorFormat(type_type_error_, "file::read expected integer as size, not '%s'", AR_TYPE_NAME(*argv));
+    if (!CheckArgs("i:size", func, argv, count))
+        return nullptr;
 
     file = (File *) self;
     blksize = ((Integer *) *argv)->integer;
 
     if (blksize < 0) {
-        if (fstat(file->fd, &st) < 0) {
-            ErrorSetFromErrno();
-            return nullptr;
-        }
+        if (fstat(file->fd, &st) < 0)
+            ARGON_OBJECT_TUPLE_ERROR(ErrorNewFromErrno());
 
         blksize = st.st_size;
         if (ENUMBITMASK_ISTRUE(file->mode, FileMode::_IS_TERM)) {
@@ -209,38 +143,38 @@ ARGON_METHOD5(file_, read, "Read up to size bytes from the file and return them.
     }
 
     if (blksize == 0)
-        return BytesNew(0, true, true, true);
+        return ARGON_OBJECT_TUPLE_SUCCESS(BytesNew(0, true, true, true));
 
     do {
         if (buflen - index == 0) {
-            if ((tmp = (unsigned char *) argon::memory::Realloc(buf, buflen + blksize)) == nullptr)
-                goto error;
+            if ((tmp = ArObjectRealloc<unsigned char *>(buf, buflen + blksize)) == nullptr)
+                goto ERROR;
 
             buf = tmp;
             buflen += blksize;
         }
 
         if ((rdlen = Read(file, buf + index, buflen - index)) < 0)
-            goto error;
+            goto ERROR;
 
         index += rdlen;
     } while (rdlen != 0 && !known_len);
 
     if (index == 0) {
         argon::memory::Free(buf);
-        return BytesNew(0, true, true, true);
+        return ARGON_OBJECT_TUPLE_SUCCESS(BytesNew(0, true, true, true));
     }
 
     if ((ret = BytesNewHoldBuffer(buf, index, buflen, true)) == nullptr)
-        goto error;
+        goto ERROR;
 
-    return ret;
+    return ARGON_OBJECT_TUPLE_SUCCESS(ret);
 
-    error:
+    ERROR:
     argon::memory::Free(buf);
     if (IsSeekable(file))
         Seek(file, -index, FileWhence::CUR);
-    return nullptr;
+    return ARGON_OBJECT_TUPLE_ERROR(argon::vm::GetLastNonFatalError());
 }
 
 ARGON_METHOD5(file_, readall, "Read and return all the bytes from the stream until EOF."
@@ -248,7 +182,7 @@ ARGON_METHOD5(file_, readall, "Read and return all the bytes from the stream unt
                               "May be using multiple calls to the stream."
                               "Equivalent to file:read(-1)."
                               ""
-                              "- Returns: bytes object.", 0, false) {
+                              "- Returns: (bytes, err)", 0, false) {
     ArObject *args[] = {nullptr};
     ArObject *ret = nullptr;
 
@@ -265,7 +199,7 @@ ARGON_METHOD5(file_, readall, "Read and return all the bytes from the stream unt
 ARGON_METHOD5(file_, readinto, "Read bytes into a pre-allocated, writable bytes-like object."
                                ""
                                "- Parameter obj: bytes-like writable object."
-                               "- Returns: number of bytes read.", 1, false) {
+                               "- Returns: (number of bytes read, err)", 1, false) {
     ArBuffer buffer = {};
     File *file;
     ArSSize rlen;
@@ -279,14 +213,14 @@ ARGON_METHOD5(file_, readinto, "Read bytes into a pre-allocated, writable bytes-
     BufferRelease(&buffer);
 
     if (rlen < 0)
-        return nullptr;
+        return ARGON_OBJECT_TUPLE_ERROR(argon::vm::GetLastNonFatalError());
 
-    return IntegerNew(rlen);
+    return ARGON_OBJECT_TUPLE_SUCCESS(IntegerNew(rlen));
 }
 
 ARGON_METHOD5(file_, readline, "Read and return a single line from file."
                                ""
-                               "- Returns: bytes object that contain a single line read.", 0, false) {
+                               "- Returns: (bytes, err)", 0, false) {
     auto *file = (File *) self;
     unsigned char *buf = nullptr;
     Bytes *bytes;
@@ -294,16 +228,18 @@ ARGON_METHOD5(file_, readline, "Read and return a single line from file."
     ArSSize len;
 
     if ((len = ReadLine(file, &buf, 0)) < 0)
-        return nullptr;
+        return ARGON_OBJECT_TUPLE_ERROR(argon::vm::GetLastNonFatalError());
 
     if ((bytes = BytesNewHoldBuffer(buf, len, len, true)) == nullptr) {
         argon::memory::Free(buf);
 
         if (IsSeekable(file))
             Seek(file, -len, FileWhence::CUR);
+
+        return ARGON_OBJECT_TUPLE_ERROR(argon::vm::GetLastNonFatalError());
     }
 
-    return bytes;
+    return ARGON_OBJECT_TUPLE_SUCCESS(bytes);
 }
 
 ARGON_METHOD5(file_, setbufmode, "Set buffering mode."
@@ -387,14 +323,14 @@ ARGON_METHOD5(file_, tell, "Return the current stream position."
 ARGON_METHOD5(file_, write, "Write a bytes-like object to underlying stream."
                             ""
                             "- Parameter obj: bytes-like object to write to."
-                            "- Returns: bytes written (integer).", 1, false) {
+                            "- Returns: (bytes written, err)", 1, false) {
     auto *file = (File *) self;
     ArSSize wlen;
 
     if ((wlen = WriteObject(file, *argv)) < 0)
-        return nullptr;
+        return ARGON_OBJECT_TUPLE_ERROR(argon::vm::GetLastNonFatalError());
 
-    return IntegerNew(wlen);
+    return ARGON_OBJECT_TUPLE_SUCCESS(IntegerNew(wlen));
 }
 
 const NativeFunc file_methods[] = {
@@ -405,8 +341,6 @@ const NativeFunc file_methods[] = {
         file_isatty_,
         file_isclosed_,
         file_isseekable_,
-        file_open_,
-        file_openfd_,
         file_read_,
         file_readall_,
         file_readinto_,
@@ -448,7 +382,7 @@ void file_cleanup(File *self) {
     self->lock.~mutex();
 }
 
-ArObject *file_str(File *self) {
+ArObject *file_str(const File *self) {
     char mode[24] = {};
     const char *buffered;
 
@@ -460,15 +394,19 @@ ArObject *file_str(File *self) {
     }
 
     if (ENUMBITMASK_ISTRUE(self->mode, FileMode::WRITE)) {
-        memcpy(mode + idx, "|", 1);
-        idx += 1;
+        if (idx != 0) {
+            memcpy(mode + idx, "|", 1);
+            idx += 1;
+        }
         memcpy(mode + idx, "O_WRITE", 7);
         idx += 7;
     }
 
     if (ENUMBITMASK_ISTRUE(self->mode, FileMode::APPEND)) {
-        memcpy(mode + idx, "|", 1);
-        idx += 1;
+        if (idx != 0) {
+            memcpy(mode + idx, "|", 1);
+            idx += 1;
+        }
         memcpy(mode + idx, "O_APPEND", 8);
         idx += 8;
     }

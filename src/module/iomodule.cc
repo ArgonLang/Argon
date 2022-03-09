@@ -2,6 +2,8 @@
 //
 // Licensed under the Apache License v2.0
 
+#include <vm/runtime.h>
+
 #include <object/arobject.h>
 #include <object/datatype/integer.h>
 #include <object/datatype/io/io.h>
@@ -12,40 +14,90 @@
 using namespace argon::object;
 using namespace io;
 
+ARGON_FUNCTION5(io_, open, "Open file and return corresponding file object."
+                           ""
+                           "The operations that are allowed on the file and how these are performed are defined "
+                           "by the mode parameter. The parameter mode value can be one or a combination of these:"
+                           "  * O_READ"
+                           "  * O_WRITE"
+                           "  * O_APPEND"
+                           ""
+                           "- Parameters:"
+                           "  - path: file path."
+                           "  - mode: open mode."
+                           "- Returns: (file, err)", 2, false) {
+    File *file;
+    char *path;
+
+    FileMode flags;
+
+    if (!CheckArgs("s:path,i:mode", func, argv, count))
+        return nullptr;
+
+    path = (char *) ((String *) argv[0])->buffer;
+    flags = (FileMode) ((Integer *) argv[1])->integer;
+
+    if ((file = Open(path, flags)) == nullptr)
+        return ARGON_OBJECT_TUPLE_ERROR(argon::vm::GetLastNonFatalError());
+
+    return ARGON_OBJECT_TUPLE_SUCCESS(file);
+}
+
+ARGON_FUNCTION5(io_, openfd, "Create file object from file descriptor."
+                             ""
+                             "The operations that are allowed on the file and how these are performed are defined "
+                             "by the mode parameter. The parameter mode value can be one or a combination of these:"
+                             "  * O_READ"
+                             "  * O_WRITE"
+                             "  * O_APPEND"
+                             ""
+                             "- Parameters:"
+                             "  - fd: file descriptor (integer)."
+                             "  - mode: open mode."
+                             "- Returns: (file, err)", 2, false) {
+    File *file;
+
+    int fd;
+    FileMode flags;
+
+    if (!CheckArgs("i:fd,i:mode", func, argv, count))
+        return nullptr;
+
+    fd = (int) ((Integer *) argv[0])->integer;
+    flags = (FileMode) ((Integer *) argv[1])->integer;
+
+    if ((file = FdOpen(fd, flags)) == nullptr)
+        return ARGON_OBJECT_TUPLE_ERROR(argon::vm::GetLastNonFatalError());
+
+    return ARGON_OBJECT_TUPLE_SUCCESS(file);
+}
+
 const PropertyBulk io_bulk[] = {
         MODULE_EXPORT_TYPE_ALIAS("file", type_file_),
+        MODULE_EXPORT_FUNCTION(io_open_),
+        MODULE_EXPORT_FUNCTION(io_openfd_),
         MODULE_EXPORT_SENTINEL
 };
 
 bool IOInit(Module *module) {
-#define INIT_OBJ(fn, c_key, c_value)                                            \
-    if((key = StringIntern(c_key)) == nullptr)                                  \
-        return false;                                                           \
-    if ((value = fn(c_value)) == nullptr)                                       \
-        return false;                                                           \
-    if (!ModuleAddProperty(module, key, value, MODULE_ATTRIBUTE_PUB_CONST)) {   \
-        Release(value);                                                         \
-        return false; }                                                         \
-    Release(key);                                                               \
-    Release(value)
-
-    ArObject *key;
-    ArObject *value;
+#define INIT_OBJ(c_key, c_value)                        \
+    if(!ModuleAddIntConstant(module, c_key, c_value))   \
+        return false
 
     // FileMode
-    INIT_OBJ(IntegerNew, "O_READ", (IntegerUnderlying) FileMode::READ);
-    INIT_OBJ(IntegerNew, "O_WRITE", (IntegerUnderlying) FileMode::WRITE);
-    INIT_OBJ(IntegerNew, "O_APPEND", (IntegerUnderlying) FileMode::APPEND);
+    INIT_OBJ("O_READ", (int) FileMode::READ);
+    INIT_OBJ("O_WRITE", (int) FileMode::WRITE);
+    INIT_OBJ("O_APPEND", (int) FileMode::APPEND);
 
     // FileBufferMode
-    INIT_OBJ(IntegerNew, "BUF_NONE", (IntegerUnderlying) FileBufferMode::NONE);
-    INIT_OBJ(IntegerNew, "BUF_LINE", (IntegerUnderlying) FileBufferMode::LINE);
-    INIT_OBJ(IntegerNew, "BUF_BLOCK", (IntegerUnderlying) FileBufferMode::BLOCK);
+    INIT_OBJ("BUF_NONE", (int) FileBufferMode::NONE);
+    INIT_OBJ("BUF_LINE", (int) FileBufferMode::LINE);
+    INIT_OBJ("BUF_BLOCK", (int) FileBufferMode::BLOCK);
 
     // FileWhence
-    INIT_OBJ(IntegerNew, "SEEK_START", (IntegerUnderlying) FileWhence::START);
-    INIT_OBJ(IntegerNew,  "SEEK_CUR", (IntegerUnderlying) FileWhence::CUR);
-    INIT_OBJ(IntegerNew, "SEEK_END", (IntegerUnderlying) FileWhence::END);
+    INIT_OBJ("SEEK_START", (int) FileWhence::START);
+    INIT_OBJ("SEEK_CUR", (int) FileWhence::CUR);
+    INIT_OBJ("SEEK_END", (int) FileWhence::END);
 
     return true;
 #undef INIT_OBJ
