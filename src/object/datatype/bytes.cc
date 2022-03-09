@@ -35,15 +35,37 @@ Bytes *MakeSlice(Bytes *stream, ArSize start, ArSize len) {
 }
 
 bool bytes_get_buffer(Bytes *self, ArBuffer *buffer, ArBufferFlags flags) {
-    return BufferSimpleFill(self, buffer, flags, BUFFER_GET(self), 1, BUFFER_LEN(self), !self->frozen);
+    bool ok;
+
+    flags == ArBufferFlags::READ
+    ? self->view.shared->lock.RLock()
+    : self->view.shared->lock.Lock();
+
+    ok = BufferSimpleFill(self, buffer, flags, BUFFER_GET(self), 1, BUFFER_LEN(self), !self->frozen);
+
+    if (!ok) {
+        flags == ArBufferFlags::READ
+        ? self->view.shared->lock.RUnlock()
+        : self->view.shared->lock.Unlock();
+    }
+
+    return ok;
+}
+
+void bytes_rel_buffer(ArBuffer *buffer) {
+    auto *bytes = (Bytes *) buffer->obj;
+
+    buffer->flags == ArBufferFlags::READ
+    ? bytes->view.shared->lock.RUnlock()
+    : bytes->view.shared->lock.Unlock();
 }
 
 const BufferSlots bytes_buffer = {
         (BufferGetFn) bytes_get_buffer,
-        nullptr
+        bytes_rel_buffer
 };
 
-ArSize bytes_len(Bytes *self) {
+ArSize bytes_len(const Bytes *self) {
     return BUFFER_LEN(self);
 }
 
@@ -87,7 +109,7 @@ bool bytes_set_item(Bytes *self, ArObject *obj, ArSSize index) {
         return false;
     }
 
-    if (value < 0 || value > 255) {
+    if (value > 255) {
         ErrorFormat(type_value_error_, "byte must be in range(0, 255)");
         return false;
     }
@@ -96,7 +118,7 @@ bool bytes_set_item(Bytes *self, ArObject *obj, ArSSize index) {
         index = BUFFER_LEN(self) + index;
 
     if (index < BUFFER_LEN(self)) {
-        BUFFER_GET(self)[index] = value;
+        BUFFER_GET(self)[index] = (unsigned char) value;
         return true;
     }
 
