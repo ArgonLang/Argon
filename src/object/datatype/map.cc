@@ -19,7 +19,7 @@ ArObject *map_iter_next(HMapIterator *iter) {
 
     RWLockRead lock(iter->map->lock);
 
-    if(!HMapIteratorIsValid(iter))
+    if (!HMapIteratorIsValid(iter))
         return nullptr;
 
     if ((ret = TupleNew(2)) != nullptr) {
@@ -137,6 +137,22 @@ ARGON_METHOD5(map_, clear,
     return IncRef(self);
 }
 
+ARGON_METHOD5(map_, contains,
+              "Check if the elements is present in the map."
+              ""
+              "- Returns: true if element exists, false otherwise.", 1, false) {
+    RWLockRead lock(((Map *) self)->hmap.lock);
+
+    if (HMapLookup(&((Map *) self)->hmap, argv[0]) == nullptr) {
+        if (argon::vm::IsPanicking())
+            return nullptr;
+
+        return BoolToArBool(false);
+    }
+
+    return BoolToArBool(true);
+}
+
 ARGON_METHOD5(map_, get,
               "Returns the value of the specified key."
               ""
@@ -237,6 +253,7 @@ ARGON_METHOD5(map_, values, "Returns a list of all the values in the map."
 const NativeFunc map_methods[] = {
         map_new_,
         map_clear_,
+        map_contains_,
         map_get_,
         map_items_,
         map_keys_,
