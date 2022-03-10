@@ -133,7 +133,7 @@ namespace argon::lang::scanner {
 
         Token NextToken() noexcept;
 
-        void SetPromptFn(InteractiveFn fn);
+        [[maybe_unused]] void SetPromptFn(InteractiveFn fn);
     };
 }
 

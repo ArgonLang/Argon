@@ -63,7 +63,9 @@ int PeekPrecedence(TokenType type) {
         case TokenType::CARET:
             return 90;
         case TokenType::EQUAL_EQUAL:
+        case TokenType::EQUAL_STRICT:
         case TokenType::NOT_EQUAL:
+        case TokenType::NOT_EQUAL_STRICT:
             return 100;
         case TokenType::LESS:
         case TokenType::LESS_EQ:
@@ -199,6 +201,8 @@ LedMeth Parser::LookupLed() const {
         case TokenType::GREATER:
         case TokenType::GREATER_EQ:
         case TokenType::EQUAL_EQUAL:
+        case TokenType::EQUAL_STRICT:
+        case TokenType::NOT_EQUAL_STRICT:
         case TokenType::NOT_EQUAL:
         case TokenType::AMPERSAND:
         case TokenType::CARET:
@@ -1679,7 +1683,7 @@ Node *Parser::ParseStatement() {
                     tmp = this->ParseJmpStmt();
                     break;
                 default:
-                    assert(false);
+                    return (Node *) ErrorFormat(type_syntax_error_, "unexpected token '%s'", this->tkcur_.buf);
             }
         } else
             tmp = this->Expression();

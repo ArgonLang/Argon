@@ -14,9 +14,9 @@ namespace argon::lang::scanner {
         END_OF_FILE,
         END_OF_LINE,
         EXCLAMATION,
-        EXCLAMATION_LBRACES,
         BLANK,
         NOT_EQUAL,
+        NOT_EQUAL_STRICT,
 
         STRING_BEGIN,
         STRING,
@@ -72,6 +72,7 @@ namespace argon::lang::scanner {
 
         SHL,
         EQUAL_EQUAL,
+        EQUAL_STRICT,
         ARROW,
         SHR,
         QUESTION,

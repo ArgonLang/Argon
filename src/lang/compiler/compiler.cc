@@ -461,8 +461,14 @@ bool Compiler::CompileBinary(Binary *expr) {
         case TokenType::EQUAL_EQUAL:
             ok = this->Emit(OpCodes::CMP, (int) CompareMode::EQ, nullptr);
             break;
+        case TokenType::EQUAL_STRICT:
+            ok = this->Emit(OpCodes::EQST, (int) CompareMode::EQ, nullptr);
+            break;
         case TokenType::NOT_EQUAL:
             ok = this->Emit(OpCodes::CMP, (int) CompareMode::NE, nullptr);
+            break;
+        case TokenType::NOT_EQUAL_STRICT:
+            ok = this->Emit(OpCodes::EQST, (int) CompareMode::NE, nullptr);
             break;
 
             // LOGICAL
@@ -1717,6 +1723,7 @@ bool Compiler::Emit(OpCodes op, int arg, BasicBlock *dest) {
         case OpCodes::LOR:
         case OpCodes::MOD:
         case OpCodes::CMP:
+        case OpCodes::EQST:
         case OpCodes::POP:
         case OpCodes::JF:
         case OpCodes::JT:

@@ -332,6 +332,26 @@ ArObject *argon::vm::Eval(ArRoutine *routine) {
 
                 DISPATCH2();
             }
+            TARGET_OP(EQST) {
+                auto peek = PEEK1();
+                auto mode = (CompareMode) ARG16;
+                ret = TOP();
+
+                if (!AR_SAME_TYPE(peek, ret)) {
+                    ret = BoolToArBool(mode == CompareMode::NE);
+
+                    POP();
+                    TOP_REPLACE(ret);
+                    DISPATCH2();
+                }
+
+                if ((ret = RichCompare(peek, ret, (CompareMode) ARG16)) == nullptr)
+                    goto ERROR;
+
+                POP();
+                TOP_REPLACE(ret);
+                DISPATCH2();
+            }
             TARGET_OP(IDIV) {
                 BINARY_OP(routine, idiv, '//');
             }
