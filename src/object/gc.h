@@ -108,7 +108,7 @@ namespace argon::object {
     }
 
     inline void TrackIf(ArObject *container, ArObject *item) {
-        if (item->ref_count.IsGcObject() && !GCIsTracking(container))
+        if (item != nullptr && item->ref_count.IsGcObject() && !GCIsTracking(container))
             Track(container);
     }
 

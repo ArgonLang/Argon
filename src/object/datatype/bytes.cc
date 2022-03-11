@@ -9,7 +9,6 @@
 #include "bool.h"
 #include "bounds.h"
 #include "error.h"
-#include "integer.h"
 #include "iterator.h"
 #include "hash_magic.h"
 
@@ -22,20 +21,57 @@
 using namespace argon::memory;
 using namespace argon::object;
 
+Bytes *MakeSlice(Bytes *stream, ArSize start, ArSize len) {
+    auto bs = ArObjectNew<Bytes>(RCType::INLINE, type_bytes_);
+
+    if (bs != nullptr) {
+        BufferViewInit(&bs->view, &stream->view, start, len);
+
+        bs->hash = 0;
+        bs->frozen = stream->frozen;
+    }
+
+    return bs;
+}
+
 bool bytes_get_buffer(Bytes *self, ArBuffer *buffer, ArBufferFlags flags) {
-    return BufferSimpleFill(self, buffer, flags, BUFFER_GET(self), BUFFER_LEN(self), !self->frozen);
+    bool ok;
+
+    flags == ArBufferFlags::READ
+    ? self->view.shared->lock.RLock()
+    : self->view.shared->lock.Lock();
+
+    ok = BufferSimpleFill(self, buffer, flags, BUFFER_GET(self), 1, BUFFER_LEN(self), !self->frozen);
+
+    if (!ok) {
+        flags == ArBufferFlags::READ
+        ? self->view.shared->lock.RUnlock()
+        : self->view.shared->lock.Unlock();
+    }
+
+    return ok;
+}
+
+void bytes_rel_buffer(ArBuffer *buffer) {
+    auto *bytes = (Bytes *) buffer->obj;
+
+    buffer->flags == ArBufferFlags::READ
+    ? bytes->view.shared->lock.RUnlock()
+    : bytes->view.shared->lock.Unlock();
 }
 
 const BufferSlots bytes_buffer = {
         (BufferGetFn) bytes_get_buffer,
-        nullptr
+        bytes_rel_buffer
 };
 
-ArSize bytes_len(Bytes *self) {
+ArSize bytes_len(const Bytes *self) {
     return BUFFER_LEN(self);
 }
 
 ArObject *bytes_get_item(Bytes *self, ArSSize index) {
+    RWLockRead lock(self->view.shared->lock);
+
     if (index < 0)
         index = BUFFER_LEN(self) + index;
 
@@ -47,7 +83,7 @@ ArObject *bytes_get_item(Bytes *self, ArSSize index) {
 }
 
 bool bytes_set_item(Bytes *self, ArObject *obj, ArSSize index) {
-    Bytes *other;
+    auto *other = (Bytes *) obj;
     ArSize value;
 
     if (self->frozen) {
@@ -55,8 +91,10 @@ bool bytes_set_item(Bytes *self, ArObject *obj, ArSSize index) {
         return false;
     }
 
+    RWLockWrite lock(self->view.shared->lock);
+
     if (AR_TYPEOF(obj, type_bytes_)) {
-        other = (Bytes *) obj;
+        RWLockRead o_lock(other->view.shared->lock);
 
         if (BUFFER_LEN(other) > 1) {
             ErrorFormat(type_value_error_, "expected bytes of length 1 not %d", BUFFER_LEN(other));
@@ -71,7 +109,7 @@ bool bytes_set_item(Bytes *self, ArObject *obj, ArSSize index) {
         return false;
     }
 
-    if (value < 0 || value > 255) {
+    if (value > 255) {
         ErrorFormat(type_value_error_, "byte must be in range(0, 255)");
         return false;
     }
@@ -80,7 +118,7 @@ bool bytes_set_item(Bytes *self, ArObject *obj, ArSSize index) {
         index = BUFFER_LEN(self) + index;
 
     if (index < BUFFER_LEN(self)) {
-        BUFFER_GET(self)[index] = value;
+        BUFFER_GET(self)[index] = (unsigned char) value;
         return true;
     }
 
@@ -89,6 +127,7 @@ bool bytes_set_item(Bytes *self, ArObject *obj, ArSSize index) {
 }
 
 ArObject *bytes_get_slice(Bytes *self, Bounds *bounds) {
+    RWLockRead lock(self->view.shared->lock);
     Bytes *ret;
 
     ArSSize slice_len;
@@ -99,7 +138,7 @@ ArObject *bytes_get_slice(Bytes *self, Bounds *bounds) {
     slice_len = BoundsIndex(bounds, BUFFER_LEN(self), &start, &stop, &step);
 
     if (step >= 0) {
-        ret = BytesNew(self, start, slice_len);
+        ret = MakeSlice(self, start, slice_len);
     } else {
         if ((ret = BytesNew(slice_len, true, false, self->frozen)) == nullptr)
             return nullptr;
@@ -155,7 +194,9 @@ ARGON_METHOD5(bytes_, count,
     if (!BufferGet(argv[0], &buffer, ArBufferFlags::READ))
         return nullptr;
 
+    bytes->view.shared->lock.RLock();
     n = support::Count(BUFFER_GET(bytes), BUFFER_LEN(bytes), buffer.buffer, buffer.len, -1);
+    bytes->view.shared->lock.RUnlock();
 
     BufferRelease(&buffer);
 
@@ -187,8 +228,10 @@ ARGON_METHOD5(bytes_, endswith,
     if (!BufferGet(argv[0], &buffer, ArBufferFlags::READ))
         return nullptr;
 
+    bytes->view.shared->lock.RLock();
     res = BUFFER_LEN(bytes) > buffer.len ? buffer.len : BUFFER_LEN(bytes);
     res = MemoryCompare(BUFFER_GET(bytes) + (BUFFER_LEN(bytes) - res), buffer.buffer, res);
+    bytes->view.shared->lock.RUnlock();
 
     BufferRelease(&buffer);
 
@@ -212,7 +255,9 @@ ARGON_METHOD5(bytes_, find,
     if (!BufferGet(argv[0], &buffer, ArBufferFlags::READ))
         return nullptr;
 
+    bytes->view.shared->lock.RLock();
     pos = support::Find(BUFFER_GET(bytes), BUFFER_LEN(bytes), buffer.buffer, buffer.len, false);
+    bytes->view.shared->lock.RUnlock();
 
     return IntegerNew(pos);
 }
@@ -235,6 +280,7 @@ ARGON_METHOD5(bytes_, hex, "Convert bytes to str of hexadecimal numbers."
 
     bytes = (Bytes *) self;
 
+    RWLockRead lock(bytes->view.shared->lock);
     if (StringBuilderWriteHex(&builder, BUFFER_GET(bytes), BUFFER_LEN(bytes)) < 0) {
         StringBuilderClean(&builder);
         return nullptr;
@@ -255,6 +301,7 @@ ARGON_METHOD5(bytes_, isalnum,
     auto *bytes = (Bytes *) self;
     int chr;
 
+    RWLockRead lock(bytes->view.shared->lock);
     for (ArSize i = 0; i < BUFFER_LEN(bytes); i++) {
         chr = BUFFER_GET(bytes)[i];
 
@@ -277,6 +324,7 @@ ARGON_METHOD5(bytes_, isalpha,
     auto *bytes = (Bytes *) self;
     int chr;
 
+    RWLockRead lock(bytes->view.shared->lock);
     for (ArSize i = 0; i < BUFFER_LEN(bytes); i++) {
         chr = BUFFER_GET(bytes)[i];
 
@@ -300,6 +348,7 @@ ARGON_METHOD5(bytes_, isascii,
     auto *bytes = (Bytes *) self;
     int chr;
 
+    RWLockRead lock(bytes->view.shared->lock);
     for (ArSize i = 0; i < BUFFER_LEN(bytes); i++) {
         chr = BUFFER_GET(bytes)[i];
 
@@ -323,6 +372,7 @@ ARGON_METHOD5(bytes_, isdigit,
     auto *bytes = (Bytes *) self;
     int chr;
 
+    RWLockRead lock(bytes->view.shared->lock);
     for (ArSize i = 0; i < BUFFER_LEN(bytes); i++) {
         chr = BUFFER_GET(bytes)[i];
 
@@ -360,8 +410,12 @@ ARGON_METHOD5(bytes_, join,
     if ((iter = IteratorGet(argv[0])) == nullptr)
         return nullptr;
 
-    if ((ret = BytesNew()) == nullptr)
-        goto error;
+    if ((ret = BytesNew()) == nullptr) {
+        Release(iter);
+        return nullptr;
+    }
+
+    RWLockRead lock(bytes->view.shared->lock);
 
     while ((item = IteratorNext(iter)) != nullptr) {
         if (!BufferGet(item, &buffer, ArBufferFlags::READ))
@@ -417,7 +471,9 @@ ARGON_METHOD5(bytes_, rfind,
     if (!BufferGet(argv[0], &buffer, ArBufferFlags::READ))
         return nullptr;
 
+    bytes->view.shared->lock.RLock();
     pos = support::Find(BUFFER_GET(bytes), BUFFER_LEN(bytes), buffer.buffer, buffer.len, true);
+    bytes->view.shared->lock.RUnlock();
 
     return IntegerNew(pos);
 }
@@ -439,13 +495,15 @@ ARGON_METHOD5(bytes_, rmpostfix,
     if (!BufferGet(argv[0], &buffer, ArBufferFlags::READ))
         return nullptr;
 
+    RWLockRead lock(bytes->view.shared->lock);
+
     len = BUFFER_LEN(bytes) > buffer.len ? buffer.len : BUFFER_LEN(bytes);
 
     compare = MemoryCompare(BUFFER_GET(bytes) + (BUFFER_LEN(bytes) - len), buffer.buffer, len);
     BufferRelease(&buffer);
 
     if (compare == 0)
-        return BytesNew(bytes, 0, BUFFER_LEN(bytes) - len);
+        return MakeSlice(bytes, 0, BUFFER_LEN(bytes) - len);
 
     return IncRef(bytes);
 }
@@ -468,13 +526,15 @@ ARGON_METHOD5(bytes_, rmprefix,
     if (!BufferGet(argv[0], &buffer, ArBufferFlags::READ))
         return nullptr;
 
+    RWLockRead lock(bytes->view.shared->lock);
+
     len = BUFFER_LEN(bytes) > buffer.len ? buffer.len : BUFFER_LEN(bytes);
 
     compare = MemoryCompare(BUFFER_GET(bytes), buffer.buffer, len);
     BufferRelease(&buffer);
 
     if (compare == 0)
-        return BytesNew(bytes, len, BUFFER_LEN(bytes) - len);
+        return MakeSlice(bytes, len, BUFFER_LEN(bytes) - len);
 
     return IncRef(bytes);
 }
@@ -524,6 +584,8 @@ ARGON_METHOD5(bytes_, startswith,
     if (!BufferGet(argv[0], &buffer, ArBufferFlags::READ))
         return nullptr;
 
+    RWLockRead lock(bytes->view.shared->lock);
+
     res = BUFFER_LEN(bytes) > buffer.len ? buffer.len : BUFFER_LEN(bytes);
     res = MemoryCompare(BUFFER_GET(bytes), buffer.buffer, res);
 
@@ -538,6 +600,7 @@ ARGON_METHOD5(bytes_, str, "Convert bytes to str object."
                            "- Returns: new str object.", 0, false) {
     auto *bytes = (Bytes *) self;
 
+    RWLockRead lock(bytes->view.shared->lock);
     return StringNew((const char *) BUFFER_GET(bytes), BUFFER_LEN(bytes));
 }
 
@@ -585,6 +648,8 @@ ArObject *bytes_add(Bytes *self, ArObject *other) {
     if (!BufferGet(other, &buffer, ArBufferFlags::READ))
         return nullptr;
 
+    RWLockRead lock(self->view.shared->lock);
+
     if ((ret = BytesNew(BUFFER_LEN(self) + buffer.len, true, false, self->frozen)) == nullptr) {
         BufferRelease(&buffer);
         return nullptr;
@@ -611,6 +676,7 @@ ArObject *bytes_mul(ArObject *left, ArObject *right) {
     }
 
     if (AR_TYPEOF(num, type_integer_)) {
+        RWLockRead lock(bytes->view.shared->lock);
         len = BUFFER_LEN(bytes) * num->integer;
 
         if ((ret = BytesNew(len, true, false, bytes->frozen)) != nullptr) {
@@ -623,9 +689,10 @@ ArObject *bytes_mul(ArObject *left, ArObject *right) {
 }
 
 Bytes *ShiftBytes(Bytes *bytes, ArSSize pos) {
-    auto ret = BytesNew(BUFFER_LEN(bytes), true, false, bytes->frozen);
+    RWLockRead lock(bytes->view.shared->lock);
+    Bytes *ret;
 
-    if (ret != nullptr) {
+    if ((ret = BytesNew(BUFFER_LEN(bytes), true, false, bytes->frozen)) != nullptr) {
         for (ArSize i = 0; i < BUFFER_LEN(bytes); i++)
             ret->view.buffer[((BUFFER_LEN(bytes) + pos) + i) % BUFFER_LEN(bytes)] = BUFFER_GET(bytes)[i];
     }
@@ -658,6 +725,8 @@ ArObject *bytes_iadd(Bytes *self, ArObject *other) {
         return nullptr;
 
     if (self->frozen) {
+        RWLockRead lock(self->view.shared->lock);
+
         if ((ret = BytesNew(BUFFER_LEN(self) + buffer.len, true, false, true)) == nullptr) {
             BufferRelease(&buffer);
             return nullptr;
@@ -669,6 +738,8 @@ ArObject *bytes_iadd(Bytes *self, ArObject *other) {
         BufferRelease(&buffer);
         return ret;
     }
+
+    RWLockWrite lock(self->view.shared->lock);
 
     if (!BufferViewEnlarge(&self->view, buffer.len)) {
         BufferRelease(&buffer);
@@ -682,7 +753,7 @@ ArObject *bytes_iadd(Bytes *self, ArObject *other) {
     return IncRef(self);
 }
 
-OpSlots bytes_ops{
+const OpSlots bytes_ops{
         (BinaryOp) bytes_add,
         nullptr,
         bytes_mul,
@@ -706,6 +777,7 @@ OpSlots bytes_ops{
 };
 
 ArObject *bytes_str(Bytes *self) {
+    RWLockRead lock(self->view.shared->lock);
     StringBuilder sb = {};
 
     // Calculate length of string
@@ -738,7 +810,20 @@ ArObject *bytes_compare(Bytes *self, ArObject *other, CompareMode mode) {
         return nullptr;
 
     if (self != other) {
+        if (!self->frozen)
+            self->view.shared->lock.RLock();
+
+        if (!o->frozen)
+            o->view.shared->lock.RLock();
+
         res = MemoryCompare(BUFFER_GET(self), BUFFER_GET(o), BUFFER_MAXLEN(self, o));
+
+        if (!self->frozen)
+            self->view.shared->lock.RUnlock();
+
+        if (!o->frozen)
+            o->view.shared->lock.RUnlock();
+
         if (res < 0)
             left = -1;
         else if (res > 0)
@@ -810,9 +895,11 @@ ArObject *argon::object::BytesSplit(Bytes *bytes, unsigned char *pattern, ArSize
     if ((ret = ListNew()) == nullptr)
         return nullptr;
 
+    RWLockRead lock(bytes->view.shared->lock);
+
     if (maxsplit != 0) {
         while ((end = support::Find(BUFFER_GET(bytes) + idx, BUFFER_LEN(bytes) - idx, pattern, plen)) >= 0) {
-            if ((tmp = BytesNew(bytes, idx, end - idx)) == nullptr)
+            if ((tmp = MakeSlice(bytes, idx, end)) == nullptr)
                 goto error;
 
             idx += end + plen;
@@ -828,7 +915,7 @@ ArObject *argon::object::BytesSplit(Bytes *bytes, unsigned char *pattern, ArSize
     }
 
     if (BUFFER_LEN(bytes) - idx > 0) {
-        if ((tmp = BytesNew(bytes, idx, BUFFER_LEN(bytes) - idx)) == nullptr)
+        if ((tmp = MakeSlice(bytes, idx, BUFFER_LEN(bytes) - idx)) == nullptr)
             goto error;
 
         if (!ListAppend(ret, tmp))
@@ -859,18 +946,6 @@ Bytes *argon::object::BytesNew(ArObject *object) {
         MemoryCopy(BUFFER_GET(bs), buffer.buffer, buffer.len);
 
     BufferRelease(&buffer);
-
-    return bs;
-}
-
-Bytes *argon::object::BytesNew(Bytes *stream, ArSize start, ArSize len) {
-    auto bs = ArObjectNew<Bytes>(RCType::INLINE, type_bytes_);
-
-    if (bs != nullptr) {
-        BufferViewInit(&bs->view, &stream->view, start, len);
-        bs->hash = 0;
-        bs->frozen = stream->frozen;
-    }
 
     return bs;
 }
@@ -928,7 +1003,9 @@ Bytes *argon::object::BytesFreeze(Bytes *stream) {
     if (stream->frozen)
         return IncRef(stream);
 
-    if ((ret = BytesNew(stream, 0, BUFFER_LEN(stream))) == nullptr)
+    RWLockRead lock(stream->view.shared->lock);
+
+    if ((ret = MakeSlice(stream, 0, BUFFER_LEN(stream))) == nullptr)
         return nullptr;
 
     ret->frozen = true;

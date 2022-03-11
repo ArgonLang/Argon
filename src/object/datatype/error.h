@@ -24,6 +24,8 @@ namespace argon::object {
 
     ArObject *ErrorFormat(const TypeInfo *etype, const char *format, ...);
 
+    ArObject *ErrorFormatNoPanic(const TypeInfo *etype, const char *format, ...);
+
     const TypeInfo *ErrorTypeFromErrno();
 
     bool ErrorInit();
@@ -39,6 +41,7 @@ namespace argon::object {
     extern const TypeInfo *type_attribute_error_;
     extern const TypeInfo *type_buffer_error_;
     extern const TypeInfo *type_exhausted_iterator_;
+    extern const TypeInfo *type_exhausted_generator_;
     extern const TypeInfo *type_key_not_found_;
     extern const TypeInfo *type_module_not_found_;
     extern const TypeInfo *type_not_implemented_;
@@ -66,10 +69,16 @@ namespace argon::object {
     extern const TypeInfo *type_io_error_;
     extern const TypeInfo *type_interrupted_error_;
     extern const TypeInfo *type_is_directory_;
+    extern const TypeInfo *type_gai_error_;
+    extern const TypeInfo *type_wsa_error_;
+
+    extern const TypeInfo *type_os_error_;
+
 
     // ExportedErrors
-    extern ArObject *error_zero_division;
-    extern ArObject *error_out_of_memory;
+    extern Error *error_zero_division;
+    extern Error *error_out_of_memory;
+    extern Error *error_exhausted_generator;
 
 } // namespace argon::object
 

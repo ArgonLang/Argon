@@ -2,107 +2,105 @@
 //
 // Licensed under the Apache License v2.0
 
+#include <vm/runtime.h>
+
+#include <object/arobject.h>
 #include <object/datatype/integer.h>
 #include <object/datatype/io/io.h>
 #include <object/datatype/function.h>
-#include <object/arobject.h>
 
 #include "modules.h"
 
 using namespace argon::object;
 using namespace io;
 
-ArObject *io_mode_read = nullptr;
-ArObject *io_mode_write = nullptr;
-ArObject *io_mode_append = nullptr;
+ARGON_FUNCTION5(io_, open, "Open file and return corresponding file object."
+                           ""
+                           "The operations that are allowed on the file and how these are performed are defined "
+                           "by the mode parameter. The parameter mode value can be one or a combination of these:"
+                           "  * O_READ"
+                           "  * O_WRITE"
+                           "  * O_APPEND"
+                           ""
+                           "- Parameters:"
+                           "  - path: file path."
+                           "  - mode: open mode."
+                           "- Returns: (file, err)", 2, false) {
+    File *file;
+    char *path;
 
-ArObject *io_buf_mode_none = nullptr;
-ArObject *io_buf_mode_line = nullptr;
-ArObject *io_buf_mode_block = nullptr;
+    FileMode flags;
 
-ArObject *io_seek_mode_start = nullptr;
-ArObject *io_seek_mode_cur = nullptr;
-ArObject *io_seek_mode_end = nullptr;
+    if (!CheckArgs("s:path,i:mode", func, argv, count))
+        return nullptr;
 
-ARGON_FUNCTION(create, "", 1, false) {
-    return nullptr;
+    path = (char *) ((String *) argv[0])->buffer;
+    flags = (FileMode) ((Integer *) argv[1])->integer;
+
+    if ((file = Open(path, flags)) == nullptr)
+        return ARGON_OBJECT_TUPLE_ERROR(argon::vm::GetLastNonFatalError());
+
+    return ARGON_OBJECT_TUPLE_SUCCESS(file);
 }
 
-ARGON_FUNCTION(open, "", 1, false) {
-    return nullptr;
-}
+ARGON_FUNCTION5(io_, openfd, "Create file object from file descriptor."
+                             ""
+                             "The operations that are allowed on the file and how these are performed are defined "
+                             "by the mode parameter. The parameter mode value can be one or a combination of these:"
+                             "  * O_READ"
+                             "  * O_WRITE"
+                             "  * O_APPEND"
+                             ""
+                             "- Parameters:"
+                             "  - fd: file descriptor (integer)."
+                             "  - mode: open mode."
+                             "- Returns: (file, err)", 2, false) {
+    File *file;
 
-ARGON_FUNCTION(openfile, "", 2, false) {
-    return nullptr;
+    int fd;
+    FileMode flags;
+
+    if (!CheckArgs("i:fd,i:mode", func, argv, count))
+        return nullptr;
+
+    fd = (int) ((Integer *) argv[0])->integer;
+    flags = (FileMode) ((Integer *) argv[1])->integer;
+
+    if ((file = FdOpen(fd, flags)) == nullptr)
+        return ARGON_OBJECT_TUPLE_ERROR(argon::vm::GetLastNonFatalError());
+
+    return ARGON_OBJECT_TUPLE_SUCCESS(file);
 }
 
 const PropertyBulk io_bulk[] = {
         MODULE_EXPORT_TYPE_ALIAS("file", type_file_),
-
-        MODULE_EXPORT_FUNCTION(create_),
-        MODULE_EXPORT_FUNCTION(open_),
-        MODULE_EXPORT_FUNCTION(openfile_),
-
+        MODULE_EXPORT_FUNCTION(io_open_),
+        MODULE_EXPORT_FUNCTION(io_openfd_),
         MODULE_EXPORT_SENTINEL
 };
 
 bool IOInit(Module *module) {
-#define INIT_CONST_STR(name, string)                                    \
-     if (name == nullptr && ((name = StringIntern(string)) == nullptr)) \
+#define INIT_OBJ(c_key, c_value)                        \
+    if(!ModuleAddIntConstant(module, c_key, c_value))   \
         return false
 
-#define INIT_OBJ(fn, key, c_value)                                              \
-    if ((value = fn(c_value)) == nullptr)                                       \
-        return false;                                                           \
-    if (!ModuleAddProperty(module, key, value, MODULE_ATTRIBUTE_PUB_CONST)) {   \
-        Release(value);                                                         \
-        return false; }                                                         \
-    Release(value)
-
-    ArObject *value;
-
     // FileMode
-    INIT_CONST_STR(io_mode_read, "O_READ");
-    INIT_CONST_STR(io_mode_write, "O_WRITE");
-    INIT_CONST_STR(io_mode_append, "O_APPEND");
-    INIT_OBJ(IntegerNew, io_mode_read, (IntegerUnderlying) FileMode::READ);
-    INIT_OBJ(IntegerNew, io_mode_write, (IntegerUnderlying) FileMode::WRITE);
-    INIT_OBJ(IntegerNew, io_mode_append, (IntegerUnderlying) FileMode::APPEND);
+    INIT_OBJ("O_READ", (int) FileMode::READ);
+    INIT_OBJ("O_WRITE", (int) FileMode::WRITE);
+    INIT_OBJ("O_APPEND", (int) FileMode::APPEND);
 
     // FileBufferMode
-    INIT_CONST_STR(io_buf_mode_none, "BUF_NONE");
-    INIT_CONST_STR(io_buf_mode_line, "BUF_LINE");
-    INIT_CONST_STR(io_buf_mode_block, "BUF_BLOCK");
-    INIT_OBJ(IntegerNew, io_buf_mode_none, (IntegerUnderlying) FileBufferMode::NONE);
-    INIT_OBJ(IntegerNew, io_buf_mode_line, (IntegerUnderlying) FileBufferMode::LINE);
-    INIT_OBJ(IntegerNew, io_buf_mode_block, (IntegerUnderlying) FileBufferMode::BLOCK);
+    INIT_OBJ("BUF_NONE", (int) FileBufferMode::NONE);
+    INIT_OBJ("BUF_LINE", (int) FileBufferMode::LINE);
+    INIT_OBJ("BUF_BLOCK", (int) FileBufferMode::BLOCK);
 
     // FileWhence
-    INIT_CONST_STR(io_seek_mode_start, "SEEK_START");
-    INIT_CONST_STR(io_seek_mode_cur, "SEEK_CUR");
-    INIT_CONST_STR(io_seek_mode_end, "SEEK_END");
-    INIT_OBJ(IntegerNew, io_seek_mode_start, (IntegerUnderlying) FileWhence::START);
-    INIT_OBJ(IntegerNew, io_seek_mode_cur, (IntegerUnderlying) FileWhence::CUR);
-    INIT_OBJ(IntegerNew, io_seek_mode_end, (IntegerUnderlying) FileWhence::END);
+    INIT_OBJ("SEEK_START", (int) FileWhence::START);
+    INIT_OBJ("SEEK_CUR", (int) FileWhence::CUR);
+    INIT_OBJ("SEEK_END", (int) FileWhence::END);
 
     return true;
-
-#undef INIT_CONST_STR
 #undef INIT_OBJ
-}
-
-void IOFinalize(Module *module) {
-    Release(&io_mode_read);
-    Release(&io_mode_write);
-    Release(&io_mode_append);
-
-    Release(&io_buf_mode_none);
-    Release(&io_buf_mode_line);
-    Release(&io_buf_mode_block);
-
-    Release(&io_seek_mode_start);
-    Release(&io_seek_mode_cur);
-    Release(&io_seek_mode_end);
 }
 
 const ModuleInit module_io = {
@@ -110,6 +108,6 @@ const ModuleInit module_io = {
         "Module IO provides support to I/O primitives to read and write file",
         io_bulk,
         IOInit,
-        IOFinalize
+        nullptr
 };
 const argon::object::ModuleInit *argon::module::module_io_ = &module_io;

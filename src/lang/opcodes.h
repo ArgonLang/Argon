@@ -47,6 +47,7 @@ namespace argon::lang {
         DFR,
         DIV,
         DUP,    // Duplicate elements on stack
+        EQST,
         IDIV,
         IMPALL,
         IMPFRM,
@@ -106,7 +107,8 @@ namespace argon::lang {
         SUB,
         SUBSCR,
         TEST,
-        UNPACK
+        UNPACK,
+        YLD
     };
 
     enum class OpCodeINITFlags : unsigned char {

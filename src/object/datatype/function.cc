@@ -2,6 +2,9 @@
 //
 // Licensed under the Apache License v2.0
 
+#include <vm/areval.h>
+#include <vm/runtime.h>
+
 #include <object/arobject.h>
 #include "bool.h"
 #include "function.h"
@@ -9,6 +12,50 @@
 
 using namespace argon::object;
 using namespace argon::memory;
+
+ArObject *function_next(Function *self) {
+    ArObject *result;
+    Frame *frame;
+
+    if (!self->IsGenerator())
+        return ErrorFormat(type_type_error_, "cannot call 'next' on a non-generator function %s",
+                           self->qname->buffer);
+
+    result = self->GetStatus();
+
+    if (result == nullptr)
+        return ErrorFormat(type_runtime_error_, "unable to call 'next' on uninitialized generator %s",
+                           self->qname->buffer);
+
+    if (self->IsNative()) {
+        Release(result);
+        return FunctionCallNative(self, nullptr, 0);
+    }
+
+    frame = (Frame *) result;
+
+    if (frame->IsExhausted()) {
+        FrameDel(frame);
+        return nullptr;
+    }
+
+    result = Eval(argon::vm::GetRoutine(), frame);
+    FrameDel(frame);
+
+    if(result == error_exhausted_generator){
+        Release(result);
+        return nullptr;
+    }
+
+    return result;
+}
+
+const IteratorSlots function_iter = {
+        nullptr,
+        (UnaryOp) function_next,
+        nullptr,
+        nullptr
+};
 
 bool function_is_true(Function *self) {
     return true;
@@ -39,7 +86,29 @@ ArSize function_hash(Function *self) {
 }
 
 ArObject *function_str(Function *self) {
+    if (self->IsGenerator()) {
+        if (self->status != nullptr)
+            return StringNewFormat("<recoverable function %s at %p>", self->qname->buffer, self);
+
+        return StringNewFormat("<generator function %s at %p>", self->qname->buffer, self);
+    }
+
+    if (self->IsNative())
+        return StringNewFormat("<native function %s at %p>", self->qname->buffer, self);
+
     return StringNewFormat("<function %s at %p>", self->qname->buffer, self);
+}
+
+ArObject *function_iter_get(Function *self) {
+    if (!self->IsGenerator())
+        return ErrorFormat(type_type_error_, "cannot iterate over a non-generator function %s",
+                           self->qname->buffer);
+
+    if (self->status == nullptr)
+        return ErrorFormat(type_runtime_error_, "unable to iterate on uninitialized generator %s",
+                           self->qname->buffer);
+
+    return IncRef(self);
 }
 
 void function_trace(Function *self, VoidUnaryOp trace) {
@@ -73,10 +142,10 @@ const TypeInfo FunctionType = {
         (BoolUnaryOp) function_is_true,
         (SizeTUnaryOp) function_hash,
         (UnaryOp) function_str,
+        (UnaryOp) function_iter_get,
         nullptr,
         nullptr,
-        nullptr,
-        nullptr,
+        &function_iter,
         nullptr,
         nullptr,
         nullptr,
@@ -103,6 +172,7 @@ Function *CloneFn(const Function *func) {
         fn->enclosed = IncRef(func->enclosed);
         fn->base = IncRef(func->base);
         fn->gns = IncRef(func->gns);
+        fn->status = nullptr;
         fn->arity = func->arity;
         fn->flags = func->flags;
     }
@@ -110,9 +180,8 @@ Function *CloneFn(const Function *func) {
     return fn;
 }
 
-Function *
-argon::object::FunctionNew(Namespace *gns, String *name, String *doc, Code *code, List *enclosed, unsigned short arity,
-                           FunctionFlags flags) {
+Function *argon::object::FunctionNew(Namespace *gns, String *name, String *doc, Code *code,
+                                     List *enclosed, unsigned short arity, FunctionFlags flags) {
     auto fn = ArObjectGCNewTrack<Function>(type_function_);
     ArSSize last_sep;
 
@@ -123,6 +192,7 @@ argon::object::FunctionNew(Namespace *gns, String *name, String *doc, Code *code
         fn->enclosed = IncRef(enclosed);
         fn->base = nullptr;
         fn->gns = IncRef(gns);
+        fn->status = nullptr;
         fn->arity = arity;
         fn->flags = flags;
 
@@ -147,10 +217,7 @@ Function *argon::object::FunctionNew(Namespace *gns, TypeInfo *base, const Nativ
     String *name;
     String *doc;
 
-    if (base == nullptr)
-        name = StringNew(native->name);
-    else
-        name = StringNewFormat("%s::%s", base->name, native->name);
+    name = base == nullptr ? StringNew(native->name) : StringNewFormat("%s::%s", base->name, native->name);
 
     if (name == nullptr)
         return nullptr;
@@ -204,22 +271,24 @@ Function *argon::object::FunctionNew(const Function *func, List *currying) {
     return fn;
 }
 
+Function *argon::object::FunctionNewStatus(const Function *func, ArObject *status) {
+    Function *clone;
+
+    if ((clone = CloneFn(func)) == nullptr)
+        return nullptr;
+
+    clone->arity = 0;
+    clone->status = IncRef(status);
+
+    return clone;
+}
+
 ArObject *argon::object::FunctionCallNative(Function *func, ArObject **args, ArSize count) {
     ArObject *instance = nullptr;
     List *arguments = nullptr;
     ArObject *ret;
 
-    if (count > 0 && func->IsMethod()) {
-        instance = *args;
-
-        if (!TraitIsImplemented(instance, func->base))
-            return ErrorFormat(type_type_error_, "method %s doesn't apply to '%s' type", func->qname->buffer,
-                               AR_TYPE_NAME(instance));
-        args++;
-        count--;
-    }
-
-    if (func->arity > 0) {
+    if (func->arity > 0 || func->IsVariadic()) {
         if (func->currying != nullptr) {
             if (args != nullptr && count > 0) {
                 if ((arguments = ListNew(func->currying->len + count)) == nullptr)
@@ -237,6 +306,19 @@ ArObject *argon::object::FunctionCallNative(Function *func, ArObject **args, ArS
                 count = func->currying->len;
             }
         }
+    }
+
+    if (count > 0 && func->IsMethod()) {
+        instance = *args;
+
+        if (!TraitIsImplemented(instance, func->base)) {
+            Release(arguments);
+            return ErrorFormat(type_type_error_, "method %s doesn't apply to '%s' type", func->qname->buffer,
+                               AR_TYPE_NAME(instance));
+        }
+
+        args++;
+        count--;
     }
 
     ret = func->native_fn(func, instance, args, count);

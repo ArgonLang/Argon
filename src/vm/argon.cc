@@ -2,8 +2,6 @@
 //
 // Licensed under the Apache License v2.0
 
-#include <iostream>
-
 #include <object/datatype/integer.h>
 #include <object/datatype/error.h>
 #include <object/datatype/nil.h>
@@ -25,6 +23,10 @@ int ErrorWrapper(bool *must_exit) {
 
     if (must_exit != nullptr)
         *must_exit = false;
+
+    // It can be nullptr if caught by a call to Recover
+    if (err == nullptr)
+        return EXIT_SUCCESS;
 
     if (AR_TYPEOF(err, type_runtime_exit_error_)) {
         if (must_exit != nullptr)

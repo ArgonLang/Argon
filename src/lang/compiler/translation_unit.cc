@@ -100,7 +100,8 @@ Code *argon::lang::compiler::TranslationUnitAssemble(TranslationUnit *unit) {
 }
 
 TranslationUnit *
-argon::lang::compiler::TranslationUnitNew(TranslationUnit *prev, String *name, TUScope scope, SymbolTable *symt) {
+argon::lang::compiler::TranslationUnitNew(TranslationUnit *prev, String *name, TUScope scope,
+                                          SymbolTable *symt, Symbol *symbol) {
     auto *tu = (TranslationUnit *) argon::memory::Alloc(sizeof(TranslationUnit));
 
     if (tu == nullptr) {
@@ -112,6 +113,8 @@ argon::lang::compiler::TranslationUnitNew(TranslationUnit *prev, String *name, T
 
     if ((tu->symt = symt) == nullptr)
         goto ERROR;
+
+    tu->info = symbol; // weak reference, No IncRef/Release
 
     if ((tu->statics_map = MapNew()) == nullptr)
         goto ERROR;

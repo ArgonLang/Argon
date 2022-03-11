@@ -46,6 +46,7 @@ KwToken kw2tktype[] = {
         {"trait",       TokenType::TRAIT},
         {"true",        TokenType::TRUE},
         {"var",         TokenType::VAR},
+        {"yield",       TokenType::YIELD},
         {"weak",        TokenType::WEAK}
 };
 
@@ -861,10 +862,10 @@ const char *Scanner::GetStatusMessage() {
 }
 
 Token Scanner::NextToken() noexcept {
-#define CHECK_AGAIN(chr, type)                      \
-    if(this->PeekChar() == (chr))   {               \
-        this->NextChar();                           \
-        return Token((type), start, this->pos_);    \
+#define CHECK_AGAIN(chr, type)              \
+    if(this->PeekChar() == (chr)) {         \
+        this->NextChar();                   \
+        return {(type), start, this->pos_}; \
     }
 
     Pos start = this->pos_;
@@ -897,59 +898,68 @@ Token Scanner::NextToken() noexcept {
         switch (value) {
             case '\n': // NewLine
                 for (; this->PeekChar() == '\n'; this->NextChar());
-                return Token(TokenType::END_OF_LINE, start, this->pos_);
+                return {TokenType::END_OF_LINE, start, this->pos_};
             case '\r': // \r\n
                 CHECK_AGAIN('\n', TokenType::END_OF_LINE)
-                return Token(TokenType::ERROR, start, this->pos_);
+                return {TokenType::ERROR, start, this->pos_};
             case '\\':
                 if (this->NextChar() != '\n') {
                     this->status = ScannerStatus::INVALID_LC;
-                    return Token(TokenType::ERROR, start, this->pos_);
+                    return {TokenType::ERROR, start, this->pos_};
                 }
                 continue;
             case '!':
-                CHECK_AGAIN('=', TokenType::NOT_EQUAL)
-                return Token(TokenType::EXCLAMATION, start, this->pos_);
+                if (this->PeekChar() == '=') {
+                    this->NextChar();
+
+                    if (this->PeekChar() == '=') {
+                        this->NextChar();
+                        return {TokenType::NOT_EQUAL_STRICT, start, this->pos_};
+                    }
+
+                    return {TokenType::NOT_EQUAL, start, this->pos_};
+                }
+                return {TokenType::EXCLAMATION, start, this->pos_};
             case '"':
                 return this->TokenizeString(start, false);
             case '#':
                 return this->TokenizeComment(start, true);
             case '%':
-                return Token(TokenType::PERCENT, start, this->pos_);
+                return {TokenType::PERCENT, start, this->pos_};
             case '&':
                 CHECK_AGAIN('&', TokenType::AND)
-                return Token(TokenType::AMPERSAND, start, this->pos_);
+                return {TokenType::AMPERSAND, start, this->pos_};
             case '\'':
                 return this->TokenizeChar(start);
             case '(':
                 this->par_++;
-                return Token(TokenType::LEFT_ROUND, start, this->pos_);
+                return {TokenType::LEFT_ROUND, start, this->pos_};
             case ')':
                 this->par_--;
-                return Token(TokenType::RIGHT_ROUND, start, this->pos_);
+                return {TokenType::RIGHT_ROUND, start, this->pos_};
             case '*':
                 CHECK_AGAIN('=', TokenType::ASTERISK_EQ)
-                return Token(TokenType::ASTERISK, start, this->pos_);
+                return {TokenType::ASTERISK, start, this->pos_};
             case '+':
                 CHECK_AGAIN('=', TokenType::PLUS_EQ)
                 CHECK_AGAIN('+', TokenType::PLUS_PLUS)
-                return Token(TokenType::PLUS, start, this->pos_);
+                return {TokenType::PLUS, start, this->pos_};
             case ',':
-                return Token(TokenType::COMMA, start, this->pos_);
+                return {TokenType::COMMA, start, this->pos_};
             case '-':
                 CHECK_AGAIN('=', TokenType::MINUS_EQ)
                 CHECK_AGAIN('-', TokenType::MINUS_MINUS)
-                return Token(TokenType::MINUS, start, this->pos_);
+                return {TokenType::MINUS, start, this->pos_};
             case '.':
                 if (this->PeekChar() == '.') {
                     this->NextChar();
                     if (this->NextChar() == '.')
-                        return Token(TokenType::ELLIPSIS, start, this->pos_);
+                        return {TokenType::ELLIPSIS, start, this->pos_};
 
                     this->status = ScannerStatus::INVALID_TK;
-                    return Token(TokenType::ERROR, start, this->pos_);
+                    return {TokenType::ERROR, start, this->pos_};
                 }
-                return Token(TokenType::DOT, start, this->pos_);
+                return {TokenType::DOT, start, this->pos_};
             case '/':
                 CHECK_AGAIN('/', TokenType::SLASH_SLASH)
                 CHECK_AGAIN('=', TokenType::SLASH_EQ)
@@ -957,50 +967,60 @@ Token Scanner::NextToken() noexcept {
                     this->NextChar();
                     return this->TokenizeComment(start, false);
                 }
-                return Token(TokenType::SLASH, start, this->pos_);
+                return {TokenType::SLASH, start, this->pos_};
             case ':':
                 CHECK_AGAIN(':', TokenType::SCOPE)
-                return Token(TokenType::COLON, start, this->pos_);
+                return {TokenType::COLON, start, this->pos_};
             case ';':
-                return Token(TokenType::SEMICOLON, start, this->pos_);
+                return {TokenType::SEMICOLON, start, this->pos_};
             case '<':
                 CHECK_AGAIN('=', TokenType::LESS_EQ)
                 CHECK_AGAIN('<', TokenType::SHL)
-                return Token(TokenType::LESS, start, this->pos_);
+                return {TokenType::LESS, start, this->pos_};
             case '=':
-                CHECK_AGAIN('=', TokenType::EQUAL_EQUAL)
+                if (this->PeekChar() == '=') {
+                    this->NextChar();
+
+                    if (this->PeekChar() == '=') {
+                        this->NextChar();
+                        return {TokenType::EQUAL_STRICT, start, this->pos_};
+                    }
+
+                    return {TokenType::EQUAL_EQUAL, start, this->pos_};
+                }
                 CHECK_AGAIN('>', TokenType::ARROW)
-                return Token(TokenType::EQUAL, start, this->pos_);
+                return {TokenType::EQUAL, start, this->pos_};
             case '>':
                 CHECK_AGAIN('=', TokenType::GREATER_EQ)
                 CHECK_AGAIN('>', TokenType::SHR)
-                return Token(TokenType::GREATER, start, this->pos_);
+                return {TokenType::GREATER, start, this->pos_};
             case '?':
                 CHECK_AGAIN(':', TokenType::ELVIS)
                 CHECK_AGAIN('.', TokenType::QUESTION_DOT)
-                return Token(TokenType::QUESTION, start, this->pos_);
+                return {TokenType::QUESTION, start, this->pos_};
             case '[':
                 this->par_++;
-                return Token(TokenType::LEFT_SQUARE, start, this->pos_);
+                return {TokenType::LEFT_SQUARE, start, this->pos_};
             case ']':
                 this->par_--;
-                return Token(TokenType::RIGHT_SQUARE, start, this->pos_);
+                return {TokenType::RIGHT_SQUARE, start, this->pos_};
             case '^':
-                return Token(TokenType::CARET, start, this->pos_);
+                return {TokenType::CARET, start, this->pos_};
             case '{':
                 this->par_++;
-                return Token(TokenType::LEFT_BRACES, start, this->pos_);
+                return {TokenType::LEFT_BRACES, start, this->pos_};
             case '|':
                 CHECK_AGAIN('|', TokenType::OR)
-                return Token(TokenType::PIPE, start, this->pos_);
+                CHECK_AGAIN('>', TokenType::PIPELINE)
+                return {TokenType::PIPE, start, this->pos_};
             case '}':
                 this->par_--;
-                return Token(TokenType::RIGHT_BRACES, start, this->pos_);
+                return {TokenType::RIGHT_BRACES, start, this->pos_};
             case '~':
-                return Token(TokenType::TILDE, start, this->pos_);
+                return {TokenType::TILDE, start, this->pos_};
             default:
                 this->status = ScannerStatus::INVALID_TK;
-                return Token(TokenType::ERROR, start, this->pos_);
+                return {TokenType::ERROR, start, this->pos_};
         }
     }
 
@@ -1011,6 +1031,6 @@ Token Scanner::NextToken() noexcept {
 #undef CHECK_AGAIN
 }
 
-void Scanner::SetPromptFn(InteractiveFn fn) {
+[[maybe_unused]] void Scanner::SetPromptFn(InteractiveFn fn) {
     this->promptfn_ = fn;
 }

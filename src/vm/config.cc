@@ -7,8 +7,8 @@
 
 #include <object/gc.h>
 
+#include "runtime.h"
 #include "version.h"
-
 #include "config.h"
 
 using namespace argon::vm;
@@ -31,6 +31,8 @@ static const char usage[] =
 static const char usage_env[] =
         "\nEnvironment variables:\n"
         "ARGONUBUFFERED : it is equivalent to specifying the -u option\n"
+        "ARGONMAXVC     : value that controls the number of OS threads that can execute user-level Argon code simultaneously.\n"
+        "                 The default value of ARGONMAXVC is the number of CPUs visible at startup.\n"
         "ARGONPATH      : augment the default search path for modules. One or more directories separated by "
         #ifdef _ARGON_PLATFORM_WIDNOWS
         "';' "
@@ -132,8 +134,13 @@ void Help(const char *name) {
 }
 
 void ParseEnvs() {
+    const char *tmp;
+
     if (std::getenv(ARGON_ENVVAR_UNBUFFERED) != nullptr)
         config.unbuffered = true;
+
+    if ((tmp = std::getenv(ARGON_ENVVAR_MAXVC)) != nullptr)
+        SetVCoreTotal(strtol(tmp, nullptr, 10));
 }
 
 int argon::vm::ConfigInit(int argc, char **argv) {

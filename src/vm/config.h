@@ -10,6 +10,7 @@
 #define ARGON_ENVVAR_PATH       "ARGONPATH"
 #define ARGON_ENVVAR_UNBUFFERED "ARGONUNBUFFERED"
 #define ARGON_ENVVAR_STARTUP    "ARGONSTARTUP"
+#define ARGON_ENVVAR_MAXVC      "ARGONMAXVC"
 
 namespace argon::vm {
     struct Config {

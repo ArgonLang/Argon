@@ -169,6 +169,8 @@ void *argon::memory::Realloc(void *ptr, size_t size) {
     Pool *pool;
     void *tmp;
 
+    size_t actual;
+    size_t desired;
     size_t src_sz;
 
     if (ptr == nullptr)
@@ -177,17 +179,22 @@ void *argon::memory::Realloc(void *ptr, size_t size) {
     pool = (Pool *) AlignDown(ptr, ARGON_MEMORY_PAGE_SIZE);
 
     if (AddressInArenas(ptr)) {
-        if (SizeToPoolClass(pool->blocksz) >= SizeToPoolClass(size)) return ptr;
+        actual = SizeToPoolClass(pool->blocksz);
+        desired = SizeToPoolClass(size);
         src_sz = pool->blocksz;
+
+        if (actual > desired && (actual - desired < ARGON_MEMORY_REALLOC_THRESHOLD))
+            return ptr;
     } else {
         src_sz = GetEmbeddedSize(ptr);
-        if (src_sz >= size) return ptr;
+        if(size > ARGON_MEMORY_BLOCK_MAX_SIZE && src_sz >= size)
+            return ptr;
     }
 
     if ((tmp = Alloc(size)) == nullptr)
         return nullptr;
 
-    MemoryCopy(tmp, ptr, src_sz);
+    MemoryCopy(tmp, ptr, src_sz > size ? size : src_sz);
     Free(ptr);
     return tmp;
 }

@@ -22,8 +22,6 @@ namespace argon::object {
 
     Bytes *BytesNew(ArObject *object);
 
-    Bytes *BytesNew(Bytes *stream, ArSize start, ArSize len);
-
     Bytes *BytesNew(ArSize cap, bool same_len, bool fill_zero, bool frozen);
 
     Bytes *BytesNew(unsigned char *buffer, ArSize len, bool frozen);

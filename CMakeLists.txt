@@ -2,8 +2,8 @@ cmake_minimum_required(VERSION 3.7)
 project(Argon)
 
 set(AR_MAJOR 0)
-set(AR_MINOR 2)
-set(AR_PATCH 6)
+set(AR_MINOR 3)
+set(AR_PATCH 0)
 set(AR_RELEASE_LEVEL "alpha")
 
 set(EXECUTABLE_OUTPUT_PATH "${PROJECT_SOURCE_DIR}/bin")

@@ -26,7 +26,11 @@ namespace argon::lang::compiler {
         /* Pointer to prev translation unit */
         TranslationUnit *prev;
 
+        /* Pointer to current scope SymbolTable */
         SymbolTable *symt;
+
+        /* Pointer to the symbol that describe this scope */
+        Symbol *info;
 
         /* Name of translation unit */
         argon::object::String *name;
@@ -74,8 +78,8 @@ namespace argon::lang::compiler {
 
     object::Code *TranslationUnitAssemble(TranslationUnit *unit);
 
-    TranslationUnit *
-    TranslationUnitNew(TranslationUnit *prev, argon::object::String *name, TUScope scope, SymbolTable *symt);
+    TranslationUnit *TranslationUnitNew(TranslationUnit *prev, argon::object::String *name, TUScope scope,
+                                        SymbolTable *symt, Symbol *symbol);
 
     TranslationUnit *TranslationUnitDel(TranslationUnit *unit);
 

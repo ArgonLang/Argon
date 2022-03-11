@@ -87,7 +87,7 @@ ArObject *str_iter_peek(Iterator *self) {
     return ret;
 }
 
-ITERATOR_NEW_DEFAULT(str_iterator, (BoolUnaryOp) str_iter_has_next, (UnaryOp) str_iter_next, (UnaryOp) str_iter_peek);
+ITERATOR_NEW(str_iterator, str_iter_next, str_iter_peek);
 
 String *StringInit(ArSize len, bool mkbuf) {
     auto str = ArObjectNew<String>(RCType::INLINE, type_string_);
@@ -166,7 +166,7 @@ ArSize FillBuffer(String *dst, ArSize offset, const unsigned char *buf, ArSize l
 }
 
 bool string_get_buffer(String *self, ArBuffer *buffer, ArBufferFlags flags) {
-    return BufferSimpleFill(self, buffer, flags, self->buffer, self->len, false);
+    return BufferSimpleFill(self, buffer, flags, self->buffer, 1, self->len, false);
 }
 
 BufferSlots string_buffer = {
@@ -763,7 +763,7 @@ argon::object::StringBuilderResizeAscii(StringBuilder *sb, const unsigned char *
                 str_len += 2; // \C
                 break;
             default:
-                if (buffer[i] < ' ' || buffer[i] > 0x7F) {
+                if (buffer[i] < ' ' || buffer[i] >= 0x7F) {
                     str_len += 4;
                     break;
                 }
@@ -800,7 +800,7 @@ int argon::object::StringBuilderWrite(StringBuilder *sb, const unsigned char *bu
 
 int argon::object::StringBuilderWriteAscii(StringBuilder *sb, const unsigned char *buffer, ArSize len) {
     static const unsigned char hex[] = "0123456789abcdef";
-    unsigned char *start = sb->str.buffer + sb->w_idx;
+    const unsigned char *start = sb->str.buffer + sb->w_idx;
     unsigned char *buf = sb->str.buffer + sb->w_idx;
 
     for (ArSize i = 0; i < len; i++) {
@@ -829,7 +829,7 @@ int argon::object::StringBuilderWriteAscii(StringBuilder *sb, const unsigned cha
                 *buf++ = 'r';
                 break;
             default:
-                if (buffer[i] < ' ' || buffer[i] > 0x7F) {
+                if (buffer[i] < ' ' || buffer[i] >= 0x7F) {
                     *buf++ = '\\';
                     *buf++ = 'x';
                     *buf++ = hex[(buffer[i] & 0xF0) >> 4];

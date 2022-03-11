@@ -1,0 +1,418 @@
+/*
+ * This source file is part of the Argon project.
+ *
+ * Licensed under the Apache License v2.0
+ *
+ * Provides a set of algorithms to work with enumerables.
+*/
+
+from random import choice, randint
+
+func all(enum) {
+    var cur
+
+    for cur in enum {
+        if !cur {
+            return false
+        }
+    }
+
+    return true
+}
+
+func all_by(enum, fn) {
+    var cur
+
+    for cur in enum {
+        if !fn(cur) {
+            return false
+        }
+    }
+
+    return true
+}
+
+func any(enum) {
+    var cur
+
+    for cur in enum {
+        if cur {
+            return true
+        }
+    }
+
+    return false
+}
+
+func any_by(enum, fn) {
+    var cur
+
+    for cur in enum {
+        if fn(cur) {
+            return true
+        }
+    }
+
+    return false
+}
+
+func at(enum, index, _default) {
+    switch type(enum) {
+        case list; tuple; str:
+            if index >= len(enum) {
+                return _default
+            }
+
+            return enum[index]
+    }
+
+    var cur
+    var idx = 0
+
+    for cur in enum {
+        if idx == index {
+            return cur
+        }
+
+        idx += 1
+    }
+
+    return _default
+}
+
+func chunk_by(enum, fn) {
+    var ret = []
+    var tmp = []
+    var chg = false
+    var cur
+
+    for cur in enum {
+        if fn(cur) {
+            if !chg {
+                ret.append(tmp)
+                tmp = []
+                chg = true
+            }
+
+            tmp.append(cur)
+            continue
+        }
+
+        if chg {
+            ret.append(tmp)
+            tmp = []
+            chg = false
+        }
+
+        tmp.append(cur)
+    }
+
+    if tmp {
+        ret.append(tmp)
+    }
+
+    return ret
+}
+
+func count(enum, fn) {
+    var length = 0
+    var cur
+
+    for cur in enum {
+        if fn(cur) {
+            length += 1
+        }
+    }
+
+    return length
+}
+
+func dedup(enum) {
+    var ret = []
+    var cur
+    var last
+    var ins = false
+
+    for cur in enum {
+        if last !== cur && ins {
+            ret.append(last)
+        }
+
+        last = cur
+        ins = true
+    }
+
+    return ret
+}
+
+func drop(enum, num) {
+    var ret = enum
+
+    if type(enum) != list {
+        ret = list::new(enum)
+    }
+
+    return num >= 0 ? ret[num:] : ret[:num]
+}
+
+func each(enum, fn) {
+    var cur
+
+    for cur in enum {
+        fn(cur)
+    }
+
+    return true
+}
+
+func filter(enum, fn) {
+    var ret = []
+    var cur
+
+    for cur in enum {
+        if fn(cur) {
+            ret.append(cur)
+        }
+    }
+
+    return ret
+}
+
+func flat(enum) {
+    var ret = []
+    var cur
+
+    for cur in enum {
+        if isiterable(cur) {
+            var icur
+            for icur in cur {
+                ret.append(icur)
+            }
+            continue
+        }
+
+        ret.append(cur)
+    }
+
+    return ret
+}
+
+func flat_all(enum) {
+    var ret = []
+    var cur
+
+    for cur in enum {
+        if isiterable(cur) {
+            ret += flat_all(cur)
+            continue
+        }
+
+        ret.append(cur)
+    }
+
+    return ret
+}
+
+func frequencies(enum) {
+    var ret = {}
+    var cur
+
+    for cur in enum {
+        ret[cur] = ret.get(cur).get_or(0) + 1
+    }
+
+    return ret
+}
+
+func frequencies_by(enum, fn) {
+    var ret = {}
+    var tmp
+    var cur
+
+    for cur in enum {
+        tmp = fn(cur)
+        ret[tmp] = ret.get(tmp).get_or(0) + 1
+    }
+
+    return ret
+}
+
+func group_by(enum, fn) {
+    var ret = {}
+    var tmp
+    var cur
+
+    for cur in enum {
+        tmp = fn(cur)
+        ret[tmp] = ret.get(tmp).get_or([]).append(cur)
+    }
+
+    return ret
+}
+
+func map(enum, fn) {
+    var cur
+    var ret
+
+    if type(enum) == list || type(enum) == tuple {
+        ret = [nil] * len(enum)
+
+        var idx = 0
+        for cur in enum {
+            ret[idx] = fn(cur)
+            idx += 1
+        }
+
+        return ret
+    }
+
+    ret = []
+
+    for cur in enum {
+        ret.append(fn(cur))
+    }
+
+    return ret
+}
+
+func random(enum) {
+    switch type(enum) {
+        case list; tuple; str:
+            return choice(enum)
+    }
+
+    # Reservoir sampling
+    var MAX_K = 12
+    var count = 0
+    var reservoir
+    var cur
+    var ridx
+
+    reservoir = [0] * MAX_K
+
+    for cur in enum {
+        if count < MAX_K {
+            reservoir[count] = cur
+            count += 1
+            continue
+        }
+
+        ridx = randint(0, count)
+
+        if ridx < MAX_K {
+            reservoir[ridx] = cur
+        }
+
+        count += 1
+    }
+
+    return count < MAX_K ? reservoir[randint(0, count - 1)] : choice(reservoir)
+}
+
+func reduce(enum, fn) {
+    var acc
+    var cur
+
+    for cur in enum {
+        if acc == nil {
+            acc = cur
+            continue
+        }
+
+        acc = fn(cur, acc)
+    }
+
+    return acc != nil ? option::new(acc) : option::new()
+}
+
+func reject(enum, fn) {
+    var ret = []
+    var cur
+
+    for cur in enum {
+        if !fn(cur) {
+            ret.append(cur)
+        }
+    }
+
+    return ret
+}
+
+func sum(enum) {
+    return reduce(enum, (itm, acc) => {
+        return acc + itm
+    }).get()
+}
+
+func uniq(enum) {
+    var chk = set::new()
+    var ret = []
+    var cur
+
+    for cur in enum {
+        if !chk.contains(cur) {
+            chk.add(cur)
+            ret.append(cur)
+        }
+    }
+
+    return ret
+}
+
+func uniq_by(enum, fn) {
+    var chk = set::new()
+    var ret = []
+    var tmp
+    var cur
+
+    for cur in enum {
+        tmp = fn(cur)
+
+        if !chk.contains(tmp) {
+            chk.add(tmp)
+            ret.append(cur)
+        }
+    }
+
+    return ret
+}
+
+func unzip(enum) {
+    var length = len(enum[0])
+    var ret = []
+    var index = 0
+    var cur
+
+    loop index < length {
+        var tmp = []
+
+        for cur in enum {
+            tmp.append(cur[index])
+        }
+
+        ret.append(tmp)
+        index += 1
+    }
+
+    return ret
+}
+
+func zip(...enums) {
+    var lenum = len(enums)
+    var ret = []
+    var index = 0
+    var cur
+
+    for cur in enums[0] {
+        var tmp = [0] * lenum
+
+        for var i = 0; i < lenum; i ++ {
+            tmp[i] = enums[i][index]
+        }
+
+        ret.append(tmp)
+        index += 1
+    }
+
+    return ret
+}

@@ -15,61 +15,28 @@ using namespace argon::object;
 ArObject *set_iter_next(HMapIterator *iter) {
     ArObject *obj;
 
-    if (iter->current == nullptr)
+    RWLockRead lock(iter->map->lock);
+
+    if(!HMapIteratorIsValid(iter))
         return nullptr;
 
-    if (iter->used != iter->map->len)
-        return ErrorFormat(type_runtime_error_, "Set changed size during iteration");
+    obj = IncRef(iter->current->key);
 
-    obj = iter->current->key;
+    HMapIteratorNext(iter);
 
-    iter->current = iter->reversed ? iter->current->iter_prev : iter->current->iter_next;
-
-    return IncRef(obj);
+    return obj;
 }
 
 ArObject *set_iter_peak(HMapIterator *iter) {
-    if (iter->current == nullptr)
-        return nullptr;
+    RWLockRead lock(iter->map->lock);
 
-    if (iter->used != iter->map->len)
-        return ErrorFormat(type_runtime_error_, "Set changed size during iteration");
+    if(!HMapIteratorIsValid(iter))
+        return nullptr;
 
     return IncRef(iter->current->key);
 }
 
-const IteratorSlots set_iterop = {
-        (BoolUnaryOp) HMapIteratorHasNext,
-        (UnaryOp) set_iter_next,
-        (UnaryOp) set_iter_peak,
-        (VoidUnaryOp) HMapIteratorReset
-};
-
-const TypeInfo SetIteratorType = {
-        TYPEINFO_STATIC_INIT,
-        "set_iterator",
-        nullptr,
-        sizeof(HMapIterator),
-        TypeInfoFlags::BASE,
-        nullptr,
-        (VoidUnaryOp) HMapIteratorCleanup,
-        (Trace) HMapIteratorTrace,
-        (CompareOp) HMapIteratorCompare,
-        (BoolUnaryOp) HMapIteratorHasNext,
-        nullptr,
-        (UnaryOp) HMapIteratorStr,
-        nullptr,
-        nullptr,
-        nullptr,
-        &set_iterop,
-        nullptr,
-        nullptr,
-        nullptr,
-        nullptr,
-        nullptr,
-        nullptr,
-        nullptr
-};
+HMAP_ITERATOR(set_iterator, set_iter_next, set_iter_peak);
 
 ArSize set_len(Set *self) {
     return self->set.len;
@@ -85,19 +52,21 @@ ArObject *set_sub(ArObject *left, ArObject *right) {
     // difference
     auto *l = (Set *) left;
     auto *r = (Set *) right;
-    Set *res;
+    Set *res = nullptr;
 
-    if (!AR_SAME_TYPE(left, right))
-        return nullptr;
+    if (AR_SAME_TYPE(left, right)) {
+        RWLockRead l_lock(l->set.lock);
+        RWLockRead r_lock(r->set.lock);
 
-    if ((res = SetNew()) == nullptr)
-        return nullptr;
+        if ((res = SetNew()) == nullptr)
+            return nullptr;
 
-    for (HEntry *cursor = l->set.iter_begin; cursor != nullptr; cursor = cursor->iter_next) {
-        if (HMapLookup(&r->set, cursor->key) == nullptr) {
-            if (!SetAdd(res, cursor->key)) {
-                Release(res);
-                return nullptr;
+        for (HEntry *cursor = l->set.iter_begin; cursor != nullptr; cursor = cursor->iter_next) {
+            if (HMapLookup(&r->set, cursor->key) == nullptr) {
+                if (!SetAdd(res, cursor->key)) {
+                    Release(res);
+                    return nullptr;
+                }
             }
         }
     }
@@ -109,19 +78,21 @@ ArObject *set_and(ArObject *left, ArObject *right) {
     // intersection
     auto *l = (Set *) left;
     auto *r = (Set *) right;
-    Set *res;
+    Set *res = nullptr;
 
-    if (!AR_SAME_TYPE(left, right))
-        return nullptr;
+    if (AR_SAME_TYPE(left, right)) {
+        RWLockRead l_lock(l->set.lock);
+        RWLockRead r_lock(r->set.lock);
 
-    if ((res = SetNew()) == nullptr)
-        return nullptr;
+        if ((res = SetNew()) == nullptr)
+            return nullptr;
 
-    for (HEntry *cursor = l->set.iter_begin; cursor != nullptr; cursor = cursor->iter_next) {
-        if (HMapLookup(&r->set, cursor->key) != nullptr) {
-            if (!SetAdd(res, cursor->key)) {
-                Release(res);
-                return nullptr;
+        for (HEntry *cursor = l->set.iter_begin; cursor != nullptr; cursor = cursor->iter_next) {
+            if (HMapLookup(&r->set, cursor->key) != nullptr) {
+                if (!SetAdd(res, cursor->key)) {
+                    Release(res);
+                    return nullptr;
+                }
             }
         }
     }
@@ -133,25 +104,27 @@ ArObject *set_or(ArObject *left, ArObject *right) {
     // union
     auto *l = (Set *) left;
     auto *r = (Set *) right;
-    Set *res;
+    Set *res = nullptr;
 
-    if (!AR_SAME_TYPE(left, right))
-        return nullptr;
+    if (AR_SAME_TYPE(left, right)) {
+        RWLockRead l_lock(l->set.lock);
+        RWLockRead r_lock(r->set.lock);
 
-    if ((res = SetNew()) == nullptr)
-        return nullptr;
-
-    for (HEntry *cursor = l->set.iter_begin; cursor != nullptr; cursor = cursor->iter_next) {
-        if (!SetAdd(res, cursor->key)) {
-            Release(res);
+        if ((res = SetNew()) == nullptr)
             return nullptr;
+
+        for (HEntry *cursor = l->set.iter_begin; cursor != nullptr; cursor = cursor->iter_next) {
+            if (!SetAdd(res, cursor->key)) {
+                Release(res);
+                return nullptr;
+            }
         }
-    }
 
-    for (HEntry *cursor = r->set.iter_begin; cursor != nullptr; cursor = cursor->iter_next) {
-        if (!SetAdd(res, cursor->key)) {
-            Release(res);
-            return nullptr;
+        for (HEntry *cursor = r->set.iter_begin; cursor != nullptr; cursor = cursor->iter_next) {
+            if (!SetAdd(res, cursor->key)) {
+                Release(res);
+                return nullptr;
+            }
         }
     }
 
@@ -162,28 +135,30 @@ ArObject *set_xor(ArObject *left, ArObject *right) {
     // symmetric difference
     auto *l = (Set *) left;
     auto *r = (Set *) right;
-    Set *res;
+    Set *res = nullptr;
 
-    if (!AR_SAME_TYPE(left, right))
-        return nullptr;
+    if (AR_SAME_TYPE(left, right)) {
+        RWLockRead l_lock(l->set.lock);
+        RWLockRead r_lock(r->set.lock);
 
-    if ((res = SetNew()) == nullptr)
-        return nullptr;
+        if ((res = SetNew()) == nullptr)
+            return nullptr;
 
-    for (HEntry *cursor = l->set.iter_begin; cursor != nullptr; cursor = cursor->iter_next) {
-        if (HMapLookup(&r->set, cursor->key) == nullptr) {
-            if (!SetAdd(res, cursor->key)) {
-                Release(res);
-                return nullptr;
+        for (HEntry *cursor = l->set.iter_begin; cursor != nullptr; cursor = cursor->iter_next) {
+            if (HMapLookup(&r->set, cursor->key) == nullptr) {
+                if (!SetAdd(res, cursor->key)) {
+                    Release(res);
+                    return nullptr;
+                }
             }
         }
-    }
 
-    for (HEntry *cursor = r->set.iter_begin; cursor != nullptr; cursor = cursor->iter_next) {
-        if (HMapLookup(&l->set, cursor->key) == nullptr) {
-            if (!SetAdd(res, cursor->key)) {
-                Release(res);
-                return nullptr;
+        for (HEntry *cursor = r->set.iter_begin; cursor != nullptr; cursor = cursor->iter_next) {
+            if (HMapLookup(&l->set, cursor->key) == nullptr) {
+                if (!SetAdd(res, cursor->key)) {
+                    Release(res);
+                    return nullptr;
+                }
             }
         }
     }
@@ -213,6 +188,32 @@ const OpSlots set_ops = {
         nullptr,
         nullptr
 };
+
+bool SetAddNoLock(Set *set, ArObject *value) {
+    HEntry *entry;
+
+    if (HMapLookup(&set->set, value) != nullptr)
+        return true;
+
+    // Check for UnashableError
+    if (argon::vm::IsPanicking())
+        return false;
+
+    if ((entry = HMapFindOrAllocNode<HEntry>(&set->set)) == nullptr)
+        return false;
+
+    IncRef(value);
+    entry->key = value;
+
+    if (!HMapInsert(&set->set, entry)) {
+        Release(value);
+        HMapEntryToFreeNode(&set->set, entry);
+        return false;
+    }
+
+    TrackIf(set, value);
+    return true;
+}
 
 ARGON_FUNCTION5(set_, new, "Create an empty set or construct it from an iterable object."
                            ""
@@ -266,9 +267,18 @@ ARGON_METHOD5(set_, diff,
     for (ArSize idx = 0; idx < count; idx++) {
         if (!AR_SAME_TYPE(self, argv[idx]))
             return ErrorFormat(type_type_error_, "set::diff() expect type Set not '%s'", AR_TYPE_NAME(argv[idx]));
+
+        if (self == argv[idx]) {
+            SetClear(set);
+            return IncRef(self);
+        }
     }
 
+    RWLockWrite self_lock(set->set.lock);
+
     for (ArSize idx = 0; idx < count; idx++) {
+        RWLockRead other_lock(((Set *) argv[idx])->set.lock);
+
         for (HEntry *cursor = set->set.iter_begin; cursor != nullptr; cursor = tmp) {
             tmp = cursor->iter_next;
             if (HMapLookup(&((Set *) argv[idx])->set, cursor->key) != nullptr) {
@@ -288,6 +298,8 @@ ARGON_METHOD5(set_, discard,
               "- Returns: set itself.", 0, true) {
     auto *set = (Set *) self;
     HEntry *tmp;
+
+    RWLockWrite lock(set->set.lock);
 
     for (ArSize idx = 0; idx < count; idx++) {
         if ((tmp = HMapLookup(&set->set, argv[idx])) != nullptr) {
@@ -318,12 +330,18 @@ ARGON_METHOD5(set_, intersect,
             return ErrorFormat(type_type_error_, "set::intersect() expect type Set not '%s'", AR_TYPE_NAME(argv[idx]));
     }
 
+    RWLockWrite self_lock(set->set.lock);
+
     for (ArSize idx = 0; idx < count; idx++) {
-        for (HEntry *cursor = set->set.iter_begin; cursor != nullptr; cursor = tmp) {
-            tmp = cursor->iter_next;
-            if (HMapLookup(&((Set *) argv[idx])->set, cursor->key) == nullptr) {
-                Release(cursor->key);
-                HMapRemove(&set->set, cursor);
+        if (argv[idx] != self) {
+            RWLockRead other_lock(((Set *) argv[idx])->set.lock);
+
+            for (HEntry *cursor = set->set.iter_begin; cursor != nullptr; cursor = tmp) {
+                tmp = cursor->iter_next;
+                if (HMapLookup(&((Set *) argv[idx])->set, cursor->key) == nullptr) {
+                    Release(cursor->key);
+                    HMapRemove(&set->set, cursor);
+                }
             }
         }
     }
@@ -334,33 +352,35 @@ ARGON_METHOD5(set_, intersect,
 ARGON_METHOD5(set_, symdiff,
               "Inserts the symmetric differences from this set and another."
               ""
-              "- Parameters:"
-              "     ...sets: another sets."
-              "- Returns: set itself.", 0, true) {
+              "- Parameter set: another sets."
+              "- Returns: set itself.", 1, false) {
     auto *set = (Set *) self;
+    auto *other = (Set *) argv[0];
     HEntry *tmp;
 
-    for (ArSize idx = 0; idx < count; idx++) {
-        if (!AR_SAME_TYPE(self, argv[idx]))
-            return ErrorFormat(type_type_error_, "set::symdiff() expect type Set not '%s'", AR_TYPE_NAME(argv[idx]));
+    if (!AR_SAME_TYPE(self, other))
+        return ErrorFormat(type_type_error_, "set::symdiff() expect type Set not '%s'", AR_TYPE_NAME(argv[0]));
+
+    if (self == other) {
+        SetClear(set);
+        return IncRef(self);
     }
 
-    for (ArSize idx = 0; idx < count; idx++) {
-        auto *other = (Set *) argv[idx];
+    RWLockWrite self_lock(set->set.lock);
+    RWLockRead other_lock(other->set.lock);
 
-        for (HEntry *cursor = set->set.iter_begin; cursor != nullptr; cursor = tmp) {
-            tmp = cursor->iter_next;
-            if (HMapLookup(&other->set, cursor->key) != nullptr) {
-                Release(cursor->key);
-                HMapRemove(&set->set, cursor);
-            }
+    for (HEntry *cursor = set->set.iter_begin; cursor != nullptr; cursor = tmp) {
+        tmp = cursor->iter_next;
+        if (HMapLookup(&other->set, cursor->key) != nullptr) {
+            Release(cursor->key);
+            HMapRemove(&set->set, cursor);
         }
+    }
 
-        for (HEntry *cursor = other->set.iter_begin; cursor != nullptr; cursor = cursor->iter_next) {
-            if (HMapLookup(&set->set, cursor->key) == nullptr) {
-                if (!SetAdd(set, cursor->key))
-                    return nullptr;
-            }
+    for (HEntry *cursor = other->set.iter_begin; cursor != nullptr; cursor = cursor->iter_next) {
+        if (HMapLookup(&set->set, cursor->key) == nullptr) {
+            if (!SetAddNoLock(set, cursor->key))
+                return nullptr;
         }
     }
 
@@ -380,12 +400,16 @@ ARGON_METHOD5(set_, update,
             return ErrorFormat(type_type_error_, "set::update() expect type Set not '%s'", AR_TYPE_NAME(argv[idx]));
     }
 
-    for (ArSize idx = 0; idx < count; idx++) {
-        auto *other = (Set *) argv[idx];
+    RWLockWrite self_lock(set->set.lock);
 
-        for (HEntry *cursor = other->set.iter_begin; cursor != nullptr; cursor = cursor->iter_next) {
-            if (!SetAdd(set, cursor->key))
-                return nullptr;
+    for (ArSize idx = 0; idx < count; idx++) {
+        if (argv[idx] != self) {
+            RWLockRead other_lock(((Set *) argv[idx])->set.lock);
+
+            for (HEntry *cursor = ((Set *) argv[idx])->set.iter_begin; cursor != nullptr; cursor = cursor->iter_next) {
+                if (!SetAddNoLock(set, cursor->key))
+                    return nullptr;
+            }
         }
     }
 
@@ -444,6 +468,8 @@ ArObject *set_str(Set *self) {
     if ((rec = TrackRecursive(self)) != 0)
         return rec > 0 ? StringIntern("{...}") : nullptr;
 
+    RWLockRead lock(self->set.lock);
+
     if (StringBuilderWrite(&sb, (unsigned char *) "{", 1, self->set.len == 0 ? 1 : 0) < 0)
         goto error;
 
@@ -476,11 +502,13 @@ ArObject *set_str(Set *self) {
 }
 
 ArObject *set_iter_get(Set *self) {
-    return HMapIteratorNew(&SetIteratorType, self, &self->set, false);
+    RWLockRead lock(self->set.lock);
+    return HMapIteratorNew(&type_set_iterator_, self, &self->set, false);
 }
 
 ArObject *set_iter_rget(Set *self) {
-    return HMapIteratorNew(&SetIteratorType, self, &self->set, true);
+    RWLockRead lock(self->set.lock);
+    return HMapIteratorNew(&type_set_iterator_, self, &self->set, true);
 }
 
 void set_cleanup(Set *self) {
@@ -522,10 +550,9 @@ const TypeInfo *argon::object::type_set_ = &SetType;
 Set *argon::object::SetNew() {
     auto set = ArObjectGCNew<Set>(type_set_);
 
-    if (set != nullptr) {
+    if (set != nullptr)
         if (!HMapInit(&set->set))
             Release((ArObject **) &set);
-    }
 
     return set;
 }
@@ -561,42 +588,17 @@ Set *argon::object::SetNewFromIterable(const ArObject *iterable) {
 }
 
 bool argon::object::SetAdd(Set *set, ArObject *value) {
-    HEntry *entry;
-
-    if (HMapLookup(&set->set, value) != nullptr)
-        return true;
-
-    // Check for UnashableError
-    if (argon::vm::IsPanicking())
-        return false;
-
-    if ((entry = HMapFindOrAllocNode<HEntry>(&set->set)) == nullptr)
-        return false;
-
-    IncRef(value);
-    entry->key = value;
-
-    if (!HMapInsert(&set->set, entry)) {
-        Release(value);
-        HMapEntryToFreeNode(&set->set, entry);
-        return false;
-    }
-
-    TrackIf(set, value);
-
-    return true;
+    RWLockWrite lock(set->set.lock);
+    return SetAddNoLock(set, value);
 }
 
 bool argon::object::SetContains(Set *set, ArObject *value) {
+    RWLockRead lock(set->set.lock);
     return HMapLookup(&set->set, value) != nullptr;
 }
 
 void argon::object::SetClear(Set *set) {
-    HEntry *tmp;
+    RWLockWrite lock(set->set.lock);
 
-    for (HEntry *cursor = set->set.iter_begin; cursor != nullptr; cursor = tmp) {
-        tmp = cursor->iter_next;
-        Release(cursor->key);
-        HMapRemove(&set->set, cursor);
-    }
+    HMapClear(&set->set, nullptr);
 }

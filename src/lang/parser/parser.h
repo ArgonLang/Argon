@@ -101,6 +101,8 @@ namespace argon::lang::parser {
 
         [[nodiscard]] Node *ParseMemberAccess(Node *left);
 
+        [[nodiscard]] Node *ParsePipeline(Node *left);
+
         [[nodiscard]] Node *ParsePostUpdate(Node *left);
 
         [[nodiscard]] Node *ParsePreUpdate();
@@ -108,6 +110,8 @@ namespace argon::lang::parser {
         [[nodiscard]] Node *ParsePrefix();
 
         [[nodiscard]] Node *ParseReturn();
+
+        [[nodiscard]] Node *ParseYield();
 
         [[nodiscard]] Node *ParseDecls();
 

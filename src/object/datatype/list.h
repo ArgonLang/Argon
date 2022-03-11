@@ -6,11 +6,13 @@
 #define ARGON_OBJECT_LIST_H_
 
 #include <object/arobject.h>
+#include <object/rwlock.h>
 
 #define ARGON_OBJECT_LIST_INITIAL_CAP   4
 
 namespace argon::object {
     struct List : ArObject {
+        RWLock lock;
         ArObject **objects;
         ArSize cap;
         ArSize len;
@@ -26,9 +28,15 @@ namespace argon::object {
 
     bool ListAppend(List *list, ArObject *obj);
 
-    bool ListConcat(List *list, ArObject *sequence);
+    bool ListConcat(List *list, const ArObject *sequence);
 
-    bool ListSetItem(List *list, ArObject *obj, ArSSize index);
+    bool ListInsert(List *list, ArObject *obj, ArSSize index);
+
+    bool ListMul(List *list, ArSSize n);
+
+    bool ListSetItem(List *list, ArObject *object, ArSSize index);
+
+    bool ListInsertAt(List *self, ArObject *obj, ArSSize index);
 
     void ListClear(List *list);
 

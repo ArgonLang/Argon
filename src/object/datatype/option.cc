@@ -14,7 +14,7 @@ ARGON_FUNCTION5(option_, new,
                 "Returns new option that can encapsulate an optional object."
                 ""
                 "- Parameter obj: option object."
-                "- Returns: Contained object.", 0, false) {
+                "- Returns: Contained object.", 0, true) {
     if (!VariadicCheckPositional("option::new", count, 0, 1))
         return nullptr;
 

@@ -4,11 +4,14 @@
 
 #include <memory/memory.h>
 
+#include <lang/opcodes.h>
+
 #include <object/arobject.h>
 #include "bool.h"
 #include "hash_magic.h"
 #include "string.h"
 #include "code.h"
+
 
 using namespace argon::memory;
 using namespace argon::object;
@@ -54,6 +57,7 @@ void code_cleanup(Code *self) {
     Release(self->statics);
     Release(self->names);
     Release(self->locals);
+    Release(self->enclosed);
     Free((void *) self->instr);
 }
 
@@ -106,6 +110,59 @@ Code *argon::object::CodeNew(const unsigned char *instr,
             Release(code);
         if ((code->enclosed = TupleNew(enclosed)) == nullptr)
             Release(code);
+    }
+
+    return code;
+}
+
+Code *argon::object::CodeNewNativeWrapper(ArObject *func) {
+    auto code = ArObjectNew<Code>(RCType::INLINE, type_code_);
+    Tuple *statics;
+
+    unsigned char *instr;
+
+    if (code != nullptr) {
+        code->statics = nullptr;
+        code->names = nullptr;
+        code->locals = nullptr;
+        code->enclosed = nullptr;
+
+        code->instr = nullptr;
+
+        if ((statics = TupleNew(1)) == nullptr) {
+            Release(code);
+            return nullptr;
+        }
+
+        if ((instr = (unsigned char *) Alloc(9)) == nullptr) {
+            Release(statics);
+            Release(code);
+            return nullptr;
+        }
+
+        /*
+         * LSTATIC  0
+         * CALL     0
+         * RET
+         */
+
+        // LSTATIC 0
+        *((argon::lang::Instr32 *) instr) = (argon::lang::Instr32) (0 << (unsigned char) 8) |
+                                            (argon::lang::Instr8) argon::lang::OpCodes::LSTATIC;
+        // CALL 0
+        *((argon::lang::Instr32 *) (instr + 4)) = ((unsigned int) (0 << (unsigned char) 24)) |
+                                                  ((unsigned short) (0 << (unsigned char) 8)) |
+                                                  (argon::lang::Instr8) argon::lang::OpCodes::CALL;
+        // RET
+        instr[8] = (unsigned char) argon::lang::OpCodes::RET;
+
+        TupleInsertAt(statics, 0, func);
+
+        code->statics = statics;
+
+        code->instr = instr;
+        code->instr_sz = 9;
+        code->stack_sz = 1;
     }
 
     return code;

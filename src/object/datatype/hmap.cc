@@ -13,6 +13,66 @@
 using namespace argon::memory;
 using namespace argon::object;
 
+ArObject *argon::object::HMapIteratorCompare(HMapIterator *self, ArObject *other, CompareMode mode) {
+    auto *o = (HMapIterator *) other;
+
+    if (!AR_SAME_TYPE(self, other) || mode != CompareMode::EQ)
+        return nullptr;
+
+    UniqueLock self_lock(self->lock);
+    UniqueLock o_lock(o->lock);
+
+    if (self != other)
+        return BoolToArBool(self->reversed == o->reversed && self->current == o->current && Equal(self->obj, o->obj));
+
+    return BoolToArBool(true);
+}
+
+ArObject *argon::object::HMapIteratorNew(const TypeInfo *type, ArObject *iterable, HMap *map, bool reversed) {
+    auto iter = ArObjectGCNew<HMapIterator>(type);
+
+    if (iter != nullptr) {
+        iter->lock = false;
+        iter->obj = IncRef(iterable);
+        iter->map = map;
+        iter->current = reversed ? iter->map->iter_end : iter->map->iter_begin;
+        iter->reversed = reversed;
+
+        if (iter->current != nullptr)
+            iter->current->ref++;
+    }
+
+    return iter;
+}
+
+ArObject *argon::object::HMapIteratorStr(HMapIterator *self) {
+    return StringNewFormat("<%s @%p>", AR_TYPE_NAME(self), self);
+}
+
+void argon::object::HMapIteratorCleanup(HMapIterator *self) {
+    if (self->current != nullptr && self->current->ref.fetch_sub(1) == 1)
+        Free(self->current);
+
+    Release(&self->obj);
+}
+
+void argon::object::HMapIteratorNext(HMapIterator *self) {
+    UniqueLock lock(self->lock);
+    HEntry *current = self->current;
+
+    self->current = self->reversed ? self->current->iter_prev : self->current->iter_next;
+
+    if (current->ref.fetch_sub(1) == 1) {
+        Free(current);
+        return;
+    }
+
+    if (self->current != nullptr)
+        self->current->ref++;
+}
+
+// *** HMap
+
 #define CHECK_HASHABLE(obj, ret)                                                        \
 do {                                                                                    \
 if(!IsHashable(obj)) {                                                                  \
@@ -92,16 +152,20 @@ void RemoveIterItem(HMap *hmap, HEntry *entry) {
     entry->iter_prev = nullptr;
 }
 
-bool argon::object::HMapInit(HMap *hmap) {
+bool argon::object::HMapInit(HMap *hmap, ArSize freenode_max) {
     hmap->map = (HEntry **) Alloc(ARGON_OBJECT_HMAP_INITIAL_SIZE * sizeof(void *));
 
     if (hmap->map != nullptr) {
+        hmap->lock = 0;
+
         hmap->free_node = nullptr;
         hmap->iter_begin = nullptr;
         hmap->iter_end = nullptr;
 
         hmap->cap = ARGON_OBJECT_HMAP_INITIAL_SIZE;
         hmap->len = 0;
+        hmap->free_count = 0;
+        hmap->free_max = freenode_max;
 
         MemoryZero(hmap->map, hmap->cap * sizeof(void *));
 
@@ -175,6 +239,25 @@ HEntry *argon::object::HMapRemove(HMap *hmap, ArObject *key) {
     return nullptr;
 }
 
+void argon::object::HMapClear(HMap *hmap, HMapCleanFn clean_fn) {
+    HEntry *tmp;
+
+    for (HEntry *cur = hmap->iter_begin; cur != nullptr; cur = tmp) {
+        tmp = cur->iter_next;
+
+        if (clean_fn != nullptr)
+            clean_fn(cur);
+
+        Release(cur->key);
+        HMapRemove(hmap, cur);
+    }
+
+    hmap->len = 0;
+
+    for (ArSize i = 0; i < hmap->cap; i++)
+        hmap->map[i] = nullptr;
+}
+
 void argon::object::HMapFinalize(HMap *hmap, HMapCleanFn clean_fn) {
     HEntry *tmp;
 
@@ -202,34 +285,18 @@ void argon::object::HMapRemove(HMap *hmap, HEntry *entry) {
     hmap->len--;
 }
 
-ArObject *argon::object::HMapIteratorNew(const TypeInfo *type, ArObject *iterable, HMap *map, bool reversed) {
-    auto iter = ArObjectGCNew<HMapIterator>(type);
+void argon::object::HMapEntryToFreeNode(HMap *hmap, HEntry *entry) {
+    entry->key = nullptr;
 
-    if (iter != nullptr) {
-        iter->obj = IncRef(iterable);
-        iter->map = map;
-        iter->current = reversed ? iter->map->iter_end : iter->map->iter_begin;
-        iter->used = map->len;
-        iter->reversed = reversed;
+    if (hmap->free_count + 1 > hmap->free_max) {
+        if (entry->ref.fetch_sub(1) == 1)
+            Free(entry);
+        return;
     }
 
-    return iter;
-}
-
-ArObject *argon::object::HMapIteratorCompare(HMapIterator *self, ArObject *other, CompareMode mode) {
-    auto *o = (HMapIterator *) other;
-
-    if (!AR_SAME_TYPE(self, other) || mode != CompareMode::EQ)
-        return nullptr;
-
-    if (self != other)
-        return BoolToArBool(self->reversed == o->reversed && Equal(self->obj, o->obj));
-
-    return BoolToArBool(true);
-}
-
-ArObject *argon::object::HMapIteratorStr(HMapIterator *self) {
-    return StringNewFormat("<%s @%p>", AR_TYPE_NAME(self), self);
+    entry->next = hmap->free_node;
+    hmap->free_node = entry;
+    hmap->free_count++;
 }
 
 #undef CHECK_HASHABLE

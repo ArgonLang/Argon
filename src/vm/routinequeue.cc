@@ -2,28 +2,9 @@
 //
 // Licensed under the Apache License v2.0
 
-#include "routine_queue.h"
+#include "routinequeue.h"
 
 using namespace argon::vm;
-
-bool ArRoutineQueue::Enqueue(ArRoutine *routine) {
-    std::unique_lock<std::mutex> uniqueLock(this->queue_lock);
-
-    if (this->limit_ > 0 && this->len_ + 1 >= this->limit_)
-        return false;
-
-    if (this->tail_ == nullptr) {
-        this->head_ = routine;
-        this->tail_ = routine;
-    } else {
-        this->tail_->next = routine;
-        this->tail_ = routine;
-    }
-
-    this->len_++;
-
-    return true;
-}
 
 ArRoutine *ArRoutineQueue::Dequeue() {
     std::unique_lock<std::mutex> uniqueLock(this->queue_lock);
@@ -32,7 +13,13 @@ ArRoutine *ArRoutineQueue::Dequeue() {
 
     if (routine != nullptr) {
         this->head_ = routine->next;
+
+        if (this->head_ == nullptr)
+            this->tail_ = nullptr;
+
         this->len_--;
+
+        routine->next = nullptr;
     }
 
     return routine;
@@ -42,6 +29,46 @@ ArRoutine *ArRoutineQueue::StealQueue(unsigned int min_len, ArRoutineQueue &queu
     if (this->GrabHalfQueue(min_len, queue) > 0)
         return this->Dequeue();
     return nullptr;
+}
+
+bool ArRoutineQueue::Enqueue(ArRoutine *routine) {
+    std::unique_lock<std::mutex> uniqueLock(this->queue_lock);
+
+    if (this->limit_ > 0 && this->len_ + 1 >= this->limit_)
+        return false;
+
+    if (this->tail_ == nullptr)
+        this->head_ = routine;
+    else
+        this->tail_->next = routine;
+
+    this->tail_ = routine;
+
+    this->len_++;
+    return true;
+}
+
+bool ArRoutineQueue::EnqueueHead(ArRoutine *routine) {
+    std::unique_lock<std::mutex> uniqueLock(this->queue_lock);
+
+    if (this->limit_ > 0 && this->len_ + 1 >= this->limit_)
+        return false;
+
+    if (this->tail_ == nullptr) {
+        this->head_ = routine;
+        this->tail_ = routine;
+    } else {
+        routine->next = this->head_;
+        this->head_ = routine;
+    }
+
+    this->len_++;
+    return true;
+}
+
+unsigned int ArRoutineQueue::Length() {
+    std::unique_lock lck(this->queue_lock);
+    return this->len_;
 }
 
 unsigned int ArRoutineQueue::GrabHalfQueue(unsigned int min_len, ArRoutineQueue &queue) {

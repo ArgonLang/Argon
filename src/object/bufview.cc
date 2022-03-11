@@ -13,19 +13,20 @@ SharedBuffer *SharedBufferNew(ArSize cap) {
     auto *shared = (SharedBuffer *) Alloc(sizeof(SharedBuffer));
 
     if (shared != nullptr) {
+        shared->lock = 0;
+        shared->counter = 1;
+        shared->cap = cap;
+
         shared->buffer = nullptr;
 
-        if (cap > 0) {
-            if ((shared->buffer = (unsigned char *) Alloc(cap)) == nullptr) {
-                Free(shared);
-                return nullptr;
-            }
+        if (cap == 0)
+            return shared;
 
-            // MemoryZero(shared->buffer, cap);
+        shared->buffer = (unsigned char *) Alloc(cap);
+        if (shared->buffer == nullptr) {
+            Free(shared);
+            return nullptr;
         }
-
-        shared->cap = cap;
-        shared->counter = 1; // INIT COUNTER
     }
 
     return shared;

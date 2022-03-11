@@ -1,0 +1,22 @@
+func longestCommonPrefix(slist) {
+    var base = slist[0]
+    var cur
+
+    for var i = 1; i < len(slist); i++ {
+        if !slist[i] || !base {
+            return ""
+        }
+
+        for var j = 0; j < len(base); j++ {
+            if j >= len(slist[i]) || base[j] != slist[i][j] {
+                base = base[:j]
+                break
+            }
+        }
+    }
+
+    return base
+}
+
+["flower","flow","flight"]  |> longestCommonPrefix |> println
+["dog","racecar","car"]     |> longestCommonPrefix |> println

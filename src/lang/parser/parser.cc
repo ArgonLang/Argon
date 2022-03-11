@@ -52,42 +52,46 @@ int PeekPrecedence(TokenType type) {
         case TokenType::ELVIS:
         case TokenType::QUESTION:
             return 40;
-        case TokenType::OR:
+        case TokenType::PIPELINE:
             return 50;
-        case TokenType::AND:
+        case TokenType::OR:
             return 60;
-        case TokenType::PIPE:
+        case TokenType::AND:
             return 70;
-        case TokenType::CARET:
+        case TokenType::PIPE:
             return 80;
-        case TokenType::EQUAL_EQUAL:
-        case TokenType::NOT_EQUAL:
+        case TokenType::CARET:
             return 90;
+        case TokenType::EQUAL_EQUAL:
+        case TokenType::EQUAL_STRICT:
+        case TokenType::NOT_EQUAL:
+        case TokenType::NOT_EQUAL_STRICT:
+            return 100;
         case TokenType::LESS:
         case TokenType::LESS_EQ:
         case TokenType::GREATER:
         case TokenType::GREATER_EQ:
-            return 100;
+            return 110;
         case TokenType::SHL:
         case TokenType::SHR:
-            return 110;
+            return 120;
         case TokenType::PLUS:
         case TokenType::MINUS:
         case TokenType::EXCLAMATION:
         case TokenType::TILDE:
-            return 120;
+            return 130;
         case TokenType::ASTERISK:
         case TokenType::SLASH:
         case TokenType::SLASH_SLASH:
         case TokenType::PERCENT:
-            return 130;
+            return 140;
         case TokenType::PLUS_PLUS:
         case TokenType::MINUS_MINUS:
         case TokenType::LEFT_SQUARE:
         case TokenType::LEFT_ROUND:
         case TokenType::DOT:
         case TokenType::QUESTION_DOT:
-            return 140;
+            return 150;
         default:
             return 1000;
     }
@@ -170,6 +174,8 @@ LedMeth Parser::LookupLed() const {
             return &Parser::ParseInitialization;
         case TokenType::LEFT_ROUND:
             return &Parser::ParseFnCall;
+        case TokenType::PIPELINE:
+            return &Parser::ParsePipeline;
         case TokenType::ELVIS:
             return &Parser::ParseElvis;
         case TokenType::QUESTION:
@@ -195,6 +201,8 @@ LedMeth Parser::LookupLed() const {
         case TokenType::GREATER:
         case TokenType::GREATER_EQ:
         case TokenType::EQUAL_EQUAL:
+        case TokenType::EQUAL_STRICT:
+        case TokenType::NOT_EQUAL_STRICT:
         case TokenType::NOT_EQUAL:
         case TokenType::AMPERSAND:
         case TokenType::CARET:
@@ -347,7 +355,8 @@ Node *Parser::ParseAssignment(Node *left) {
                 !AR_TYPEOF(list->objects[i], type_ast_selector_)) {
                 Release(left);
                 return (Node *) ErrorFormat(type_syntax_error_,
-                                            "expected identifier/selector/index as %d element in assignment definition", i);
+                                            "expected identifier/selector/index as %d element in assignment definition",
+                                            i);
             }
         }
     }
@@ -857,6 +866,7 @@ Node *Parser::ParseFnCall(Node *left) {
 
     tmp->start = left->start;
     tmp->end = end;
+    tmp->kind = TokenType::TK_NULL;
     tmp->colno = 0;
     tmp->lineno = 0;
 
@@ -1063,6 +1073,9 @@ Node *Parser::FuncDecl(bool pub) {
 Node *Parser::ParseIdentifier() {
     Unary *id;
     ArObject *str;
+
+    if (!this->Match(TokenType::IDENTIFIER, TokenType::BLANK, TokenType::SELF))
+        return (Node *) ErrorFormat(type_syntax_error_, "expected identifier");
 
     if ((id = ArObjectNew<Unary>(RCType::INLINE, type_ast_identifier_)) != nullptr) {
         if ((str = StringNew((const char *) this->tkcur_.buf)) == nullptr) {
@@ -1441,6 +1454,51 @@ Node *Parser::ParseMemberAccess(Node *left) {
     return binary;
 }
 
+Node *Parser::ParsePipeline(Node *left) {
+    Node *right;
+    Binary *call;
+    List *args;
+
+    this->Eat();
+
+    //                                          ▼▼▼▼▼ behave like a function call ▼▼▼▼▼
+    if ((right = this->ParseExpr(PeekPrecedence(TokenType::LEFT_ROUND) - 1)) == nullptr)
+        return nullptr;
+
+    if (AR_TYPEOF(right, type_ast_call_)) {
+        call = ((Binary *) right);
+        args = (List *) call->right;
+
+        if (!ListInsertAt(args, left, 0)) {
+            Release(right);
+            return nullptr;
+        }
+    } else {
+        if ((args = ListNew()) == nullptr) {
+            Release(right);
+            return nullptr;
+        }
+
+        ListAppend(args, left);
+
+        if ((call = ArObjectNew<Binary>(RCType::INLINE, type_ast_call_)) == nullptr) {
+            Release(right);
+            Release(args);
+            return nullptr;
+        }
+
+        call->left = right;
+        call->right = args;
+    }
+
+    call->start = left->start;
+    call->end = right->end;
+    call->kind = TokenType::TK_NULL;
+    call->colno = 0;
+    call->lineno = 0;
+    return call;
+}
+
 Node *Parser::ParsePostUpdate(Node *left) {
     UpdateIncDec *update;
 
@@ -1513,7 +1571,6 @@ Node *Parser::ParseReturn() {
     tmp->lineno = 0;
 
     tmp->value = nullptr;
-
     if (!this->Match(TokenType::END_OF_LINE, TokenType::END_OF_FILE, TokenType::SEMICOLON)) {
         if ((tmp->value = this->ParseExpr(EXPR_NO_ASSIGN)) == nullptr) {
             Release(tmp);
@@ -1522,6 +1579,38 @@ Node *Parser::ParseReturn() {
 
         tmp->end = ((Node *) tmp->value)->end;
     }
+
+    return tmp;
+}
+
+Node *Parser::ParseYield() {
+    Pos start = this->tkcur_.start;
+    Pos end;
+    Unary *tmp;
+
+    this->Eat();
+
+    if ((tmp = ArObjectNew<Unary>(RCType::INLINE, type_ast_yield_)) == nullptr)
+        return nullptr;
+
+    tmp->start = start;
+    tmp->end = this->tkcur_.end;
+    tmp->colno = 0;
+    tmp->lineno = 0;
+
+    tmp->value = nullptr;
+
+    if (this->Match(TokenType::END_OF_LINE, TokenType::END_OF_FILE, TokenType::SEMICOLON)) {
+        Release(tmp);
+        return (Node *) ErrorFormat(type_syntax_error_, "expected expression after yield");
+    }
+
+    if ((tmp->value = this->ParseExpr(EXPR_NO_ASSIGN)) == nullptr) {
+        Release(tmp);
+        return nullptr;
+    }
+
+    tmp->end = ((Node *) tmp->value)->end;
 
     return tmp;
 }
@@ -1567,6 +1656,9 @@ Node *Parser::ParseStatement() {
                 case TokenType::RETURN:
                     tmp = this->ParseReturn();
                     break;
+                case TokenType::YIELD:
+                    tmp = this->ParseYield();
+                    break;
                 case TokenType::IMPORT:
                     tmp = this->ParseImport();
                     break;
@@ -1591,7 +1683,7 @@ Node *Parser::ParseStatement() {
                     tmp = this->ParseJmpStmt();
                     break;
                 default:
-                    assert(false);
+                    return (Node *) ErrorFormat(type_syntax_error_, "unexpected token '%s'", this->tkcur_.buf);
             }
         } else
             tmp = this->Expression();

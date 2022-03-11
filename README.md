@@ -1,5 +1,8 @@
-![](https://img.shields.io/badge/version-0.2.6--alpha-red)
+![](https://img.shields.io/badge/version-0.3.0--alpha-red)
 ![https://www.apache.org/licenses/LICENSE-2.0](https://img.shields.io/badge/license-apache--2.0-blue)
+[![Maintainability Rating](https://sonarcloud.io/api/project_badges/measure?project=ArgonLang_Argon&metric=sqale_rating)](https://sonarcloud.io/summary/new_code?id=ArgonLang_Argon)
+[![Bugs](https://sonarcloud.io/api/project_badges/measure?project=ArgonLang_Argon&metric=bugs)](https://sonarcloud.io/summary/new_code?id=ArgonLang_Argon)
+[![Lines of Code](https://sonarcloud.io/api/project_badges/measure?project=ArgonLang_Argon&metric=ncloc)](https://sonarcloud.io/summary/new_code?id=ArgonLang_Argon)
 
 # The Argon Programming Language
 This is the main repository for Argon language. It contains interpreter and builtins libraries.
@@ -70,8 +73,8 @@ Argon is under development, so many features are not yet active or available, a 
 * ~~No support for interactive mode.~~
 * ~~Lack of most of the built-in functionality for basic DataType (e.g. bytes::find, bytestream::split, ...).~~
 * ~~Garbage collector not enabled (currently the memory is managed only by the ARC).~~
-* Limited I/O support.
-* No multithreading support.
+* ~~Limited I/O support.~~
+* ~~No multithreading support.~~
 * No debugging support.
 * Currently, all test cases are disabled ~~and out of date~~.
 

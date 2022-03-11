@@ -5,19 +5,22 @@
 #ifndef ARGON_VM_AR_ROUTINE_H_
 #define ARGON_VM_AR_ROUTINE_H_
 
-#include <object/arobject.h>
-
 #include "context.h"
-#include "frame.h"
 
 #define ARGON_VM_QUEUE_MAX_ROUTINES 255
+
+namespace argon::object {
+    struct ArObject;
+    struct Frame;
+}
 
 namespace argon::vm {
 
     enum class ArRoutineStatus : unsigned char {
         RUNNING,
         RUNNABLE,
-        BLOCKED
+        BLOCKED,
+        SUSPENDED
     };
 
     struct Panic {
@@ -39,7 +42,7 @@ namespace argon::vm {
         Defer *defer;
 
         /* Pointer to frame that has generated this defer */
-        Frame *frame;
+        argon::object::Frame *frame;
 
         /* Pointer to function object */
         argon::object::ArObject *function;
@@ -50,7 +53,7 @@ namespace argon::vm {
         ArRoutine *next;
 
         /* Current execution frame */
-        Frame *frame;
+        argon::object::Frame *frame;
 
         /* Pointer to head of deferred stack */
         Defer *defer;
@@ -70,15 +73,27 @@ namespace argon::vm {
         /* Current recursion depth */
         argon::object::ArSize recursion_depth;
 
+        /* Suspension reason */
+        argon::object::ArSize reason;
+
+        /* Used by NotifyQueue to manage the queue */
+        argon::object::ArSize ticket;
+
         /* Routine status */
         ArRoutineStatus status;
     };
 
     ArRoutine *RoutineNew(ArRoutineStatus status);
 
-    ArRoutine *RoutineNew(Frame *frame, ArRoutineStatus status);
+    ArRoutine *RoutineNew(argon::object::Frame *frame, ArRoutineStatus status);
 
-    inline ArRoutine *RoutineNew(Frame *frame) { return RoutineNew(frame, ArRoutineStatus::RUNNABLE); }
+    inline ArRoutine *RoutineNew(argon::object::Frame *frame) { return RoutineNew(frame, ArRoutineStatus::RUNNABLE); }
+
+    ArRoutine *RoutineNew(argon::object::Frame *frame, ArRoutine *routine, ArRoutineStatus status);
+
+    inline ArRoutine *RoutineNew(argon::object::Frame *frame, ArRoutine *routine) {
+        return RoutineNew(frame, routine, ArRoutineStatus::RUNNABLE);
+    }
 
     argon::object::ArObject *RoutineRecover(ArRoutine *routine);
 
@@ -97,6 +112,8 @@ namespace argon::vm {
     void RoutineNewPanic(ArRoutine *routine, argon::object::ArObject *object);
 
     void RoutinePopPanic(ArRoutine *routine);
+
+    void RoutinePopPanics(ArRoutine *routine);
 
     inline bool RoutineIsPanicking(ArRoutine *routine) { return routine != nullptr && routine->panic != nullptr; }
 

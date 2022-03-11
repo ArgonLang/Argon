@@ -7,15 +7,18 @@
 
 #include <atomic>
 
+#include "rwlock.h"
 #include "arobject.h"
 
 namespace argon::object {
     struct SharedBuffer {
+        RWLock lock;
+
         std::atomic_long counter;
         unsigned char *buffer;
         ArSize cap;
 
-        bool IsWritable() {
+        [[nodiscard]] bool IsWritable() const {
             return this->counter == 1;
         }
 

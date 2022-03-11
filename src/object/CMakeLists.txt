@@ -9,6 +9,7 @@ set(SRC
         datatype/code.cc
         datatype/decimal.cc
         datatype/error.cc
+        datatype/frame.cc
         datatype/function.cc
         datatype/hash_magic.cc
         datatype/hmap.cc
@@ -29,6 +30,7 @@ set(SRC
         datatype/tuple.cc
         gc.cc
         refcount.cc
+        rwlock.cc
         setup.cc
 )
 
