@@ -40,12 +40,14 @@ ArObject *function_next(Function *self) {
     }
 
     result = Eval(argon::vm::GetRoutine(), frame);
-    FrameDel(frame);
 
-    if(result == error_exhausted_generator){
+    if (result == error_exhausted_generator || frame->IsExhausted()) {
         Release(result);
+        FrameDel(frame);
         return nullptr;
     }
+
+    FrameDel(frame);
 
     return result;
 }
@@ -57,12 +59,12 @@ const IteratorSlots function_iter = {
         nullptr
 };
 
-bool function_is_true(Function *self) {
+bool function_is_true(const Function *self) {
     return true;
 }
 
-ArObject *function_compare(Function *self, ArObject *other, CompareMode mode) {
-    auto *o = (Function *) other;
+ArObject *function_compare(const Function *self, const ArObject *other, CompareMode mode) {
+    auto *o = (const Function *) other;
     bool equal = true;
 
     if (self == other && mode == CompareMode::EQ)
@@ -75,7 +77,9 @@ ArObject *function_compare(Function *self, ArObject *other, CompareMode mode) {
         equal = !self->IsNative() && Equal(self->code, o->code);
 
         if (equal)
-            equal = self->flags == o->flags && Equal(self->currying, o->currying) && Equal(self->enclosed, o->enclosed);
+            equal = self->flags == o->flags
+                    && Equal(self->currying, o->currying)
+                    && Equal(self->enclosed, o->enclosed);
     }
 
     return BoolToArBool(equal);
