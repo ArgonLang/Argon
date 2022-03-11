@@ -2005,24 +2005,21 @@ Node *Parser::ParseSubscript(Node *left) {
 
 Node *Parser::ParseTernary(Node *left) {
     Pos start = this->tkcur_.start;
-    Test *test;
-
+    Node *orelse = nullptr;
     Node *body;
-    Node *orelse;
+    Test *test;
 
     this->Eat();
 
     if ((body = this->ParseExpr()) == nullptr)
         return nullptr;
 
-    if (!this->MatchEat(TokenType::COLON, false)) {
-        Release(body);
-        return (Node *) ErrorFormat(type_syntax_error_, "expected : in ternary operator");
-    }
-
-    if ((orelse = this->ParseExpr()) == nullptr) {
-        Release(body);
-        return nullptr;
+    if (this->MatchEat(TokenType::COLON, false)) {
+        orelse = this->ParseExpr();
+        if (orelse == nullptr) {
+            Release(body);
+            return nullptr;
+        }
     }
 
     if ((test = ArObjectNew<Test>(RCType::INLINE, type_ast_ternary_)) == nullptr) {
@@ -2032,7 +2029,7 @@ Node *Parser::ParseTernary(Node *left) {
     }
 
     test->start = start;
-    test->end = orelse->end;
+    test->end = orelse == nullptr ? body->end : orelse->end;
     test->colno = 0;
     test->lineno = 0;
 

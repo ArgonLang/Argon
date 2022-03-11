@@ -1383,9 +1383,16 @@ bool Compiler::CompileTernary(Test *ternary) {
 
     TranslationUnitBlockAppend(this->unit_, orelse);
 
-    if (!this->CompileExpression((Node *) ternary->orelse)) {
-        BasicBlockDel(end);
-        return false;
+    if (ternary->orelse != nullptr) {
+        if (!this->CompileExpression((Node *) ternary->orelse)) {
+            BasicBlockDel(end);
+            return false;
+        }
+    } else {
+        if (this->PushStatic(NilVal, true, true) < 0) {
+            BasicBlockDel(end);
+            return false;
+        }
     }
 
     TranslationUnitBlockAppend(this->unit_, end);
