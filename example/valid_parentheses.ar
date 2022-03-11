@@ -1,0 +1,32 @@
+func isValid(parenthesis) {
+    var stack = []
+    var val
+    var cur
+
+    for cur in parenthesis {
+        if cur == "(" || cur == "[" || cur == "{" {
+            stack.append(cur)
+            continue
+        }
+
+        val = stack.pop().get_or(nil)
+
+        switch {
+            case val == "(" && cur != ")":
+                return false
+
+            case val == "[" && cur != "]":
+                return false
+
+            case val == "{" && cur != "}":
+                return false
+        }
+
+        return true
+    }
+}
+
+"{]"            |> isValid |> println
+"[](){}"        |> isValid |> println
+"[([()])]{}"    |> isValid |> println
+"[((}))]"       |> isValid |> println
