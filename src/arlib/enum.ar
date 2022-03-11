@@ -8,7 +8,7 @@
 
 from random import choice, randint
 
-func all(enum) {
+pub func all(enum) {
     var cur
 
     for cur in enum {
@@ -20,7 +20,7 @@ func all(enum) {
     return true
 }
 
-func all_by(enum, fn) {
+pub func all_by(enum, fn) {
     var cur
 
     for cur in enum {
@@ -32,7 +32,7 @@ func all_by(enum, fn) {
     return true
 }
 
-func any(enum) {
+pub func any(enum) {
     var cur
 
     for cur in enum {
@@ -44,7 +44,7 @@ func any(enum) {
     return false
 }
 
-func any_by(enum, fn) {
+pub func any_by(enum, fn) {
     var cur
 
     for cur in enum {
@@ -56,7 +56,7 @@ func any_by(enum, fn) {
     return false
 }
 
-func at(enum, index, _default) {
+pub func at(enum, index, _default) {
     switch type(enum) {
         case list; tuple; str:
             if index >= len(enum) {
@@ -80,7 +80,7 @@ func at(enum, index, _default) {
     return _default
 }
 
-func chunk_by(enum, fn) {
+pub func chunk_by(enum, fn) {
     var ret = []
     var tmp = []
     var chg = false
@@ -114,7 +114,7 @@ func chunk_by(enum, fn) {
     return ret
 }
 
-func count(enum, fn) {
+pub func count(enum, fn) {
     var length = 0
     var cur
 
@@ -127,7 +127,7 @@ func count(enum, fn) {
     return length
 }
 
-func dedup(enum) {
+pub func dedup(enum) {
     var ret = []
     var cur
     var last
@@ -142,10 +142,12 @@ func dedup(enum) {
         ins = true
     }
 
+    ret.append(last)
+
     return ret
 }
 
-func drop(enum, num) {
+pub func drop(enum, num) {
     var ret = enum
 
     if type(enum) != list {
@@ -155,7 +157,7 @@ func drop(enum, num) {
     return num >= 0 ? ret[num:] : ret[:num]
 }
 
-func each(enum, fn) {
+pub func each(enum, fn) {
     var cur
 
     for cur in enum {
@@ -165,7 +167,7 @@ func each(enum, fn) {
     return true
 }
 
-func filter(enum, fn) {
+pub func filter(enum, fn) {
     var ret = []
     var cur
 
@@ -178,7 +180,7 @@ func filter(enum, fn) {
     return ret
 }
 
-func flat(enum) {
+pub func flat(enum) {
     var ret = []
     var cur
 
@@ -197,7 +199,7 @@ func flat(enum) {
     return ret
 }
 
-func flat_all(enum) {
+pub func flat_all(enum) {
     var ret = []
     var cur
 
@@ -213,7 +215,7 @@ func flat_all(enum) {
     return ret
 }
 
-func frequencies(enum) {
+pub func frequencies(enum) {
     var ret = {}
     var cur
 
@@ -224,7 +226,7 @@ func frequencies(enum) {
     return ret
 }
 
-func frequencies_by(enum, fn) {
+pub func frequencies_by(enum, fn) {
     var ret = {}
     var tmp
     var cur
@@ -237,7 +239,7 @@ func frequencies_by(enum, fn) {
     return ret
 }
 
-func group_by(enum, fn) {
+pub func group_by(enum, fn) {
     var ret = {}
     var tmp
     var cur
@@ -250,7 +252,7 @@ func group_by(enum, fn) {
     return ret
 }
 
-func map(enum, fn) {
+pub func map(enum, fn) {
     var cur
     var ret
 
@@ -275,7 +277,7 @@ func map(enum, fn) {
     return ret
 }
 
-func random(enum) {
+pub func random(enum) {
     switch type(enum) {
         case list; tuple; str:
             return choice(enum)
@@ -309,7 +311,7 @@ func random(enum) {
     return count < MAX_K ? reservoir[randint(0, count - 1)] : choice(reservoir)
 }
 
-func reduce(enum, fn) {
+pub func reduce(enum, fn) {
     var acc
     var cur
 
@@ -325,7 +327,7 @@ func reduce(enum, fn) {
     return acc != nil ? option::new(acc) : option::new()
 }
 
-func reject(enum, fn) {
+pub func reject(enum, fn) {
     var ret = []
     var cur
 
@@ -338,13 +340,13 @@ func reject(enum, fn) {
     return ret
 }
 
-func sum(enum) {
+pub func sum(enum) {
     return reduce(enum, (itm, acc) => {
         return acc + itm
     }).get()
 }
 
-func uniq(enum) {
+pub func uniq(enum) {
     var chk = set::new()
     var ret = []
     var cur
@@ -359,7 +361,7 @@ func uniq(enum) {
     return ret
 }
 
-func uniq_by(enum, fn) {
+pub func uniq_by(enum, fn) {
     var chk = set::new()
     var ret = []
     var tmp
@@ -377,7 +379,7 @@ func uniq_by(enum, fn) {
     return ret
 }
 
-func unzip(enum) {
+pub func unzip(enum) {
     var length = len(enum[0])
     var ret = []
     var index = 0
@@ -397,7 +399,7 @@ func unzip(enum) {
     return ret
 }
 
-func zip(...enums) {
+pub func zip(...enums) {
     var lenum = len(enums)
     var ret = []
     var index = 0
