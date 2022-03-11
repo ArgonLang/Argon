@@ -46,7 +46,7 @@
 | \<or_expr\>          | \<xor_expr\> ('\|' \<xor_expr\>)*                            |  
 | \<xor_expr\>         | \<and_expr\> ('^' \<and_expr\>)*                             |  
 | \<and_expr\>         | \<equality_expr\> ('&' \<equality_expr\>)*                   |  
-| \<equality_expr\>    | \<relational_expr\> (('==' \| '!=') \<relational_expr\>)*    |  
+| \<equality_expr\>    | \<relational_expr\> (('==' \| '===' \| '!=' \| '!==') \<relational_expr\>)*    |  
 | \<relational_expr\>  | \<shift_expr\> (('<' \| '>' \| '<=' \| '>=') \<shift_expr\>)* |  
 | \<shift_expr\>       | \<arith_expr\> (('<<' \| '>>') \<arith_expr\>)*              |  
 | \<arith_expr\>       | \<mult_expr\> (('+' \| '-') \<mult_expr\>)*                  |  
