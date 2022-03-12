@@ -21,7 +21,7 @@
 using namespace argon::memory;
 using namespace argon::object;
 
-static Map *intern;
+static Map *intern = nullptr;
 
 ArSize StringSubStrLen(String *str, ArSize offset, ArSize graphemes) {
     unsigned char *buf = str->buffer + offset;
