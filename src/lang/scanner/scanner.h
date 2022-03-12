@@ -92,6 +92,8 @@ namespace argon::lang::scanner {
 
         Token MakeTkWithValue(Pos start, TokenType type);
 
+        Token TokenizeAtom(Pos start);
+
         Token TokenizeBinary(Pos start);
 
         Token TokenizeChar(Pos start);

@@ -13,6 +13,7 @@
 #include <object/datatype/string.h>
 
 #include "parser.h"
+#include "object/datatype/atom.h"
 
 #define EXPR_NO_ASSIGN          11
 #define EXPR_NO_LIST            21
@@ -100,6 +101,7 @@ int PeekPrecedence(TokenType type) {
 inline bool Parser::IsLiteral() {
     return this->TokenInRange(TokenType::NUMBER_BEGIN, TokenType::NUMBER_END)
            || this->TokenInRange(TokenType::STRING_BEGIN, TokenType::STRING_END)
+           || this->Match(TokenType::ATOM)
            || this->Match(TokenType::TRUE)
            || this->Match(TokenType::FALSE)
            || this->Match(TokenType::NIL);
@@ -1182,6 +1184,9 @@ Node *Parser::ParseLiteral() {
 
     // TODO: optimize with HoldBuffer
     switch (this->tkcur_.type) {
+        case TokenType::ATOM:
+            value = AtomNew(this->tkcur_.buf);
+            break;
         case TokenType::NUMBER:
             value = IntegerNew((const char *) this->tkcur_.buf, 10);
             break;
