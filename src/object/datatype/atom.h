@@ -17,6 +17,10 @@ namespace argon::object {
 
     Atom *AtomNew(const unsigned char *value);
 
+    inline Atom *AtomNew(const char *value) {
+        return AtomNew((const unsigned char *) value);
+    }
+
 } // namespace argon::object
 
 #endif // !ARGON_OBJECT_ATOM_H_

@@ -100,6 +100,8 @@ namespace argon::lang::compiler {
 
         bool TScopeNew(argon::object::String *name, TUScope scope);
 
+        int PushAtom(const char *key, bool emit);
+
         int PushStatic(object::ArObject *obj, bool store, bool emit);
 
         Symbol *IdentifierLookupOrCreate(argon::object::String *name, SymbolType type);

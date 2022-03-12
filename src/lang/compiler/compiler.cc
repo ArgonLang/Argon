@@ -9,6 +9,7 @@
 
 #include "basicblock.h"
 #include "compiler.h"
+#include "object/datatype/atom.h"
 
 using namespace argon::lang::scanner;
 using namespace argon::lang::parser;
@@ -734,9 +735,8 @@ bool Compiler::CompileFunction(Construct *func) {
     // forcefully enter return as last statement
     if (this->unit_->bb.cur->instr.tail == nullptr
         || this->unit_->bb.cur->instr.tail->opcode != (unsigned char) OpCodes::RET) {
-
         if (this->unit_->info->kind == SymbolType::GENERATOR) {
-            if (this->PushStatic(error_exhausted_generator, false, true) < 0) {
+            if (this->PushAtom("stop", true) < 0) {
                 Release(fname);
                 return false;
             }
@@ -1638,6 +1638,19 @@ bool Compiler::CompileUnpack(List *list) {
     Release(tmp);
     Release(iter);
     return false;
+}
+
+int Compiler::PushAtom(const char *key, bool emit) {
+    Atom *atom;
+    int ret;
+
+    if ((atom = AtomNew(key)) == nullptr)
+        return -1;
+
+    ret = this->PushStatic(atom, true, emit);
+    Release(atom);
+
+    return ret;
 }
 
 int Compiler::PushStatic(ArObject *obj, bool store, bool emit) {
