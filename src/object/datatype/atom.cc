@@ -2,8 +2,6 @@
 //
 // Licensed under the Apache License v2.0
 
-#include "hash_magic.h"
-
 #include "bool.h"
 #include "map.h"
 #include "string.h"
@@ -14,8 +12,33 @@ using namespace argon::object;
 
 static Map *gat = nullptr; // Global Atoms Table
 
+ARGON_FUNCTION5(atom_, new, "", 1, false) {
+    const auto *str = (String *) argv[0];
+
+    if (!CheckArgs("s:value", func, argv, count))
+        return nullptr;
+
+    return AtomNew(str->buffer);
+}
+
+const NativeFunc atom_method[] = {
+        atom_new_,
+        ARGON_METHOD_SENTINEL
+};
+
+const ObjectSlots atom_obj = {
+        atom_method,
+        nullptr,
+        nullptr,
+        nullptr,
+        nullptr,
+        nullptr,
+        nullptr,
+        -1
+};
+
 void atom_cleanup(const Atom *self) {
-    argon::memory::Free(self->value);
+    Release(self->value);
 }
 
 ArObject *atom_compare(const Atom *self, const ArObject *other, CompareMode mode) {
@@ -30,11 +53,11 @@ bool atom_is_true(const Atom *self) {
 }
 
 ArSize atom_hash(const Atom *self) {
-    return self->hash;
+    return AR_GET_TYPE(self->value)->hash(self->value);
 }
 
 ArObject *atom_str(const Atom *self) {
-    return StringNewFormat("@%s", self->value);
+    return StringNewFormat("@%s", self->value->buffer);
 }
 
 const TypeInfo AtomType = {
@@ -56,7 +79,7 @@ const TypeInfo AtomType = {
         nullptr,
         nullptr,
         nullptr,
-        nullptr,
+        &atom_obj,
         nullptr,
         nullptr,
         nullptr,
@@ -67,7 +90,6 @@ const TypeInfo *argon::object::type_atom_ = &AtomType;
 Atom *argon::object::AtomNew(const unsigned char *value) {
     ArSize vlen = strlen((const char *) value);
     Atom *atom;
-    String *key;
 
     if (gat == nullptr && (gat = MapNew()) == nullptr)
         return nullptr;
@@ -78,26 +100,15 @@ Atom *argon::object::AtomNew(const unsigned char *value) {
     if ((atom = ArObjectNew<Atom>(RCType::INLINE, type_atom_)) == nullptr)
         return nullptr;
 
-    if ((atom->value = ArObjectNewRaw<unsigned char *>(vlen + 1)) == nullptr) {
+    if ((atom->value = StringNew((const char *) value)) == nullptr) {
         Release(atom);
         return nullptr;
     }
 
-    argon::memory::MemoryCopy(atom->value, value, vlen);
-    atom->value[vlen] = '\0';
-    atom->hash = HashBytes(atom->value, vlen);
-
-    if ((key = StringNew((const char *) value)) == nullptr) {
+    if (!MapInsert(gat, atom->value, atom)) {
         Release(atom);
         return nullptr;
     }
 
-    if (!MapInsert(gat, key, atom)) {
-        Release(atom);
-        Release(key);
-        return nullptr;
-    }
-
-    Release(key);
     return atom;
 }

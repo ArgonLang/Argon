@@ -5,6 +5,7 @@
 #include <vm/context.h>
 #include <vm/runtime.h>
 
+#include <object/datatype/atom.h>
 #include <object/datatype/bool.h>
 #include <object/datatype/bounds.h>
 #include <object/datatype/bytes.h>
@@ -382,6 +383,7 @@ ARGON_FUNCTION(println,
 }
 
 const PropertyBulk builtins_bulk[] = {
+        MODULE_EXPORT_TYPE_ALIAS("atom", type_atom_),
         MODULE_EXPORT_TYPE_ALIAS("bool", type_bool_),
         MODULE_EXPORT_TYPE_ALIAS("bounds", type_bounds_),
         MODULE_EXPORT_TYPE_ALIAS("bytes", type_bytes_),

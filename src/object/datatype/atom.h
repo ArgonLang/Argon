@@ -5,12 +5,12 @@
 #ifndef ARGON_OBJECT_ATOM_H_
 #define ARGON_OBJECT_ATOM_H_
 
+#include "string.h"
 #include <object/arobject.h>
 
 namespace argon::object {
     struct Atom : ArObject {
-        unsigned char *value;
-        ArSize hash;
+        String *value;
     };
 
     extern const TypeInfo *type_atom_;
