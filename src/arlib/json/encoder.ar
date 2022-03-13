@@ -34,7 +34,7 @@ pub struct Encoder {
 			return self.enc_map(obj, buffer)
 		case list; tuple:
 			return self.enc_array(obj, buffer)
-		case str:
+		case string:
 			buffer += b"\"" + bytes::new(obj) + b"\""
 			return buffer
 		case decimal:
@@ -50,7 +50,7 @@ pub struct Encoder {
 			}
 			fallthrough
 		case integer:
-			buffer += bytes::new(str::new(obj))
+			buffer += bytes::new(string::new(obj))
 			return buffer
 		}
 
@@ -88,7 +88,7 @@ pub struct Encoder {
 				buffer += b"\t" * self.indent
 			}
 
-			buffer += b"\"" + str::new(key) + b"\""
+			buffer += b"\"" + string::new(key) + b"\""
 			buffer += keysep
 			self.encode(value, buffer)
 

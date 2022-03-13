@@ -25,7 +25,7 @@ func check_number(s) {
 }
 
 func parse_network(network, nproto) {
-    var last = str::rfind(network, ":")
+    var last = string::rfind(network, ":")
     var proto = 0
     var af
     var err
@@ -70,9 +70,9 @@ func parse_network(network, nproto) {
 }
 
 func split_host_port(address) {
-    var port = str::rfind(address, ":")
+    var port = string::rfind(address, ":")
 
-    if str::count(address, ":") > 1 {
+    if string::count(address, ":") > 1 {
         return "", "", ValueError::new("too many colons in address")
     }
 

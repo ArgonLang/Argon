@@ -58,7 +58,7 @@ pub func any_by(enum, fn) {
 
 pub func at(enum, index, _default) {
     switch type(enum) {
-        case list; tuple; str:
+        case list; tuple; string:
             if index >= len(enum) {
                 return _default
             }
@@ -300,7 +300,7 @@ pub func map(enum, fn) {
 
 pub func random(enum) {
     switch type(enum) {
-        case list; tuple; str:
+        case list; tuple; string:
             return choice(enum)
     }
 

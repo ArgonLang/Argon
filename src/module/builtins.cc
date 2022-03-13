@@ -398,7 +398,7 @@ const PropertyBulk builtins_bulk[] = {
         MODULE_EXPORT_TYPE_ALIAS("niltype", type_nil_),
         MODULE_EXPORT_TYPE_ALIAS("option", type_option_),
         MODULE_EXPORT_TYPE_ALIAS("set", type_set_),
-        MODULE_EXPORT_TYPE_ALIAS("str", type_string_),
+        MODULE_EXPORT_TYPE_ALIAS("string", type_string_),
         MODULE_EXPORT_TYPE_ALIAS("tuple", type_tuple_),
 
         // Functions
