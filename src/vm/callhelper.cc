@@ -173,6 +173,8 @@ bool argon::vm::CallHelperCall(CallHelper *helper, Frame **in_out_frame, ArObjec
             CallHelperClear(helper, *in_out_frame);
             return false;
         }
+
+        CallHelperClear(helper, *in_out_frame);
         return true;
     }
 
