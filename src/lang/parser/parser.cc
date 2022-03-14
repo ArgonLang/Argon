@@ -13,6 +13,7 @@
 #include <object/datatype/string.h>
 
 #include "parser.h"
+#include "object/datatype/atom.h"
 
 #define EXPR_NO_ASSIGN          11
 #define EXPR_NO_LIST            21
@@ -100,6 +101,7 @@ int PeekPrecedence(TokenType type) {
 inline bool Parser::IsLiteral() {
     return this->TokenInRange(TokenType::NUMBER_BEGIN, TokenType::NUMBER_END)
            || this->TokenInRange(TokenType::STRING_BEGIN, TokenType::STRING_END)
+           || this->Match(TokenType::ATOM)
            || this->Match(TokenType::TRUE)
            || this->Match(TokenType::FALSE)
            || this->Match(TokenType::NIL);
@@ -1182,6 +1184,9 @@ Node *Parser::ParseLiteral() {
 
     // TODO: optimize with HoldBuffer
     switch (this->tkcur_.type) {
+        case TokenType::ATOM:
+            value = AtomNew(this->tkcur_.buf);
+            break;
         case TokenType::NUMBER:
             value = IntegerNew((const char *) this->tkcur_.buf, 10);
             break;
@@ -2005,24 +2010,21 @@ Node *Parser::ParseSubscript(Node *left) {
 
 Node *Parser::ParseTernary(Node *left) {
     Pos start = this->tkcur_.start;
-    Test *test;
-
+    Node *orelse = nullptr;
     Node *body;
-    Node *orelse;
+    Test *test;
 
     this->Eat();
 
     if ((body = this->ParseExpr()) == nullptr)
         return nullptr;
 
-    if (!this->MatchEat(TokenType::COLON, false)) {
-        Release(body);
-        return (Node *) ErrorFormat(type_syntax_error_, "expected : in ternary operator");
-    }
-
-    if ((orelse = this->ParseExpr()) == nullptr) {
-        Release(body);
-        return nullptr;
+    if (this->MatchEat(TokenType::COLON, false)) {
+        orelse = this->ParseExpr();
+        if (orelse == nullptr) {
+            Release(body);
+            return nullptr;
+        }
     }
 
     if ((test = ArObjectNew<Test>(RCType::INLINE, type_ast_ternary_)) == nullptr) {
@@ -2032,7 +2034,7 @@ Node *Parser::ParseTernary(Node *left) {
     }
 
     test->start = start;
-    test->end = orelse->end;
+    test->end = orelse == nullptr ? body->end : orelse->end;
     test->colno = 0;
     test->lineno = 0;
 

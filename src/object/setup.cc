@@ -2,6 +2,7 @@
 //
 // Licensed under the Apache License v2.0
 
+#include <object/datatype/atom.h>
 #include <object/datatype/list.h>
 #include <object/datatype/option.h>
 #include <object/datatype/map.h>
@@ -27,6 +28,7 @@ bool argon::object::TypesInit() {
     if (!ErrorInit())
         return false;
 
+    INIT_TYPE(type_atom_);
     INIT_TYPE(type_bool_);
     INIT_TYPE(type_decimal_);
     INIT_TYPE(io::type_file_);

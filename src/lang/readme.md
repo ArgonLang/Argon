@@ -2,7 +2,7 @@
 # Grammar rules of Argon programming language
 
 |                      |                                                              |  
-| -------------------- | :----------------------------------------------------------- |  
+|----------------------| :----------------------------------------------------------- |  
 | \<program\>          | \<declaration\>* %EOF%                                       |  
 | \<declaration\>      | \<impl_decl\> \| \<access_modifier\>                         |  
 | \<access_modifier\>  | ['pub'] (\<const_decl\> \| \<trait_decl\> \| \<small_decl\>) \| \<statement\> |  
@@ -39,8 +39,8 @@
 | \<expression\>       | \<assignment\>                                               |  
 | \<assignment\>       | \<testlist\> [('=' \| '+=' \| '-=' \| '*=' \| '/=') \<testlist\>] |  
 | \<testlist\>         | \<test\> (',' \<test\>)*                                     |  
-| \<test\>             | \<pipeline\>	 (['?:' \<pipeline\>] \| ['?' \<pipeline\> ':' \<pipeline\>]) |  
-| \<pipeline\>				 | \<or_test\> ['\|>' \<or_test\>] |
+| \<test\>             | \<pipeline\>	 (['?:' \<pipeline\>] \| ['?' \<pipeline\> [':' \<pipeline\>]]) |  
+| \<pipeline\>				     | \<or_test\> ['\|>' \<or_test\>] |
 | \<or_test\>          | \<and_test\> ('\|\|' \<and_test\>)*                          |  
 | \<and_test\>         | \<or_expr\> ('&&' \<or_expr\>)*                              |  
 | \<or_expr\>          | \<xor_expr\> ('\|' \<xor_expr\>)*                            |  

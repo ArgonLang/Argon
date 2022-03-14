@@ -3,6 +3,7 @@ cmake_minimum_required(VERSION 3.7)
 set(SRC
         arobject.cc
         bufview.cc
+        datatype/atom.cc
         datatype/bool.cc
         datatype/bounds.cc
         datatype/bytes.cc

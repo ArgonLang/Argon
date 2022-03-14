@@ -425,6 +425,18 @@ Token Scanner::MakeTkWithValue(Pos start, TokenType type) {
     return {type, start, this->pos_, length, tmp};
 }
 
+Token Scanner::TokenizeAtom(Pos start) {
+    int value = this->PeekChar();
+
+    while (IsAlpha(value) || IsDigit(value)) {
+        if (!this->TkPutChar())
+            return {TokenType::ERROR, start, this->pos_};
+        value = this->PeekChar();
+    }
+
+    return this->MakeTkWithValue(start, TokenType::ATOM);
+}
+
 Token Scanner::TokenizeBinary(Pos start) {
     int value = this->PeekChar();
 
@@ -998,6 +1010,8 @@ Token Scanner::NextToken() noexcept {
                 CHECK_AGAIN(':', TokenType::ELVIS)
                 CHECK_AGAIN('.', TokenType::QUESTION_DOT)
                 return {TokenType::QUESTION, start, this->pos_};
+            case '@':
+                return this->TokenizeAtom(start);
             case '[':
                 this->par_++;
                 return {TokenType::LEFT_SQUARE, start, this->pos_};

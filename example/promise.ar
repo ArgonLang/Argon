@@ -1,0 +1,22 @@
+from promise import Promise
+import runtime
+
+var myP = Promise::new((resolve, reject) => {
+    from random import randint
+
+    runtime::sleep(1)
+
+    var res = randint(0,10)
+
+    res > 4 ? resolve(res) : reject(res)
+})
+
+"processing..." |> println
+
+myP.then((itm) => {
+    println("Success: %s" % itm)
+}).catch((itm) => {
+    println("Failure: %s" % itm)
+})
+
+runtime::sleep(2)

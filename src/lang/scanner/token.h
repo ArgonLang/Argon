@@ -11,6 +11,7 @@ namespace argon::lang::scanner {
 
     enum class TokenType {
         TK_NULL,
+        ATOM,
         END_OF_FILE,
         END_OF_LINE,
         EXCLAMATION,
