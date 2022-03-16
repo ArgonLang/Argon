@@ -38,8 +38,8 @@ ArObject *RefCount::GetObject() {
 
     do {
         desired = strong + 1;
-        if (desired == 1 || side->object == nullptr)
-            return nullptr; //ReturnNil();
+        if (desired == 1)
+            return nullptr;
     } while (side->strong.compare_exchange_weak(strong, desired, std::memory_order_relaxed));
 
     return side->object;
@@ -112,7 +112,7 @@ bool RefCount::DecStrong() {
     return release;
 }
 
-bool RefCount::DecWeak() {
+bool RefCount::DecWeak() const {
     RefBits current = this->bits_.load(std::memory_order_consume);
     assert(!current.IsInlineCounter());
 
@@ -125,20 +125,20 @@ bool RefCount::DecWeak() {
     return weak <= 2;
 }
 
-bool RefCount::IsGcObject() {
+bool RefCount::IsGcObject() const {
     return this->bits_.load(std::memory_order_relaxed).IsGcObject();
 }
 
-bool RefCount::HaveSideTable() {
+bool RefCount::HaveSideTable() const{
     RefBits current = this->bits_.load(std::memory_order_relaxed);
     return !current.IsStatic() && !current.IsInlineCounter();
 }
 
-bool RefCount::IsStatic() {
+bool RefCount::IsStatic() const {
     return this->bits_.load(std::memory_order_relaxed).IsStatic();
 }
 
-uintptr_t RefCount::GetStrongCount() {
+uintptr_t RefCount::GetStrongCount() const {
     RefBits current = this->bits_.load(std::memory_order_consume);
 
     if (current.IsInlineCounter() || current.IsStatic())
@@ -147,20 +147,13 @@ uintptr_t RefCount::GetStrongCount() {
     return current.GetSideTable()->strong;
 }
 
-uintptr_t RefCount::GetWeakCount() {
+uintptr_t RefCount::GetWeakCount() const {
     RefBits current = this->bits_.load(std::memory_order_consume);
 
     if (!current.IsStatic() && !current.IsInlineCounter())
         return current.GetSideTable()->weak;
 
     return 0;
-}
-
-void RefCount::ClearWeakRef() {
-    RefBits current = this->bits_.load(std::memory_order_consume);
-
-    if (!current.IsInlineCounter())
-        current.GetSideTable()->object = nullptr;
 }
 
 void RefCount::IncStrong() {
