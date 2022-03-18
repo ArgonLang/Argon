@@ -21,19 +21,6 @@
 using namespace argon::memory;
 using namespace argon::object;
 
-Bytes *MakeSlice(Bytes *stream, ArSize start, ArSize len) {
-    auto bs = ArObjectNew<Bytes>(RCType::INLINE, type_bytes_);
-
-    if (bs != nullptr) {
-        BufferViewInit(&bs->view, &stream->view, start, len);
-
-        bs->hash = 0;
-        bs->frozen = stream->frozen;
-    }
-
-    return bs;
-}
-
 bool bytes_get_buffer(Bytes *self, ArBuffer *buffer, ArBufferFlags flags) {
     bool ok;
 
@@ -138,7 +125,7 @@ ArObject *bytes_get_slice(Bytes *self, Bounds *bounds) {
     slice_len = BoundsIndex(bounds, BUFFER_LEN(self), &start, &stop, &step);
 
     if (step >= 0) {
-        ret = MakeSlice(self, start, slice_len);
+        ret = BytesNew(self, start, slice_len);
     } else {
         if ((ret = BytesNew(slice_len, true, false, self->frozen)) == nullptr)
             return nullptr;
@@ -503,7 +490,7 @@ ARGON_METHOD5(bytes_, rmpostfix,
     BufferRelease(&buffer);
 
     if (compare == 0)
-        return MakeSlice(bytes, 0, BUFFER_LEN(bytes) - len);
+        return BytesNew(bytes, 0, BUFFER_LEN(bytes) - len);
 
     return IncRef(bytes);
 }
@@ -534,7 +521,7 @@ ARGON_METHOD5(bytes_, rmprefix,
     BufferRelease(&buffer);
 
     if (compare == 0)
-        return MakeSlice(bytes, len, BUFFER_LEN(bytes) - len);
+        return BytesNew(bytes, len, BUFFER_LEN(bytes) - len);
 
     return IncRef(bytes);
 }
@@ -899,7 +886,7 @@ ArObject *argon::object::BytesSplit(Bytes *bytes, unsigned char *pattern, ArSize
 
     if (maxsplit != 0) {
         while ((end = support::Find(BUFFER_GET(bytes) + idx, BUFFER_LEN(bytes) - idx, pattern, plen)) >= 0) {
-            if ((tmp = MakeSlice(bytes, idx, end)) == nullptr)
+            if ((tmp = BytesNew(bytes, idx, end)) == nullptr)
                 goto error;
 
             idx += end + plen;
@@ -915,7 +902,7 @@ ArObject *argon::object::BytesSplit(Bytes *bytes, unsigned char *pattern, ArSize
     }
 
     if (BUFFER_LEN(bytes) - idx > 0) {
-        if ((tmp = MakeSlice(bytes, idx, BUFFER_LEN(bytes) - idx)) == nullptr)
+        if ((tmp = BytesNew(bytes, idx, BUFFER_LEN(bytes) - idx)) == nullptr)
             goto error;
 
         if (!ListAppend(ret, tmp))
@@ -981,6 +968,19 @@ Bytes *argon::object::BytesNew(unsigned char *buffer, ArSize len, bool frozen) {
     return bytes;
 }
 
+Bytes *argon::object::BytesNew(Bytes *bytes, ArSize start, ArSize len) {
+    auto bs = ArObjectNew<Bytes>(RCType::INLINE, type_bytes_);
+
+    if (bs != nullptr) {
+        BufferViewInit(&bs->view, &bytes->view, start, len);
+
+        bs->hash = 0;
+        bs->frozen = bytes->frozen;
+    }
+
+    return bs;
+}
+
 Bytes *argon::object::BytesNewHoldBuffer(unsigned char *buffer, ArSize len, ArSize cap, bool frozen) {
     auto bs = ArObjectNew<Bytes>(RCType::INLINE, type_bytes_);
 
@@ -1005,7 +1005,7 @@ Bytes *argon::object::BytesFreeze(Bytes *stream) {
 
     RWLockRead lock(stream->view.shared->lock);
 
-    if ((ret = MakeSlice(stream, 0, BUFFER_LEN(stream))) == nullptr)
+    if ((ret = BytesNew(stream, 0, BUFFER_LEN(stream))) == nullptr)
         return nullptr;
 
     ret->frozen = true;
