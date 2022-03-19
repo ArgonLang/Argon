@@ -22,6 +22,7 @@ set(SRC ${SOCKET_SRC}
         nt/nt.cc
         osmodule.cc
         random.cc
+        regex.cc
         runtime.cc)
 
 list(TRANSFORM SRC PREPEND ${CMAKE_CURRENT_LIST_DIR}/)
