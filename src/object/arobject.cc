@@ -811,7 +811,10 @@ bool argon::object::TypeInit(TypeInfo *info, ArObject *ns) {
 
     assert(info->tp_map == nullptr);
 
-    if (ns == nullptr && (info->obj_actions == nullptr || info->obj_actions->methods == nullptr))
+    if (ns == nullptr &&
+        (info->obj_actions == nullptr ||
+         info->obj_actions->methods == nullptr &&
+         info->obj_actions->members == nullptr))
         return true;
 
     // Calculate static MRO
