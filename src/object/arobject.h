@@ -391,6 +391,8 @@ ArObject *prefix##name##_fn(ArObject *func, ArObject *self, ArObject **argv, ArS
 
     bool TypeInit(TypeInfo *info, ArObject *ns);
 
+    inline bool TypeInfo_IsTrue_True(ArObject *self) { return true; }
+
     bool BufferGet(ArObject *obj, ArBuffer *buffer, ArBufferFlags flags);
 
     bool BufferSimpleFill(ArObject *obj, ArBuffer *buffer, ArBufferFlags flags, unsigned char *raw,

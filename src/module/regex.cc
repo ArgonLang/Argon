@@ -15,14 +15,14 @@
 using namespace argon::object;
 using namespace argon::module;
 
-NativeMember match_members[] = {
+const NativeMember match_members[] = {
         {"match", NativeMemberType::AROBJECT, offsetof(Match, match), true},
         {"start", NativeMemberType::INT, offsetof(Match, start), true},
         {"end", NativeMemberType::INT, offsetof(Match, end), true},
         ARGON_MEMBER_SENTINEL
 };
 
-ObjectSlots match_obj{
+const ObjectSlots match_obj{
         nullptr,
         match_members,
         nullptr,
@@ -34,10 +34,13 @@ ObjectSlots match_obj{
 };
 
 ArObject *match_compare(const Match *self, ArObject *other, CompareMode mode) {
-    auto *o = (Match *) other;
+    const auto *o = (Match *) other;
 
     if (!AR_SAME_TYPE(self, other) || mode != CompareMode::EQ)
         return nullptr;
+
+    if (self == other)
+        return BoolToArBool(true);
 
     return BoolToArBool(self->start == o->start && self->end == o->end && Equal(self->match, o->match));
 }
@@ -56,10 +59,6 @@ ArObject *match_str(const Match *self) {
     return ret;
 }
 
-bool match_is_true(const Match *self) {
-    return true;
-}
-
 void match_cleanup(Match *self) {
     Release(self->match);
 }
@@ -74,7 +73,7 @@ const TypeInfo REMatchType = {
         (VoidUnaryOp) match_cleanup,
         nullptr,
         (CompareOp) match_compare,
-        (BoolUnaryOp) match_is_true,
+        TypeInfo_IsTrue_True,
         nullptr,
         (UnaryOp) match_str,
         nullptr,
@@ -115,17 +114,25 @@ Match *MatchNew(const std::csub_match &csmatch, const ArBuffer &buffer) {
 }
 
 Tuple *MatchesNew(const std::cmatch &cmatch, const ArBuffer &arbuf) {
+    ArSize length = cmatch.size();
+    int start = 0;
+
     Tuple *matches;
     Match *tmp;
 
-    if ((matches = TupleNew(cmatch.size())) != nullptr) {
-        for (int i = 0; i < cmatch.size(); i++) {
+    if (length > 1) {
+        start++;
+        length--;
+    }
+
+    if ((matches = TupleNew(length)) != nullptr) {
+        for (int i = start; i < cmatch.size(); i++) {
             if ((tmp = MatchNew(cmatch[i], arbuf)) == nullptr) {
                 Release(matches);
                 return nullptr;
             }
 
-            TupleInsertAt(matches, i, tmp);
+            TupleInsertAt(matches, i - start, tmp);
             Release(tmp);
         }
     }
@@ -133,9 +140,182 @@ Tuple *MatchesNew(const std::cmatch &cmatch, const ArBuffer &arbuf) {
     return matches;
 }
 
+// *** ITERATOR ***
+
+ArObject *re_iterator_next(REIterator *self) {
+    UniqueLock lock(self->lock);
+    ArBuffer buffer{};
+    std::cmatch cmatch{};
+    ArObject *ret = nullptr;
+    const char *startbuf;
+    const char *endbuf;
+
+    if (!BufferGet(self->target, &buffer, ArBufferFlags::READ))
+        return nullptr;
+
+    if (self->lpos >= buffer.len) {
+        BufferRelease(&buffer);
+        return nullptr;
+    }
+
+    startbuf = (const char *) (buffer.buffer + self->lpos);
+    endbuf = (const char *) (buffer.buffer + buffer.len);
+
+    if (std::regex_search(startbuf, endbuf, cmatch, *self->pattern->pattern)) {
+        ret = MatchesNew(cmatch, buffer);
+        if (ret != nullptr) {
+            Release(self->last);
+            self->last = IncRef(ret);
+
+            self->lpos = cmatch[cmatch.size() - 1].second - (const char *) buffer.buffer;
+        }
+    }
+
+    BufferRelease(&buffer);
+
+    return ret;
+}
+
+ArObject *re_iterator_peek(REIterator *self) {
+    UniqueLock lock(self->lock);
+    return IncRef(self->last);
+}
+
+const IteratorSlots re_iterator = {
+        nullptr,
+        (UnaryOp) re_iterator_next,
+        (UnaryOp) re_iterator_peek,
+        nullptr
+};
+
+ArObject *re_iterator_compare(REIterator *self, ArObject *other, CompareMode mode) {
+    auto *o = (REIterator *) other;
+
+    if (!AR_SAME_TYPE(self, other) || mode != CompareMode::EQ)
+        return nullptr;
+
+    if (self == other)
+        return BoolToArBool(true);
+
+    UniqueLock lock_self(self->lock);
+    UniqueLock lock_other(o->lock);
+
+    return BoolToArBool(self->lpos == o->lpos
+                        && Equal(self->pattern, o->pattern)
+                        && Equal(self->target, o->target));
+}
+
+ArObject *re_iterator_get_iter(ArObject *self) {
+    return IncRef(self);
+}
+
+void re_iterator_cleanup(REIterator *self) {
+    Release(self->pattern);
+    Release(self->target);
+}
+
+const TypeInfo REIteratorType = {
+        TYPEINFO_STATIC_INIT,
+        "regex_iterator",
+        nullptr,
+        sizeof(REIterator),
+        TypeInfoFlags::BASE,
+        nullptr,
+        (VoidUnaryOp) re_iterator_cleanup,
+        nullptr,
+        (CompareOp) re_iterator_compare,
+        TypeInfo_IsTrue_True,
+        nullptr,
+        nullptr,
+        re_iterator_get_iter,
+        nullptr,
+        nullptr,
+        &re_iterator,
+        nullptr,
+        nullptr,
+        nullptr,
+        nullptr,
+        nullptr,
+        nullptr,
+        nullptr
+};
+const TypeInfo *argon::module::type_re_iterator_ = &REIteratorType;
+
+ArObject *REIteratorNew(Pattern *pattern, ArObject *buffer) {
+    REIterator *riter;
+
+    if ((riter = ArObjectNew<REIterator>(RCType::INLINE, type_re_iterator_)) != nullptr) {
+        riter->pattern = IncRef(pattern);
+        riter->target = IncRef(buffer);
+        riter->last = nullptr;
+        riter->lpos = 0;
+    }
+
+    return riter;
+}
+
 // *** PATTERN ***
 
-ARGON_METHOD5(pattern_, match, "", 1, false) {
+ARGON_METHOD5(pattern_, findall, "Return all non-overlapping matches of pattern in string."
+                                 ""
+                                 "- Parameter buffer: buffer object to search on."
+                                 "- Returns: tuple of Match object or tuple of tuples of Match object.", 1, false) {
+    ArBuffer buffer{};
+    std::cmatch cmatch{};
+    const auto *pattern = (Pattern *) self;
+    const char *endbuf;
+    Tuple *ret;
+
+    int idx = 0;
+
+    if (!CheckArgs("B:buffer", func, argv, count))
+        return nullptr;
+
+    if (!BufferGet(argv[0], &buffer, ArBufferFlags::READ))
+        return nullptr;
+
+    endbuf = (const char *) (buffer.buffer + buffer.len);
+
+    auto re_begin = std::cregex_iterator((const char *) buffer.buffer, endbuf, *pattern->pattern);
+    auto re_end = std::cregex_iterator();
+
+    ret = TupleNew(std::distance(re_begin, re_end));
+
+    for (std::cregex_iterator i = re_begin; i != re_end; i++) {
+        const auto &matches = *i;
+
+        if (matches.size() > 1) {
+            const auto tmatch = MatchesNew(matches, buffer);
+            TupleInsertAt(ret, idx, tmatch);
+            Release(tmatch);
+        } else {
+            const auto match = MatchNew(matches[0], buffer);
+            TupleInsertAt(ret, idx, match);
+            Release(match);
+        }
+
+        idx++;
+    }
+
+    BufferRelease(&buffer);
+
+    return ret;
+}
+
+ARGON_METHOD5(pattern_, finditer, "Return an iterator yielding regex results."
+                                  ""
+                                  "- Parameter buffer: buffer object to search on."
+                                  "- Returns: regex iterator.", 1, false) {
+    if (!CheckArgs("B:buffer", func, argv, count))
+        return nullptr;
+
+    return REIteratorNew((Pattern *) self, argv[0]);
+}
+
+ARGON_METHOD5(pattern_, match, "Check if zero or more characters ad the beginning of buffer match the regex pattern."
+                               ""
+                               "- Parameter buffer: buffer object to search on."
+                               "- Returns: tuple of Match object or tuple of tuples of Match object.", 1, false) {
     ArBuffer buffer{};
     std::cmatch cmatch{};
     const auto *pattern = (Pattern *) self;
@@ -150,17 +330,18 @@ ARGON_METHOD5(pattern_, match, "", 1, false) {
 
     endbuf = (const char *) (buffer.buffer + buffer.len);
 
-    if (std::regex_match((const char *) buffer.buffer, endbuf, cmatch, *pattern->pattern))
-        ret = MatchesNew(cmatch, buffer);
-    else
-        ret = ARGON_OBJECT_NIL;
+    std::regex_match((const char *) buffer.buffer, endbuf, cmatch, *pattern->pattern);
+    ret = MatchesNew(cmatch, buffer);
 
     BufferRelease(&buffer);
 
     return ret;
 }
 
-ARGON_METHOD5(pattern_, search, "", 1, false) {
+ARGON_METHOD5(pattern_, search, "Scan through buffer looking for the first location where the regex produces a match."
+                                ""
+                                "- Parameter buffer: buffer object to search on."
+                                "- Returns: tuple of Match object or tuple of tuples of Match object.", 1, false) {
     ArBuffer buffer{};
     std::cmatch cmatch{};
     const auto *pattern = (Pattern *) self;
@@ -175,23 +356,23 @@ ARGON_METHOD5(pattern_, search, "", 1, false) {
 
     endbuf = (const char *) (buffer.buffer + buffer.len);
 
-    if (std::regex_search((const char *) buffer.buffer, endbuf, cmatch, *pattern->pattern))
-        ret = MatchesNew(cmatch, buffer);
-    else
-        ret = ARGON_OBJECT_NIL;
+    std::regex_search((const char *) buffer.buffer, endbuf, cmatch, *pattern->pattern);
+    ret = MatchesNew(cmatch, buffer);
 
     BufferRelease(&buffer);
 
     return ret;
 }
 
-NativeFunc pattern_method[] = {
+const NativeFunc pattern_method[] = {
+        pattern_findall_,
+        pattern_finditer_,
         pattern_match_,
         pattern_search_,
         ARGON_METHOD_SENTINEL
 };
 
-ObjectSlots pattern_obj = {
+const ObjectSlots pattern_obj = {
         pattern_method,
         nullptr,
         nullptr,
@@ -202,13 +383,13 @@ ObjectSlots pattern_obj = {
         -1
 };
 
+ArObject *pattern_str(Pattern *self) {
+    return StringNewFormat("<%s; \"%s\">", AR_TYPE_NAME(self), self->init_str->buffer);
+}
+
 void pattern_cleanup(Pattern *self) {
     Release(self->init_str);
     delete self->pattern;
-}
-
-ArObject *pattern_str(Pattern *self) {
-    return StringNewFormat("<%s; \"%s\">", AR_TYPE_NAME(self), self->init_str->buffer);
 }
 
 const TypeInfo REPatternType = {
@@ -221,7 +402,7 @@ const TypeInfo REPatternType = {
         (VoidUnaryOp) pattern_cleanup,
         nullptr,
         nullptr,
-        nullptr,
+        TypeInfo_IsTrue_True,
         nullptr,
         (UnaryOp) pattern_str,
         nullptr,
@@ -238,7 +419,13 @@ const TypeInfo REPatternType = {
 };
 const TypeInfo *argon::module::type_re_pattern_ = &REPatternType;
 
-ARGON_FUNCTION5(regex_, compile, "", 2, false) {
+ARGON_FUNCTION5(regex_, compile, "Compile a regular expression pattern into a Pattern object"
+                                 ""
+                                 "- Parameters:"
+                                 "  - pattern: regex string."
+                                 "  - mode: engine options."
+                                 "- Returns: pattern object."
+                                 "- Panic RegexError: regex doesn't compile.", 2, false) {
     const auto *mode = (Integer *) argv[1];
     Pattern *pattern;
 
@@ -256,14 +443,16 @@ ARGON_FUNCTION5(regex_, compile, "", 2, false) {
                                           (std::regex::flag_type) mode->integer);
     } catch (const std::regex_error &err) {
         Release(pattern);
-        return ErrorFormat(type_runtime_error_, "%s", err.what());
+        return ErrorFormat(type_regex_error_, "%s", err.what());
     }
 
     return pattern;
 }
 
-PropertyBulk regex_bulk[] = {
+const PropertyBulk regex_bulk[] = {
+        MODULE_EXPORT_TYPE_ALIAS("match", type_re_match_),
         MODULE_EXPORT_TYPE_ALIAS("pattern", type_re_pattern_),
+        MODULE_EXPORT_TYPE_ALIAS("regex_iterator", type_re_iterator_),
         MODULE_EXPORT_FUNCTION(regex_compile_),
         MODULE_EXPORT_SENTINEL
 };
@@ -283,9 +472,11 @@ bool RegexInit(Module *self) {
     AddIntConstant(MODE_GREP, std::regex::grep);
     AddIntConstant(MODE_EGREP, std::regex::egrep);
 
-    TypeInit((TypeInfo *) type_re_pattern_, nullptr);
+    if (!TypeInit((TypeInfo *) type_re_pattern_, nullptr))
+        return false;
 
-    TypeInit((TypeInfo *) type_re_match_, nullptr);
+    if (!TypeInit((TypeInfo *) type_re_match_, nullptr))
+        return false;
 
     return true;
 #undef AddIntConstant
@@ -293,7 +484,8 @@ bool RegexInit(Module *self) {
 
 const ModuleInit module_regex = {
         "_regex",
-        "",
+        "This module provides native support for regex. If you are looking "
+        "for advance regex features, you should import regex, not _regex!",
         regex_bulk,
         RegexInit,
         nullptr

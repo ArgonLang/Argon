@@ -193,6 +193,7 @@ ERROR_SIMPLE(UndeclaredError, "", argon::object::type_undeclared_error_);
 ERROR_SIMPLE(UnhashableError, "", argon::object::type_unhashable_error_);
 ERROR_SIMPLE(UnicodeIndex, "", argon::object::type_unicode_index_error_);
 ERROR_SIMPLE(ValueError, "", argon::object::type_value_error_);
+ERROR_SIMPLE(RegexError, "", argon::object::type_regex_error_);
 ERROR_SIMPLE(ZeroDivisionError, "", type_zero_division_);
 
 // Compiler errors

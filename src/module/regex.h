@@ -8,6 +8,7 @@
 #include <regex>
 
 #include <object/arobject.h>
+#include <object/rwlock.h>
 #include <object/datatype/string.h>
 
 namespace argon::module {
@@ -19,7 +20,7 @@ namespace argon::module {
 
     extern const argon::object::TypeInfo *type_re_pattern_;
 
-    struct Match : argon::object::ArObject{
+    struct Match : argon::object::ArObject {
         argon::object::ArSize start;
         argon::object::ArSize end;
 
@@ -27,6 +28,18 @@ namespace argon::module {
     };
 
     extern const argon::object::TypeInfo *type_re_match_;
+
+    struct REIterator : argon::object::ArObject {
+        argon::object::SimpleLock lock;
+
+        argon::object::ArObject *target;
+        Pattern *pattern;
+        argon::object::ArObject *last;
+
+        argon::object::ArSize lpos;
+    };
+
+    extern const argon::object::TypeInfo *type_re_iterator_;
 } // namespace argon::module
 
 #endif // !ARGON_MODULE_REGEX_H_
