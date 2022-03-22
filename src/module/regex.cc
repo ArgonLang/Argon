@@ -364,11 +364,97 @@ ARGON_METHOD5(pattern_, search, "Scan through buffer looking for the first locat
     return ret;
 }
 
+ARGON_METHOD5(pattern_, sub, "Replaces occurrences of the pattern with the new passed value."
+                             ""
+                             "- Parameters:"
+                             "  - old: buffer on which to search for occurrences."
+                             "  - new: buffer containing the new value."
+                             "  - count: maximum number of occurrences to replace (-1 all occurrences)."
+                             "- Returns: new buffer of the same type as the old buffer with occurrences "
+                             "replaced with the value of 'new' buffer.", 3, false) {
+    ArBuffer buffer{};
+    ArBuffer rbuffer{};
+    std::cmatch cmatch{};
+    auto *pattern = (Pattern *) self;
+    ArObject *ret;
+    const char *sbuf;
+    const char *ebuf;
+    char *newbuf;
+    char *newbuf_c;
+    ArSize nlen;
+    int scount;
+    int rcount;
+
+    if (!CheckArgs("B:old,B:new,i:count", func, argv, count))
+        return nullptr;
+
+    if (!BufferGet(argv[0], &buffer, ArBufferFlags::READ))
+        return nullptr;
+
+    if (!BufferGet(argv[1], &rbuffer, ArBufferFlags::READ))
+        return nullptr;
+
+    scount = (int) ((Integer *) argv[2])->integer;
+    rcount = scount;
+
+    // Process subs length
+    sbuf = (const char *) buffer.buffer;
+    ebuf = (const char *) buffer.buffer + buffer.len;
+    nlen = buffer.len;
+    while (std::regex_search(sbuf, ebuf, cmatch, *pattern->pattern) && (rcount > 0 || rcount == -1)) {
+        nlen -= cmatch[0].second - cmatch[0].first;
+        nlen += rbuffer.len;
+        sbuf = cmatch[0].second;
+
+        if (rcount > 0)
+            rcount--;
+    }
+
+    if (AR_TYPEOF(argv[0], type_string_))
+        nlen++;
+
+    if ((newbuf = ArObjectNewRaw<char *>(nlen)) == nullptr) {
+        BufferRelease(&buffer);
+        BufferRelease(&rbuffer);
+        return nullptr;
+    }
+
+    // Write replaces
+    sbuf = (const char *) buffer.buffer;
+    ebuf = (const char *) buffer.buffer + buffer.len;
+    newbuf_c = newbuf;
+    while (std::regex_search(sbuf, ebuf, cmatch, *pattern->pattern) && (rcount < scount || scount == -1)) {
+        newbuf_c = (char *) argon::memory::MemoryCopy(newbuf_c, sbuf, cmatch[0].first - sbuf);
+        newbuf_c = (char *) argon::memory::MemoryCopy(newbuf_c, rbuffer.buffer, rbuffer.len);
+        sbuf = cmatch[0].second;
+
+        if (scount != -1)
+            rcount++;
+    }
+
+    newbuf_c = (char *) argon::memory::MemoryCopy(newbuf_c, sbuf, ebuf - sbuf);
+
+    if (AR_TYPEOF(argv[0], type_string_)) {
+        *newbuf_c = '\0';
+        ret = StringNewBufferOwnership((unsigned char *) newbuf, nlen);
+    } else
+        ret = BytesNewHoldBuffer((unsigned char *) newbuf, nlen, nlen, true);
+
+    BufferRelease(&buffer);
+    BufferRelease(&rbuffer);
+
+    if (ret == nullptr)
+        argon::memory::Free(newbuf);
+
+    return ret;
+}
+
 const NativeFunc pattern_method[] = {
         pattern_findall_,
         pattern_finditer_,
         pattern_match_,
         pattern_search_,
+        pattern_sub_,
         ARGON_METHOD_SENTINEL
 };
 

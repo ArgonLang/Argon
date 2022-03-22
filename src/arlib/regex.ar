@@ -38,3 +38,9 @@ pub func search(data, pattern) {
 
     return data |> r.search
 }
+
+pub func sub(data, pattern, repl, count) {
+    var r = compile(pattern, MODE_ECMASCRIPT)
+
+    return data |> r.sub(repl, count)
+}
