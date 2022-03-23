@@ -5,14 +5,25 @@
 #include <openssl/ssl.h>
 #include <openssl/err.h>
 
+#include <object/datatype/error.h>
+
 #include <module/modules.h>
 
 #include "ssl.h"
 
 using namespace argon::object;
 using namespace argon::module;
+using namespace argon::module::ssl;
+
+const PropertyBulk ssl_bulk[] = {
+        MODULE_EXPORT_TYPE_ALIAS("sslcontext", type_sslcontext_),
+        MODULE_EXPORT_SENTINEL
+};
 
 bool SSLInit(Module *self) {
+    if (!TypeInit((TypeInfo *) type_sslcontext_, nullptr))
+        return false;
+
     SSL_load_error_strings();
     SSL_library_init();
     return true;
@@ -21,7 +32,7 @@ bool SSLInit(Module *self) {
 const ModuleInit module_ssl = {
         "_ssl",
         "",
-        nullptr,
+        ssl_bulk,
         SSLInit,
         nullptr
 };

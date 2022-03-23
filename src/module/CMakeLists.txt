@@ -5,7 +5,8 @@ set(SOCKET_SRC
         socket/socket.cc)
 
 set(SSL_SRC
-        ssl/ssl.cc)
+        ssl/ssl.cc
+        ssl/sslcontext.cc)
 
 set(SYNC_SRC
         sync/cond.cc
