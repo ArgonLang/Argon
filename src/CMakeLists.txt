@@ -1,8 +1,10 @@
 cmake_minimum_required(VERSION 3.7)
 
+find_package(OpenSSL REQUIRED)
+
 add_library(argon SHARED)
 add_dependencies(argon memory)
-target_link_libraries(argon memory)
+target_link_libraries(argon memory OpenSSL::SSL)
 
 add_executable(main main.cc)
 target_link_libraries(main argon)

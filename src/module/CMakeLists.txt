@@ -4,6 +4,9 @@ set(SOCKET_SRC
         socket/skmodule.cc
         socket/socket.cc)
 
+set(SSL_SRC
+        ssl/ssl.cc)
+
 set(SYNC_SRC
         sync/cond.cc
         sync/sync.cc
@@ -13,6 +16,7 @@ set(SYNC_SRC
         sync/locker.cc)
 
 set(SRC ${SOCKET_SRC}
+        ${SSL_SRC}
         ${SYNC_SRC}
         builtins.cc
         error.cc
