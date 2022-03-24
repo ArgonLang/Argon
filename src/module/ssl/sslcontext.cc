@@ -27,6 +27,38 @@ ARGON_FUNCTION5(sslcontext_, new, "", 1, false) {
     return SSLContextNew((SSLProtocol) ((Integer *) argv[0])->integer);
 }
 
+ARGON_METHOD5(sslcontext_, load_cafile, "", 1, false) {
+    auto *ctx = (SSLContext *) self;
+
+    if (!CheckArgs("s:cafile", func, argv, count, type_function_))
+        return nullptr;
+
+    if (SSL_CTX_load_verify_locations(ctx->ctx, (const char *) ((String *) argv[0])->buffer, nullptr) != 1) {
+        if (!argon::vm::IsPanicking())
+            errno != 0 ? ErrorSetFromErrno() : SSLErrorSet();
+
+        return nullptr;
+    }
+
+    return ARGON_OBJECT_NIL;
+}
+
+ARGON_METHOD5(sslcontext_, load_capath, "", 1, false) {
+    auto *ctx = (SSLContext *) self;
+
+    if (!CheckArgs("s:capath", func, argv, count, type_function_))
+        return nullptr;
+
+    if (SSL_CTX_load_verify_locations(ctx->ctx, nullptr, (const char *) ((String *) argv[0])->buffer) != 1) {
+        if (!argon::vm::IsPanicking())
+            errno != 0 ? ErrorSetFromErrno() : SSLErrorSet();
+
+        return nullptr;
+    }
+
+    return ARGON_OBJECT_NIL;
+}
+
 static int PasswordCallback(char *buf, int size, int rwflag, void *userdata) {
     auto *obj = (ArObject *) userdata;
     String *ret;
@@ -128,10 +160,28 @@ ARGON_METHOD5(sslcontext_, load_certs_default, "", 1, false) {
     return ARGON_OBJECT_NIL;
 }
 
+ARGON_METHOD5(sslcontext_, set_ciphers, "", 1, false) {
+    auto *ctx = (SSLContext *) self;
+
+    if (!CheckArgs("s:cipher", func, argv, count, type_function_))
+        return nullptr;
+
+    if (SSL_CTX_set_cipher_list(ctx->ctx, (const char *) ((String *) argv[0])->buffer) == 0) {
+        SSLErrorSet();
+        ERR_clear_error();
+        return nullptr;
+    }
+
+    return ARGON_OBJECT_NIL;
+}
+
 const NativeFunc sslcontext_methods[] = {
         sslcontext_new_,
+        sslcontext_load_cafile_,
+        sslcontext_load_capath_,
         sslcontext_load_cert_chain_,
         sslcontext_load_certs_default_,
+        sslcontext_set_ciphers_,
         ARGON_METHOD_SENTINEL
 };
 
