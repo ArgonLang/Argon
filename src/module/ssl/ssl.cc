@@ -5,6 +5,7 @@
 #include <openssl/ssl.h>
 #include <openssl/err.h>
 
+#include <vm/runtime.h>
 #include <object/datatype/error.h>
 
 #include <module/modules.h>
@@ -14,6 +15,25 @@
 using namespace argon::object;
 using namespace argon::module;
 using namespace argon::module::ssl;
+
+ArObject *argon::module::ssl::SSLErrorGet() {
+    char buf[256] = {};
+
+    // TODO: error type
+    if (ERR_error_string(ERR_get_error(), buf) == nullptr)
+        return ErrorFormatNoPanic(type_os_error_, "unknown error");
+
+    return ErrorFormatNoPanic(type_os_error_, "%s", buf);
+}
+
+ArObject *argon::module::ssl::SSLErrorSet() {
+    ArObject *err = SSLErrorGet();
+
+    argon::vm::Panic(err);
+    Release(err);
+
+    return nullptr;
+}
 
 const PropertyBulk ssl_bulk[] = {
         MODULE_EXPORT_TYPE_ALIAS("sslcontext", type_sslcontext_),

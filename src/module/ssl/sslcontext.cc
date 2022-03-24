@@ -12,6 +12,7 @@
 
 #include <object/datatype/error.h>
 #include "object/datatype/function.h"
+#include "object/datatype/integer.h"
 #include "object/datatype/nil.h"
 
 #include "ssl.h"
@@ -23,7 +24,7 @@ ARGON_FUNCTION5(sslcontext_, new, "", 1, false) {
     if (!CheckArgs("i:protocol", func, argv, count))
         return nullptr;
 
-    return nullptr;
+    return SSLContextNew((SSLProtocol) ((Integer *) argv[0])->integer);
 }
 
 static int PasswordCallback(char *buf, int size, int rwflag, void *userdata) {
@@ -31,9 +32,11 @@ static int PasswordCallback(char *buf, int size, int rwflag, void *userdata) {
     String *ret;
     int len;
 
-    if (AR_TYPEOF(obj, type_function_))
+    if (AR_TYPEOF(obj, type_function_)) {
         ret = (String *) argon::vm::Call(obj, 0, nullptr);
-    else
+        if (ret == nullptr)
+            return -1;
+    } else
         ret = (String *) IncRef(obj);
 
     if (!AR_TYPEOF(ret, type_string_)) {
@@ -74,39 +77,29 @@ ARGON_METHOD5(sslcontext_, load_cert_chain, "", 3, false) {
         keyfile = certfile;
 
     if (!IsNull(callback)) {
-        if (!AR_TYPEOF(callback, type_string_) && AR_TYPEOF(callback, type_function_))
+        if (!AR_TYPEOF(callback, type_string_) && !AR_TYPEOF(callback, type_function_))
             return ErrorFormat(type_type_error_, "password should be a string or callable");
 
         SSL_CTX_set_default_passwd_cb(ctx->ctx, PasswordCallback);
         SSL_CTX_set_default_passwd_cb_userdata(ctx->ctx, callback);
     }
 
+    errno = 0;
     if (SSL_CTX_use_certificate_chain_file(ctx->ctx, (const char *) certfile->buffer) != 1) {
-        if (!argon::vm::IsPanicking()) {
-            if (errno != 0)
-                ErrorSetFromErrno();
-            else {
-                // TODO: ssl error
-            }
-        }
-
+        if (!argon::vm::IsPanicking())
+            errno != 0 ? ErrorSetFromErrno() : SSLErrorSet();
         goto ERROR;
     }
 
+    errno = 0;
     if (SSL_CTX_use_PrivateKey_file(ctx->ctx, (const char *) keyfile->buffer, SSL_FILETYPE_PEM) != 1) {
-        if (!argon::vm::IsPanicking()) {
-            if (errno != 0)
-                ErrorSetFromErrno();
-            else {
-                // TODO: ssl error
-            }
-        }
-
+        if (!argon::vm::IsPanicking())
+            errno != 0 ? ErrorSetFromErrno() : SSLErrorSet();
         goto ERROR;
     }
 
     if (SSL_CTX_check_private_key(ctx->ctx) != 1) {
-        // TODO: ssl error
+        SSLErrorSet();
         goto ERROR;
     }
 
@@ -128,8 +121,7 @@ ARGON_METHOD5(sslcontext_, load_certs_default, "", 1, false) {
     // TODO: WINDOWS
 #else
     if (!SSL_CTX_set_default_verify_paths(ctx->ctx)) {
-        // TODO: error
-        return nullptr;
+        return SSLErrorSet();
     }
 #endif
 
@@ -185,7 +177,7 @@ const TypeInfo SSLContextType = {
 };
 const TypeInfo *argon::module::ssl::type_sslcontext_ = &SSLContextType;
 
-SSLContext *SSLContextNew(SSLProtocol protocol) {
+SSLContext *argon::module::ssl::SSLContextNew(SSLProtocol protocol) {
     const SSL_METHOD *method;
     SSLContext *ctx;
 
@@ -208,8 +200,7 @@ SSLContext *SSLContextNew(SSLProtocol protocol) {
 
     if ((ctx->ctx = SSL_CTX_new(method)) == nullptr) {
         Release(ctx);
-        // TODO: ERROR
-        return nullptr;
+        return (SSLContext *) SSLErrorSet();
     }
 
     return ctx;

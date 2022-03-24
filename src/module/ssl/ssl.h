@@ -21,6 +21,13 @@ namespace argon::module::ssl {
     };
 
     extern const argon::object::TypeInfo *type_sslcontext_;
+
+    argon::object::ArObject *SSLErrorGet();
+
+    argon::object::ArObject *SSLErrorSet();
+
+    SSLContext *SSLContextNew(SSLProtocol protocol);
+
 } // namespace argon::module
 
 #endif // !ARGON_MODULE_SSL_H_
