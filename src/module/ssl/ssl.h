@@ -16,8 +16,19 @@ namespace argon::module::ssl {
         TLS_SERVER
     };
 
+    enum class SSLVerify : int {
+        CERT_NONE,
+        CERT_OPTIONAL,
+        CERT_REQUIRED
+    };
+
     struct SSLContext : argon::object::ArObject {
+        argon::object::ArObject *sni_callback;
         SSL_CTX *ctx;
+
+        SSLProtocol protocol;
+        SSLVerify verify_mode;
+        bool check_hname;
     };
 
     extern const argon::object::TypeInfo *type_sslcontext_;
