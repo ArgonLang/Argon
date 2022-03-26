@@ -13,10 +13,11 @@
 #include "string.h"
 
 #include "nativewrap.h"
+#include "bool.h"
 
 using namespace argon::object;
 
-const char *NativeTypeStr[] = {"arobject", "double", "float", "int", "long", "short", "string"};
+const char *NativeTypeStr[] = {"arobject", "bool", "double", "float", "int", "long", "short", "string"};
 
 const TypeInfo NativeWrapperType = {
         TYPEINFO_STATIC_INIT,
@@ -76,6 +77,9 @@ ArObject *argon::object::NativeWrapperGet(const NativeWrapper *wrapper, const Ar
                 obj = IncRef((ArObject *) tmp);
             else
                 obj = IncRef(NilVal);
+            break;
+        case NativeMemberType::BOOL:
+            obj = BoolToArBool(*((bool *) offset));
             break;
         case NativeMemberType::DOUBLE:
             obj = DecimalNew(*((double *) offset));
@@ -142,6 +146,9 @@ bool argon::object::NativeWrapperSet(const NativeWrapper *wrapper, const ArObjec
             *dst = IncRef(value);
             break;
         }
+        case NativeMemberType::BOOL:
+            *((bool *) offset) = IsTrue(value);
+            break;
         case NativeMemberType::DOUBLE:
             if (!ExtractNumberOrError(wrapper, native, value, nullptr, &decimal))
                 return false;

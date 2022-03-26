@@ -111,6 +111,7 @@ ArObject *prefix##name##_fn(ArObject *func, ArObject *self, ArObject **argv, ArS
 
     enum class NativeMemberType {
         AROBJECT,
+        BOOL,
         DOUBLE,
         FLOAT,
         INT,
