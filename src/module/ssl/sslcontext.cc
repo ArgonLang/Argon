@@ -211,12 +211,10 @@ ARGON_METHOD5(sslcontext_, load_cert_chain, "", 3, false) {
 }
 
 ARGON_METHOD5(sslcontext_, load_certs_default, "", 1, false) {
-    auto *ctx = (SSLContext *) self;
-
 #ifdef _ARGON_PLATFORM_WINDOWS
     // TODO: WINDOWS
 #else
-    if (!SSL_CTX_set_default_verify_paths(ctx->ctx)) {
+    if (!SSL_CTX_set_default_verify_paths(((SSLContext *) self)->ctx)) {
         return SSLErrorSet();
     }
 #endif
@@ -259,31 +257,19 @@ ARGON_METHOD5(sslcontext_, load_dh_params, "", 1, false) {
 }
 
 ARGON_METHOD5(sslcontext_, load_paths_default, "", 1, false) {
-    auto *ctx = (SSLContext *) self;
-
-    if (!SSL_CTX_set_default_verify_paths(ctx->ctx))
+    if (!SSL_CTX_set_default_verify_paths(((SSLContext *) self)->ctx))
         return SSLErrorSet();
 
     return ARGON_OBJECT_NIL;
 }
 
 ARGON_METHOD5(sslcontext_, load_security_level, "", 0, false) {
-    auto *ctx = (SSLContext *) self;
-
-    return IntegerNew(SSL_CTX_get_security_level(ctx->ctx));
+    return IntegerNew(SSL_CTX_get_security_level(((SSLContext *) self)->ctx));
 }
 
 ARGON_METHOD5(sslcontext_, load_session_ticket, "", 0, false) {
-    auto *ctx = (SSLContext *) self;
-
     // TODO: need ulong
-    return IntegerNew(SSL_CTX_get_num_tickets(ctx->ctx));
-}
-
-ARGON_METHOD5(sslcontext_, load_sni, "", 0, false) {
-    auto *ctx = (SSLContext *) self;
-
-    return ReturnNil(ctx->sni_callback);
+    return IntegerNew(SSL_CTX_get_num_tickets(((SSLContext *) self)->ctx));
 }
 
 ARGON_METHOD5(sslcontext_, load_stats, "", 0, false) {
@@ -362,7 +348,7 @@ ARGON_METHOD5(sslcontext_, set_max_version, "", 1, false) {
     if (!CheckArgs("i:version", func, argv, count))
         return nullptr;
 
-    if (!MinMaxProtoVersion(ctx, ((Integer *) argv[0])->integer, true))
+    if (!MinMaxProtoVersion(ctx, (unsigned int) ((Integer *) argv[0])->integer, true))
         return nullptr;
 
     return ARGON_OBJECT_NIL;
@@ -374,7 +360,7 @@ ARGON_METHOD5(sslcontext_, set_min_version, "", 1, false) {
     if (!CheckArgs("i:version", func, argv, count))
         return nullptr;
 
-    if (!MinMaxProtoVersion(ctx, ((Integer *) argv[0])->integer, false))
+    if (!MinMaxProtoVersion(ctx, (unsigned int) ((Integer *) argv[0])->integer, false))
         return nullptr;
 
     return ARGON_OBJECT_NIL;
@@ -388,9 +374,6 @@ ARGON_METHOD5(sslcontext_, set_num_tickets, "", 1, false) {
         return nullptr;
 
     ticket = ((Integer *) argv[0])->integer;
-
-    if (ticket < 0)
-        return ErrorFormat(type_value_error_, "num_tickets value must be non-negative");
 
     if (ctx->protocol != SSLProtocol::TLS_SERVER)
         return ErrorFormat(type_value_error_, "not a server context");
@@ -464,15 +447,11 @@ ARGON_METHOD5(sslcontext_, set_verify_flags, "", 1, false) {
     clear = flags & ~new_flags;
     set = ~flags & new_flags;
 
-    if (clear) {
-        if (!X509_VERIFY_PARAM_clear_flags(param, clear))
-            return SSLErrorSet();
-    }
+    if (clear && !X509_VERIFY_PARAM_clear_flags(param, clear))
+        return SSLErrorSet();
 
-    if (set) {
-        if (!X509_VERIFY_PARAM_set_flags(param, set))
-            return SSLErrorSet();
-    }
+    if (set && !X509_VERIFY_PARAM_set_flags(param, set))
+        return SSLErrorSet();
 
     return ARGON_OBJECT_NIL;
 }
@@ -487,7 +466,6 @@ const NativeFunc sslcontext_methods[] = {
         sslcontext_load_paths_default_,
         sslcontext_load_security_level_,
         sslcontext_load_session_ticket_,
-        sslcontext_load_sni_,
         sslcontext_load_stats_,
         sslcontext_set_check_hostname_,
         sslcontext_set_ciphers_,
@@ -503,6 +481,7 @@ const NativeFunc sslcontext_methods[] = {
 const NativeMember sslcontext_member[] = {
         {"check_hostname", NativeMemberType::BOOL, offsetof(SSLContext, check_hname), true},
         {"protocol", NativeMemberType::INT, offsetof(SSLContext, protocol), true},
+        {"sni_callback", NativeMemberType::AROBJECT, offsetof(SSLContext, sni_callback), true},
         {"verify_mode", NativeMemberType::INT, offsetof(SSLContext, verify_mode), true},
         ARGON_MEMBER_SENTINEL
 };
