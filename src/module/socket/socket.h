@@ -29,7 +29,7 @@ namespace argon::module::socket {
 
     extern const argon::object::TypeInfo *type_socket_;
 
-    bool ArAddrToSockAddr(argon::object::ArObject *tuple, sockaddr_storage *addrstore, int *socklen, int family);
+    bool ArAddrToSockAddr(argon::object::ArObject *tuple, struct sockaddr_storage *addrstore, int *socklen, int family);
 
     int SocketGetAddrLen(Socket *socket);
 
@@ -56,7 +56,7 @@ namespace argon::module::socket {
 
     Socket *SocketNew(sock_handle handle, int family);
 
-    argon::object::ArObject *SockAddrToArAddr(sockaddr_storage *storage, int family);
+    argon::object::ArObject *SockAddrToArAddr(struct sockaddr_storage *storage, int family);
 }
 
 #endif // !ARGON_MODULE_SOCKET_SOCKET_H_
