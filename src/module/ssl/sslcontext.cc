@@ -4,6 +4,7 @@
 
 #include "ssl.h"
 
+#include <openssl/x509v3.h>
 #include <openssl/err.h>
 
 #include <utils/macros.h>
@@ -15,6 +16,8 @@
 #include "object/datatype/function.h"
 #include "object/datatype/integer.h"
 #include "object/datatype/nil.h"
+
+#include <module/socket/socket.h>
 
 #include "ssl.h"
 
@@ -456,6 +459,17 @@ ARGON_METHOD5(sslcontext_, set_verify_flags, "", 1, false) {
     return ARGON_OBJECT_NIL;
 }
 
+ARGON_METHOD5(sslcontext_, wrap, "", 1, false) {
+    auto *ctx = (SSLContext *) self;
+
+    if (!CheckArgs("*:sock,b:server_side,s?:hostname", func, argv, count, argon::module::socket::type_socket_))
+        return nullptr;
+
+    // TODO: SSLSocketNew...
+
+    return ARGON_OBJECT_NIL;
+}
+
 const NativeFunc sslcontext_methods[] = {
         sslcontext_new_,
         sslcontext_load_cafile_,
@@ -499,6 +513,7 @@ const ObjectSlots sslcontext_obj = {
 
 void sslcontext_cleanup(SSLContext *self) {
     SSL_CTX_free(self->ctx);
+    Release(self->sni_callback);
 }
 
 const TypeInfo SSLContextType = {
@@ -530,6 +545,7 @@ const TypeInfo *argon::module::ssl::type_sslcontext_ = &SSLContextType;
 
 SSLContext *argon::module::ssl::SSLContextNew(SSLProtocol protocol) {
     const SSL_METHOD *method;
+    X509_VERIFY_PARAM *params;
     SSLContext *ctx;
 
     switch (protocol) {
@@ -558,12 +574,37 @@ SSLContext *argon::module::ssl::SSLContextNew(SSLProtocol protocol) {
     ctx->protocol = protocol;
 
     ctx->verify_mode = SSLVerify::CERT_NONE;
-    ctx->check_hname = false;
+    ctx->hostflags = X509_CHECK_FLAG_NO_PARTIAL_WILDCARDS;
 
     if (protocol == SSLProtocol::TLS_CLIENT) {
         ctx->check_hname = true;
         SetVerifyMode(ctx, SSLVerify::CERT_REQUIRED);
+    } else {
+        ctx->check_hname = false;
+        SetVerifyMode(ctx, SSLVerify::CERT_NONE);
     }
+
+#ifdef SSL_MODE_RELEASE_BUFFERS
+    /*
+     * When we no longer need a read buffer or a write buffer for a given SSL,
+     * then release the memory we were using to hold it.
+     * Using this flag can save around 34k per idle SSL connection.
+     * This flag has no effect on SSL v2 connections, or on DTLS connections.
+     */
+    SSL_CTX_set_mode(ctx->ctx, SSL_MODE_RELEASE_BUFFERS);
+#endif
+
+    /*
+     * When X509_V_FLAG_TRUSTED_FIRST is set, which is always the case since OpenSSL 1.1.0,
+     * construction of the certificate chain in X509_verify_cert(3) searches the trust store
+     * for issuer certificates before searching the provided untrusted certificates.
+     */
+    params = SSL_CTX_get0_param(ctx->ctx);
+    X509_VERIFY_PARAM_set_flags(params, X509_V_FLAG_TRUSTED_FIRST);
+    X509_VERIFY_PARAM_set_hostflags(params, ctx->hostflags);
+
+    ctx->post_handshake = false;
+    SSL_CTX_set_post_handshake_auth(ctx->ctx, ctx->post_handshake);
 
     return ctx;
 }

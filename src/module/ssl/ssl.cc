@@ -41,12 +41,26 @@ const PropertyBulk ssl_bulk[] = {
 };
 
 bool SSLInit(Module *self) {
+#define AddIntConstant(alias, value)                    \
+    if(!ModuleAddIntConstant(self, #alias, (int)value)) \
+        return false
+
+    AddIntConstant(PROTO_TLS, SSLProtocol::TLS);
+    AddIntConstant(PROTO_TLS_CLIENT, SSLProtocol::TLS_CLIENT);
+    AddIntConstant(PROTO_TLS_SERVER, SSLProtocol::TLS_SERVER);
+
+    AddIntConstant(VFY_CERT_NONE, SSLVerify::CERT_NONE);
+    AddIntConstant(VFY_CERT_OPTIONAL, SSLVerify::CERT_OPTIONAL);
+    AddIntConstant(VFY_CERT_REQUIRED, SSLVerify::CERT_REQUIRED);
+
     if (!TypeInit((TypeInfo *) type_sslcontext_, nullptr))
         return false;
 
     SSL_load_error_strings();
     SSL_library_init();
     return true;
+
+#undef AddIntConstant
 }
 
 const ModuleInit module_ssl = {

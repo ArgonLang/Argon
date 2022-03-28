@@ -7,7 +7,10 @@
 
 #include <openssl/ssl.h>
 
+#include <object/datatype/string.h>
 #include <object/arobject.h>
+
+#include <module/socket/socket.h>
 
 namespace argon::module::ssl {
     enum class SSLProtocol : int {
@@ -28,16 +31,33 @@ namespace argon::module::ssl {
 
         SSLProtocol protocol;
         SSLVerify verify_mode;
+        unsigned int hostflags;
         bool check_hname;
+        bool post_handshake;
     };
 
     extern const argon::object::TypeInfo *type_sslcontext_;
+
+    struct SSLSocket : argon::object::ArObject {
+        SSLContext *context;
+        socket::Socket *socket;
+        argon::object::String *hostname;
+
+        SSL *ssl;
+
+        SSLProtocol protocol;
+    };
+
+    extern const argon::object::TypeInfo *type_sslsocket_;
 
     argon::object::ArObject *SSLErrorGet();
 
     argon::object::ArObject *SSLErrorSet();
 
     SSLContext *SSLContextNew(SSLProtocol protocol);
+
+    SSLSocket *SSLSocketNew(SSLContext *context, socket::Socket *socket,
+                            argon::object::String *hostname, bool server_side);
 
 } // namespace argon::module
 
