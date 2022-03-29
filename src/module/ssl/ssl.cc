@@ -26,6 +26,11 @@ ArObject *argon::module::ssl::SSLErrorGet() {
     return ErrorFormatNoPanic(type_os_error_, "%s", buf);
 }
 
+ArObject *argon::module::ssl::SSLErrorGet(SSLSocket *socket, int ret) {
+
+    return nullptr;
+}
+
 ArObject *argon::module::ssl::SSLErrorSet() {
     ArObject *err = SSLErrorGet();
 
@@ -54,6 +59,9 @@ bool SSLInit(Module *self) {
     AddIntConstant(VFY_CERT_REQUIRED, SSLVerify::CERT_REQUIRED);
 
     if (!TypeInit((TypeInfo *) type_sslcontext_, nullptr))
+        return false;
+
+    if (!TypeInit((TypeInfo *) type_sslsocket_, nullptr))
         return false;
 
     SSL_load_error_strings();

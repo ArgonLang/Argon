@@ -52,12 +52,22 @@ namespace argon::module::ssl {
 
     argon::object::ArObject *SSLErrorGet();
 
+    argon::object::ArObject *SSLErrorGet(SSLSocket *socket, int ret);
+
     argon::object::ArObject *SSLErrorSet();
+
+    argon::object::ArObject *SSLErrorSet(SSLSocket *socket, int ret);
 
     SSLContext *SSLContextNew(SSLProtocol protocol);
 
     SSLSocket *SSLSocketNew(SSLContext *context, socket::Socket *socket,
                             argon::object::String *hostname, bool server_side);
+
+    argon::object::ArSSize SSLSocketRead(SSLSocket *socket, unsigned char *buffer, argon::object::ArSize size);
+
+    argon::object::ArSSize SSLSocketWrite(SSLSocket *socket, const unsigned char *buffer, argon::object::ArSize size);
+
+    bool SSLSocketDoHandshake(SSLSocket *socket);
 
 } // namespace argon::module
 

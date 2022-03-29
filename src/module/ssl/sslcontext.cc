@@ -459,15 +459,14 @@ ARGON_METHOD5(sslcontext_, set_verify_flags, "", 1, false) {
     return ARGON_OBJECT_NIL;
 }
 
-ARGON_METHOD5(sslcontext_, wrap, "", 1, false) {
+ARGON_METHOD5(sslcontext_, wrap, "", 3, false) {
     auto *ctx = (SSLContext *) self;
 
     if (!CheckArgs("*:sock,b:server_side,s?:hostname", func, argv, count, argon::module::socket::type_socket_))
         return nullptr;
 
-    // TODO: SSLSocketNew...
-
-    return ARGON_OBJECT_NIL;
+    return SSLSocketNew(ctx, (argon::module::socket::Socket *) argv[0], (String *) argv[2],
+                        ArBoolToBool((Bool *) argv[1]));
 }
 
 const NativeFunc sslcontext_methods[] = {
@@ -489,10 +488,11 @@ const NativeFunc sslcontext_methods[] = {
         //sslcontext_set_sni_,
         sslcontext_set_verify_,
         sslcontext_set_verify_flags_,
+        sslcontext_wrap_,
         ARGON_METHOD_SENTINEL
 };
 
-const NativeMember sslcontext_member[] = {
+const NativeMember sslcontext_members[] = {
         {"check_hostname", NativeMemberType::BOOL, offsetof(SSLContext, check_hname), true},
         {"protocol", NativeMemberType::INT, offsetof(SSLContext, protocol), true},
         {"sni_callback", NativeMemberType::AROBJECT, offsetof(SSLContext, sni_callback), true},
@@ -502,7 +502,7 @@ const NativeMember sslcontext_member[] = {
 
 const ObjectSlots sslcontext_obj = {
         sslcontext_methods,
-        sslcontext_member,
+        sslcontext_members,
         nullptr,
         nullptr,
         nullptr,
