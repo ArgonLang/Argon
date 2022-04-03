@@ -128,7 +128,7 @@ ArObject *type_get_attr(ArObject *self, ArObject *key) {
 
 bool type_set_attr(ArObject *obj, ArObject *key, ArObject *value) {
     auto **ns = (Namespace **) AR_GET_NSOFF(obj);
-    ArObject *instance = nullptr;
+    const ArObject *instance = nullptr;
     ArObject *actual;
 
     bool is_tpm = false;
@@ -157,7 +157,7 @@ bool type_set_attr(ArObject *obj, ArObject *key, ArObject *value) {
         return false;
     }
 
-    if (!pinfo.IsPublic() && !AR_SAME_TYPE(instance, obj)) {
+    if (!pinfo.IsPublic() && (instance == nullptr || !AR_SAME_TYPE(instance, obj))) {
         ErrorFormat(type_access_violation_, "access violation, member '%s' of '%s' are private",
                     ((String *) key)->buffer, AR_TYPE_NAME(obj));
         Release(actual);
