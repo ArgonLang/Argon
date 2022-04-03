@@ -81,7 +81,7 @@ const NativeFunc error_methods[] = {
 };
 
 const NativeMember error_members[] = {
-        {"error", NativeMemberType::AROBJECT, offsetof(Error, obj), true},
+        ARGON_MEMBER("error", offsetof(Error, obj), NativeMemberType::AROBJECT, true),
         ARGON_MEMBER_SENTINEL
 };
 

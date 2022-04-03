@@ -7,9 +7,11 @@
 
 #include <object/arobject.h>
 
-namespace argon::object{
+namespace argon::object {
     struct NativeWrapper : ArObject {
         char *name;
+        NativeMemberGet get;
+        NativeMemberSet set;
         int offset;
         NativeMemberType mtype;
         bool readonly;
@@ -21,7 +23,7 @@ namespace argon::object{
 
     ArObject *NativeWrapperGet(const NativeWrapper *wrapper, const ArObject *native);
 
-    bool NativeWrapperSet(const NativeWrapper *wrapper, const ArObject *native, ArObject *value);
+    bool NativeWrapperSet(const NativeWrapper *wrapper, ArObject *native, ArObject *value);
 
 } // namespace argon::object
 

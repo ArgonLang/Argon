@@ -493,10 +493,10 @@ const NativeFunc sslcontext_methods[] = {
 };
 
 const NativeMember sslcontext_members[] = {
-        {"check_hostname", NativeMemberType::BOOL, offsetof(SSLContext, check_hname), true},
-        {"protocol", NativeMemberType::INT, offsetof(SSLContext, protocol), true},
-        {"sni_callback", NativeMemberType::AROBJECT, offsetof(SSLContext, sni_callback), true},
-        {"verify_mode", NativeMemberType::INT, offsetof(SSLContext, verify_mode), true},
+        ARGON_MEMBER("check_hostname", offsetof(SSLContext, check_hname), NativeMemberType::BOOL, true),
+        ARGON_MEMBER("protocol", offsetof(SSLContext, protocol), NativeMemberType::INT, true),
+        ARGON_MEMBER("sni_callback", offsetof(SSLContext, sni_callback), NativeMemberType::AROBJECT, true),
+        ARGON_MEMBER("verify_mode", offsetof(SSLContext, verify_mode), NativeMemberType::INT, true),
         ARGON_MEMBER_SENTINEL
 };
 

@@ -174,7 +174,7 @@ const NativeFunc sslsocket_methods[] = {
 };
 
 const NativeMember sslsocket_members[] = {
-        {"hostname", NativeMemberType::AROBJECT, offsetof(SSLSocket, hostname), true},
+        ARGON_MEMBER("hostname", offsetof(SSLSocket, hostname), NativeMemberType::AROBJECT, true),
         ARGON_MEMBER_SENTINEL
 };
 

@@ -51,77 +51,74 @@ NativeWrapper *argon::object::NativeWrapperNew(const NativeMember *member) {
     ArSize lname = strlen(member->name);
 
     if (native != nullptr) {
-        if ((native->name = (char *) memory::Alloc(lname)) == nullptr) {
+        if ((native->name = (char *) memory::Alloc(lname + 1)) == nullptr) {
             Release(native);
             return nullptr;
         }
 
         memory::MemoryCopy(native->name, member->name, lname);
-        native->mtype = member->type;
+        native->name[lname] = '\0';
+        native->get = member->get;
+        native->set = member->set;
         native->offset = member->offset;
+        native->mtype = member->type;
         native->readonly = member->readonly;
     }
 
     return native;
 }
 
-#define offset (((unsigned char*)native) + wrapper->offset)
+#define offset (((unsigned char*) native) + wrapper->offset)
 
 ArObject *argon::object::NativeWrapperGet(const NativeWrapper *wrapper, const ArObject *native) {
-    ArObject *obj = nullptr;
     void *tmp;
+
+    if (wrapper->get != nullptr)
+        return wrapper->get(native);
 
     switch (wrapper->mtype) {
         case NativeMemberType::AROBJECT:
             if ((tmp = *((ArObject **) offset)) != nullptr)
-                obj = IncRef((ArObject *) tmp);
+                return IncRef((ArObject *) tmp);
             else
-                obj = IncRef(NilVal);
-            break;
+                return IncRef(NilVal);
         case NativeMemberType::BOOL:
-            obj = BoolToArBool(*((bool *) offset));
-            break;
+            return BoolToArBool(*((bool *) offset));
         case NativeMemberType::DOUBLE:
-            obj = DecimalNew(*((double *) offset));
-            break;
+            return DecimalNew(*((double *) offset));
         case NativeMemberType::FLOAT:
-            obj = DecimalNew(*((float *) offset));
-            break;
+            return DecimalNew(*((float *) offset));
         case NativeMemberType::INT:
-            obj = IntegerNew(*((int *) offset));
-            break;
+            return IntegerNew(*((int *) offset));
         case NativeMemberType::LONG:
-            obj = IntegerNew(*((long *) offset));
-            break;
+            return IntegerNew(*((long *) offset));
         case NativeMemberType::SHORT:
-            obj = IntegerNew(*((short *) offset));
-            break;
+            return IntegerNew(*((short *) offset));
         case NativeMemberType::STRING:
             if ((tmp = *((char **) offset)) != nullptr)
-                obj = StringNew((char *) tmp);
+                return StringNew((char *) tmp);
             else
-                obj = IncRef(NilVal);
-            break;
+                return IncRef(NilVal);
+        default:
+            return nullptr;
     }
-
-    return obj;
 }
 
 bool ExtractNumberOrError(const NativeWrapper *wrapper, const ArObject *native, const ArObject *value,
                           IntegerUnderlying *integer, DecimalUnderlying *decimal) {
     if (AR_TYPEOF(value, type_integer_)) {
         if (integer != nullptr)
-            *integer = ((Integer *) value)->integer;
+            *integer = ((const Integer *) value)->integer;
         else
-            *decimal = (DecimalUnderlying) ((Integer *) value)->integer;
+            *decimal = (DecimalUnderlying) ((const Integer *) value)->integer;
         return true;
     }
 
     if (AR_TYPEOF(value, type_decimal_)) {
         if (integer != nullptr)
-            *integer = (IntegerUnderlying) ((Decimal *) value)->decimal;
+            *integer = (IntegerUnderlying) ((const Decimal *) value)->decimal;
         else
-            *decimal = ((Decimal *) value)->decimal;
+            *decimal = ((const Decimal *) value)->decimal;
         return true;
     }
 
@@ -130,7 +127,7 @@ bool ExtractNumberOrError(const NativeWrapper *wrapper, const ArObject *native, 
     return false;
 }
 
-bool argon::object::NativeWrapperSet(const NativeWrapper *wrapper, const ArObject *native, ArObject *value) {
+bool argon::object::NativeWrapperSet(const NativeWrapper *wrapper, ArObject *native, ArObject *value) {
     IntegerUnderlying integer;
     DecimalUnderlying decimal;
 
@@ -138,6 +135,9 @@ bool argon::object::NativeWrapperSet(const NativeWrapper *wrapper, const ArObjec
         ErrorFormat(type_unassignable_error_, "%s::%s is read-only", AR_TYPE_NAME(native), wrapper->name);
         return false;
     }
+
+    if (wrapper->set != nullptr)
+        return wrapper->set(native, value);
 
     switch (wrapper->mtype) {
         case NativeMemberType::AROBJECT: {
@@ -167,7 +167,7 @@ bool argon::object::NativeWrapperSet(const NativeWrapper *wrapper, const ArObjec
         case NativeMemberType::LONG:
             if (!ExtractNumberOrError(wrapper, native, value, &integer, nullptr))
                 return false;
-            *((long *) offset) = (long) integer;
+            *((long *) offset) = integer;
             break;
         case NativeMemberType::SHORT:
             if (!ExtractNumberOrError(wrapper, native, value, &integer, nullptr))
@@ -182,19 +182,23 @@ bool argon::object::NativeWrapperSet(const NativeWrapper *wrapper, const ArObjec
             if (repr == nullptr)
                 return false;
 
-            if ((tmp = (unsigned char *) memory::Alloc(repr->len)) == nullptr) {
+            if ((tmp = ArObjectNewRaw<unsigned char *>(repr->len + 1)) == nullptr) {
                 Release(repr);
-                argon::vm::Panic(error_out_of_memory);
                 return false;
             }
 
             memory::MemoryCopy(tmp, repr->buffer, repr->len);
+            tmp[repr->len] = '\0';
 
             Release(repr);
             memory::Free(*str);
             *str = tmp;
             break;
         }
+        default:
+            ErrorFormat(type_runtime_error_, "unknown native type for the %s::%s property",
+                        AR_TYPE_NAME(native), wrapper->name);
+            return false;
     }
 
     return true;
