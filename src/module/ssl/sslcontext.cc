@@ -11,11 +11,11 @@
 
 #include <vm/runtime.h>
 
-#include "object/datatype/bool.h"
+#include <object/datatype/bool.h>
 #include <object/datatype/error.h>
-#include "object/datatype/function.h"
-#include "object/datatype/integer.h"
-#include "object/datatype/nil.h"
+#include <object/datatype/function.h>
+#include <object/datatype/integer.h>
+#include <object/datatype/nil.h>
 
 #include <module/socket/socket.h>
 
@@ -60,13 +60,6 @@ static bool MinMaxProtoVersion(SSLContext *context, unsigned int opt, bool set_m
     return true;
 }
 
-ARGON_FUNCTION5(sslcontext_, new, "", 1, false) {
-    if (!CheckArgs("i:protocol", func, argv, count))
-        return nullptr;
-
-    return SSLContextNew((SSLProtocol) ((Integer *) argv[0])->integer);
-}
-
 static bool SetVerifyMode(SSLContext *context, SSLVerify mode) {
     int (*callback)(int, X509_STORE_CTX *);
     int sslmode;
@@ -92,6 +85,66 @@ static bool SetVerifyMode(SSLContext *context, SSLVerify mode) {
     context->verify_mode = mode;
 
     return true;
+}
+
+ARGON_FUNCTION5(sslcontext_, new, "", 1, false) {
+    if (!CheckArgs("i:protocol", func, argv, count))
+        return nullptr;
+
+    return SSLContextNew((SSLProtocol) ((Integer *) argv[0])->integer);
+}
+
+ARGON_METHOD5(sslcontext_, load_cacerts, "", 1, false) {
+    const auto *ctx = (SSLContext *) self;
+    STACK_OF(X509_OBJECT) *objs;
+    X509_STORE *store;
+    ArObject *tmp;
+    List *ret;
+
+    bool binary;
+
+    if (!CheckArgs("b:binary_form", func, argv, count))
+        return nullptr;
+
+    binary = ArBoolToBool((Bool *) argv[0]);
+
+    if ((ret = ListNew()) == nullptr)
+        return nullptr;
+
+    store = SSL_CTX_get_cert_store(ctx->ctx);
+    objs = X509_STORE_get0_objects(store);
+
+    for (int i = 0; i < sk_X509_OBJECT_num(objs); i++) {
+        const X509_OBJECT *obj;
+        X509 *cert;
+
+        obj = sk_X509_OBJECT_value(objs, i);
+        if (X509_OBJECT_get_type(obj) != X509_LU_X509)
+            continue; // not a x509 cert
+
+        cert = X509_OBJECT_get0_X509(obj);
+        if (!X509_check_ca(cert))
+            continue;
+
+        if (binary)
+            tmp = CertToDer(cert);
+        else
+            tmp = DecodeCert(cert);
+
+        if (tmp == nullptr) {
+            Release(ret);
+            return nullptr;
+        }
+
+        if (!ListAppend(ret, tmp)) {
+            Release(ret);
+            return nullptr;
+        }
+
+        Release(tmp);
+    }
+
+    return ret;
 }
 
 ARGON_METHOD5(sslcontext_, load_cafile, "", 1, false) {
@@ -266,16 +319,7 @@ ARGON_METHOD5(sslcontext_, load_paths_default, "", 1, false) {
     return ARGON_OBJECT_NIL;
 }
 
-ARGON_METHOD5(sslcontext_, load_security_level, "", 0, false) {
-    return IntegerNew(SSL_CTX_get_security_level(((SSLContext *) self)->ctx));
-}
-
-ARGON_METHOD5(sslcontext_, load_session_ticket, "", 0, false) {
-    // TODO: need ulong
-    return IntegerNew(SSL_CTX_get_num_tickets(((SSLContext *) self)->ctx));
-}
-
-ARGON_METHOD5(sslcontext_, load_stats, "", 0, false) {
+ARGON_METHOD5(sslcontext_, make_stats, "", 0, false) {
 #define ADD_STAT(SSLNAME, KEY)                                          \
     if((tmp = IntegerNew(SSL_CTX_sess_##SSLNAME(ctx->ctx))) == nullptr) \
         goto ERROR;                                                     \
@@ -388,8 +432,57 @@ ARGON_METHOD5(sslcontext_, set_num_tickets, "", 1, false) {
 }
 
 static int ServernameCallback(SSL *ssl, int *al, void *args) {
-    // TODO: after SSL SOCKET
-    return SSL_TLSEXT_ERR_OK;
+    ArObject *call_arg[3] = {};
+    auto *ctx = (SSLContext *) args;
+    const char *servername = SSL_get_servername(ssl, TLSEXT_NAMETYPE_host_name);
+    String *name = nullptr;
+    SSLSocket *sock;
+    ArObject *result;
+
+    if (IsNull(ctx->sni_callback))
+        return SSL_TLSEXT_ERR_OK;
+
+    sock = (SSLSocket *) SSL_get_app_data(ssl);
+
+    if (sock == nullptr) {
+        *al = SSL_AD_INTERNAL_ERROR;
+        return SSL_TLSEXT_ERR_ALERT_FATAL;
+    }
+
+    call_arg[0] = ctx;
+    call_arg[1] = sock;
+    call_arg[2] = NilVal;
+
+    if (servername != nullptr) {
+        if ((name = StringNew(servername)) == nullptr) {
+            *al = SSL_AD_INTERNAL_ERROR;
+            return SSL_TLSEXT_ERR_ALERT_FATAL;
+        }
+
+        call_arg[2] = name;
+    }
+
+    result = argon::vm::Call(ctx->sni_callback, 3, call_arg);
+    Release(name);
+
+    if (result == nullptr) {
+        *al = SSL_AD_HANDSHAKE_FAILURE;
+        return SSL_TLSEXT_ERR_ALERT_FATAL;
+    }
+
+    if (AR_TYPEOF(result, type_nil_)) {
+        Release(result);
+        return SSL_TLSEXT_ERR_OK;
+    }
+
+    *al = SSL_AD_INTERNAL_ERROR;
+
+    if (AR_TYPEOF(result, type_integer_))
+        *al = (int) ((Integer *) result)->integer;
+
+    Release(result);
+
+    return *al != SSL_AD_INTERNAL_ERROR ? SSL_TLSEXT_ERR_OK : SSL_TLSEXT_ERR_ALERT_FATAL;
 }
 
 ARGON_METHOD5(sslcontext_, set_sni, "", 1, false) {
@@ -403,6 +496,7 @@ ARGON_METHOD5(sslcontext_, set_sni, "", 1, false) {
 
     if (IsNull(argv[0])) {
         SSL_CTX_set_tlsext_servername_callback(ctx->ctx, nullptr);
+        Release(&ctx->sni_callback);
         return ARGON_OBJECT_NIL;
     }
 
@@ -471,30 +565,42 @@ ARGON_METHOD5(sslcontext_, wrap, "", 3, false) {
 
 const NativeFunc sslcontext_methods[] = {
         sslcontext_new_,
+        sslcontext_load_cacerts_,
         sslcontext_load_cafile_,
         sslcontext_load_capath_,
         sslcontext_load_cert_chain_,
         sslcontext_load_certs_default_,
         sslcontext_load_dh_params_,
         sslcontext_load_paths_default_,
-        sslcontext_load_security_level_,
-        sslcontext_load_session_ticket_,
-        sslcontext_load_stats_,
+        sslcontext_make_stats_,
         sslcontext_set_check_hostname_,
         sslcontext_set_ciphers_,
         sslcontext_set_max_version_,
         sslcontext_set_min_version_,
         sslcontext_set_num_tickets_,
-        //sslcontext_set_sni_,
+        sslcontext_set_sni_,
         sslcontext_set_verify_,
         sslcontext_set_verify_flags_,
         sslcontext_wrap_,
         ARGON_METHOD_SENTINEL
 };
 
+ArObject *security_level_get(const SSLContext *context) {
+    return IntegerNew(SSL_CTX_get_security_level(context->ctx));
+}
+
+ArObject *session_ticket_get(const SSLContext *context) {
+    // TODO: need ulong
+    return IntegerNew(SSL_CTX_get_num_tickets(context->ctx));
+}
+
 const NativeMember sslcontext_members[] = {
         ARGON_MEMBER("check_hostname", offsetof(SSLContext, check_hname), NativeMemberType::BOOL, true),
         ARGON_MEMBER("protocol", offsetof(SSLContext, protocol), NativeMemberType::INT, true),
+        ARGON_MEMBER_GETSET("security_level", (NativeMemberGet) security_level_get, nullptr,
+                            NativeMemberType::INT, true),
+        ARGON_MEMBER_GETSET("session_ticket", (NativeMemberGet) session_ticket_get, nullptr,
+                            NativeMemberType::INT, true),
         ARGON_MEMBER("sni_callback", offsetof(SSLContext, sni_callback), NativeMemberType::AROBJECT, true),
         ARGON_MEMBER("verify_mode", offsetof(SSLContext, verify_mode), NativeMemberType::INT, true),
         ARGON_MEMBER_SENTINEL

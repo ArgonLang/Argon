@@ -30,23 +30,34 @@ ARGON_METHOD5(sslsocket_, do_handshake, "", 0, false) {
     return argon::vm::GetLastNonFatalError();
 }
 
-ARGON_METHOD5(sslsocket_, load_compression, "", 0, false) {
+ARGON_METHOD5(sslsocket_, peercert, "", 1, false) {
     const auto *sock = (SSLSocket *) self;
-    const COMP_METHOD *comp_method;
-    const char *name;
+    ArObject *ret;
+    X509 *pc;
 
-    comp_method = SSL_get_current_compression(sock->ssl);
-    if (comp_method == nullptr || COMP_get_type(comp_method) == NID_undef)
-        return ARGON_OBJECT_NIL;
+    bool binary;
 
-    name = OBJ_nid2sn(COMP_get_type(comp_method));
-    if (name == nullptr)
-        return ARGON_OBJECT_NIL;
+    if (!CheckArgs("b:binary_form", func, argv, count))
+        return nullptr;
 
-    return StringNew(name);
+    binary = ArBoolToBool((Bool *) argv[0]);
+
+    if (!SSL_is_init_finished(sock->ssl))
+        return ErrorFormat(type_value_error_, "handshake not done yet");
+
+    pc = SSL_get_peer_certificate(sock->ssl);
+
+    if (binary)
+        ret = pc == nullptr ? BytesNew(0, true, false, true) : CertToDer(pc);
+    else
+        ret = pc == nullptr ? MapNew() : DecodeCert(pc);
+
+    X509_free(pc);
+
+    return ret;
 }
 
-ARGON_METHOD5(sslsocket_, load_pending, "", 0, false) {
+ARGON_METHOD5(sslsocket_, pending, "", 0, false) {
     const auto *sock = (SSLSocket *) self;
     int length;
 
@@ -57,18 +68,6 @@ ARGON_METHOD5(sslsocket_, load_pending, "", 0, false) {
         return SSLErrorSet();
 
     return IntegerNew(length);
-}
-
-ARGON_METHOD5(sslsocket_, load_version, "", 0, false) {
-    const auto *sock = (SSLSocket *) self;
-    const char *version;
-
-    if (!SSL_is_init_finished(sock->ssl))
-        return ARGON_OBJECT_NIL;
-
-    version = SSL_get_version(sock->ssl);
-
-    return StringNew(version);
 }
 
 ARGON_METHOD5(sslsocket_, read, "", 1, false) {
@@ -127,6 +126,10 @@ ARGON_METHOD5(sslsocket_, verify_client, "", 0, false) {
     return ARGON_OBJECT_NIL;
 }
 
+ARGON_METHOD5(sslsocket_, unwrap, "", 0, false) {
+    return SSLShutdown((SSLSocket *) self);
+}
+
 ARGON_METHOD5(sslsocket_, write, "", 2, false) {
     ArBuffer buffer{};
     auto *sock = (SSLSocket *) self;
@@ -163,18 +166,118 @@ ARGON_METHOD5(sslsocket_, write, "", 2, false) {
 
 const NativeFunc sslsocket_methods[] = {
         sslsocket_do_handshake_,
-        sslsocket_load_compression_,
-        sslsocket_load_pending_,
-        sslsocket_load_version_,
+        sslsocket_peercert_,
+        sslsocket_pending_,
         sslsocket_read_,
         sslsocket_read_into_,
         sslsocket_verify_client_,
+        sslsocket_unwrap_,
         sslsocket_write_,
         ARGON_METHOD_SENTINEL
 };
 
+ArObject *alpn_selected_get(const SSLSocket *self) {
+    const unsigned char *out;
+    unsigned int outlen;
+
+    SSL_get0_alpn_selected(self->ssl, &out, &outlen);
+
+    if (out == nullptr)
+        ARGON_OBJECT_NIL;
+
+    return StringNew((const char *) out, outlen);
+}
+
+Tuple *CipherToTuple(const SSL_CIPHER *cipher) {
+    const char *name;
+    const char *proto;
+    int bits;
+
+    name = SSL_CIPHER_get_name(cipher);
+    proto = SSL_CIPHER_get_version(cipher);
+    bits = SSL_CIPHER_get_bits(cipher, nullptr);
+
+    return TupleNew("ssi", name, proto, bits);
+}
+
+ArObject *cipher_get(const SSLSocket *self) {
+    const SSL_CIPHER *current;
+
+    if ((current = SSL_get_current_cipher(self->ssl)) == nullptr)
+        return ARGON_OBJECT_NIL;
+
+    return CipherToTuple(current);
+}
+
+ArObject *compression_get(const SSLSocket *self) {
+    const COMP_METHOD *comp_method;
+    const char *name;
+
+    comp_method = SSL_get_current_compression(self->ssl);
+    if (comp_method == nullptr || COMP_get_type(comp_method) == NID_undef)
+        return ARGON_OBJECT_NIL;
+
+    name = OBJ_nid2sn(COMP_get_type(comp_method));
+    if (name == nullptr)
+        return ARGON_OBJECT_NIL;
+
+    return StringNew(name);
+}
+
+ArObject *session_reused_get(const SSLSocket *self) {
+    return BoolToArBool(SSL_session_reused(self->ssl));
+}
+
+ArObject *shared_cipher_get(const SSLSocket *self) {
+    STACK_OF(SSL_CIPHER) *ciphers;
+    Tuple *ret;
+    int length;
+
+    if ((ciphers = SSL_get_ciphers(self->ssl)) == nullptr)
+        return ARGON_OBJECT_NIL;
+
+    length = sk_SSL_CIPHER_num(ciphers);
+
+    if ((ret = TupleNew(length)) == nullptr)
+        return nullptr;
+
+    for (int i = 0; i < length; i++) {
+        auto *tmp = CipherToTuple(sk_SSL_CIPHER_value(ciphers, i));
+
+        if (tmp == nullptr) {
+            Release(ret);
+            return nullptr;
+        }
+
+        TupleInsertAt(ret, i, tmp);
+        Release(tmp);
+    }
+
+    return ret;
+}
+
+ArObject *version_get(const SSLSocket *self) {
+    const char *version;
+
+    if (!SSL_is_init_finished(self->ssl))
+        return ARGON_OBJECT_NIL;
+
+    version = SSL_get_version(self->ssl);
+
+    return StringNew(version);
+}
+
 const NativeMember sslsocket_members[] = {
+        ARGON_MEMBER_GETSET("alpn_selected", (NativeMemberGet) alpn_selected_get, nullptr,
+                            NativeMemberType::STRING, true),
+        ARGON_MEMBER_GETSET("cipher", (NativeMemberGet) cipher_get, nullptr, NativeMemberType::AROBJECT, true),
+        ARGON_MEMBER_GETSET("compression", (NativeMemberGet) compression_get, nullptr, NativeMemberType::STRING, true),
         ARGON_MEMBER("hostname", offsetof(SSLSocket, hostname), NativeMemberType::AROBJECT, true),
+        ARGON_MEMBER_GETSET("session_reused", (NativeMemberGet) session_reused_get, nullptr,
+                            NativeMemberType::BOOL, true),
+        ARGON_MEMBER_GETSET("shared_cipher", (NativeMemberGet) shared_cipher_get, nullptr,
+                            NativeMemberType::AROBJECT, true),
+        ARGON_MEMBER_GETSET("version", (NativeMemberGet) version_get, nullptr, NativeMemberType::STRING, true),
         ARGON_MEMBER_SENTINEL
 };
 
@@ -333,6 +436,27 @@ bool ConfigureHostname(SSLSocket *socket, const char *name, ArSize len) {
 
     SSLErrorSet();
     return false;
+}
+
+argon::module::socket::Socket *argon::module::ssl::SSLShutdown(SSLSocket *socket) {
+    int attempt = 0;
+    int ret = 0;
+
+    CheckBlockingState(socket);
+
+    while (attempt < 2 && ret <= 0) {
+        if (attempt > 0)
+            SSL_set_read_ahead(socket->ssl, 0);
+
+        if ((ret = SSL_shutdown(socket->ssl)) < 0) {
+            SSLErrorSet();
+            return nullptr;
+        }
+
+        attempt++;
+    }
+
+    return IncRef(socket->socket);
 }
 
 SSLSocket *argon::module::ssl::SSLSocketNew(SSLContext *context, socket::Socket *socket,

@@ -8,9 +8,11 @@
 #include <openssl/ssl.h>
 
 #include <object/datatype/string.h>
+#include <object/datatype/map.h>
 #include <object/arobject.h>
 
 #include <module/socket/socket.h>
+#include "object/datatype/bytes.h"
 
 namespace argon::module::ssl {
     enum class SSLProtocol : int {
@@ -57,6 +59,12 @@ namespace argon::module::ssl {
     argon::object::ArObject *SSLErrorSet();
 
     argon::object::ArObject *SSLErrorSet(SSLSocket *socket, int ret);
+
+    argon::object::Bytes *CertToDer(X509 *cert);
+
+    argon::object::Map *DecodeCert(X509 *cert);
+
+    socket::Socket *SSLShutdown(SSLSocket *socket);
 
     SSLContext *SSLContextNew(SSLProtocol protocol);
 
