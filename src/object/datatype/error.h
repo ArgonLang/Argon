@@ -5,6 +5,8 @@
 #ifndef ARGON_OBJECT_ERROR_H_
 #define ARGON_OBJECT_ERROR_H_
 
+#include <utils/macros.h>
+
 #include <object/arobject.h>
 
 namespace argon::object {
@@ -17,6 +19,14 @@ namespace argon::object {
     ArObject *ErrorNewFromErrno();
 
     ArObject *ErrorSetFromErrno();
+
+#ifdef _ARGON_PLATFORM_WINDOWS
+
+    ArObject *ErrorNewFromWinError();
+
+    ArObject *ErrorSetFromWinError();
+
+#endif
 
     ArObject *ErrorTupleFromErrno();
 

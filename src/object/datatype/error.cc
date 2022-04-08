@@ -354,7 +354,7 @@ bool ErrorStaticInit(const char *instance_name, const char *message, Error *erro
     ArObject *tmp;
     bool ok;
 
-    if(message != nullptr) {
+    if (message != nullptr) {
         if ((tmp = StringNew(message)) == nullptr)
             return false;
 
