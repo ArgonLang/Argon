@@ -2,8 +2,6 @@
 //
 // Licensed under the Apache License v2.0
 
-#include "ssl.h"
-
 #include <openssl/x509v3.h>
 #include <openssl/err.h>
 
@@ -267,13 +265,8 @@ ARGON_METHOD5(sslcontext_, load_cert_chain, "", 3, false) {
 }
 
 ARGON_METHOD5(sslcontext_, load_certs_default, "", 1, false) {
-#ifdef _ARGON_PLATFORM_WINDOWS
-    // TODO: WINDOWS
-#else
-    if (!SSL_CTX_set_default_verify_paths(((SSLContext *) self)->ctx)) {
+    if (!SSL_CTX_set_default_verify_paths(((SSLContext *) self)->ctx))
         return SSLErrorSet();
-    }
-#endif
 
     return ARGON_OBJECT_NIL;
 }

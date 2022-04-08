@@ -7,6 +7,7 @@
 #include <openssl/err.h>
 
 #include <vm/runtime.h>
+
 #include <object/datatype/error.h>
 #include <object/datatype/integer.h>
 
@@ -644,8 +645,22 @@ argon::object::Map *argon::module::ssl::DecodeCert(X509 *cert) {
     return nullptr;
 }
 
+#ifdef _ARGON_PLATFORM_WINDOWS
+
+ARGON_FUNCTION5(ssl_, enumcerts_windows, "", 1, false) {
+    if (!CheckArgs("s:store_name", func, argv, count))
+        return nullptr;
+
+    return EnumWindowsCert((const char *) ((String *) argv[0])->buffer);
+}
+
+#endif
+
 const PropertyBulk ssl_bulk[] = {
         MODULE_EXPORT_TYPE_ALIAS("sslcontext", type_sslcontext_),
+#ifdef _ARGON_PLATFORM_WINDOWS
+        MODULE_EXPORT_FUNCTION(ssl_enumcerts_windows_),
+#endif
         MODULE_EXPORT_SENTINEL
 };
 

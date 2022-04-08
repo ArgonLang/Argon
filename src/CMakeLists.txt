@@ -6,6 +6,10 @@ add_library(argon SHARED)
 add_dependencies(argon memory)
 target_link_libraries(argon memory OpenSSL::SSL)
 
+if (MSVC)
+    target_link_libraries(argon crypt32.lib)
+endif ()
+
 add_executable(main main.cc)
 target_link_libraries(main argon)
 add_dependencies(main argon)

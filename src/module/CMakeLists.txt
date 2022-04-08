@@ -7,7 +7,8 @@ set(SOCKET_SRC
 set(SSL_SRC
         ssl/ssl.cc
         ssl/sslcontext.cc
-        ssl/sslsocket.cc)
+        ssl/sslsocket.cc
+        ssl/sslwin.cc)
 
 set(SYNC_SRC
         sync/cond.cc

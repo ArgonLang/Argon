@@ -7,6 +7,8 @@
 
 #include <openssl/ssl.h>
 
+#include <utils/macros.h>
+
 #include <object/datatype/string.h>
 #include <object/datatype/map.h>
 #include <object/arobject.h>
@@ -63,6 +65,12 @@ namespace argon::module::ssl {
     argon::object::Bytes *CertToDer(X509 *cert);
 
     argon::object::Map *DecodeCert(X509 *cert);
+
+#ifdef _ARGON_PLATFORM_WINDOWS
+
+    argon::object::Tuple *EnumWindowsCert(const char *store_name);
+
+#endif
 
     socket::Socket *SSLShutdown(SSLSocket *socket);
 
