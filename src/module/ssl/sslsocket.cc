@@ -10,17 +10,24 @@
 #include <object/datatype/bool.h>
 #include <object/datatype/bytes.h>
 #include <object/datatype/error.h>
-#include "object/datatype/function.h"
-#include "object/datatype/integer.h"
-#include "object/datatype/nil.h"
+#include <object/datatype/function.h>
+#include <object/datatype/integer.h>
+#include <object/datatype/nil.h>
+
+#include <module/socket/socket.h>
 
 #include "ssl.h"
 
 using namespace argon::object;
 using namespace argon::module::ssl;
 
-void CheckBlockingState(SSLSocket *socket) {
+bool CheckNonBlockState(SSLSocket *socket) {
+    bool nonblock = argon::module::socket::SocketIsNonBlock(socket->socket);
 
+    BIO_set_nbio(SSL_get_rbio(socket->ssl), nonblock);
+    BIO_set_nbio(SSL_get_wbio(socket->ssl), nonblock);
+
+    return nonblock;
 }
 
 ARGON_METHOD5(sslsocket_, do_handshake, "", 0, false) {
@@ -328,11 +335,10 @@ const TypeInfo SSLSocketType = {
 const TypeInfo *argon::module::ssl::type_sslsocket_ = &SSLSocketType;
 
 ArSSize argon::module::ssl::SSLSocketRead(SSLSocket *socket, unsigned char *buffer, ArSize size) {
+    bool nonblock = CheckNonBlockState(socket);
     ArSize count = 0;
     int retval;
     int err;
-
-    CheckBlockingState(socket);
 
     ERR_clear_error();
 
@@ -342,8 +348,10 @@ ArSSize argon::module::ssl::SSLSocketRead(SSLSocket *socket, unsigned char *buff
 
         // TODO: check signals
 
-        // TODO: if non blocking break
         if (err == SSL_ERROR_ZERO_RETURN && SSL_get_shutdown(socket->ssl) == SSL_RECEIVED_SHUTDOWN)
+            return 0;
+
+        if ((err == SSL_ERROR_WANT_READ || err == SSL_ERROR_WANT_WRITE) && nonblock)
             return 0;
 
     } while (err == SSL_ERROR_WANT_READ || err == SSL_ERROR_WANT_WRITE);
@@ -355,11 +363,10 @@ ArSSize argon::module::ssl::SSLSocketRead(SSLSocket *socket, unsigned char *buff
 }
 
 ArSSize argon::module::ssl::SSLSocketWrite(SSLSocket *socket, const unsigned char *buffer, ArSize size) {
+    bool nonblock = CheckNonBlockState(socket);
     ArSize count = 0;
     int retval;
     int err;
-
-    CheckBlockingState(socket);
 
     ERR_clear_error();
 
@@ -368,6 +375,9 @@ ArSSize argon::module::ssl::SSLSocketWrite(SSLSocket *socket, const unsigned cha
         err = SSL_get_error(socket->ssl, retval);
 
         // TODO: check signals
+
+        if ((err == SSL_ERROR_WANT_READ || err == SSL_ERROR_WANT_WRITE) && nonblock)
+            return 0;
 
     } while (err == SSL_ERROR_WANT_READ || err == SSL_ERROR_WANT_WRITE);
 
@@ -378,10 +388,9 @@ ArSSize argon::module::ssl::SSLSocketWrite(SSLSocket *socket, const unsigned cha
 }
 
 bool argon::module::ssl::SSLSocketDoHandshake(SSLSocket *socket) {
+    bool nonblock = CheckNonBlockState(socket);
     int ret;
     int err;
-
-    CheckBlockingState(socket);
 
     ERR_clear_error();
 
@@ -391,7 +400,9 @@ bool argon::module::ssl::SSLSocketDoHandshake(SSLSocket *socket) {
 
         // TODO: check signals
 
-        // TODO: if non blocking break
+        if ((err == SSL_ERROR_WANT_READ || err == SSL_ERROR_WANT_WRITE) && nonblock)
+            return false;
+
     } while (err == SSL_ERROR_WANT_READ || err == SSL_ERROR_WANT_WRITE);
 
     if (ret < 1) {
@@ -442,7 +453,7 @@ argon::module::socket::Socket *argon::module::ssl::SSLShutdown(SSLSocket *socket
     int attempt = 0;
     int ret = 0;
 
-    CheckBlockingState(socket);
+    CheckNonBlockState(socket);
 
     while (attempt < 2 && ret <= 0) {
         if (attempt > 0)
@@ -509,7 +520,7 @@ SSLSocket *argon::module::ssl::SSLSocketNew(SSLContext *context, socket::Socket 
         return nullptr;
     }
 
-    // TODO: Check for non-blocking mode
+    CheckNonBlockState(sock);
 
     server_side ? SSL_set_accept_state(sock->ssl) : SSL_set_connect_state(sock->ssl);
 

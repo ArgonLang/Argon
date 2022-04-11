@@ -21,6 +21,8 @@ namespace argon::module::socket {
     struct Socket : argon::object::ArObject {
         sock_handle sock;
         int family;
+
+        bool blocking;
     };
 
     argon::object::ArObject *ErrorNewFromSocket();
@@ -35,9 +37,11 @@ namespace argon::module::socket {
 
     int SocketGetFlags(Socket *socket, int type);
 
+    inline bool SocketIsNonBlock(Socket *socket) { return !socket->blocking; }
+
     bool SocketSetFlags(Socket *socket, int type, long flags);
 
-    bool SocketSetNonBlock(Socket *socket, bool blocking);
+    bool SocketSetNonBlock(Socket *socket, bool nonblock);
 
     bool SocketSetInheritable(Socket *socket, bool inheritable);
 
