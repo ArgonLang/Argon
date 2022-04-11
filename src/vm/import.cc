@@ -361,7 +361,9 @@ ARGON_FUNCTION5(import_, builtins_locator,
                                            argon::module::module_regex_,
                                            argon::module::module_runtime_,
                                            argon::module::module_socket_,
+#ifndef _ARGON_NO_SSL
                                            argon::module::module_ssl_,
+#endif
                                            argon::module::module_sync_};
 
     ImportSpec *spec = nullptr;

@@ -4,12 +4,6 @@ set(SOCKET_SRC
         socket/skmodule.cc
         socket/socket.cc)
 
-set(SSL_SRC
-        ssl/ssl.cc
-        ssl/sslcontext.cc
-        ssl/sslsocket.cc
-        ssl/sslwin.cc)
-
 set(SYNC_SRC
         sync/cond.cc
         sync/sync.cc
@@ -19,7 +13,6 @@ set(SYNC_SRC
         sync/locker.cc)
 
 set(SRC ${SOCKET_SRC}
-        ${SSL_SRC}
         ${SYNC_SRC}
         builtins.cc
         error.cc
@@ -34,3 +27,5 @@ set(SRC ${SOCKET_SRC}
 
 list(TRANSFORM SRC PREPEND ${CMAKE_CURRENT_LIST_DIR}/)
 target_sources(argon PRIVATE ${SRC})
+
+add_subdirectory(ssl)

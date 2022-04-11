@@ -1,18 +1,21 @@
 cmake_minimum_required(VERSION 3.7)
 
-find_package(OpenSSL REQUIRED)
+option(ARGON_NO_SSL "Build Argon without SSL support")
 
 add_library(argon SHARED)
 add_dependencies(argon memory)
-target_link_libraries(argon memory OpenSSL::SSL)
+target_link_libraries(argon memory)
 
-if (MSVC)
-    target_link_libraries(argon crypt32.lib)
+if (NOT ARGON_NO_SSL)
+    add_dependencies(argon ssl)
+    target_link_libraries(argon ssl)
+else ()
+    target_compile_definitions(argon PRIVATE _ARGON_NO_SSL)
 endif ()
 
 add_executable(main main.cc)
-target_link_libraries(main argon)
 add_dependencies(main argon)
+target_link_libraries(main argon)
 set_target_properties(main PROPERTIES OUTPUT_NAME "argon")
 
 file(COPY arlib/ DESTINATION ${LIBRARY_OUTPUT_PATH}/packages)
