@@ -54,6 +54,8 @@ namespace argon::module::ssl {
 
     extern const argon::object::TypeInfo *type_sslsocket_;
 
+    extern const argon::object::TypeInfo *type_ssl_error_;
+
     argon::object::ArObject *SSLErrorGet();
 
     argon::object::ArObject *SSLErrorGet(SSLSocket *socket, int ret);
@@ -62,7 +64,7 @@ namespace argon::module::ssl {
 
     argon::object::ArObject *SSLErrorSet(SSLSocket *socket, int ret);
 
-    argon::object::Bytes *CertToDer(X509 *cert);
+    argon::object::Bytes *CertToDer(const X509 *cert);
 
     argon::object::Map *DecodeCert(X509 *cert);
 

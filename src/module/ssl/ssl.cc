@@ -19,31 +19,33 @@ using namespace argon::object;
 using namespace argon::module;
 using namespace argon::module::ssl;
 
+ARGON_ERROR_TYPE_SIMPLE(SSLError, "", argon::module::ssl::type_ssl_error_);
+
 ArObject *argon::module::ssl::SSLErrorGet() {
     char buf[256] = {};
 
-    // TODO: error type
     if (ERR_error_string(ERR_get_error(), buf) == nullptr)
         return ErrorFormatNoPanic(type_os_error_, "unknown error");
 
-    return ErrorFormatNoPanic(type_os_error_, "%s", buf);
+    return ErrorNew(type_ssl_error_, buf);
 }
 
 ArObject *argon::module::ssl::SSLErrorGet(SSLSocket *socket, int ret) {
-
     return nullptr;
 }
 
 ArObject *argon::module::ssl::SSLErrorSet() {
     ArObject *err = SSLErrorGet();
 
-    argon::vm::Panic(err);
-    Release(err);
+    if (err != nullptr) {
+        argon::vm::Panic(err);
+        Release(err);
+    }
 
     return nullptr;
 }
 
-Bytes *argon::module::ssl::CertToDer(X509 *cert) {
+Bytes *argon::module::ssl::CertToDer(const X509 *cert) {
     unsigned char *buf;
     Bytes *ret;
     int len;
@@ -681,6 +683,9 @@ bool SSLInit(Module *self) {
         return false;
 
     if (!TypeInit((TypeInfo *) type_sslsocket_, nullptr))
+        return false;
+
+    if (!TypeInit((TypeInfo *) type_ssl_error_, nullptr))
         return false;
 
     SSL_load_error_strings();
