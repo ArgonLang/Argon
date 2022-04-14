@@ -617,7 +617,7 @@ void sslcontext_cleanup(SSLContext *self) {
 
 const TypeInfo SSLContextType = {
         TYPEINFO_STATIC_INIT,
-        "sslcontext",
+        "SSLContext",
         nullptr,
         sizeof(SSLContext),
         TypeInfoFlags::BASE,

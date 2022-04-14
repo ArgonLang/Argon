@@ -309,7 +309,7 @@ void sslsocket_cleanup(SSLSocket *self) {
 
 const TypeInfo SSLSocketType = {
         TYPEINFO_STATIC_INIT,
-        "sslsocket",
+        "SSLSocket",
         nullptr,
         sizeof(SSLSocket),
         TypeInfoFlags::BASE,

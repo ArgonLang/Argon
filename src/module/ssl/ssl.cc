@@ -658,14 +658,6 @@ ARGON_FUNCTION5(ssl_, enumcerts_windows, "", 1, false) {
 
 #endif
 
-const PropertyBulk ssl_bulk[] = {
-        MODULE_EXPORT_TYPE_ALIAS("sslcontext", type_sslcontext_),
-#ifdef _ARGON_PLATFORM_WINDOWS
-        MODULE_EXPORT_FUNCTION(ssl_enumcerts_windows_),
-#endif
-        MODULE_EXPORT_SENTINEL
-};
-
 bool SSLInit(Module *self) {
 #define AddIntConstant(alias, value)                    \
     if(!ModuleAddIntConstant(self, #alias, (int)value)) \
@@ -694,6 +686,15 @@ bool SSLInit(Module *self) {
 
 #undef AddIntConstant
 }
+
+const PropertyBulk ssl_bulk[] = {
+        MODULE_EXPORT_TYPE(type_sslcontext_),
+        MODULE_EXPORT_TYPE(type_ssl_error_),
+#ifdef _ARGON_PLATFORM_WINDOWS
+        MODULE_EXPORT_FUNCTION(ssl_enumcerts_windows_),
+#endif
+        MODULE_EXPORT_SENTINEL
+};
 
 const ModuleInit module_ssl = {
         "_ssl",
