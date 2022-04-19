@@ -58,4 +58,8 @@ ArObject *argon::object::ErrorSetFromWinError() {
     return nullptr;
 }
 
+ArSize argon::object::ErrorGetLast() {
+    return GetLastError();
+}
+
 #endif

@@ -60,7 +60,7 @@ ArObject *argon::module::ssl::SSLErrorGet(const SSLSocket *socket, int ret) {
                 else if (ret == -1) {
                     ERR_clear_error();
 #ifdef _ARGON_PLATFORM_WINDOWS
-                    if(GetLastError() != 0)
+                    if(ErrorGetLast() != 0)
                             return ErrorSetFromWinError();
 #endif
                     if (errno != 0)

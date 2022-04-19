@@ -73,6 +73,8 @@ Error *(ptr_name) = (Error*) &(name)
 
     ArObject *ErrorSetFromWinError();
 
+    ArSize ErrorGetLast();
+
 #endif
 
     ArObject *ErrorStr(Error *self);
