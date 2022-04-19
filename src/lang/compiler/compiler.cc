@@ -42,6 +42,11 @@ bool Compiler::Compile_(Node *node) {
         auto *variable = (Assignment *) node;
         PropertyType flags = PropertyType::CONST;
 
+        if(this->unit_->scope == TUScope::FUNCTION){
+            ErrorFormat(type_compile_error_, "let cannot appear inside a function(%s)", this->unit_->qname->buffer);
+            return false;
+        }
+
         if (variable->pub)
             flags |= PropertyType::PUBLIC;
 

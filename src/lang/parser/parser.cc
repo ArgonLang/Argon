@@ -1165,7 +1165,9 @@ Node *Parser::ParseList() {
     tmp->lineno = 0;
     ((Unary *) tmp)->value = list;
 
-    if (!this->MatchEat(TokenType::RIGHT_SQUARE, true)) {
+    this->EatTerm();
+
+    if (!this->MatchEat(TokenType::RIGHT_SQUARE, false)) {
         Release(tmp);
         return (Node *) ErrorFormat(type_syntax_error_, "expected ']' after list definition");
     }
@@ -1629,9 +1631,6 @@ Node *Parser::ParseDecls() {
         pub = true;
 
     switch (this->tkcur_.type) {
-        case TokenType::LET:
-            stmt = this->ParseVarDecl(true, pub);
-            break;
         case TokenType::TRAIT:
             stmt = this->TraitDecl(pub);
             break;
@@ -2360,6 +2359,8 @@ Node *Parser::SmallDecl(bool pub) {
         case TokenType::WEAK:
         case TokenType::VAR:
             return this->ParseVarDecl(false, pub);
+        case TokenType::LET:
+            return this->ParseVarDecl(true, pub);
         case TokenType::FUNC:
             return this->FuncDecl(pub);
         case TokenType::STRUCT:
