@@ -145,6 +145,89 @@ ARGON_METHOD5(sslcontext_, load_cacerts, "", 1, false) {
     return ret;
 }
 
+ARGON_METHOD5(sslcontext_, load_cadata, "", 2, false) {
+    ArBuffer buffer{};
+    X509_STORE *store;
+    BIO *biobuf;
+    int filetype;
+    unsigned int err;
+    int loaded = 0;
+
+    if (!CheckArgs("x:cadata, i:filetype", func, argv, count))
+        return nullptr;
+
+    filetype = (int) ((Integer *) argv[1])->integer;
+
+    if (!BufferGet(argv[0], &buffer, ArBufferFlags::READ))
+        return nullptr;
+
+    if (buffer.len == 0) {
+        BufferRelease(&buffer);
+        return ErrorFormat(type_value_error_, "empty certificate data");
+    }
+
+    if ((biobuf = BIO_new_mem_buf(buffer.buffer, buffer.len)) == nullptr) {
+        BufferRelease(&buffer);
+        return SSLErrorSet();
+    }
+
+    BufferRelease(&buffer);
+
+    store = SSL_CTX_get_cert_store(((SSLContext *) self)->ctx);
+    assert(store != nullptr);
+
+    do {
+        X509 *cert;
+
+        if (filetype == SSL_FILETYPE_ASN1)
+            cert = d2i_X509_bio(biobuf, nullptr);
+        else {
+            cert = PEM_read_bio_X509(biobuf, nullptr,
+                                     SSL_CTX_get_default_passwd_cb(((SSLContext *) self)->ctx),
+                                     SSL_CTX_get_default_passwd_cb_userdata(((SSLContext *) self)->ctx));
+        }
+
+        if (cert == nullptr)
+            break;
+
+        if (!X509_STORE_add_cert(store, cert)) {
+            err = ERR_peek_last_error();
+            if (ERR_GET_LIB(err) != ERR_LIB_X509 || ERR_GET_REASON(err) != X509_R_CERT_ALREADY_IN_HASH_TABLE) {
+                X509_free(cert);
+                break;
+            }
+
+            ERR_clear_error();
+        }
+
+        X509_free(cert);
+
+        loaded++;
+    } while (true);
+
+    if (loaded == 0) {
+        if (filetype == SSL_FILETYPE_PEM)
+            return ErrorFormat(type_ssl_error_, "no start line: cadata does not contain a certificate");
+        else
+            return ErrorFormat(type_ssl_error_, "not enough data: cadata does not contain a certificate");
+    }
+
+    err = ERR_peek_last_error();
+    if ((filetype == SSL_FILETYPE_ASN1 &&
+         ERR_GET_LIB(err) == ERR_LIB_ASN1 &&
+         ERR_GET_REASON(err) == ASN1_R_HEADER_TOO_LONG) ||
+        (filetype == SSL_FILETYPE_PEM &&
+         ERR_GET_LIB(err) == ERR_LIB_PEM &&
+         ERR_GET_REASON(err) == PEM_R_NO_START_LINE)) {
+        ERR_clear_error();
+    } else if (err != 0)
+        return SSLErrorSet();
+
+    BIO_free(biobuf);
+
+    return ARGON_OBJECT_NIL;
+}
+
 ARGON_METHOD5(sslcontext_, load_cafile, "", 1, false) {
     auto *ctx = (SSLContext *) self;
 
@@ -264,13 +347,6 @@ ARGON_METHOD5(sslcontext_, load_cert_chain, "", 3, false) {
     return nullptr;
 }
 
-ARGON_METHOD5(sslcontext_, load_certs_default, "", 1, false) {
-    if (!SSL_CTX_set_default_verify_paths(((SSLContext *) self)->ctx))
-        return SSLErrorSet();
-
-    return ARGON_OBJECT_NIL;
-}
-
 ARGON_METHOD5(sslcontext_, load_dh_params, "", 1, false) {
     auto *ctx = (SSLContext *) self;
     FILE *file;
@@ -305,7 +381,7 @@ ARGON_METHOD5(sslcontext_, load_dh_params, "", 1, false) {
     return ARGON_OBJECT_NIL;
 }
 
-ARGON_METHOD5(sslcontext_, load_paths_default, "", 1, false) {
+ARGON_METHOD5(sslcontext_, load_paths_default, "", 0, false) {
     if (!SSL_CTX_set_default_verify_paths(((SSLContext *) self)->ctx))
         return SSLErrorSet();
 
@@ -559,10 +635,10 @@ ARGON_METHOD5(sslcontext_, wrap, "", 3, false) {
 const NativeFunc sslcontext_methods[] = {
         sslcontext_new_,
         sslcontext_load_cacerts_,
+        sslcontext_load_cadata_,
         sslcontext_load_cafile_,
         sslcontext_load_capath_,
         sslcontext_load_cert_chain_,
-        sslcontext_load_certs_default_,
         sslcontext_load_dh_params_,
         sslcontext_load_paths_default_,
         sslcontext_make_stats_,
