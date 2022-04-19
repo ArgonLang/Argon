@@ -30,8 +30,68 @@ ArObject *argon::module::ssl::SSLErrorGet() {
     return ErrorNew(type_ssl_error_, buf);
 }
 
-ArObject *argon::module::ssl::SSLErrorGet(SSLSocket *socket, int ret) {
-    return nullptr;
+ArObject *argon::module::ssl::SSLErrorGet(const SSLSocket *socket, int ret) {
+    auto sslerr = SSL_get_error(socket->ssl, ret);
+    auto errcode = ERR_peek_last_error();
+    const char *errmsg;
+    ArObject *retobj;
+    Tuple *tp;
+
+    switch (sslerr) {
+        case SSL_ERROR_ZERO_RETURN:
+            errmsg = "TLS/SSL connection has been closed (EOF)";
+            break;
+        case SSL_ERROR_WANT_READ:
+            errmsg = "the read operation did not complete";
+            break;
+        case SSL_ERROR_WANT_WRITE:
+            errmsg = "the write operation did not complete";
+            break;
+        case SSL_ERROR_WANT_X509_LOOKUP:
+            errmsg = "the X509 lookup operation did not complete";
+            break;
+        case SSL_ERROR_WANT_CONNECT:
+            errmsg = "the connect operation did not complete";
+            break;
+        case SSL_ERROR_SYSCALL:
+            if (errcode == 0) {
+                if (ret == 0)
+                    errmsg = "EOF occurred in violation of protocol";
+                else if (ret == -1) {
+                    ERR_clear_error();
+#ifdef _ARGON_PLATFORM_WINDOWS
+                    if(GetLastError() != 0)
+                            return ErrorSetFromWinError();
+#endif
+                    if (errno != 0)
+                        return ErrorSetFromErrno();
+                    else
+                        errmsg = "EOF occurred in violation of protocol";
+                } else
+                    errmsg = "unknown I/O error occurred";
+            } else
+                errmsg = "SSL syscall error";
+            break;
+        case SSL_ERROR_SSL:
+            errmsg = "failure in the SSL library occurred";
+            if (ERR_GET_LIB(errcode) == ERR_LIB_SSL &&
+                ERR_GET_REASON(errcode) == SSL_R_CERTIFICATE_VERIFY_FAILED)
+                errmsg = "failure in the certificate verify";
+            break;
+        default:
+            errmsg = "invalid error";
+            break;
+    }
+
+    ERR_clear_error();
+
+    if ((tp = TupleNew("Is", sslerr, errmsg)) == nullptr)
+        return nullptr;
+
+    retobj = ErrorNew(type_ssl_error_, tp);
+    Release(tp);
+
+    return retobj;
 }
 
 ArObject *argon::module::ssl::SSLErrorSet() {
@@ -45,7 +105,18 @@ ArObject *argon::module::ssl::SSLErrorSet() {
     return nullptr;
 }
 
-Bytes *argon::module::ssl::CertToDer(const X509 *cert) {
+ArObject *argon::module::ssl::SSLErrorSet(const SSLSocket *socket, int ret) {
+    ArObject *err = SSLErrorGet(socket, ret);
+
+    if (err != nullptr) {
+        argon::vm::Panic(err);
+        Release(err);
+    }
+
+    return nullptr;
+}
+
+Bytes *argon::module::ssl::CertToDer(X509 *cert) {
     unsigned char *buf;
     Bytes *ret;
     int len;
@@ -670,6 +741,9 @@ bool SSLInit(Module *self) {
     AddIntConstant(VFY_CERT_NONE, SSLVerify::CERT_NONE);
     AddIntConstant(VFY_CERT_OPTIONAL, SSLVerify::CERT_OPTIONAL);
     AddIntConstant(VFY_CERT_REQUIRED, SSLVerify::CERT_REQUIRED);
+
+    AddIntConstant(FILETYPE_ASN1, SSL_FILETYPE_ASN1);
+    AddIntConstant(FILETYPE_PEM, SSL_FILETYPE_PEM);
 
     if (!TypeInit((TypeInfo *) type_sslcontext_, nullptr))
         return false;

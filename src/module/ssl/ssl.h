@@ -58,13 +58,13 @@ namespace argon::module::ssl {
 
     argon::object::ArObject *SSLErrorGet();
 
-    argon::object::ArObject *SSLErrorGet(SSLSocket *socket, int ret);
+    argon::object::ArObject *SSLErrorGet(const SSLSocket *socket, int ret);
 
     argon::object::ArObject *SSLErrorSet();
 
-    argon::object::ArObject *SSLErrorSet(SSLSocket *socket, int ret);
+    argon::object::ArObject *SSLErrorSet(const SSLSocket *socket, int ret);
 
-    argon::object::Bytes *CertToDer(const X509 *cert);
+    argon::object::Bytes *CertToDer(X509 *cert);
 
     argon::object::Map *DecodeCert(X509 *cert);
 

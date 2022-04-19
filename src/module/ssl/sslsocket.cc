@@ -356,8 +356,10 @@ ArSSize argon::module::ssl::SSLSocketRead(SSLSocket *socket, unsigned char *buff
 
     } while (err == SSL_ERROR_WANT_READ || err == SSL_ERROR_WANT_WRITE);
 
-    if (retval == 0)
-        SSLErrorSet();
+    if (retval <= 0) {
+        SSLErrorSet(socket, retval);
+        count = -1;
+    }
 
     return (ArSSize) count;
 }
@@ -381,8 +383,10 @@ ArSSize argon::module::ssl::SSLSocketWrite(SSLSocket *socket, const unsigned cha
 
     } while (err == SSL_ERROR_WANT_READ || err == SSL_ERROR_WANT_WRITE);
 
-    if (retval == 0)
-        SSLErrorSet();
+    if (retval <= 0) {
+        SSLErrorSet(socket, retval);
+        count = -1;
+    }
 
     return (ArSSize) count;
 }
@@ -406,7 +410,7 @@ bool argon::module::ssl::SSLSocketDoHandshake(SSLSocket *socket) {
     } while (err == SSL_ERROR_WANT_READ || err == SSL_ERROR_WANT_WRITE);
 
     if (ret < 1) {
-        SSLErrorSet();
+        SSLErrorSet(socket, ret);
         return false;
     }
 
