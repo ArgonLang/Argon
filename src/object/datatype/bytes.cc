@@ -652,7 +652,7 @@ ArObject *bytes_add(Bytes *self, ArObject *other) {
 
 ArObject *bytes_mul(ArObject *left, ArObject *right) {
     auto *bytes = (Bytes *) left;
-    auto *num = (Integer *) right;
+    const auto *num = (Integer *) right;
     Bytes *ret = nullptr;
 
     ArSize len;
@@ -704,6 +704,18 @@ ArObject *bytes_shr(ArObject *left, ArObject *right) {
 ArObject *bytes_iadd(Bytes *self, ArObject *other) {
     ArBuffer buffer = {};
     Bytes *ret = self;
+
+    if (self == other) {
+        RWLockWrite lock(self->view.shared->lock);
+
+        if (!BufferViewEnlarge(&self->view, BUFFER_LEN(self) * 2))
+            return nullptr;
+
+        MemoryCopy(BUFFER_GET(self) + BUFFER_LEN(self), BUFFER_GET(self), BUFFER_LEN(self));
+        self->view.len += BUFFER_LEN(self);
+
+        return IncRef(self);
+    }
 
     if (!IsBufferable(other))
         return nullptr;
