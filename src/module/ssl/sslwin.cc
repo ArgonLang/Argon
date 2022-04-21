@@ -85,10 +85,8 @@ static ArObject *KeyUsage(PCCERT_CONTEXT cert, DWORD flags) {
         return ErrorSetFromWinError();
     }
 
-    if ((usage = (CERT_ENHKEY_USAGE *) argon::memory::Alloc(size)) == nullptr) {
-        argon::vm::Panic(error_out_of_memory);
+    if ((usage = (CERT_ENHKEY_USAGE *) ArObjectNewRaw(size)) == nullptr)
         return nullptr;
-    }
 
     if (CertGetEnhancedKeyUsage(cert, flags, usage, &size) == 0) {
         argon::memory::Free(usage);
@@ -97,7 +95,7 @@ static ArObject *KeyUsage(PCCERT_CONTEXT cert, DWORD flags) {
         if (error == CRYPT_E_NOT_FOUND)
             return BoolToArBool(true);
 
-        return ErrorSetFromWinError();;
+        return ErrorSetFromWinError();
     }
 
     if ((ret = SetNew()) == nullptr) {
