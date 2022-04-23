@@ -22,6 +22,7 @@ namespace argon::lang::parser {
         scanner::Token tkcur_;
 
         bool no_init_;
+        bool no_static_;
 
         bool IsLiteral();
 
@@ -55,7 +56,7 @@ namespace argon::lang::parser {
 
         [[nodiscard]] Node *ParseOOBCall();
 
-        [[nodiscard]] Node *ParseBlock();
+        [[nodiscard]] Node *ParseBlock(bool nostatic);
 
         [[nodiscard]] Node *TypeDeclBlock(bool is_struct);
 
@@ -113,8 +114,6 @@ namespace argon::lang::parser {
 
         [[nodiscard]] Node *ParseYield();
 
-        [[nodiscard]] Node *ParseDecls();
-
         [[nodiscard]] Node *ParseStatement();
 
         [[nodiscard]] Node *SwitchCase();
@@ -135,7 +134,7 @@ namespace argon::lang::parser {
 
         [[nodiscard]] Node *ScopeAsName(bool id_only, bool with_alias);
 
-        [[nodiscard]] Node *SmallDecl(bool pub);
+        [[nodiscard]] Node *ParseDecls(bool nostatic);
 
         [[nodiscard]] NudMeth LookupNud();
 

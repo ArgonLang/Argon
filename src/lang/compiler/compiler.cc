@@ -42,11 +42,6 @@ bool Compiler::Compile_(Node *node) {
         auto *variable = (Assignment *) node;
         PropertyType flags = PropertyType::CONST;
 
-        if (this->unit_->scope == TUScope::FUNCTION) {
-            ErrorFormat(type_compile_error_, "let cannot appear inside a function(%s)", this->unit_->qname->buffer);
-            return false;
-        }
-
         if (variable->pub)
             flags |= PropertyType::PUBLIC;
 
@@ -1819,7 +1814,10 @@ bool Compiler::IdentifierLoad(String *name) {
     if ((sym = this->IdentifierLookupOrCreate(name, SymbolType::VARIABLE)) == nullptr)
         return false;
 
-    if ((this->unit_->scope != TUScope::STRUCT && this->unit_->scope != TUScope::TRAIT) && sym->nested > 0) {
+    if (this->unit_->scope != TUScope::STRUCT &&
+        this->unit_->scope != TUScope::TRAIT &&
+        sym->kind != SymbolType::CONSTANT &&
+        sym->nested > 0) {
         if (sym->declared) {
             if (!this->Emit(OpCodes::LDLC, (int) sym->id, nullptr))
                 goto ERROR;

@@ -399,7 +399,7 @@ Node *Parser::ParseOOBCall() {
     return call;
 }
 
-Node *Parser::ParseBlock() {
+Node *Parser::ParseBlock(bool nostatic) {
     Node *tmp;
     List *stmt;
     Pos start;
@@ -415,7 +415,7 @@ Node *Parser::ParseBlock() {
 
     end = this->tkcur_.end;
     while (!this->MatchEat(TokenType::RIGHT_BRACES, true)) {
-        if ((tmp = this->SmallDecl(false)) == nullptr) {
+        if ((tmp = this->ParseDecls(nostatic)) == nullptr) {
             Release(stmt);
             return nullptr;
         }
@@ -984,7 +984,7 @@ Node *Parser::ParseFor() {
         this->no_init_ = false;
     }
 
-    if ((body = this->ParseBlock()) == nullptr)
+    if ((body = this->ParseBlock(true)) == nullptr)
         goto ERROR;
 
     if ((loop = ArObjectNew<Loop>(RCType::INLINE, type)) == nullptr)
@@ -1057,7 +1057,7 @@ Node *Parser::FuncDecl(bool pub) {
         }
     }
 
-    if ((tmp = this->ParseBlock()) == nullptr)
+    if ((tmp = this->ParseBlock(true)) == nullptr)
         goto ERROR;
 
     if ((fn = FunctionNew(start, name, params, tmp, pub)) == nullptr)
@@ -1260,7 +1260,7 @@ Node *Parser::ParseLoop() {
     this->Eat();
 
     if (this->Match(TokenType::LEFT_BRACES)) {
-        if ((loop->body = this->ParseBlock()) == nullptr) {
+        if ((loop->body = this->ParseBlock(true)) == nullptr) {
             Release(loop);
             return nullptr;
         }
@@ -1272,7 +1272,7 @@ Node *Parser::ParseLoop() {
         }
         this->no_init_ = false;
 
-        if ((loop->body = this->ParseBlock()) == nullptr) {
+        if ((loop->body = this->ParseBlock(true)) == nullptr) {
             Release(loop);
             return nullptr;
         }
@@ -1300,7 +1300,7 @@ Node *Parser::ParseIf() {
         goto ERROR;
     this->no_init_ = false;
 
-    if ((test->body = this->ParseBlock()) == nullptr)
+    if ((test->body = this->ParseBlock(false)) == nullptr)
         goto ERROR;
 
     test->end = ((Node *) test->body)->end;
@@ -1311,7 +1311,7 @@ Node *Parser::ParseIf() {
 
         test->end = ((Node *) test->orelse)->end;
     } else if (this->MatchEat(TokenType::ELSE, false)) {
-        if ((test->orelse = this->ParseBlock()) == nullptr)
+        if ((test->orelse = this->ParseBlock(false)) == nullptr)
             goto ERROR;
 
         test->end = ((Node *) test->orelse)->end;
@@ -1622,28 +1622,6 @@ Node *Parser::ParseYield() {
     return tmp;
 }
 
-Node *Parser::ParseDecls() {
-    Pos start = this->tkcur_.start;
-    bool pub = false;
-    Node *stmt;
-
-    if (this->MatchEat(TokenType::PUB, false))
-        pub = true;
-
-    switch (this->tkcur_.type) {
-        case TokenType::TRAIT:
-            stmt = this->TraitDecl(pub);
-            break;
-        default:
-            stmt = this->SmallDecl(pub);
-    }
-
-    if (stmt != nullptr && pub)
-        stmt->start = start;
-
-    return stmt;
-}
-
 Node *Parser::ParseStatement() {
     Pos start = this->tkcur_.start;
     Node *label = nullptr;
@@ -1773,7 +1751,7 @@ Node *Parser::SwitchCase() {
         if (body == nullptr && (body = ListNew()) == nullptr)
             goto ERROR;
 
-        if ((tmp = this->SmallDecl(false)) == nullptr)
+        if ((tmp = this->ParseDecls(true)) == nullptr)
             goto ERROR;
 
         if (!ListAppend(body, tmp)) {
@@ -2203,7 +2181,7 @@ Node *Parser::ParseTupleLambda() {
             }
         }
 
-        if ((tmp = this->ParseBlock()) == nullptr) {
+        if ((tmp = this->ParseBlock(true)) == nullptr) {
             Release(args);
             return nullptr;
         }
@@ -2354,22 +2332,57 @@ Node *Parser::ScopeAsName(bool id_only, bool with_alias) {
     return nullptr;
 }
 
-Node *Parser::SmallDecl(bool pub) {
+Node *Parser::ParseDecls(bool nostatic) {
+    Node *stmt;
+    Pos start = this->tkcur_.start;
+    bool gbl_nostatic = this->no_static_;
+    bool pub = false;
+
+    if (this->MatchEat(TokenType::PUB, false))
+        pub = true;
+
+    if (nostatic || gbl_nostatic)
+        this->no_static_ = true;
+
     switch (this->tkcur_.type) {
         case TokenType::WEAK:
         case TokenType::VAR:
-            return this->ParseVarDecl(false, pub);
+            stmt = this->ParseVarDecl(false, pub);
+            break;
         case TokenType::LET:
-            return this->ParseVarDecl(true, pub);
+            if (this->no_static_)
+                return (Node *) ErrorFormat(type_syntax_error_, "unexpected use of 'let' in this context");
+
+            stmt = this->ParseVarDecl(true, pub);
+            break;
         case TokenType::FUNC:
-            return this->FuncDecl(pub);
+            stmt = this->FuncDecl(pub);
+            break;
         case TokenType::STRUCT:
-            return this->StructDecl(pub);
+            if (this->no_static_)
+                return (Node *) ErrorFormat(type_syntax_error_, "unexpected struct declaration");
+
+            stmt = this->StructDecl(pub);
+            break;
+        case TokenType::TRAIT:
+            if (this->no_static_)
+                return (Node *) ErrorFormat(type_syntax_error_, "unexpected trait declaration");
+
+            stmt = this->TraitDecl(pub);
+            break;
         default:
             if (pub)
                 return (Node *) ErrorFormat(type_syntax_error_, "expected declaration after 'pub' keyword");
-            return this->ParseStatement();
+
+            stmt = this->ParseStatement();
     }
+
+    if (stmt != nullptr && pub)
+        stmt->start = start;
+
+    this->no_static_ = gbl_nostatic;
+
+    return stmt;
 }
 
 NudMeth Parser::LookupNud() {
@@ -2420,6 +2433,7 @@ void Parser::EatTerm(TokenType stop) {
 Parser::Parser(Scanner *scanner, const char *filename) {
     this->scanner_ = scanner;
     this->filename_ = filename;
+    this->no_static_ = false;
 }
 
 File *Parser::Parse() {
@@ -2436,7 +2450,7 @@ File *Parser::Parse() {
     this->no_init_ = false;
 
     while (!this->MatchEat(TokenType::END_OF_FILE, true)) {
-        if ((tmp = this->ParseDecls()) == nullptr) {
+        if ((tmp = this->ParseDecls(false)) == nullptr) {
             Release(decls);
             return nullptr;
         }
