@@ -46,8 +46,6 @@ ArObject *Binary(ArRoutine *routine, ArObject *l, ArObject *r, int offset) {
 }
 
 ArObject *SubscriptGet(ArObject *obj, ArObject *idx) {
-    ArObject *ret;
-
     if (AsMap(obj)) {
         if (AR_MAP_SLOT(obj)->get_item == nullptr)
             goto ERROR;
@@ -62,7 +60,7 @@ ArObject *SubscriptGet(ArObject *obj, ArObject *idx) {
             if (AR_SEQUENCE_SLOT(obj)->get_item == nullptr)
                 goto ERROR;
 
-            index = AR_NUMBER_SLOT(obj)->as_index(idx);
+            index = AR_NUMBER_SLOT(idx)->as_index(idx);
             return AR_SEQUENCE_SLOT(obj)->get_item(obj, index);
         }
 
@@ -83,8 +81,6 @@ ArObject *SubscriptGet(ArObject *obj, ArObject *idx) {
 }
 
 bool SubscriptSet(ArObject *obj, ArObject *idx, ArObject *value) {
-    ArObject *ret;
-
     if (AsMap(obj)) {
         if (AR_MAP_SLOT(obj)->set_item == nullptr)
             goto ERROR;
@@ -99,7 +95,7 @@ bool SubscriptSet(ArObject *obj, ArObject *idx, ArObject *value) {
             if (AR_SEQUENCE_SLOT(obj)->set_item == nullptr)
                 goto ERROR;
 
-            index = AR_NUMBER_SLOT(obj)->as_index(idx);
+            index = AR_NUMBER_SLOT(idx)->as_index(idx);
             return AR_SEQUENCE_SLOT(obj)->set_item(obj, value, index);
         }
 
@@ -220,27 +216,104 @@ ArObject *argon::vm::Eval(ArRoutine *routine, Frame *frame) {
 }
 
 ArObject *argon::vm::Eval(ArRoutine *routine) {
-#ifndef COMPUTED_GOTO
+#ifndef ARGON_FF_COMPUTED_GOTO
 #define TARGET_OP(op)   \
     case argon::lang::OpCodes::op:
 
+#define CGOTO   continue
+#else
+#define TARGET_OP(op)                   \
+    case argon::lang::OpCodes::op:      \
+    LBL_##op:
+
+#define CGOTO                                                   \
+if(cu_frame->instr_ptr < (cu_code->instr + cu_code->instr_sz))  \
+    goto *LBL_OPCODES[*(cu_frame->instr_ptr)];                  \
+else                                                            \
+    goto END_FUNCTION
+
+    static const void *LBL_OPCODES[] = {
+            &&LBL_ADD,
+            &&LBL_CALL,
+            &&LBL_CMP,
+            &&LBL_DEC,
+            &&LBL_DFR,
+            &&LBL_DIV,
+            &&LBL_DUP,
+            &&LBL_EQST,
+            &&LBL_IDIV,
+            &&LBL_IMPALL,
+            &&LBL_IMPFRM,
+            &&LBL_IMPMOD,
+            &&LBL_INC,
+            &&LBL_INIT,
+            &&LBL_INV,
+            &&LBL_IPADD,
+            &&LBL_IPDIV,
+            &&LBL_IPMUL,
+            &&LBL_IPSUB,
+            &&LBL_JF,
+            &&LBL_JFOP,
+            &&LBL_JMP,
+            &&LBL_JNIL,
+            &&LBL_JT,
+            &&LBL_JTOP,
+            &&LBL_LAND,
+            &&LBL_LDATTR,
+            &&LBL_LDENC,
+            &&LBL_LDGBL,
+            &&LBL_LDITER,
+            &&LBL_LDLC,
+            &&LBL_LDMETH,
+            &&LBL_LDSCOPE,
+            &&LBL_LOR,
+            &&LBL_LSTATIC,
+            &&LBL_LXOR,
+            &&LBL_MK_BOUNDS,
+            &&LBL_MK_FUNC,
+            &&LBL_MK_LIST,
+            &&LBL_MK_MAP,
+            &&LBL_MK_SET,
+            &&LBL_MK_STRUCT,
+            &&LBL_MK_TRAIT,
+            &&LBL_MK_TUPLE,
+            &&LBL_MOD,
+            &&LBL_MUL,
+            &&LBL_NEG,
+            &&LBL_NJE,
+            &&LBL_NGV,
+            &&LBL_NOT,
+            &&LBL_POP,
+            &&LBL_POS,
+            &&LBL_PB_HEAD,
+            &&LBL_RET,
+            &&LBL_SHL,
+            &&LBL_SHR,
+            &&LBL_SPWN,
+            &&LBL_STATTR,
+            &&LBL_STENC,
+            &&LBL_STGBL,
+            &&LBL_STLC,
+            &&LBL_STSCOPE,
+            &&LBL_STSUBSCR,
+            &&LBL_SUB,
+            &&LBL_SUBSCR,
+            &&LBL_TEST,
+            &&LBL_UNPACK,
+            &&LBL_YLD};
+#endif
+
 #define DISPATCH()                                      \
     cu_frame->instr_ptr+=sizeof(argon::lang::Instr8);   \
-    continue
+    CGOTO
 
 #define DISPATCH2()                                     \
     cu_frame->instr_ptr+=sizeof(argon::lang::Instr16);  \
-    continue
+    CGOTO
 
 #define DISPATCH4()                                     \
     cu_frame->instr_ptr+=sizeof(argon::lang::Instr32);  \
-    continue
-
-#else
-#define TARGET_OP(op)   \
-    case OpCodes::op:   \
-    LBL_##op:
-#endif
+    CGOTO
 
 #define JUMPTO(offset)                                              \
     cu_frame->instr_ptr = (unsigned char *)cu_code->instr + offset; \
