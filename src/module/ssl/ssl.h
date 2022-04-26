@@ -9,12 +9,14 @@
 
 #include <utils/macros.h>
 
+#include <object/datatype/bytes.h>
 #include <object/datatype/string.h>
 #include <object/datatype/map.h>
 #include <object/arobject.h>
 
+#include <object/rwlock.h>
+
 #include <module/socket/socket.h>
-#include "object/datatype/bytes.h"
 
 namespace argon::module::ssl {
     enum class SSLProtocol : int {
@@ -30,6 +32,8 @@ namespace argon::module::ssl {
     };
 
     struct SSLContext : argon::object::ArObject {
+        argon::object::SimpleLock lock;
+
         argon::object::ArObject *sni_callback;
         SSL_CTX *ctx;
 
@@ -43,6 +47,8 @@ namespace argon::module::ssl {
     extern const argon::object::TypeInfo *type_sslcontext_;
 
     struct SSLSocket : argon::object::ArObject {
+        argon::object::SimpleLock lock;
+
         SSLContext *context;
         socket::Socket *socket;
         argon::object::String *hostname;

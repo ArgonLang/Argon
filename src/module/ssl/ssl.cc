@@ -60,8 +60,8 @@ ArObject *argon::module::ssl::SSLErrorGet(const SSLSocket *socket, int ret) {
                 else if (ret == -1) {
                     ERR_clear_error();
 #ifdef _ARGON_PLATFORM_WINDOWS
-                    if(ErrorGetLast() != 0)
-                            return ErrorSetFromWinError();
+                    if (ErrorGetLast() != 0)
+                        return ErrorSetFromWinError();
 #endif
                     if (errno != 0)
                         return ErrorSetFromErrno();
@@ -772,7 +772,8 @@ const PropertyBulk ssl_bulk[] = {
 
 const ModuleInit module_ssl = {
         "_ssl",
-        "",
+        "This module is a wrapper around OpenSSL library. If you are looking "
+        "for SSL features, you should import ssl, not _ssl!",
         ssl_bulk,
         SSLInit,
         nullptr

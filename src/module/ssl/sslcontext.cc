@@ -93,7 +93,7 @@ ARGON_FUNCTION5(sslcontext_, new, "", 1, false) {
 }
 
 ARGON_METHOD5(sslcontext_, load_cacerts, "", 1, false) {
-    const auto *ctx = (SSLContext *) self;
+    auto *ctx = (SSLContext *) self;
     STACK_OF(X509_OBJECT) *objs;
     X509_STORE *store;
     ArObject *tmp;
@@ -108,6 +108,8 @@ ARGON_METHOD5(sslcontext_, load_cacerts, "", 1, false) {
 
     if ((ret = ListNew()) == nullptr)
         return nullptr;
+
+    UniqueLock lock(ctx->lock);
 
     store = SSL_CTX_get_cert_store(ctx->ctx);
     objs = X509_STORE_get0_objects(store);
@@ -173,6 +175,8 @@ ARGON_METHOD5(sslcontext_, load_cadata, "", 2, false) {
 
     BufferRelease(&buffer);
 
+    UniqueLock lock(((SSLContext *) self)->lock);
+
     store = SSL_CTX_get_cert_store(((SSLContext *) self)->ctx);
     assert(store != nullptr);
 
@@ -234,6 +238,8 @@ ARGON_METHOD5(sslcontext_, load_cafile, "", 1, false) {
     if (!CheckArgs("s:cafile", func, argv, count))
         return nullptr;
 
+    UniqueLock lock(ctx->lock);
+
     if (SSL_CTX_load_verify_locations(ctx->ctx, (const char *) ((String *) argv[0])->buffer, nullptr) != 1) {
         if (!argon::vm::IsPanicking())
             errno != 0 ? ErrorSetFromErrno() : SSLErrorSet();
@@ -249,6 +255,8 @@ ARGON_METHOD5(sslcontext_, load_capath, "", 1, false) {
 
     if (!CheckArgs("s:capath", func, argv, count))
         return nullptr;
+
+    UniqueLock lock(ctx->lock);
 
     if (SSL_CTX_load_verify_locations(ctx->ctx, nullptr, (const char *) ((String *) argv[0])->buffer) != 1) {
         if (!argon::vm::IsPanicking())
@@ -293,7 +301,7 @@ static int PasswordCallback(char *buf, int size, int rwflag, void *userdata) {
 }
 
 ARGON_METHOD5(sslcontext_, load_cert_chain, "", 3, false) {
-    const auto *ctx = (SSLContext *) self;
+    auto *ctx = (SSLContext *) self;
     const auto *certfile = (String *) argv[0];
     const auto *keyfile = (String *) argv[1];
     auto *callback = argv[2];
@@ -302,6 +310,8 @@ ARGON_METHOD5(sslcontext_, load_cert_chain, "", 3, false) {
 
     if (!CheckArgs("s:certfile,s?:keyfile,s*?:password", func, argv, count, type_function_))
         return nullptr;
+
+    UniqueLock lock(ctx->lock);
 
     orig_pwd_cb = SSL_CTX_get_default_passwd_cb(ctx->ctx);
     orig_pwd_userdata = SSL_CTX_get_default_passwd_cb_userdata(ctx->ctx);
@@ -347,41 +357,9 @@ ARGON_METHOD5(sslcontext_, load_cert_chain, "", 3, false) {
     return nullptr;
 }
 
-ARGON_METHOD5(sslcontext_, load_dh_params, "", 1, false) {
-    auto *ctx = (SSLContext *) self;
-    FILE *file;
-    DH *dh;
-
-    if (!CheckArgs("s:filepath", func, argv, count))
-        return nullptr;
-
-    errno = 0;
-    if ((file = fopen((const char *) ((String *) argv[0])->buffer, "rb")) == nullptr)
-        return ErrorSetFromErrno();
-
-    dh = PEM_read_DHparams(file, nullptr, nullptr, nullptr);
-    fclose(file);
-
-    if (dh == nullptr) {
-        if (errno != 0) {
-            ERR_clear_error();
-            return ErrorSetFromErrno();
-        }
-
-        return SSLErrorSet();
-    }
-
-    if (!SSL_CTX_set_tmp_dh(ctx->ctx, dh)) {
-        DH_free(dh);
-        return SSLErrorSet();
-    }
-
-    DH_free(dh);
-
-    return ARGON_OBJECT_NIL;
-}
-
 ARGON_METHOD5(sslcontext_, load_paths_default, "", 0, false) {
+    UniqueLock lock(((SSLContext *) self)->lock);
+
     if (!SSL_CTX_set_default_verify_paths(((SSLContext *) self)->ctx))
         return SSLErrorSet();
 
@@ -403,6 +381,8 @@ ARGON_METHOD5(sslcontext_, make_stats, "", 0, false) {
 
     if ((map = MapNew()) == nullptr)
         return nullptr;
+
+    UniqueLock lock(ctx->lock);
 
     ADD_STAT(number, "number");
     ADD_STAT(connect, "connect");
@@ -435,6 +415,8 @@ ARGON_METHOD5(sslcontext_, set_check_hostname, "", 1, false) {
 
     check = ArBoolToBool((Bool *) argv[0]);
 
+    UniqueLock lock(ctx->lock);
+
     if (check && SSL_CTX_get_verify_mode(ctx->ctx) == SSL_VERIFY_NONE)
         SetVerifyMode(ctx, SSLVerify::CERT_REQUIRED);
 
@@ -448,6 +430,8 @@ ARGON_METHOD5(sslcontext_, set_ciphers, "", 1, false) {
 
     if (!CheckArgs("s:cipher", func, argv, count))
         return nullptr;
+
+    UniqueLock lock(ctx->lock);
 
     if (SSL_CTX_set_cipher_list(ctx->ctx, (const char *) ((String *) argv[0])->buffer) == 0) {
         SSLErrorSet();
@@ -464,6 +448,8 @@ ARGON_METHOD5(sslcontext_, set_max_version, "", 1, false) {
     if (!CheckArgs("i:version", func, argv, count))
         return nullptr;
 
+    UniqueLock lock(ctx->lock);
+
     if (!MinMaxProtoVersion(ctx, (unsigned int) ((Integer *) argv[0])->integer, true))
         return nullptr;
 
@@ -475,6 +461,8 @@ ARGON_METHOD5(sslcontext_, set_min_version, "", 1, false) {
 
     if (!CheckArgs("i:version", func, argv, count))
         return nullptr;
+
+    UniqueLock lock(ctx->lock);
 
     if (!MinMaxProtoVersion(ctx, (unsigned int) ((Integer *) argv[0])->integer, false))
         return nullptr;
@@ -490,6 +478,8 @@ ARGON_METHOD5(sslcontext_, set_num_tickets, "", 1, false) {
         return nullptr;
 
     ticket = ((Integer *) argv[0])->integer;
+
+    UniqueLock lock(ctx->lock);
 
     if (ctx->protocol != SSLProtocol::TLS_SERVER)
         return ErrorFormat(type_value_error_, "not a server context");
@@ -560,6 +550,8 @@ ARGON_METHOD5(sslcontext_, set_sni, "", 1, false) {
     if (!CheckArgs("?*:callback", func, argv, count, type_function_))
         return nullptr;
 
+    UniqueLock lock(ctx->lock);
+
     if (ctx->protocol == SSLProtocol::TLS_CLIENT)
         return ErrorFormat(type_value_error_, "sni callback cannot be set on TLS_CLIENT");
 
@@ -586,6 +578,8 @@ ARGON_METHOD5(sslcontext_, set_verify, "", 1, false) {
 
     flag = (SSLVerify) ((Integer *) argv[0])->integer;
 
+    UniqueLock lock(ctx->lock);
+
     if (flag == SSLVerify::CERT_NONE && ctx->check_hname)
         return ErrorFormat(type_value_error_, "cannot set verify mode to CERT_NONE when check hostname is enabled");
 
@@ -608,6 +602,8 @@ ARGON_METHOD5(sslcontext_, set_verify_flags, "", 1, false) {
 
     new_flags = ((Integer *) argv[0])->integer;
 
+    UniqueLock lock(ctx->lock);
+
     param = SSL_CTX_get0_param(ctx->ctx);
     flags = X509_VERIFY_PARAM_get_flags(param);
     clear = flags & ~new_flags;
@@ -628,6 +624,8 @@ ARGON_METHOD5(sslcontext_, wrap, "", 3, false) {
     if (!CheckArgs("*:sock,b:server_side,s?:hostname", func, argv, count, argon::module::socket::type_socket_))
         return nullptr;
 
+    UniqueLock lock(ctx->lock);
+
     return SSLSocketNew(ctx, (argon::module::socket::Socket *) argv[0], (String *) argv[2],
                         ArBoolToBool((Bool *) argv[1]));
 }
@@ -639,7 +637,6 @@ const NativeFunc sslcontext_methods[] = {
         sslcontext_load_cafile_,
         sslcontext_load_capath_,
         sslcontext_load_cert_chain_,
-        sslcontext_load_dh_params_,
         sslcontext_load_paths_default_,
         sslcontext_make_stats_,
         sslcontext_set_check_hostname_,
@@ -654,11 +651,14 @@ const NativeFunc sslcontext_methods[] = {
         ARGON_METHOD_SENTINEL
 };
 
-ArObject *security_level_get(const SSLContext *context) {
+ArObject *security_level_get(SSLContext *context) {
+    UniqueLock lock(context->lock);
     return IntegerNew(SSL_CTX_get_security_level(context->ctx));
 }
 
-ArObject *session_ticket_get(const SSLContext *context) {
+ArObject *session_ticket_get(SSLContext *context) {
+    UniqueLock lock(context->lock);
+
     // TODO: need ulong
     return IntegerNew(SSL_CTX_get_num_tickets(context->ctx));
 }
@@ -780,6 +780,9 @@ SSLContext *argon::module::ssl::SSLContextNew(SSLProtocol protocol) {
 
     ctx->post_handshake = false;
     SSL_CTX_set_post_handshake_auth(ctx->ctx, ctx->post_handshake);
+
+    // Init lock
+    ctx->lock = false;
 
     return ctx;
 }

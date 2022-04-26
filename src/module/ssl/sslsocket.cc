@@ -38,7 +38,7 @@ ARGON_METHOD5(sslsocket_, do_handshake, "", 0, false) {
 }
 
 ARGON_METHOD5(sslsocket_, peercert, "", 1, false) {
-    const auto *sock = (SSLSocket *) self;
+    auto *sock = (SSLSocket *) self;
     ArObject *ret;
     X509 *pc;
 
@@ -49,8 +49,10 @@ ARGON_METHOD5(sslsocket_, peercert, "", 1, false) {
 
     binary = ArBoolToBool((Bool *) argv[0]);
 
+    UniqueLock lock(sock->lock);
+
     if (!SSL_is_init_finished(sock->ssl))
-        return ErrorFormat(type_value_error_, "handshake not done yet");
+        return ARGON_OBJECT_TUPLE_ERROR(ErrorFormatNoPanic(type_value_error_, "handshake not done yet"));
 
     pc = SSL_get_peer_certificate(sock->ssl);
 
@@ -61,12 +63,14 @@ ARGON_METHOD5(sslsocket_, peercert, "", 1, false) {
 
     X509_free(pc);
 
-    return ret;
+    return ARGON_OBJECT_TUPLE_SUCCESS(ret);
 }
 
 ARGON_METHOD5(sslsocket_, pending, "", 0, false) {
-    const auto *sock = (SSLSocket *) self;
+    auto *sock = (SSLSocket *) self;
     int length;
+
+    UniqueLock lock(sock->lock);
 
     length = SSL_pending(sock->ssl);
     //SSL_get_error(sock->ssl, length);
@@ -127,6 +131,8 @@ ARGON_METHOD5(sslsocket_, read_into, "", 1, false) {
 }
 
 ARGON_METHOD5(sslsocket_, verify_client, "", 0, false) {
+    UniqueLock lock(((SSLSocket*)self)->lock);
+
     if (SSL_verify_client_post_handshake(((SSLSocket *) self)->ssl) == 0)
         return SSLErrorGet();
 
@@ -134,7 +140,12 @@ ARGON_METHOD5(sslsocket_, verify_client, "", 0, false) {
 }
 
 ARGON_METHOD5(sslsocket_, unwrap, "", 0, false) {
-    return SSLShutdown((SSLSocket *) self);
+    ArObject *socket;
+
+    if((socket = SSLShutdown((SSLSocket *) self)) == nullptr)
+        return ARGON_OBJECT_TUPLE_ERROR(argon::vm::GetLastNonFatalError());
+
+    return ARGON_OBJECT_TUPLE_SUCCESS(socket);
 }
 
 ARGON_METHOD5(sslsocket_, write, "", 2, false) {
@@ -183,9 +194,11 @@ const NativeFunc sslsocket_methods[] = {
         ARGON_METHOD_SENTINEL
 };
 
-ArObject *alpn_selected_get(const SSLSocket *self) {
+ArObject *alpn_selected_get(SSLSocket *self) {
     const unsigned char *out;
     unsigned int outlen;
+
+    UniqueLock lock(self->lock);
 
     SSL_get0_alpn_selected(self->ssl, &out, &outlen);
 
@@ -207,7 +220,8 @@ Tuple *CipherToTuple(const SSL_CIPHER *cipher) {
     return TupleNew("ssi", name, proto, bits);
 }
 
-ArObject *cipher_get(const SSLSocket *self) {
+ArObject *cipher_get(SSLSocket *self) {
+    UniqueLock lock(self->lock);
     const SSL_CIPHER *current;
 
     if ((current = SSL_get_current_cipher(self->ssl)) == nullptr)
@@ -216,7 +230,9 @@ ArObject *cipher_get(const SSLSocket *self) {
     return CipherToTuple(current);
 }
 
-ArObject *compression_get(const SSLSocket *self) {
+ArObject *compression_get(SSLSocket *self) {
+    UniqueLock lock(self->lock);
+
     const COMP_METHOD *comp_method;
     const char *name;
 
@@ -231,11 +247,13 @@ ArObject *compression_get(const SSLSocket *self) {
     return StringNew(name);
 }
 
-ArObject *session_reused_get(const SSLSocket *self) {
+ArObject *session_reused_get(SSLSocket *self) {
+    UniqueLock lock(self->lock);
     return BoolToArBool(SSL_session_reused(self->ssl));
 }
 
-ArObject *shared_cipher_get(const SSLSocket *self) {
+ArObject *shared_cipher_get(SSLSocket *self) {
+    UniqueLock lock(self->lock);
     STACK_OF(SSL_CIPHER) *ciphers;
     Tuple *ret;
     int length;
@@ -263,7 +281,8 @@ ArObject *shared_cipher_get(const SSLSocket *self) {
     return ret;
 }
 
-ArObject *version_get(const SSLSocket *self) {
+ArObject *version_get(SSLSocket *self) {
+    UniqueLock lock(self->lock);
     const char *version;
 
     if (!SSL_is_init_finished(self->ssl))
@@ -335,6 +354,7 @@ const TypeInfo SSLSocketType = {
 const TypeInfo *argon::module::ssl::type_sslsocket_ = &SSLSocketType;
 
 ArSSize argon::module::ssl::SSLSocketRead(SSLSocket *socket, unsigned char *buffer, ArSize size) {
+    UniqueLock lock(socket->lock);
     bool nonblock = CheckNonBlockState(socket);
     ArSize count = 0;
     int retval;
@@ -365,6 +385,7 @@ ArSSize argon::module::ssl::SSLSocketRead(SSLSocket *socket, unsigned char *buff
 }
 
 ArSSize argon::module::ssl::SSLSocketWrite(SSLSocket *socket, const unsigned char *buffer, ArSize size) {
+    UniqueLock lock(socket->lock);
     bool nonblock = CheckNonBlockState(socket);
     ArSize count = 0;
     int retval;
@@ -392,6 +413,7 @@ ArSSize argon::module::ssl::SSLSocketWrite(SSLSocket *socket, const unsigned cha
 }
 
 bool argon::module::ssl::SSLSocketDoHandshake(SSLSocket *socket) {
+    UniqueLock lock(socket->lock);
     bool nonblock = CheckNonBlockState(socket);
     int ret;
     int err;
@@ -454,6 +476,7 @@ bool ConfigureHostname(SSLSocket *socket, const char *name, ArSize len) {
 }
 
 argon::module::socket::Socket *argon::module::ssl::SSLShutdown(SSLSocket *socket) {
+    UniqueLock lock(socket->lock);
     int attempt = 0;
     int ret = 0;
 
@@ -488,6 +511,8 @@ SSLSocket *argon::module::ssl::SSLSocketNew(SSLContext *context, socket::Socket 
 
     if ((sock = ArObjectNew<SSLSocket>(RCType::INLINE, type_sslsocket_)) == nullptr)
         return nullptr;
+
+    sock->lock = false;
 
     sock->context = IncRef(context);
     sock->socket = IncRef(socket);

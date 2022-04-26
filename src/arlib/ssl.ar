@@ -16,23 +16,21 @@ struct X509v3Purpose {
 }
 
 if runtime::os == "windows" {
-    let _WINDOWS_CERT_STORES = ["CA", "ROOT"]
+    pub let WINDOWS_CERT_STORES = ["CA", "ROOT"]
 
-    () => {
-        var certs = bytes::new()
-        var cert, encoding, trust
-        var store
+    var certs = bytes::new()
+    var cert, encoding, trust
+    var store
 
-        for store in _WINDOWS_CERT_STORES {
-            for cert, encoding, trust in enumcerts_windows(store) {
-                if encoding == "x509_asn" && trust || trust.contains(X509v3Purpose::SERVER_AUTH) {
-                    certs += cert
-                }
+    for store in WINDOWS_CERT_STORES {
+        for cert, encoding, trust in enumcerts_windows(store) {
+            if encoding == "x509_asn" && trust || trust.contains(X509v3Purpose::SERVER_AUTH) {
+                certs += cert
             }
         }
+    }
 
-        certs ? DEFAULT_CONTEXT.load_cadata(certs, FILETYPE_ASN1)
-    }()
+    certs ? DEFAULT_CONTEXT.load_cadata(certs, FILETYPE_ASN1)
 }
 
 DEFAULT_CONTEXT.load_paths_default()
