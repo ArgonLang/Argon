@@ -45,45 +45,78 @@ ArObject *Binary(ArRoutine *routine, ArObject *l, ArObject *r, int offset) {
 #undef GET_BINARY_OP
 }
 
-ArObject *Subscript(ArObject *obj, ArObject *idx, ArObject *set) {
-    ArObject *ret = nullptr;
+ArObject *SubscriptGet(ArObject *obj, ArObject *idx) {
+    ArObject *ret;
 
     if (AsMap(obj)) {
-        if (set == nullptr) {
-            if ((ret = obj->type->map_actions->get_item(obj, idx)) == nullptr)
-                return nullptr;
-        } else {
-            if (!obj->type->map_actions->set_item(obj, idx, set))
-                return False;
-        }
-    } else if (AsSequence(obj)) {
+        if (AR_MAP_SLOT(obj)->get_item == nullptr)
+            goto ERROR;
+
+        return AR_MAP_SLOT(obj)->get_item(obj, idx);
+    }
+
+    if (AsSequence(obj)) {
         if (AsIndex(idx)) {
-            if (set == nullptr) {
-                ret = obj->type->sequence_actions->get_item(obj, idx->type->number_actions->as_index(idx));
-                if (ret == nullptr)
-                    return nullptr;
-            } else {
-                if (!obj->type->sequence_actions->set_item(obj, set, idx->type->number_actions->as_index(idx)))
-                    return False;
-            }
-        } else if (idx->type == type_bounds_) {
-            if (set == nullptr) {
-                ret = obj->type->sequence_actions->get_slice(obj, idx);
-            } else {
-                if (!obj->type->sequence_actions->set_slice(obj, idx, set))
-                    return False;
-            }
-        } else {
-            ErrorFormat(type_type_error_, "sequence index must be integer or bounds not '%s'",
-                        idx->type->name);
-            return nullptr;
+            ArSSize index;
+
+            if (AR_SEQUENCE_SLOT(obj)->get_item == nullptr)
+                goto ERROR;
+
+            index = AR_NUMBER_SLOT(obj)->as_index(idx);
+            return AR_SEQUENCE_SLOT(obj)->get_item(obj, index);
         }
-    } else {
-        ErrorFormat(type_type_error_, "'%s' not subscriptable", obj->type->name);
+
+        if (AR_TYPEOF(idx, type_bounds_)) {
+            if (AR_SEQUENCE_SLOT(obj)->get_slice == nullptr)
+                goto ERROR;
+
+            return AR_SEQUENCE_SLOT(obj)->get_slice(obj, idx);
+        }
+
+        ErrorFormat(type_type_error_, "sequence index must be integer or bounds not '%s'", AR_TYPE_NAME(obj));
         return nullptr;
     }
 
-    return ret;
+    ERROR:
+    ErrorFormat(type_type_error_, "'%s' not subscriptable", AR_TYPE_NAME(obj));
+    return nullptr;
+}
+
+bool SubscriptSet(ArObject *obj, ArObject *idx, ArObject *value) {
+    ArObject *ret;
+
+    if (AsMap(obj)) {
+        if (AR_MAP_SLOT(obj)->set_item == nullptr)
+            goto ERROR;
+
+        return AR_MAP_SLOT(obj)->set_item(obj, idx, value);
+    }
+
+    if (AsSequence(obj)) {
+        if (AsIndex(idx)) {
+            ArSSize index;
+
+            if (AR_SEQUENCE_SLOT(obj)->set_item == nullptr)
+                goto ERROR;
+
+            index = AR_NUMBER_SLOT(obj)->as_index(idx);
+            return AR_SEQUENCE_SLOT(obj)->set_item(obj, value, index);
+        }
+
+        if (AR_TYPEOF(idx, type_bounds_)) {
+            if (AR_SEQUENCE_SLOT(obj)->set_slice == nullptr)
+                goto ERROR;
+
+            return AR_SEQUENCE_SLOT(obj)->set_slice(obj, idx, value);
+        }
+
+        ErrorFormat(type_type_error_, "sequence index must be integer or bounds not '%s'", AR_TYPE_NAME(obj));
+        return false;
+    }
+
+    ERROR:
+    ErrorFormat(type_type_error_, "'%s' does not support item assignment", AR_TYPE_NAME(obj));
+    return false;
 }
 
 Namespace *BuildNamespace(ArRoutine *routine, Code *code) {
@@ -885,7 +918,7 @@ ArObject *argon::vm::Eval(ArRoutine *routine) {
                 DISPATCH4();
             }
             TARGET_OP(STSUBSCR) {
-                if ((ret = Subscript(PEEK1(), TOP(), PEEK2())) == False)
+                if (!SubscriptSet(PEEK1(), TOP(), PEEK2()))
                     goto ERROR;
                 STACK_REWIND(3);
                 DISPATCH();
@@ -894,7 +927,7 @@ ArObject *argon::vm::Eval(ArRoutine *routine) {
                 BINARY_OP(routine, sub, -);
             }
             TARGET_OP(SUBSCR) {
-                if ((ret = Subscript(PEEK1(), TOP(), nullptr)) == nullptr)
+                if ((ret = SubscriptGet(PEEK1(), TOP())) == nullptr)
                     goto ERROR;
                 POP();
                 TOP_REPLACE(ret);
