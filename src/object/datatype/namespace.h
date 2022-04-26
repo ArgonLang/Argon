@@ -8,8 +8,9 @@
 #include <object/arobject.h>
 #include <utils/enum_bitmask.h>
 
-#include "nil.h"
+#include "tuple.h"
 #include "hmap.h"
+#include "nil.h"
 
 namespace argon::object {
     enum class PropertyType : unsigned char {
@@ -104,6 +105,8 @@ namespace argon::object {
     Namespace *NamespaceNew(Namespace *ns, PropertyType ignore);
 
     ArObject *NamespaceGetValue(Namespace *ns, ArObject *key, PropertyInfo *info);
+
+    Tuple *NamespaceKeysToTuple(Namespace *ns);
 
     bool NamespaceMerge(Namespace *dst, Namespace *src);
 

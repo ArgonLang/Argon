@@ -51,6 +51,8 @@ namespace argon::vm {
 
     bool Shutdown();
 
+    [[nodiscard]]object::Frame *GetFrame();
+
     void Sleep(unsigned int sec);
 
     void USleep(unsigned int usec);

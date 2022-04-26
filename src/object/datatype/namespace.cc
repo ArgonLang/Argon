@@ -229,6 +229,21 @@ ArObject *argon::object::NamespaceGetValue(Namespace *ns, ArObject *key, Propert
     return nullptr;
 }
 
+Tuple *argon::object::NamespaceKeysToTuple(Namespace *ns) {
+    RWLockRead lock(ns->hmap.lock);
+    Tuple *keys;
+
+    int idx = 0;
+
+    if ((keys = TupleNew(ns->hmap.len)) == nullptr)
+        return nullptr;
+
+    for (HEntry *cursor = ns->hmap.iter_begin; cursor != nullptr; cursor = cursor->iter_next)
+        TupleInsertAt(keys, idx++, cursor->key);
+
+    return keys;
+}
+
 bool argon::object::NamespaceMerge(Namespace *dst, Namespace *src) {
     if (dst == src)
         return true;
