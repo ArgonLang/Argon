@@ -16,9 +16,9 @@ using namespace argon::object;
 using namespace argon::module;
 
 const NativeMember match_members[] = {
-        {"match", NativeMemberType::AROBJECT, offsetof(Match, match), true},
-        {"start", NativeMemberType::INT, offsetof(Match, start), true},
-        {"end", NativeMemberType::INT, offsetof(Match, end), true},
+        ARGON_MEMBER("match", offsetof(Match, match), NativeMemberType::AROBJECT, true),
+        ARGON_MEMBER("start", offsetof(Match, start), NativeMemberType::INT, true),
+        ARGON_MEMBER("end", offsetof(Match, end), NativeMemberType::INT, true),
         ARGON_MEMBER_SENTINEL
 };
 

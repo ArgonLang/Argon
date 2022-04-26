@@ -210,6 +210,8 @@ ARGON_METHOD5(socket_, accept, "Accept a connection."
         return ARGON_OBJECT_TUPLE_ERROR(argon::vm::GetLastNonFatalError());
     }
 
+    ret->blocking = socket->blocking;
+
     return ARGON_OBJECT_TUPLE_SUCCESS(ret);
 }
 
@@ -321,6 +323,8 @@ ARGON_METHOD5(socket_, dup, "Duplicate the socket."
     }
 #endif
 
+    ret->blocking = socket->blocking;
+
     return TupleReturn(ret, err);
 }
 
@@ -389,17 +393,6 @@ ARGON_METHOD5(socket_, sockname, "Return the socket’s own address."
 
     return SockAddrToArAddr(&storage, socket->family);
 }
-
-#ifndef _ARGON_PLATFORM_WINDOWS
-
-ARGON_METHOD5(socket_, blocking, "Get blocking flag of the socket."
-                                 ""
-                                 "- Returns: true if the socket is in blocking mode, false otherwise.", 0, false) {
-    int flags = SocketGetFlags((Socket *) self, F_GETFD);
-    return BoolToArBool((flags & O_NONBLOCK) != O_NONBLOCK);
-}
-
-#endif
 
 ARGON_METHOD5(socket_, setblocking, "Set blocking flag of the socket."
                                     ""
@@ -1082,12 +1075,9 @@ ARGON_METHOD5(socket_, sendmsg, "Send data to the socket."
 
 #endif
 
-NativeFunc socket_method[] = {
+const NativeFunc socket_method[] = {
         socket_accept_,
         socket_bind_,
-#ifndef _ARGON_PLATFORM_WINDOWS
-        socket_blocking_,
-#endif
         socket_close_,
         socket_connect_,
         socket_detach_,
@@ -1112,9 +1102,23 @@ NativeFunc socket_method[] = {
         ARGON_METHOD_SENTINEL
 };
 
+ArObject *blocking_get(const Socket *self) {
+#ifdef _ARGON_PLATFORM_WINDOWS
+    return BoolToArBool(SocketIsNonBlock((Socket *) self));
+#else
+    int flags = SocketGetFlags((Socket *) self, F_GETFD);
+    return BoolToArBool((flags & O_NONBLOCK) != O_NONBLOCK);
+#endif
+}
+
+const NativeMember socket_members[] = {
+        ARGON_MEMBER_GETSET("blocking", (NativeMemberGet) blocking_get, nullptr, NativeMemberType::BOOL, true),
+        ARGON_MEMBER_SENTINEL
+};
+
 const ObjectSlots socket_obj = {
         socket_method,
-        nullptr,
+        socket_members,
         nullptr,
         nullptr,
         nullptr,
@@ -1212,14 +1216,14 @@ bool argon::module::socket::ArAddrToSockAddr(ArObject *araddr, sockaddr_storage 
             break;
         }
 #if defined(_ARGON_PLATFORM_LINUX)
-        case AF_UNIX: {
-            auto *addr = (sockaddr_un *) addrstore;
-            auto *str = (String *) araddr;
+            case AF_UNIX: {
+                auto *addr = (sockaddr_un *) addrstore;
+                auto *str = (String *) araddr;
 
-            argon::memory::MemoryCopy(addr->sun_path, str->buffer,
-                                      str->len + 1 >= 104 ? 104 : str->len + 1);  // +1 -> '\0'
-            return true;
-        }
+                argon::memory::MemoryCopy(addr->sun_path, str->buffer,
+                                          str->len + 1 >= 104 ? 104 : str->len + 1);  // +1 -> '\0'
+                return true;
+            }
 #elif defined(_ARGON_PLATFORM_DARWIN)
             case AF_UNIX: {
                 auto *addr = (sockaddr_un *) addrstore;
@@ -1269,14 +1273,21 @@ bool argon::module::socket::SocketSetFlags(Socket *socket, int type, long flags)
 #endif
 }
 
-bool argon::module::socket::SocketSetNonBlock(Socket *socket, bool blocking) {
+bool argon::module::socket::SocketSetNonBlock(Socket *socket, bool nonblock) {
+    bool ok;
+
 #ifdef _ARGON_PLATFORM_WINDOWS
-    return SocketSetFlags(socket, FIONBIO, blocking);
+    ok = SocketSetFlags(socket, FIONBIO, nonblock);
 #else
     int flags = SocketGetFlags(socket, F_GETFL);
-    flags = blocking ? flags | O_NONBLOCK : flags & (~O_NONBLOCK);
-    return SocketSetFlags(socket, F_SETFL, flags);
+    flags = nonblock ? flags | O_NONBLOCK : flags & (~O_NONBLOCK);
+    ok = SocketSetFlags(socket, F_SETFL, flags);
 #endif
+
+    if (ok)
+        socket->blocking = !nonblock;
+
+    return ok;
 }
 
 bool argon::module::socket::SocketSetInheritable(Socket *socket, bool inheritable) {
@@ -1336,6 +1347,7 @@ Socket *argon::module::socket::SocketNew(sock_handle handle, int family) {
 
     sock->sock = handle;
     sock->family = family;
+    sock->blocking = true;
 
     if (!SocketSetInheritable(sock, false)) {
         sock->sock = SOCK_HANDLE_INVALID;
@@ -1361,8 +1373,8 @@ ArObject *argon::module::socket::SockAddrToArAddr(sockaddr_storage *storage, int
                             ntohs(addr->sin6_scope_id));
         }
 #ifndef _ARGON_PLATFORM_WINDOWS
-        case AF_UNIX:
-            return StringNew(((sockaddr_un *) storage)->sun_path);
+            case AF_UNIX:
+                return StringNew(((sockaddr_un *) storage)->sun_path);
 #endif
         default:
             return (Tuple *) ErrorFormat(type_os_error_, "unsupported address family");

@@ -101,6 +101,18 @@ bool argon::object::MapInsert(Map *map, ArObject *key, ArObject *value) {
     return true;
 }
 
+bool argon::object::MapInsertRaw(Map *map, const char *key, ArObject *value) {
+    String *akey = StringNew(key);
+    bool ok = false;
+
+    if(akey != nullptr)
+        ok = MapInsert(map, akey, value);
+
+    Release(akey);
+
+    return ok;
+}
+
 ArObject *map_get_item(Map *self, ArObject *key) {
     ArObject *ret = MapGetNoException(self, key);
 

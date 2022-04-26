@@ -27,3 +27,5 @@ set(SRC ${SOCKET_SRC}
 
 list(TRANSFORM SRC PREPEND ${CMAKE_CURRENT_LIST_DIR}/)
 target_sources(argon PRIVATE ${SRC})
+
+add_subdirectory(ssl)

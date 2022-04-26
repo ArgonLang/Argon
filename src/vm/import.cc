@@ -361,6 +361,9 @@ ARGON_FUNCTION5(import_, builtins_locator,
                                            argon::module::module_regex_,
                                            argon::module::module_runtime_,
                                            argon::module::module_socket_,
+#ifdef ARGON_FF_SSL
+                                           argon::module::module_ssl_,
+#endif
                                            argon::module::module_sync_};
 
     ImportSpec *spec = nullptr;
@@ -369,7 +372,7 @@ ARGON_FUNCTION5(import_, builtins_locator,
     String *name;
 
     if (!AR_TYPEOF(argv[0], type_import_))
-        return ErrorFormat(type_type_error_, "expected 'Import' instance as first param, found '%s'",
+        return ErrorFormat(type_type_error_, "expected 'import' instance as first param, found '%s'",
                            AR_TYPE_NAME(argv[0]));
 
     if (!AR_TYPEOF(argv[1], type_string_) && !AR_TYPEOF(argv[1], type_nil_))

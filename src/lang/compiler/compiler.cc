@@ -1814,7 +1814,10 @@ bool Compiler::IdentifierLoad(String *name) {
     if ((sym = this->IdentifierLookupOrCreate(name, SymbolType::VARIABLE)) == nullptr)
         return false;
 
-    if ((this->unit_->scope != TUScope::STRUCT && this->unit_->scope != TUScope::TRAIT) && sym->nested > 0) {
+    if (this->unit_->scope != TUScope::STRUCT &&
+        this->unit_->scope != TUScope::TRAIT &&
+        sym->kind != SymbolType::CONSTANT &&
+        sym->nested > 0) {
         if (sym->declared) {
             if (!this->Emit(OpCodes::LDLC, (int) sym->id, nullptr))
                 goto ERROR;
@@ -1881,7 +1884,10 @@ bool Compiler::IdentifierNew(String *name, SymbolType stype, PropertyType ptype,
 
     sym->declared = true;
 
-    if ((this->unit_->scope == TUScope::TRAIT || this->unit_->scope == TUScope::STRUCT || sym->nested == 0)) {
+    if (stype == SymbolType::CONSTANT ||
+        this->unit_->scope == TUScope::TRAIT ||
+        this->unit_->scope == TUScope::STRUCT ||
+        sym->nested == 0) {
         if (emit) {
             if (!this->Emit(OpCodes::NGV, (unsigned char) ptype, !inserted ? sym->id : dest->len)) {
                 Release(sym);

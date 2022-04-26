@@ -343,6 +343,7 @@ Tuple *argon::object::TupleNew(const char *fmt, ...) {
     va_list args;
     ArObject *obj;
     Tuple *tuple;
+    const void *tmp;
 
     ArSize flen = strlen(fmt);
 
@@ -361,7 +362,8 @@ Tuple *argon::object::TupleNew(const char *fmt, ...) {
                 break;
             case 's':
             case 'S':
-                obj = StringNew(va_arg(args, const char*));
+                tmp = va_arg(args, const char*);
+                obj = tmp == nullptr ? StringIntern("") : StringNew((const char *) tmp);
                 break;
             case 'd':
             case 'D':

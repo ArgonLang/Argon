@@ -5,6 +5,8 @@
 #ifndef ARGON_OBJECT_ERROR_H_
 #define ARGON_OBJECT_ERROR_H_
 
+#include <utils/macros.h>
+
 #include <object/arobject.h>
 
 namespace argon::object {
@@ -12,13 +14,44 @@ namespace argon::object {
         ArObject *obj;
     };
 
-    ArObject *ErrorNew(const TypeInfo *type, ArObject *object);
+    extern const ObjectSlots *_error_objs;
 
-    ArObject *ErrorNewFromErrno();
+#define ARGON_ERROR_TYPE_SIMPLE(name, doc, ptr_name)    \
+const TypeInfo name = {                                 \
+    TYPEINFO_STATIC_INIT,                               \
+    #name,                                              \
+    #doc,                                               \
+    sizeof(Error),                                      \
+    TypeInfoFlags::STRUCT,                              \
+    nullptr,                                            \
+    (VoidUnaryOp)ErrorCleanup,                          \
+    nullptr,                                            \
+    (CompareOp)ErrorCompare,                            \
+    TypeInfo_IsTrue_True,                               \
+    nullptr,                                            \
+    (UnaryOp)ErrorStr,                                  \
+    nullptr,                                            \
+    nullptr,                                            \
+    nullptr,                                            \
+    nullptr,                                            \
+    nullptr,                                            \
+    nullptr,                                            \
+    _error_objs,                                        \
+    nullptr,                                            \
+    nullptr,                                            \
+    nullptr,                                            \
+    nullptr                                             \
+};                                                      \
+const TypeInfo *(ptr_name) = &(name)
 
-    ArObject *ErrorSetFromErrno();
+#define ARGON_ERROR_SIMPLE_STATIC(name, ptr_name, etype)    \
+const argon::object::Error name = {                         \
+    {RefCount(RCType::STATIC), (etype)},                    \
+    nullptr                                                 \
+};                                                          \
+Error *(ptr_name) = (Error*) &(name)
 
-    ArObject *ErrorTupleFromErrno();
+    ArObject *ErrorCompare(Error *self, ArObject *other, CompareMode mode);
 
     ArObject *ErrorFormat(const TypeInfo *etype, const char *format, ArObject *args);
 
@@ -26,9 +59,33 @@ namespace argon::object {
 
     ArObject *ErrorFormatNoPanic(const TypeInfo *etype, const char *format, ...);
 
-    const TypeInfo *ErrorTypeFromErrno();
+    ArObject *ErrorNew(const TypeInfo *type, ArObject *object);
+
+    ArObject *ErrorNew(const TypeInfo *type, const char *emsg);
+
+    ArObject *ErrorNewFromErrno();
+
+    ArObject *ErrorSetFromErrno();
+
+#ifdef _ARGON_PLATFORM_WINDOWS
+
+    ArObject *ErrorNewFromWinError();
+
+    ArObject *ErrorSetFromWinError();
+
+    ArSize ErrorGetLast();
+
+#endif
+
+    ArObject *ErrorStr(Error *self);
+
+    ArObject *ErrorTupleFromErrno();
 
     bool ErrorInit();
+
+    const TypeInfo *ErrorTypeFromErrno();
+
+    void ErrorCleanup(Error *self);
 
     void ErrorPrint(ArObject *object);
 
