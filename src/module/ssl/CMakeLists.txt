@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.7)
 
-if (NOT ARGON_NO_SSL)
+if (ARGON_FF_SSL)
     find_package(OpenSSL REQUIRED)
 
     add_library(ssl STATIC ssl.cc sslcontext.cc sslsocket.cc sslwin.cc)

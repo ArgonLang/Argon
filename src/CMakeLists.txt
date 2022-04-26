@@ -1,16 +1,15 @@
 cmake_minimum_required(VERSION 3.7)
 
-option(ARGON_NO_SSL "Build Argon without SSL support")
+option(ARGON_FF_SSL "Build Argon with SSL support" on)
 
 add_library(argon SHARED)
 add_dependencies(argon memory)
 target_link_libraries(argon memory)
 
-if (NOT ARGON_NO_SSL)
+if (ARGON_FF_SSL)
     add_dependencies(argon ssl)
     target_link_libraries(argon ssl)
-else ()
-    target_compile_definitions(argon PRIVATE _ARGON_NO_SSL)
+    target_compile_definitions(argon PRIVATE ARGON_FF_SSL)
 endif ()
 
 add_executable(main main.cc)
