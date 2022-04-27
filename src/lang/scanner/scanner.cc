@@ -442,9 +442,14 @@ Token Scanner::TokenizeBinary(Pos start) {
 
     while (value >= '0' && value <= '1') {
         if (!this->TkPutChar())
-            return Token(TokenType::ERROR, start, this->pos_);
+            return {TokenType::ERROR, start, this->pos_};
 
         value = this->PeekChar();
+    }
+
+    if (IsDigit(value)) {
+        this->status = ScannerStatus::INVALID_BINARY_LITERAL;
+        return {TokenType::ERROR, start, this->pos_};
     }
 
     return this->MakeTkWithValue(start, TokenType::NUMBER_BIN);
@@ -556,9 +561,14 @@ Token Scanner::TokenizeHex(Pos start) {
 
     while (IsHexDigit(value)) {
         if (!this->TkPutChar())
-            return Token(TokenType::ERROR, start, this->pos_);
+            return {TokenType::ERROR, start, this->pos_};
 
         value = this->PeekChar();
+    }
+
+    if (IsAlpha(value)) {
+        this->status = ScannerStatus::INVALID_HEX_LITERAL;
+        return {TokenType::ERROR, start, this->pos_};
     }
 
     return this->MakeTkWithValue(start, TokenType::NUMBER_HEX);
@@ -569,9 +579,14 @@ Token Scanner::TokenizeOctal(Pos start) {
 
     while (value >= '0' && value <= '7') {
         if (!this->TkPutChar())
-            return Token(TokenType::ERROR, start, this->pos_);
+            return {TokenType::ERROR, start, this->pos_};
 
         value = this->PeekChar();
+    }
+
+    if (IsDigit(value)) {
+        this->status = ScannerStatus::INVALID_OCTAL_LITERAL;
+        return {TokenType::ERROR, start, this->pos_};
     }
 
     return this->MakeTkWithValue(start, TokenType::NUMBER_OCT);
@@ -855,11 +870,14 @@ const char *Scanner::GetStatusMessage() {
     static const char *messages[] = {
             "empty '' not allowed",
             "end of file reached",
+            "invalid digit in binary literal",
             "byte string can only contain ASCII literal characters",
             "can't decode bytes in unicode sequence, escape format must be: \\Uhhhhhhhh",
             "can't decode bytes in unicode sequence, escape format must be: \\uhhhh",
             "can't decode byte, hex escape must be: \\xhh",
+            "invalid hexadecimal literal",
             "expected new-line after line continuation character",
+            "invalid digit in octal literal",
             "unterminated string",
             "invalid raw string prologue",
             "expected '",
