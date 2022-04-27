@@ -63,8 +63,7 @@ namespace argon::object {
         object::ArObject *stack_extra_base[];
 
         [[nodiscard]] bool IsExhausted() const {
-            return this->eval_stack == nullptr ||
-                   this->instr_ptr >= (this->code->instr + this->code->instr_sz);
+            return this->eval_stack == nullptr || this->instr_ptr >= this->code->instr_end;
         }
 
         [[nodiscard]] bool IsMain() const {

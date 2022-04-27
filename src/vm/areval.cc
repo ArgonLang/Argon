@@ -226,10 +226,10 @@ ArObject *argon::vm::Eval(ArRoutine *routine) {
     case argon::lang::OpCodes::op:      \
     LBL_##op:
 
-#define CGOTO                                                   \
-if(cu_frame->instr_ptr < (cu_code->instr + cu_code->instr_sz))  \
-    goto *LBL_OPCODES[*(cu_frame->instr_ptr)];                  \
-else                                                            \
+#define CGOTO                                   \
+if(cu_frame->instr_ptr < cu_code->instr_end)    \
+    goto *LBL_OPCODES[*(cu_frame->instr_ptr)];  \
+else                                            \
     goto END_FUNCTION
 
     static const void *LBL_OPCODES[] = {
@@ -368,12 +368,14 @@ else                                                            \
 
     STWCheckpoint();
 
-    while (cu_frame->instr_ptr < (cu_code->instr + cu_code->instr_sz)) {
+    while (cu_frame->instr_ptr < cu_code->instr_end) {
         switch (*(argon::lang::OpCodes *) cu_frame->instr_ptr) {
-            TARGET_OP(ADD) {
+            TARGET_OP(ADD)
+            {
                 BINARY_OP(routine, add, +);
             }
-            TARGET_OP(CALL) {
+            TARGET_OP(CALL)
+            {
                 CallHelper helper{};
                 Frame *fn_frame = cu_frame;
 
@@ -399,7 +401,8 @@ else                                                            \
                 routine->frame = fn_frame;
                 goto BEGIN;
             }
-            TARGET_OP(CMP) {
+            TARGET_OP(CMP)
+            {
                 if ((ret = RichCompare(PEEK1(), TOP(), (CompareMode) ARG16)) == nullptr)
                     goto ERROR;
 
@@ -407,10 +410,12 @@ else                                                            \
                 TOP_REPLACE(ret);
                 DISPATCH2();
             }
-            TARGET_OP(DEC) {
+            TARGET_OP(DEC)
+            {
                 UNARY_OP(dec);
             }
-            TARGET_OP(DFR) {
+            TARGET_OP(DFR)
+            {
                 CallHelper helper{};
 
                 if (!CallHelperInit(&helper, cu_frame))
@@ -423,10 +428,12 @@ else                                                            \
                 Release(ret);
                 DISPATCH4();
             }
-            TARGET_OP(DIV) {
+            TARGET_OP(DIV)
+            {
                 BINARY_OP(routine, div, /);
             }
-            TARGET_OP(DUP) {
+            TARGET_OP(DUP)
+            {
                 // TODO: CHECK OutOfBound on stack
                 auto back = ARG16;
                 ArObject **cursor = cu_frame->eval_stack - back;
@@ -438,7 +445,8 @@ else                                                            \
 
                 DISPATCH2();
             }
-            TARGET_OP(EQST) {
+            TARGET_OP(EQST)
+            {
                 auto peek = PEEK1();
                 auto mode = (CompareMode) ARG16;
                 ret = TOP();
@@ -458,10 +466,12 @@ else                                                            \
                 TOP_REPLACE(ret);
                 DISPATCH2();
             }
-            TARGET_OP(IDIV) {
+            TARGET_OP(IDIV)
+            {
                 BINARY_OP(routine, idiv, '//');
             }
-            TARGET_OP(IMPALL) {
+            TARGET_OP(IMPALL)
+            {
                 auto *mod = (Module *) TOP();
 
                 if (!NamespaceMergePublic(cu_frame->globals, mod->module_ns))
@@ -469,7 +479,8 @@ else                                                            \
 
                 DISPATCH();
             }
-            TARGET_OP(IMPFRM) {
+            TARGET_OP(IMPFRM)
+            {
                 auto attribute = (String *) TupleGetItem(cu_code->statics, ARG32);
 
                 if ((ret = PropertyGet(TOP(), attribute, false)) == nullptr) {
@@ -481,7 +492,8 @@ else                                                            \
                 PUSH(ret);
                 DISPATCH4();
             }
-            TARGET_OP(IMPMOD) {
+            TARGET_OP(IMPMOD)
+            {
                 auto path = (String *) TupleGetItem(cu_code->statics, ARG32);
                 String *key;
                 ImportSpec *spec;
@@ -502,10 +514,12 @@ else                                                            \
                 PUSH(ret);
                 DISPATCH4();
             }
-            TARGET_OP(INC) {
+            TARGET_OP(INC)
+            {
                 UNARY_OP(inc);
             }
-            TARGET_OP(INIT) {
+            TARGET_OP(INIT)
+            {
                 auto args = ARG16;
 
                 if ((ret = StructInit(*(cu_frame->eval_stack - args - 1), cu_frame->eval_stack - args,
@@ -516,22 +530,28 @@ else                                                            \
                 TOP_REPLACE(ret);
                 DISPATCH4();
             }
-            TARGET_OP(INV) {
+            TARGET_OP(INV)
+            {
                 UNARY_OP(invert);
             }
-            TARGET_OP(IPADD) {
+            TARGET_OP(IPADD)
+            {
                 BINARY_OP(routine, inp_add, +=);
             }
-            TARGET_OP(IPDIV) {
+            TARGET_OP(IPDIV)
+            {
                 BINARY_OP(routine, inp_div, /=);
             }
-            TARGET_OP(IPMUL) {
+            TARGET_OP(IPMUL)
+            {
                 BINARY_OP(routine, inp_mul, *=);
             }
-            TARGET_OP(IPSUB) {
+            TARGET_OP(IPSUB)
+            {
                 BINARY_OP(routine, inp_sub, -=);
             }
-            TARGET_OP(JF) {
+            TARGET_OP(JF)
+            {
                 // JUMP FALSE
                 if (!IsTrue(TOP())) {
                     POP();
@@ -540,7 +560,8 @@ else                                                            \
                 POP();
                 DISPATCH4();
             }
-            TARGET_OP(JFOP) {
+            TARGET_OP(JFOP)
+            {
                 // JUMP FALSE OR POP
                 if (IsTrue(TOP())) {
                     POP();
@@ -548,17 +569,20 @@ else                                                            \
                 }
                 JUMPTO(ARG32);
             }
-            TARGET_OP(JMP) {
+            TARGET_OP(JMP)
+            {
                 JUMPTO(ARG32);
             }
-            TARGET_OP(JNIL) {
+            TARGET_OP(JNIL)
+            {
                 // JUMP IF NIL
                 if (TOP() == NilVal) {
                     JUMPTO(ARG32);
                 }
                 DISPATCH4();
             }
-            TARGET_OP(JT) {
+            TARGET_OP(JT)
+            {
                 // JUMP IF TRUE
                 if (IsTrue(TOP())) {
                     POP();
@@ -567,7 +591,8 @@ else                                                            \
                 POP();
                 DISPATCH4();
             }
-            TARGET_OP(JTOP) {
+            TARGET_OP(JTOP)
+            {
                 // JUMP TRUE OR POP
                 if (!IsTrue(TOP())) {
                     POP();
@@ -575,10 +600,12 @@ else                                                            \
                 }
                 JUMPTO(ARG32);
             }
-            TARGET_OP(LAND) {
+            TARGET_OP(LAND)
+            {
                 BINARY_OP(routine, l_and, &);
             }
-            TARGET_OP(LDATTR) {
+            TARGET_OP(LDATTR)
+            {
                 // TODO: CHECK OutOfBound
                 ArObject *key = TupleGetItem(cu_code->statics, ARG32);
 
@@ -592,14 +619,16 @@ else                                                            \
                 TOP_REPLACE(ret);
                 DISPATCH4();
             }
-            TARGET_OP(LDENC) {
+            TARGET_OP(LDENC)
+            {
                 if ((ret = ListGetItem(cu_frame->enclosed, ARG16)) == nullptr)
                     goto ERROR;
 
                 PUSH(ret);
                 DISPATCH2();
             }
-            TARGET_OP(LDGBL) {
+            TARGET_OP(LDGBL)
+            {
                 // TODO: CHECK OutOfBound
                 auto *key = TupleGetItem(cu_code->names, ARG16);
 
@@ -623,14 +652,16 @@ else                                                            \
                 PUSH(ret);
                 DISPATCH4();
             }
-            TARGET_OP(LDITER) {
+            TARGET_OP(LDITER)
+            {
                 if ((ret = IteratorGet(TOP())) == nullptr)
                     goto ERROR;
 
                 TOP_REPLACE(ret);
                 DISPATCH();
             }
-            TARGET_OP(LDLC) {
+            TARGET_OP(LDLC)
+            {
                 // TODO: CHECK OutOfBound
                 auto idx = ARG16;
 
@@ -638,7 +669,8 @@ else                                                            \
                 PUSH(cu_frame->locals[idx]);
                 DISPATCH2();
             }
-            TARGET_OP(LDMETH) {
+            TARGET_OP(LDMETH)
+            {
                 // TODO: CHECK OutOfBound
                 ArObject *key = TupleGetItem(cu_code->statics, ARG32);
                 ArObject *instance = TOP();
@@ -662,7 +694,8 @@ else                                                            \
 
                 DISPATCH4();
             }
-            TARGET_OP(LDSCOPE) {
+            TARGET_OP(LDSCOPE)
+            {
                 // TODO: CHECK OutOfBound
                 ArObject *key = TupleGetItem(cu_code->statics, ARG32);
 
@@ -675,19 +708,23 @@ else                                                            \
                 TOP_REPLACE(ret);
                 DISPATCH4();
             }
-            TARGET_OP(LOR) {
+            TARGET_OP(LOR)
+            {
                 BINARY_OP(routine, l_or, |);
             }
-            TARGET_OP(LSTATIC) {
+            TARGET_OP(LSTATIC)
+            {
                 // TODO: CHECK OutOfBound
                 ret = TupleGetItem(cu_code->statics, ARG32);
                 PUSH(ret);
                 DISPATCH4();
             }
-            TARGET_OP(LXOR) {
+            TARGET_OP(LXOR)
+            {
                 BINARY_OP(routine, l_xor, ^);
             }
-            TARGET_OP(MK_BOUNDS) {
+            TARGET_OP(MK_BOUNDS)
+            {
                 auto args = ARG16;
                 ArObject *step = nullptr;
                 ArObject *stop = nullptr;
@@ -710,7 +747,8 @@ else                                                            \
                 TOP_REPLACE(ret);
                 DISPATCH2();
             }
-            TARGET_OP(MK_FUNC) {
+            TARGET_OP(MK_FUNC)
+            {
                 auto flags = (FunctionFlags) argon::lang::I32ExtractFlag(cu_frame->instr_ptr);
                 auto name = (String *) PEEK1();
                 List *enclosed = nullptr;
@@ -735,7 +773,8 @@ else                                                            \
                 TOP_REPLACE(ret);
                 DISPATCH4();
             }
-            TARGET_OP(MK_LIST) {
+            TARGET_OP(MK_LIST)
+            {
                 auto args = ARG32;
 
                 if ((ret = ListNew(args)) == nullptr)
@@ -752,7 +791,8 @@ else                                                            \
                 PUSH(ret);
                 DISPATCH4();
             }
-            TARGET_OP(MK_MAP) {
+            TARGET_OP(MK_MAP)
+            {
                 auto args = ARG32 * 2;
 
                 if ((ret = MapNew()) == nullptr)
@@ -770,7 +810,8 @@ else                                                            \
                 PUSH(ret);
                 DISPATCH4();
             }
-            TARGET_OP(MK_SET) {
+            TARGET_OP(MK_SET)
+            {
                 auto args = ARG32;
 
                 if ((ret = SetNew()) == nullptr)
@@ -787,7 +828,8 @@ else                                                            \
                 PUSH(ret);
                 DISPATCH4();
             }
-            TARGET_OP(MK_STRUCT) {
+            TARGET_OP(MK_STRUCT)
+            {
                 auto args = ARG16;
                 Namespace *ns = BuildNamespace(routine, (Code *) *(cu_frame->eval_stack - args - 2));
 
@@ -802,7 +844,8 @@ else                                                            \
                 TOP_REPLACE(ret);
                 DISPATCH2();
             }
-            TARGET_OP(MK_TRAIT) {
+            TARGET_OP(MK_TRAIT)
+            {
                 auto args = ARG16;
                 Namespace *ns = BuildNamespace(routine, (Code *) *(cu_frame->eval_stack - args - 2));
 
@@ -817,7 +860,8 @@ else                                                            \
                 TOP_REPLACE(ret);
                 DISPATCH2();
             }
-            TARGET_OP(MK_TUPLE) {
+            TARGET_OP(MK_TUPLE)
+            {
                 auto args = ARG32;
 
                 if ((ret = TupleNew(args)) == nullptr)
@@ -835,16 +879,20 @@ else                                                            \
                 PUSH(ret);
                 DISPATCH4();
             }
-            TARGET_OP(MOD) {
+            TARGET_OP(MOD)
+            {
                 BINARY_OP(routine, module, %);
             }
-            TARGET_OP(MUL) {
+            TARGET_OP(MUL)
+            {
                 BINARY_OP(routine, mul, *);
             }
-            TARGET_OP(NEG) {
+            TARGET_OP(NEG)
+            {
                 UNARY_OP(neg);
             }
-            TARGET_OP(NJE) {
+            TARGET_OP(NJE)
+            {
                 if ((ret = IteratorNext(TOP())) == nullptr) {
                     if (RoutineIsPanicking(routine))
                         goto ERROR;
@@ -856,7 +904,8 @@ else                                                            \
                 PUSH(ret);
                 DISPATCH4();
             }
-            TARGET_OP(NGV) {
+            TARGET_OP(NGV)
+            {
                 // TODO: CHECK OutOfBound
                 auto map = cu_frame->proxy_globals != nullptr ?
                            cu_frame->proxy_globals : cu_frame->globals;
@@ -870,7 +919,8 @@ else                                                            \
                 POP();
                 DISPATCH4();
             }
-            TARGET_OP(NOT) {
+            TARGET_OP(NOT)
+            {
                 ret = True;
                 if (IsTrue(TOP()))
                     ret = False;
@@ -878,14 +928,17 @@ else                                                            \
                 TOP_REPLACE(ret);
                 DISPATCH();
             }
-            TARGET_OP(POP) {
+            TARGET_OP(POP)
+            {
                 POP();
                 DISPATCH();
             }
-            TARGET_OP(POS) {
+            TARGET_OP(POS)
+            {
                 UNARY_OP(pos);
             }
-            TARGET_OP(PB_HEAD) {
+            TARGET_OP(PB_HEAD)
+            {
                 auto len = ARG16;
 
                 ret = TOP(); // Save TOP
@@ -896,7 +949,8 @@ else                                                            \
                 *(cu_frame->eval_stack - (len + 1)) = ret;
                 DISPATCH2();
             }
-            TARGET_OP(RET) {
+            TARGET_OP(RET)
+            {
                 if (cu_frame->stack_extra_base != cu_frame->eval_stack) {
                     Release(cu_frame->return_value);
                     cu_frame->return_value = TOP_BACK();
@@ -905,13 +959,16 @@ else                                                            \
                 STACK_REWIND(cu_frame->eval_stack - cu_frame->stack_extra_base);
                 goto END_FUNCTION;
             }
-            TARGET_OP(SHL) {
+            TARGET_OP(SHL)
+            {
                 BINARY_OP(routine, shl, >>);
             }
-            TARGET_OP(SHR) {
+            TARGET_OP(SHR)
+            {
                 BINARY_OP(routine, shr, <<);
             }
-            TARGET_OP(SPWN) {
+            TARGET_OP(SPWN)
+            {
                 CallHelper helper{};
 
                 if (!CallHelperInit(&helper, cu_frame))
@@ -922,7 +979,8 @@ else                                                            \
 
                 DISPATCH4();
             }
-            TARGET_OP(STATTR) {
+            TARGET_OP(STATTR)
+            {
                 // TODO: CHECK OutOfBound
                 ArObject *key = TupleGetItem(cu_code->statics, ARG32);
 
@@ -936,14 +994,16 @@ else                                                            \
                 POP(); // Instance
                 DISPATCH4();
             }
-            TARGET_OP(STENC) {
+            TARGET_OP(STENC)
+            {
                 if (!ListSetItem(cu_frame->enclosed, TOP(), ARG16))
                     goto ERROR;
 
                 POP();
                 DISPATCH2();
             }
-            TARGET_OP(STGBL) {
+            TARGET_OP(STGBL)
+            {
                 // TODO: CHECK OutOfBound
                 auto map = cu_frame->proxy_globals != nullptr ?
                            cu_frame->proxy_globals : cu_frame->globals;
@@ -968,7 +1028,8 @@ else                                                            \
                 POP();
                 DISPATCH4();
             }
-            TARGET_OP(STLC) {
+            TARGET_OP(STLC)
+            {
                 // TODO: CHECK OutOfBound
                 auto idx = ARG16;
 
@@ -977,7 +1038,8 @@ else                                                            \
                 cu_frame->eval_stack--;
                 DISPATCH2();
             }
-            TARGET_OP(STSCOPE) {
+            TARGET_OP(STSCOPE)
+            {
                 ArObject *key = TupleGetItem(cu_code->statics, ARG32);
 
                 if (!PropertySet(TOP(), key, PEEK1(), false)) {
@@ -990,23 +1052,27 @@ else                                                            \
                 POP(); // Instance
                 DISPATCH4();
             }
-            TARGET_OP(STSUBSCR) {
+            TARGET_OP(STSUBSCR)
+            {
                 if (!SubscriptSet(PEEK1(), TOP(), PEEK2()))
                     goto ERROR;
                 STACK_REWIND(3);
                 DISPATCH();
             }
-            TARGET_OP(SUB) {
+            TARGET_OP(SUB)
+            {
                 BINARY_OP(routine, sub, -);
             }
-            TARGET_OP(SUBSCR) {
+            TARGET_OP(SUBSCR)
+            {
                 if ((ret = SubscriptGet(PEEK1(), TOP())) == nullptr)
                     goto ERROR;
                 POP();
                 TOP_REPLACE(ret);
                 DISPATCH();
             }
-            TARGET_OP(TEST) {
+            TARGET_OP(TEST)
+            {
                 ret = PEEK1();
                 if (Equal(ret, TOP())) {
                     POP();
@@ -1016,7 +1082,8 @@ else                                                            \
                 TOP_REPLACE(BoolToArBool(false));
                 DISPATCH();
             }
-            TARGET_OP(UNPACK) {
+            TARGET_OP(UNPACK)
+            {
                 ArObject *iter;
                 auto len = (int) ARG32;
                 int count = 0;
@@ -1048,7 +1115,8 @@ else                                                            \
 
                 DISPATCH4();
             }
-            TARGET_OP(YLD) {
+            TARGET_OP(YLD)
+            {
                 cu_frame->instr_ptr += sizeof(argon::lang::Instr8);
 
                 if (routine->frame->back == nullptr || routine->frame->IsMain())
@@ -1086,7 +1154,7 @@ else                                                            \
             goto BEGIN;
 
         if (routine->status != ArRoutineStatus::RUNNING) {
-            cu_frame->instr_ptr = (unsigned char *) cu_code->instr + cu_code->instr_sz;
+            cu_frame->instr_ptr = (unsigned char *) cu_code->instr_end;
             return nullptr;
         }
 
