@@ -1099,17 +1099,23 @@ else                                            \
                 if ((iter = IteratorGet(ret)) == nullptr)
                     goto ERROR;
 
-                Release(ret);
                 cu_frame->eval_stack += len - 1;
 
-                while ((ret = IteratorNext(iter)) != nullptr && count++ < len)
-                    *(cu_frame->eval_stack - count) = ret;
+                while ((ret = IteratorNext(iter)) != nullptr && count < len) {
+                    *(cu_frame->eval_stack - ++count) = ret;
+                }
 
                 Release(iter);
 
                 if (count != len) {
-                    ErrorFormat(type_value_error_, "incompatible number of value to unpack (expected '%d' got '%d')",
-                                len, count);
+                    // Revert partial changes
+                    STACK_REWIND(count);
+
+                    cu_frame->eval_stack--;
+
+                    ErrorFormat(type_value_error_,
+                                "incompatible number of value to unpack (expected '%d' got '%d')", len, count);
+
                     goto ERROR;
                 }
 
