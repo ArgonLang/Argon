@@ -167,6 +167,26 @@ ARGON_FUNCTION5(bytes_, new, "Creates bytes object."
     return BytesNew(size, true, true, false);
 }
 
+ARGON_METHOD5(bytes_, capitalize,
+              "Return a capitalized version of the bytes string."
+              ""
+              "- Returns: new capitalized bytes string.", 0, false) {
+    auto *base = (Bytes *) self;
+    Bytes *ret;
+
+    RWLockRead lock(base->view.shared->lock);
+
+    if (BUFFER_LEN(base) == 0 || toupper(*BUFFER_GET(base)) == *BUFFER_GET(base))
+        return IncRef(base);
+
+    if ((ret = BytesNew(BUFFER_GET(base), BUFFER_LEN(base), base->frozen)) == nullptr)
+        return nullptr;
+
+    *BUFFER_GET(ret) = toupper(*BUFFER_GET(ret));
+
+    return ret;
+}
+
 ARGON_METHOD5(bytes_, count,
               "Returns the number of times a specified value occurs in bytes."
               ""
@@ -441,6 +461,24 @@ ARGON_METHOD5(bytes_, join,
     return nullptr;
 }
 
+ARGON_METHOD5(bytes_, lower,
+              "Return a copy of the bytes string converted to lowercase."
+              ""
+              "- Returns: new bytes string with all characters converted to lowercase.", 0, false) {
+    auto *base = (Bytes *) self;
+    Bytes *ret;
+
+    if ((ret = BytesNew(base)) == nullptr)
+        return nullptr;
+
+    for (ArSize i = 0; i < ret->view.len; i++)
+        ret->view.buffer[i] = tolower(ret->view.buffer[i]);
+
+    ret->frozen = base->frozen;
+
+    return ret;
+}
+
 ARGON_METHOD5(bytes_, rfind,
               "Searches bytes for a specified value and returns the position of where it was found."
               ""
@@ -591,8 +629,26 @@ ARGON_METHOD5(bytes_, str, "Convert bytes to str object."
     return StringNew((const char *) BUFFER_GET(bytes), BUFFER_LEN(bytes));
 }
 
+ARGON_METHOD5(bytes_, upper,
+              "Return a copy of the bytes string converted to uppercase."
+              ""
+              "- Returns: new bytes string with all characters converted to uppercase.", 0, false) {
+    auto *base = (Bytes *) self;
+    Bytes *ret;
+
+    if ((ret = BytesNew(base)) == nullptr)
+        return nullptr;
+
+    for (ArSize i = 0; i < ret->view.len; i++)
+        ret->view.buffer[i] = toupper(ret->view.buffer[i]);
+
+    ret->frozen = base->frozen;
+
+    return ret;
+}
 
 const NativeFunc bytes_methods[] = {
+        bytes_capitalize_,
         bytes_count_,
         bytes_endswith_,
         bytes_find_,
@@ -604,6 +660,7 @@ const NativeFunc bytes_methods[] = {
         bytes_isdigit_,
         bytes_isfrozen_,
         bytes_join_,
+        bytes_lower_,
         bytes_new_,
         bytes_rfind_,
         bytes_rmpostfix_,
@@ -611,6 +668,7 @@ const NativeFunc bytes_methods[] = {
         bytes_split_,
         bytes_startswith_,
         bytes_str_,
+        bytes_upper_,
         ARGON_METHOD_SENTINEL
 };
 

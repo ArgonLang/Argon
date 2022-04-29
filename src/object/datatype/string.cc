@@ -304,6 +304,44 @@ ARGON_FUNCTION5(str_, new,
     return StringIntern((char *) "");
 }
 
+ARGON_METHOD5(str_, capitalize,
+              "Return a capitalized version of the string."
+              ""
+              "- Returns: new capitalized string.", 0, false) {
+    auto *base = (String *) self;
+    String *ret;
+
+    if(base->len == 0 || toupper(*base->buffer) == *base->buffer)
+        return IncRef(base);
+
+    if ((ret = StringNew((const char *) base->buffer, base->len)) == nullptr)
+        return nullptr;
+
+    *ret->buffer = toupper(*ret->buffer);
+
+    return ret;
+}
+
+ARGON_FUNCTION5(str_, chr,
+                "Returns the character that represents the specified unicode."
+                ""
+                "- Parameter number: an integer representing a valid Unicode code point."
+                "- Returns: new string that contains the specified character.", 1, false) {
+    unsigned char buf[] = {0x00, 0x00, 0x00, 0x00};
+    ArObject *ret;
+    ArSize len;
+
+    if (!AR_TYPEOF(argv[0], type_integer_))
+        return ErrorFormat(type_type_error_, "chr expected an integer not '%s'", AR_TYPE_NAME(argv[0]));
+
+    len = StringIntToUTF8(((Integer *) argv[0])->integer, buf);
+
+    if ((ret = StringNew((const char *) buf, len)) == nullptr)
+        return nullptr;
+
+    return ret;
+}
+
 ARGON_METHOD5(str_, count,
               "Returns the number of times a specified value occurs in a string."
               ""
@@ -356,6 +394,30 @@ ARGON_METHOD5(str_, find,
     n = StringFind(str, pattern);
 
     return IntegerNew(n);
+}
+
+ARGON_METHOD5(str_, lower,
+              "Return a copy of the string converted to lowercase."
+              ""
+              "- Returns: new string with all characters converted to lowercase.", 0, false) {
+    ArSize len = ((String *) self)->len;
+    String *ret;
+    unsigned char *buf;
+
+    if ((buf = ArObjectNewRaw<unsigned char *>(len + 1)) == nullptr)
+        return nullptr;
+
+    for (ArSize i = 0; i < len; i++)
+        buf[i] = tolower(((String *) self)->buffer[i]);
+
+    buf[len] = '\0';
+
+    if ((ret = StringNewBufferOwnership(buf, len)) == nullptr) {
+        Free(buf);
+        return nullptr;
+    }
+
+    return ret;
 }
 
 ARGON_METHOD5(str_, replace,
@@ -506,38 +568,45 @@ ARGON_METHOD5(str_, trim,
     return StringNew((const char *) str->buffer + start, end - start);
 }
 
-ARGON_FUNCTION5(str_, chr,
-                "Returns the character that represents the specified unicode."
-                ""
-                "- Parameter number: an integer representing a valid Unicode code point."
-                "- Returns: new string that contains the specified character.", 1, false) {
-    unsigned char buf[] = {0x00, 0x00, 0x00, 0x00};
-    ArObject *ret;
-    ArSize len;
+ARGON_METHOD5(str_, upper,
+              "Return a copy of the string converted to uppercase."
+              ""
+              "- Returns: new string with all characters converted to uppercase.", 0, false) {
+    ArSize len = ((String *) self)->len;
+    String *ret;
+    unsigned char *buf;
 
-    if (!AR_TYPEOF(argv[0], type_integer_))
-        return ErrorFormat(type_type_error_, "chr expected an integer not '%s'", AR_TYPE_NAME(argv[0]));
-
-    len = StringIntToUTF8(((Integer *) argv[0])->integer, buf);
-
-    if ((ret = StringNew((const char *) buf, len)) == nullptr)
+    if ((buf = ArObjectNewRaw<unsigned char *>(len + 1)) == nullptr)
         return nullptr;
+
+    for (ArSize i = 0; i < len; i++)
+        buf[i] = toupper(((String *) self)->buffer[i]);
+
+    buf[len] = '\0';
+
+    if ((ret = StringNewBufferOwnership(buf, len)) == nullptr) {
+        Free(buf);
+        return nullptr;
+    }
 
     return ret;
 }
 
 const NativeFunc str_methods[] = {
         str_new_,
+        str_capitalize_,
         str_count_,
+        str_chr_,
         str_endswith_,
         str_find_,
+        str_lower_,
         str_replace_,
         str_rfind_,
         str_join_,
         str_split_,
         str_startswith_,
         str_trim_,
-        str_chr_,
+        str_upper_,
         ARGON_METHOD_SENTINEL
 };
 
