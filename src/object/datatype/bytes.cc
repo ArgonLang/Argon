@@ -625,27 +625,43 @@ const ObjectSlots bytes_obj = {
         -1
 };
 
-ArObject *bytes_add(Bytes *self, ArObject *other) {
-    ArBuffer buffer = {};
+ArObject *bytes_add(Bytes *left, ArObject *right) {
+    ArBuffer bl = {};
+    ArBuffer br = {};
     Bytes *ret;
 
-    if (!IsBufferable(other))
+    bool frozen;
+
+    if (!AR_TYPEOF(left, type_bytes_)) {
+        if (!IsBufferable(left))
+            return nullptr;
+
+        frozen = ((Bytes *) right)->frozen;
+    } else
+        frozen = left->frozen;
+
+    if (!IsBufferable(right))
         return nullptr;
 
-    if (!BufferGet(other, &buffer, ArBufferFlags::READ))
+    if (!BufferGet(left, &bl, ArBufferFlags::READ))
         return nullptr;
 
-    RWLockRead lock(self->view.shared->lock);
-
-    if ((ret = BytesNew(BUFFER_LEN(self) + buffer.len, true, false, self->frozen)) == nullptr) {
-        BufferRelease(&buffer);
+    if (!BufferGet(right, &br, ArBufferFlags::READ)) {
+        BufferRelease(&bl);
         return nullptr;
     }
 
-    MemoryCopy(BUFFER_GET(ret), BUFFER_GET(self), BUFFER_LEN(self));
-    MemoryCopy(BUFFER_GET(ret) + BUFFER_LEN(self), buffer.buffer, buffer.len);
+    if ((ret = BytesNew(bl.len + br.len, true, false, frozen)) == nullptr) {
+        BufferRelease(&bl);
+        BufferRelease(&br);
+        return nullptr;
+    }
 
-    BufferRelease(&buffer);
+    MemoryCopy(BUFFER_GET(ret), bl.buffer, bl.len);
+    MemoryCopy(BUFFER_GET(ret) + bl.len, br.buffer, br.len);
+
+    BufferRelease(&bl);
+    BufferRelease(&br);
 
     return ret;
 }
