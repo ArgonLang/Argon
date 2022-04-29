@@ -223,7 +223,9 @@ bool Compiler::CompileAugAssignment(Binary *assignment) {
 
         return this->VariableStore((String *) ((Unary *) assignment->left)->value);
     } else if (AR_TYPEOF(assignment->left, type_ast_selector_)) {
-        if (this->CompileSelector((Binary *) assignment->left, true, true) < 0)
+        int idx;
+
+        if ((idx = this->CompileSelector((Binary *) assignment->left, true, true)) < 0)
             return false;
 
         COMPILE_OP();
@@ -232,9 +234,9 @@ bool Compiler::CompileAugAssignment(Binary *assignment) {
             return false;
 
         if (((Binary *) assignment->left)->kind == TokenType::SCOPE)
-            return this->Emit(OpCodes::STSCOPE, 0, nullptr);
+            return this->Emit(OpCodes::STSCOPE, idx, nullptr);
 
-        return this->Emit(OpCodes::STATTR, 0, nullptr);
+        return this->Emit(OpCodes::STATTR, idx, nullptr);
     } else if (AR_TYPEOF(assignment->left, type_ast_subscript_)) {
         if (!this->CompileSubscr((Subscript *) assignment->left, true, true))
             return false;
