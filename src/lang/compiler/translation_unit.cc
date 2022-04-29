@@ -64,29 +64,33 @@ Code *argon::lang::compiler::TranslationUnitAssemble(TranslationUnit *unit) {
         instr_sz += cursor->i_size;
     }
 
-    if ((buf = (unsigned char *) argon::memory::Alloc(instr_sz)) == nullptr)
-        return (Code *) argon::vm::Panic(error_out_of_memory);
+    buf = nullptr;
 
-    bcur = buf;
-    for (BasicBlock *cursor = unit->bb.start; cursor != nullptr; cursor = cursor->next) {
-        for (Instr *instr = cursor->instr.head; instr != nullptr; instr = instr->next) {
-            arg = instr->oparg & 0x00FFFFFF; // extract arg
+    if (instr_sz != 0) {
+        if ((buf = (unsigned char *) argon::memory::Alloc(instr_sz)) == nullptr)
+            return (Code *) argon::vm::Panic(error_out_of_memory);
 
-            if (instr->jmp != nullptr)
-                arg = instr->jmp->i_offset;
+        bcur = buf;
+        for (BasicBlock *cursor = unit->bb.start; cursor != nullptr; cursor = cursor->next) {
+            for (Instr *instr = cursor->instr.head; instr != nullptr; instr = instr->next) {
+                arg = instr->oparg & 0x00FFFFFF; // extract arg
 
-            switch ((instr->oparg & 0xFF000000) >> 24u) {
-                case 4:
-                    *((Instr32 *) bcur) = arg << 8 | instr->opcode;
-                    bcur += 4;
-                    break;
-                case 2:
-                    *((Instr16 *) bcur) = arg << 8 | instr->opcode;
-                    bcur += 2;
-                    break;
-                default:
-                    *((Instr8 *) bcur) = instr->opcode;
-                    bcur++;
+                if (instr->jmp != nullptr)
+                    arg = instr->jmp->i_offset;
+
+                switch ((instr->oparg & 0xFF000000) >> 24u) {
+                    case 4:
+                        *((Instr32 *) bcur) = arg << 8 | instr->opcode;
+                        bcur += 4;
+                        break;
+                    case 2:
+                        *((Instr16 *) bcur) = arg << 8 | instr->opcode;
+                        bcur += 2;
+                        break;
+                    default:
+                        *((Instr8 *) bcur) = instr->opcode;
+                        bcur++;
+                }
             }
         }
     }

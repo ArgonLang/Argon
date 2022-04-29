@@ -857,10 +857,8 @@ int Compiler::CompileSelector(Binary *selector, bool dup, bool emit) {
             TranslationUnitIncStack(this->unit_, 1);
         }
 
-        if (deep > 0 || emit) {
-            if (!this->Emit(code, idx, nullptr))
-                return -1;
-        }
+        if ((deep > 0 || emit) && !this->Emit(code, idx, nullptr))
+            return -1;
 
         deep--;
         cursor = selector;
