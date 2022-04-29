@@ -186,6 +186,15 @@ ARGON_FUNCTION(input,
     return nullptr;
 }
 
+ARGON_FUNCTION(isbufferable,
+               "Check if object is bufferable."
+               ""
+               "- Parameters:"
+               "    - obj: object to check."
+               "- Returns: true if the object is bufferable, false otherwise.", 1, false) {
+    return BoolToArBool(IsBufferable(*argv));
+}
+
 ARGON_FUNCTION(isimpl,
                "Check if object implements all the indicated traits."
                ""
@@ -446,6 +455,7 @@ const PropertyBulk builtins_bulk[] = {
         MODULE_EXPORT_FUNCTION(dir_),
         MODULE_EXPORT_FUNCTION(exit_),
         MODULE_EXPORT_FUNCTION(input_),
+        MODULE_EXPORT_FUNCTION(isbufferable_),
         MODULE_EXPORT_FUNCTION(isimpl_),
         MODULE_EXPORT_FUNCTION(isinstance_),
         MODULE_EXPORT_FUNCTION(isiterable_),
