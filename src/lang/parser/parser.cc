@@ -472,7 +472,7 @@ Node *Parser::TypeDeclBlock(bool is_struct) {
                 tmp = this->ParseVarDecl(true, pub);
                 break;
             case TokenType::FUNC:
-                tmp = this->FuncDecl(pub);
+                tmp = this->FuncDecl(pub, !is_struct);
                 break;
             default:
                 if (is_struct) {
@@ -1010,12 +1010,13 @@ Node *Parser::ParseFor() {
     return nullptr;
 }
 
-Node *Parser::FuncDecl(bool pub) {
+Node *Parser::FuncDecl(bool pub, bool nobody) {
     String *name = nullptr;
     List *params = nullptr;
     Node *tmp = nullptr;
     Construct *fn;
     Pos start;
+    Pos end;
     bool exit;
 
     start = this->tkcur_.start;
@@ -1051,16 +1052,24 @@ Node *Parser::FuncDecl(bool pub) {
             tmp = nullptr;
         } while (!exit && this->MatchEat(TokenType::COMMA, true));
 
+        end = this->tkcur_.end;
+
         if (!this->MatchEat(TokenType::RIGHT_ROUND, true)) {
             ErrorFormat(type_syntax_error_, "expected ')' after function params");
             goto ERROR;
         }
     }
 
-    if ((tmp = this->ParseBlock(true)) == nullptr)
-        goto ERROR;
+    tmp = nullptr;
+    if (!nobody || this->Match(TokenType::LEFT_BRACES)) {
+        tmp = this->ParseBlock(true);
+        if (tmp == nullptr)
+            goto ERROR;
 
-    if ((fn = FunctionNew(start, name, params, tmp, pub)) == nullptr)
+        end = tmp->end;
+    }
+
+    if ((fn = FunctionNew(start, end, name, params, tmp, pub)) == nullptr)
         goto ERROR;
 
     return fn;
@@ -2186,7 +2195,7 @@ Node *Parser::ParseTupleLambda() {
             return nullptr;
         }
 
-        if ((fn = FunctionNew(start, nullptr, args, tmp, false)) == nullptr)
+        if ((fn = FunctionNew(start, tmp->end, nullptr, args, tmp, false)) == nullptr)
             goto ERROR;
 
         return fn;
@@ -2356,7 +2365,7 @@ Node *Parser::ParseDecls(bool nostatic) {
             stmt = this->ParseVarDecl(true, pub);
             break;
         case TokenType::FUNC:
-            stmt = this->FuncDecl(pub);
+            stmt = this->FuncDecl(pub, false);
             break;
         case TokenType::STRUCT:
             if (this->no_static_)

@@ -78,7 +78,7 @@ namespace argon::lang::parser {
 
         [[nodiscard]] Node *ParseFor();
 
-        [[nodiscard]] Node *FuncDecl(bool pub);
+        [[nodiscard]] Node *FuncDecl(bool pub, bool nobody);
 
         [[nodiscard]] Node *ParseIdentifier();
 

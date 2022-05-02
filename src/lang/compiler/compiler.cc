@@ -678,7 +678,8 @@ bool Compiler::CompileFunction(Construct *func) {
     ArObject *tmp;
 
     if (fname == nullptr) {
-        if ((fname = StringNewFormat("<anonymous_%d>", this->unit_->anon_count++)) == nullptr)
+        fname = StringNewFormat("<anonymous_%d>", this->unit_->anon_count++);
+        if (fname == nullptr)
             return false;
     }
 
@@ -728,9 +729,16 @@ bool Compiler::CompileFunction(Construct *func) {
         Release(iter);
     }
 
-    if (!this->CompileBlock((Unary *) func->block, false)) {
-        Release(fname);
-        return false;
+    if (func->block != nullptr) {
+        if (!this->CompileBlock((Unary *) func->block, false)) {
+            Release(fname);
+            return false;
+        }
+    } else {
+        if (!this->CompileFunctionDefaultBody(fname)) {
+            Release(fname);
+            return false;
+        }
     }
 
     // If the function is empty or the last statement is not return,
@@ -816,6 +824,36 @@ bool Compiler::CompileFunction(Construct *func) {
     }
 
     return true;
+}
+
+bool Compiler::CompileFunctionDefaultBody(const String *name) {
+    auto *panic = StringIntern("panic");
+    auto *panic_msg = StringNewFormat("you must implement method %s", this->unit_->qname->buffer);
+    bool ok = false;
+
+    if (panic == nullptr || panic_msg == nullptr)
+        goto ERROR;
+
+    if (!this->IdentifierLoad(panic))
+        goto ERROR;
+
+    if (this->PushStatic(panic_msg, false, true) < 0)
+        goto ERROR;
+
+    TranslationUnitDecStack(this->unit_, 1);
+
+    if (!this->Emit(OpCodes::CALL, (unsigned char) OpCodeCallFlags{}, 1))
+        goto ERROR;
+
+    if (!this->Emit(OpCodes::POP, 0, nullptr))
+        goto ERROR;
+
+    ok = true;
+
+    ERROR:
+    Release(panic);
+    Release(panic_msg);
+    return ok;
 }
 
 int Compiler::CompileSelector(Binary *selector, bool dup, bool emit) {
