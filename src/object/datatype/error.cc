@@ -113,6 +113,7 @@ ARGON_ERROR_TYPE_SIMPLE(ModuleNotFound, "", argon::object::type_module_not_found
 ARGON_ERROR_TYPE_SIMPLE(NotImplemented, "", argon::object::type_not_implemented_);
 ARGON_ERROR_TYPE_SIMPLE(OutOfMemoryError, "", type_out_of_memory_);
 ARGON_ERROR_TYPE_SIMPLE(OverflowError, "", argon::object::type_overflow_error_);
+ARGON_ERROR_TYPE_SIMPLE(OverrideError, "", argon::object::type_override_error_);
 ARGON_ERROR_TYPE_SIMPLE(RuntimeError, "", argon::object::type_runtime_error_);
 ARGON_ERROR_TYPE_SIMPLE(RuntimeExit, "", argon::object::type_runtime_exit_error_);
 ARGON_ERROR_TYPE_SIMPLE(ScopeError, "", argon::object::type_scope_error_);
@@ -361,6 +362,7 @@ bool argon::object::ErrorInit() {
     INIT(argon::object::type_module_not_found_);
     INIT(argon::object::type_not_implemented_);
     INIT(argon::object::type_overflow_error_);
+    INIT(argon::object::type_override_error_);
     INIT(argon::object::type_runtime_error_);
     INIT(argon::object::type_runtime_exit_error_);
     INIT(argon::object::type_scope_error_);

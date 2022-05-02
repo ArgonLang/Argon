@@ -103,6 +103,7 @@ Error *(ptr_name) = (Error*) &(name)
     extern const TypeInfo *type_module_not_found_;
     extern const TypeInfo *type_not_implemented_;
     extern const TypeInfo *type_overflow_error_;
+    extern const TypeInfo *type_override_error_;
     extern const TypeInfo *type_runtime_error_;
     extern const TypeInfo *type_runtime_exit_error_;
     extern const TypeInfo *type_scope_error_;
