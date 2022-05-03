@@ -1028,6 +1028,8 @@ Node *Parser::FuncDecl(bool pub, bool nobody) {
     if ((name = StringNew((const char *) this->tkcur_.buf)) == nullptr)
         return nullptr;
 
+    end = this->tkcur_.end;
+
     this->Eat();
 
     if (this->MatchEat(TokenType::LEFT_ROUND, false)) {
