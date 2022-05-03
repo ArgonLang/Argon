@@ -282,8 +282,9 @@ ARGON_METHOD5(set_, diff,
         for (HEntry *cursor = set->set.iter_begin; cursor != nullptr; cursor = tmp) {
             tmp = cursor->iter_next;
             if (HMapLookup(&((Set *) argv[idx])->set, cursor->key) != nullptr) {
+                HMapRemove(&set->set, cursor->key);
                 Release(cursor->key);
-                HMapRemove(&set->set, cursor);
+                HMapEntryToFreeNode(&set->set, cursor);
             }
         }
     }
@@ -302,9 +303,9 @@ ARGON_METHOD5(set_, discard,
     RWLockWrite lock(set->set.lock);
 
     for (ArSize idx = 0; idx < count; idx++) {
-        if ((tmp = HMapLookup(&set->set, argv[idx])) != nullptr) {
+        if ((tmp = HMapRemove(&set->set, argv[idx])) != nullptr) {
             Release(tmp->key);
-            HMapRemove(&set->set, tmp);
+            HMapEntryToFreeNode(&set->set, tmp);
             continue;
         }
 
@@ -339,8 +340,9 @@ ARGON_METHOD5(set_, intersect,
             for (HEntry *cursor = set->set.iter_begin; cursor != nullptr; cursor = tmp) {
                 tmp = cursor->iter_next;
                 if (HMapLookup(&((Set *) argv[idx])->set, cursor->key) == nullptr) {
+                    HMapRemove(&set->set, cursor->key);
                     Release(cursor->key);
-                    HMapRemove(&set->set, cursor);
+                    HMapEntryToFreeNode(&set->set, cursor);
                 }
             }
         }
@@ -372,8 +374,9 @@ ARGON_METHOD5(set_, symdiff,
     for (HEntry *cursor = set->set.iter_begin; cursor != nullptr; cursor = tmp) {
         tmp = cursor->iter_next;
         if (HMapLookup(&other->set, cursor->key) != nullptr) {
+            HMapRemove(&set->set, cursor->key);
             Release(cursor->key);
-            HMapRemove(&set->set, cursor);
+            HMapEntryToFreeNode(&set->set, cursor);
         }
     }
 
