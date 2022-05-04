@@ -178,6 +178,8 @@ namespace argon::object {
     }
 
     String *StringSubs(String *string, ArSize start, ArSize end);
+
+    ArSize StringSubStrLen(const String *str, ArSize offset, ArSize graphemes);
 }
 
 ENUMBITMASK_ENABLE(argon::object::StringFormatFlags);

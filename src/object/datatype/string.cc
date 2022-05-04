@@ -23,9 +23,9 @@ using namespace argon::object;
 
 static Map *intern = nullptr;
 
-ArSize StringSubStrLen(String *str, ArSize offset, ArSize graphemes) {
-    unsigned char *buf = str->buffer + offset;
-    unsigned char *end = str->buffer + str->len;
+ArSize argon::object::StringSubStrLen(const String *str, ArSize offset, ArSize graphemes) {
+    const unsigned char *buf = str->buffer + offset;
+    const unsigned char *end = str->buffer + str->len;
 
     if (graphemes == 0)
         return 0;

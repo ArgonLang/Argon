@@ -29,6 +29,7 @@ set(SRC
         datatype/string.cc
         datatype/struct.cc
         datatype/support/bytesops.cc
+        datatype/support/formatter.cc
         datatype/tuple.cc
         gc.cc
         refcount.cc
