@@ -37,18 +37,31 @@ namespace argon::object::support {
         } fmt;
 
         unsigned char *str = nullptr;
-        ArSize len =0;
+        ArSize len = 0;
         ArSize idx = 0;
 
         ArObject *NextArg();
 
-        int ParseNextSpecifier();
+        bool BufferResize(ArSize sz);
 
-        void ParseOption();
+        bool DoFormat();
 
         bool ParseStarOption(bool prec);
 
-        bool DoFormat();
+        bool WriteRepeat(unsigned char chr, int times);
+
+        int FormatChar();
+
+        int FormatDecimal(unsigned char specifier);
+
+        int FormatInteger(int base, bool upper);
+
+        static int
+        FormatNumber(unsigned char *buf, int index, int base, int width, bool upper, bool neg, FormatFlags flags);
+
+        int FormatString();
+
+        int ParseNextSpecifier();
 
         int Write(const unsigned char *buf, int sz, int overalloc);
 
@@ -56,26 +69,20 @@ namespace argon::object::support {
             return this->Write(buf, sz, 0);
         }
 
-        int WriteNumber(unsigned char *buf, long num, int base, int prec, int width, bool upper,FormatFlags flags);
+        int WriteNumber(unsigned char *buf, long num, int base, int prec, int width, bool upper, FormatFlags flags);
 
-        bool WriteRepeat(unsigned char chr, int times);
-
-        bool BufferResize(ArSize sz);
-
-        int FormatString();
-
-        int FormatInteger(int base, bool upper);
-
-        int FormatDecimal(unsigned char specifier);
-
-        int FormatNumber(unsigned char *buf, int index, int base, int width, bool upper, bool neg, FormatFlags flags);
-
-        int FormatChar();
+        void ParseOption();
 
     public:
         Formatter(const char *fmt, ArObject *args);
 
-        [[nodiscard]] unsigned char *format(ArSize *out_len);
+        Formatter(const char *fmt, ArSize len, ArObject *args);
+
+        ~Formatter();
+
+        unsigned char *format(ArSize *out_len);
+
+        void ReleaseBufferOwnership();
     };
 
 } // namespace argon::object::support

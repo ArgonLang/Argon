@@ -54,27 +54,6 @@ namespace argon::object {
         ArSize w_idx;
     };
 
-    struct StringArg {
-        StringFormatFlags flags;
-        int prec;
-        int width;
-    };
-
-    struct StringFormatter {
-        struct {
-            unsigned char *buf;
-            ArSize len;
-            ArSize idx;
-        } fmt;
-
-        StringBuilder builder;
-
-        ArObject *args;
-        ArSize args_idx;
-        ArSize args_len;
-        int nspec;
-    };
-
     extern const TypeInfo *type_string_;
 
     bool StringBuilderResize(StringBuilder *sb, ArSize len);

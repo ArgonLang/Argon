@@ -31,276 +31,25 @@ ArObject *Formatter::NextArg() {
     return ErrorFormat(type_type_error_, "not enough argument for format string");
 }
 
-int Formatter::ParseNextSpecifier() {
-    const unsigned char *buf = this->fmt.buf + this->fmt.idx;
-    int index = 0;
+bool Formatter::BufferResize(ArSize sz) {
+    ArSize csz = this->len;
+    unsigned char *tmp;
 
-    while ((this->fmt.idx + index) < this->fmt.len) {
-        if (buf[index++] == '%') {
-            if ((this->fmt.idx + index) == this->fmt.len) {
-                ErrorFormat(type_value_error_, "incomplete format specifier");
-                return -1;
-            }
+    if (csz > 0)
+        csz--;
 
-            if (buf[index] != '%') {
-                this->fmt.nspec++;
-                this->fmt.idx++;
-                index--;
-                break;
-            }
+    if (sz == 0 || this->idx + sz < csz)
+        return true;
 
-            index++;
-        }
-    }
+    if (this->str == nullptr)
+        sz += 1;
 
-    if (this->Write(buf, index) < 0)
-        return -1;
-
-    this->fmt.idx += index;
-
-    return this->fmt.idx != this->fmt.len;
-}
-
-void Formatter::ParseOption() {
-    // Flags
-    this->fmt.idx--;
-    while (this->fmt.buf[this->fmt.idx++] > 0) {
-        switch (this->fmt.buf[this->fmt.idx]) {
-            case '-':
-                this->fmt.flags |= FormatFlags::LJUST;
-                continue;
-            case '+':
-                this->fmt.flags |= FormatFlags::SIGN;
-                continue;
-            case ' ':
-                this->fmt.flags |= FormatFlags::BLANK;
-                continue;
-            case '#':
-                this->fmt.flags |= FormatFlags::ALT;
-                continue;
-            case '0':
-                this->fmt.flags |= FormatFlags::ZERO;
-                continue;
-            default:
-                goto NEXT;
-        }
-    }
-
-    NEXT:
-    if (ENUMBITMASK_ISTRUE(this->fmt.flags, FormatFlags::LJUST) &&
-        ENUMBITMASK_ISTRUE(this->fmt.flags, FormatFlags::ZERO))
-        this->fmt.flags &= ~FormatFlags::ZERO;
-
-    // Width
-    this->fmt.width = 0;
-    if (this->fmt.buf[this->fmt.idx] == '*') {
-        this->fmt.idx++;
-        if (!this->ParseStarOption(false))
-            return;
-    } else {
-        while (isdigit(this->fmt.buf[this->fmt.idx])) {
-            this->fmt.width = this->fmt.width * 10 + (this->fmt.buf[this->fmt.idx] - '0');
-            this->fmt.idx++;
-        }
-    }
-
-    // Precision
-    this->fmt.prec = -1;
-    if (this->fmt.buf[this->fmt.idx] == '.') {
-        this->fmt.idx++;
-        if (this->fmt.buf[this->fmt.idx] == '*') {
-            this->fmt.idx++;
-            if (!this->ParseStarOption(true))
-                return;
-        } else {
-            this->fmt.prec = 0;
-            while (isdigit(this->fmt.buf[this->fmt.idx])) {
-                this->fmt.prec = this->fmt.prec * 10 + (this->fmt.buf[this->fmt.idx] - '0');
-                this->fmt.idx++;
-            }
-        }
-    }
-}
-
-bool Formatter::ParseStarOption(bool prec) {
-    const auto *num = (Integer *) this->NextArg();
-    int opt;
-
-    if (num == nullptr)
+    if ((tmp = ArObjectRealloc<unsigned char *>(this->str, this->len + sz)) == nullptr)
         return false;
 
-    if (!AR_TYPEOF(num, type_integer_)) {
-        ErrorFormat(type_type_error_, "* wants integer not '%s'", AR_TYPE_NAME(num));
-        return false;
-    }
-
-    opt = (int) num->integer;
-
-    if (opt < 0) {
-        if (!prec)
-            this->fmt.flags |= FormatFlags::LJUST;
-        opt = -opt;
-    }
-
-    if (!prec)
-        this->fmt.width = opt;
-    else
-        this->fmt.prec = opt;
-
-    this->fmt.nspec++;
+    this->str = tmp;
+    this->len += sz;
     return true;
-}
-
-Formatter::Formatter(const char *fmt, ArObject *args) {
-    this->fmt.buf = (const unsigned char *) fmt;
-    this->fmt.len = strlen(fmt);
-    this->fmt.args = args;
-}
-
-int Formatter::FormatString() {
-    ArObject *obj;
-    String *s;
-    ArSize slen;
-    int ok;
-
-    if ((obj = this->NextArg()) == nullptr)
-        return -1;
-
-    s = (String *) ToString(obj);
-    slen = s->len;
-
-    if (this->fmt.prec > -1 && len > this->fmt.prec) {
-        slen = s->kind != StringKind::ASCII ?
-               StringSubStrLen(s, 0, slen) :
-               this->fmt.prec;
-    }
-
-    ok = this->Write(s->buffer, (int) slen);
-    Release(s);
-
-    return ok;
-}
-
-int Formatter::FormatChar() {
-    unsigned char sequence[4] = {};
-    ArObject *obj;
-
-    if ((obj = this->NextArg()) == nullptr)
-        return -1;
-
-    if (AR_TYPEOF(obj, type_string_)) {
-        const auto *s = (String *) obj;
-
-        if (s->len > 1) {
-            ErrorFormat(type_type_error_, "%%c requires a single char not string");
-            return -1;
-        }
-
-        return this->Write(s->buffer, 1);
-    } else if (AR_TYPEOF(obj, type_integer_)) {
-        auto slen = StringIntToUTF8((int) ((Integer *) obj)->integer, sequence);
-
-        if (slen == 0) {
-            ErrorFormat(type_overflow_error_, "%%c arg not in range(0x110000)");
-            return -1;
-        }
-
-        return this->Write(sequence, slen);
-    }
-
-    ErrorFormat(type_type_error_, "%%c requires integer or char not '%s'", AR_TYPE_NAME(obj));
-    return -1;
-}
-
-int Formatter::FormatInteger(int base, bool upper) {
-    ArObject *obj;
-    IntegerUnderlying num;
-    int bufsz;
-    int diff;
-
-    if ((obj = this->NextArg()) == nullptr)
-        return -1;
-
-    if (!AR_TYPEOF(obj, type_integer_)) {
-        ErrorFormat(type_type_error_, "%%%c requires integer not '%s'", this->fmt.buf[this->fmt.idx],
-                    AR_TYPE_NAME(obj));
-        return -1;
-    }
-
-    num = ((Integer *) obj)->integer;
-    bufsz = IntegerCountDigits(num, base);
-
-    if (this->fmt.prec > bufsz)
-        bufsz = this->fmt.prec;
-
-    if (num < 0 || ENUMBITMASK_ISTRUE(this->fmt.flags, FormatFlags::SIGN))
-        bufsz++;
-
-    if (ENUMBITMASK_ISTRUE(this->fmt.flags, FormatFlags::ALT))
-        bufsz += 2;
-
-    if (ENUMBITMASK_ISTRUE(this->fmt.flags, FormatFlags::BLANK))
-        bufsz++;
-
-    bufsz += this->fmt.width > bufsz ? this->fmt.width - bufsz : 0;
-
-    if (!this->BufferResize(bufsz))
-        return -1;
-
-    diff = this->WriteNumber(this->str + this->idx, num, base, this->fmt.prec > -1 ? this->fmt.prec : 0,
-                             this->fmt.width, upper, this->fmt.flags);
-
-    this->idx += diff;
-
-    return bufsz - diff;
-}
-
-int
-Formatter::FormatNumber(unsigned char *buf, int index, int base, int width, bool upper, bool neg, FormatFlags flags) {
-    unsigned char *end;
-    unsigned char tmp;
-
-    if (ENUMBITMASK_ISTRUE(flags, FormatFlags::ZERO)) {
-        width = width > index ? width - index : 0;
-        while (width--)
-            buf[index++] = '0';
-    }
-
-    if (ENUMBITMASK_ISTRUE(flags, FormatFlags::ALT)) {
-        if (base == 2)
-            buf[index++] = upper ? 'B' : 'b';
-        else if (base == 8)
-            buf[index++] = 'o';
-        else if (base == 16)
-            buf[index++] = upper ? 'X' : 'x';
-
-        buf[index++] = '0';
-    }
-
-    if (!neg) {
-        if (ENUMBITMASK_ISTRUE(flags, FormatFlags::SIGN))
-            buf[index++] = '+';
-    } else
-        buf[index++] = '-';
-
-    if (ENUMBITMASK_ISTRUE(flags, FormatFlags::BLANK))
-        buf[index++] = ' ';
-
-    if (ENUMBITMASK_ISFALSE(flags, FormatFlags::LJUST)) {
-        width = width > index ? width - index : 0;
-        while (width--)
-            buf[index++] = ' ';
-    }
-
-    // invert
-    end = buf + index;
-    while (buf < end) {
-        tmp = *buf;
-        *buf++ = *(end - 1);
-        *--end = tmp;
-    }
-
-    return index;
 }
 
 bool Formatter::DoFormat() {
@@ -359,13 +108,83 @@ bool Formatter::DoFormat() {
     return true;
 }
 
+bool Formatter::ParseStarOption(bool prec) {
+    const auto *num = (Integer *) this->NextArg();
+    int opt;
+
+    if (num == nullptr)
+        return false;
+
+    if (!AR_TYPEOF(num, type_integer_)) {
+        ErrorFormat(type_type_error_, "* wants integer not '%s'", AR_TYPE_NAME(num));
+        return false;
+    }
+
+    opt = (int) num->integer;
+
+    if (opt < 0) {
+        if (!prec)
+            this->fmt.flags |= FormatFlags::LJUST;
+        opt = -opt;
+    }
+
+    if (!prec)
+        this->fmt.width = opt;
+    else
+        this->fmt.prec = opt;
+
+    this->fmt.nspec++;
+    return true;
+}
+
+bool Formatter::WriteRepeat(unsigned char chr, int times) {
+    if (!this->BufferResize(times))
+        return false;
+
+    while (times-- > 0)
+        this->str[this->idx++] = chr;
+
+    return true;
+}
+
+int Formatter::FormatChar() {
+    unsigned char sequence[4] = {};
+    ArObject *obj;
+
+    if ((obj = this->NextArg()) == nullptr)
+        return -1;
+
+    if (AR_TYPEOF(obj, type_string_)) {
+        const auto *s = (String *) obj;
+
+        if (s->len > 1) {
+            ErrorFormat(type_type_error_, "%%c requires a single char not string");
+            return -1;
+        }
+
+        return this->Write(s->buffer, 1);
+    } else if (AR_TYPEOF(obj, type_integer_)) {
+        auto slen = StringIntToUTF8((int) ((Integer *) obj)->integer, sequence);
+
+        if (slen == 0) {
+            ErrorFormat(type_overflow_error_, "%%c arg not in range(0x110000)");
+            return -1;
+        }
+
+        return this->Write(sequence, slen);
+    }
+
+    ErrorFormat(type_type_error_, "%%c requires integer or char not '%s'", AR_TYPE_NAME(obj));
+    return -1;
+}
+
 int Formatter::FormatDecimal(unsigned char specifier) {
 #define FMT_PRECISION_DEF   6
     ArObject *obj;
     DecimalUnderlying num;
 
-    unsigned long intpart;
-    unsigned long frac;
+    unsigned long intpart = 0;
+    unsigned long frac = 0;
     long exp;
 
     int bufsz;
@@ -471,36 +290,149 @@ int Formatter::FormatDecimal(unsigned char specifier) {
 #undef FMT_PRECISION_DEF
 }
 
-unsigned char *Formatter::format(ArSize *out_len) {
-    unsigned char *buf;
+int Formatter::FormatInteger(int base, bool upper) {
+    ArObject *obj;
+    IntegerUnderlying num;
+    int bufsz;
+    int diff;
+
+    if ((obj = this->NextArg()) == nullptr)
+        return -1;
+
+    if (!AR_TYPEOF(obj, type_integer_)) {
+        ErrorFormat(type_type_error_, "%%%c requires integer not '%s'", this->fmt.buf[this->fmt.idx],
+                    AR_TYPE_NAME(obj));
+        return -1;
+    }
+
+    num = ((Integer *) obj)->integer;
+    bufsz = IntegerCountDigits(num, base);
+
+    if (this->fmt.prec > bufsz)
+        bufsz = this->fmt.prec;
+
+    if (num < 0 || ENUMBITMASK_ISTRUE(this->fmt.flags, FormatFlags::SIGN))
+        bufsz++;
+
+    if (ENUMBITMASK_ISTRUE(this->fmt.flags, FormatFlags::ALT))
+        bufsz += 2;
+
+    if (ENUMBITMASK_ISTRUE(this->fmt.flags, FormatFlags::BLANK))
+        bufsz++;
+
+    bufsz += this->fmt.width > bufsz ? this->fmt.width - bufsz : 0;
+
+    if (!this->BufferResize(bufsz))
+        return -1;
+
+    diff = this->WriteNumber(this->str + this->idx, num, base, this->fmt.prec > -1 ? this->fmt.prec : 0,
+                             this->fmt.width, upper, this->fmt.flags);
+
+    this->idx += diff;
+
+    return bufsz - diff;
+}
+
+int
+Formatter::FormatNumber(unsigned char *buf, int index, int base, int width, bool upper, bool neg, FormatFlags flags) {
+    unsigned char *end;
+    unsigned char tmp;
+
+    if (ENUMBITMASK_ISTRUE(flags, FormatFlags::ZERO)) {
+        width = width > index ? width - index : 0;
+        while (width--)
+            buf[index++] = '0';
+    }
+
+    if (ENUMBITMASK_ISTRUE(flags, FormatFlags::ALT)) {
+        if (base == 2)
+            buf[index++] = upper ? 'B' : 'b';
+        else if (base == 8)
+            buf[index++] = 'o';
+        else if (base == 16)
+            buf[index++] = upper ? 'X' : 'x';
+
+        buf[index++] = '0';
+    }
+
+    if (!neg) {
+        if (ENUMBITMASK_ISTRUE(flags, FormatFlags::SIGN))
+            buf[index++] = '+';
+    } else
+        buf[index++] = '-';
+
+    if (ENUMBITMASK_ISTRUE(flags, FormatFlags::BLANK))
+        buf[index++] = ' ';
+
+    if (ENUMBITMASK_ISFALSE(flags, FormatFlags::LJUST)) {
+        width = width > index ? width - index : 0;
+        while (width--)
+            buf[index++] = ' ';
+    }
+
+    // invert
+    end = buf + index;
+    while (buf < end) {
+        tmp = *buf;
+        *buf++ = *(end - 1);
+        *--end = tmp;
+    }
+
+    return index;
+}
+
+int Formatter::FormatString() {
+    ArObject *obj;
+    String *s;
+    ArSize slen;
     int ok;
 
-    *out_len = 0;
+    if ((obj = this->NextArg()) == nullptr)
+        return -1;
 
-    while ((ok = this->ParseNextSpecifier()) > 0) {
-        this->ParseOption();
+    s = (String *) ToString(obj);
+    slen = s->len;
 
-        if (!this->DoFormat())
-            return nullptr;
+    if (this->fmt.prec > -1 && len > this->fmt.prec) {
+        slen = s->kind != StringKind::ASCII ?
+               StringSubStrLen(s, 0, slen) :
+               this->fmt.prec;
     }
 
-    if (ok < 0)
-        return nullptr;
+    ok = this->Write(s->buffer, (int) slen);
+    Release(s);
 
-    if (this->fmt.nspec < this->fmt.args_len) {
-        ErrorFormat(type_type_error_, "not all arguments converted during string formatting");
-        return nullptr;
+    return ok;
+}
+
+int Formatter::ParseNextSpecifier() {
+    const unsigned char *buf = this->fmt.buf + this->fmt.idx;
+    int index = 0;
+
+    while ((this->fmt.idx + index) < this->fmt.len) {
+        if (buf[index++] == '%') {
+            if ((this->fmt.idx + index) == this->fmt.len) {
+                ErrorFormat(type_value_error_, "incomplete format specifier");
+                return -1;
+            }
+
+            if (buf[index] != '%') {
+                this->fmt.nspec++;
+                this->fmt.idx++;
+                index--;
+                break;
+            }
+
+            index++;
+        }
     }
 
-    buf = this->str;
-    *out_len = this->idx;
-    this->str = nullptr;
+    if (this->Write(buf, index) < 0)
+        return -1;
 
-    assert(this->idx < this->len);
+    this->fmt.idx += index;
 
-    buf[this->idx] = '\0';
-
-    return buf;
+    return this->fmt.idx != this->fmt.len;
 }
 
 int Formatter::Write(const unsigned char *buf, int sz, int overalloc) {
@@ -541,33 +473,122 @@ int Formatter::WriteNumber(unsigned char *buf, long num, int base, int prec, int
     return this->FormatNumber(buf, index, base, width, upper, neg, flags);
 }
 
-bool Formatter::WriteRepeat(unsigned char chr, int times) {
-    if (!this->BufferResize(times))
-        return false;
+unsigned char *Formatter::format(ArSize *out_len) {
+    unsigned char *buf;
+    int ok;
 
-    while (times-- > 0)
-        this->str[this->idx++] = chr;
+    if(this->str != nullptr){
+        *out_len = this->idx;
+        return this->str;
+    }
 
-    return true;
+    *out_len = 0;
+
+    while ((ok = this->ParseNextSpecifier()) > 0) {
+        this->ParseOption();
+
+        if (!this->DoFormat())
+            return nullptr;
+    }
+
+    if (ok < 0)
+        return nullptr;
+
+    if (this->fmt.nspec < this->fmt.args_len) {
+        ErrorFormat(type_type_error_, "not all arguments converted during string formatting");
+        return nullptr;
+    }
+
+    this->str[this->idx] = '\0';
+
+    buf = this->str;
+    *out_len = this->idx;
+
+    assert(this->idx < this->len);
+
+    return buf;
 }
 
-bool Formatter::BufferResize(ArSize sz) {
-    ArSize csz = this->len;
-    unsigned char *tmp;
+void Formatter::ParseOption() {
+    // Flags
+    this->fmt.idx--;
+    while (this->fmt.buf[this->fmt.idx++] > 0) {
+        switch (this->fmt.buf[this->fmt.idx]) {
+            case '-':
+                this->fmt.flags |= FormatFlags::LJUST;
+                continue;
+            case '+':
+                this->fmt.flags |= FormatFlags::SIGN;
+                continue;
+            case ' ':
+                this->fmt.flags |= FormatFlags::BLANK;
+                continue;
+            case '#':
+                this->fmt.flags |= FormatFlags::ALT;
+                continue;
+            case '0':
+                this->fmt.flags |= FormatFlags::ZERO;
+                continue;
+            default:
+                goto NEXT;
+        }
+    }
 
-    if (csz > 0)
-        csz--;
+    NEXT:
+    if (ENUMBITMASK_ISTRUE(this->fmt.flags, FormatFlags::LJUST) &&
+        ENUMBITMASK_ISTRUE(this->fmt.flags, FormatFlags::ZERO))
+        this->fmt.flags &= ~FormatFlags::ZERO;
 
-    if (sz == 0 || this->idx + sz < csz)
-        return true;
+    // Width
+    this->fmt.width = 0;
+    if (this->fmt.buf[this->fmt.idx] == '*') {
+        this->fmt.idx++;
+        if (!this->ParseStarOption(false))
+            return;
+    } else {
+        while (isdigit(this->fmt.buf[this->fmt.idx])) {
+            this->fmt.width = this->fmt.width * 10 + (this->fmt.buf[this->fmt.idx] - '0');
+            this->fmt.idx++;
+        }
+    }
 
-    if (this->str == nullptr)
-        sz += 1;
-
-    if ((tmp = ArObjectRealloc<unsigned char *>(this->str, this->len + sz)) == nullptr)
-        return false;
-
-    this->str = tmp;
-    this->len += sz;
-    return true;
+    // Precision
+    this->fmt.prec = -1;
+    if (this->fmt.buf[this->fmt.idx] == '.') {
+        this->fmt.idx++;
+        if (this->fmt.buf[this->fmt.idx] == '*') {
+            this->fmt.idx++;
+            if (!this->ParseStarOption(true))
+                return;
+        } else {
+            this->fmt.prec = 0;
+            while (isdigit(this->fmt.buf[this->fmt.idx])) {
+                this->fmt.prec = this->fmt.prec * 10 + (this->fmt.buf[this->fmt.idx] - '0');
+                this->fmt.idx++;
+            }
+        }
+    }
 }
+
+void Formatter::ReleaseBufferOwnership() {
+    this->str = nullptr;
+    this->len = 0;
+    this->idx = 0;
+}
+
+Formatter::Formatter(const char *fmt, ArObject *args) {
+    this->fmt.buf = (const unsigned char *) fmt;
+    this->fmt.len = strlen(fmt);
+    this->fmt.args = args;
+}
+
+Formatter::Formatter(const char *fmt, ArSize len, ArObject *args) {
+    this->fmt.buf = (const unsigned char *) fmt;
+    this->fmt.len = len;
+    this->fmt.args = args;
+}
+
+Formatter::~Formatter() {
+    argon::memory::Free(this->str);
+}
+

@@ -32,6 +32,8 @@ namespace argon::object {
 
     Bytes *BytesFreeze(Bytes *stream);
 
+    Bytes *BytesFormat(Bytes *bytes, ArObject *args);
+
     inline Bytes *BytesNew() {
         return BytesNew(ARGON_OBJECT_BYTES_INITIAL_CAP, false, false, false);
     }

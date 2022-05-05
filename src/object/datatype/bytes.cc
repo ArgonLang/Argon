@@ -13,6 +13,7 @@
 #include "hash_magic.h"
 
 #include "bytes.h"
+#include "object/datatype/support/formatter.h"
 
 #define BUFFER_GET(bs)              (bs->view.buffer)
 #define BUFFER_LEN(bs)              (bs->view.len)
@@ -832,7 +833,7 @@ const OpSlots bytes_ops{
         bytes_mul,
         nullptr,
         nullptr,
-        nullptr,
+        (BinaryOp) argon::object::BytesFormat,
         nullptr,
         nullptr,
         nullptr,
@@ -1081,6 +1082,25 @@ Bytes *argon::object::BytesNewHoldBuffer(unsigned char *buffer, ArSize len, ArSi
     }
 
     return bs;
+}
+
+Bytes *argon::object::BytesFormat(Bytes *bytes, ArObject *args) {
+    unsigned char *buf;
+    Bytes *ret;
+    ArSize len;
+
+    RWLockRead lock(bytes->view.shared->lock);
+
+    support::Formatter formatter((const char *) BUFFER_GET(bytes), BUFFER_LEN(bytes), args);
+
+    if ((buf = formatter.format(&len)) == nullptr)
+        return nullptr;
+
+    if ((ret = BytesNewHoldBuffer(buf, len, len, bytes->frozen)) == nullptr)
+        return nullptr;
+
+    formatter.ReleaseBufferOwnership();
+    return ret;
 }
 
 Bytes *argon::object::BytesFreeze(Bytes *stream) {
