@@ -8,20 +8,10 @@
 #include <string>
 #include <cstring>
 
-#include <utils/enum_bitmask.h>
-
 #include <object/datatype/support/bytesops.h>
 #include <object/arobject.h>
 
 namespace argon::object {
-    enum class StringFormatFlags {
-        LJUST = 0x01,
-        SIGN = 0x02,
-        BLANK = 0x04,
-        ALT = 0x08,
-        ZERO = 0x10
-    };
-
     enum class StringKind {
         ASCII,
         UTF8_2,
@@ -102,17 +92,17 @@ namespace argon::object {
 
     // Common Operations
 
-    ArObject *StringSplit(String *string, const unsigned char *c_str, ArSize len, ArSSize maxsplit);
+    ArObject *StringSplit(const String *string, const unsigned char *c_str, ArSize len, ArSSize maxsplit);
 
-    inline ArObject *StringSplit(String *string, const char *c_str, ArSSize maxsplit) {
+    inline ArObject *StringSplit(const String *string, const char *c_str, ArSSize maxsplit) {
         return StringSplit(string, (const unsigned char *) c_str, strlen(c_str), maxsplit);
     }
 
-    inline ArObject *StringSplit(String *string, String *pattern, ArSSize maxsplit) {
+    inline ArObject *StringSplit(const String *string, const String *pattern, ArSSize maxsplit) {
         return StringSplit(string, pattern->buffer, pattern->len, maxsplit);
     }
 
-    inline bool StringEmpty(String *string) { return string->len == 0; }
+    inline bool StringEmpty(const String *string) { return string->len == 0; }
 
     bool StringEndsWith(String *string, String *pattern);
 
@@ -160,7 +150,5 @@ namespace argon::object {
 
     ArSize StringSubStrLen(const String *str, ArSize offset, ArSize graphemes);
 }
-
-ENUMBITMASK_ENABLE(argon::object::StringFormatFlags);
 
 #endif // !ARGON_OBJECT_STRING_H_

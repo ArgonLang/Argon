@@ -3,21 +3,20 @@
 // Licensed under the Apache License v2.0
 
 #include <cstdarg>
-#include <cmath>
 
 #include <memory/memory.h>
 #include <vm/runtime.h>
+
+#include <object/datatype/support/formatter.h>
 
 #include "error.h"
 #include "hash_magic.h"
 #include "bool.h"
 #include "bounds.h"
-#include "decimal.h"
 #include "integer.h"
 #include "iterator.h"
 #include "map.h"
 #include "string.h"
-#include "object/datatype/support/formatter.h"
 
 using namespace argon::memory;
 using namespace argon::object;
@@ -170,7 +169,7 @@ bool string_get_buffer(String *self, ArBuffer *buffer, ArBufferFlags flags) {
     return BufferSimpleFill(self, buffer, flags, self->buffer, 1, self->len, false);
 }
 
-BufferSlots string_buffer = {
+const BufferSlots string_buffer = {
         (BufferGetFn) string_get_buffer,
         nullptr
 };
@@ -205,7 +204,7 @@ ArObject *string_mul(ArObject *left, ArObject *right) {
     return ret;
 }
 
-OpSlots string_ops{
+const OpSlots string_ops{
         string_add,
         nullptr,
         string_mul,
@@ -279,7 +278,7 @@ ArObject *string_get_slice(String *self, ArObject *bounds) {
     return ret;
 }
 
-SequenceSlots string_sequence = {
+const SequenceSlots string_sequence = {
         (SizeTUnaryOp) StringLen,
         (BinaryOpArSize) string_get_item,
         nullptr,
@@ -966,50 +965,110 @@ void argon::object::StringBuilderClean(StringBuilder *sb) {
 
 // Common Operations
 
-ArObject *argon::object::StringSplit(String *string, const unsigned char *c_str, ArSize plen, ArSSize maxsplit) {
+ArObject *StringSplitWhiteSpaces(const String *string, ArSSize maxsplit) {
     String *tmp;
     List *ret;
-
-    ArSize idx = 0;
-    ArSSize end;
-    ArSSize counter = 0;
+    ArSize cursor = 0;
+    ArSSize start = -1;
+    ArSize end;
 
     if ((ret = ListNew()) == nullptr)
         return nullptr;
 
-    if (maxsplit != 0) {
-        while ((end = support::Find(string->buffer + idx, string->len - idx, c_str, plen)) >= 0) {
-            if ((tmp = StringNew((const char *) string->buffer + idx, end)) == nullptr)
-                goto error;
+    end = string->len;
 
-            idx += end + plen;
+    if (maxsplit != 0)
+        start = support::FindWhitespace(string->buffer, &end);
 
-            if (!ListAppend(ret, tmp))
-                goto error;
+    while (start > -1 && (maxsplit == -1 || maxsplit > 0)) {
+        tmp = StringNew((const char *) string->buffer + cursor, start);
+        cursor += end;
 
+        if (tmp == nullptr) {
+            Release(ret);
+            return nullptr;
+        }
+
+        if (!ListAppend(ret, tmp)) {
             Release(tmp);
+            Release(ret);
+            return nullptr;
+        }
 
-            if (maxsplit > -1 && ++counter >= maxsplit)
-                break;
+        Release(tmp);
+
+        end = string->len - cursor;
+        start = support::FindWhitespace(string->buffer + cursor, &end);
+
+        if (maxsplit != -1)
+            maxsplit--;
+    }
+
+    if (string->len - cursor > 0) {
+        if ((tmp = StringNew((const char *) string->buffer + cursor, string->len - cursor)) == nullptr) {
+            Release(ret);
+            return nullptr;
+        }
+
+        if (!ListAppend(ret, tmp)) {
+            Release(tmp);
+            Release(ret);
+            return nullptr;
         }
     }
 
-    if (string->len - idx > 0) {
-        if ((tmp = StringNew((const char *) string->buffer + idx, string->len - idx)) == nullptr)
-            goto error;
+    return ret;
+}
 
-        if (!ListAppend(ret, tmp))
-            goto error;
+ArObject *argon::object::StringSplit(const String *string, const unsigned char *pattern, ArSize plen, ArSSize maxsplit) {
+    String *tmp;
+    List *ret;
+    ArSize cursor = 0;
+    ArSSize start;
+
+    if (pattern == nullptr || plen == 0)
+        return StringSplitWhiteSpaces(string, maxsplit);
+
+    if ((ret = ListNew()) == nullptr)
+        return nullptr;
+
+    start = support::Find(string->buffer, string->len, pattern, plen);
+    while (start > -1 && (maxsplit == -1 || maxsplit > 0)) {
+        tmp = StringNew((const char *) string->buffer + cursor, (cursor + start) - cursor);
+        cursor += start + plen;
+
+        if (tmp == nullptr) {
+            Release(ret);
+            return nullptr;
+        }
+
+        if (!ListAppend(ret, tmp)) {
+            Release(tmp);
+            Release(ret);
+            return nullptr;
+        }
 
         Release(tmp);
+
+        start = support::Find(string->buffer + cursor, string->len, pattern, plen);
+        if (maxsplit != -1)
+            maxsplit--;
+    }
+
+    if (string->len - cursor > 0) {
+        if ((tmp = StringNew((const char *) string->buffer + cursor, string->len - cursor)) == nullptr) {
+            Release(ret);
+            return nullptr;
+        }
+
+        if (!ListAppend(ret, tmp)) {
+            Release(tmp);
+            Release(ret);
+            return nullptr;
+        }
     }
 
     return ret;
-
-    error:
-    Release(tmp);
-    Release(ret);
-    return nullptr;
 }
 
 bool argon::object::StringEndsWith(String *string, String *pattern) {
