@@ -515,7 +515,7 @@ ARGON_METHOD5(bytes_, rmpostfix,
               1, false) {
     ArBuffer buffer{};
     auto *bytes = (Bytes *) self;
-    int len;
+    ArSize len;
     int compare;
 
     if (!BufferGet(argv[0], &buffer, ArBufferFlags::READ))
@@ -546,7 +546,7 @@ ARGON_METHOD5(bytes_, rmprefix,
               false) {
     ArBuffer buffer{};
     auto *bytes = (Bytes *) self;
-    int len;
+    ArSize len;
     int compare;
 
     if (!BufferGet(argv[0], &buffer, ArBufferFlags::READ))
@@ -579,8 +579,11 @@ ARGON_METHOD5(bytes_, split,
 
     bytes = (Bytes *) self;
 
-    if (!AR_TYPEOF(argv[1], type_integer_))
-        return ErrorFormat(type_type_error_, "bytes::split() expected integer not '%s'", AR_TYPE_NAME(argv[1]));
+    if (!CheckArgs("B:separator,i:maxsplit", func, argv, count))
+        return nullptr;
+
+    if (IsNull(argv[0]))
+        return BytesSplit(bytes, nullptr, 0, ((Integer *) argv[1])->integer);
 
     if (!BufferGet(argv[0], &buffer, ArBufferFlags::READ))
         return nullptr;
@@ -603,7 +606,7 @@ ARGON_METHOD5(bytes_, startswith,
               "- endswith: Returns true if bytes ends with the specified value.", 1, false) {
     ArBuffer buffer{};
     Bytes *bytes;
-    int res;
+    ArSize res;
 
     bytes = (Bytes *) self;
 
@@ -641,7 +644,7 @@ ARGON_METHOD5(bytes_, upper,
         return nullptr;
 
     for (ArSize i = 0; i < ret->view.len; i++)
-        ret->view.buffer[i] = toupper(ret->view.buffer[i]);
+        ret->view.buffer[i] = (unsigned char) toupper(ret->view.buffer[i]);
 
     ret->frozen = base->frozen;
 
@@ -958,52 +961,111 @@ const TypeInfo BytesType = {
 };
 const TypeInfo *argon::object::type_bytes_ = &BytesType;
 
-ArObject *argon::object::BytesSplit(Bytes *bytes, unsigned char *pattern, ArSize plen, ArSSize maxsplit) {
+ArObject *ByteSplitWhiteSpaces(Bytes *bytes, ArSSize maxsplit) {
     Bytes *tmp;
     List *ret;
-
-    ArSize idx = 0;
-    ArSSize end;
-    ArSSize counter = 0;
+    ArSize cursor = 0;
+    ArSSize start = -1;
+    ArSize end;
 
     if ((ret = ListNew()) == nullptr)
         return nullptr;
 
-    RWLockRead lock(bytes->view.shared->lock);
+    end = BUFFER_LEN(bytes);
 
-    if (maxsplit != 0) {
-        while ((end = support::Find(BUFFER_GET(bytes) + idx, BUFFER_LEN(bytes) - idx, pattern, plen)) >= 0) {
-            if ((tmp = BytesNew(bytes, idx, end)) == nullptr)
-                goto error;
+    if (maxsplit != 0)
+        start = support::FindWhitespace(BUFFER_GET(bytes), &end);
 
-            idx += end + plen;
+    while (start > -1 && (maxsplit == -1 || maxsplit > 0)) {
+        tmp = BytesNew(bytes, cursor, start);
+        cursor += end;
 
-            if (!ListAppend(ret, tmp))
-                goto error;
+        if (tmp == nullptr) {
+            Release(ret);
+            return nullptr;
+        }
 
+        if (!ListAppend(ret, tmp)) {
             Release(tmp);
+            Release(ret);
+            return nullptr;
+        }
 
-            if (maxsplit > -1 && ++counter >= maxsplit)
-                break;
+        Release(tmp);
+
+        end = BUFFER_LEN(bytes) - cursor;
+        start = support::FindWhitespace(BUFFER_GET(bytes) + cursor, &end);
+
+        if (maxsplit != -1)
+            maxsplit--;
+    }
+
+    if (BUFFER_LEN(bytes) - cursor > 0) {
+        if ((tmp = BytesNew(bytes, cursor, BUFFER_LEN(bytes) - cursor)) == nullptr) {
+            Release(ret);
+            return nullptr;
+        }
+
+        if (!ListAppend(ret, tmp)) {
+            Release(tmp);
+            Release(ret);
+            return nullptr;
         }
     }
 
-    if (BUFFER_LEN(bytes) - idx > 0) {
-        if ((tmp = BytesNew(bytes, idx, BUFFER_LEN(bytes) - idx)) == nullptr)
-            goto error;
+    return ret;
+}
 
-        if (!ListAppend(ret, tmp))
-            goto error;
+ArObject *argon::object::BytesSplit(Bytes *bytes, const unsigned char *pattern, ArSize plen, ArSSize maxsplit) {
+    RWLockRead lock(bytes->view.shared->lock);
+    Bytes *tmp;
+    List *ret;
+    ArSize cursor = 0;
+    ArSSize start;
+
+    if (pattern == nullptr || plen == 0)
+        return ByteSplitWhiteSpaces(bytes, maxsplit);
+
+    if ((ret = ListNew()) == nullptr)
+        return nullptr;
+
+    start = support::Find(BUFFER_GET(bytes), BUFFER_LEN(bytes), pattern, plen);
+    while (start > -1 && (maxsplit == -1 || maxsplit > 0)) {
+        tmp = BytesNew(bytes, cursor, (cursor + start) - cursor);
+        cursor += start + plen;
+
+        if (tmp == nullptr) {
+            Release(ret);
+            return nullptr;
+        }
+
+        if (!ListAppend(ret, tmp)) {
+            Release(tmp);
+            Release(ret);
+            return nullptr;
+        }
 
         Release(tmp);
+
+        start = support::Find(BUFFER_GET(bytes) + cursor, BUFFER_LEN(bytes), pattern, plen);
+        if (maxsplit != -1)
+            maxsplit--;
+    }
+
+    if (BUFFER_LEN(bytes) - cursor > 0) {
+        if ((tmp = BytesNew(bytes, cursor, BUFFER_LEN(bytes) - cursor)) == nullptr) {
+            Release(ret);
+            return nullptr;
+        }
+
+        if (!ListAppend(ret, tmp)) {
+            Release(tmp);
+            Release(ret);
+            return nullptr;
+        }
     }
 
     return ret;
-
-    error:
-    Release(tmp);
-    Release(ret);
-    return nullptr;
 }
 
 Bytes *argon::object::BytesNew(ArObject *object) {
@@ -1046,7 +1108,7 @@ Bytes *argon::object::BytesNew(ArSize cap, bool same_len, bool fill_zero, bool f
     return bs;
 }
 
-Bytes *argon::object::BytesNew(unsigned char *buffer, ArSize len, bool frozen) {
+Bytes *argon::object::BytesNew(const unsigned char *buffer, ArSize len, bool frozen) {
     auto *bytes = BytesNew(len, true, false, frozen);
 
     if (bytes != nullptr)

@@ -24,7 +24,7 @@ namespace argon::object {
 
     Bytes *BytesNew(ArSize cap, bool same_len, bool fill_zero, bool frozen);
 
-    Bytes *BytesNew(unsigned char *buffer, ArSize len, bool frozen);
+    Bytes *BytesNew(const unsigned char *buffer, ArSize len, bool frozen);
 
     Bytes *BytesNew(Bytes *bytes, ArSize start, ArSize len);
 
@@ -38,7 +38,7 @@ namespace argon::object {
         return BytesNew(ARGON_OBJECT_BYTES_INITIAL_CAP, false, false, false);
     }
 
-    ArObject *BytesSplit(Bytes *bytes, unsigned char *pattern, ArSize plen, ArSSize maxsplit);
+    ArObject *BytesSplit(Bytes *bytes, const unsigned char *pattern, ArSize plen, ArSSize maxsplit);
 
 } // namespace argon::object
 
