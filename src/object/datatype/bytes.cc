@@ -1085,13 +1085,14 @@ Bytes *argon::object::BytesNewHoldBuffer(unsigned char *buffer, ArSize len, ArSi
 }
 
 Bytes *argon::object::BytesFormat(Bytes *bytes, ArObject *args) {
+    RWLockRead lock(bytes->view.shared->lock);
     unsigned char *buf;
     Bytes *ret;
     ArSize len;
 
-    RWLockRead lock(bytes->view.shared->lock);
-
     support::Formatter formatter((const char *) BUFFER_GET(bytes), BUFFER_LEN(bytes), args);
+
+    formatter.string_as_bytes = true;
 
     if ((buf = formatter.format(&len)) == nullptr)
         return nullptr;

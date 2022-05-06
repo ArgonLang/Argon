@@ -58,7 +58,7 @@ bool Formatter::DoFormat() {
 
     switch (op) {
         case 's':
-            result = this->FormatString();
+            result = this->string_as_bytes ? this->FormatBytesString() : this->FormatString();
             break;
         case 'b':
             result = this->FormatInteger(2, false);
@@ -145,6 +145,27 @@ bool Formatter::WriteRepeat(unsigned char chr, int times) {
         this->str[this->idx++] = chr;
 
     return true;
+}
+
+int Formatter::FormatBytesString() {
+    ArBuffer buffer = {};
+    ArObject *obj;
+    int wlen;
+
+    if ((obj = this->NextArg()) == nullptr)
+        return -1;
+
+    if (!BufferGet(obj, &buffer, ArBufferFlags::READ))
+        return -1;
+
+    if ((wlen = this->Write(buffer.buffer, (int) buffer.len)) < 0) {
+        BufferRelease(&buffer);
+        return -1;
+    }
+
+    BufferRelease(&buffer);
+
+    return wlen;
 }
 
 int Formatter::FormatChar() {
@@ -477,7 +498,7 @@ unsigned char *Formatter::format(ArSize *out_len) {
     unsigned char *buf;
     int ok;
 
-    if(this->str != nullptr){
+    if (this->str != nullptr) {
         *out_len = this->idx;
         return this->str;
     }
@@ -591,4 +612,3 @@ Formatter::Formatter(const char *fmt, ArSize len, ArObject *args) {
 Formatter::~Formatter() {
     argon::memory::Free(this->str);
 }
-

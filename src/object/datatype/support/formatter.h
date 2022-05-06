@@ -50,6 +50,8 @@ namespace argon::object::support {
 
         bool WriteRepeat(unsigned char chr, int times);
 
+        int FormatBytesString();
+
         int FormatChar();
 
         int FormatDecimal(unsigned char specifier);
@@ -74,6 +76,8 @@ namespace argon::object::support {
         void ParseOption();
 
     public:
+        bool string_as_bytes = false;
+
         Formatter(const char *fmt, ArObject *args);
 
         Formatter(const char *fmt, ArSize len, ArObject *args);
