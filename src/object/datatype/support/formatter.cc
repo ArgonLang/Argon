@@ -31,24 +31,28 @@ ArObject *Formatter::NextArg() {
     return ErrorFormat(type_type_error_, "not enough argument for format string");
 }
 
+ArSize Formatter::GetCapacity() {
+    return this->cap_;
+}
+
 bool Formatter::BufferResize(ArSize sz) {
-    ArSize csz = this->len;
+    ArSize csz = this->cap_;
     unsigned char *tmp;
 
     if (csz > 0)
         csz--;
 
-    if (sz == 0 || this->idx + sz < csz)
+    if (sz == 0 || this->idx_ + sz < csz)
         return true;
 
-    if (this->str == nullptr)
+    if (this->str_ == nullptr)
         sz += 1;
 
-    if ((tmp = ArObjectRealloc<unsigned char *>(this->str, this->len + sz)) == nullptr)
+    if ((tmp = ArObjectRealloc<unsigned char *>(this->str_, this->cap_ + sz)) == nullptr)
         return false;
 
-    this->str = tmp;
-    this->len += sz;
+    this->str_ = tmp;
+    this->cap_ += sz;
     return true;
 }
 
@@ -142,7 +146,7 @@ bool Formatter::WriteRepeat(unsigned char chr, int times) {
         return false;
 
     while (times-- > 0)
-        this->str[this->idx++] = chr;
+        this->str_[this->idx_++] = chr;
 
     return true;
 }
@@ -292,19 +296,19 @@ int Formatter::FormatDecimal(unsigned char specifier) {
     if (!this->BufferResize(bufsz))
         return -1;
 
-    diff = this->WriteNumber(this->str + this->idx, (long) intpart, 10, 0, this->fmt.width, upper, this->fmt.flags);
+    diff = this->WriteNumber(this->str_ + this->idx_, (long) intpart, 10, 0, this->fmt.width, upper, this->fmt.flags);
 
     if (frac > 0) {
-        this->str[diff++ + this->idx] = '.';
-        diff += this->WriteNumber(this->str + this->idx + diff, (long) frac, 10, 0, 0, false, FormatFlags::NONE);
+        this->str_[diff++ + this->idx_] = '.';
+        diff += this->WriteNumber(this->str_ + this->idx_ + diff, (long) frac, 10, 0, 0, false, FormatFlags::NONE);
     }
 
     if (sn) {
-        this->str[diff++ + this->idx] = upper ? 'E' : 'e';
-        diff += this->WriteNumber(this->str + this->idx + diff, exp, 10, 2, 0, false, FormatFlags::SIGN);
+        this->str_[diff++ + this->idx_] = upper ? 'E' : 'e';
+        diff += this->WriteNumber(this->str_ + this->idx_ + diff, exp, 10, 2, 0, false, FormatFlags::SIGN);
     }
 
-    this->idx += diff;
+    this->idx_ += diff;
 
     return bufsz - diff;
 
@@ -346,10 +350,10 @@ int Formatter::FormatInteger(int base, bool upper) {
     if (!this->BufferResize(bufsz))
         return -1;
 
-    diff = this->WriteNumber(this->str + this->idx, num, base, this->fmt.prec > -1 ? this->fmt.prec : 0,
+    diff = this->WriteNumber(this->str_ + this->idx_, num, base, this->fmt.prec > -1 ? this->fmt.prec : 0,
                              this->fmt.width, upper, this->fmt.flags);
 
-    this->idx += diff;
+    this->idx_ += diff;
 
     return bufsz - diff;
 }
@@ -414,7 +418,7 @@ int Formatter::FormatString() {
     s = (String *) ToString(obj);
     slen = s->len;
 
-    if (this->fmt.prec > -1 && len > this->fmt.prec) {
+    if (this->fmt.prec > -1 && slen > this->fmt.prec) {
         slen = s->kind != StringKind::ASCII ?
                StringSubStrLen(s, 0, slen) :
                this->fmt.prec;
@@ -460,8 +464,8 @@ int Formatter::Write(const unsigned char *buf, int sz, int overalloc) {
     if (!this->BufferResize(sz + overalloc))
         return -1;
 
-    memory::MemoryCopy(this->str + this->idx, buf, sz);
-    this->idx += sz;
+    memory::MemoryCopy(this->str_ + this->idx_, buf, sz);
+    this->idx_ += sz;
 
     return sz;
 }
@@ -498,9 +502,9 @@ unsigned char *Formatter::format(ArSize *out_len) {
     unsigned char *buf;
     int ok;
 
-    if (this->str != nullptr) {
-        *out_len = this->idx;
-        return this->str;
+    if (this->str_ != nullptr) {
+        *out_len = this->idx_;
+        return this->str_;
     }
 
     *out_len = 0;
@@ -520,12 +524,12 @@ unsigned char *Formatter::format(ArSize *out_len) {
         return nullptr;
     }
 
-    this->str[this->idx] = '\0';
+    this->str_[this->idx_] = '\0';
 
-    buf = this->str;
-    *out_len = this->idx;
+    buf = this->str_;
+    *out_len = this->idx_;
 
-    assert(this->idx < this->len);
+    assert(this->idx_ < this->cap_);
 
     return buf;
 }
@@ -592,9 +596,9 @@ void Formatter::ParseOption() {
 }
 
 void Formatter::ReleaseBufferOwnership() {
-    this->str = nullptr;
-    this->len = 0;
-    this->idx = 0;
+    this->str_ = nullptr;
+    this->cap_ = 0;
+    this->idx_ = 0;
 }
 
 Formatter::Formatter(const char *fmt, ArObject *args) {
@@ -610,5 +614,5 @@ Formatter::Formatter(const char *fmt, ArSize len, ArObject *args) {
 }
 
 Formatter::~Formatter() {
-    argon::memory::Free(this->str);
+    argon::memory::Free(this->str_);
 }

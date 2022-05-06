@@ -1097,7 +1097,7 @@ Bytes *argon::object::BytesFormat(Bytes *bytes, ArObject *args) {
     if ((buf = formatter.format(&len)) == nullptr)
         return nullptr;
 
-    if ((ret = BytesNewHoldBuffer(buf, len, len, bytes->frozen)) == nullptr)
+    if ((ret = BytesNewHoldBuffer(buf, len, formatter.GetCapacity(), bytes->frozen)) == nullptr)
         return nullptr;
 
     formatter.ReleaseBufferOwnership();

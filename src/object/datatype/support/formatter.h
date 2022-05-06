@@ -36,9 +36,9 @@ namespace argon::object::support {
             int width = 0;
         } fmt;
 
-        unsigned char *str = nullptr;
-        ArSize len = 0;
-        ArSize idx = 0;
+        unsigned char *str_ = nullptr;
+        ArSize cap_ = 0;
+        ArSize idx_ = 0;
 
         ArObject *NextArg();
 
@@ -83,6 +83,8 @@ namespace argon::object::support {
         Formatter(const char *fmt, ArSize len, ArObject *args);
 
         ~Formatter();
+
+        ArSize GetCapacity();
 
         unsigned char *format(ArSize *out_len);
 
