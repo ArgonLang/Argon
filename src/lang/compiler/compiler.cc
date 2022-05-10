@@ -735,7 +735,7 @@ bool Compiler::CompileFunction(Construct *func) {
             return false;
         }
     } else {
-        if (!this->CompileFunctionDefaultBody(fname)) {
+        if (!this->CompileFunctionDefaultBody()) {
             Release(fname);
             return false;
         }
@@ -826,10 +826,13 @@ bool Compiler::CompileFunction(Construct *func) {
     return true;
 }
 
-bool Compiler::CompileFunctionDefaultBody(const String *name) {
+bool Compiler::CompileFunctionDefaultBody() {
     auto *panic = StringIntern("panic");
-    auto *panic_msg = StringNewFormat("you must implement method %s", this->unit_->qname->buffer);
+    ArObject *panic_msg;
     bool ok = false;
+
+    panic_msg = ErrorFormatNoPanic(type_unimplemented_error_, "you must implement method %s",
+                                   this->unit_->qname->buffer);
 
     if (panic == nullptr || panic_msg == nullptr)
         goto ERROR;

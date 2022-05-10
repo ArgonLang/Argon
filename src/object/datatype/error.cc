@@ -121,6 +121,7 @@ ARGON_ERROR_TYPE_SIMPLE(TypeError, "", argon::object::type_type_error_);
 ARGON_ERROR_TYPE_SIMPLE(UnassignableError, "", argon::object::type_unassignable_error_);
 ARGON_ERROR_TYPE_SIMPLE(UndeclaredError, "", argon::object::type_undeclared_error_);
 ARGON_ERROR_TYPE_SIMPLE(UnhashableError, "", argon::object::type_unhashable_error_);
+ARGON_ERROR_TYPE_SIMPLE(UnimplementedError, "", argon::object::type_unimplemented_error_);
 ARGON_ERROR_TYPE_SIMPLE(UnicodeIndex, "", argon::object::type_unicode_index_error_);
 ARGON_ERROR_TYPE_SIMPLE(ValueError, "", argon::object::type_value_error_);
 ARGON_ERROR_TYPE_SIMPLE(RegexError, "", argon::object::type_regex_error_);
@@ -370,6 +371,7 @@ bool argon::object::ErrorInit() {
     INIT(argon::object::type_unassignable_error_);
     INIT(argon::object::type_undeclared_error_);
     INIT(argon::object::type_unhashable_error_);
+    INIT(argon::object::type_unimplemented_error_);
     INIT(argon::object::type_unicode_index_error_);
     INIT(argon::object::type_value_error_);
     INIT(type_zero_division_);
