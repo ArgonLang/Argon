@@ -524,7 +524,8 @@ unsigned char *Formatter::format(ArSize *out_len) {
         return nullptr;
     }
 
-    this->str_[this->idx_] = '\0';
+    if (this->str_ != nullptr)
+        this->str_[this->idx_] = '\0';
 
     buf = this->str_;
     *out_len = this->idx_;

@@ -98,6 +98,7 @@ bool WriteToBase(BufferedIO *bio, ArObject *bytes, ArObject **error) {
 }
 
 ArSSize ReadData(BufferedIO *bio, unsigned char *buffer, ArSize length) {
+    std::unique_lock lock(bio->lock);
     const Bytes *biobuf = (Bytes *) bio->buffer;
     ArSize total = 0;
     ArSize rlen;
@@ -126,6 +127,7 @@ ArSSize ReadData(BufferedIO *bio, unsigned char *buffer, ArSize length) {
 }
 
 ArSSize ReadsByte(BufferedIO *bio, unsigned char stop, unsigned char *buffer, ArSize length) {
+    std::unique_lock lock(bio->lock);
     const Bytes *biobuf = (Bytes *) bio->buffer;
     ArSize total = 0;
     ArSize rlen;
@@ -174,7 +176,7 @@ ArObject *Read(BufferedIO *bio, ArObject *bytes, ArSSize cap) {
     ArSSize len;
 
     if (cap <= 0)
-        cap = 1024;
+        cap = ARGON_OBJECT_IO_DEFAULT_BUFFERED_CAP;
 
     if (bytes != nullptr) {
         if (!BufferGet(bytes, &buffer, ArBufferFlags::WRITE))
@@ -206,7 +208,7 @@ ARGON_FUNCTION5(buffered_, new, "", 2, false) {
     const auto *arint = (Integer *) argv[1];
     BufferedIO *bio;
 
-    ArSSize buflen = 4096;
+    ArSSize buflen = ARGON_OBJECT_IO_DEFAULT_BUFSIZE;
 
     if ((base == type_buffered_reader_ && !TraitIsImplemented(argv[0], type_readT_)) ||
         (base == type_buffered_writer_ && !TraitIsImplemented(argv[0], type_writeT_))) {
@@ -221,6 +223,8 @@ ARGON_FUNCTION5(buffered_, new, "", 2, false) {
         return nullptr;
 
     bio->base = IncRef(argv[0]);
+
+    new(&bio->lock)std::mutex();
 
     if (arint->integer > 0)
         buflen = arint->integer;
@@ -277,7 +281,7 @@ ARGON_METHOD5(buffered_, readline, "", 1, false) {
     unsigned char *buffer;
     Bytes *bytes;
 
-    ArSize cap = 1024;
+    ArSize cap = ARGON_OBJECT_IO_DEFAULT_BUFFERED_CAP;
     ArSSize len;
 
     if (!CheckArgs("i:size", func, argv, count))
@@ -305,12 +309,17 @@ ARGON_METHOD5(buffered_, readline, "", 1, false) {
 ARGON_METHOD5(buffered_, write, "", 1, false) {
     ArBuffer buffer = {};
     auto *bio = (BufferedIO *) self;
-    auto *biobuf = (Bytes *) bio->buffer;
     ArObject *error = nullptr;
     ArObject *res;
+    Bytes *biobuf;
+    ArSize blocksz;
+    ArSize widx;
 
-    ArSize blocksz = biobuf->view.shared->cap;
-    ArSize widx = 0;
+    std::unique_lock lock(bio->lock);
+
+    biobuf = (Bytes *) bio->buffer;
+    blocksz = biobuf->view.shared->cap;
+    widx = 0;
 
     if (!BufferGet(argv[0], &buffer, ArBufferFlags::READ))
         return nullptr;
@@ -399,6 +408,8 @@ void buffer_cleanup(BufferedIO *self) {
         WriteToBase(self, nullptr, &error);
         Release(error);
     }
+
+    self->lock.~mutex();
 
     Release(self->base);
     Release(self->buffer);

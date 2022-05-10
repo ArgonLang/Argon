@@ -24,6 +24,7 @@
 #endif
 
 #define ARGON_OBJECT_IO_DEFAULT_BUFSIZE                 4096
+#define ARGON_OBJECT_IO_DEFAULT_BUFFERED_CAP            1024
 #define ARGON_OBJECT_IO_DEFAULT_READLINE_BUFSIZE        6
 #define ARGON_OBJECT_IO_DEFAULT_READLINE_BUFSIZE_INC    ARGON_OBJECT_IO_DEFAULT_READLINE_BUFSIZE
 
@@ -75,6 +76,8 @@ namespace argon::object::io {
     extern const argon::object::TypeInfo *type_writeT_;
 
     struct BufferedIO : argon::object::ArObject {
+        std::mutex lock;
+
         ArObject *base;
 
         ArObject *buffer;   // Bytes
