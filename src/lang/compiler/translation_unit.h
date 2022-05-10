@@ -108,7 +108,7 @@ namespace argon::lang::compiler {
 
     void TranslationUnitIncStack(TranslationUnit *unit, unsigned short size);
 
-    void TranslationUnitJBPop(TranslationUnit *unit, JBlock *block);
+    void TranslationUnitJBPop(TranslationUnit *unit, const JBlock *block);
 }
 
 #endif // !ARGON_LANG_COMPILER_TRANSLATION_UNIT_H_
