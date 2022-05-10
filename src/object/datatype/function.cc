@@ -292,6 +292,10 @@ ArObject *argon::object::FunctionCallNative(Function *func, ArObject **args, ArS
     List *arguments = nullptr;
     ArObject *ret;
 
+    // Check stub
+    if (func->native_fn == nullptr)
+        return ErrorFormat(type_unimplemented_error_, "you must implement method %s", func->qname->buffer);
+
     if (func->arity > 0 || func->IsVariadic()) {
         if (func->currying != nullptr) {
             if (args != nullptr && count > 0) {

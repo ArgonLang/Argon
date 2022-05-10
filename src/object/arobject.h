@@ -107,7 +107,8 @@ ArObject *prefix##name##_fn(ArObject *func, ArObject *self, ArObject **argv, ArS
 #define ARGON_CALL_FUNC5(prefix, name, origin, self, argv, count)   prefix##name##_fn(origin, self, argv, count)
 #define ARGON_CALL_FUNC(name, origin, self, argv, count)            ARGON_CALL_FUNC5(,name,origin,self,argv,count)
 
-#define ARGON_METHOD_SENTINEL   {nullptr, nullptr, nullptr, 0, false}
+#define ARGON_METHOD_STUB(name, desc, arity, variadic)  {name, desc, nullptr, (arity) + 1, variadic, true}
+#define ARGON_METHOD_SENTINEL                           {nullptr, nullptr, nullptr, 0, false, false}
 
     enum class NativeMemberType : int {
         AROBJECT,
