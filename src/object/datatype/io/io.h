@@ -71,6 +71,23 @@ namespace argon::object::io {
 
     extern const argon::object::TypeInfo *type_file_;
 
+    extern const argon::object::TypeInfo *type_readT_;
+    extern const argon::object::TypeInfo *type_writeT_;
+
+    struct BufferedIO : argon::object::ArObject {
+        ArObject *base;
+
+        ArObject *buffer;   // Bytes
+        ArObject *blocksz;  // Integer
+
+        ArSize index;
+    };
+
+    extern const argon::object::TypeInfo *type_buffered_reader_;
+    extern const argon::object::TypeInfo *type_buffered_writer_;
+
+    bool IOInit();
+
     bool Flush(File *file);
 
     bool Isatty(File *file);

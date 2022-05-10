@@ -7,7 +7,6 @@
 #include <object/arobject.h>
 #include <object/datatype/integer.h>
 #include <object/datatype/io/io.h>
-#include <object/datatype/function.h>
 
 #include "modules.h"
 
@@ -73,15 +72,19 @@ ARGON_FUNCTION5(io_, openfd, "Create file object from file descriptor."
 }
 
 const PropertyBulk io_bulk[] = {
-        MODULE_EXPORT_TYPE_ALIAS("file", type_file_),
+        MODULE_EXPORT_TYPE(type_buffered_reader_),
+        MODULE_EXPORT_TYPE(type_buffered_writer_),
+        MODULE_EXPORT_TYPE(type_file_),
+        MODULE_EXPORT_TYPE(type_readT_),
+        MODULE_EXPORT_TYPE(type_writeT_),
         MODULE_EXPORT_FUNCTION(io_open_),
         MODULE_EXPORT_FUNCTION(io_openfd_),
         MODULE_EXPORT_SENTINEL
 };
 
-bool IOInit(Module *module) {
-#define INIT_OBJ(c_key, c_value)                        \
-    if(!ModuleAddIntConstant(module, c_key, c_value))   \
+bool IOInit(Module *self) {
+#define INIT_OBJ(c_key, c_value)                    \
+    if(!ModuleAddIntConstant(self, c_key, c_value)) \
         return false
 
     // FileMode

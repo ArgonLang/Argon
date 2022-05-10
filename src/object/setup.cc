@@ -31,7 +31,6 @@ bool argon::object::TypesInit() {
     INIT_TYPE(type_atom_);
     INIT_TYPE(type_bool_);
     INIT_TYPE(type_decimal_);
-    INIT_TYPE(io::type_file_);
     INIT_TYPE(type_integer_);
     INIT_TYPE(type_bytes_);
     INIT_TYPE(type_map_);
@@ -40,6 +39,9 @@ bool argon::object::TypesInit() {
     INIT_TYPE(type_string_);
     INIT_TYPE(type_tuple_);
     INIT_TYPE(type_list_);
+
+    if (!io::IOInit())
+        return false;
 
     return true;
 #undef INIT_TYPE
