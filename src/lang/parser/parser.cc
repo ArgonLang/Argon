@@ -513,84 +513,51 @@ Node *Parser::TypeDeclBlock(bool is_struct) {
 }
 
 Node *Parser::ParseScope() {
-    ArObject *tmp;
-    List *scopes;
-    Unary *ret;
-
-    Pos start;
-    Pos end;
+    Node *ltmp;
+    ArObject *rtmp;
+    Binary *scope;
 
     if (!this->Match(TokenType::IDENTIFIER))
         return (Node *) ErrorFormat(type_syntax_error_, "expected identifier");
 
-    if ((tmp = StringNew((const char *) this->tkcur_.buf)) == nullptr)
+    if ((ltmp = this->ParseIdentifier()) == nullptr)
         return nullptr;
 
-    start = this->tkcur_.start;
-    this->Eat();
+    while (this->Match(TokenType::SCOPE)) {
+        this->Eat();
 
-    if (!this->Match(TokenType::SCOPE)) {
-        if ((ret = ArObjectNew<Unary>(RCType::INLINE, type_ast_identifier_)) == nullptr) {
-            Release(tmp);
+        if (!this->Match(TokenType::IDENTIFIER)) {
+            Release(ltmp);
+            return (Node *) ErrorFormat(type_syntax_error_, "expected identifier after '::' access operator");
+        }
+
+        if ((rtmp = StringNew((const char *) this->tkcur_.buf)) == nullptr) {
+            Release(ltmp);
             return nullptr;
         }
 
-        ret->start = this->tkcur_.start;
-        ret->end = this->tkcur_.end;
-        ret->colno = 0;
-        ret->lineno = 0;
-        ret->value = tmp;
-
-        return ret;
-    }
-
-    if ((scopes = ListNew()) == nullptr) {
-        Release(tmp);
-        return nullptr;
-    }
-
-    if (!ListAppend(scopes, tmp))
-        goto ERROR;
-
-    Release(tmp);
-
-    this->Eat(); // Eat ::
-
-    do {
-        if (!this->Match(TokenType::IDENTIFIER)) {
-            ErrorFormat(type_syntax_error_, "expected identifier after '::'");
-            goto ERROR;
+        if ((scope = ArObjectNew<Binary>(RCType::INLINE, type_ast_selector_)) == nullptr) {
+            Release(ltmp);
+            Release(rtmp);
+            return nullptr;
         }
 
-        if ((tmp = StringNew((const char *) this->tkcur_.buf)) == nullptr)
-            goto ERROR;
-
-        if (!ListAppend(scopes, tmp))
-            goto ERROR;
-
-        Release(tmp);
+        scope->kind = TokenType::SCOPE;
+        scope->start = ltmp->start;
+        scope->end = this->tkcur_.end;
+        scope->colno = 0;
+        scope->lineno = 0;
+        scope->left = ltmp;
+        scope->right = rtmp;
 
         this->Eat();
 
-        end = this->tkcur_.end;
-    } while (this->MatchEat(TokenType::SCOPE, false));
+        ltmp = scope;
+        rtmp = nullptr;
+        scope = nullptr;
+    }
 
-    if ((ret = ArObjectNew<Unary>(RCType::INLINE, type_ast_scope_)) == nullptr)
-        goto ERROR;
-
-    ret->start = start;
-    ret->end = end;
-    ret->colno = 0;
-    ret->lineno = 0;
-    ret->value = scopes;
-
-    return ret;
-
-    ERROR:
-    Release(tmp);
-    Release(scopes);
-    return nullptr;
-
+    return ltmp;
 }
 
 Node *Parser::Expression() {
