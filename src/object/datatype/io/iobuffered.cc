@@ -46,6 +46,13 @@ bool ReadFromBase(BufferedIO *bio) {
 
     Release(error);
 
+    if (!AR_TYPEOF(bytes, type_bytes_)) {
+        Release(bytes);
+        ErrorFormat(type_type_error_, "calling the %s::read method should return a tuple with (bytes, *), not (%s, *)",
+                    AR_TYPE_NAME(bio->base), AR_TYPE_NAME(bytes));
+        return false;
+    }
+
     Release(bio->buffer);
     bio->buffer = bytes;
     bio->index = 0;
