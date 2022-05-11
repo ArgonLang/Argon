@@ -68,6 +68,7 @@ const TypeInfo BoundsType = {
         (CompareOp) bounds_compare,
         bounds_is_true,
         bounds_hash,
+        nullptr,
         (UnaryOp) bounds_str,
         nullptr,
         nullptr,

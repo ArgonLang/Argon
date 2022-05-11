@@ -535,6 +535,7 @@ const TypeInfo SetType = {
         (CompareOp) set_compare,
         (BoolUnaryOp) set_is_true,
         nullptr,
+        nullptr,
         (UnaryOp) set_str,
         (UnaryOp) set_iter_get,
         (UnaryOp) set_iter_rget,

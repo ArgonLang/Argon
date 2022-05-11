@@ -42,6 +42,7 @@ const TypeInfo NativeWrapperType = {
         nullptr,
         nullptr,
         nullptr,
+        nullptr,
         nullptr
 };
 const TypeInfo *argon::object::type_native_wrapper_ = &NativeWrapperType;

@@ -703,6 +703,7 @@ const TypeInfo StringType = {
         (CompareOp) string_compare,
         (BoolUnaryOp) string_is_true,
         (SizeTUnaryOp) string_hash,
+        nullptr,
         (UnaryOp) string_str,
         (UnaryOp) string_iter_get,
         (UnaryOp) string_iter_rget,

@@ -57,6 +57,7 @@ const TypeInfo ErrorWrap = {
         nullptr,
         nullptr,
         nullptr,
+        nullptr,
         &error_t_obj,
         nullptr,
         nullptr,

@@ -37,6 +37,7 @@ const TypeInfo type_##name##_ = {                                       \
         (CompareOp) HMapIteratorCompare,                                \
         (BoolUnaryOp) HMapIteratorIsTrue,                               \
         nullptr,                                                        \
+        nullptr,                                                        \
         (UnaryOp) HMapIteratorStr,                                      \
         nullptr,                                                        \
         nullptr,                                                        \

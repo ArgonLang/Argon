@@ -52,6 +52,7 @@ const TypeInfo LockerTraitType = {
         nullptr,
         nullptr,
         nullptr,
+        nullptr,
         &locker_obj,
         nullptr,
         nullptr,

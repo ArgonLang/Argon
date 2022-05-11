@@ -1163,6 +1163,7 @@ const TypeInfo SocketType = {
         (CompareOp) socket_compare,
         (BoolUnaryOp) socket_istrue,
         nullptr,
+        nullptr,
         (UnaryOp) socket_str,
         nullptr,
         nullptr,

@@ -249,6 +249,9 @@ ArObject *prefix##name##_fn(ArObject *func, ArObject *self, ArObject **argv, ArS
         SizeTUnaryOp hash;
 
         /* Return string datatype representation */
+        UnaryOp repr;
+
+        /* Return string datatype representation */
         UnaryOp str;
 
         /* Returns an iterator for this datatype */
@@ -343,6 +346,8 @@ ArObject *prefix##name##_fn(ArObject *func, ArObject *self, ArObject **argv, ArS
     ArObject *PropertyGet(const ArObject *obj, const ArObject *key, bool instance);
 
     ArObject *RichCompare(const ArObject *obj, const ArObject *other, CompareMode mode);
+
+    ArObject *ToRepr(ArObject *obj);
 
     ArObject *ToString(ArObject *obj);
 

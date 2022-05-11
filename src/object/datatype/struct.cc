@@ -65,6 +65,7 @@ const TypeInfo StructType = {
         nullptr,
         nullptr,
         nullptr,
+        nullptr,
         (UnaryOp) struct_str,
         nullptr,
         nullptr,

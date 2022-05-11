@@ -40,6 +40,7 @@ const TypeInfo NilType = {
         (CompareOp) nil_compare,
         nil_is_true,
         nil_hash,
+        nullptr,
         nil_str,
         nullptr,
         nullptr,

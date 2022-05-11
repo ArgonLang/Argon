@@ -72,6 +72,7 @@ const TypeInfo AtomType = {
         (CompareOp) atom_compare,
         (BoolUnaryOp) atom_is_true,
         (SizeTUnaryOp) atom_hash,
+        nullptr,
         (UnaryOp) atom_str,
         nullptr,
         nullptr,

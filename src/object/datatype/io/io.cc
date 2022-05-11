@@ -441,6 +441,7 @@ const TypeInfo FileType = {
         (CompareOp) file_compare,
         (BoolUnaryOp) file_istrue,
         nullptr,
+        nullptr,
         (UnaryOp) file_str,
         nullptr,
         nullptr,

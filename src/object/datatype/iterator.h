@@ -27,6 +27,7 @@ const TypeInfo type_##name##_ = {                                       \
         (CompareOp) IteratorCompare,                                    \
         nullptr,                                                        \
         nullptr,                                                        \
+        nullptr,                                                        \
         (UnaryOp) argon::object::IteratorStr,                           \
         nullptr,                                                        \
         nullptr,                                                        \

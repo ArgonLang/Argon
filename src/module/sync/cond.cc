@@ -132,6 +132,7 @@ const TypeInfo CondType = {
         nullptr,
         nullptr,
         nullptr,
+        nullptr,
         &cond_obj,
         nullptr,
         nullptr,

@@ -710,6 +710,7 @@ const TypeInfo SSLContextType = {
         nullptr,
         nullptr,
         nullptr,
+        nullptr,
         &sslcontext_obj,
         nullptr,
         nullptr,

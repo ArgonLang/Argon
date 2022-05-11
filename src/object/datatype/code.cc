@@ -73,6 +73,7 @@ const TypeInfo CodeType = {
         (CompareOp) code_compare,
         code_is_true,
         (SizeTUnaryOp) code_hash,
+        nullptr,
         (UnaryOp) code_str,
         nullptr,
         nullptr,

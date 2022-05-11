@@ -174,6 +174,7 @@ const TypeInfo RWMutexType = {
         nullptr,
         nullptr,
         nullptr,
+        nullptr,
         &rwmutex_obj,
         nullptr,
         nullptr,

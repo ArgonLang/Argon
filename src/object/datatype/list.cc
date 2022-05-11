@@ -535,6 +535,7 @@ const TypeInfo ListType = {
         (CompareOp) list_compare,
         (BoolUnaryOp) list_is_true,
         nullptr,
+        nullptr,
         (UnaryOp) list_str,
         (UnaryOp) list_iter_get,
         (UnaryOp) list_iter_rget,

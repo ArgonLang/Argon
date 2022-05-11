@@ -29,6 +29,7 @@ const TypeInfo name = {                                 \
     (CompareOp)ErrorCompare,                            \
     TypeInfo_IsTrue_True,                               \
     nullptr,                                            \
+    nullptr,                                            \
     (UnaryOp)ErrorStr,                                  \
     nullptr,                                            \
     nullptr,                                            \

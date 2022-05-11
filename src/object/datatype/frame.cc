@@ -64,6 +64,7 @@ const TypeInfo FrameType = {
         nullptr,
         nullptr,
         nullptr,
+        nullptr,
         nullptr
 };
 const TypeInfo *argon::object::type_frame_ = &FrameType;

@@ -243,6 +243,7 @@ const TypeInfo IntegerType = {
         (CompareOp) integer_compare,
         (BoolUnaryOp) integer_is_true,
         integer_hash,
+        nullptr,
         (UnaryOp) integer_str,
         nullptr,
         nullptr,

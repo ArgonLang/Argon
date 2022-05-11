@@ -175,6 +175,7 @@ const TypeInfo NamespaceType = {
         (BoolUnaryOp) namespace_is_true,
         nullptr,
         nullptr,
+        nullptr,
         (UnaryOp) namespace_iter_get,
         (UnaryOp) namespace_iter_rget,
         nullptr,

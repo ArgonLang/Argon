@@ -946,6 +946,7 @@ const TypeInfo BytesType = {
         (CompareOp) bytes_compare,
         (BoolUnaryOp) bytes_is_true,
         (SizeTUnaryOp) bytes_hash,
+        nullptr,
         (UnaryOp) bytes_str,
         (UnaryOp) bytes_iter_get,
         (UnaryOp) bytes_iter_rget,

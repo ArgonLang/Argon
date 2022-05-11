@@ -345,6 +345,7 @@ const TypeInfo SSLSocketType = {
         nullptr,
         nullptr,
         nullptr,
+        nullptr,
         &sslsocket_obj,
         nullptr,
         nullptr,

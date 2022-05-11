@@ -145,6 +145,7 @@ const TypeInfo FunctionType = {
         (CompareOp) function_compare,
         (BoolUnaryOp) function_is_true,
         (SizeTUnaryOp) function_hash,
+        nullptr,
         (UnaryOp) function_str,
         (UnaryOp) function_iter_get,
         nullptr,

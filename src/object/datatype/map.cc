@@ -421,6 +421,7 @@ const TypeInfo MapType = {
         (CompareOp) map_compare,
         (BoolUnaryOp) map_is_true,
         nullptr,
+        nullptr,
         (UnaryOp) map_str,
         (UnaryOp) map_iter_get,
         (UnaryOp) map_iter_rget,

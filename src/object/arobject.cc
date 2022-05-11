@@ -239,6 +239,7 @@ const TypeInfo TypeType = {
         type_compare,
         type_is_true,
         type_hash,
+        nullptr,
         type_str,
         nullptr,
         nullptr,
@@ -260,6 +261,7 @@ const TypeInfo TraitType = {
         nullptr,
         0,
         TypeInfoFlags::TRAIT,
+        nullptr,
         nullptr,
         nullptr,
         nullptr,
@@ -601,12 +603,19 @@ ArObject *argon::object::RichCompare(const ArObject *obj, const ArObject *other,
     return result;
 }
 
+ArObject *argon::object::ToRepr(ArObject *obj) {
+    if (AR_GET_TYPE(obj)->repr != nullptr)
+        return AR_GET_TYPE(obj)->repr(obj);
+
+    return ToString(obj);
+    // return ErrorFormat(type_runtime_error_, "unimplemented slot 'repr' for object '%s'", AR_TYPE_NAME(obj));
+}
+
 ArObject *argon::object::ToString(ArObject *obj) {
     if (AR_GET_TYPE(obj)->str != nullptr)
         return AR_GET_TYPE(obj)->str(obj);
 
     return StringNewFormat("<object %s @%p>", AR_TYPE_NAME(obj), obj);
-    // return ErrorFormat(type_runtime_error_, "unimplemented slot 'str' for object '%s'", AR_TYPE_NAME(obj));
 }
 
 ArObject *argon::object::TypeNew(const TypeInfo *meta, const char *name, ArObject *ns, TypeInfo **bases, ArSize count) {

@@ -119,6 +119,7 @@ const TypeInfo ModuleType = {
         (CompareOp) module_compare,
         module_is_true,
         nullptr,
+        nullptr,
         (UnaryOp) module_str,
         nullptr,
         nullptr,

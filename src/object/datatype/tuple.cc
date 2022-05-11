@@ -226,6 +226,7 @@ const TypeInfo TupleType = {
         (CompareOp) tuple_compare,
         (BoolUnaryOp) tuple_is_true,
         (SizeTUnaryOp) tuple_hash,
+        nullptr,
         (UnaryOp) tuple_str,
         (UnaryOp) tuple_iter_get,
         (UnaryOp) tuple_iter_rget,
