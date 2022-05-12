@@ -23,6 +23,28 @@ const ObjectSlots struct_actions{
         offsetof(Struct, names)
 };
 
+ArObject *struct_repr(Struct *self) {
+    ArObject *args[] = {self};
+    ArObject *func;
+    ArObject *ret;
+    String *key;
+
+    if ((key = StringIntern("__repr")) == nullptr)
+        return nullptr;
+
+    func = PropertyGet(self, key, true);
+    Release(key);
+
+    if (func != nullptr) {
+        ret = argon::vm::Call(func, 1, args);
+        Release(func);
+        return ret;
+    }
+
+    Release(argon::vm::GetLastError()); // Ignore undeclared_method or private_modifier
+    return AR_GET_TYPE(self)->str(self);
+}
+
 ArObject *struct_str(Struct *self) {
     ArObject *args[] = {self};
     ArObject *func;
@@ -65,7 +87,7 @@ const TypeInfo StructType = {
         nullptr,
         nullptr,
         nullptr,
-        nullptr,
+        (UnaryOp) struct_repr,
         (UnaryOp) struct_str,
         nullptr,
         nullptr,
