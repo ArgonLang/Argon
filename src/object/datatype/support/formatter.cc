@@ -524,13 +524,16 @@ unsigned char *Formatter::format(ArSize *out_len) {
         return nullptr;
     }
 
-    if (this->str_ != nullptr)
-        this->str_[this->idx_] = '\0';
+    if (this->str_ == nullptr) {
+        this->str_ = ArObjectNewRaw<unsigned char *>(1);
+        if (this->str_ == nullptr)
+            return nullptr;
+    }
+
+    this->str_[this->idx_] = '\0';
 
     buf = this->str_;
     *out_len = this->idx_;
-
-    assert(this->idx_ < this->cap_);
 
     return buf;
 }

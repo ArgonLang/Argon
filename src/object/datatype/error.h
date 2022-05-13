@@ -113,6 +113,7 @@ Error *(ptr_name) = (Error*) &(name)
     extern const TypeInfo *type_undeclared_error_;
     extern const TypeInfo *type_unhashable_error_;
     extern const TypeInfo *type_unimplemented_error_;
+    extern const TypeInfo *type_unicode_error_;
     extern const TypeInfo *type_unicode_index_error_;
     extern const TypeInfo *type_value_error_;
     extern const TypeInfo *type_regex_error_;

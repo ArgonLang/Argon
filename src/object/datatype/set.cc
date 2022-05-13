@@ -17,7 +17,7 @@ ArObject *set_iter_next(HMapIterator *iter) {
 
     RWLockRead lock(iter->map->lock);
 
-    if(!HMapIteratorIsValid(iter))
+    if (!HMapIteratorIsValid(iter))
         return nullptr;
 
     obj = IncRef(iter->current->key);
@@ -30,7 +30,7 @@ ArObject *set_iter_next(HMapIterator *iter) {
 ArObject *set_iter_peak(HMapIterator *iter) {
     RWLockRead lock(iter->map->lock);
 
-    if(!HMapIteratorIsValid(iter))
+    if (!HMapIteratorIsValid(iter))
         return nullptr;
 
     return IncRef(iter->current->key);
@@ -464,8 +464,7 @@ ArObject *set_compare(Set *self, ArObject *other, CompareMode mode) {
 }
 
 ArObject *set_str(Set *self) {
-    StringBuilder sb = {};
-    String *tmp = nullptr;
+    StringBuilder builder;
     int rec;
 
     if ((rec = TrackRecursive(self)) != 0)
@@ -473,35 +472,32 @@ ArObject *set_str(Set *self) {
 
     RWLockRead lock(self->set.lock);
 
-    if (StringBuilderWrite(&sb, (unsigned char *) "{", 1, self->set.len == 0 ? 1 : 0) < 0)
-        goto error;
+    builder.Write((const unsigned char *) "{", 1, self->set.len == 0 ? 1 : 256);
 
-    for (HEntry *cursor = self->set.iter_begin; cursor != nullptr; cursor = cursor->iter_next) {
-        if ((tmp = (String *) ToString(cursor->key)) == nullptr)
-            goto error;
-
-        if (StringBuilderWrite(&sb, tmp, cursor->iter_next != nullptr ? 2 : 1) < 0)
-            goto error;
-
-        Release(tmp);
-
-        if (cursor->iter_next != nullptr) {
-            if (StringBuilderWrite(&sb, (unsigned char *) ", ", 2) < 0)
-                goto error;
+    for (auto *cursor = self->set.iter_begin; cursor != nullptr; cursor = cursor->iter_next) {
+        auto *key = (String *) ToRepr(cursor->key);
+        if (key == nullptr) {
+            Release(key);
+            UntrackRecursive(self);
+            return nullptr;
         }
+
+        if (!builder.Write(key, cursor->iter_next == nullptr ? 1 : 128)) {
+            Release(key);
+            UntrackRecursive(self);
+            return nullptr;
+        }
+
+        if (cursor->iter_next != nullptr)
+            builder.Write((const unsigned char *) ", ", 2, 0);
+
+        Release(key);
     }
 
-    if (StringBuilderWrite(&sb, (unsigned char *) "}", 1) < 0)
-        goto error;
+    builder.Write((const unsigned char *) "}", 1, 0);
 
     UntrackRecursive(self);
-    return StringBuilderFinish(&sb);
-
-    error:
-    Release(tmp);
-    StringBuilderClean(&sb);
-    UntrackRecursive(self);
-    return nullptr;
+    return builder.BuildString();
 }
 
 ArObject *set_iter_get(Set *self) {

@@ -233,8 +233,8 @@ ArObject *list_inp_mul(ArObject *left, ArObject *right) {
     }
 
     if (AR_TYPEOF(num, type_integer_)) {
-        if(ListMul(list, num->integer))
-            return  IncRef(list);
+        if (ListMul(list, num->integer))
+            return IncRef(list);
     }
 
     return nullptr;
@@ -463,8 +463,7 @@ ArObject *list_compare(List *self, ArObject *other, CompareMode mode) {
 }
 
 ArObject *list_str(List *self) {
-    StringBuilder sb = {};
-    String *tmp = nullptr;
+    StringBuilder builder;
     int rec;
 
     if ((rec = TrackRecursive(self)) != 0)
@@ -472,35 +471,31 @@ ArObject *list_str(List *self) {
 
     RWLockRead lock(self->lock);
 
-    if (StringBuilderWrite(&sb, (unsigned char *) "[", 1, self->len == 0 ? 1 : 0) < 0)
-        goto error;
+    builder.Write((const unsigned char *) "[", 1, self->len == 0 ? 1 : 256);
 
     for (ArSize i = 0; i < self->len; i++) {
-        if ((tmp = (String *) ToString(self->objects[i])) == nullptr)
-            goto error;
-
-        if (StringBuilderWrite(&sb, tmp, i + 1 < self->len ? 2 : 1) < 0)
-            goto error;
-
-        if (i + 1 < self->len) {
-            if (StringBuilderWrite(&sb, (unsigned char *) ", ", 2) < 0)
-                goto error;
+        auto *tmp = (String *) ToRepr(self->objects[i]);
+        if (tmp == nullptr) {
+            UntrackRecursive(self);
+            return nullptr;
         }
+
+        if (!builder.Write(tmp, i + 1 < self->len ? (int) (self->len - i) + 2 : 1)) {
+            Release(tmp);
+            UntrackRecursive(self);
+            return nullptr;
+        }
+
+        if (i + 1 < self->len)
+            builder.Write((const unsigned char *) ", ", 2, 0);
 
         Release(tmp);
     }
 
-    if (StringBuilderWrite(&sb, (unsigned char *) "]", 1) < 0)
-        goto error;
+    builder.Write((const unsigned char *) "]", 1, 0);
 
     UntrackRecursive(self);
-    return StringBuilderFinish(&sb);
-
-    error:
-    Release(tmp);
-    StringBuilderClean(&sb);
-    UntrackRecursive(self);
-    return nullptr;
+    return builder.BuildString();
 }
 
 ArObject *list_iter_get(List *self) {

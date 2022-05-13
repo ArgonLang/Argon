@@ -283,18 +283,14 @@ ARGON_METHOD5(bytes_, freeze,
 ARGON_METHOD5(bytes_, hex, "Convert bytes to str of hexadecimal numbers."
                            ""
                            "- Returns: new str object.", 0, false) {
-    StringBuilder builder{};
-    Bytes *bytes;
-
-    bytes = (Bytes *) self;
+    const auto *bytes = (Bytes *) self;
+    StringBuilder builder;
 
     RWLockRead lock(bytes->view.shared->lock);
-    if (StringBuilderWriteHex(&builder, BUFFER_GET(bytes), BUFFER_LEN(bytes)) < 0) {
-        StringBuilderClean(&builder);
-        return nullptr;
-    }
 
-    return StringBuilderFinish(&builder);
+    builder.WriteHex(BUFFER_GET(bytes), BUFFER_LEN(bytes));
+
+    return builder.BuildString();
 }
 
 ARGON_METHOD5(bytes_, isalnum,
@@ -627,10 +623,13 @@ ARGON_METHOD5(bytes_, startswith,
 ARGON_METHOD5(bytes_, str, "Convert bytes to str object."
                            ""
                            "- Returns: new str object.", 0, false) {
+    StringBuilder builder;
     auto *bytes = (Bytes *) self;
 
     RWLockRead lock(bytes->view.shared->lock);
-    return StringNew((const char *) BUFFER_GET(bytes), BUFFER_LEN(bytes));
+
+    builder.Write(BUFFER_GET(bytes), BUFFER_LEN(bytes), 0);
+    return builder.BuildString();
 }
 
 ARGON_METHOD5(bytes_, upper,
@@ -854,19 +853,16 @@ const OpSlots bytes_ops{
 };
 
 ArObject *bytes_str(Bytes *self) {
-    RWLockRead lock(self->view.shared->lock);
-    StringBuilder sb = {};
+    StringBuilder builder;
 
-    // Calculate length of string
-    if (!StringBuilderResizeAscii(&sb, BUFFER_GET(self), BUFFER_LEN(self), 3)) // +3 b""
-        return nullptr;
+    RWLockRead lock(self->view.shared->lock);
 
     // Build string
-    StringBuilderWrite(&sb, (const unsigned char *) "b\"", 2);;
-    StringBuilderWriteAscii(&sb, BUFFER_GET(self), BUFFER_LEN(self));
-    StringBuilderWrite(&sb, (const unsigned char *) "\"", 1);
+    builder.Write((const unsigned char *) "b\"", 2, (int) self->view.len + 1);
+    builder.WriteEscaped(BUFFER_GET(self), BUFFER_LEN(self), 1);
+    builder.Write((const unsigned char *) "\"", 1, 0);
 
-    return StringBuilderFinish(&sb);
+    return builder.BuildString();
 }
 
 ArObject *bytes_iter_get(Bytes *self) {

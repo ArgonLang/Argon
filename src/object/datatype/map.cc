@@ -105,7 +105,7 @@ bool argon::object::MapInsertRaw(Map *map, const char *key, ArObject *value) {
     String *akey = StringNew(key);
     bool ok = false;
 
-    if(akey != nullptr)
+    if (akey != nullptr)
         ok = MapInsert(map, akey, value);
 
     Release(akey);
@@ -311,9 +311,7 @@ ArObject *map_compare(Map *self, ArObject *other, CompareMode mode) {
 }
 
 ArObject *map_str(Map *self) {
-    StringBuilder sb = {};
-    String *tmp = nullptr;
-    MapEntry *cursor;
+    StringBuilder builder;
     int rec;
 
     if ((rec = TrackRecursive(self)) != 0)
@@ -321,46 +319,42 @@ ArObject *map_str(Map *self) {
 
     RWLockRead lock(self->hmap.lock);
 
-    if (StringBuilderWrite(&sb, (unsigned char *) "{", 1, self->hmap.len == 0 ? 1 : 0) < 0)
-        goto error;
+    builder.Write((const unsigned char *) "{", 1, self->hmap.len == 0 ? 1 : 256);
 
-    for (cursor = (MapEntry *) self->hmap.iter_begin; cursor != nullptr; cursor = (MapEntry *) cursor->iter_next) {
-        if ((tmp = (String *) ToString(cursor->key)) == nullptr)
-            goto error;
+    for (auto *cursor = (MapEntry *) self->hmap.iter_begin;
+         cursor != nullptr; cursor = (MapEntry *) cursor->iter_next) {
+        auto *key = (String *) ToRepr(cursor->key);
+        auto *value = (String *) ToRepr(cursor->value);
 
-        if (StringBuilderWrite(&sb, tmp, 2) < 0)
-            goto error;
-
-        if (StringBuilderWrite(&sb, (unsigned char *) ": ", 2) < 0)
-            goto error;
-
-        Release(tmp);
-
-        if ((tmp = (String *) ToString(cursor->value)) == nullptr)
-            goto error;
-
-        if (StringBuilderWrite(&sb, tmp, cursor->iter_next != nullptr ? 2 : 1) < 0)
-            goto error;
-
-        Release(tmp);
-
-        if (cursor->iter_next != nullptr) {
-            if (StringBuilderWrite(&sb, (unsigned char *) ", ", 2) < 0)
-                goto error;
+        if (key == nullptr || value == nullptr) {
+            Release(key);
+            Release(value);
+            UntrackRecursive(self);
+            return nullptr;
         }
+
+        if (!builder.Write(key, (int) value->len + cursor->iter_next == nullptr ? 3 : 4)) {
+            Release(key);
+            Release(value);
+            UntrackRecursive(self);
+            return nullptr;
+        }
+
+        builder.Write((const unsigned char *) ": ", 2, 0);
+
+        builder.Write(value, 0);
+
+        if (cursor->iter_next != nullptr)
+            builder.Write((const unsigned char *) ", ", 2, 0);
+
+        Release(key);
+        Release(value);
     }
 
-    if (StringBuilderWrite(&sb, (unsigned char *) "}", 1) < 0)
-        goto error;
+    builder.Write((const unsigned char *) "}", 1, 0);
 
     UntrackRecursive(self);
-    return StringBuilderFinish(&sb);
-
-    error:
-    Release(tmp);
-    StringBuilderClean(&sb);
-    UntrackRecursive(self);
-    return nullptr;
+    return builder.BuildString();
 }
 
 ArObject *map_iter_get(Map *self) {

@@ -39,36 +39,43 @@ namespace argon::object {
         ArSize hash;
     };
 
-    struct StringBuilder {
-        String str;
-        ArSize w_idx;
-    };
-
     extern const TypeInfo *type_string_;
 
-    bool StringBuilderResize(StringBuilder *sb, ArSize len);
+    class StringBuilder {
+        unsigned char *buffer_ = nullptr;
 
-    bool StringBuilderResizeAscii(StringBuilder *sb, const unsigned char *buffer, ArSize len, int overalloc);
+        ArSize cap_ = 0;
+        ArSize len_ = 0;
+        ArSize cp_len_ = 0;
 
-    int StringBuilderRepeat(StringBuilder *sb, char chr, int times);
+        StringKind kind_ = StringKind::ASCII;
+        bool error_ = false;
 
-    int StringBuilderWrite(StringBuilder *sb, const unsigned char *buffer, ArSize len, int overalloc);
+        static ArSize GetEscapedLength(const unsigned char *buffer, ArSize len, bool unicode);
 
-    inline int StringBuilderWrite(StringBuilder *sb, const unsigned char *buffer, ArSize len) {
-        return StringBuilderWrite(sb, buffer, len, 0);
-    }
+    public:
+        ~StringBuilder();
 
-    inline int StringBuilderWrite(StringBuilder *sb, String *str, int overalloc) {
-        return StringBuilderWrite(sb, str->buffer, str->len, overalloc);
-    }
+        bool BufferResize(ArSize sz);
 
-    int StringBuilderWriteAscii(StringBuilder *sb, const unsigned char *buffer, ArSize len);
+        bool Write(const unsigned char *buffer, ArSize len, int overalloc);
 
-    int StringBuilderWriteHex(StringBuilder *sb, const unsigned char *buffer, ArSize len);
+        bool Write(const String *string, int overalloc) {
+            return this->Write(string->buffer, string->len, overalloc);
+        }
 
-    String *StringBuilderFinish(StringBuilder *sb);
+        bool WriteEscaped(const unsigned char *buffer, ArSize len, int overalloc, bool unicode);
 
-    void StringBuilderClean(StringBuilder *sb);
+        bool WriteEscaped(const unsigned char *buffer, ArSize len, int overalloc) {
+            return this->WriteEscaped(buffer, len, overalloc, false);
+        }
+
+        bool WriteHex(const unsigned char *buffer, ArSize len);
+
+        bool WriteRepeat(char ch, int times);
+
+        String *BuildString();
+    };
 
     // String
 
