@@ -58,15 +58,15 @@ namespace argon::object {
 
         bool BufferResize(ArSize sz);
 
-        bool Write(const unsigned char *buffer, ArSize len, int overalloc);
+        bool Write(const unsigned char *buffer, ArSize len, ArSize overalloc);
 
-        bool Write(const String *string, int overalloc) {
+        bool Write(const String *string, ArSize overalloc) {
             return this->Write(string->buffer, string->len, overalloc);
         }
 
-        bool WriteEscaped(const unsigned char *buffer, ArSize len, int overalloc, bool unicode);
+        bool WriteEscaped(const unsigned char *buffer, ArSize len, ArSize overalloc, bool unicode);
 
-        bool WriteEscaped(const unsigned char *buffer, ArSize len, int overalloc) {
+        bool WriteEscaped(const unsigned char *buffer, ArSize len, ArSize overalloc) {
             return this->WriteEscaped(buffer, len, overalloc, false);
         }
 
@@ -109,53 +109,53 @@ namespace argon::object {
         return StringSplit(string, pattern->buffer, pattern->len, maxsplit);
     }
 
+    ArSize StringLen(const String *str);
+
+    ArSize StringSubStrLen(const String *str, ArSize offset, ArSize graphemes);
+
+    inline ArSSize StringFind(const String *string, const String *pattern) {
+        return support::Find(string->buffer, string->len, pattern->buffer, pattern->len, false);
+    }
+
+    inline ArSSize StringFind(const String *string, const char *pattern) {
+        return support::Find(string->buffer, string->len, (const unsigned char *) pattern, strlen(pattern), false);
+    }
+
+    inline ArSSize StringRFind(const String *string, const String *pattern) {
+        return support::Find(string->buffer, string->len, pattern->buffer, pattern->len, true);
+    }
+
+    inline ArSSize StringRFind(const String *string, const char *pattern) {
+        return support::Find(string->buffer, string->len, (const unsigned char *) pattern, strlen(pattern), true);
+    }
+
     inline bool StringEmpty(const String *string) { return string->len == 0; }
 
-    bool StringEndsWith(String *string, String *pattern);
+    bool StringEndsWith(const String *string, const String *pattern);
 
-    bool StringEq(String *string, const unsigned char *c_str, ArSize len);
+    bool StringEq(const String *string, const unsigned char *c_str, ArSize len);
 
-    int StringCompare(String *left, String *right);
+    int StringCompare(const String *left, const String *right);
 
     int StringIntToUTF8(unsigned int glyph, unsigned char *buf);
 
     int StringUTF8toInt(const unsigned char *buf);
 
-    ArSize StringLen(const String *str);
+    String *StringConcat(const String *left, const String *right);
 
-    String *StringConcat(String *left, String *right);
+    String *StringConcat(const String *left, const char *right, bool internal);
 
-    String *StringConcat(String *left, const char *right, bool internal);
-
-    String *StringFormat(String *fmt, ArObject *args);
+    String *StringFormat(const String *fmt, ArObject *args);
 
     String *StringCFormat(const char *fmt, ArObject *args);
 
-    inline ArSSize StringFind(String *string, String *pattern) {
-        return support::Find(string->buffer, string->len, pattern->buffer, pattern->len, false);
-    }
+    String *StringReplace(String *string, const String *old, const String *nval, ArSSize n);
 
-    inline ArSSize StringFind(String *string, const char *pattern) {
-        return support::Find(string->buffer, string->len, (const unsigned char *) pattern, strlen(pattern), false);
-    }
-
-    inline ArSSize StringRFind(String *string, String *pattern) {
-        return support::Find(string->buffer, string->len, pattern->buffer, pattern->len, true);
-    }
-
-    inline ArSSize StringRFind(String *string, const char *pattern) {
-        return support::Find(string->buffer, string->len, (const unsigned char *) pattern, strlen(pattern), true);
-    }
-
-    String *StringReplace(String *string, String *old, String *nval, ArSSize n);
-
-    inline String *StringReplaceAll(String *string, String *old, String *nval) {
+    inline String *StringReplaceAll(String *string, const String *old, const String *nval) {
         return StringReplace(string, old, nval, -1);
     }
 
-    String *StringSubs(String *string, ArSize start, ArSize end);
-
-    ArSize StringSubStrLen(const String *str, ArSize offset, ArSize graphemes);
+    String *StringSubs(const String *string, ArSize start, ArSize end);
 }
 
 #endif // !ARGON_OBJECT_STRING_H_
