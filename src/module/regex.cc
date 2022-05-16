@@ -438,7 +438,7 @@ ARGON_METHOD5(pattern_, sub, "Replaces occurrences of the pattern with the new p
 
     if (AR_TYPEOF(argv[0], type_string_)) {
         *newbuf_c = '\0';
-        ret = StringNewBufferOwnership((unsigned char *) newbuf, nlen);
+        ret = StringNewHoldBuffer((unsigned char *) newbuf, nlen);
     } else
         ret = BytesNewHoldBuffer((unsigned char *) newbuf, nlen, nlen, true);
 

@@ -177,7 +177,7 @@ ARGON_FUNCTION(input,
         goto error;
 
     Release(in);
-    return StringNewBufferOwnership(line, len);
+    return StringNewHoldBuffer(line, len);
 
     error:
     Release(in);

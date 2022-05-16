@@ -606,7 +606,7 @@ ARGON_METHOD5(str_, lower,
 
     buf[len] = '\0';
 
-    if ((ret = StringNewBufferOwnership(buf, len)) == nullptr) {
+    if ((ret = StringNewHoldBuffer(buf, len)) == nullptr) {
         Free(buf);
         return nullptr;
     }
@@ -766,7 +766,7 @@ ARGON_METHOD5(str_, upper,
 
     buf[len] = '\0';
 
-    if ((ret = StringNewBufferOwnership(buf, len)) == nullptr) {
+    if ((ret = StringNewHoldBuffer(buf, len)) == nullptr) {
         Free(buf);
         return nullptr;
     }
@@ -898,7 +898,7 @@ String *argon::object::StringNew(const char *string, ArSize len) {
     return builder.BuildString();
 }
 
-String *argon::object::StringNewBufferOwnership(unsigned char *buffer, ArSize len) {
+String *argon::object::StringNewHoldBuffer(unsigned char *buffer, ArSize len) {
     StringKind kind = StringKind::ASCII;
     String *str;
 
@@ -1196,7 +1196,7 @@ String *argon::object::StringCFormat(const char *fmt, ArObject *args) {
     if ((buf = formatter.format(&len)) == nullptr)
         return nullptr;
 
-    if ((str = StringNewBufferOwnership(buf, len)) == nullptr)
+    if ((str = StringNewHoldBuffer(buf, len)) == nullptr)
         return nullptr;
 
     formatter.ReleaseBufferOwnership();
@@ -1213,7 +1213,7 @@ String *argon::object::StringFormat(const String *fmt, ArObject *args) {
     if ((buf = formatter.format(&len)) == nullptr)
         return nullptr;
 
-    if ((str = StringNewBufferOwnership(buf, len)) == nullptr)
+    if ((str = StringNewHoldBuffer(buf, len)) == nullptr)
         return nullptr;
 
     formatter.ReleaseBufferOwnership();

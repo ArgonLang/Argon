@@ -158,7 +158,7 @@ static ArObject *ASN1Obj2Ar(const ASN1_OBJECT *name) {
     }
 
     if (buf != namebuf) {
-        if ((aname = StringNewBufferOwnership((unsigned char *) namebuf, buflen)) == nullptr) {
+        if ((aname = StringNewHoldBuffer((unsigned char *) namebuf, buflen)) == nullptr) {
             argon::memory::Free(namebuf);
             return nullptr;
         }
