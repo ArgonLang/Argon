@@ -12,6 +12,7 @@
 #include <object/datatype/code.h>
 #include <object/datatype/decimal.h>
 #include <object/datatype/error.h>
+#include <object/datatype/frame.h>
 #include <object/datatype/function.h>
 #include "object/datatype/io/io.h"
 #include <object/datatype/integer.h>
@@ -80,6 +81,44 @@ ARGON_FUNCTION(callable,
     return False;
 }
 
+ARGON_FUNCTION(dir,
+               "Returns the tuple of names in local scope or attributes of an object."
+               ""
+               "Without arguments, returns a tuple with names in the current scope, with one argument, returns a tuple "
+               "with the attributes of the argument."
+               ""
+               "- Parameter ...obj: object whose attributes you want to know."
+               "- Returns: tuple with attributes if any, otherwise an empty tuple.",
+               0, true) {
+    const TypeInfo *ancestor;
+    ArObject *target;
+
+    if (!VariadicCheckPositional("dir", (int) count, 0, 1))
+        return nullptr;
+
+    if (count == 0) {
+        auto *frame = argon::vm::GetFrame();
+        Tuple *items;
+
+        if (frame == nullptr)
+            return nullptr;
+
+        items = NamespaceKeysToTuple(frame->globals);
+        Release(frame);
+
+        return items;
+    }
+
+    target = argv[0];
+
+    if (AR_TYPEOF(target, type_module_))
+        return NamespaceKeysToTuple(((Module *) target)->module_ns);
+
+    ancestor = AR_GET_TYPEOBJ(target);
+
+    return ancestor->tp_map == nullptr ? TupleNew((ArSize) 0) : NamespaceKeysToTuple((Namespace *) ancestor->tp_map);
+}
+
 ARGON_FUNCTION(exit,
                "Close STDIN and starts panicking state with RuntimeExit error."
                ""
@@ -138,13 +177,22 @@ ARGON_FUNCTION(input,
         goto error;
 
     Release(in);
-    return StringNewBufferOwnership(line, len);
+    return StringNewHoldBuffer(line, len);
 
     error:
     Release(in);
     Release(out);
     Release(str);
     return nullptr;
+}
+
+ARGON_FUNCTION(isbufferable,
+               "Check if object is bufferable."
+               ""
+               "- Parameters:"
+               "    - obj: object to check."
+               "- Returns: true if the object is bufferable, false otherwise.", 1, false) {
+    return BoolToArBool(IsBufferable(*argv));
 }
 
 ARGON_FUNCTION(isimpl,
@@ -404,8 +452,10 @@ const PropertyBulk builtins_bulk[] = {
         // Functions
         MODULE_EXPORT_FUNCTION(bind_),
         MODULE_EXPORT_FUNCTION(callable_),
+        MODULE_EXPORT_FUNCTION(dir_),
         MODULE_EXPORT_FUNCTION(exit_),
         MODULE_EXPORT_FUNCTION(input_),
+        MODULE_EXPORT_FUNCTION(isbufferable_),
         MODULE_EXPORT_FUNCTION(isimpl_),
         MODULE_EXPORT_FUNCTION(isinstance_),
         MODULE_EXPORT_FUNCTION(isiterable_),

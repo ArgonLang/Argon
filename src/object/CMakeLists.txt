@@ -10,11 +10,14 @@ set(SRC
         datatype/code.cc
         datatype/decimal.cc
         datatype/error.cc
+        datatype/errorwin.cc
         datatype/frame.cc
         datatype/function.cc
         datatype/hash_magic.cc
         datatype/hmap.cc
         datatype/io/io.cc
+        datatype/io/iobuffered.cc
+        datatype/io/iotrait.cc
         datatype/integer.cc
         datatype/iterator.cc
         datatype/list.cc
@@ -28,6 +31,7 @@ set(SRC
         datatype/string.cc
         datatype/struct.cc
         datatype/support/bytesops.cc
+        datatype/support/formatter.cc
         datatype/tuple.cc
         gc.cc
         refcount.cc

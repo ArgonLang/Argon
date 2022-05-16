@@ -27,14 +27,16 @@ using namespace argon::object;
 ArObject *MROSearch(const TypeInfo *type, ArObject *key, PropertyInfo *pinfo) {
     ArObject *obj = nullptr;
 
-    if (type->mro != nullptr) {
-        for (ArSize i = 0; i < ((Tuple *) type->mro)->len; i++) {
-            auto *cursor = (TypeInfo *) ((Tuple *) type->mro)->objects[i];
+    if (type->mro == nullptr)
+        return nullptr;
 
-            if (cursor->tp_map != nullptr) {
-                if ((obj = NamespaceGetValue((Namespace *) cursor->tp_map, key, pinfo)) != nullptr)
-                    break;
-            }
+    for (ArSize i = 0; i < ((Tuple *) type->mro)->len; i++) {
+        auto *cursor = (TypeInfo *) ((Tuple *) type->mro)->objects[i];
+
+        if (cursor->tp_map != nullptr) {
+            obj = NamespaceGetValue((Namespace *) cursor->tp_map, key, pinfo);
+            if (obj != nullptr)
+                break;
         }
     }
 
@@ -128,7 +130,7 @@ ArObject *type_get_attr(ArObject *self, ArObject *key) {
 
 bool type_set_attr(ArObject *obj, ArObject *key, ArObject *value) {
     auto **ns = (Namespace **) AR_GET_NSOFF(obj);
-    ArObject *instance = nullptr;
+    const ArObject *instance = nullptr;
     ArObject *actual;
 
     bool is_tpm = false;
@@ -157,7 +159,7 @@ bool type_set_attr(ArObject *obj, ArObject *key, ArObject *value) {
         return false;
     }
 
-    if (!pinfo.IsPublic() && !AR_SAME_TYPE(instance, obj)) {
+    if (!pinfo.IsPublic() && (instance == nullptr || !AR_SAME_TYPE(instance, obj))) {
         ErrorFormat(type_access_violation_, "access violation, member '%s' of '%s' are private",
                     ((String *) key)->buffer, AR_TYPE_NAME(obj));
         Release(actual);
@@ -237,6 +239,7 @@ const TypeInfo TypeType = {
         type_compare,
         type_is_true,
         type_hash,
+        nullptr,
         type_str,
         nullptr,
         nullptr,
@@ -275,6 +278,7 @@ const TypeInfo TraitType = {
         nullptr,
         nullptr,
         nullptr,
+        nullptr,
         nullptr
 };
 const TypeInfo *argon::object::type_trait_ = &TraitType;
@@ -294,20 +298,20 @@ List *BuildBasesList(TypeInfo **types, ArSize count) {
         // Sanity check
         if (AR_GET_TYPE(types[i]) != type_type_) {
             // is not a TypeInfo
-            goto error;
+            goto ERROR;
         }
 
         if (types[i]->flags != TypeInfoFlags::TRAIT) {
             // you can only inherit from traits
             ErrorFormat(type_type_error_, "you can only inherit from traits and '%s' is not", types[i]->name);
-            goto error;
+            goto ERROR;
         }
 
         if (types[i]->mro != nullptr)
             cap += ((Tuple *) types[i]->mro)->len;
 
         if ((tmp = ListNew(cap)) == nullptr)
-            goto error;
+            goto ERROR;
 
         /*
          * MRO list should contain the trait itself as the first element,
@@ -318,23 +322,23 @@ List *BuildBasesList(TypeInfo **types, ArSize count) {
          * Therefore it is added during the generation of the list of base traits.
          */
         if (!ListAppend(tmp, types[i]))
-            goto error;
+            goto ERROR;
         // ******************************
 
         if (types[i]->mro != nullptr) {
             if (!ListConcat(tmp, types[i]->mro))
-                goto error;
+                goto ERROR;
         }
 
         if (!ListAppend(bases, tmp))
-            goto error;
+            goto ERROR;
 
         Release(tmp);
     }
 
     return bases;
 
-    error:
+    ERROR:
     Release(tmp);
     Release(bases);
     return nullptr;
@@ -376,7 +380,7 @@ Tuple *ComputeMRO(List *bases) {
                     for (ArSize j = 1; j < tail_list->len; j++) {
                         auto target = (TypeInfo *) tail_list->objects[j];
                         if (head == target)
-                            goto next_head;
+                            goto NEXT_HEAD;
                     }
                 }
             }
@@ -401,7 +405,7 @@ Tuple *ComputeMRO(List *bases) {
             continue;
         }
 
-        next_head:
+        NEXT_HEAD:
         hlist_idx++;
     }
 
@@ -424,7 +428,7 @@ bool CalculateMRO(TypeInfo *type, TypeInfo **bases, ArSize count) {
         if (mro->len > 0) {
             if ((merge = ListNew(mro->len + count)) == nullptr) {
                 Release((ArObject **) type->mro);
-                goto error;
+                goto ERROR;
             }
 
             ListConcat(merge, mro);
@@ -440,12 +444,12 @@ bool CalculateMRO(TypeInfo *type, TypeInfo **bases, ArSize count) {
     }
 
     if ((bases_list = BuildBasesList(bases, count)) == nullptr)
-        goto error;
+        goto ERROR;
 
     type->mro = ComputeMRO(bases_list);
     Release(bases_list);
 
-    error:
+    ERROR:
     Release(merge);
     return type->mro != nullptr;
 }
@@ -599,12 +603,19 @@ ArObject *argon::object::RichCompare(const ArObject *obj, const ArObject *other,
     return result;
 }
 
+ArObject *argon::object::ToRepr(ArObject *obj) {
+    if (AR_GET_TYPE(obj)->repr != nullptr)
+        return AR_GET_TYPE(obj)->repr(obj);
+
+    return ToString(obj);
+    // return ErrorFormat(type_runtime_error_, "unimplemented slot 'repr' for object '%s'", AR_TYPE_NAME(obj));
+}
+
 ArObject *argon::object::ToString(ArObject *obj) {
     if (AR_GET_TYPE(obj)->str != nullptr)
         return AR_GET_TYPE(obj)->str(obj);
 
     return StringNewFormat("<object %s @%p>", AR_TYPE_NAME(obj), obj);
-    // return ErrorFormat(type_runtime_error_, "unimplemented slot 'str' for object '%s'", AR_TYPE_NAME(obj));
 }
 
 ArObject *argon::object::TypeNew(const TypeInfo *meta, const char *name, ArObject *ns, TypeInfo **bases, ArSize count) {
@@ -627,15 +638,13 @@ ArObject *argon::object::TypeNew(const TypeInfo *meta, const char *name, ArObjec
     type->name = (char *) argon::memory::Alloc(name_len);
     argon::memory::MemoryCopy((char *) type->name, name, name_len);
 
-    if (count > 0) {
-        if (!CalculateMRO(type, bases, count)) {
-            Release(type);
-            return nullptr;
-        }
+    if (count > 0 && !CalculateMRO(type, bases, count)) {
+        Release(type);
+        return nullptr;
     }
 
     if (!TypeInit(type, ns))
-        Release((ArObject **) type);
+        Release((ArObject **) &type);
 
     return type;
 }
@@ -764,54 +773,92 @@ bool argon::object::TraitIsImplemented(const ArObject *obj, const TypeInfo *type
 }
 
 bool InitMembers(TypeInfo *info) {
-    ArObject *tmp;
+    Namespace *ns;
 
     if (info->obj_actions == nullptr)
         return true;
 
+    ns = (Namespace *) info->tp_map;
+
     // Functions / Methods
     if (info->obj_actions->methods != nullptr) {
         for (const NativeFunc *method = info->obj_actions->methods; method->name != nullptr; method++) {
-            if ((tmp = FunctionNew(nullptr, info, method, method->method)) == nullptr)
-                goto error;
+            auto *fn = FunctionNew(nullptr, info, method, method->method);
 
-            if (!NamespaceNewSymbol((Namespace *) info->tp_map, ((Function *) tmp)->name, tmp,
-                                    PropertyType::PUBLIC | PropertyType::CONST))
-                goto error;
+            if (fn == nullptr)
+                return false;
 
-            Release(tmp);
+            if (!NamespaceNewSymbol(ns, fn->name, fn, PropertyType::CONST | PropertyType::PUBLIC)) {
+                Release(fn);
+                return false;
+            }
+
+            Release(fn);
         }
     }
 
     // Members
     if (info->obj_actions->members != nullptr) {
         for (const NativeMember *member = info->obj_actions->members; member->name != nullptr; member++) {
-            if ((tmp = NativeWrapperNew(member)) == nullptr)
-                goto error;
+            auto *nw = NativeWrapperNew(member);
 
-            if (!NamespaceNewSymbol((Namespace *) info->tp_map, member->name, tmp,
-                                    PropertyType::PUBLIC | PropertyType::CONST))
-                goto error;
+            if (nw == nullptr)
+                return false;
 
-            Release(tmp);
+            if (!NamespaceNewSymbol(ns, member->name, nw, PropertyType::CONST | PropertyType::PUBLIC)) {
+                Release(nw);
+                return false;
+            }
+
+            Release(nw);
         }
     }
 
+    return true;
+}
+
+bool CheckMethodsOverride(TypeInfo *info) {
+    NsEntry *cursor;
+
+    if (info->mro == nullptr)
+        return true;
+
+    cursor = (NsEntry *) ((Namespace *) info->tp_map)->hmap.iter_begin;
+    while (cursor != nullptr) {
+        auto *fn = (Function *) cursor->GetObject();
+
+        if (AR_TYPEOF(fn, type_function_) && fn->IsMethod()) {
+            auto *other = (Function *) MROSearch(info, cursor->key, nullptr);
+
+            if (other != nullptr && other->IsMethod() &&
+                (fn->arity != other->arity || fn->IsVariadic() != other->IsVariadic())) {
+                Release(fn);
+                Release(other);
+                ErrorFormat(type_override_error_, "signature mismatch for %s(%d%s), expected %s(%d%s)",
+                            fn->qname->buffer, fn->arity - 1, fn->IsVariadic() ? ", ..." : "",
+                            other->name->buffer, other->arity - 1, other->IsVariadic() ? ", ..." : "");
+                return false;
+            }
+
+            Release(other);
+        }
+
+        Release(fn);
+        cursor = (NsEntry *) cursor->iter_next;
+    }
 
     return true;
-
-    error:
-    Release(tmp);
-    return false;
 }
 
 bool argon::object::TypeInit(TypeInfo *info, ArObject *ns) {
-    static PropertyType meth_flags = PropertyType::PUBLIC | PropertyType::CONST;
     ArSize blen = 0;
 
     assert(info->tp_map == nullptr);
 
-    if (ns == nullptr && (info->obj_actions == nullptr || info->obj_actions->methods == nullptr))
+    if (ns == nullptr &&
+        (info->obj_actions == nullptr ||
+         info->obj_actions->methods == nullptr &&
+         info->obj_actions->members == nullptr))
         return true;
 
     // Calculate static MRO
@@ -825,18 +872,20 @@ bool argon::object::TypeInit(TypeInfo *info, ArObject *ns) {
 
     // Build namespace
     info->tp_map = IncRef(ns);
-    if (ns == nullptr && (info->tp_map = NamespaceNew()) == nullptr)
-        goto error;
-
-    // Push methods
-    if (info->obj_actions != nullptr) {
-        if (!InitMembers(info))
-            goto error;
+    if (ns == nullptr) {
+        info->tp_map = NamespaceNew();
+        if (info->tp_map == nullptr)
+            goto ERROR;
     }
 
-    return true;
+    // Push methods
+    if (info->obj_actions != nullptr && !InitMembers(info))
+        goto ERROR;
 
-    error:
+    if (CheckMethodsOverride(info))
+        return true;
+
+    ERROR:
     Release(&info->mro);
     Release(&info->tp_map);
     return false;
@@ -993,7 +1042,7 @@ void argon::object::UntrackRecursive(ArObject *obj) {
 
     assert(references->objects[references->len - 1] == obj);
 
-    ListRemove(references, references->len - 1);
+    ListRemove(references, (ArSSize) references->len - 1);
 }
 
 void argon::object::BufferRelease(ArBuffer *buffer) {

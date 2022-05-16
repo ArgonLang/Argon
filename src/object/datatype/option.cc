@@ -110,6 +110,7 @@ const TypeInfo OptionType = {
         (CompareOp) option_compare,
         (BoolUnaryOp) option_is_true,
         nullptr,
+        nullptr,
         (UnaryOp) option_str,
         nullptr,
         nullptr,

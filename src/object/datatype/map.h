@@ -30,6 +30,8 @@ namespace argon::object {
 
     bool MapInsert(Map *map, ArObject *key, ArObject *value);
 
+    bool MapInsertRaw(Map *map, const char *key, ArObject *value);
+
     bool MapRemove(Map *map, ArObject *key);
 
     void MapClear(Map *map);

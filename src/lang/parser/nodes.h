@@ -143,8 +143,8 @@ namespace argon::lang::parser {
 
     Assignment *AssignmentNew(scanner::Token &token, bool constant, bool pub, bool weak);
 
-    Construct *
-    FunctionNew(scanner::Pos start, argon::object::String *name, object::List *params, Node *block, bool pub);
+    Construct *FunctionNew(scanner::Pos start, scanner::Pos end, argon::object::String *name,
+                           object::List *params, Node *block, bool pub);
 
     ImportDecl *ImportNew(object::String *module, object::ArObject *names, scanner::Pos start);
 }

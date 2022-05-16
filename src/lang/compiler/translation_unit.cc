@@ -64,29 +64,33 @@ Code *argon::lang::compiler::TranslationUnitAssemble(TranslationUnit *unit) {
         instr_sz += cursor->i_size;
     }
 
-    if ((buf = (unsigned char *) argon::memory::Alloc(instr_sz)) == nullptr)
-        return (Code *) argon::vm::Panic(error_out_of_memory);
+    buf = nullptr;
 
-    bcur = buf;
-    for (BasicBlock *cursor = unit->bb.start; cursor != nullptr; cursor = cursor->next) {
-        for (Instr *instr = cursor->instr.head; instr != nullptr; instr = instr->next) {
-            arg = instr->oparg & 0x00FFFFFF; // extract arg
+    if (instr_sz != 0) {
+        if ((buf = (unsigned char *) argon::memory::Alloc(instr_sz)) == nullptr)
+            return (Code *) argon::vm::Panic(error_out_of_memory);
 
-            if (instr->jmp != nullptr)
-                arg = instr->jmp->i_offset;
+        bcur = buf;
+        for (BasicBlock *cursor = unit->bb.start; cursor != nullptr; cursor = cursor->next) {
+            for (Instr *instr = cursor->instr.head; instr != nullptr; instr = instr->next) {
+                arg = instr->oparg & 0x00FFFFFF; // extract arg
 
-            switch ((instr->oparg & 0xFF000000) >> 24u) {
-                case 4:
-                    *((Instr32 *) bcur) = arg << 8 | instr->opcode;
-                    bcur += 4;
-                    break;
-                case 2:
-                    *((Instr16 *) bcur) = arg << 8 | instr->opcode;
-                    bcur += 2;
-                    break;
-                default:
-                    *((Instr8 *) bcur) = instr->opcode;
-                    bcur++;
+                if (instr->jmp != nullptr)
+                    arg = instr->jmp->i_offset;
+
+                switch ((instr->oparg & 0xFF000000) >> 24u) {
+                    case 4:
+                        *((Instr32 *) bcur) = arg << 8 | instr->opcode;
+                        bcur += 4;
+                        break;
+                    case 2:
+                        *((Instr16 *) bcur) = (Instr16) (arg << 8 | instr->opcode);
+                        bcur += 2;
+                        break;
+                    default:
+                        *bcur = instr->opcode;
+                        bcur++;
+                }
             }
         }
     }
@@ -232,19 +236,15 @@ JBlock *argon::lang::compiler::TranslationUnitJBNewLoop(TranslationUnit *unit, B
 }
 
 JBlock *argon::lang::compiler::TranslationUnitJBFindLoop(TranslationUnit *unit, String *label) {
-    JBlock *block = unit->jstack;
+    for (JBlock *block = unit->jstack; block != nullptr; block = block->prev) {
+        if (!block->loop)
+            continue;
 
-    for (; block != nullptr; block = block->prev) {
-        if (label != nullptr) {
-            if (StringCompare(block->label, label) != 0 || !block->loop)
-                continue;
-        }
-
-        if (block->loop)
-            break;
+        if (label == nullptr || (block->label != nullptr && StringCompare(block->label, label) == 0))
+            return block;
     }
 
-    return block;
+    return nullptr;
 }
 
 void argon::lang::compiler::TranslationUnitBlockAppend(TranslationUnit *unit, BasicBlock *block) {
@@ -268,7 +268,7 @@ void argon::lang::compiler::TranslationUnitIncStack(TranslationUnit *unit, unsig
         unit->stack.required = unit->stack.current;
 }
 
-void argon::lang::compiler::TranslationUnitJBPop(TranslationUnit *unit, JBlock *block) {
+void argon::lang::compiler::TranslationUnitJBPop(TranslationUnit *unit, const JBlock *block) {
     JBlock *tmp = unit->jstack;
 
     if (tmp == block) {

@@ -119,6 +119,7 @@ const TypeInfo ModuleType = {
         (CompareOp) module_compare,
         module_is_true,
         nullptr,
+        nullptr,
         (UnaryOp) module_str,
         nullptr,
         nullptr,
@@ -238,12 +239,14 @@ bool argon::object::ModuleAddIntConstant(Module *module, const char *key, ArSSiz
 }
 
 bool argon::object::ModuleAddObjects(Module *module, const PropertyBulk *bulk) {
-    bool ok = true;
-
+    const char *name;
     ArObject *obj;
     ArObject *key;
 
-    for (const PropertyBulk *cursor = bulk; cursor->name != nullptr && ok; cursor++) {
+    bool ok = true;
+
+    for (const PropertyBulk *cursor = bulk; cursor->prop.obj != nullptr && ok; cursor++) {
+        name = cursor->name;
         obj = cursor->prop.obj;
 
         if (cursor->is_func) {
@@ -253,9 +256,15 @@ bool argon::object::ModuleAddObjects(Module *module, const PropertyBulk *bulk) {
             }
         }
 
-        if ((key = StringNew(cursor->name)) == nullptr) {
+        if (name == nullptr && AR_TYPEOF(cursor->prop.obj, type_type_))
+            name = ((const TypeInfo *) cursor->prop.obj)->name;
+
+        assert(name != nullptr);
+
+        if ((key = StringNew(name)) == nullptr) {
             if (cursor->is_func)
                 Release(obj);
+
             return false;
         }
 

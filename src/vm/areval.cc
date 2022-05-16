@@ -45,45 +45,74 @@ ArObject *Binary(ArRoutine *routine, ArObject *l, ArObject *r, int offset) {
 #undef GET_BINARY_OP
 }
 
-ArObject *Subscript(ArObject *obj, ArObject *idx, ArObject *set) {
-    ArObject *ret = nullptr;
-
+ArObject *SubscriptGet(ArObject *obj, ArObject *idx) {
     if (AsMap(obj)) {
-        if (set == nullptr) {
-            if ((ret = obj->type->map_actions->get_item(obj, idx)) == nullptr)
-                return nullptr;
-        } else {
-            if (!obj->type->map_actions->set_item(obj, idx, set))
-                return False;
-        }
-    } else if (AsSequence(obj)) {
+        if (AR_MAP_SLOT(obj)->get_item == nullptr)
+            goto ERROR;
+
+        return AR_MAP_SLOT(obj)->get_item(obj, idx);
+    }
+
+    if (AsSequence(obj)) {
         if (AsIndex(idx)) {
-            if (set == nullptr) {
-                ret = obj->type->sequence_actions->get_item(obj, idx->type->number_actions->as_index(idx));
-                if (ret == nullptr)
-                    return nullptr;
-            } else {
-                if (!obj->type->sequence_actions->set_item(obj, set, idx->type->number_actions->as_index(idx)))
-                    return False;
-            }
-        } else if (idx->type == type_bounds_) {
-            if (set == nullptr) {
-                ret = obj->type->sequence_actions->get_slice(obj, idx);
-            } else {
-                if (!obj->type->sequence_actions->set_slice(obj, idx, set))
-                    return False;
-            }
-        } else {
-            ErrorFormat(type_type_error_, "sequence index must be integer or bounds not '%s'",
-                        idx->type->name);
-            return nullptr;
+            ArSSize index;
+
+            if (AR_SEQUENCE_SLOT(obj)->get_item == nullptr)
+                goto ERROR;
+
+            index = AR_NUMBER_SLOT(idx)->as_index(idx);
+            return AR_SEQUENCE_SLOT(obj)->get_item(obj, index);
         }
-    } else {
-        ErrorFormat(type_type_error_, "'%s' not subscriptable", obj->type->name);
+
+        if (AR_TYPEOF(idx, type_bounds_)) {
+            if (AR_SEQUENCE_SLOT(obj)->get_slice == nullptr)
+                goto ERROR;
+
+            return AR_SEQUENCE_SLOT(obj)->get_slice(obj, idx);
+        }
+
+        ErrorFormat(type_type_error_, "sequence index must be integer or bounds not '%s'", AR_TYPE_NAME(obj));
         return nullptr;
     }
 
-    return ret;
+    ERROR:
+    ErrorFormat(type_type_error_, "'%s' not subscriptable", AR_TYPE_NAME(obj));
+    return nullptr;
+}
+
+bool SubscriptSet(ArObject *obj, ArObject *idx, ArObject *value) {
+    if (AsMap(obj)) {
+        if (AR_MAP_SLOT(obj)->set_item == nullptr)
+            goto ERROR;
+
+        return AR_MAP_SLOT(obj)->set_item(obj, idx, value);
+    }
+
+    if (AsSequence(obj)) {
+        if (AsIndex(idx)) {
+            ArSSize index;
+
+            if (AR_SEQUENCE_SLOT(obj)->set_item == nullptr)
+                goto ERROR;
+
+            index = AR_NUMBER_SLOT(idx)->as_index(idx);
+            return AR_SEQUENCE_SLOT(obj)->set_item(obj, value, index);
+        }
+
+        if (AR_TYPEOF(idx, type_bounds_)) {
+            if (AR_SEQUENCE_SLOT(obj)->set_slice == nullptr)
+                goto ERROR;
+
+            return AR_SEQUENCE_SLOT(obj)->set_slice(obj, idx, value);
+        }
+
+        ErrorFormat(type_type_error_, "sequence index must be integer or bounds not '%s'", AR_TYPE_NAME(obj));
+        return false;
+    }
+
+    ERROR:
+    ErrorFormat(type_type_error_, "'%s' does not support item assignment", AR_TYPE_NAME(obj));
+    return false;
 }
 
 Namespace *BuildNamespace(ArRoutine *routine, Code *code) {
@@ -187,27 +216,104 @@ ArObject *argon::vm::Eval(ArRoutine *routine, Frame *frame) {
 }
 
 ArObject *argon::vm::Eval(ArRoutine *routine) {
-#ifndef COMPUTED_GOTO
+#ifndef ARGON_FF_COMPUTED_GOTO
 #define TARGET_OP(op)   \
     case argon::lang::OpCodes::op:
 
+#define CGOTO   continue
+#else
+#define TARGET_OP(op)                   \
+    case argon::lang::OpCodes::op:      \
+    LBL_##op:
+
+#define CGOTO                                   \
+if(cu_frame->instr_ptr < cu_code->instr_end)    \
+    goto *LBL_OPCODES[*(cu_frame->instr_ptr)];  \
+else                                            \
+    goto END_FUNCTION
+
+    static const void *LBL_OPCODES[] = {
+            &&LBL_ADD,
+            &&LBL_CALL,
+            &&LBL_CMP,
+            &&LBL_DEC,
+            &&LBL_DFR,
+            &&LBL_DIV,
+            &&LBL_DUP,
+            &&LBL_EQST,
+            &&LBL_IDIV,
+            &&LBL_IMPALL,
+            &&LBL_IMPFRM,
+            &&LBL_IMPMOD,
+            &&LBL_INC,
+            &&LBL_INIT,
+            &&LBL_INV,
+            &&LBL_IPADD,
+            &&LBL_IPDIV,
+            &&LBL_IPMUL,
+            &&LBL_IPSUB,
+            &&LBL_JF,
+            &&LBL_JFOP,
+            &&LBL_JMP,
+            &&LBL_JNIL,
+            &&LBL_JT,
+            &&LBL_JTOP,
+            &&LBL_LAND,
+            &&LBL_LDATTR,
+            &&LBL_LDENC,
+            &&LBL_LDGBL,
+            &&LBL_LDITER,
+            &&LBL_LDLC,
+            &&LBL_LDMETH,
+            &&LBL_LDSCOPE,
+            &&LBL_LOR,
+            &&LBL_LSTATIC,
+            &&LBL_LXOR,
+            &&LBL_MK_BOUNDS,
+            &&LBL_MK_FUNC,
+            &&LBL_MK_LIST,
+            &&LBL_MK_MAP,
+            &&LBL_MK_SET,
+            &&LBL_MK_STRUCT,
+            &&LBL_MK_TRAIT,
+            &&LBL_MK_TUPLE,
+            &&LBL_MOD,
+            &&LBL_MUL,
+            &&LBL_NEG,
+            &&LBL_NJE,
+            &&LBL_NGV,
+            &&LBL_NOT,
+            &&LBL_POP,
+            &&LBL_POS,
+            &&LBL_PB_HEAD,
+            &&LBL_RET,
+            &&LBL_SHL,
+            &&LBL_SHR,
+            &&LBL_SPWN,
+            &&LBL_STATTR,
+            &&LBL_STENC,
+            &&LBL_STGBL,
+            &&LBL_STLC,
+            &&LBL_STSCOPE,
+            &&LBL_STSUBSCR,
+            &&LBL_SUB,
+            &&LBL_SUBSCR,
+            &&LBL_TEST,
+            &&LBL_UNPACK,
+            &&LBL_YLD};
+#endif
+
 #define DISPATCH()                                      \
     cu_frame->instr_ptr+=sizeof(argon::lang::Instr8);   \
-    continue
+    CGOTO
 
 #define DISPATCH2()                                     \
     cu_frame->instr_ptr+=sizeof(argon::lang::Instr16);  \
-    continue
+    CGOTO
 
 #define DISPATCH4()                                     \
     cu_frame->instr_ptr+=sizeof(argon::lang::Instr32);  \
-    continue
-
-#else
-#define TARGET_OP(op)   \
-    case OpCodes::op:   \
-    LBL_##op:
-#endif
+    CGOTO
 
 #define JUMPTO(offset)                                              \
     cu_frame->instr_ptr = (unsigned char *)cu_code->instr + offset; \
@@ -262,12 +368,14 @@ ArObject *argon::vm::Eval(ArRoutine *routine) {
 
     STWCheckpoint();
 
-    while (cu_frame->instr_ptr < (cu_code->instr + cu_code->instr_sz)) {
+    while (cu_frame->instr_ptr < cu_code->instr_end) {
         switch (*(argon::lang::OpCodes *) cu_frame->instr_ptr) {
-            TARGET_OP(ADD) {
+            TARGET_OP(ADD)
+            {
                 BINARY_OP(routine, add, +);
             }
-            TARGET_OP(CALL) {
+            TARGET_OP(CALL)
+            {
                 CallHelper helper{};
                 Frame *fn_frame = cu_frame;
 
@@ -293,7 +401,8 @@ ArObject *argon::vm::Eval(ArRoutine *routine) {
                 routine->frame = fn_frame;
                 goto BEGIN;
             }
-            TARGET_OP(CMP) {
+            TARGET_OP(CMP)
+            {
                 if ((ret = RichCompare(PEEK1(), TOP(), (CompareMode) ARG16)) == nullptr)
                     goto ERROR;
 
@@ -301,10 +410,12 @@ ArObject *argon::vm::Eval(ArRoutine *routine) {
                 TOP_REPLACE(ret);
                 DISPATCH2();
             }
-            TARGET_OP(DEC) {
+            TARGET_OP(DEC)
+            {
                 UNARY_OP(dec);
             }
-            TARGET_OP(DFR) {
+            TARGET_OP(DFR)
+            {
                 CallHelper helper{};
 
                 if (!CallHelperInit(&helper, cu_frame))
@@ -317,10 +428,12 @@ ArObject *argon::vm::Eval(ArRoutine *routine) {
                 Release(ret);
                 DISPATCH4();
             }
-            TARGET_OP(DIV) {
+            TARGET_OP(DIV)
+            {
                 BINARY_OP(routine, div, /);
             }
-            TARGET_OP(DUP) {
+            TARGET_OP(DUP)
+            {
                 // TODO: CHECK OutOfBound on stack
                 auto back = ARG16;
                 ArObject **cursor = cu_frame->eval_stack - back;
@@ -332,7 +445,8 @@ ArObject *argon::vm::Eval(ArRoutine *routine) {
 
                 DISPATCH2();
             }
-            TARGET_OP(EQST) {
+            TARGET_OP(EQST)
+            {
                 auto peek = PEEK1();
                 auto mode = (CompareMode) ARG16;
                 ret = TOP();
@@ -352,10 +466,12 @@ ArObject *argon::vm::Eval(ArRoutine *routine) {
                 TOP_REPLACE(ret);
                 DISPATCH2();
             }
-            TARGET_OP(IDIV) {
+            TARGET_OP(IDIV)
+            {
                 BINARY_OP(routine, idiv, '//');
             }
-            TARGET_OP(IMPALL) {
+            TARGET_OP(IMPALL)
+            {
                 auto *mod = (Module *) TOP();
 
                 if (!NamespaceMergePublic(cu_frame->globals, mod->module_ns))
@@ -363,7 +479,8 @@ ArObject *argon::vm::Eval(ArRoutine *routine) {
 
                 DISPATCH();
             }
-            TARGET_OP(IMPFRM) {
+            TARGET_OP(IMPFRM)
+            {
                 auto attribute = (String *) TupleGetItem(cu_code->statics, ARG32);
 
                 if ((ret = PropertyGet(TOP(), attribute, false)) == nullptr) {
@@ -375,7 +492,8 @@ ArObject *argon::vm::Eval(ArRoutine *routine) {
                 PUSH(ret);
                 DISPATCH4();
             }
-            TARGET_OP(IMPMOD) {
+            TARGET_OP(IMPMOD)
+            {
                 auto path = (String *) TupleGetItem(cu_code->statics, ARG32);
                 String *key;
                 ImportSpec *spec;
@@ -396,10 +514,12 @@ ArObject *argon::vm::Eval(ArRoutine *routine) {
                 PUSH(ret);
                 DISPATCH4();
             }
-            TARGET_OP(INC) {
+            TARGET_OP(INC)
+            {
                 UNARY_OP(inc);
             }
-            TARGET_OP(INIT) {
+            TARGET_OP(INIT)
+            {
                 auto args = ARG16;
 
                 if ((ret = StructInit(*(cu_frame->eval_stack - args - 1), cu_frame->eval_stack - args,
@@ -410,22 +530,28 @@ ArObject *argon::vm::Eval(ArRoutine *routine) {
                 TOP_REPLACE(ret);
                 DISPATCH4();
             }
-            TARGET_OP(INV) {
+            TARGET_OP(INV)
+            {
                 UNARY_OP(invert);
             }
-            TARGET_OP(IPADD) {
+            TARGET_OP(IPADD)
+            {
                 BINARY_OP(routine, inp_add, +=);
             }
-            TARGET_OP(IPDIV) {
+            TARGET_OP(IPDIV)
+            {
                 BINARY_OP(routine, inp_div, /=);
             }
-            TARGET_OP(IPMUL) {
+            TARGET_OP(IPMUL)
+            {
                 BINARY_OP(routine, inp_mul, *=);
             }
-            TARGET_OP(IPSUB) {
+            TARGET_OP(IPSUB)
+            {
                 BINARY_OP(routine, inp_sub, -=);
             }
-            TARGET_OP(JF) {
+            TARGET_OP(JF)
+            {
                 // JUMP FALSE
                 if (!IsTrue(TOP())) {
                     POP();
@@ -434,7 +560,8 @@ ArObject *argon::vm::Eval(ArRoutine *routine) {
                 POP();
                 DISPATCH4();
             }
-            TARGET_OP(JFOP) {
+            TARGET_OP(JFOP)
+            {
                 // JUMP FALSE OR POP
                 if (IsTrue(TOP())) {
                     POP();
@@ -442,17 +569,20 @@ ArObject *argon::vm::Eval(ArRoutine *routine) {
                 }
                 JUMPTO(ARG32);
             }
-            TARGET_OP(JMP) {
+            TARGET_OP(JMP)
+            {
                 JUMPTO(ARG32);
             }
-            TARGET_OP(JNIL) {
+            TARGET_OP(JNIL)
+            {
                 // JUMP IF NIL
                 if (TOP() == NilVal) {
                     JUMPTO(ARG32);
                 }
                 DISPATCH4();
             }
-            TARGET_OP(JT) {
+            TARGET_OP(JT)
+            {
                 // JUMP IF TRUE
                 if (IsTrue(TOP())) {
                     POP();
@@ -461,7 +591,8 @@ ArObject *argon::vm::Eval(ArRoutine *routine) {
                 POP();
                 DISPATCH4();
             }
-            TARGET_OP(JTOP) {
+            TARGET_OP(JTOP)
+            {
                 // JUMP TRUE OR POP
                 if (!IsTrue(TOP())) {
                     POP();
@@ -469,10 +600,12 @@ ArObject *argon::vm::Eval(ArRoutine *routine) {
                 }
                 JUMPTO(ARG32);
             }
-            TARGET_OP(LAND) {
+            TARGET_OP(LAND)
+            {
                 BINARY_OP(routine, l_and, &);
             }
-            TARGET_OP(LDATTR) {
+            TARGET_OP(LDATTR)
+            {
                 // TODO: CHECK OutOfBound
                 ArObject *key = TupleGetItem(cu_code->statics, ARG32);
 
@@ -486,14 +619,16 @@ ArObject *argon::vm::Eval(ArRoutine *routine) {
                 TOP_REPLACE(ret);
                 DISPATCH4();
             }
-            TARGET_OP(LDENC) {
+            TARGET_OP(LDENC)
+            {
                 if ((ret = ListGetItem(cu_frame->enclosed, ARG16)) == nullptr)
                     goto ERROR;
 
                 PUSH(ret);
                 DISPATCH2();
             }
-            TARGET_OP(LDGBL) {
+            TARGET_OP(LDGBL)
+            {
                 // TODO: CHECK OutOfBound
                 auto *key = TupleGetItem(cu_code->names, ARG16);
 
@@ -517,14 +652,16 @@ ArObject *argon::vm::Eval(ArRoutine *routine) {
                 PUSH(ret);
                 DISPATCH4();
             }
-            TARGET_OP(LDITER) {
+            TARGET_OP(LDITER)
+            {
                 if ((ret = IteratorGet(TOP())) == nullptr)
                     goto ERROR;
 
                 TOP_REPLACE(ret);
                 DISPATCH();
             }
-            TARGET_OP(LDLC) {
+            TARGET_OP(LDLC)
+            {
                 // TODO: CHECK OutOfBound
                 auto idx = ARG16;
 
@@ -532,7 +669,8 @@ ArObject *argon::vm::Eval(ArRoutine *routine) {
                 PUSH(cu_frame->locals[idx]);
                 DISPATCH2();
             }
-            TARGET_OP(LDMETH) {
+            TARGET_OP(LDMETH)
+            {
                 // TODO: CHECK OutOfBound
                 ArObject *key = TupleGetItem(cu_code->statics, ARG32);
                 ArObject *instance = TOP();
@@ -556,7 +694,8 @@ ArObject *argon::vm::Eval(ArRoutine *routine) {
 
                 DISPATCH4();
             }
-            TARGET_OP(LDSCOPE) {
+            TARGET_OP(LDSCOPE)
+            {
                 // TODO: CHECK OutOfBound
                 ArObject *key = TupleGetItem(cu_code->statics, ARG32);
 
@@ -569,19 +708,23 @@ ArObject *argon::vm::Eval(ArRoutine *routine) {
                 TOP_REPLACE(ret);
                 DISPATCH4();
             }
-            TARGET_OP(LOR) {
+            TARGET_OP(LOR)
+            {
                 BINARY_OP(routine, l_or, |);
             }
-            TARGET_OP(LSTATIC) {
+            TARGET_OP(LSTATIC)
+            {
                 // TODO: CHECK OutOfBound
                 ret = TupleGetItem(cu_code->statics, ARG32);
                 PUSH(ret);
                 DISPATCH4();
             }
-            TARGET_OP(LXOR) {
+            TARGET_OP(LXOR)
+            {
                 BINARY_OP(routine, l_xor, ^);
             }
-            TARGET_OP(MK_BOUNDS) {
+            TARGET_OP(MK_BOUNDS)
+            {
                 auto args = ARG16;
                 ArObject *step = nullptr;
                 ArObject *stop = nullptr;
@@ -604,7 +747,8 @@ ArObject *argon::vm::Eval(ArRoutine *routine) {
                 TOP_REPLACE(ret);
                 DISPATCH2();
             }
-            TARGET_OP(MK_FUNC) {
+            TARGET_OP(MK_FUNC)
+            {
                 auto flags = (FunctionFlags) argon::lang::I32ExtractFlag(cu_frame->instr_ptr);
                 auto name = (String *) PEEK1();
                 List *enclosed = nullptr;
@@ -629,7 +773,8 @@ ArObject *argon::vm::Eval(ArRoutine *routine) {
                 TOP_REPLACE(ret);
                 DISPATCH4();
             }
-            TARGET_OP(MK_LIST) {
+            TARGET_OP(MK_LIST)
+            {
                 auto args = ARG32;
 
                 if ((ret = ListNew(args)) == nullptr)
@@ -646,7 +791,8 @@ ArObject *argon::vm::Eval(ArRoutine *routine) {
                 PUSH(ret);
                 DISPATCH4();
             }
-            TARGET_OP(MK_MAP) {
+            TARGET_OP(MK_MAP)
+            {
                 auto args = ARG32 * 2;
 
                 if ((ret = MapNew()) == nullptr)
@@ -664,7 +810,8 @@ ArObject *argon::vm::Eval(ArRoutine *routine) {
                 PUSH(ret);
                 DISPATCH4();
             }
-            TARGET_OP(MK_SET) {
+            TARGET_OP(MK_SET)
+            {
                 auto args = ARG32;
 
                 if ((ret = SetNew()) == nullptr)
@@ -681,7 +828,8 @@ ArObject *argon::vm::Eval(ArRoutine *routine) {
                 PUSH(ret);
                 DISPATCH4();
             }
-            TARGET_OP(MK_STRUCT) {
+            TARGET_OP(MK_STRUCT)
+            {
                 auto args = ARG16;
                 Namespace *ns = BuildNamespace(routine, (Code *) *(cu_frame->eval_stack - args - 2));
 
@@ -696,7 +844,8 @@ ArObject *argon::vm::Eval(ArRoutine *routine) {
                 TOP_REPLACE(ret);
                 DISPATCH2();
             }
-            TARGET_OP(MK_TRAIT) {
+            TARGET_OP(MK_TRAIT)
+            {
                 auto args = ARG16;
                 Namespace *ns = BuildNamespace(routine, (Code *) *(cu_frame->eval_stack - args - 2));
 
@@ -711,7 +860,8 @@ ArObject *argon::vm::Eval(ArRoutine *routine) {
                 TOP_REPLACE(ret);
                 DISPATCH2();
             }
-            TARGET_OP(MK_TUPLE) {
+            TARGET_OP(MK_TUPLE)
+            {
                 auto args = ARG32;
 
                 if ((ret = TupleNew(args)) == nullptr)
@@ -729,16 +879,20 @@ ArObject *argon::vm::Eval(ArRoutine *routine) {
                 PUSH(ret);
                 DISPATCH4();
             }
-            TARGET_OP(MOD) {
+            TARGET_OP(MOD)
+            {
                 BINARY_OP(routine, module, %);
             }
-            TARGET_OP(MUL) {
+            TARGET_OP(MUL)
+            {
                 BINARY_OP(routine, mul, *);
             }
-            TARGET_OP(NEG) {
+            TARGET_OP(NEG)
+            {
                 UNARY_OP(neg);
             }
-            TARGET_OP(NJE) {
+            TARGET_OP(NJE)
+            {
                 if ((ret = IteratorNext(TOP())) == nullptr) {
                     if (RoutineIsPanicking(routine))
                         goto ERROR;
@@ -750,7 +904,8 @@ ArObject *argon::vm::Eval(ArRoutine *routine) {
                 PUSH(ret);
                 DISPATCH4();
             }
-            TARGET_OP(NGV) {
+            TARGET_OP(NGV)
+            {
                 // TODO: CHECK OutOfBound
                 auto map = cu_frame->proxy_globals != nullptr ?
                            cu_frame->proxy_globals : cu_frame->globals;
@@ -764,7 +919,8 @@ ArObject *argon::vm::Eval(ArRoutine *routine) {
                 POP();
                 DISPATCH4();
             }
-            TARGET_OP(NOT) {
+            TARGET_OP(NOT)
+            {
                 ret = True;
                 if (IsTrue(TOP()))
                     ret = False;
@@ -772,14 +928,17 @@ ArObject *argon::vm::Eval(ArRoutine *routine) {
                 TOP_REPLACE(ret);
                 DISPATCH();
             }
-            TARGET_OP(POP) {
+            TARGET_OP(POP)
+            {
                 POP();
                 DISPATCH();
             }
-            TARGET_OP(POS) {
+            TARGET_OP(POS)
+            {
                 UNARY_OP(pos);
             }
-            TARGET_OP(PB_HEAD) {
+            TARGET_OP(PB_HEAD)
+            {
                 auto len = ARG16;
 
                 ret = TOP(); // Save TOP
@@ -790,7 +949,8 @@ ArObject *argon::vm::Eval(ArRoutine *routine) {
                 *(cu_frame->eval_stack - (len + 1)) = ret;
                 DISPATCH2();
             }
-            TARGET_OP(RET) {
+            TARGET_OP(RET)
+            {
                 if (cu_frame->stack_extra_base != cu_frame->eval_stack) {
                     Release(cu_frame->return_value);
                     cu_frame->return_value = TOP_BACK();
@@ -799,13 +959,16 @@ ArObject *argon::vm::Eval(ArRoutine *routine) {
                 STACK_REWIND(cu_frame->eval_stack - cu_frame->stack_extra_base);
                 goto END_FUNCTION;
             }
-            TARGET_OP(SHL) {
+            TARGET_OP(SHL)
+            {
                 BINARY_OP(routine, shl, >>);
             }
-            TARGET_OP(SHR) {
+            TARGET_OP(SHR)
+            {
                 BINARY_OP(routine, shr, <<);
             }
-            TARGET_OP(SPWN) {
+            TARGET_OP(SPWN)
+            {
                 CallHelper helper{};
 
                 if (!CallHelperInit(&helper, cu_frame))
@@ -816,7 +979,8 @@ ArObject *argon::vm::Eval(ArRoutine *routine) {
 
                 DISPATCH4();
             }
-            TARGET_OP(STATTR) {
+            TARGET_OP(STATTR)
+            {
                 // TODO: CHECK OutOfBound
                 ArObject *key = TupleGetItem(cu_code->statics, ARG32);
 
@@ -830,14 +994,16 @@ ArObject *argon::vm::Eval(ArRoutine *routine) {
                 POP(); // Instance
                 DISPATCH4();
             }
-            TARGET_OP(STENC) {
+            TARGET_OP(STENC)
+            {
                 if (!ListSetItem(cu_frame->enclosed, TOP(), ARG16))
                     goto ERROR;
 
                 POP();
                 DISPATCH2();
             }
-            TARGET_OP(STGBL) {
+            TARGET_OP(STGBL)
+            {
                 // TODO: CHECK OutOfBound
                 auto map = cu_frame->proxy_globals != nullptr ?
                            cu_frame->proxy_globals : cu_frame->globals;
@@ -862,7 +1028,8 @@ ArObject *argon::vm::Eval(ArRoutine *routine) {
                 POP();
                 DISPATCH4();
             }
-            TARGET_OP(STLC) {
+            TARGET_OP(STLC)
+            {
                 // TODO: CHECK OutOfBound
                 auto idx = ARG16;
 
@@ -871,7 +1038,8 @@ ArObject *argon::vm::Eval(ArRoutine *routine) {
                 cu_frame->eval_stack--;
                 DISPATCH2();
             }
-            TARGET_OP(STSCOPE) {
+            TARGET_OP(STSCOPE)
+            {
                 ArObject *key = TupleGetItem(cu_code->statics, ARG32);
 
                 if (!PropertySet(TOP(), key, PEEK1(), false)) {
@@ -884,23 +1052,27 @@ ArObject *argon::vm::Eval(ArRoutine *routine) {
                 POP(); // Instance
                 DISPATCH4();
             }
-            TARGET_OP(STSUBSCR) {
-                if ((ret = Subscript(PEEK1(), TOP(), PEEK2())) == False)
+            TARGET_OP(STSUBSCR)
+            {
+                if (!SubscriptSet(PEEK1(), TOP(), PEEK2()))
                     goto ERROR;
                 STACK_REWIND(3);
                 DISPATCH();
             }
-            TARGET_OP(SUB) {
+            TARGET_OP(SUB)
+            {
                 BINARY_OP(routine, sub, -);
             }
-            TARGET_OP(SUBSCR) {
-                if ((ret = Subscript(PEEK1(), TOP(), nullptr)) == nullptr)
+            TARGET_OP(SUBSCR)
+            {
+                if ((ret = SubscriptGet(PEEK1(), TOP())) == nullptr)
                     goto ERROR;
                 POP();
                 TOP_REPLACE(ret);
                 DISPATCH();
             }
-            TARGET_OP(TEST) {
+            TARGET_OP(TEST)
+            {
                 ret = PEEK1();
                 if (Equal(ret, TOP())) {
                     POP();
@@ -910,7 +1082,8 @@ ArObject *argon::vm::Eval(ArRoutine *routine) {
                 TOP_REPLACE(BoolToArBool(false));
                 DISPATCH();
             }
-            TARGET_OP(UNPACK) {
+            TARGET_OP(UNPACK)
+            {
                 ArObject *iter;
                 auto len = (int) ARG32;
                 int count = 0;
@@ -926,23 +1099,30 @@ ArObject *argon::vm::Eval(ArRoutine *routine) {
                 if ((iter = IteratorGet(ret)) == nullptr)
                     goto ERROR;
 
-                Release(ret);
                 cu_frame->eval_stack += len - 1;
 
-                while ((ret = IteratorNext(iter)) != nullptr && count++ < len)
-                    *(cu_frame->eval_stack - count) = ret;
+                while ((ret = IteratorNext(iter)) != nullptr && count < len) {
+                    *(cu_frame->eval_stack - ++count) = ret;
+                }
 
                 Release(iter);
 
                 if (count != len) {
-                    ErrorFormat(type_value_error_, "incompatible number of value to unpack (expected '%d' got '%d')",
-                                len, count);
+                    // Revert partial changes
+                    STACK_REWIND(count);
+
+                    cu_frame->eval_stack--;
+
+                    ErrorFormat(type_value_error_,
+                                "incompatible number of value to unpack (expected '%d' got '%d')", len, count);
+
                     goto ERROR;
                 }
 
                 DISPATCH4();
             }
-            TARGET_OP(YLD) {
+            TARGET_OP(YLD)
+            {
                 cu_frame->instr_ptr += sizeof(argon::lang::Instr8);
 
                 if (routine->frame->back == nullptr || routine->frame->IsMain())
@@ -980,7 +1160,7 @@ ArObject *argon::vm::Eval(ArRoutine *routine) {
             goto BEGIN;
 
         if (routine->status != ArRoutineStatus::RUNNING) {
-            cu_frame->instr_ptr = (unsigned char *) cu_code->instr + cu_code->instr_sz;
+            cu_frame->instr_ptr = (unsigned char *) cu_code->instr_end;
             return nullptr;
         }
 

@@ -94,6 +94,7 @@ const TypeInfo IteratorType = {
         (CompareOp) IteratorCompare,
         iterator_is_true,
         nullptr,
+        nullptr,
         (UnaryOp) IteratorStr,
         nullptr,
         nullptr,

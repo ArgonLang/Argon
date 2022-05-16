@@ -418,7 +418,7 @@ ArObject *argon::vm::Call(ArObject *callable, int argc, ArObject **args) {
     ArObject *result = nullptr;
     Frame *frame = nullptr;
 
-    if(!CallHelperInit(&helper, (Function *) callable, args, argc))
+    if (!CallHelperInit(&helper, (Function *) callable, args, argc))
         return nullptr;
 
     if (!CallHelperCall(&helper, &frame, &result))
@@ -673,6 +673,15 @@ bool argon::vm::Shutdown() {
     }
 
     return false;
+}
+
+Frame *argon::vm::GetFrame() {
+    auto routine = GetRoutine();
+
+    if(routine == nullptr)
+        return nullptr;
+
+    return IncRef(routine->frame);
 }
 
 unsigned long argon::vm::SuspensionReason() {

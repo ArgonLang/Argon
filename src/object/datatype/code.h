@@ -26,6 +26,9 @@ namespace argon::object {
         /* Array that contains Argon assembly */
         const unsigned char *instr;
 
+        /* Pointer to the end of the array that contains the Argon assembly */
+        const unsigned char *instr_end;
+
         /* Length of instr */
         unsigned int instr_sz;
 

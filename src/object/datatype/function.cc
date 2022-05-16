@@ -145,6 +145,7 @@ const TypeInfo FunctionType = {
         (CompareOp) function_compare,
         (BoolUnaryOp) function_is_true,
         (SizeTUnaryOp) function_hash,
+        nullptr,
         (UnaryOp) function_str,
         (UnaryOp) function_iter_get,
         nullptr,
@@ -291,6 +292,10 @@ ArObject *argon::object::FunctionCallNative(Function *func, ArObject **args, ArS
     ArObject *instance = nullptr;
     List *arguments = nullptr;
     ArObject *ret;
+
+    // Check stub
+    if (func->native_fn == nullptr)
+        return ErrorFormat(type_unimplemented_error_, "you must implement method %s", func->qname->buffer);
 
     if (func->arity > 0 || func->IsVariadic()) {
         if (func->currying != nullptr) {

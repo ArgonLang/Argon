@@ -49,7 +49,7 @@ int ErrorWrapper(bool *must_exit) {
     return exit;
 }
 
-void Print(ArObject *obj) {
+void Print(ArObject *obj, bool use_str) {
     auto *out = (io::File *) ContextRuntimeGetProperty("stdout", io::type_file_);
     ArObject *err;
     String *str;
@@ -60,7 +60,8 @@ void Print(ArObject *obj) {
         return;
     }
 
-    if ((str = (String *) ToString(obj)) == nullptr) {
+    str = (String *) (use_str ? ToString(obj) : ToRepr(obj));
+    if (str == nullptr) {
         err = GetLastError();
         ErrorPrint(err);
         Release(err);
@@ -265,7 +266,7 @@ int argon::vm::EvalInteractive() {
         if ((ret = ContextRuntimeGetProperty("version_ex", type_string_)) == nullptr)
             return ErrorWrapper(nullptr);
 
-        Print(ret);
+        Print(ret, true);
     }
 
     return StartInteractiveLoop();
@@ -331,7 +332,7 @@ int argon::vm::StartInteractiveLoop() {
         ret = nullptr;
         if (code != nullptr) {
             if ((ret = EvalCode(code)) != nullptr && ret != NilVal)
-                Print(ret);
+                Print(ret, false);
         }
 
         exit = EXIT_SUCCESS;

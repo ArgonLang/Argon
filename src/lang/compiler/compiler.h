@@ -53,6 +53,8 @@ namespace argon::lang::compiler {
 
         bool CompileFunction(argon::lang::parser::Construct *func);
 
+        bool CompileFunctionDefaultBody();
+
         int CompileSelector(argon::lang::parser::Binary *selector, bool dup, bool emit);
 
         bool CompileSafe(argon::lang::parser::Unary *safe);

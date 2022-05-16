@@ -107,6 +107,7 @@ const TypeInfo MutexType = {
         nullptr,
         nullptr,
         nullptr,
+        nullptr,
         &mutex_obj,
         nullptr,
         nullptr,

@@ -47,9 +47,7 @@ namespace argon::object {
     public:
         RefBits() = default;
 
-        explicit RefBits(uintptr_t bits) {
-            this->bits_ = bits;
-        }
+        explicit RefBits(uintptr_t bits) : bits_(bits) {}
 
         bool Increment() {
             this->bits_ += uintptr_t(1) << RCBitOffsets::StrongShift;
@@ -90,9 +88,9 @@ namespace argon::object {
     };
 
     enum class RCType : unsigned char {
-        INLINE = (unsigned char) 0x08 | (unsigned char) 0x01,
+        INLINE = 0x08u | 0x01,
         STATIC = 0x02,
-        GC = 0x08 | ((unsigned char) 0x04 | (unsigned char) 0x01)
+        GC = 0x08u | (0x04u | 0x01)
     };
 
     class RefCount {
@@ -117,19 +115,17 @@ namespace argon::object {
 
         bool DecStrong();
 
-        bool DecWeak();
+        bool DecWeak() const;
 
-        bool HaveSideTable();
+        bool HaveSideTable() const;
 
-        bool IsGcObject();
+        bool IsGcObject() const;
 
-        bool IsStatic();
+        bool IsStatic() const;
 
-        uintptr_t GetStrongCount();
+        uintptr_t GetStrongCount() const;
 
-        uintptr_t GetWeakCount();
-
-        void ClearWeakRef();
+        uintptr_t GetWeakCount() const;
 
         void IncStrong();
     };

@@ -15,9 +15,11 @@ namespace argon::module {
     extern const argon::object::ModuleInit *module_math_;
     extern const argon::object::ModuleInit *module_os_;
     extern const argon::object::ModuleInit *module_random_;
+    extern const argon::object::ModuleInit *module_regex_;
     extern const argon::object::ModuleInit *module_runtime_;
     extern const argon::object::ModuleInit *module_sync_;
     extern const argon::object::ModuleInit *module_socket_;
+    extern const argon::object::ModuleInit *module_ssl_;
 } // namespace argon::module
 
 #endif // !ARGON_MODULE_MODULES_H_

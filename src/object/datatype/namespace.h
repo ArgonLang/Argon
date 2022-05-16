@@ -8,7 +8,9 @@
 #include <object/arobject.h>
 #include <utils/enum_bitmask.h>
 
+#include "tuple.h"
 #include "hmap.h"
+#include "nil.h"
 
 namespace argon::object {
     enum class PropertyType : unsigned char {
@@ -27,20 +29,16 @@ namespace argon::object {
     public:
         PropertyInfo() = default;
 
-        explicit PropertyInfo(PropertyType flags) {
-            this->flags_ = flags;
-        }
-
         PropertyInfo &operator=(PropertyType flags) {
             this->flags_ = flags;
             return *this;
         }
 
-        explicit operator PropertyType() {
+        explicit operator PropertyType() const {
             return this->flags_;
         }
 
-        [[nodiscard]] PropertyType operator&(PropertyType type) {
+        [[nodiscard]] PropertyType operator&(PropertyType type) const {
             return this->flags_ & type;
         }
 
@@ -62,7 +60,38 @@ namespace argon::object {
             ArObject *value;
             RefCount weak;
         };
+
         PropertyInfo info;
+        bool store_wk;
+
+        [[nodiscard]] ArObject *GetObject() {
+            if (this->store_wk)
+                return ReturnNil(this->weak.GetObject());
+
+            return IncRef(this->value);
+        }
+
+        void Cleanup(bool release_key) {
+            if (release_key)
+                Release(this->key);
+
+            if (this->store_wk) {
+                this->weak.DecWeak();
+                return;
+            }
+
+            Release(this->value);
+        }
+
+        void CloneValue(NsEntry *other){
+            if(other->store_wk)
+                this->weak = other->weak.IncWeak();
+            else
+                this->value = IncRef(other->value);
+
+            this->store_wk = other->store_wk;
+            this->info = other->info;
+        }
     };
 
     struct Namespace : ArObject {
@@ -77,6 +106,8 @@ namespace argon::object {
 
     ArObject *NamespaceGetValue(Namespace *ns, ArObject *key, PropertyInfo *info);
 
+    Tuple *NamespaceKeysToTuple(Namespace *ns);
+
     bool NamespaceMerge(Namespace *dst, Namespace *src);
 
     bool NamespaceMergePublic(Namespace *dst, Namespace *src);
@@ -87,11 +118,7 @@ namespace argon::object {
 
     bool NamespaceSetValue(Namespace *ns, ArObject *key, ArObject *value);
 
-    bool NamespaceSetValue(Namespace *ns, const char *key, ArObject *value);
-
     bool NamespaceContains(Namespace *ns, ArObject *key, PropertyInfo *info);
-
-    bool NamespaceRemove(Namespace *ns, ArObject *key);
 
     int NamespaceSetPositional(Namespace *ns, ArObject **values, ArSize count);
 

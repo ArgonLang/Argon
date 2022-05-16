@@ -73,6 +73,7 @@ const TypeInfo CodeType = {
         (CompareOp) code_compare,
         code_is_true,
         (SizeTUnaryOp) code_hash,
+        nullptr,
         (UnaryOp) code_str,
         nullptr,
         nullptr,
@@ -99,6 +100,7 @@ Code *argon::object::CodeNew(const unsigned char *instr,
 
     if (code != nullptr) {
         code->instr = instr;
+        code->instr_end = instr + instr_sz;
         code->instr_sz = instr_sz;
         code->stack_sz = stack_sz;
 
@@ -161,6 +163,7 @@ Code *argon::object::CodeNewNativeWrapper(ArObject *func) {
         code->statics = statics;
 
         code->instr = instr;
+        code->instr_end = instr + 9;
         code->instr_sz = 9;
         code->stack_sz = 1;
     }

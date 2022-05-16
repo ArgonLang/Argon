@@ -76,7 +76,7 @@ ARGON_METHOD5(file_, getbufmode, "Returns the current buffer mode."
 ARGON_METHOD5(file_, getfd, "Return the underlying file descriptor (integer)."
                             ""
                             "- Returns: integer.", 0, false) {
-    int fd = GetFd(((File *) self));
+    int fd = GetFd((File *) self);
     return IntegerNew(fd);
 }
 
@@ -352,10 +352,16 @@ const NativeFunc file_methods[] = {
         ARGON_METHOD_SENTINEL
 };
 
+const TypeInfo *file_bases[] = {
+        type_readT_,
+        type_writeT_,
+        nullptr
+};
+
 const ObjectSlots file_obj = {
         file_methods,
         nullptr,
-        nullptr,
+        file_bases,
         nullptr,
         nullptr,
         nullptr,
@@ -363,11 +369,11 @@ const ObjectSlots file_obj = {
         -1
 };
 
-bool file_istrue(File *self) {
+bool file_istrue(const File *self) {
     return self->fd > -1;
 }
 
-ArObject *file_compare(File *self, ArObject *other, CompareMode mode) {
+ArObject *file_compare(const File *self, ArObject *other, CompareMode mode) {
     if (!AR_SAME_TYPE(self, other) || mode != CompareMode::EQ)
         return nullptr;
 
@@ -425,7 +431,7 @@ ArObject *file_str(const File *self) {
 
 const TypeInfo FileType = {
         TYPEINFO_STATIC_INIT,
-        "file",
+        "File",
         nullptr,
         sizeof(File),
         TypeInfoFlags::BASE,
@@ -434,6 +440,7 @@ const TypeInfo FileType = {
         nullptr,
         (CompareOp) file_compare,
         (BoolUnaryOp) file_istrue,
+        nullptr,
         nullptr,
         (UnaryOp) file_str,
         nullptr,
@@ -472,6 +479,21 @@ ArSSize write_os_wrap(File *file, const void *buf, ArSize n) {
         ErrorSetFromErrno();
 
     return written;
+}
+
+bool argon::object::io::IOInit() {
+#define INIT_TYPE(type)                         \
+    if(!TypeInit((TypeInfo*)(type), nullptr))   \
+        return false
+
+    INIT_TYPE(io::type_file_);
+    INIT_TYPE(io::type_buffered_reader_);
+    INIT_TYPE(io::type_buffered_writer_);
+    INIT_TYPE(io::type_readT_);
+    INIT_TYPE(io::type_writeT_);
+
+    return true;
+#undef INIT_TYPE
 }
 
 bool seek_wrap(File *file, ArSSize offset, FileWhence whence) {
@@ -716,6 +738,8 @@ ArSSize FillBuffer(File *file) {
         return (file->buffer.buf + file->buffer.len) - file->buffer.cur;
 
     if (FlushNB(file)) {
+        file->buffer.len = 0;
+
         if ((nbytes = read_os_wrap(file, file->buffer.buf, file->buffer.cap)) > 0)
             file->buffer.len = nbytes;
     }

@@ -124,6 +124,7 @@ const TypeInfo NotifyQueueType = {
         nullptr,
         nullptr,
         nullptr,
+        nullptr,
         &nq_obj,
         nullptr,
         nullptr,

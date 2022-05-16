@@ -1,0 +1,46 @@
+/*
+ * This source file is part of the Argon project.
+ *
+ * Licensed under the Apache License v2.0
+*/
+
+from _regex import *
+
+pub func findall(data, pattern) {
+    var r = compile(pattern, MODE_ECMASCRIPT)
+
+    return data |> r.findall
+}
+
+pub func finditer(data, pattern) {
+    var r = compile(pattern, MODE_ECMASCRIPT)
+
+    return r.finditer(data)
+}
+
+pub func findeach(data, pattern, fn) {
+    var r = compile(pattern, MODE_ECMASCRIPT)
+    var cur
+
+    for cur in r.finditer(data) {
+        fn(cur)
+    }
+}
+
+pub func match(data, pattern) {
+    var r = compile(pattern, MODE_ECMASCRIPT)
+
+    return data |> r.match
+}
+
+pub func search(data, pattern) {
+    var r = compile(pattern, MODE_ECMASCRIPT)
+
+    return data |> r.search
+}
+
+pub func sub(data, pattern, repl, count) {
+    var r = compile(pattern, MODE_ECMASCRIPT)
+
+    return data |> r.sub(repl, count)
+}

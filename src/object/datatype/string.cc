@@ -3,16 +3,16 @@
 // Licensed under the Apache License v2.0
 
 #include <cstdarg>
-#include <cmath>
 
 #include <memory/memory.h>
 #include <vm/runtime.h>
+
+#include <object/datatype/support/formatter.h>
 
 #include "error.h"
 #include "hash_magic.h"
 #include "bool.h"
 #include "bounds.h"
-#include "decimal.h"
 #include "integer.h"
 #include "iterator.h"
 #include "map.h"
@@ -23,9 +23,9 @@ using namespace argon::object;
 
 static Map *intern = nullptr;
 
-ArSize StringSubStrLen(String *str, ArSize offset, ArSize graphemes) {
-    unsigned char *buf = str->buffer + offset;
-    unsigned char *end = str->buffer + str->len;
+ArSize argon::object::StringSubStrLen(const String *str, ArSize offset, ArSize graphemes) {
+    const unsigned char *buf = str->buffer + offset;
+    const unsigned char *end = str->buffer + str->len;
 
     if (graphemes == 0)
         return 0;
@@ -44,50 +44,30 @@ ArSize StringSubStrLen(String *str, ArSize offset, ArSize graphemes) {
     return buf - (str->buffer + offset);
 }
 
-// STRING ITERATOR
-
-bool str_iter_has_next(Iterator *self) {
-    if (self->reversed)
-        return self->index > 0;
-
-    return self->index < ((String *) self->obj)->len;
-}
-
-ArObject *str_iter_next(Iterator *self) {
-    unsigned char *buf = ((String *) self->obj)->buffer + self->index;
-    ArObject *ret = nullptr;
-
-    int len = 1;
-
-    if (!str_iter_has_next(self))
-        return nullptr;
-
-    if (!self->reversed)
-        len = StringSubStrLen((String *) self->obj, self->index, 1);
-    else {
-        buf--;
-        while (buf > ((String *) self->obj)->buffer && *buf >> 6 == 0x2) {
-            buf--;
-            len++;
+bool CheckUnicodeCharSequence(unsigned char chr, ArSize index, ArSize *uindex, StringKind *out_kind) {
+    if (index == *uindex) {
+        if (chr >> 7u == 0x0)
+            *uindex += 1;
+        else if (chr >> 5u == 0x6) {
+            *out_kind = StringKind::UTF8_2;
+            *uindex += 2;
+        } else if (chr >> 4u == 0xE) {
+            *out_kind = StringKind::UTF8_3;
+            *uindex += 3;
+        } else if (chr >> 3u == 0x1E) {
+            *out_kind = StringKind::UTF8_4;
+            *uindex += 4;
+        } else if (chr >> 6u == 0x2) {
+            ErrorFormat(type_unicode_error_, "can't decode byte 0x%x: invalid start byte", chr);
+            return false;
         }
+    } else if (chr >> 6u != 0x2) {
+        ErrorFormat(type_unicode_error_, "can't decode byte 0x%x: invalid continuation byte", chr);
+        return false;
     }
 
-    if ((ret = StringIntern((const char *) buf, len)) != nullptr)
-        self->index += self->reversed ? -len : len;
-
-    return ret;
+    return true;
 }
-
-ArObject *str_iter_peek(Iterator *self) {
-    auto idx = self->index;
-    auto ret = str_iter_next(self);
-
-    self->index = idx;
-
-    return ret;
-}
-
-ITERATOR_NEW(str_iterator, str_iter_next, str_iter_peek);
 
 String *StringInit(ArSize len, bool mkbuf) {
     auto str = ArObjectNew<String>(RCType::INLINE, type_string_);
@@ -117,7 +97,256 @@ String *StringInit(ArSize len, bool mkbuf) {
     return str;
 }
 
-int argon::object::StringCompare(String *self, String *other) {
+// StringBuilder
+
+StringBuilder::~StringBuilder() {
+    Free(this->buffer_);
+}
+
+ArSize StringBuilder::GetEscapedLength(const unsigned char *buffer, ArSize len, bool unicode) {
+    ArSize str_len = 0;
+
+    for (ArSize i = 0; i < len; i++) {
+        switch (buffer[i]) {
+            case '"':
+            case '\\':
+            case '\t':
+            case '\n':
+            case '\r':
+                str_len += 2; // \C
+                break;
+            default:
+                if (!unicode && (buffer[i] < ' ' || buffer[i] >= 0x7F)) {
+                    str_len += 4;
+                    break;
+                }
+                str_len++;
+        }
+    }
+
+    return str_len;
+}
+
+bool StringBuilder::BufferResize(ArSize sz) {
+    ArSize cap = this->cap_;
+    unsigned char *tmp;
+
+    if (this->error_)
+        return false;
+
+    if (cap > 0)
+        cap--;
+
+    if (sz == 0 || this->len_ + sz < cap)
+        return true;
+
+    if (this->buffer_ == nullptr)
+        sz += 1;
+
+    if ((tmp = ArObjectRealloc<unsigned char *>(this->buffer_, this->cap_ + sz)) == nullptr) {
+        this->error_ = true;
+        return false;
+    }
+
+    this->buffer_ = tmp;
+    this->cap_ += sz;
+    return true;
+}
+
+bool StringBuilder::Write(const unsigned char *buffer, ArSize len, ArSize overalloc) {
+    StringKind kind = StringKind::ASCII;
+    ArSize idx = 0;
+    ArSize uidx = 0;
+    unsigned char *wbuf;
+
+    if (buffer == nullptr || len == 0)
+        return true;
+
+    if (!this->BufferResize(len + overalloc))
+        return false;
+
+    wbuf = this->buffer_ + this->len_;
+
+    while (idx < len) {
+        wbuf[idx] = buffer[idx];
+
+        if (!CheckUnicodeCharSequence(buffer[idx], idx, &uidx, &kind)) {
+            this->error_ = true;
+            return false;
+        }
+
+        if (++idx == uidx)
+            this->cp_len_++;
+
+        if (kind > this->kind_)
+            this->kind_ = kind;
+    }
+
+    this->len_ += idx;
+    return true;
+}
+
+bool StringBuilder::WriteEscaped(const unsigned char *buffer, ArSize len, ArSize overalloc, bool unicode) {
+    static const unsigned char hex[] = "0123456789abcdef";
+    const unsigned char *start;
+    unsigned char *buf;
+
+    ArSize wlen = this->GetEscapedLength(buffer, len, unicode);
+
+    if (!this->BufferResize(wlen + overalloc))
+        return false;
+
+    if (len == 0)
+        return true;
+
+    start = this->buffer_ + this->len_;
+    buf = this->buffer_ + this->len_;
+
+    for (ArSize i = 0; i < len; i++) {
+        switch (buffer[i]) {
+            case '"':
+                *buf++ = '\\';
+                *buf++ = '"';
+                break;
+            case '\\':
+                *buf++ = '\\';
+                *buf++ = '\\';
+                break;
+            case '\t':
+                *buf++ = '\\';
+                *buf++ = 't';
+                break;
+            case '\n':
+                *buf++ = '\\';
+                *buf++ = 'n';
+                break;
+            case '\r':
+                *buf++ = '\\';
+                *buf++ = 'r';
+                break;
+            default:
+                if (!unicode && (buffer[i] < ' ' || buffer[i] >= 0x7F)) {
+                    *buf++ = '\\';
+                    *buf++ = 'x';
+                    *buf++ = hex[(buffer[i] & 0xF0) >> 4];
+                    *buf++ = hex[buffer[i] & 0x0F];
+                    break;
+                }
+
+                *buf++ = buffer[i];
+        }
+    }
+
+    this->len_ += buf - start;
+    this->cp_len_ += buf - start;
+    return len;
+}
+
+bool StringBuilder::WriteHex(const unsigned char *buffer, ArSize len) {
+    static const unsigned char hex[] = "0123456789abcdef";
+    unsigned char *buf;
+    ArSize wlen = len * 4;
+
+    if (!this->BufferResize(wlen))
+        return false;
+
+    if (len == 0)
+        return true;
+
+    buf = this->buffer_;
+
+    for (ArSize i = 0; i < len; i++) {
+        *buf++ = '\\';
+        *buf++ = 'x';
+        *buf++ = hex[(buffer[i] & 0xF0) >> 4];
+        *buf++ = hex[buffer[i] & 0x0F];
+    }
+
+    this->len_ += wlen;
+    this->cp_len_ += wlen;
+
+    return true;
+}
+
+bool StringBuilder::WriteRepeat(char ch, int times) {
+    if (!this->BufferResize(times))
+        return false;
+
+    for (int i = 0; i < times; i++)
+        this->buffer_[this->len_++] = ch;
+
+    this->cp_len_ += times;
+
+    return true;
+}
+
+String *StringBuilder::BuildString() {
+    String *str;
+
+    if (this->error_)
+        return nullptr;
+
+    if (this->buffer_ == nullptr || this->len_ == 0)
+        return StringIntern("");
+
+    if ((str = StringInit(this->len_, false)) != nullptr) {
+        this->buffer_[this->len_] = '\0';
+
+        str->buffer = this->buffer_;
+        this->buffer_ = nullptr;
+
+        str->kind = this->kind_;
+        str->cp_len = this->cp_len_;
+    }
+
+    return str;
+}
+
+// STRING ITERATOR
+
+bool str_iter_has_next(Iterator *self) {
+    if (self->reversed)
+        return self->index > 0;
+
+    return self->index < ((String *) self->obj)->len;
+}
+
+ArObject *str_iter_next(Iterator *self) {
+    const unsigned char *buf = ((String *) self->obj)->buffer + self->index;
+    ArObject *ret;
+    ArSSize len = 1;
+
+    if (!str_iter_has_next(self))
+        return nullptr;
+
+    if (!self->reversed)
+        len = (ArSSize) StringSubStrLen((String *) self->obj, self->index, 1);
+    else {
+        buf--;
+        while (buf > ((String *) self->obj)->buffer && *buf >> 6 == 0x2) {
+            buf--;
+            len++;
+        }
+    }
+
+    if ((ret = StringIntern((const char *) buf, len)) != nullptr)
+        self->index += self->reversed ? -len : len;
+
+    return ret;
+}
+
+ArObject *str_iter_peek(Iterator *self) {
+    auto idx = self->index;
+    auto ret = str_iter_next(self);
+
+    self->index = idx;
+
+    return ret;
+}
+
+ITERATOR_NEW(str_iterator, str_iter_next, str_iter_peek);
+
+int argon::object::StringCompare(const String *self, const String *other) {
     ArSize idx1 = 0;
     ArSize idx2 = 0;
 
@@ -134,42 +363,11 @@ int argon::object::StringCompare(String *self, String *other) {
     return c1 - c2;
 }
 
-ArSize FillBuffer(String *dst, ArSize offset, const unsigned char *buf, ArSize len) {
-    StringKind kind = StringKind::ASCII;
-    ArSize idx = 0;
-    ArSize uidx = 0;
-
-    while (idx < len) {
-        dst->buffer[idx + offset] = buf[idx];
-
-        if (buf[idx] >> 7u == 0x0)
-            uidx += 1;
-        else if (buf[idx] >> 5u == 0x6) {
-            kind = StringKind::UTF8_2;
-            uidx += 2;
-        } else if (buf[idx] >> 4u == 0xE) {
-            kind = StringKind::UTF8_3;
-            uidx += 3;
-        } else if (buf[idx] >> 3u == 0x1E) {
-            kind = StringKind::UTF8_4;
-            uidx += 4;
-        }
-
-        if (++idx == uidx)
-            dst->cp_len++;
-
-        if (kind > dst->kind)
-            dst->kind = kind;
-    }
-
-    return idx;
-}
-
 bool string_get_buffer(String *self, ArBuffer *buffer, ArBufferFlags flags) {
     return BufferSimpleFill(self, buffer, flags, self->buffer, 1, self->len, false);
 }
 
-BufferSlots string_buffer = {
+const BufferSlots string_buffer = {
         (BufferGetFn) string_get_buffer,
         nullptr
 };
@@ -196,15 +394,19 @@ ArObject *string_mul(ArObject *left, ArObject *right) {
     if (right->type == type_integer_) {
         times = ((Integer *) right)->integer;
         if ((ret = StringInit(l->len * times, true)) != nullptr) {
+            ret->cp_len = l->cp_len * times;
+
             while (times--)
-                FillBuffer(ret, l->len * times, l->buffer, l->len);
+                MemoryCopy(ret->buffer + l->len * times, l->buffer, l->len);
+
+            ret->kind = l->kind;
         }
     }
 
     return ret;
 }
 
-OpSlots string_ops{
+const OpSlots string_ops{
         string_add,
         nullptr,
         string_mul,
@@ -231,24 +433,20 @@ ArSize argon::object::StringLen(const String *str) {
     return str->len;
 }
 
-ArObject *string_get_item(String *self, ArSSize index) {
-    String *ret;
-
+ArObject *string_get_item(const String *self, ArSSize index) {
     if (self->kind != StringKind::ASCII)
         return ErrorFormat(type_unicode_index_error_, "unable to index a unicode string");
 
     if (index < 0)
-        index = self->len + index;
+        index = (ArSSize) self->len + index;
 
     if (index >= self->len)
         return ErrorFormat(type_overflow_error_, "string index out of range (len: %d, idx: %d)", self->len, index);
 
-    ret = StringIntern((const char *) self->buffer + index, 1);
-
-    return ret;
+    return StringIntern((const char *) self->buffer + index, 1);
 }
 
-ArObject *string_get_slice(String *self, ArObject *bounds) {
+ArObject *string_get_slice(const String *self, ArObject *bounds) {
     auto b = (Bounds *) bounds;
     String *ret;
 
@@ -278,7 +476,7 @@ ArObject *string_get_slice(String *self, ArObject *bounds) {
     return ret;
 }
 
-SequenceSlots string_sequence = {
+const SequenceSlots string_sequence = {
         (SizeTUnaryOp) StringLen,
         (BinaryOpArSize) string_get_item,
         nullptr,
@@ -301,7 +499,41 @@ ARGON_FUNCTION5(str_, new,
         return ToString(*argv);
     }
 
-    return StringIntern((char *) "");
+    return StringIntern((const char *) "");
+}
+
+ARGON_METHOD5(str_, capitalize,
+              "Return a capitalized version of the string."
+              ""
+              "- Returns: new capitalized string.", 0, false) {
+    auto *base = (String *) self;
+    String *ret;
+
+    if (base->len == 0 || toupper(*base->buffer) == *base->buffer)
+        return IncRef(base);
+
+    if ((ret = StringNew((const char *) base->buffer, base->len)) == nullptr)
+        return nullptr;
+
+    *ret->buffer = (unsigned char) toupper(*ret->buffer);
+
+    return ret;
+}
+
+ARGON_FUNCTION5(str_, chr,
+                "Returns the character that represents the specified unicode."
+                ""
+                "- Parameter number: an integer representing a valid Unicode code point."
+                "- Returns: new string that contains the specified character.", 1, false) {
+    unsigned char buf[] = {0x00, 0x00, 0x00, 0x00};
+    ArSize len;
+
+    if (!CheckArgs("i:chr", func, argv, count))
+        return nullptr;
+
+    len = StringIntToUTF8((unsigned int) ((Integer *) argv[0])->integer, buf);
+
+    return StringNew((const char *) buf, len);
 }
 
 ARGON_METHOD5(str_, count,
@@ -309,12 +541,12 @@ ARGON_METHOD5(str_, count,
               ""
               "- Parameter str: The string to value to search for."
               "- Returns: number of times a specified value appears in the string.", 1, false) {
-    auto *str = (String *) self;
-    auto *pattern = (String *) argv[0];
+    const auto *str = (String *) self;
+    const auto *pattern = (String *) argv[0];
     ArSSize n;
 
-    if (!AR_TYPEOF(argv[0], type_string_))
-        return ErrorFormat(type_type_error_, "str::count() expected string not '%s'", AR_TYPE_NAME(argv[0]));
+    if (!CheckArgs("s:str", func, argv, count))
+        return nullptr;
 
     n = support::Count(str->buffer, str->len, pattern->buffer, pattern->len, -1);
 
@@ -332,8 +564,8 @@ ARGON_METHOD5(str_, endswith,
     auto *str = (String *) self;
     auto *pattern = (String *) argv[0];
 
-    if (!AR_TYPEOF(argv[0], type_string_))
-        return ErrorFormat(type_type_error_, "str::endswith() expected string not '%s'", AR_TYPE_NAME(argv[0]));
+    if (!CheckArgs("s:str", func, argv, count))
+        return nullptr;
 
     return BoolToArBool(StringEndsWith(str, pattern));
 }
@@ -350,12 +582,36 @@ ARGON_METHOD5(str_, find,
     auto *pattern = (String *) argv[0];
     ArSSize n;
 
-    if (!AR_TYPEOF(argv[0], type_string_))
-        return ErrorFormat(type_type_error_, "str::find() expected string not '%s'", AR_TYPE_NAME(argv[0]));
+    if (!CheckArgs("s:str", func, argv, count))
+        return nullptr;
 
     n = StringFind(str, pattern);
 
     return IntegerNew(n);
+}
+
+ARGON_METHOD5(str_, lower,
+              "Return a copy of the string converted to lowercase."
+              ""
+              "- Returns: new string with all characters converted to lowercase.", 0, false) {
+    ArSize len = ((String *) self)->len;
+    String *ret;
+    unsigned char *buf;
+
+    if ((buf = ArObjectNewRaw<unsigned char *>(len + 1)) == nullptr)
+        return nullptr;
+
+    for (ArSize i = 0; i < len; i++)
+        buf[i] = (unsigned char) tolower(((String *) self)->buffer[i]);
+
+    buf[len] = '\0';
+
+    if ((ret = StringNewHoldBuffer(buf, len)) == nullptr) {
+        Free(buf);
+        return nullptr;
+    }
+
+    return ret;
 }
 
 ARGON_METHOD5(str_, replace,
@@ -370,17 +626,8 @@ ARGON_METHOD5(str_, replace,
     auto *str = (String *) self;
     ArSSize n;
 
-    if (!AR_TYPEOF(argv[0], type_string_))
-        return ErrorFormat(type_type_error_, "str::replace() first parameter expected string not '%s'",
-                           AR_TYPE_NAME(argv[0]));
-
-    if (!AR_TYPEOF(argv[1], type_string_))
-        return ErrorFormat(type_type_error_, "str::replace() second parameter expected string not '%s'",
-                           AR_TYPE_NAME(argv[1]));
-
-    if (!AR_TYPEOF(argv[2], type_integer_))
-        return ErrorFormat(type_type_error_, "str::replace() third parameter expected integer not '%s'",
-                           AR_TYPE_NAME(argv[2]));
+    if (!CheckArgs("s:old,s:new,i:count", func, argv, count))
+        return nullptr;
 
     n = ((Integer *) argv[2])->integer;
 
@@ -399,8 +646,8 @@ ARGON_METHOD5(str_, rfind,
     auto *pattern = (String *) argv[0];
     ArSSize n;
 
-    if (!AR_TYPEOF(argv[0], type_string_))
-        return ErrorFormat(type_type_error_, "str::rfind() expected string not '%s'", AR_TYPE_NAME(argv[0]));
+    if (!CheckArgs("s:str", func, argv, count))
+        return nullptr;
 
     n = StringRFind(str, pattern);
 
@@ -412,40 +659,40 @@ ARGON_METHOD5(str_, join,
               ""
               "- Parameter iterable: Any iterable object where all the returned values are strings."
               "- Returns: new string where all items in an iterable are joined into one string.", 1, false) {
-    StringBuilder builder = {};
-    auto *str = (String *) self;
-    String *tmp;
+    StringBuilder builder;
+    const auto *str = (String *) self;
     ArObject *iter;
+    String *tmp;
 
     ArSize idx = 0;
+
+    if (!CheckArgs("I:iterable", func, argv, count))
+        return nullptr;
 
     if ((iter = IteratorGet(argv[0])) == nullptr)
         return nullptr;
 
     while ((tmp = (String *) IteratorNext(iter)) != nullptr) {
         if (!AR_TYPEOF(tmp, type_string_)) {
-            ErrorFormat(type_type_error_, "sequence item %i: expected string not '%s'", idx, AR_TYPE_NAME(tmp));
-            goto error;
+            Release(tmp);
+            Release(iter);
+            return ErrorFormat(type_type_error_, "sequence item %i: expected string not '%s'", idx, AR_TYPE_NAME(tmp));
         }
 
-        if (idx > 0 && StringBuilderWrite(&builder, str->buffer, str->len, tmp->len) < 0)
-            goto error;
+        if (idx > 0 && !builder.Write(str, (int) tmp->len)) {
+            Release(tmp);
+            Release(iter);
+            return nullptr;
+        }
 
-        if (StringBuilderWrite(&builder, tmp->buffer, tmp->len) < 0)
-            goto error;
+        builder.Write(tmp, 0);
 
         Release(tmp);
         idx++;
     }
 
     Release(iter);
-    return StringBuilderFinish(&builder);
-
-    error:
-    Release(tmp);
-    Release(iter);
-    StringBuilderClean(&builder);
-    return nullptr;
+    return builder.BuildString();
 }
 
 ARGON_METHOD5(str_, split,
@@ -455,14 +702,11 @@ ARGON_METHOD5(str_, split,
               " - separator: specifies the separator to use when splitting the string."
               " - maxsplit: specifies how many splits to do."
               "- Returns: new list of string.", 2, false) {
-    auto *str = (String *) self;
-    auto *pattern = (String *) argv[0];
+    const auto *str = (String *) self;
+    const auto *pattern = (String *) argv[0];
 
-    if (!AR_TYPEOF(argv[0], type_string_))
-        return ErrorFormat(type_type_error_, "str::split() expected string not '%s'", AR_TYPE_NAME(argv[0]));
-
-    if (!AR_TYPEOF(argv[1], type_integer_))
-        return ErrorFormat(type_type_error_, "str::split() expected integer not '%s'", AR_TYPE_NAME(argv[1]));
+    if (!CheckArgs("s:separator,i:maxsplit", func, argv, count))
+        return nullptr;
 
     return StringSplit(str, pattern, ((Integer *) argv[1])->integer);
 }
@@ -475,14 +719,14 @@ ARGON_METHOD5(str_, startswith,
               ""
               "# SEE"
               "- endswith: Returns true if the string ends with the specified value.", 1, false) {
-    auto *str = (String *) self;
-    auto *pattern = (String *) argv[0];
+    const auto *str = (String *) self;
+    const auto *pattern = (String *) argv[0];
     ArSSize n;
 
-    if (!AR_TYPEOF(argv[0], type_string_))
-        return ErrorFormat(type_type_error_, "str::startswith() expected string not '%s'", AR_TYPE_NAME(argv[0]));
+    if (!CheckArgs("s:str", func, argv, count))
+        return nullptr;
 
-    n = str->len - pattern->len;
+    n = (ArSSize) (str->len - pattern->len);
     if (n >= 0 && MemoryCompare(str->buffer, pattern->buffer, pattern->len) == 0)
         return IncRef(True);
 
@@ -493,7 +737,7 @@ ARGON_METHOD5(str_, trim,
               "Returns a new string stripped of whitespace from both ends."
               ""
               "- Returns: new string without whitespace.", 0, false) {
-    auto *str = (String *) self;
+    const auto *str = (String *) self;
     ArSize start = 0;
     ArSize end = str->len;
 
@@ -506,38 +750,45 @@ ARGON_METHOD5(str_, trim,
     return StringNew((const char *) str->buffer + start, end - start);
 }
 
-ARGON_FUNCTION5(str_, chr,
-                "Returns the character that represents the specified unicode."
-                ""
-                "- Parameter number: an integer representing a valid Unicode code point."
-                "- Returns: new string that contains the specified character.", 1, false) {
-    unsigned char buf[] = {0x00, 0x00, 0x00, 0x00};
-    ArObject *ret;
-    ArSize len;
+ARGON_METHOD5(str_, upper,
+              "Return a copy of the string converted to uppercase."
+              ""
+              "- Returns: new string with all characters converted to uppercase.", 0, false) {
+    ArSize len = ((String *) self)->len;
+    String *ret;
+    unsigned char *buf;
 
-    if (!AR_TYPEOF(argv[0], type_integer_))
-        return ErrorFormat(type_type_error_, "chr expected an integer not '%s'", AR_TYPE_NAME(argv[0]));
-
-    len = StringIntToUTF8(((Integer *) argv[0])->integer, buf);
-
-    if ((ret = StringNew((const char *) buf, len)) == nullptr)
+    if ((buf = ArObjectNewRaw<unsigned char *>(len + 1)) == nullptr)
         return nullptr;
+
+    for (ArSize i = 0; i < len; i++)
+        buf[i] = (unsigned char) toupper(((String *) self)->buffer[i]);
+
+    buf[len] = '\0';
+
+    if ((ret = StringNewHoldBuffer(buf, len)) == nullptr) {
+        Free(buf);
+        return nullptr;
+    }
 
     return ret;
 }
 
 const NativeFunc str_methods[] = {
         str_new_,
+        str_capitalize_,
         str_count_,
+        str_chr_,
         str_endswith_,
         str_find_,
+        str_lower_,
         str_replace_,
         str_rfind_,
         str_join_,
         str_split_,
         str_startswith_,
         str_trim_,
-        str_chr_,
+        str_upper_,
         ARGON_METHOD_SENTINEL
 };
 
@@ -552,12 +803,12 @@ const ObjectSlots str_obj = {
         -1
 };
 
-bool string_is_true(String *self) {
+bool string_is_true(const String *self) {
     return self->len > 0;
 }
 
-ArObject *string_compare(String *self, ArObject *other, CompareMode mode) {
-    auto *o = (String *) other;
+ArObject *string_compare(const String *self, ArObject *other, CompareMode mode) {
+    const auto *o = (String *) other;
     int left = 0;
     int right = 0;
     int res;
@@ -565,16 +816,17 @@ ArObject *string_compare(String *self, ArObject *other, CompareMode mode) {
     if (!AR_SAME_TYPE(self, other))
         return nullptr;
 
-    if (self != other) {
-        if (mode == CompareMode::EQ && self->kind != o->kind)
-            return BoolToArBool(false);
+    if (self == other)
+        return BoolToArBool(true);
 
-        res = StringCompare(self, (String *) other);
-        if (res < 0)
-            left = -1;
-        else if (res > 0)
-            right = -1;
-    }
+    if (mode == CompareMode::EQ && self->kind != o->kind)
+        return BoolToArBool(false);
+
+    res = StringCompare(self, (String *) other);
+    if (res < 0)
+        left = -1;
+    else if (res > 0)
+        right = -1;
 
     ARGON_RICH_COMPARE_CASES(left, right, mode);
 }
@@ -586,27 +838,17 @@ ArSize string_hash(String *self) {
     return self->hash;
 }
 
+String *string_repr(const String *self) {
+    StringBuilder builder;
+
+    builder.Write((const unsigned char *) "\"", 1, self->len + 1);
+    builder.WriteEscaped(self->buffer, self->len, 1, true);
+    builder.Write((const unsigned char *) "\"", 1, 0);
+
+    return builder.BuildString();
+}
+
 String *string_str(String *self) {
-    /*
-    StringBuilder sb = {};
-    ArSize len = self->len + 1;
-
-    if (StringBuilderWrite(&sb, (unsigned char *) "\"", 1, len) < 0)
-        goto error;
-
-    if (StringBuilderWrite(&sb, self->buffer, self->len) < 0)
-        goto error;
-
-    if (StringBuilderWrite(&sb, (unsigned char *) "\"", 1) < 0)
-        goto error;
-
-    return StringBuilderFinish(&sb);
-
-    error:
-    StringBuilderClean(&sb);
-    return nullptr;
-     */
-
     return IncRef(self);
 }
 
@@ -634,6 +876,7 @@ const TypeInfo StringType = {
         (CompareOp) string_compare,
         (BoolUnaryOp) string_is_true,
         (SizeTUnaryOp) string_hash,
+        (UnaryOp) string_repr,
         (UnaryOp) string_str,
         (UnaryOp) string_iter_get,
         (UnaryOp) string_iter_rget,
@@ -650,15 +893,13 @@ const TypeInfo StringType = {
 const TypeInfo *argon::object::type_string_ = &StringType;
 
 String *argon::object::StringNew(const char *string, ArSize len) {
-    auto str = StringInit(len, true);
-
-    if (str != nullptr && string != nullptr)
-        FillBuffer(str, 0, (unsigned char *) string, len);
-
-    return str;
+    StringBuilder builder;
+    builder.Write((const unsigned char *) string, len, 0);
+    return builder.BuildString();
 }
 
-String *argon::object::StringNewBufferOwnership(unsigned char *buffer, ArSize len) {
+String *argon::object::StringNewHoldBuffer(unsigned char *buffer, ArSize len) {
+    StringKind kind = StringKind::ASCII;
     String *str;
 
     if (buffer == nullptr || len == 0) {
@@ -667,10 +908,20 @@ String *argon::object::StringNewBufferOwnership(unsigned char *buffer, ArSize le
     }
 
     if ((str = StringInit(len, false)) != nullptr) {
-        str->buffer = (unsigned char *) buffer;
-        FillBuffer(str, 0, (unsigned char *) buffer, len);
+        str->buffer = buffer;
+
+        for (ArSize i = 0, ui = 0; i < len; i++) {
+            if (!CheckUnicodeCharSequence(buffer[i], i, &ui, &kind)) {
+                Release(str);
+                return nullptr;
+            }
+
+            if (i == ui - 1)
+                str->cp_len++;
+        }
     }
 
+    str->kind = kind;
     return str;
 }
 
@@ -699,7 +950,7 @@ String *argon::object::StringNewFormat(const char *string, ...) {
     va_list args;
     String *str;
 
-    va_start (args, string);
+    va_start(args, string);
     str = StringNewFormat(string, args);
     va_end(args);
 
@@ -707,791 +958,152 @@ String *argon::object::StringNewFormat(const char *string, ...) {
 }
 
 String *argon::object::StringIntern(const char *string, ArSize len) {
-    String *ret = nullptr;
+    String *ret;
 
-    if (intern == nullptr) {
+    // Initialize intern
+    if (intern == nullptr)
         intern = MapNew();
-        // TODO: log!
-    } else
-        ret = (String *) MapGetFrmStr(intern, string, len);
 
-    if (ret == nullptr) {
-        if ((ret = StringNew(string, len)) != nullptr) {
-            if (intern != nullptr) {
-                if (MapInsert(intern, ret, ret))
-                    ret->intern = true;
-                // TODO: log if false!
-            }
+    assert(intern != nullptr);
+
+    if ((ret = (String *) MapGetFrmStr(intern, string, len)) == nullptr) {
+        // Check special case for empty string
+        if (string == nullptr || len == 0)
+            ret = StringInit(0, true);
+        else
+            ret = StringNew(string, len);
+
+        if (ret == nullptr)
+            return nullptr;
+
+        if (!MapInsert(intern, ret, ret)) {
+            Release(ret);
+            return nullptr;
         }
+
+        ret->intern = true;
     }
 
     return ret;
 }
 
-// String Builder
-
-bool argon::object::StringBuilderResize(StringBuilder *sb, ArSize len) {
-    unsigned char *tmp;
-
-    if (len == 0 || sb->w_idx + len < sb->str.len)
-        return true;
-
-    if (sb->str.buffer == nullptr)
-        len += 1;
-
-    if ((tmp = (unsigned char *) argon::memory::Realloc(sb->str.buffer, sb->str.len + len)) != nullptr) {
-        sb->str.buffer = tmp;
-        sb->str.len += len;
-        return true;
-    }
-
-    argon::vm::Panic(error_out_of_memory);
-    return false;
-}
-
-bool
-argon::object::StringBuilderResizeAscii(StringBuilder *sb, const unsigned char *buffer, ArSize len, int overalloc) {
-    ArSize str_len = overalloc;
-
-    for (ArSize i = 0; i < len; i++) {
-        switch (buffer[i]) {
-            case '"':
-            case '\\':
-            case '\t':
-            case '\n':
-            case '\r':
-                str_len += 2; // \C
-                break;
-            default:
-                if (buffer[i] < ' ' || buffer[i] >= 0x7F) {
-                    str_len += 4;
-                    break;
-                }
-                str_len++;
-        }
-    }
-
-    return StringBuilderResize(sb, str_len);
-}
-
-int argon::object::StringBuilderRepeat(StringBuilder *sb, char chr, int times) {
-    if (!StringBuilderResize(sb, times))
-        return -1;
-
-    for (int i = 0; i < times; i++)
-        sb->str.buffer[sb->w_idx++] = chr;
-
-    sb->str.cp_len += times;
-
-    return times;
-}
-
-int argon::object::StringBuilderWrite(StringBuilder *sb, const unsigned char *buffer, ArSize len, int overalloc) {
-    ArSize wbytes;
-
-    if (!StringBuilderResize(sb, len + overalloc))
-        return -1;
-
-    wbytes = FillBuffer(&sb->str, sb->w_idx, buffer, len);
-    sb->w_idx += wbytes;
-
-    return (int) wbytes;
-}
-
-int argon::object::StringBuilderWriteAscii(StringBuilder *sb, const unsigned char *buffer, ArSize len) {
-    static const unsigned char hex[] = "0123456789abcdef";
-    const unsigned char *start = sb->str.buffer + sb->w_idx;
-    unsigned char *buf = sb->str.buffer + sb->w_idx;
-
-    for (ArSize i = 0; i < len; i++) {
-        if (buf - start > sb->str.len - sb->w_idx)
-            return -1;
-
-        switch (buffer[i]) {
-            case '"':
-                *buf++ = '\\';
-                *buf++ = '"';
-                break;
-            case '\\':
-                *buf++ = '\\';
-                *buf++ = '\\';
-                break;
-            case '\t':
-                *buf++ = '\\';
-                *buf++ = 't';
-                break;
-            case '\n':
-                *buf++ = '\\';
-                *buf++ = 'n';
-                break;
-            case '\r':
-                *buf++ = '\\';
-                *buf++ = 'r';
-                break;
-            default:
-                if (buffer[i] < ' ' || buffer[i] >= 0x7F) {
-                    *buf++ = '\\';
-                    *buf++ = 'x';
-                    *buf++ = hex[(buffer[i] & 0xF0) >> 4];
-                    *buf++ = hex[(buffer[i] & 0x0F)];
-                    break;
-                }
-                *buf++ = buffer[i];
-        }
-    }
-
-    sb->str.cp_len += buf - start;
-    sb->w_idx += buf - start;
-    return len;
-}
-
-int argon::object::StringBuilderWriteHex(StringBuilder *sb, const unsigned char *buffer, ArSize len) {
-    static const unsigned char hex[] = "0123456789abcdef";
-    unsigned char *buf;
-
-    ArSize wlen = len * 4;
-
-    if (!StringBuilderResize(sb, wlen))
-        return -1;
-
-    buf = sb->str.buffer;
-
-    for (ArSize i = 0; i < len; i++) {
-        *buf++ = '\\';
-        *buf++ = 'x';
-        *buf++ = hex[(buffer[i] & 0xF0) >> 4];
-        *buf++ = hex[(buffer[i] & 0x0F)];
-    }
-
-    sb->w_idx += wlen;
-    sb->str.cp_len += wlen;
-
-    return (int) wlen;
-}
-
-String *argon::object::StringBuilderFinish(StringBuilder *sb) {
-    String *str;
-
-    if (sb->str.len == 0)
-        return StringIntern((const char *) "");
-
-    if ((str = StringInit(sb->str.len - 1, false)) != nullptr) {
-        str->buffer = sb->str.buffer;
-        str->buffer[str->len] = 0x00;
-        str->kind = sb->str.kind;
-        str->cp_len = sb->str.cp_len;
-        return str;
-    }
-
-    // Release StringBuilder buffer
-    StringBuilderClean(sb);
-    return nullptr;
-}
-
-void argon::object::StringBuilderClean(StringBuilder *sb) {
-    if (sb->str.buffer != nullptr)
-        Free(sb->str.buffer);
-    MemoryZero(sb, sizeof(StringBuilder));
-}
-
-// String Formatter
-
-ArObject *FmtGetNextArg(StringFormatter *fmt) {
-    if (fmt->args->type == type_tuple_) {
-        auto tp = ((Tuple *) fmt->args);
-
-        fmt->args_len = tp->len;
-
-        if (fmt->args_idx < tp->len)
-            return tp->objects[fmt->args_idx++];
-
-        goto not_enough;
-    }
-
-    fmt->args_len = 1;
-    if (fmt->args_idx++ == 0)
-        return fmt->args;
-
-    not_enough:
-    return ErrorFormat(type_type_error_, "not enough arguments for format string");
-}
-
-int FmtGetNextSpecifier(StringFormatter *fmt) {
-    unsigned char *buf = fmt->fmt.buf + fmt->fmt.idx;
-    ArSize idx = 0;
-
-    while ((fmt->fmt.idx + idx) < fmt->fmt.len) {
-        if (buf[idx++] == '%') {
-
-            if ((fmt->fmt.idx + idx) == fmt->fmt.len) {
-                ErrorFormat(type_value_error_, "incomplete format specifier");
-                return -1;
-            }
-
-            if (buf[idx] != '%') {
-                fmt->nspec++;
-                fmt->fmt.idx++;
-                idx--;
-                break;
-            }
-            idx++;
-        }
-    }
-
-    if (StringBuilderWrite(&fmt->builder, buf, idx) < 0)
-        return -1;
-
-    fmt->fmt.idx += idx;
-
-    return fmt->fmt.idx != fmt->fmt.len;
-}
-
-bool FmtParseOptionStar(StringFormatter *fmt, StringArg *arg, bool prec) {
-    auto num = (Integer *) FmtGetNextArg(fmt);
-    int opt;
-
-    if (num == nullptr)
-        return false;
-
-    if (num->type != type_integer_) {
-        ErrorFormat(type_type_error_, "* wants integer not '%s'", num->type->name);
-        return false;
-    }
-
-    opt = (int) num->integer;
-
-    if (opt < 0) {
-        if (!prec)
-            arg->flags |= StringFormatFlags::LJUST;
-        opt = -opt;
-    }
-
-    if (!prec)
-        arg->width = opt;
-    else
-        arg->prec = opt;
-
-    fmt->nspec++;
-    return true;
-}
-
-void FmtParseOptions(StringFormatter *fmt, StringArg *arg) {
-    // Flags
-    fmt->fmt.idx--;
-    while (fmt->fmt.buf[fmt->fmt.idx++] >= 0) {
-        switch (fmt->fmt.buf[fmt->fmt.idx]) {
-            case '-':
-                arg->flags |= StringFormatFlags::LJUST;
-                continue;
-            case '+':
-                arg->flags |= StringFormatFlags::SIGN;
-                continue;
-            case ' ':
-                arg->flags |= StringFormatFlags::BLANK;
-                continue;
-            case '#':
-                arg->flags |= StringFormatFlags::ALT;
-                continue;
-            case '0':
-                arg->flags |= StringFormatFlags::ZERO;
-                continue;
-            default:
-                break;
-        }
-        break;
-    }
-
-    if (ENUMBITMASK_ISTRUE(arg->flags, StringFormatFlags::LJUST) &&
-        ENUMBITMASK_ISTRUE(arg->flags, StringFormatFlags::ZERO))
-        arg->flags &= ~StringFormatFlags::ZERO;
-
-    // Width
-    arg->width = 0;
-    if (fmt->fmt.buf[fmt->fmt.idx] == '*') {
-        fmt->fmt.idx++;
-        if (!FmtParseOptionStar(fmt, arg, false))
-            return;
-    } else {
-        if (fmt->fmt.buf[fmt->fmt.idx] >= '0' && fmt->fmt.buf[fmt->fmt.idx] <= '9') {
-            arg->width = fmt->fmt.buf[fmt->fmt.idx++] - '0';
-
-            while (fmt->fmt.buf[fmt->fmt.idx] >= '0' && fmt->fmt.buf[fmt->fmt.idx] <= '9') {
-                arg->width = arg->width * 10 + (fmt->fmt.buf[fmt->fmt.idx] - '0');
-                fmt->fmt.idx++;
-            }
-        }
-    }
-
-    // Precision
-    arg->prec = -1;
-    if (fmt->fmt.buf[fmt->fmt.idx] == '.') {
-        fmt->fmt.idx++;
-        if (fmt->fmt.buf[fmt->fmt.idx] == '*') {
-            fmt->fmt.idx++;
-            if (!FmtParseOptionStar(fmt, arg, true))
-                return;
-        } else {
-            arg->prec = 0;
-            while (fmt->fmt.buf[fmt->fmt.idx] >= '0' && fmt->fmt.buf[fmt->fmt.idx] <= '9') {
-                arg->prec = arg->prec * 10 + (fmt->fmt.buf[fmt->fmt.idx] - '0');
-                fmt->fmt.idx++;
-            }
-        }
-    }
-}
-
-int FmtWrite(StringFormatter *fmt, StringArg *arg, const unsigned char *buf, ArSize len) {
-    int width = 0;
-
-    if (arg->width > len)
-        width = (int) (arg->width - len);
-
-    if (!StringBuilderResize(&fmt->builder, len + width))
-        return -1;
-
-    if (ENUMBITMASK_ISFALSE(arg->flags, StringFormatFlags::LJUST))
-        width -= StringBuilderRepeat(&fmt->builder, ' ', width);
-
-    StringBuilderWrite(&fmt->builder, buf, len);
-
-    return width;
-}
-
-int
-FmtNumberFormat(unsigned char *buf, int idx, int base, int width, bool upper, bool neg, StringFormatFlags flags) {
-    unsigned char *end;
-    unsigned char tmp;
-
-    if (ENUMBITMASK_ISTRUE(flags, StringFormatFlags::ZERO)) {
-        width = width > idx ? width - idx : 0;
-        while (width--)
-            buf[idx++] = '0';
-    }
-
-    if (ENUMBITMASK_ISTRUE(flags, StringFormatFlags::ALT)) {
-        if (base == 2)
-            buf[idx++] = upper ? 'B' : 'b';
-        else if (base == 8)
-            buf[idx++] = 'o';
-        else if (base == 16)
-            buf[idx++] = upper ? 'X' : 'x';
-
-        buf[idx++] = '0';
-    }
-
-    if (!neg) {
-        if (ENUMBITMASK_ISTRUE(flags, StringFormatFlags::SIGN))
-            buf[idx++] = '+';
-    } else
-        buf[idx++] = '-';
-
-    if (ENUMBITMASK_ISTRUE(flags, StringFormatFlags::BLANK))
-        buf[idx++] = ' ';
-
-    if (ENUMBITMASK_ISFALSE(flags, StringFormatFlags::LJUST)) {
-        width = width > idx ? width - idx : 0;
-        while (width--)
-            buf[idx++] = ' ';
-    }
-
-    // invert
-    end = buf + idx;
-    while (buf < end) {
-        tmp = *buf;
-        *buf++ = *(end - 1);
-        *--end = tmp;
-    }
-
-    return idx;
-}
-
-int
-FmtWriteNumber(unsigned char *buf, long num, int base, int prec, int width, bool upper, StringFormatFlags flags) {
-    static unsigned char l_case[] = "0123456789abcdef";
-    static unsigned char u_case[] = "0123456789ABCDEF";
-    unsigned char *p_case = upper ? u_case : l_case;
-    ArSize idx = 0;
-    bool neg = false;
-
-    if (num < 0) {
-        num = -num;
-        neg = true;
-    } else if (num == 0)
-        buf[idx++] = '0';
-
-    while (num) {
-        buf[idx++] = p_case[num % base];
-        num /= base;
-    }
-
-    if (prec > idx) {
-        prec -= idx;
-        while (prec--)
-            buf[idx++] = '0';
-    }
-
-    return FmtNumberFormat(buf, idx, base, width, upper, neg, flags);
-}
-
-#define SB_GET_BUFFER(sb)   ((sb).str.buffer + (sb).w_idx)
-
-int FmtDecimal(StringFormatter *fmt, StringArg *arg, char specifier) {
-#define FMT_PRECISION_DEF   6
-    ArObject *obj;
-    DecimalUnderlying num;
-
-    unsigned long intpart;
-    unsigned long frac;
-    long exp;
-
-    int bufsz;
-    int diff;
-    int prec;
-
-    bool upper = false;
-    bool sn = false;
-
-    if ((obj = FmtGetNextArg(fmt)) == nullptr)
-        return -1;
-
-    if (obj->type == type_decimal_)
-        num = ((Decimal *) obj)->decimal;
-    else if (obj->type == type_integer_)
-        num = ((Integer *) obj)->integer;
-    else {
-        ErrorFormat(type_type_error_, "%%%c requires real number not '%s'", fmt->fmt.buf[fmt->fmt.idx],
-                    obj->type->name);
-        return -1;
-    }
-
-    if (std::isnan(num)) // check NaN equals to num != num
-        return FmtWrite(fmt, arg, (unsigned char *) "nan", 3);
-    else if (num > DBL_MAX)
-        return FmtWrite(fmt, arg, (unsigned char *) "+inf", 4);
-    else if (num < -DBL_MAX)
-        return FmtWrite(fmt, arg, (unsigned char *) "-inf", 4);
-
-    prec = arg->prec > -1 ? arg->prec : FMT_PRECISION_DEF;
-
-    switch (specifier) {
-        case 'E':
-            upper = true;
-        case 'e':
-            intpart = DecimalFrexp10(num, &frac, &exp, prec);
-            sn = true;
-            break;
-        case 'G':
-            upper = true;
-        case 'g':
-            intpart = DecimalFrexp10(num, &frac, &exp, prec);
-            sn = true;
-            if (num >= 1e-4 && num < 1e6) {
-                if (prec > exp)
-                    intpart = DecimalModf(num, &frac, prec - exp - 1);
-                else
-                    intpart = DecimalModf(num, &frac, 0);
-                sn = false;
-            }
-            break;
-        case 'F':
-        case 'f':
-            intpart = DecimalModf(num, &frac, prec);
-            break;
-        default:
-            assert(false);
-    }
-
-    bufsz = IntegerCountDigits(intpart, 10);
-
-    if (num < 0 || ENUMBITMASK_ISTRUE(arg->flags, StringFormatFlags::SIGN))
-        bufsz++;
-
-    if (ENUMBITMASK_ISTRUE(arg->flags, StringFormatFlags::BLANK))
-        bufsz++;
-
-    if (frac > 0) {
-        bufsz += IntegerCountDigits(frac, 10);
-        bufsz++; // '.'
-    }
-
-    if (sn) {
-        auto len = IntegerCountDigits(exp, 10);
-        if (len <= 1)
-            len += 2;
-        bufsz += len + 2; // [+|-][e|E]
-    }
-
-    bufsz += arg->width > bufsz ? arg->width - bufsz : 0;
-
-    if (!StringBuilderResize(&fmt->builder, bufsz))
-        return -1;
-
-    diff = FmtWriteNumber(SB_GET_BUFFER(fmt->builder), (long) intpart, 10, 0, arg->width, upper, arg->flags);
-
-    if (frac > 0) {
-        fmt->builder.str.buffer[diff++ + fmt->builder.w_idx] = '.';
-        diff += FmtWriteNumber(SB_GET_BUFFER(fmt->builder) + diff, (long) frac, 10, 0, 0, false,
-                               (StringFormatFlags) 0);
-    }
-
-    if (sn) {
-        fmt->builder.str.buffer[diff++ + fmt->builder.w_idx] = upper ? 'E' : 'e';
-        diff += FmtWriteNumber(SB_GET_BUFFER(fmt->builder) + diff, (long) exp, 10, 2, 0, false,
-                               StringFormatFlags::SIGN);
-    }
-
-    fmt->builder.w_idx += diff;
-    fmt->builder.str.cp_len += diff;
-
-    return bufsz - diff;
-#undef FMT_PRECISION_DEF
-}
-
-int FmtInteger(StringFormatter *fmt, StringArg *arg, int base, bool upper) {
-    ArObject *obj;
-
-    IntegerUnderlying num;
-    int bufsz;
-    int diff;
-
-    if ((obj = FmtGetNextArg(fmt)) == nullptr)
-        return -1;
-
-    if (obj->type != type_integer_) {
-        ErrorFormat(type_type_error_, "%%%c requires integer not '%s'", fmt->fmt.buf[fmt->fmt.idx], obj->type->name);
-        return -1;
-    }
-
-    num = ((Integer *) obj)->integer;
-    bufsz = IntegerCountDigits(num, base);
-
-    if (arg->prec > bufsz)
-        bufsz = arg->prec;
-
-    if (num < 0 || ENUMBITMASK_ISTRUE(arg->flags, StringFormatFlags::SIGN))
-        bufsz++;
-
-    if (ENUMBITMASK_ISTRUE(arg->flags, StringFormatFlags::ALT))
-        bufsz += 2;
-
-    if (ENUMBITMASK_ISTRUE(arg->flags, StringFormatFlags::BLANK))
-        bufsz++;
-
-    bufsz += arg->width > bufsz ? arg->width - bufsz : 0;
-
-    if (!StringBuilderResize(&fmt->builder, bufsz))
-        return -1;
-
-    diff = FmtWriteNumber(SB_GET_BUFFER(fmt->builder), num, base, arg->prec > -1 ? arg->prec : 0, arg->width, upper,
-                          arg->flags);
-
-    fmt->builder.w_idx += diff;
-    fmt->builder.str.cp_len += diff;
-
-    return bufsz - diff;
-}
-
-#undef SB_GET_BUFFER
-
-int FmtChar(StringFormatter *fmt, StringArg *arg) {
-    unsigned char sequence[] = {0, 0, 0, 0};
-    ArObject *obj;
-    int len;
-
-    if ((obj = FmtGetNextArg(fmt)) == nullptr)
-        return -1;
-
-    if (obj->type == type_string_) {
-        auto str = (String *) obj;
-        if (str->cp_len > 1) {
-            ErrorFormat(type_type_error_, "%%c requires a single char not string");
-            return -1;
-        }
-        return FmtWrite(fmt, arg, str->buffer, str->len);
-    } else if (obj->type == type_integer_) {
-        if ((len = StringIntToUTF8(((Integer *) obj)->integer, sequence)) == 0) {
-            ErrorFormat(type_overflow_error_, "%%c arg not in range(0x110000)");
-            return -1;
-        }
-
-        return FmtWrite(fmt, arg, sequence, len);
-    }
-
-    ErrorFormat(type_type_error_, "%%c requires integer or char not '%s'", AR_TYPE_NAME(obj));
-    return -1;
-}
-
-int FmtString(StringFormatter *fmt, StringArg *arg) {
-    ArObject *obj;
-    String *str;
-    ArSize len;
-    int ok;
-
-    if ((obj = FmtGetNextArg(fmt)) == nullptr)
-        return -1;
-
-    str = (String *) obj->type->str(obj);
-    len = str->len;
-
-    if (arg->prec > -1 && len > arg->prec) {
-        len = arg->prec;
-        if (str->kind != StringKind::ASCII)
-            len = StringSubStrLen(str, 0, len);
-    }
-
-    ok = FmtWrite(fmt, arg, str->buffer, len);
-    Release(str);
-
-    return ok;
-}
-
-bool FmtFormatArg(StringFormatter *fmt, StringArg *arg) {
-    auto op = fmt->fmt.buf[fmt->fmt.idx];
-    int result = -1;
-
-    switch (op) {
-        case 's':
-            result = FmtString(fmt, arg);
-            break;
-        case 'b':
-            result = FmtInteger(fmt, arg, 2, false);
-            break;
-        case 'B':
-            result = FmtInteger(fmt, arg, 2, true);
-            break;
-        case 'o':
-            result = FmtInteger(fmt, arg, 8, false);
-            break;
-        case 'i':
-        case 'd':
-        case 'u':
-            arg->flags &= ~StringFormatFlags::ALT;
-            result = FmtInteger(fmt, arg, 10, false);
-            break;
-        case 'x':
-            result = FmtInteger(fmt, arg, 16, false);
-            break;
-        case 'X':
-            result = FmtInteger(fmt, arg, 16, true);
-            break;
-        case 'e':
-        case 'E':
-        case 'f':
-        case 'F':
-        case 'g':
-        case 'G':
-            result = FmtDecimal(fmt, arg, op);
-            break;
-        case 'c':
-            result = FmtChar(fmt, arg);
-            break;
-        default:
-            ErrorFormat(type_value_error_, "unsupported format character '%c' (0x%x)",
-                        (31 <= op && op <= 126 ? '?' : op), op);
-    }
-
-    fmt->fmt.idx++;
-
-    if (result < 0)
-        return false;
-
-    if (ENUMBITMASK_ISTRUE(arg->flags, StringFormatFlags::LJUST))
-        StringBuilderRepeat(&fmt->builder, ' ', result);
-
-    return true;
-}
-
-String *FmtFormatArgs(StringFormatter *fmt) {
-    StringArg arg = {};
-    String *str;
-
-    int ok;
-
-    argon::memory::MemoryZero(&fmt->builder, sizeof(StringBuilder));
-
-    while ((ok = FmtGetNextSpecifier(fmt)) > 0) {
-        FmtParseOptions(fmt, &arg);
-
-        if (!FmtFormatArg(fmt, &arg))
-            goto error;
-    }
-
-    if (ok < 0)
-        goto error;
-
-    if (fmt->nspec < fmt->args_len) {
-        ErrorFormat(type_type_error_, "not all arguments converted during string formatting");
-        goto error;
-    }
-
-    return StringBuilderFinish(&fmt->builder);
-
-    error:
-    if (fmt->builder.str.buffer != nullptr)
-        argon::memory::Free(fmt->builder.str.buffer);
-
-    return nullptr;
-}
-
-// Common Operations
-
-ArObject *argon::object::StringSplit(String *string, const unsigned char *c_str, ArSize plen, ArSSize maxsplit) {
+ArObject *StringSplitWhiteSpaces(const String *string, ArSSize maxsplit) {
     String *tmp;
     List *ret;
-
-    ArSize idx = 0;
-    ArSSize end;
-    ArSSize counter = 0;
+    ArSize cursor = 0;
+    ArSSize start = -1;
+    ArSize end;
 
     if ((ret = ListNew()) == nullptr)
         return nullptr;
 
-    if (maxsplit != 0) {
-        while ((end = support::Find(string->buffer + idx, string->len - idx, c_str, plen)) >= 0) {
-            if ((tmp = StringNew((const char *) string->buffer + idx, end)) == nullptr)
-                goto error;
+    end = string->len;
 
-            idx += end + plen;
+    if (maxsplit != 0)
+        start = support::FindWhitespace(string->buffer, &end);
 
-            if (!ListAppend(ret, tmp))
-                goto error;
+    while (start > -1 && (maxsplit == -1 || maxsplit > 0)) {
+        tmp = StringNew((const char *) string->buffer + cursor, start);
+        cursor += end;
 
+        if (tmp == nullptr) {
+            Release(ret);
+            return nullptr;
+        }
+
+        if (!ListAppend(ret, tmp)) {
             Release(tmp);
+            Release(ret);
+            return nullptr;
+        }
 
-            if (maxsplit > -1 && ++counter >= maxsplit)
-                break;
+        Release(tmp);
+
+        end = string->len - cursor;
+        start = support::FindWhitespace(string->buffer + cursor, &end);
+
+        if (maxsplit != -1)
+            maxsplit--;
+    }
+
+    if (string->len - cursor > 0) {
+        if ((tmp = StringNew((const char *) string->buffer + cursor, string->len - cursor)) == nullptr) {
+            Release(ret);
+            return nullptr;
+        }
+
+        if (!ListAppend(ret, tmp)) {
+            Release(tmp);
+            Release(ret);
+            return nullptr;
         }
     }
 
-    if (string->len - idx > 0) {
-        if ((tmp = StringNew((const char *) string->buffer + idx, string->len - idx)) == nullptr)
-            goto error;
+    return ret;
+}
 
-        if (!ListAppend(ret, tmp))
-            goto error;
+ArObject *
+argon::object::StringSplit(const String *string, const unsigned char *pattern, ArSize plen, ArSSize maxsplit) {
+    String *tmp;
+    List *ret;
+    ArSize cursor = 0;
+    ArSSize start;
+
+    if (pattern == nullptr || plen == 0)
+        return StringSplitWhiteSpaces(string, maxsplit);
+
+    if ((ret = ListNew()) == nullptr)
+        return nullptr;
+
+    start = support::Find(string->buffer, string->len, pattern, plen);
+    while (start > -1 && (maxsplit == -1 || maxsplit > 0)) {
+        tmp = StringNew((const char *) string->buffer + cursor, (cursor + start) - cursor);
+        cursor += start + plen;
+
+        if (tmp == nullptr) {
+            Release(ret);
+            return nullptr;
+        }
+
+        if (!ListAppend(ret, tmp)) {
+            Release(tmp);
+            Release(ret);
+            return nullptr;
+        }
 
         Release(tmp);
+
+        start = support::Find(string->buffer + cursor, string->len, pattern, plen);
+        if (maxsplit != -1)
+            maxsplit--;
+    }
+
+    if (string->len - cursor > 0) {
+        if ((tmp = StringNew((const char *) string->buffer + cursor, string->len - cursor)) == nullptr) {
+            Release(ret);
+            return nullptr;
+        }
+
+        if (!ListAppend(ret, tmp)) {
+            Release(tmp);
+            Release(ret);
+            return nullptr;
+        }
     }
 
     return ret;
-
-    error:
-    Release(tmp);
-    Release(ret);
-    return nullptr;
 }
 
-bool argon::object::StringEndsWith(String *string, String *pattern) {
-    ArSSize n;
+bool argon::object::StringEndsWith(const String *string, const String *pattern) {
+    auto n = (ArSSize) (string->len - pattern->len);
 
-    n = string->len - pattern->len;
     if (n >= 0 && MemoryCompare(string->buffer + n, pattern->buffer, pattern->len) == 0)
         return true;
 
     return false;
 }
 
-bool argon::object::StringEq(String *string, const unsigned char *c_str, ArSize len) {
+bool argon::object::StringEq(const String *string, const unsigned char *c_str, ArSize len) {
     if (string->len != len)
         return false;
 
@@ -1541,7 +1153,7 @@ int argon::object::StringUTF8toInt(const unsigned char *buf) {
     return *buf;
 }
 
-String *argon::object::StringConcat(String *left, String *right) {
+String *argon::object::StringConcat(const String *left, const String *right) {
     String *ret = StringInit(left->len + right->len, true);
 
     if (ret != nullptr) {
@@ -1557,7 +1169,7 @@ String *argon::object::StringConcat(String *left, String *right) {
     return ret;
 }
 
-String *argon::object::StringConcat(String *left, const char *right, bool internal) {
+String *argon::object::StringConcat(const String *left, const char *right, bool internal) {
     String *ret = nullptr;
     String *astr;
 
@@ -1575,32 +1187,42 @@ String *argon::object::StringConcat(String *left, const char *right, bool intern
 }
 
 String *argon::object::StringCFormat(const char *fmt, ArObject *args) {
-    StringFormatter formatter = {};
+    unsigned char *buf;
+    String *str;
+    ArSize len;
 
-    formatter.fmt.buf = (unsigned char *) fmt;
-    formatter.fmt.len = strlen(fmt);
+    support::Formatter formatter(fmt, args);
 
-    formatter.args = args;
+    if ((buf = formatter.format(&len)) == nullptr)
+        return nullptr;
 
-    return FmtFormatArgs(&formatter);
+    if ((str = StringNewHoldBuffer(buf, len)) == nullptr)
+        return nullptr;
+
+    formatter.ReleaseBufferOwnership();
+    return str;
 }
 
-String *argon::object::StringFormat(String *fmt, ArObject *args) {
-    StringFormatter formatter = {};
+String *argon::object::StringFormat(const String *fmt, ArObject *args) {
+    unsigned char *buf;
+    String *str;
+    ArSize len;
 
-    formatter.fmt.buf = fmt->buffer;
-    formatter.fmt.len = fmt->len;
+    support::Formatter formatter((const char *) fmt->buffer, fmt->len, args);
 
-    formatter.args = args;
+    if ((buf = formatter.format(&len)) == nullptr)
+        return nullptr;
 
-    return FmtFormatArgs(&formatter);
+    if ((str = StringNewHoldBuffer(buf, len)) == nullptr)
+        return nullptr;
+
+    formatter.ReleaseBufferOwnership();
+    return str;
 }
 
-String *argon::object::StringReplace(String *string, String *old, String *nval, ArSSize n) {
-    String *nstring;
-
+String *argon::object::StringReplace(String *string, const String *old, const String *nval, ArSSize n) {
+    StringBuilder builder;
     ArSize idx = 0;
-    ArSize nidx = 0;
     ArSize newsz;
 
     if (Equal(string, old) || n == 0) {
@@ -1614,29 +1236,27 @@ String *argon::object::StringReplace(String *string, String *old, String *nval, 
     newsz = (string->len + n * (nval->len - old->len));
 
     // Allocate string
-    if ((nstring = StringInit(newsz, true)) == nullptr)
+    if (!builder.BufferResize(newsz))
         return nullptr;
 
     long match;
     while ((match = support::Find(string->buffer + idx, string->len - idx, old->buffer, old->len)) > -1) {
-        FillBuffer(nstring, nidx, string->buffer + idx, match);
+        builder.Write(string->buffer + idx, match, 0);
 
         idx += match + old->len;
-        nidx += match;
 
-        FillBuffer(nstring, nidx, nval->buffer, nval->len);
-        nidx += nval->len;
+        builder.Write(nval->buffer, nval->len, 0);
 
         if (n > -1 && --n == 0)
             break;
     }
-    FillBuffer(nstring, nidx, string->buffer + idx, string->len - idx);
+    builder.Write(string->buffer + idx, string->len - idx, 0);
 
-    return nstring;
+    return builder.BuildString();
 }
 
-String *argon::object::StringSubs(String *string, ArSize start, ArSize end) {
-    String *ret;
+String *argon::object::StringSubs(const String *string, ArSize start, ArSize end) {
+    StringBuilder builder;
     ArSize len;
 
     if (start >= string->len)
@@ -1653,8 +1273,7 @@ String *argon::object::StringSubs(String *string, ArSize start, ArSize end) {
     if (string->kind != StringKind::ASCII)
         len = StringSubStrLen(string, start, end - start);
 
-    if ((ret = StringInit(len, true)) != nullptr)
-        FillBuffer(ret, 0, string->buffer + start, len);
+    builder.Write(string->buffer + start, len, 0);
 
-    return ret;
+    return builder.BuildString();
 }

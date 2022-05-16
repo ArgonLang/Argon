@@ -101,16 +101,18 @@ ArObject *prefix##name##_fn(ArObject *func, ArObject *self, ArObject **argv, ArS
 NativeFunc prefix##name##_ = {#name, doc, prefix##name##_fn,  (arity)+1, variadic, true};   \
 ArObject *prefix##name##_fn(ArObject *func, ArObject *self, ArObject **argv, ArSize count)
 
-#define ARGON_FUNCTION(name, doc, arity, variadic)          ARGON_FUNCTION5(,name, doc, arity, variadic)
-#define ARGON_METHOD(name, doc, arity, variadic)            ARGON_FUNCTION5(,name, doc, arity, variadic)
+#define ARGON_FUNCTION(name, doc, arity, variadic)  ARGON_FUNCTION5(,name, doc, arity, variadic)
+#define ARGON_METHOD(name, doc, arity, variadic)    ARGON_FUNCTION5(,name, doc, arity, variadic)
 
 #define ARGON_CALL_FUNC5(prefix, name, origin, self, argv, count)   prefix##name##_fn(origin, self, argv, count)
 #define ARGON_CALL_FUNC(name, origin, self, argv, count)            ARGON_CALL_FUNC5(,name,origin,self,argv,count)
 
-#define ARGON_METHOD_SENTINEL   {nullptr, nullptr, nullptr, 0, false}
+#define ARGON_METHOD_STUB(name, desc, arity, variadic)  {name, desc, nullptr, (arity) + 1, variadic, true}
+#define ARGON_METHOD_SENTINEL                           {nullptr, nullptr, nullptr, 0, false, false}
 
-    enum class NativeMemberType {
+    enum class NativeMemberType : int {
         AROBJECT,
+        BOOL,
         DOUBLE,
         FLOAT,
         INT,
@@ -119,14 +121,20 @@ ArObject *prefix##name##_fn(ArObject *func, ArObject *self, ArObject **argv, ArS
         STRING
     };
 
+    using NativeMemberSet = bool (*)(ArObject *self, ArObject *value);
+    using NativeMemberGet = ArObject *(*)(const ArObject *self);
     struct NativeMember {
         const char *name;
-        NativeMemberType type;
+        NativeMemberGet get;
+        NativeMemberSet set;
         int offset;
+        NativeMemberType type;
         bool readonly;
     };
 
-#define ARGON_MEMBER_SENTINEL {nullptr, (NativeMemberType)0, 0, false}
+#define ARGON_MEMBER(name, offset, type, readonly)          {name, nullptr, nullptr, offset, type, readonly}
+#define ARGON_MEMBER_GETSET(name, get, set, type, readonly) {name, get, set, -1, type, readonly}
+#define ARGON_MEMBER_SENTINEL                               {nullptr, nullptr, nullptr, -1, (NativeMemberType)0, false}
 
     using BufferGetFn = bool (*)(struct ArObject *obj, ArBuffer *buffer, ArBufferFlags flags);
     using BufferRelFn = void (*)(ArBuffer *buffer);
@@ -241,6 +249,9 @@ ArObject *prefix##name##_fn(ArObject *func, ArObject *self, ArObject **argv, ArS
         SizeTUnaryOp hash;
 
         /* Return string datatype representation */
+        UnaryOp repr;
+
+        /* Return string datatype representation */
         UnaryOp str;
 
         /* Returns an iterator for this datatype */
@@ -336,6 +347,8 @@ ArObject *prefix##name##_fn(ArObject *func, ArObject *self, ArObject **argv, ArS
 
     ArObject *RichCompare(const ArObject *obj, const ArObject *other, CompareMode mode);
 
+    ArObject *ToRepr(ArObject *obj);
+
     ArObject *ToString(ArObject *obj);
 
     ArObject *TypeNew(const TypeInfo *meta, const char *name, ArObject *ns, TypeInfo **bases, ArSize count);
@@ -390,6 +403,8 @@ ArObject *prefix##name##_fn(ArObject *func, ArObject *self, ArObject **argv, ArS
     bool TraitIsImplemented(const ArObject *obj, const TypeInfo *type);
 
     bool TypeInit(TypeInfo *info, ArObject *ns);
+
+    inline bool TypeInfo_IsTrue_True(ArObject *self) { return true; }
 
     bool BufferGet(ArObject *obj, ArBuffer *buffer, ArBufferFlags flags);
 

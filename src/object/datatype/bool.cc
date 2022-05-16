@@ -90,6 +90,7 @@ const TypeInfo BoolType = {
         (CompareOp) bool_compare,
         (BoolUnaryOp) bool_is_true,
         bool_hash,
+        nullptr,
         (UnaryOp) bool_str,
         nullptr,
         nullptr,

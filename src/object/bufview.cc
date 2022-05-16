@@ -61,9 +61,6 @@ bool argon::object::BufferViewEnlarge(BufferView *view, ArSize count) {
     if (!view->shared->IsWritable())
         return ViewEnlargeNew(view, count);
 
-    if (view->shared->buffer == nullptr)
-        cap = 20; // TO DEFINE!
-
     // IsSlice
     if (view->shared->buffer != view->buffer) {
         MemoryCopy(view->shared->buffer, view->buffer, view->len);

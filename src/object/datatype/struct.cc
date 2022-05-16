@@ -23,6 +23,28 @@ const ObjectSlots struct_actions{
         offsetof(Struct, names)
 };
 
+ArObject *struct_repr(Struct *self) {
+    ArObject *args[] = {self};
+    ArObject *func;
+    ArObject *ret;
+    String *key;
+
+    if ((key = StringIntern("__repr")) == nullptr)
+        return nullptr;
+
+    func = PropertyGet(self, key, true);
+    Release(key);
+
+    if (func != nullptr) {
+        ret = argon::vm::Call(func, 1, args);
+        Release(func);
+        return ret;
+    }
+
+    Release(argon::vm::GetLastError()); // Ignore undeclared_method or private_modifier
+    return AR_GET_TYPE(self)->str(self);
+}
+
 ArObject *struct_str(Struct *self) {
     ArObject *args[] = {self};
     ArObject *func;
@@ -65,6 +87,7 @@ const TypeInfo StructType = {
         nullptr,
         nullptr,
         nullptr,
+        (UnaryOp) struct_repr,
         (UnaryOp) struct_str,
         nullptr,
         nullptr,
@@ -126,10 +149,10 @@ bool NativeInitKeyPair(ArObject *instance, ArObject **values, ArSize count) {
 
     for (i = 0; i < count; i += 2) {
         if ((tmp = NamespaceGetValue((Namespace *) type->tp_map, values[i], nullptr)) == nullptr)
-            goto error;
+            goto ERROR;
 
         if (!AR_TYPEOF(tmp, type_native_wrapper_))
-            goto error;
+            goto ERROR;
 
         if (!NativeWrapperSet((NativeWrapper *) tmp, instance, values[i + 1])) {
             Release(tmp);
@@ -139,7 +162,7 @@ bool NativeInitKeyPair(ArObject *instance, ArObject **values, ArSize count) {
 
     return true;
 
-    error:
+    ERROR:
     ErrorFormat(type_undeclared_error_, "native struct '%s' have no property named '%s'",
                 type->name, ((String *) values[i])->buffer);
     Release(tmp);
@@ -161,7 +184,7 @@ ArObject *argon::object::StructInit(const ArObject *t_obj, ArObject **values, Ar
     if (type->obj_actions->nsoffset < 0) {
         if (type->tp_map != nullptr && count > 0) {
             if (!(keypair ? NativeInitKeyPair(instance, values, count) : NativeInitPositional(instance, values, count)))
-                goto error;
+                goto ERROR;
         }
 
         return instance;
@@ -171,26 +194,26 @@ ArObject *argon::object::StructInit(const ArObject *t_obj, ArObject **values, Ar
     ns = (Namespace **) AR_GET_NSOFF(instance);
 
     if ((*ns = NamespaceNew((Namespace *) type->tp_map, PropertyType::CONST)) == nullptr)
-        goto error;
+        goto ERROR;
 
     if (!keypair) {
         if (NamespaceSetPositional(*ns, values, count) >= 1) {
             ErrorFormat(type_undeclared_error_, "too many args to initialize struct '%s'", type->name);
-            goto error;
+            goto ERROR;
         }
     } else {
         for (ArSize i = 0; i < count; i += 2) {
             if (!NamespaceSetValue(*ns, values[i], values[i + 1])) {
                 ErrorFormat(type_undeclared_error_, "struct '%s' have no property named '%s'", type->name,
                             ((String *) values[i])->buffer);
-                goto error;
+                goto ERROR;
             }
         }
     }
 
     return instance;
 
-    error:
+    ERROR:
     Release(instance);
     return nullptr;
 }

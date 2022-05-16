@@ -346,6 +346,7 @@ const TypeInfo DecimalType = {
         (CompareOp) decimal_compare,
         (BoolUnaryOp) decimal_is_true,
         (SizeTUnaryOp) decimal_hash,
+        nullptr,
         (UnaryOp) decimal_str,
         nullptr,
         nullptr,

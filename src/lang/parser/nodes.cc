@@ -317,12 +317,12 @@ Assignment *argon::lang::parser::AssignmentNew(scanner::Token &token, bool const
     return assignment;
 }
 
-Construct *argon::lang::parser::FunctionNew(Pos start, String *name, List *params, Node *block, bool pub) {
+Construct *argon::lang::parser::FunctionNew(Pos start, Pos end, String *name, List *params, Node *block, bool pub) {
     Construct *func;
 
     if ((func = ArObjectNew<Construct>(RCType::INLINE, type_ast_func_)) != nullptr) {
         func->start = start;
-        func->end = block->end;
+        func->end = end;
         func->colno = 0;
         func->lineno = 0;
 

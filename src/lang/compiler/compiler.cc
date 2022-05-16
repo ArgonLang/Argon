@@ -223,7 +223,9 @@ bool Compiler::CompileAugAssignment(Binary *assignment) {
 
         return this->VariableStore((String *) ((Unary *) assignment->left)->value);
     } else if (AR_TYPEOF(assignment->left, type_ast_selector_)) {
-        if (this->CompileSelector((Binary *) assignment->left, true, true) < 0)
+        int idx;
+
+        if ((idx = this->CompileSelector((Binary *) assignment->left, true, true)) < 0)
             return false;
 
         COMPILE_OP();
@@ -232,9 +234,9 @@ bool Compiler::CompileAugAssignment(Binary *assignment) {
             return false;
 
         if (((Binary *) assignment->left)->kind == TokenType::SCOPE)
-            return this->Emit(OpCodes::STSCOPE, 0, nullptr);
+            return this->Emit(OpCodes::STSCOPE, idx, nullptr);
 
-        return this->Emit(OpCodes::STATTR, 0, nullptr);
+        return this->Emit(OpCodes::STATTR, idx, nullptr);
     } else if (AR_TYPEOF(assignment->left, type_ast_subscript_)) {
         if (!this->CompileSubscr((Subscript *) assignment->left, true, true))
             return false;
@@ -676,7 +678,8 @@ bool Compiler::CompileFunction(Construct *func) {
     ArObject *tmp;
 
     if (fname == nullptr) {
-        if ((fname = StringNewFormat("<anonymous_%d>", this->unit_->anon_count++)) == nullptr)
+        fname = StringNewFormat("<anonymous_%d>", this->unit_->anon_count++);
+        if (fname == nullptr)
             return false;
     }
 
@@ -726,9 +729,16 @@ bool Compiler::CompileFunction(Construct *func) {
         Release(iter);
     }
 
-    if (!this->CompileBlock((Unary *) func->block, false)) {
-        Release(fname);
-        return false;
+    if (func->block != nullptr) {
+        if (!this->CompileBlock((Unary *) func->block, false)) {
+            Release(fname);
+            return false;
+        }
+    } else {
+        if (!this->CompileFunctionDefaultBody()) {
+            Release(fname);
+            return false;
+        }
     }
 
     // If the function is empty or the last statement is not return,
@@ -816,6 +826,39 @@ bool Compiler::CompileFunction(Construct *func) {
     return true;
 }
 
+bool Compiler::CompileFunctionDefaultBody() {
+    auto *panic = StringIntern("panic");
+    ArObject *panic_msg;
+    bool ok = false;
+
+    panic_msg = ErrorFormatNoPanic(type_unimplemented_error_, "you must implement method %s",
+                                   this->unit_->qname->buffer);
+
+    if (panic == nullptr || panic_msg == nullptr)
+        goto ERROR;
+
+    if (!this->IdentifierLoad(panic))
+        goto ERROR;
+
+    if (this->PushStatic(panic_msg, false, true) < 0)
+        goto ERROR;
+
+    TranslationUnitDecStack(this->unit_, 1);
+
+    if (!this->Emit(OpCodes::CALL, (unsigned char) OpCodeCallFlags{}, 1))
+        goto ERROR;
+
+    if (!this->Emit(OpCodes::POP, 0, nullptr))
+        goto ERROR;
+
+    ok = true;
+
+    ERROR:
+    Release(panic);
+    Release(panic_msg);
+    return ok;
+}
+
 int Compiler::CompileSelector(Binary *selector, bool dup, bool emit) {
     Binary *cursor = selector;
     int deep = 0;
@@ -855,10 +898,8 @@ int Compiler::CompileSelector(Binary *selector, bool dup, bool emit) {
             TranslationUnitIncStack(this->unit_, 1);
         }
 
-        if (deep > 0 || emit) {
-            if (!this->Emit(code, idx, nullptr))
-                return -1;
-        }
+        if ((deep > 0 || emit) && !this->Emit(code, idx, nullptr))
+            return -1;
 
         deep--;
         cursor = selector;
@@ -1814,7 +1855,10 @@ bool Compiler::IdentifierLoad(String *name) {
     if ((sym = this->IdentifierLookupOrCreate(name, SymbolType::VARIABLE)) == nullptr)
         return false;
 
-    if ((this->unit_->scope != TUScope::STRUCT && this->unit_->scope != TUScope::TRAIT) && sym->nested > 0) {
+    if (this->unit_->scope != TUScope::STRUCT &&
+        this->unit_->scope != TUScope::TRAIT &&
+        sym->kind != SymbolType::CONSTANT &&
+        sym->nested > 0) {
         if (sym->declared) {
             if (!this->Emit(OpCodes::LDLC, (int) sym->id, nullptr))
                 goto ERROR;
@@ -1881,7 +1925,10 @@ bool Compiler::IdentifierNew(String *name, SymbolType stype, PropertyType ptype,
 
     sym->declared = true;
 
-    if ((this->unit_->scope == TUScope::TRAIT || this->unit_->scope == TUScope::STRUCT || sym->nested == 0)) {
+    if (stype == SymbolType::CONSTANT ||
+        this->unit_->scope == TUScope::TRAIT ||
+        this->unit_->scope == TUScope::STRUCT ||
+        sym->nested == 0) {
         if (emit) {
             if (!this->Emit(OpCodes::NGV, (unsigned char) ptype, !inserted ? sym->id : dest->len)) {
                 Release(sym);

@@ -166,37 +166,30 @@ ArSize tuple_hash(Tuple *self) {
     return result;
 }
 
-ArObject *tuple_str(Tuple *self) {
-    StringBuilder sb = {};
-    String *tmp = nullptr;
+ArObject *tuple_str(const Tuple *self) {
+    StringBuilder builder;
 
-    if (StringBuilderWrite(&sb, (unsigned char *) "(", 1, self->len == 0 ? 1 : 0) < 0)
-        goto error;
+    builder.Write((const unsigned char *) "(", 1, self->len == 0 ? 1 : 256);
 
     for (ArSize i = 0; i < self->len; i++) {
-        if ((tmp = (String *) ToString(self->objects[i])) == nullptr)
-            goto error;
+        auto *tmp = (String *) ToRepr(self->objects[i]);
 
-        if (StringBuilderWrite(&sb, tmp, i + 1 < self->len ? 2 : 1) < 0)
-            goto error;
+        if (tmp == nullptr)
+            return nullptr;
 
-        if (i + 1 < self->len) {
-            if (StringBuilderWrite(&sb, (unsigned char *) ", ", 2) < 0)
-                goto error;
+        if (!builder.Write(tmp, i + 1 < self->len ? (int) (self->len - i) + 2 : 1)) {
+            Release(tmp);
+            return nullptr;
         }
+
+        if (i + 1 < self->len)
+            builder.Write((const unsigned char *) ", ", 2, 0);
 
         Release(tmp);
     }
 
-    if (StringBuilderWrite(&sb, (unsigned char *) ")", 1) < 0)
-        goto error;
-
-    return StringBuilderFinish(&sb);
-
-    error:
-    Release(tmp);
-    StringBuilderClean(&sb);
-    return nullptr;
+    builder.Write((const unsigned char *) ")", 1, 0);
+    return builder.BuildString();
 }
 
 ArObject *tuple_iter_get(List *self) {
@@ -226,6 +219,7 @@ const TypeInfo TupleType = {
         (CompareOp) tuple_compare,
         (BoolUnaryOp) tuple_is_true,
         (SizeTUnaryOp) tuple_hash,
+        nullptr,
         (UnaryOp) tuple_str,
         (UnaryOp) tuple_iter_get,
         (UnaryOp) tuple_iter_rget,
@@ -343,6 +337,7 @@ Tuple *argon::object::TupleNew(const char *fmt, ...) {
     va_list args;
     ArObject *obj;
     Tuple *tuple;
+    const void *tmp;
 
     ArSize flen = strlen(fmt);
 
@@ -361,7 +356,8 @@ Tuple *argon::object::TupleNew(const char *fmt, ...) {
                 break;
             case 's':
             case 'S':
-                obj = StringNew(va_arg(args, const char*));
+                tmp = va_arg(args, const char*);
+                obj = tmp == nullptr ? StringIntern("") : StringNew((const char *) tmp);
                 break;
             case 'd':
             case 'D':

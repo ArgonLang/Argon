@@ -17,7 +17,7 @@ ArObject *set_iter_next(HMapIterator *iter) {
 
     RWLockRead lock(iter->map->lock);
 
-    if(!HMapIteratorIsValid(iter))
+    if (!HMapIteratorIsValid(iter))
         return nullptr;
 
     obj = IncRef(iter->current->key);
@@ -30,7 +30,7 @@ ArObject *set_iter_next(HMapIterator *iter) {
 ArObject *set_iter_peak(HMapIterator *iter) {
     RWLockRead lock(iter->map->lock);
 
-    if(!HMapIteratorIsValid(iter))
+    if (!HMapIteratorIsValid(iter))
         return nullptr;
 
     return IncRef(iter->current->key);
@@ -282,8 +282,9 @@ ARGON_METHOD5(set_, diff,
         for (HEntry *cursor = set->set.iter_begin; cursor != nullptr; cursor = tmp) {
             tmp = cursor->iter_next;
             if (HMapLookup(&((Set *) argv[idx])->set, cursor->key) != nullptr) {
+                HMapRemove(&set->set, cursor->key);
                 Release(cursor->key);
-                HMapRemove(&set->set, cursor);
+                HMapEntryToFreeNode(&set->set, cursor);
             }
         }
     }
@@ -302,9 +303,9 @@ ARGON_METHOD5(set_, discard,
     RWLockWrite lock(set->set.lock);
 
     for (ArSize idx = 0; idx < count; idx++) {
-        if ((tmp = HMapLookup(&set->set, argv[idx])) != nullptr) {
+        if ((tmp = HMapRemove(&set->set, argv[idx])) != nullptr) {
             Release(tmp->key);
-            HMapRemove(&set->set, tmp);
+            HMapEntryToFreeNode(&set->set, tmp);
             continue;
         }
 
@@ -339,8 +340,9 @@ ARGON_METHOD5(set_, intersect,
             for (HEntry *cursor = set->set.iter_begin; cursor != nullptr; cursor = tmp) {
                 tmp = cursor->iter_next;
                 if (HMapLookup(&((Set *) argv[idx])->set, cursor->key) == nullptr) {
+                    HMapRemove(&set->set, cursor->key);
                     Release(cursor->key);
-                    HMapRemove(&set->set, cursor);
+                    HMapEntryToFreeNode(&set->set, cursor);
                 }
             }
         }
@@ -372,8 +374,9 @@ ARGON_METHOD5(set_, symdiff,
     for (HEntry *cursor = set->set.iter_begin; cursor != nullptr; cursor = tmp) {
         tmp = cursor->iter_next;
         if (HMapLookup(&other->set, cursor->key) != nullptr) {
+            HMapRemove(&set->set, cursor->key);
             Release(cursor->key);
-            HMapRemove(&set->set, cursor);
+            HMapEntryToFreeNode(&set->set, cursor);
         }
     }
 
@@ -461,8 +464,7 @@ ArObject *set_compare(Set *self, ArObject *other, CompareMode mode) {
 }
 
 ArObject *set_str(Set *self) {
-    StringBuilder sb = {};
-    String *tmp = nullptr;
+    StringBuilder builder;
     int rec;
 
     if ((rec = TrackRecursive(self)) != 0)
@@ -470,35 +472,32 @@ ArObject *set_str(Set *self) {
 
     RWLockRead lock(self->set.lock);
 
-    if (StringBuilderWrite(&sb, (unsigned char *) "{", 1, self->set.len == 0 ? 1 : 0) < 0)
-        goto error;
+    builder.Write((const unsigned char *) "{", 1, self->set.len == 0 ? 1 : 256);
 
-    for (HEntry *cursor = self->set.iter_begin; cursor != nullptr; cursor = cursor->iter_next) {
-        if ((tmp = (String *) ToString(cursor->key)) == nullptr)
-            goto error;
-
-        if (StringBuilderWrite(&sb, tmp, cursor->iter_next != nullptr ? 2 : 1) < 0)
-            goto error;
-
-        Release(tmp);
-
-        if (cursor->iter_next != nullptr) {
-            if (StringBuilderWrite(&sb, (unsigned char *) ", ", 2) < 0)
-                goto error;
+    for (auto *cursor = self->set.iter_begin; cursor != nullptr; cursor = cursor->iter_next) {
+        auto *key = (String *) ToRepr(cursor->key);
+        if (key == nullptr) {
+            Release(key);
+            UntrackRecursive(self);
+            return nullptr;
         }
+
+        if (!builder.Write(key, cursor->iter_next == nullptr ? 1 : 128)) {
+            Release(key);
+            UntrackRecursive(self);
+            return nullptr;
+        }
+
+        if (cursor->iter_next != nullptr)
+            builder.Write((const unsigned char *) ", ", 2, 0);
+
+        Release(key);
     }
 
-    if (StringBuilderWrite(&sb, (unsigned char *) "}", 1) < 0)
-        goto error;
+    builder.Write((const unsigned char *) "}", 1, 0);
 
     UntrackRecursive(self);
-    return StringBuilderFinish(&sb);
-
-    error:
-    Release(tmp);
-    StringBuilderClean(&sb);
-    UntrackRecursive(self);
-    return nullptr;
+    return builder.BuildString();
 }
 
 ArObject *set_iter_get(Set *self) {
@@ -531,6 +530,7 @@ const TypeInfo SetType = {
         (Trace) set_trace,
         (CompareOp) set_compare,
         (BoolUnaryOp) set_is_true,
+        nullptr,
         nullptr,
         (UnaryOp) set_str,
         (UnaryOp) set_iter_get,

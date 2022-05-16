@@ -8,20 +8,10 @@
 #include <string>
 #include <cstring>
 
-#include <utils/enum_bitmask.h>
-
 #include <object/datatype/support/bytesops.h>
 #include <object/arobject.h>
 
 namespace argon::object {
-    enum class StringFormatFlags {
-        LJUST = 0x01,
-        SIGN = 0x02,
-        BLANK = 0x04,
-        ALT = 0x08,
-        ZERO = 0x10
-    };
-
     enum class StringKind {
         ASCII,
         UTF8_2,
@@ -49,57 +39,43 @@ namespace argon::object {
         ArSize hash;
     };
 
-    struct StringBuilder {
-        String str;
-        ArSize w_idx;
-    };
-
-    struct StringArg {
-        StringFormatFlags flags;
-        int prec;
-        int width;
-    };
-
-    struct StringFormatter {
-        struct {
-            unsigned char *buf;
-            ArSize len;
-            ArSize idx;
-        } fmt;
-
-        StringBuilder builder;
-
-        ArObject *args;
-        ArSize args_idx;
-        ArSize args_len;
-        int nspec;
-    };
-
     extern const TypeInfo *type_string_;
 
-    bool StringBuilderResize(StringBuilder *sb, ArSize len);
+    class StringBuilder {
+        unsigned char *buffer_ = nullptr;
 
-    bool StringBuilderResizeAscii(StringBuilder *sb, const unsigned char *buffer, ArSize len, int overalloc);
+        ArSize cap_ = 0;
+        ArSize len_ = 0;
+        ArSize cp_len_ = 0;
 
-    int StringBuilderRepeat(StringBuilder *sb, char chr, int times);
+        StringKind kind_ = StringKind::ASCII;
+        bool error_ = false;
 
-    int StringBuilderWrite(StringBuilder *sb, const unsigned char *buffer, ArSize len, int overalloc);
+        static ArSize GetEscapedLength(const unsigned char *buffer, ArSize len, bool unicode);
 
-    inline int StringBuilderWrite(StringBuilder *sb, const unsigned char *buffer, ArSize len) {
-        return StringBuilderWrite(sb, buffer, len, 0);
-    }
+    public:
+        ~StringBuilder();
 
-    inline int StringBuilderWrite(StringBuilder *sb, String *str, int overalloc) {
-        return StringBuilderWrite(sb, str->buffer, str->len, overalloc);
-    }
+        bool BufferResize(ArSize sz);
 
-    int StringBuilderWriteAscii(StringBuilder *sb, const unsigned char *buffer, ArSize len);
+        bool Write(const unsigned char *buffer, ArSize len, ArSize overalloc);
 
-    int StringBuilderWriteHex(StringBuilder *sb, const unsigned char *buffer, ArSize len);
+        bool Write(const String *string, ArSize overalloc) {
+            return this->Write(string->buffer, string->len, overalloc);
+        }
 
-    String *StringBuilderFinish(StringBuilder *sb);
+        bool WriteEscaped(const unsigned char *buffer, ArSize len, ArSize overalloc, bool unicode);
 
-    void StringBuilderClean(StringBuilder *sb);
+        bool WriteEscaped(const unsigned char *buffer, ArSize len, ArSize overalloc) {
+            return this->WriteEscaped(buffer, len, overalloc, false);
+        }
+
+        bool WriteHex(const unsigned char *buffer, ArSize len);
+
+        bool WriteRepeat(char ch, int times);
+
+        String *BuildString();
+    };
 
     // String
 
@@ -109,7 +85,7 @@ namespace argon::object {
 
     inline String *StringNew(const std::string &string) { return StringNew(string.c_str(), string.length()); }
 
-    String *StringNewBufferOwnership(unsigned char *buffer, ArSize len);
+    String *StringNewHoldBuffer(unsigned char *buffer, ArSize len);
 
     String *StringNewFormat(const char *string, va_list vargs);
 
@@ -123,63 +99,63 @@ namespace argon::object {
 
     // Common Operations
 
-    ArObject *StringSplit(String *string, const unsigned char *c_str, ArSize len, ArSSize maxsplit);
+    ArObject *StringSplit(const String *string, const unsigned char *c_str, ArSize len, ArSSize maxsplit);
 
-    inline ArObject *StringSplit(String *string, const char *c_str, ArSSize maxsplit) {
+    inline ArObject *StringSplit(const String *string, const char *c_str, ArSSize maxsplit) {
         return StringSplit(string, (const unsigned char *) c_str, strlen(c_str), maxsplit);
     }
 
-    inline ArObject *StringSplit(String *string, String *pattern, ArSSize maxsplit) {
+    inline ArObject *StringSplit(const String *string, const String *pattern, ArSSize maxsplit) {
         return StringSplit(string, pattern->buffer, pattern->len, maxsplit);
     }
 
-    inline bool StringEmpty(String *string) { return string->len == 0; }
+    ArSize StringLen(const String *str);
 
-    bool StringEndsWith(String *string, String *pattern);
+    ArSize StringSubStrLen(const String *str, ArSize offset, ArSize graphemes);
 
-    bool StringEq(String *string, const unsigned char *c_str, ArSize len);
+    inline ArSSize StringFind(const String *string, const String *pattern) {
+        return support::Find(string->buffer, string->len, pattern->buffer, pattern->len, false);
+    }
 
-    int StringCompare(String *left, String *right);
+    inline ArSSize StringFind(const String *string, const char *pattern) {
+        return support::Find(string->buffer, string->len, (const unsigned char *) pattern, strlen(pattern), false);
+    }
+
+    inline ArSSize StringRFind(const String *string, const String *pattern) {
+        return support::Find(string->buffer, string->len, pattern->buffer, pattern->len, true);
+    }
+
+    inline ArSSize StringRFind(const String *string, const char *pattern) {
+        return support::Find(string->buffer, string->len, (const unsigned char *) pattern, strlen(pattern), true);
+    }
+
+    inline bool StringEmpty(const String *string) { return string->len == 0; }
+
+    bool StringEndsWith(const String *string, const String *pattern);
+
+    bool StringEq(const String *string, const unsigned char *c_str, ArSize len);
+
+    int StringCompare(const String *left, const String *right);
 
     int StringIntToUTF8(unsigned int glyph, unsigned char *buf);
 
     int StringUTF8toInt(const unsigned char *buf);
 
-    ArSize StringLen(const String *str);
+    String *StringConcat(const String *left, const String *right);
 
-    String *StringConcat(String *left, String *right);
+    String *StringConcat(const String *left, const char *right, bool internal);
 
-    String *StringConcat(String *left, const char *right, bool internal);
-
-    String *StringFormat(String *fmt, ArObject *args);
+    String *StringFormat(const String *fmt, ArObject *args);
 
     String *StringCFormat(const char *fmt, ArObject *args);
 
-    inline ArSSize StringFind(String *string, String *pattern) {
-        return support::Find(string->buffer, string->len, pattern->buffer, pattern->len, false);
-    }
+    String *StringReplace(String *string, const String *old, const String *nval, ArSSize n);
 
-    inline ArSSize StringFind(String *string, const char *pattern) {
-        return support::Find(string->buffer, string->len, (const unsigned char *) pattern, strlen(pattern), false);
-    }
-
-    inline ArSSize StringRFind(String *string, String *pattern) {
-        return support::Find(string->buffer, string->len, pattern->buffer, pattern->len, true);
-    }
-
-    inline ArSSize StringRFind(String *string, const char *pattern) {
-        return support::Find(string->buffer, string->len, (const unsigned char *) pattern, strlen(pattern), true);
-    }
-
-    String *StringReplace(String *string, String *old, String *nval, ArSSize n);
-
-    inline String *StringReplaceAll(String *string, String *old, String *nval) {
+    inline String *StringReplaceAll(String *string, const String *old, const String *nval) {
         return StringReplace(string, old, nval, -1);
     }
 
-    String *StringSubs(String *string, ArSize start, ArSize end);
+    String *StringSubs(const String *string, ArSize start, ArSize end);
 }
-
-ENUMBITMASK_ENABLE(argon::object::StringFormatFlags);
 
 #endif // !ARGON_OBJECT_STRING_H_

@@ -2,11 +2,13 @@
 //
 // Licensed under the Apache License v2.0
 
+#include <cctype>
+
 #include "bytesops.h"
 
 using namespace argon::object;
 
-void FillBadCharTable(int *table, const unsigned char *pattern, ArSSize len, bool reverse) {
+void FillBadCharTable(int *table, const unsigned char *pattern, ArSize len, bool reverse) {
     // Reset table
     for (int i = 0; i < 256; i++)
         table[i] = (int) len;
@@ -14,11 +16,11 @@ void FillBadCharTable(int *table, const unsigned char *pattern, ArSSize len, boo
     // Fill table
     // value = len(pattern) - index - 1
     for (int i = 0; i < len; i++)
-        table[pattern[i]] = reverse ?  i : ((int) len) - i - 1;
+        table[pattern[i]] = reverse ? i : ((int) len) - i - 1;
 }
 
-ArSSize DoSearch(int *table, const unsigned char *buf, ArSSize blen, const unsigned char *pattern, ArSSize plen) {
-    ArSSize cursor = plen - 1;
+ArSSize DoSearch(int *table, const unsigned char *buf, ArSize blen, const unsigned char *pattern, ArSize plen) {
+    auto cursor = (ArSSize) (plen - 1);
     ArSSize i;
 
     FillBadCharTable(table, pattern, plen, false);
@@ -32,14 +34,14 @@ ArSSize DoSearch(int *table, const unsigned char *buf, ArSSize blen, const unsig
         }
 
         if (i == plen)
-            return cursor - (plen - 1);
+            return cursor - (ArSSize) (plen - 1);
     }
 
     return -1;
 }
 
-ArSSize DoRSearch(int *table, const unsigned char *buf, ArSSize blen, const unsigned char *pattern, ArSSize plen) {
-    ArSSize cursor = blen - plen;
+ArSSize DoRSearch(int *table, const unsigned char *buf, ArSize blen, const unsigned char *pattern, ArSize plen) {
+    auto cursor = (ArSSize) (blen - plen);
     ArSSize i;
 
     FillBadCharTable(table, pattern, plen, true);
@@ -59,8 +61,8 @@ ArSSize DoRSearch(int *table, const unsigned char *buf, ArSSize blen, const unsi
     return -1;
 }
 
-long argon::object::support::Count(const unsigned char *buf, ArSSize blen, const unsigned char *pattern,
-                                   ArSSize plen, long n) {
+ArSSize argon::object::support::Count(const unsigned char *buf, ArSize blen, const unsigned char *pattern,
+                                      ArSize plen, long n) {
     ArSSize counter = 0;
     ArSSize idx = 0;
     ArSSize lmatch;
@@ -68,24 +70,26 @@ long argon::object::support::Count(const unsigned char *buf, ArSSize blen, const
     if (n == 0)
         return 0;
 
-    while ((counter < n || n == -1) && (lmatch = Find(buf + idx, blen - idx, pattern, plen)) > -1) {
+    while (counter < n || n == -1) {
+        lmatch = Find(buf + idx, blen - idx, pattern, plen);
+        if (lmatch < 0) {
+            break;
+        }
+
         counter++;
-        idx += lmatch + plen;
+        idx += (ArSSize) (lmatch + plen);
     }
 
     return counter;
 }
 
-long argon::object::support::Find(const unsigned char *buf, ArSSize blen, const unsigned char *pattern,
-                                  ArSSize plen, bool reverse) {
+ArSSize argon::object::support::Find(const unsigned char *buf, ArSize blen, const unsigned char *pattern,
+                                     ArSize plen, bool reverse) {
     /*
      * Implementation of Boyer-Moore-Horspool algorithm
      */
 
     int delta1[256] = {}; // Bad Character table
-
-    if (((long) blen) < 0)
-        return -2; // Too big
 
     if (plen > blen)
         return -1;
@@ -94,4 +98,41 @@ long argon::object::support::Find(const unsigned char *buf, ArSSize blen, const 
         return DoRSearch(delta1, buf, blen, pattern, plen);
 
     return DoSearch(delta1, buf, blen, pattern, plen);
+}
+
+long argon::object::support::FindWhitespace(const unsigned char *buf, ArSize *inout_len, bool reverse) {
+    ArSize idx = 0;
+    ArSSize start;
+
+    if (*inout_len == 0)
+        return -1;
+
+    if (reverse) {
+        idx = *inout_len;
+
+        while (idx > 0 && !std::isspace(buf[idx - 1]))
+            idx--;
+
+        *inout_len = idx--;
+
+        while (idx > 0 && std::isspace(buf[idx - 1]))
+            idx--;
+
+        return (long) idx;
+    }
+
+    while (idx < *inout_len && !std::isspace(buf[idx]))
+        idx++;
+
+    start = (ArSSize) idx++;
+
+    if (start == *inout_len)
+        return -1;
+
+    while (idx < *inout_len && std::isspace(buf[idx]))
+        idx++;
+
+    *inout_len = idx;
+
+    return start;
 }
