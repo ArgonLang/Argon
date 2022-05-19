@@ -18,6 +18,20 @@ namespace argon::object::support {
         return Count(buf, blen, pattern, plen, -1);
     }
 
+    ArSSize FindNewLine(const unsigned char *buf, ArSize *inout_len, bool universal);
+
+    [[maybe_unused]]
+    inline ArSSize FindNewLine(const unsigned char *buf, ArSize *inout_len) {
+        return FindNewLine(buf,
+                           inout_len,
+#ifdef ARGON_FF_UNIVERSAL_NEWLINE
+                true
+#else
+                           false
+#endif
+        );
+    }
+
     long Find(const unsigned char *buf, ArSize blen, const unsigned char *pattern, ArSize plen, bool reverse);
 
     [[maybe_unused]]

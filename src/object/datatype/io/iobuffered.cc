@@ -133,38 +133,45 @@ ArSSize ReadData(BufferedIO *bio, unsigned char *buffer, ArSize length) {
     return (ArSSize) total;
 }
 
-ArSSize ReadsByte(BufferedIO *bio, unsigned char stop, unsigned char *buffer, ArSize length) {
+ArSSize ReadLine(BufferedIO *bio, unsigned char *buffer, ArSize length) {
     std::unique_lock lock(bio->lock);
     const Bytes *biobuf = (Bytes *) bio->buffer;
     ArSize total = 0;
     ArSize rlen;
+    ArSSize next;
+
+    bool checknl = false;
 
     while (length > 0) {
         if ((biobuf == nullptr || bio->index >= biobuf->view.len) && !ReadFromBase(bio))
             return -1;
 
         biobuf = (Bytes *) bio->buffer;
-        rlen = length;
+        rlen = biobuf->view.len - bio->index;
+
+        if (checknl) {
+            if (*(biobuf->view.buffer + bio->index) == '\n')
+                bio->index++;
+            break;
+        }
 
         if (biobuf->view.len == 0)
             return (ArSSize) total;
 
-        const auto *match = (unsigned char *) argon::memory::MemoryFind(biobuf->view.buffer + bio->index, stop,
-                                                                        biobuf->view.len - bio->index);
-        if (match != nullptr) {
-            if (rlen >= match - (biobuf->view.buffer + bio->index))
-                rlen = match - (biobuf->view.buffer + bio->index);
+        if (rlen > length)
+            rlen = length;
 
-            if (rlen == 0) {
-                while (bio->index < biobuf->view.len && *(biobuf->view.buffer + bio->index) == stop)
-                    bio->index++;
+        if ((next = argon::object::support::FindNewLine(biobuf->view.buffer + bio->index, &rlen)) > 0) {
+            argon::memory::MemoryCopy(buffer + total, biobuf->view.buffer + bio->index, rlen);
+            bio->index += next;
+            total += rlen;
 
+            if (*(biobuf->view.buffer + bio->index - 1) == '\r') {
+                // Check again in case of \r\n at the edge of buffer
+                checknl = true;
                 continue;
             }
 
-            argon::memory::MemoryCopy(buffer + total, biobuf->view.buffer + bio->index, rlen);
-            bio->index += rlen;
-            total += rlen;
             break;
         }
 
@@ -300,7 +307,7 @@ ARGON_METHOD5(buffered_, readline, "", 1, false) {
     if ((buffer = ArObjectNewRaw<unsigned char *>(cap)) == nullptr)
         return nullptr;
 
-    if ((len = ReadsByte(bio, '\n', buffer, cap)) < 0) {
+    if ((len = ReadLine(bio, buffer, cap)) < 0) {
         argon::memory::Free(buffer);
         return ARGON_OBJECT_TUPLE_ERROR(argon::vm::GetLastNonFatalError());
     }
