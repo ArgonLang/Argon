@@ -227,6 +227,12 @@ ArObject *RandomNew(ArSize seed) {
     return rd;
 }
 
+const PropertyBulk random_bulk[] = {
+        MODULE_EXPORT_TYPE(type_random_),
+        MODULE_EXPORT_TYPE(type_rdengine_),
+        MODULE_EXPORT_SENTINEL
+};
+
 bool random_init(Module *self) {
     if (!TypeInit((TypeInfo *) type_random_, nullptr))
         return false;
@@ -234,16 +240,13 @@ bool random_init(Module *self) {
     if (!TypeInit((TypeInfo *) type_rdengine_, nullptr))
         return false;
 
-    if(!ModuleAddProperty(self, type_random_->name, (ArObject *) type_random_, MODULE_ATTRIBUTE_PUB_CONST))
-        return false;
-
-    return ModuleAddProperty(self, type_rdengine_->name, (ArObject *) type_rdengine_, MODULE_ATTRIBUTE_PUB_CONST);
+    return true;
 }
 
 const ModuleInit module_random = {
         "_random",
         "",
-        nullptr,
+        random_bulk,
         random_init,
         nullptr
 };

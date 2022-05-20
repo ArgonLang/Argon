@@ -65,7 +65,7 @@ void match_cleanup(Match *self) {
 
 const TypeInfo REMatchType = {
         TYPEINFO_STATIC_INIT,
-        "match",
+        "Match",
         nullptr,
         sizeof(Match),
         TypeInfoFlags::BASE,
@@ -482,7 +482,7 @@ void pattern_cleanup(Pattern *self) {
 
 const TypeInfo REPatternType = {
         TYPEINFO_STATIC_INIT,
-        "pattern",
+        "Pattern",
         nullptr,
         sizeof(Pattern),
         TypeInfoFlags::BASE,
@@ -539,9 +539,9 @@ ARGON_FUNCTION5(regex_, compile, "Compile a regular expression pattern into a Pa
 }
 
 const PropertyBulk regex_bulk[] = {
-        MODULE_EXPORT_TYPE_ALIAS("match", type_re_match_),
-        MODULE_EXPORT_TYPE_ALIAS("pattern", type_re_pattern_),
-        MODULE_EXPORT_TYPE_ALIAS("regex_iterator", type_re_iterator_),
+        MODULE_EXPORT_TYPE(type_re_match_),
+        MODULE_EXPORT_TYPE(type_re_pattern_),
+        MODULE_EXPORT_TYPE(type_re_iterator_),
         MODULE_EXPORT_FUNCTION(regex_compile_),
         MODULE_EXPORT_SENTINEL
 };
