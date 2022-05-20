@@ -614,6 +614,24 @@ ARGON_METHOD5(str_, lower,
     return ret;
 }
 
+ARGON_METHOD5(str_, ord,
+              "Return the unicode code point for a one-character string."
+              ""
+              "- Parameter str: one-character string."
+              "- Returns: unicode code point.", 0, false) {
+    const auto *str = (String *) self;
+
+    if (str->cp_len == 0)
+        return ErrorFormat(type_type_error_, "%s expected a character, but string of length 0 found",
+                           ((Function *) func)->qname->buffer);
+
+    if (str->cp_len > 1)
+        return ErrorFormat(type_type_error_, "%s expected a character, but string of length %d found",
+                           ((Function *) func)->qname->buffer, str->cp_len);
+
+    return IntegerNew(StringUTF8toInt(str->buffer));
+}
+
 ARGON_METHOD5(str_, replace,
               "Returns a string where a specified value is replaced with a specified value."
               ""
@@ -782,6 +800,7 @@ const NativeFunc str_methods[] = {
         str_endswith_,
         str_find_,
         str_lower_,
+        str_ord_,
         str_replace_,
         str_rfind_,
         str_join_,
