@@ -392,10 +392,20 @@ const NativeFunc buffered_writer_methods[] = {
         ARGON_METHOD_SENTINEL
 };
 
+const TypeInfo *buffered_reader_bases[] = {
+        type_readT_,
+        nullptr
+};
+
+const TypeInfo *buffered_writer_bases[] = {
+        type_writeT_,
+        nullptr
+};
+
 const ObjectSlots buffered_reader_obj = {
         buffered_reader_methods,
         nullptr,
-        nullptr,
+        buffered_reader_bases,
         nullptr,
         nullptr,
         nullptr,
@@ -406,7 +416,7 @@ const ObjectSlots buffered_reader_obj = {
 const ObjectSlots buffered_writer_obj = {
         buffered_writer_methods,
         nullptr,
-        nullptr,
+        buffered_writer_bases,
         nullptr,
         nullptr,
         nullptr,
@@ -414,7 +424,21 @@ const ObjectSlots buffered_writer_obj = {
         -1
 };
 
-void buffer_cleanup(BufferedIO *self) {
+ArObject *buffered_str(BufferedIO *self) {
+    ArObject *res;
+    auto *tmp = (String *) ToString(self->base);
+
+    if (tmp == nullptr)
+        return nullptr;
+
+    res = StringNewFormat("<%s of %s>", AR_TYPE_NAME(self), tmp->buffer);
+
+    Release(tmp);
+
+    return res;
+}
+
+void buffered_cleanup(BufferedIO *self) {
     ArObject *error;
 
     if (AR_TYPEOF(self, type_buffered_writer_)) {
@@ -437,13 +461,13 @@ const TypeInfo BufferedReader = {
         sizeof(BufferedIO),
         TypeInfoFlags::BASE,
         nullptr,
-        (VoidUnaryOp) buffer_cleanup,
+        (VoidUnaryOp) buffered_cleanup,
         nullptr,
         nullptr,
         TypeInfo_IsTrue_True,
         nullptr,
         nullptr,
-        nullptr,
+        (UnaryOp) buffered_str,
         nullptr,
         nullptr,
         nullptr,
@@ -465,13 +489,13 @@ const TypeInfo BufferedWriter = {
         sizeof(BufferedIO),
         TypeInfoFlags::BASE,
         nullptr,
-        (VoidUnaryOp) buffer_cleanup,
+        (VoidUnaryOp) buffered_cleanup,
         nullptr,
         nullptr,
         TypeInfo_IsTrue_True,
         nullptr,
         nullptr,
-        nullptr,
+        (UnaryOp) buffered_str,
         nullptr,
         nullptr,
         nullptr,
