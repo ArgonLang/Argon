@@ -220,18 +220,36 @@ ARGON_METHOD5(file_, readinto, "Read bytes into a pre-allocated, writable bytes-
 
 ARGON_METHOD5(file_, readline, "Read and return a single line from file."
                                ""
-                               "- Returns: (bytes, err)", 0, false) {
+                               "- Parameter size: maximum number of bytes to read from the stream."
+                               "- Returns: (bytes, err)", 1, false) {
     auto *file = (File *) self;
-    unsigned char *buf = nullptr;
+    const auto *arint = (Integer *) argv[0];
+    unsigned char *buffer;
     Bytes *bytes;
-
+    ArSSize cap;
     ArSSize len;
 
-    if ((len = ReadLine(file, &buf, 0)) < 0)
-        return ARGON_OBJECT_TUPLE_ERROR(argon::vm::GetLastNonFatalError());
+    if (!CheckArgs("i:size", func, argv, count))
+        return nullptr;
 
-    if ((bytes = BytesNewHoldBuffer(buf, len, len, true)) == nullptr) {
-        argon::memory::Free(buf);
+    cap = arint->integer;
+
+    if (arint->integer == 0)
+        return ARGON_OBJECT_TUPLE_SUCCESS(BytesNew(0, true, false, true));
+
+    if (arint->integer < 0)
+        cap = ARGON_OBJECT_IO_DEFAULT_BUFFERED_CAP;
+
+    if ((buffer = ArObjectNewRaw<unsigned char *>(cap)) == nullptr)
+        return nullptr;
+
+    if ((len = ReadLine(file, &buffer, cap)) < 0) {
+        argon::memory::Free(buffer);
+        return ARGON_OBJECT_TUPLE_ERROR(argon::vm::GetLastNonFatalError());
+    }
+
+    if ((bytes = BytesNewHoldBuffer(buffer, len, len, true)) == nullptr) {
+        argon::memory::Free(buffer);
 
         if (IsSeekable(file))
             Seek(file, -len, FileWhence::CUR);
@@ -802,28 +820,23 @@ ArSSize argon::object::io::Read(File *file, unsigned char *buf, ArSize count) {
     return read_os_wrap(file, buf, count);
 }
 
-ArSSize argon::object::io::ReadLine(File *file, unsigned char **buf, ArSize buf_len) {
+ArSSize argon::object::io::ReadLine(File *file, unsigned char **buf, ArSSize buf_len) {
     unsigned char *line = *buf;
     unsigned char *tmp;
     ArSize allocated = 1;
     ArSize total = 0;
     ArSize rlen;
-    ArSize next;
+    ArSSize next;
 
     bool checknl = false;
-
-    if (*buf != nullptr && buf_len == 0)
-        return 0;
 
     if (file->buffer.mode == FileBufferMode::NONE) {
         ErrorFormat(type_io_error_, "file::readline unsupported in unbuffered mode, try using BufferedReader");
         return -1;
     }
 
-    if (buf_len > 0) {
-        // Reserve 1byte for '\0'
-        buf_len--;
-    }
+    if (buf_len == 0 || (buf_len < 0 && *buf != nullptr))
+        return 0;
 
     while (buf_len > 0 || *buf == nullptr) {
         if (FillBuffer(file) < 0) {
@@ -874,14 +887,13 @@ ArSSize argon::object::io::ReadLine(File *file, unsigned char **buf, ArSize buf_
 
         argon::memory::MemoryCopy(line + total, file->buffer.cur, rlen);
         file->buffer.cur += rlen;
-        buf_len -= rlen;
+        buf_len -= (ArSSize) rlen;
         total += rlen;
     }
 
     if (*buf == nullptr)
         *buf = line;
 
-    line[total] = '\0';
     return (ArSSize) total;
 }
 

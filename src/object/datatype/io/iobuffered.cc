@@ -142,6 +142,9 @@ ArSSize ReadLine(BufferedIO *bio, unsigned char *buffer, ArSize length) {
 
     bool checknl = false;
 
+    if (length == 0)
+        return 0;
+
     while (length > 0) {
         if ((biobuf == nullptr || bio->index >= biobuf->view.len) && !ReadFromBase(bio))
             return -1;
@@ -291,18 +294,21 @@ ARGON_METHOD5(buffered_, readinto, "", 1, false) {
 ARGON_METHOD5(buffered_, readline, "", 1, false) {
     auto *bio = (BufferedIO *) self;
     const auto *arint = (Integer *) argv[0];
-
     unsigned char *buffer;
     Bytes *bytes;
-
-    ArSize cap = ARGON_OBJECT_IO_DEFAULT_BUFFERED_CAP;
+    ArSize cap;
     ArSSize len;
 
     if (!CheckArgs("i:size", func, argv, count))
         return nullptr;
 
-    if (arint->integer > 0)
-        cap = arint->integer;
+    cap = arint->integer;
+
+    if (arint->integer == 0)
+        return ARGON_OBJECT_TUPLE_SUCCESS(BytesNew(0, true, false, true));
+
+    if (arint->integer < 0)
+        cap = ARGON_OBJECT_IO_DEFAULT_BUFFERED_CAP;
 
     if ((buffer = ArObjectNewRaw<unsigned char *>(cap)) == nullptr)
         return nullptr;

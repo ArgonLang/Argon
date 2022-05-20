@@ -154,35 +154,34 @@ ARGON_FUNCTION(input,
                ""
                "- Parameter prompt: string representing a default message before the input."
                "- Returns: string containing user input.", 1, false) {
+    StringBuilder builder;
     auto in = (io::File *) argon::vm::ContextRuntimeGetProperty("stdin", io::type_file_);
     auto out = (io::File *) argon::vm::ContextRuntimeGetProperty("stdout", io::type_file_);
     unsigned char *line = nullptr;
-    ArObject *str = nullptr;
     ArSSize len;
 
     if (in == nullptr || out == nullptr)
-        goto error;
+        goto ERROR;
 
-    if ((str = ToString(argv[0])) == nullptr)
-        goto error;
-
-    if (io::WriteObject(out, str) < 0)
-        goto error;
+    if (io::WriteObjectStr(out, argv[0]) < 0)
+        goto ERROR;
 
     io::Flush(out);
-    Release(str);
     Release(out);
 
-    if ((len = io::ReadLine(in, &line, 0)) < 0)
-        goto error;
+    if ((len = io::ReadLine(in, &line, -1)) < 0)
+        goto ERROR;
 
     Release(in);
-    return StringNewHoldBuffer(line, len);
 
-    error:
+    builder.Write(line, len, 0);
+    argon::memory::Free(line);
+
+    return builder.BuildString();
+
+    ERROR:
     Release(in);
     Release(out);
-    Release(str);
     return nullptr;
 }
 
