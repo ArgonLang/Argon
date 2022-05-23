@@ -816,6 +816,12 @@ ArObject *bytes_iadd(Bytes *self, ArObject *other) {
         return IncRef(self);
     }
 
+    if (AR_TYPEOF(other, type_integer_)) {
+        RWLockWrite lock(self->view.shared->lock);
+        BufferViewMoveStart(&self->view, ((Integer *) other)->integer);
+        return IncRef(self);
+    }
+
     if (!IsBufferable(other))
         return nullptr;
 
@@ -851,6 +857,17 @@ ArObject *bytes_iadd(Bytes *self, ArObject *other) {
     return IncRef(self);
 }
 
+ArObject *bytes_isub(Bytes *self, ArObject *other) {
+    if (!AR_TYPEOF(other, type_integer_))
+        return nullptr;
+
+    RWLockWrite lock(self->view.shared->lock);
+
+    BufferViewMoveStart(&self->view, -((Integer *) other)->integer);
+
+    return IncRef(self);
+}
+
 const OpSlots bytes_ops{
         (BinaryOp) bytes_add,
         nullptr,
@@ -867,7 +884,7 @@ const OpSlots bytes_ops{
         bytes_shr,
         nullptr,
         (BinaryOp) bytes_iadd,
-        nullptr,
+        (BinaryOp) bytes_isub,
         nullptr,
         nullptr,
         nullptr,

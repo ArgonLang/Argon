@@ -34,6 +34,7 @@ namespace argon::object {
     struct BufferView {
         SharedBuffer *shared;
         unsigned char *buffer;
+        const unsigned char *base;
         ArSize len;
     };
 
@@ -46,6 +47,8 @@ namespace argon::object {
     void BufferViewInit(BufferView *dst, BufferView *src, ArSize start, ArSize len);
 
     void BufferViewDetach(BufferView *view);
+
+    void BufferViewMoveStart(BufferView *view, ArSSize offset);
 } // namespace argon::object
 
 #endif // !ARGON_OBJECT_BUFVIEW_H_
