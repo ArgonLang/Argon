@@ -9,9 +9,9 @@
 import math
 
 pub trait ScannerCallback {
-    pub func parse_array(scanner, buffer, index) {}
-    pub func parse_object(scanner, buffer, index) {}
-    pub func parse_string(scanner, buffer, index) {}
+    pub func parse_array(scanner, buffer, index)
+    pub func parse_object(scanner, buffer, index)
+    pub func parse_string(scanner, buffer, index)
 }
 
 pub struct DecodeError {
@@ -30,16 +30,11 @@ pub struct DecodeError {
 }
 
 pub func skip_spaces(buffer, index) {
-    var length = len(buffer)
+    var c = buffer[index]
 
-    loop index < length {
-        var c = buffer[index]
-
-        if (c != 9 && c != 10 && c != 13 && c != 32) {
-            break
-        }
-
-        index = index + 1 # skip spaces, tabs and new-lines
+    loop c == '\t' || c == '\n' || c == '\r' || c == ' ' {
+        index += 1 # skip spaces, tabs and new-lines
+        c = buffer[index]
     }
 
     return index
@@ -49,16 +44,11 @@ pub struct Scanner {
     var callbacks
 
     func eat_digits(buffer, index) {
-        var length = len(buffer)
+        var c = buffer[index]
 
-        loop index < length {
-            var c = buffer[index]
-
-            if c < 48 || c > 57 {
-                break
-            }
-
-            index = index + 1
+        loop c >= '0' && c <= '9' {
+            index += 1
+            c = buffer[index]
         }
 
         return index
@@ -69,24 +59,24 @@ pub struct Scanner {
         var start = index
         var float = false
 
-        if index < length && buffer[index] == 45 {
-            index = index + 1
+        if index < length && buffer[index] == '-' {
+            index += 1
         }
 
         index = self.eat_digits(buffer, index)
         
-        if index < length && buffer[index] == 46 {
+        if index < length && buffer[index] == '.' {
             # fraction
             index = index + 1
             index = self.eat_digits(buffer, index)
             float = true
         }
 
-        if index < length && (buffer[index] == 69 || buffer[index] == 101) {
+        if index < length && (buffer[index] == 'e' || buffer[index] == 'E') {
             # exponent
-            index = index + 1
-            if index < length && (buffer[index] == 43 || buffer[index] == 45) {
-                index = index + 1
+            index += 1
+            if index < length && (buffer[index] == '+' || buffer[index] == '-') {
+                index += 1
             }
 
             index = self.eat_digits(buffer, index)
@@ -102,36 +92,36 @@ pub struct Scanner {
         index = skip_spaces(buffer, index)
 
         switch buffer[index] {
-            case 34:
+            case '"':
                 return self.callbacks.parse_string(self, buffer, index + 1)
-            case 123:
-                return self.callbacks.parse_object(self, buffer, index + 1)
-            case 91:
+            case '[':
                 return self.callbacks.parse_array(self, buffer, index +1)
-            case 110:   # n
-            if buffer[index:index + 4] == b"null" {
-                return nil, index + 4
-            }
-            case 116:   # t
-            if buffer[index:index + 4] == b"true" {
-                return true, index + 4
-            }
-            case 102:   # f
-            if buffer[index:index + 5] == b"false" {
-                return false, index + 5
-            }
-            case 78:    # N
-            if buffer[index:index + 3] == b"NaN" {
-                return math::nan, index + 3
-            }
-            case 73:    # I
-            if buffer[index:index + 8] == b"Infinity" {
-                return math::inf, index + 8
-            }
-            case 45:    # -
-            if buffer[index:index + 9] == b"-Infinity" {
-                return -math::inf, index + 9
-            }
+            case '{':
+                return self.callbacks.parse_object(self, buffer, index + 1)
+            case 'n':
+                if buffer[index:index + 4] == b"null" {
+                    return nil, index + 4
+                }
+            case 't':
+                if buffer[index:index + 4] == b"true" {
+                    return true, index + 4
+                }
+            case 'f':
+                if buffer[index:index + 5] == b"false" {
+                    return false, index + 5
+                }
+            case 'N':
+                if buffer[index:index + 3] == b"NaN" {
+                    return math::nan, index + 3
+                }
+            case 'I':
+                if buffer[index:index + 8] == b"Infinity" {
+                    return math::inf, index + 8
+                }
+            case '-':
+                if buffer[index:index + 9] == b"-Infinity" {
+                    return -math::inf, index + 9
+                }
         }
 
         index, num_str, float = self.is_number(buffer, index)

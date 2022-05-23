@@ -25,7 +25,7 @@ pub func encode(obj) {
 }
 
 pub func encode_compact(obj) {
-    var e = Encoder{(b",", b":"), false}
+    var e = Encoder::new((b",", b":"), false, 0)
     var buf = bytes::new()
     
     return e.encode(obj, buf).freeze()
@@ -35,15 +35,7 @@ pub func encode_raw(obj, separators, newlines, indent) {
     var buf
     var enc
 
-    if type(separators) != tuple {
-        panic(ValueError::new("separators must be a tuple not '%s'" % type(separators)))
-    }
-
-    if type(indent) != integer {
-        panic(ValueError::new("indent must be a integer not '%s'" % type(indent)))
-    }
-    
-    enc = Encoder{separators, newlines, indent}
+    enc = Encoder::new(separators, newlines, indent)
     buf = bytes::new()
     
     return enc.encode(obj, buf).freeze()
