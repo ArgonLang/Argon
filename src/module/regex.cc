@@ -59,6 +59,10 @@ ArObject *match_str(const Match *self) {
     return ret;
 }
 
+bool match_is_true(Match *self) {
+    return self->start < self->end;
+}
+
 void match_cleanup(Match *self) {
     Release(self->match);
 }
@@ -73,7 +77,7 @@ const TypeInfo REMatchType = {
         (VoidUnaryOp) match_cleanup,
         nullptr,
         (CompareOp) match_compare,
-        TypeInfo_IsTrue_True,
+        (BoolUnaryOp) match_is_true,
         nullptr,
         nullptr,
         (UnaryOp) match_str,
