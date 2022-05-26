@@ -11,10 +11,17 @@ from json::decoder import Decoder
 from json::encoder import Encoder
 
 pub func decode(json) {
-    var scanner = Scanner{Decoder{}}
-    var decode_tuple = scanner.scan(json, 0)
+    var scanner = Scanner::new(Decoder{})
 
-    return decode_tuple[0]
+    if type(json) != bytes {
+        if type(json) != string {
+            panic("json::decode expected string or bytes, not %s" % type(json))
+        }
+
+        json = bytes::new(json)
+    }
+
+    return scanner.scan(json, 0)[0]
 }
 
 pub func encode(obj) {

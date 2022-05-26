@@ -6,7 +6,10 @@
  * JSON Encoder/Decoder (RFC 8259)
 */
 
+import regex
 from json::scanner import Scanner, ScannerCallback, DecodeError, skip_spaces
+
+let STRING_RE = regex::compile(r#".*?[^\\]""#, regex::MODE_ECMASCRIPT | regex::OPTIMIZE)
 
 pub struct Decoder impl ScannerCallback {
     pub func parse_array(scanner, buffer, index) {
@@ -15,7 +18,7 @@ pub struct Decoder impl ScannerCallback {
         var item
 
         index = skip_spaces(buffer, index)
-        if buffer[index] == 93 {
+        if buffer[index] == ']' {
             return items, index + 1
         }
 
@@ -25,11 +28,11 @@ pub struct Decoder impl ScannerCallback {
             items.append(item)
 
             index = skip_spaces(buffer, index)
-            if buffer[index] == 93 {
+            if buffer[index] == ']' {
                 break
             }
 
-            if buffer[index] != 44 {
+            if buffer[index] != ',' {
                 panic(DecodeError::new("expecting ',' delimiter", buffer, index))
             }
 
@@ -46,7 +49,7 @@ pub struct Decoder impl ScannerCallback {
         var value
 
         index = skip_spaces(buffer, index)
-        if buffer[index] == 125 {
+        if buffer[index] == '}' {
             return obj, index + 1
         }
 
@@ -56,15 +59,15 @@ pub struct Decoder impl ScannerCallback {
             obj[key] = value
 
             index = skip_spaces(buffer, index)
-            if buffer[index] == 125 {
+            if buffer[index] == '}' {
                 break
             }
 
-            if buffer[index] != 44 {
+            if buffer[index] != ',' {
                 panic(DecodeError::new("expecting ',' delimiter", buffer, index))
             }
 
-           index = index + 1
+            index = index + 1
         }
 
         return obj, index + 1
@@ -76,14 +79,14 @@ pub struct Decoder impl ScannerCallback {
         var value
 
         index = skip_spaces(buffer, index)
-        if buffer[index] != 34 {
+        if buffer[index] != '"' {
             panic(DecodeError::new("expecting property name enclosed in double quotes", buffer, index))
         }
 
         key, index = self.parse_string(scanner, buffer, index + 1)
 
         index = skip_spaces(buffer, index)
-        if buffer[index] != 58 {
+        if buffer[index] != ':' {
             panic(DecodeError::new("expecting ':' delimiter", buffer, index))
         }
 
@@ -95,87 +98,17 @@ pub struct Decoder impl ScannerCallback {
     }
 
     pub func parse_string(scanner, buffer, index) {
-        var length = len(buffer)
-        var start = index
-        var rstr = ""
-
-        loop index < length && buffer[index] != 34 {
-            if buffer[index] == 92 {
-                rstr = rstr + buffer[start:index].str()
-                
-                index = index + 1
-                
-                if index >= length {
-                    break
-                }
-
-                switch buffer[index] {
-                case 34:
-                    rstr += "\""
-                    index = index + 1
-                case 92:
-                    rstr += "\\"
-                    index = index + 1
-                case 47:
-                    rstr += "/"
-                    index = index + 1
-                case 98:
-                    rstr += "\b"
-                    index = index + 1
-                case 102:
-                    rstr += "\f"
-                    index = index + 1
-                case 110:
-                    rstr += "\n"
-                    index = index + 1
-                case 114:
-                    rstr += "\r"
-                    index = index + 1
-                case 116:
-                    rstr += "\t"
-                    index = index + 1
-                case 117:
-                    index = is_hex(buffer, index + 1, 4)
-                    rstr += string::chr(integer::new(buffer[start+2:index], 16))
-                }
-
-                start = index
-                continue
-            }
-
-            index = index + 1
+        if buffer[index] == '"' {
+            return "", index + 1
         }
 
-        if index >= length {
+        var view = buffer[index:]
+
+        var match = STRING_RE.search(view)
+        if !match {
             panic(DecodeError::new("unterminated string", buffer, index))
         }
 
-        if !rstr {
-            return buffer[start:index].str(), index + 1
-        }
-
-        rstr = rstr + buffer[start:index].str()
-        return rstr, index + 1
+        return string::unescape(view[:match[0].end - 1]), index + match[0].end
     }
-}
-
-func is_hex(buffer, index, min) {
-    var length = len(buffer)
-
-    loop index < length && min > 0 {
-        var c = buffer[index]
-
-        if c < 48 || ((c > 57 && c < 97) || c > 102) {
-            break
-        }
-
-        index = index + 1
-        min--
-    }
-
-    if min != 0 {
-        panic(DecodeError::new("invalid \\uXXXX escape", buffer, index))
-    }
-
-    return index
 }

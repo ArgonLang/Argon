@@ -6,7 +6,11 @@
  * JSON Encoder/Decoder (RFC 8259)
 */
 
+import regex
 import math
+from error import NotImplemented
+
+let NUMBER_RE = regex::compile("(-?(?:0|[1-9]\d*))(\.\d+)?([eE][-+]?\d+)?", regex::MODE_ECMASCRIPT | regex::OPTIMIZE)
 
 pub trait ScannerCallback {
     pub func parse_array(scanner, buffer, index)
@@ -24,8 +28,7 @@ pub struct DecodeError {
     }
 
     pub func __str() {
-        # todo err_str
-        return "%s: lines: ?, column: ?, index: %d" % (self.msg, self.index)
+        return "%s (index: %d):" % (self.msg, self.index)
     }
 }
 
@@ -43,46 +46,32 @@ pub func skip_spaces(buffer, index) {
 pub struct Scanner {
     var callbacks
 
-    func eat_digits(buffer, index) {
-        var c = buffer[index]
-
-        loop c >= '0' && c <= '9' {
-            index += 1
-            c = buffer[index]
+    pub let new = (callback) => {
+        if !isimpl(callback, ScannerCallback) {
+            panic(NotImplemented::new("'%s' not implement %s" % (type(callback), ScannerCallback)))
         }
 
-        return index
+        return Scanner{callback}
     }
 
     func is_number(buffer, index) {
-        var length = len(buffer)
-        var start = index
-        var float = false
+        var view = buffer[index:]
+        var match
+        var int
+        var frac
+        var exp
 
-        if index < length && buffer[index] == '-' {
-            index += 1
+        match = NUMBER_RE.search(view)
+        if !match {
+            panic(DecodeError::new("number", buffer, index))
         }
 
-        index = self.eat_digits(buffer, index)
-        
-        if index < length && buffer[index] == '.' {
-            # fraction
-            index = index + 1
-            index = self.eat_digits(buffer, index)
-            float = true
+        int, frac, exp = match
+        if frac || exp {
+            return index + exp.end, view[:exp.end], true
         }
 
-        if index < length && (buffer[index] == 'e' || buffer[index] == 'E') {
-            # exponent
-            index += 1
-            if index < length && (buffer[index] == '+' || buffer[index] == '-') {
-                index += 1
-            }
-
-            index = self.eat_digits(buffer, index)
-        }
-
-        return index, buffer[start:index], float
+        return index + int.end, view[:int.end], false
     }
 
     pub func scan(buffer, index) {
@@ -125,10 +114,6 @@ pub struct Scanner {
         }
 
         index, num_str, float = self.is_number(buffer, index)
-
-        if !num_str {
-            panic(DecodeError::new("number", buffer, index))
-        }
 
         if !float {
             return integer::new(num_str), index
