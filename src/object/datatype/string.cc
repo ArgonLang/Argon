@@ -127,6 +127,45 @@ ArSize StringBuilder::GetEscapedLength(const unsigned char *buffer, ArSize len, 
     return str_len;
 }
 
+ArSize StringBuilder::GetUnescapedLength(const unsigned char *buffer, ArSize len) {
+    ArSize str_len = 0;
+    ArSize i = 0;
+
+    while (i < len) {
+        if (buffer[i] == '\\' && i + 1 < len) {
+            switch (buffer[++i]) {
+                case 'a':
+                case 'b':
+                case 'f':
+                case 'n':
+                case 'r':
+                case 't':
+                case 'v':
+                case 'x':
+                case '\\':
+                    break;
+                case 'u':
+                    i += 5;
+                    str_len += 2;
+                    continue;
+                case 'U':
+                    i += 9;
+                    str_len += 4;
+                    continue;
+                default:
+                    str_len += 2;
+                    i++;
+                    continue;
+            }
+        }
+
+        str_len++;
+        i++;
+    }
+
+    return str_len;
+}
+
 bool StringBuilder::BufferResize(ArSize sz) {
     ArSize cap = this->cap_;
     unsigned char *tmp;
@@ -150,6 +189,161 @@ bool StringBuilder::BufferResize(ArSize sz) {
 
     this->buffer_ = tmp;
     this->cap_ += sz;
+    return true;
+}
+
+int StringBuilder::HexToByte(const unsigned char *buffer, ArSize len) {
+    int byte = 0;
+    int curr;
+
+    if (len < 2) {
+        ErrorFormat(type_unicode_error_, "can't decode byte, hex escape must be: \\xhh");
+        this->error_ = true;
+        return -1;
+    }
+
+    for (int i = 1; i >= 0; i--) {
+        curr = *buffer++;
+
+        if (!isxdigit(curr)) {
+            ErrorFormat(type_unicode_error_, "'%c' invalid hex digit, can't decode hex escape", curr);
+            this->error_ = true;
+            return -1;
+        }
+
+        byte |= (isdigit(curr) ? ((char) curr) - '0' : 10 + (tolower(curr) - 'a')) << (unsigned char) (i * 4);
+    }
+
+    return byte;
+}
+
+int StringBuilder::ProcessUnicodeEscape(unsigned char *wb, const unsigned char *buffer, ArSize len, bool extended) {
+    unsigned char sequence[] = {0, 0, 0, 0};
+    int width = 2;
+    int byte;
+    int ulen;
+
+    if (extended)
+        width = 4;
+
+    for (int i = 0; i < width; i++) {
+        if ((byte = this->HexToByte(buffer + (i * 2), len - i)) < 0) {
+            argon::vm::DiscardErrorType(type_unicode_error_);
+
+            ErrorFormat(type_unicode_error_, "can't decode bytes in unicode sequence, escape format must be: %s",
+                        extended ? "\\Uhhhhhhhh" : "\\uhhhh");
+
+            this->error_ = true;
+            return false;
+        }
+        sequence[(width - 1) - i] = (unsigned char) byte;
+    }
+
+    if ((ulen = StringIntToUTF8(*((unsigned int *) sequence), wb)) == 0) {
+        ErrorFormat(type_unicode_error_, "can't decode bytes in unicode sequence");
+        this->error_ = true;
+        return false;
+    }
+
+    if ((StringKind) (ulen - 1) > this->kind_)
+        this->kind_ = (StringKind) (ulen - 1);
+
+    return ulen;
+}
+
+bool StringBuilder::ParseEscaped(const unsigned char *buffer, ArSize len) {
+    StringKind kind = StringKind::ASCII;
+    unsigned char *wbuf;
+    ArSize idx = 0;
+    ArSize uidx = 0;
+    ArSize wlen;
+
+    if (buffer == nullptr || len == 0)
+        return true;
+
+    wlen = StringBuilder::GetUnescapedLength(buffer, len);
+
+    if (!this->BufferResize(wlen))
+        return false;
+
+    wbuf = this->buffer_ + this->len_;
+
+    while (idx < len) {
+        if (idx == uidx && buffer[idx] == '\\') {
+            idx++;
+            uidx++;
+
+            if (idx >= len) {
+                *wbuf++ = '\\';
+                break;
+            }
+
+            switch (buffer[idx]) {
+                case 'a':
+                    *wbuf++ = 0x07;
+                    break;
+                case 'b':
+                    *wbuf++ = 0x08;
+                    break;
+                case 'f':
+                    *wbuf++ = 0x0C;
+                    break;
+                case 'n':
+                    *wbuf++ = 0x0A;
+                    break;
+                case 'r':
+                    *wbuf++ = 0x0D;
+                    break;
+                case 't':
+                    *wbuf++ = 0x09;
+                    break;
+                case 'v':
+                    *wbuf++ = 0x0B;
+                    break;
+                case 'x':
+                    idx++;
+                    *wbuf++ = (unsigned char) this->HexToByte(buffer + idx, len - idx);
+                    idx += 1;
+                    uidx += 2;
+                    break;
+                case 'u':
+                    idx++;
+                    wbuf += this->ProcessUnicodeEscape(wbuf, buffer + idx, len - idx, false);
+                    idx += 3;
+                    uidx += 4;
+                    break;
+                case 'U':
+                    idx++;
+                    wbuf += this->ProcessUnicodeEscape(wbuf, buffer + idx, len - idx, true);
+                    idx += 7;
+                    uidx += 8;
+                    break;
+                default:
+                    *wbuf++ = '\\';
+                    *wbuf++ = buffer[idx];
+            }
+
+            if(this->error_)
+                return false;
+
+            uidx++;
+        } else {
+            *wbuf++ = buffer[idx];
+
+            if (!CheckUnicodeCharSequence(buffer[idx], idx, &uidx, &kind)) {
+                this->error_ = true;
+                return false;
+            }
+        }
+
+        if (++idx == uidx)
+            this->cp_len_++;
+
+        if (kind > this->kind_)
+            this->kind_ = kind;
+    }
+
+    this->len_ += wbuf - (this->buffer_ + this->len_);
     return true;
 }
 
@@ -768,6 +962,26 @@ ARGON_METHOD5(str_, trim,
     return StringNew((const char *) str->buffer + start, end - start);
 }
 
+ARGON_FUNCTION5(str_, unescape, "Unescapes any Argon literals found in the String."
+                                ""
+                                "- Parameter str: the string to unescape."
+                                "- Returns: new unescaped string.", 1, false) {
+    StringBuilder builder;
+    ArBuffer buffer = {};
+
+    if (!CheckArgs("B:str", func, argv, count))
+        return nullptr;
+
+    if (!BufferGet(argv[0], &buffer, ArBufferFlags::READ))
+        return nullptr;
+
+    builder.ParseEscaped(buffer.buffer, buffer.len);
+
+    BufferRelease(&buffer);
+
+    return builder.BuildString();
+}
+
 ARGON_METHOD5(str_, upper,
               "Return a copy of the string converted to uppercase."
               ""
@@ -807,6 +1021,7 @@ const NativeFunc str_methods[] = {
         str_split_,
         str_startswith_,
         str_trim_,
+        str_unescape_,
         str_upper_,
         ARGON_METHOD_SENTINEL
 };

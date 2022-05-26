@@ -53,10 +53,17 @@ namespace argon::object {
 
         static ArSize GetEscapedLength(const unsigned char *buffer, ArSize len, bool unicode);
 
+        static ArSize GetUnescapedLength(const unsigned char *buffer, ArSize len);
+
+        int HexToByte(const unsigned char *buffer, ArSize len);
+
+        int ProcessUnicodeEscape(unsigned char *wb, const unsigned char *buffer, ArSize len, bool extended);
     public:
         ~StringBuilder();
 
         bool BufferResize(ArSize sz);
+
+        bool ParseEscaped(const unsigned char *buffer, ArSize len);
 
         bool Write(const unsigned char *buffer, ArSize len, ArSize overalloc);
 
