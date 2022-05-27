@@ -184,7 +184,7 @@ Symbol *argon::lang::compiler::SymbolTableInsert(SymbolTable *symt, String *name
     bool inserted = false;
 
     if ((sym = (Symbol *) MapGetNoException(symt->map, name)) != nullptr) {
-        if (sym->kind != SymbolType::UNKNOWN) {
+        if (sym->kind != SymbolType::UNKNOWN && sym->declared) {
             ErrorFormat(type_compile_error_, "redeclaration of '%s %s' previously known as '%s %s'",
                         SymbolType2Name[(int) kind], name->buffer, SymbolType2Name[(int) sym->kind], name->buffer);
             Release((ArObject **) &sym);
@@ -198,11 +198,13 @@ Symbol *argon::lang::compiler::SymbolTableInsert(SymbolTable *symt, String *name
             return nullptr;
         }
 
-        sym->kind = kind;
-        sym->nested = symt->nested;
+        sym->name = IncRef(name);
 
         inserted = true;
     }
+
+    sym->kind = kind;
+    sym->nested = symt->nested;
 
     if (out_inserted != nullptr)
         *out_inserted = inserted;
@@ -231,6 +233,7 @@ Symbol *argon::lang::compiler::SymbolTableInsertNs(SymbolTable *symt, String *na
 
     st->nested = symt->nested + 1;
 
+    sym->name = IncRef(name);
     sym->declared = true;
     sym->symt = st;
 
