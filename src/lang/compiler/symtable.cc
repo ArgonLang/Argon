@@ -188,6 +188,7 @@ Symbol *argon::lang::compiler::SymbolTableInsert(SymbolTable *symt, String *name
             ErrorFormat(type_compile_error_, "redeclaration of '%s %s' previously known as '%s %s'",
                         SymbolType2Name[(int) kind], name->buffer, SymbolType2Name[(int) sym->kind], name->buffer);
             Release((ArObject **) &sym);
+            return nullptr;
         }
     } else {
         if ((sym = SymbolNew()) == nullptr)
