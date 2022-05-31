@@ -37,7 +37,7 @@ namespace argon::lang::compiler {
 
         bool CompileConstruct(argon::lang::parser::Construct *construct);
 
-        bool CompileDeclarations(argon::lang::parser::Unary *declist);
+        bool CompileDeclarations(argon::lang::parser::Assignment *assign);
 
         bool CompileExpression(argon::lang::parser::Node *expr);
 

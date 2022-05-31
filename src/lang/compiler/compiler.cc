@@ -38,43 +38,8 @@ bool Compiler::Compile_(Node *node) {
             return false;
 
         return this->Emit(OpCodes::POP, 0, nullptr);
-    } else if (AR_TYPEOF(node, type_ast_let_)) {
-        auto *variable = (Assignment *) node;
-        PropertyType flags = PropertyType::CONST;
-
-        if (variable->pub)
-            flags |= PropertyType::PUBLIC;
-
-        if (!this->CompileExpression((Unary *) variable->value))
-            return false;
-
-        if (!this->IdentifierNew((String *) variable->name, SymbolType::CONSTANT, flags, true))
-            return false;
-
-        return true;
-    } else if (AR_TYPEOF(node, type_ast_var_)) {
-        auto *variable = (Assignment *) node;
-        PropertyType flags{};
-
-        if (variable->pub)
-            flags |= PropertyType::PUBLIC;
-        if (variable->weak)
-            flags |= PropertyType::WEAK;
-
-        if (variable->value == nullptr) {
-            if (this->PushStatic(NilVal, true, true) < 0)
-                return false;
-        } else {
-            if (!this->CompileExpression((Unary *) variable->value))
-                return false;
-        }
-
-        if (!this->IdentifierNew((String *) variable->name, SymbolType::VARIABLE, flags, true))
-            return false;
-
-        return true;
-    } else if (AR_TYPEOF(node, type_ast_list_decl_))
-        return this->CompileDeclarations((Unary *) node);
+    } else if (AR_TYPEOF(node, type_ast_var_) || AR_TYPEOF(node, type_ast_list_decl_))
+        return this->CompileDeclarations((Assignment *) node);
     else if (AR_TYPEOF(node, type_ast_label_)) {
         auto *label = (Binary *) node;
 
@@ -141,21 +106,79 @@ bool Compiler::Compile_(Node *node) {
     return false;
 }
 
-bool Compiler::CompileDeclarations(Unary *declist) {
+bool Compiler::CompileDeclarations(Assignment *assign) {
+    PropertyType flags{};
+    SymbolType stype = SymbolType::VARIABLE;
+    Instr *iptr;
     ArObject *iter;
-    Assignment *decl;
-    bool ok = true;
+    Unary *id;
+    int count;
 
-    if ((iter = IteratorGet(declist->value)) == nullptr)
+    if (assign->constant) {
+        flags |= PropertyType::CONST;
+        stype = SymbolType::CONSTANT;
+    }
+    if (assign->pub)
+        flags |= PropertyType::PUBLIC;
+    if (!assign->constant && assign->weak)
+        flags |= PropertyType::WEAK;
+
+    if (!AR_TYPEOF(assign, type_ast_list_decl_)) {
+        if (assign->value == nullptr) {
+            if (assign->constant) {
+                ErrorFormat(type_compile_error_, "defining a constant requires a value");
+                return false;
+            }
+
+            if (this->PushStatic(NilVal, true, true) < 0)
+                return false;
+        } else {
+            if (!this->CompileExpression((Node *) assign->value))
+                return false;
+        }
+
+        return this->IdentifierNew((String *) assign->name, stype, flags, true);
+    }
+
+    if ((iter = IteratorGet(assign->name)) == nullptr)
         return false;
 
-    while (ok && (decl = (Assignment *) IteratorNext(iter)) != nullptr) {
-        ok = this->Compile_(decl);
-        Release(decl);
+    if (assign->value != nullptr) {
+        if (!this->CompileExpression((Node *) assign->value))
+            return false;
+
+        if (!this->Emit(OpCodes::UNPACK, 0, nullptr))
+            return false;
+
+        iptr = this->unit_->bb.cur->instr.tail;
+    }
+
+    count = 0;
+    while ((id = (Unary *) IteratorNext(iter)) != nullptr) {
+        if (assign->value == nullptr) {
+            if (this->PushStatic(NilVal, true, true) < 0) {
+                Release(id);
+                return false;
+            }
+        } else
+            TranslationUnitIncStack(this->unit_, 1);
+
+        if (!this->IdentifierNew((String *) id->value, stype, flags, true)) {
+            Release(id);
+            return false;
+        }
+
+        Release(id);
+        count++;
+    }
+
+    if (assign->value != nullptr) {
+        TranslationUnitIncStackRequired(this->unit_, (unsigned short) count);
+        InstrSetArg(iptr, count);
     }
 
     Release(iter);
-    return ok;
+    return true;
 }
 
 bool Compiler::CompileAssignment(Binary *assignment) {
@@ -177,7 +200,7 @@ bool Compiler::CompileAssignment(Binary *assignment) {
             return this->Emit(OpCodes::STSCOPE, idx, nullptr);
 
         return this->Emit(OpCodes::STATTR, idx, nullptr);
-    } else if (AR_TYPEOF(assignment->left, type_ast_subscript_) | AR_TYPEOF(assignment->left, type_ast_index_)) {
+    } else if (AR_TYPEOF(assignment->left, type_ast_subscript_) || AR_TYPEOF(assignment->left, type_ast_index_)) {
         if (!this->CompileSubscr((Subscript *) assignment->left, false, false))
             return false;
 
@@ -1925,15 +1948,13 @@ bool Compiler::IdentifierNew(String *name, SymbolType stype, PropertyType ptype,
 
     sym->declared = true;
 
-    if (stype == SymbolType::CONSTANT ||
-        this->unit_->scope == TUScope::TRAIT ||
-        this->unit_->scope == TUScope::STRUCT ||
-        sym->nested == 0) {
-        if (emit) {
-            if (!this->Emit(OpCodes::NGV, (unsigned char) ptype, !inserted ? sym->id : dest->len)) {
-                Release(sym);
-                return false;
-            }
+    if (stype == SymbolType::CONSTANT || this->unit_->scope == TUScope::TRAIT ||
+        this->unit_->scope == TUScope::STRUCT || sym->nested == 0) {
+        unsigned int id = !inserted ? sym->id : (unsigned int) dest->len;
+
+        if (emit && !this->Emit(OpCodes::NGV, (unsigned char) ptype, (unsigned short) id)) {
+            Release(sym);
+            return false;
         }
 
         if (!inserted) {
@@ -1942,11 +1963,9 @@ bool Compiler::IdentifierNew(String *name, SymbolType stype, PropertyType ptype,
         }
     } else {
         dest = this->unit_->locals;
-        if (emit) {
-            if (!this->Emit(OpCodes::STLC, (int) dest->len, nullptr)) {
-                Release(sym);
-                return false;
-            }
+        if (emit && !this->Emit(OpCodes::STLC, (int) dest->len, nullptr)) {
+            Release(sym);
+            return false;
         }
     }
 
@@ -1955,7 +1974,7 @@ bool Compiler::IdentifierNew(String *name, SymbolType stype, PropertyType ptype,
     else
         arname = IncRef(name);
 
-    sym->id = dest->len;
+    sym->id = (unsigned short) dest->len;
     Release(sym);
 
     if (!ListAppend(dest, arname)) {
@@ -2040,7 +2059,7 @@ Symbol *Compiler::IdentifierLookupOrCreate(String *name, SymbolType type) {
             sym->free = true;
         }
 
-        sym->id = dst->len;
+        sym->id = (unsigned int) dst->len;
 
         if (!ListAppend(dst, name)) {
             Release(sym);
@@ -2074,13 +2093,15 @@ Code *Compiler::Compile(File *node) {
 
     // Initialize SymbolTable
     if (this->symt == nullptr) {
-        if ((this->symt = SymbolTableNew(nullptr)) == nullptr)
+        this->symt = SymbolTableNew(nullptr);
+        if (this->symt == nullptr)
             return nullptr;
     }
 
     // Initialize global_statics
     if (this->statics_globals_ == nullptr) {
-        if ((this->statics_globals_ = MapNew()) == nullptr)
+        this->statics_globals_ = MapNew();
+        if (this->statics_globals_ == nullptr)
             return nullptr;
     }
 

@@ -10,10 +10,6 @@ using namespace argon::object;
 using namespace argon::lang::scanner;
 using namespace argon::lang::parser;
 
-bool node_is_true(ArObject *self) {
-    return true;
-}
-
 ArObject *unary_compare(Unary *self, ArObject *other, CompareMode mode) {
     return nullptr;
 }
@@ -89,7 +85,7 @@ const TypeInfo name##_ = {                                                  \
     (VoidUnaryOp)(dtor),                                                    \
     nullptr,                                                                \
     (CompareOp)(compare),                                                   \
-    node_is_true,                                                           \
+    TypeInfo_IsTrue_True,                                                   \
     nullptr,                                                                \
     (UnaryOp)(str),                                                         \
     nullptr,                                                                \
@@ -123,7 +119,6 @@ UNARY_NEW(Scope, "", argon::lang::parser::type_ast_scope_);
 UNARY_NEW(Map, "", argon::lang::parser::type_ast_map_);
 UNARY_NEW(Set, "", argon::lang::parser::type_ast_set_);
 UNARY_NEW(Expression, "", argon::lang::parser::type_ast_expression_);
-UNARY_NEW(DeclList, "", argon::lang::parser::type_ast_list_decl_);
 UNARY_NEW(Block, "", argon::lang::parser::type_ast_block_);
 UNARY_NEW(Return, "", argon::lang::parser::type_ast_ret_);
 UNARY_NEW(Yield, "", argon::lang::parser::type_ast_yield_);
@@ -140,11 +135,12 @@ BINARY_NEW(ImportName, "", argon::lang::parser::type_ast_import_name_);
 BINARY_NEW(SwitchCase, "", argon::lang::parser::type_ast_switch_case_);
 BINARY_NEW(Label, "", argon::lang::parser::type_ast_label_);
 
-NODE_GENERIC(LetDecl, "", sizeof(argon::lang::parser::Assignment), assignment_cleanup, nullptr, nullptr, nullptr,
-             argon::lang::parser::type_ast_let_);
 
 NODE_GENERIC(VarDecl, "", sizeof(argon::lang::parser::Assignment), assignment_cleanup, nullptr, nullptr, nullptr,
              argon::lang::parser::type_ast_var_);
+
+NODE_GENERIC(DecList, "", sizeof(argon::lang::parser::Assignment), assignment_cleanup, nullptr, nullptr, nullptr,
+             argon::lang::parser::type_ast_list_decl_);
 
 NODE_GENERIC(Update, "", sizeof(argon::lang::parser::UpdateIncDec), update_cleanup, nullptr, nullptr, nullptr,
              argon::lang::parser::type_ast_update_);
@@ -290,14 +286,10 @@ Subscript *argon::lang::parser::SubscriptNew(ArObject *left, bool slice) {
     return subscript;
 }
 
-Assignment *argon::lang::parser::AssignmentNew(scanner::Token &token, bool constant, bool pub, bool weak) {
+Assignment *argon::lang::parser::AssignmentNew(const scanner::Token &token, bool constant, bool pub, bool weak) {
     Assignment *assignment;
-    const TypeInfo *type = type_ast_var_;
 
-    if (constant)
-        type = type_ast_let_;
-
-    if ((assignment = ArObjectNew<Assignment>(RCType::INLINE, type)) != nullptr) {
+    if ((assignment = ArObjectNew<Assignment>(RCType::INLINE, type_ast_var_)) != nullptr) {
         assignment->start = token.start;
         assignment->end = token.end;
         assignment->colno = 0;
@@ -310,6 +302,7 @@ Assignment *argon::lang::parser::AssignmentNew(scanner::Token &token, bool const
 
         assignment->value = nullptr;
 
+        assignment->constant = constant;
         assignment->pub = pub;
         assignment->weak = !constant && weak;
     }
@@ -345,7 +338,7 @@ ImportDecl *argon::lang::parser::ImportNew(object::String *module, object::ArObj
         if (names != nullptr) {
             imp->star = false;
             if (AR_TYPEOF(names, type_list_)) {
-                auto *list = (List *) names;
+                const auto *list = (List *) names;
                 imp->end = ((Node *) list->objects[list->len - 1])->end;
             } else
                 imp->end = ((Node *) names)->end;

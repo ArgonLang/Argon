@@ -108,6 +108,8 @@ namespace argon::lang::compiler {
 
     void TranslationUnitIncStack(TranslationUnit *unit, unsigned short size);
 
+    void TranslationUnitIncStackRequired(TranslationUnit *unit, unsigned short size);
+
     void TranslationUnitJBPop(TranslationUnit *unit, const JBlock *block);
 }
 

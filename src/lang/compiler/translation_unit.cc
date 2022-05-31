@@ -268,6 +268,11 @@ void argon::lang::compiler::TranslationUnitIncStack(TranslationUnit *unit, unsig
         unit->stack.required = unit->stack.current;
 }
 
+void argon::lang::compiler::TranslationUnitIncStackRequired(TranslationUnit *unit, unsigned short size) {
+    if (unit->stack.current + size > unit->stack.required)
+        unit->stack.required = unit->stack.current + size;
+}
+
 void argon::lang::compiler::TranslationUnitJBPop(TranslationUnit *unit, const JBlock *block) {
     JBlock *tmp = unit->jstack;
 

@@ -64,6 +64,8 @@ namespace argon::lang::parser {
 
         [[nodiscard]] Node *Expression();
 
+        [[nodiscard]] Node *ParseMultiDecl(const scanner::Token &token);
+
         [[nodiscard]] Node *ParseVarDecl(bool constant, bool pub);
 
         [[nodiscard]] Node *ParseElvis(Node *left);

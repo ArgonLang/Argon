@@ -22,17 +22,16 @@ namespace argon::lang::parser {
         argon::lang::scanner::Pos lineno;
     };
 
-    // extern const object::TypeInfo *type_ast_node_;
-
     struct Assignment : Node {
+        bool constant;
         bool pub;
         bool weak;
 
         object::ArObject *name;
         object::ArObject *value;
     };
-    extern const object::TypeInfo *type_ast_let_;
     extern const object::TypeInfo *type_ast_var_;
+    extern const object::TypeInfo *type_ast_list_decl_;
 
     struct Unary : Node {
         object::ArObject *value;
@@ -48,7 +47,6 @@ namespace argon::lang::parser {
     extern const object::TypeInfo *type_ast_map_;
     extern const object::TypeInfo *type_ast_set_;
     extern const object::TypeInfo *type_ast_expression_;
-    extern const object::TypeInfo *type_ast_list_decl_;
     extern const object::TypeInfo *type_ast_block_;
     extern const object::TypeInfo *type_ast_ret_;
     extern const object::TypeInfo *type_ast_yield_;
@@ -141,7 +139,7 @@ namespace argon::lang::parser {
 
     Subscript *SubscriptNew(object::ArObject *left, bool slice);
 
-    Assignment *AssignmentNew(scanner::Token &token, bool constant, bool pub, bool weak);
+    Assignment *AssignmentNew(const scanner::Token &token, bool constant, bool pub, bool weak);
 
     Construct *FunctionNew(scanner::Pos start, scanner::Pos end, argon::object::String *name,
                            object::List *params, Node *block, bool pub);

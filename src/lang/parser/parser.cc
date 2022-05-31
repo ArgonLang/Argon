@@ -98,6 +98,28 @@ int PeekPrecedence(TokenType type) {
     }
 }
 
+Node *MakeIdentifier(const Token &token) {
+    auto *id = ArObjectNew<Unary>(RCType::INLINE, type_ast_identifier_);
+    String *str;
+
+    if (id == nullptr)
+        return nullptr;
+
+    if ((str = StringNew((const char *) token.buf)) == nullptr) {
+        Release(id);
+        return nullptr;
+    }
+
+    id->start = token.start;
+    id->end = token.end;
+    id->kind = token.type;
+    id->colno = 0;
+    id->lineno = 0;
+    id->value = str;
+
+    return id;
+}
+
 inline bool Parser::IsLiteral() {
     return this->TokenInRange(TokenType::NUMBER_BEGIN, TokenType::NUMBER_END)
            || this->TokenInRange(TokenType::STRING_BEGIN, TokenType::STRING_END)
@@ -593,14 +615,65 @@ Node *Parser::Expression() {
     return left;
 }
 
+Node *Parser::ParseMultiDecl(const Token &token) {
+    Assignment *multi;
+    Node *id;
+    List *ids;
+    Pos end;
+
+    if ((id = MakeIdentifier(token)) == nullptr)
+        return nullptr;
+
+    if ((ids = ListNew()) == nullptr) {
+        Release(id);
+        return nullptr;
+    }
+
+    if (!ListAppend(ids, id)) {
+        Release(id);
+        Release(ids);
+        return nullptr;
+    }
+
+    do {
+        if ((id = this->ParseIdentifier()) == nullptr) {
+            Release(ids);
+            return nullptr;
+        }
+
+        if (!ListAppend(ids, id)) {
+            Release(id);
+            Release(ids);
+            return nullptr;
+        }
+
+        Release(id);
+
+        end = this->tkcur_.end;
+    } while (this->MatchEat(TokenType::COMMA, true));
+
+    if ((multi = ArObjectNew<Assignment>(RCType::INLINE, type_ast_list_decl_)) == nullptr) {
+        Release(ids);
+        return nullptr;
+    }
+
+    multi->start = token.start;
+    multi->end = end;
+    multi->colno = 0;
+    multi->lineno = 0;
+    multi->name = ids;
+    multi->value = nullptr;
+
+    return multi;
+}
+
 Node *Parser::ParseVarDecl(bool constant, bool pub) {
     Assignment *assign = nullptr;
     Node *tmp = nullptr;
-    List *lets = nullptr;
     bool weak = false;
-    int index = 0;
+    bool multi = false;
+    Token tmp_tok;
     Pos start;
-    Pos end;
 
     if (!constant && this->MatchEat(TokenType::WEAK, false))
         weak = true;
@@ -608,96 +681,54 @@ Node *Parser::ParseVarDecl(bool constant, bool pub) {
     start = this->tkcur_.start;
     this->Eat();
 
-    do {
-        if (assign != nullptr) {
-            if (lets == nullptr && (lets = ListNew()) == nullptr) {
+    if (!this->Match(TokenType::IDENTIFIER)) {
+        ErrorFormat(type_syntax_error_, "expected identifier after %s keyword", constant ? "let" : "var");
+        return nullptr;
+    }
+
+    tmp_tok = std::move(this->tkcur_);
+
+    this->Eat();
+    if (!this->MatchEat(TokenType::COMMA, true)) {
+        if ((assign = AssignmentNew(tmp_tok, constant, pub, weak)) == nullptr)
+            return nullptr;
+    } else {
+        if ((assign = (Assignment *) this->ParseMultiDecl(tmp_tok)) == nullptr)
+            return nullptr;
+        multi = true;
+    }
+
+    assign->start = start;
+    assign->constant = constant;
+    assign->pub = pub;
+    assign->weak = weak;
+
+    if (this->MatchEat(TokenType::EQUAL, true)) {
+        if ((tmp = this->ParseExpr(EXPR_NO_ASSIGN)) == nullptr) {
+            Release(assign);
+            return nullptr;
+        }
+
+        assign->end = tmp->end;
+        assign->value = tmp;
+
+        if (multi && AR_TYPEOF(tmp, type_ast_tuple_)) {
+            const auto *ids = (List *) assign->name;
+            const auto *values = (List *) ((Unary *) tmp)->value;
+
+            if (values->len > ids->len) {
+                ErrorFormat(type_syntax_error_, "values to be assigned exceeded of: %d", values->len - ids->len);
                 Release(assign);
                 return nullptr;
             }
-
-            if (!ListAppend(lets, assign))
-                goto ERROR;
-
-            Release(assign);
-            assign = nullptr;
         }
-
-        if (!this->Match(TokenType::IDENTIFIER)) {
-            ErrorFormat(type_syntax_error_, "expected identifier after %s keyword", constant ? "let" : "var");
-            goto ERROR;
-        }
-
-        if ((assign = AssignmentNew(this->tkcur_, constant, pub, weak)) == nullptr)
-            goto ERROR;
-
-        end = this->tkcur_.end;
-        this->Eat();
-    } while (this->MatchEat(TokenType::COMMA, true));
-
-    if (lets != nullptr) {
-        if (!ListAppend(lets, assign))
-            goto ERROR;
-
+    } else if (constant) {
+        ErrorFormat(type_syntax_error_, "expected = after identifier/s in let declaration");
         Release(assign);
-        assign = nullptr;
+        return nullptr;
     }
 
-    if (this->MatchEat(TokenType::EQUAL, true)) {
-        do {
-            if ((tmp = this->ParseExpr(EXPR_NO_LIST)) == nullptr)
-                goto ERROR;
-
-            if (lets == nullptr) {
-                assign->start = start;
-                assign->end = tmp->end;
-                assign->value = tmp;
-                break;
-            }
-
-            if (index >= lets->len) {
-                ErrorFormat(type_syntax_error_, "values to be assigned exceeded of: %d", index - lets->len);
-                goto ERROR;
-            }
-
-            end = tmp->end;
-            ((Assignment *) lets->objects[index])->end = tmp->end;
-            ((Assignment *) lets->objects[index++])->value = tmp;
-        } while (this->MatchEat(TokenType::COMMA, true));
-
-        if (constant) {
-            if (lets != nullptr && index < lets->len && ((Assignment *) lets->objects[index])->value == nullptr) {
-                tmp = nullptr;
-                ErrorFormat(type_syntax_error_, "all constants declared must have a value. '%s' doesn't have one",
-                            ((Assignment *) lets->objects[index])->name);
-                goto ERROR;
-            }
-        }
-    } else {
-        if (constant) {
-            ErrorFormat(type_syntax_error_, "expected = after identifier/s in let declaration");
-            goto ERROR;
-        }
-    }
-
-    if (assign != nullptr)
-        return assign;
-
-    if ((tmp = ArObjectNew<Unary>(RCType::INLINE, type_ast_list_decl_)) == nullptr)
-        goto ERROR;
-
-    tmp->start = start;
-    tmp->end = end;
-    tmp->colno = 0;
-    tmp->lineno = 0;
-    ((Unary *) tmp)->value = lets;
-
-    return tmp;
-
-    ERROR:
-    Release(lets);
-    Release(assign);
-    Release(tmp);
-    return nullptr;
+    return assign;
 }
 
 Node *Parser::ParseElvis(Node *left) {
@@ -1052,24 +1083,11 @@ Node *Parser::FuncDecl(bool pub, bool nobody) {
 
 Node *Parser::ParseIdentifier() {
     Unary *id;
-    ArObject *str;
 
     if (!this->Match(TokenType::IDENTIFIER, TokenType::BLANK, TokenType::SELF))
         return (Node *) ErrorFormat(type_syntax_error_, "expected identifier");
 
-    if ((id = ArObjectNew<Unary>(RCType::INLINE, type_ast_identifier_)) != nullptr) {
-        if ((str = StringNew((const char *) this->tkcur_.buf)) == nullptr) {
-            Release(id);
-            return nullptr;
-        }
-
-        id->start = this->tkcur_.start;
-        id->end = this->tkcur_.end;
-        id->kind = this->tkcur_.type;
-        id->colno = 0;
-        id->lineno = 0;
-        id->value = str;
-    }
+    id = (Unary *) MakeIdentifier(this->tkcur_);
 
     this->Eat();
 
