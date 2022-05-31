@@ -11,10 +11,17 @@ from json::decoder import Decoder
 from json::encoder import Encoder
 
 pub func decode(json) {
-    var scanner = Scanner{Decoder{}}
-    var decode_tuple = scanner.scan(json, 0)
+    var scanner = Scanner::new(Decoder{})
 
-    return decode_tuple[0]
+    if type(json) != bytes {
+        if type(json) != string {
+            panic("json::decode expected string or bytes, not %s" % type(json))
+        }
+
+        json = bytes::new(json)
+    }
+
+    return scanner.scan(json, 0)[0]
 }
 
 pub func encode(obj) {
@@ -25,7 +32,7 @@ pub func encode(obj) {
 }
 
 pub func encode_compact(obj) {
-    var e = Encoder{(b",", b":"), false}
+    var e = Encoder::new((b",", b":"), false, 0)
     var buf = bytes::new()
     
     return e.encode(obj, buf).freeze()
@@ -35,15 +42,7 @@ pub func encode_raw(obj, separators, newlines, indent) {
     var buf
     var enc
 
-    if type(separators) != tuple {
-        panic(ValueError::new("separators must be a tuple not '%s'" % type(separators)))
-    }
-
-    if type(indent) != integer {
-        panic(ValueError::new("indent must be a integer not '%s'" % type(indent)))
-    }
-    
-    enc = Encoder{separators, newlines, indent}
+    enc = Encoder::new(separators, newlines, indent)
     buf = bytes::new()
     
     return enc.encode(obj, buf).freeze()

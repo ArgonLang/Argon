@@ -220,18 +220,36 @@ ARGON_METHOD5(file_, readinto, "Read bytes into a pre-allocated, writable bytes-
 
 ARGON_METHOD5(file_, readline, "Read and return a single line from file."
                                ""
-                               "- Returns: (bytes, err)", 0, false) {
+                               "- Parameter size: maximum number of bytes to read from the stream."
+                               "- Returns: (bytes, err)", 1, false) {
     auto *file = (File *) self;
-    unsigned char *buf = nullptr;
+    const auto *arint = (Integer *) argv[0];
+    unsigned char *buffer;
     Bytes *bytes;
-
+    ArSSize cap;
     ArSSize len;
 
-    if ((len = ReadLine(file, &buf, 0)) < 0)
-        return ARGON_OBJECT_TUPLE_ERROR(argon::vm::GetLastNonFatalError());
+    if (!CheckArgs("i:size", func, argv, count))
+        return nullptr;
 
-    if ((bytes = BytesNewHoldBuffer(buf, len, len, true)) == nullptr) {
-        argon::memory::Free(buf);
+    cap = arint->integer;
+
+    if (arint->integer == 0)
+        return ARGON_OBJECT_TUPLE_SUCCESS(BytesNew(0, true, false, true));
+
+    if (arint->integer < 0)
+        cap = ARGON_OBJECT_IO_DEFAULT_BUFFERED_CAP;
+
+    if ((buffer = ArObjectNewRaw<unsigned char *>(cap)) == nullptr)
+        return nullptr;
+
+    if ((len = ReadLine(file, &buffer, cap)) < 0) {
+        argon::memory::Free(buffer);
+        return ARGON_OBJECT_TUPLE_ERROR(argon::vm::GetLastNonFatalError());
+    }
+
+    if ((bytes = BytesNewHoldBuffer(buffer, len, len, true)) == nullptr) {
+        argon::memory::Free(buffer);
 
         if (IsSeekable(file))
             Seek(file, -len, FileWhence::CUR);
@@ -802,195 +820,81 @@ ArSSize argon::object::io::Read(File *file, unsigned char *buf, ArSize count) {
     return read_os_wrap(file, buf, count);
 }
 
-ArSSize ReadLineSeekable(File *file, unsigned char **buf, ArSize buf_len) {
-    unsigned char *tmp_buf;
-    unsigned char *cursor;
-    unsigned char *nl_ptr;
-    ArSize start_pos = Tell(file);
-    ArSize total = 0;
-    ArSSize err = 0;
-    bool allocate = false;
-
-    do {
-        if (*buf == nullptr || allocate) {
-            buf_len = allocate ? (buf_len + 1) + ARGON_OBJECT_IO_DEFAULT_READLINE_BUFSIZE_INC :
-                      ARGON_OBJECT_IO_DEFAULT_READLINE_BUFSIZE;
-
-            allocate = true;
-
-            if ((tmp_buf = (unsigned char *) argon::memory::Realloc(*buf, buf_len)) == nullptr) {
-                argon::vm::Panic(error_out_of_memory);
-                SeekNB(file, (ArSSize) start_pos, FileWhence::START);
-                goto ERROR;
-            }
-
-            *buf = tmp_buf;
-
-            // leave space for NULL
-            buf_len--;
-        }
-
-        cursor = *buf + total;
-
-        if ((err = read_os_wrap(file, cursor, buf_len - total)) < 0)
-            goto ERROR;
-
-        if (err > 0) {
-            total += err;
-
-            if ((nl_ptr = (unsigned char *) argon::memory::MemoryFind(cursor, '\n', err)) != nullptr) {
-                total = nl_ptr - *buf;
-
-                if (!SeekNB(file, (ArSSize) (start_pos + total), FileWhence::START))
-                    goto ERROR;
-
-                break;
-            }
-
-            cursor += err;
-        }
-    } while (allocate && cursor - *buf == buf_len);
-
-    if (allocate) {
-        if ((tmp_buf = (unsigned char *) argon::memory::Realloc(*buf, total)) == nullptr)
-            goto ERROR;
-
-        *buf = tmp_buf;
-    }
-
-    return (ArSSize) total;
-
-    ERROR:
-    if (allocate) {
-        argon::memory::Free(*buf);
-        *buf = nullptr;
-    }
-
-    return err >= 0 ? -1 : err;
-}
-
-ArSSize ReadLineSlow(File *file, unsigned char **buf, ArSize buf_len) {
-    unsigned char *cursor = *buf;
-    unsigned char *tmp_buf;
-    ArSize total = 0;
-    ArSSize err = 0;
-
-    bool allocate = false;
-
-    while (buf_len != 0 || allocate && err > 0) {
-        if (*buf == nullptr || allocate && buf_len == 0) {
-            buf_len = allocate ? (total + 1) + ARGON_OBJECT_IO_DEFAULT_READLINE_BUFSIZE_INC :
-                      ARGON_OBJECT_IO_DEFAULT_READLINE_BUFSIZE;
-
-            allocate = true;
-
-            if ((tmp_buf = (unsigned char *) argon::memory::Realloc(*buf, buf_len)) == nullptr) {
-                argon::vm::Panic(error_out_of_memory);
-                goto ERROR;
-            }
-
-            *buf = tmp_buf;
-            cursor = tmp_buf + total;
-
-            // leave space for NULL
-            buf_len--;
-        }
-
-        if ((err = read_os_wrap(file, cursor, 1)) < 0)
-            goto ERROR;
-
-        if (err > 0) {
-            buf_len--;
-            total++;
-
-            if (*cursor == '\n')
-                break;
-
-            cursor++;
-        }
-    }
-
-    if (allocate) {
-        if ((tmp_buf = (unsigned char *) argon::memory::Realloc(*buf, total)) == nullptr)
-            goto ERROR;
-
-        *buf = tmp_buf;
-    }
-
-    return cursor - *buf;
-
-    ERROR:
-    if (allocate) {
-        argon::memory::Free(*buf);
-        *buf = nullptr;
-    }
-
-    return err >= 0 ? -1 : err;
-}
-
-ArSSize argon::object::io::ReadLine(File *file, unsigned char **buf, ArSize buf_len) {
+ArSSize argon::object::io::ReadLine(File *file, unsigned char **buf, ArSSize buf_len) {
     unsigned char *line = *buf;
-    unsigned char *idx;
-
+    unsigned char *tmp;
     ArSize allocated = 1;
-    ArSize n = 0;
-    ArSize len;
+    ArSize total = 0;
+    ArSize rlen;
+    ArSSize next;
 
-    bool found = false;
-
-    if (*buf != nullptr && buf_len == 0)
-        return 0;
+    bool checknl = false;
 
     if (file->buffer.mode == FileBufferMode::NONE) {
-        if (IsSeekable(file))
-            return ReadLineSeekable(file, buf, buf_len);
-
-        return ReadLineSlow(file, buf, buf_len);
+        ErrorFormat(type_io_error_, "file::readline unsupported in unbuffered mode, try using BufferedReader");
+        return -1;
     }
 
-    while (n < buf_len - 1 && !found) {
-        if (FillBuffer(file) < 0)
-            goto error;
+    if (buf_len == 0 || (buf_len < 0 && *buf != nullptr))
+        return 0;
 
-        if ((len = file->buffer.buf + file->buffer.len - file->buffer.cur) == 0)
-            break;
-
-        if (buf_len > 0 && len > (buf_len - 1) - n)
-            len = (buf_len - 1) - n;
-
-        if ((idx = (unsigned char *) argon::memory::MemoryFind(file->buffer.cur, '\n', len)) != nullptr) {
-            len = idx - file->buffer.cur;
-            found = true;
+    while (buf_len > 0 || *buf == nullptr) {
+        if (FillBuffer(file) < 0) {
+            if (*buf == nullptr)
+                memory::Free(line);
+            return -1;
         }
+
+        rlen = (file->buffer.buf + file->buffer.len) - file->buffer.cur;
+
+        if (checknl) {
+            if (*file->buffer.cur == '\n')
+                file->buffer.cur++;
+            break;
+        }
+
+        if (rlen == 0)
+            return (ArSSize) total;
+
+        if (buf_len > 0 && rlen > buf_len)
+            rlen = buf_len;
+
+        next = argon::object::support::FindNewLine(file->buffer.cur, &rlen);
 
         if (*buf == nullptr) {
-            allocated += n + len;
-            if ((idx = (unsigned char *) argon::memory::Realloc(line, allocated)) == nullptr) {
-                argon::vm::Panic(error_out_of_memory);
-                goto error;
+            allocated += total + rlen;
+            if ((tmp = ArObjectRealloc<unsigned char *>(line, allocated)) == nullptr) {
+                if (*buf == nullptr)
+                    memory::Free(line);
+                return -1;
             }
-            line = idx;
+            line = tmp;
         }
 
-        argon::memory::MemoryCopy(line + n, file->buffer.cur, len);
-        n += len;
+        if (next > 0) {
+            argon::memory::MemoryCopy(line + total, file->buffer.cur, rlen);
+            file->buffer.cur += next;
+            total += rlen;
 
-        if (found)
-            len++;
+            if (*(file->buffer.cur - 1) == '\r') {
+                // Check again in case of \r\total at the edge of buffer
+                checknl = true;
+                continue;
+            }
 
-        file->buffer.cur += len;
+            break;
+        }
+
+        argon::memory::MemoryCopy(line + total, file->buffer.cur, rlen);
+        file->buffer.cur += rlen;
+        buf_len -= (ArSSize) rlen;
+        total += rlen;
     }
 
     if (*buf == nullptr)
         *buf = line;
 
-    return (ArSSize) n;
-
-    error:
-    if (*buf == nullptr)
-        memory::Free(line);
-
-    return -1;
+    return (ArSSize) total;
 }
 
 ArSize argon::object::io::Tell(File *file) {

@@ -217,7 +217,7 @@ bool decimal_is_true(Decimal *self) {
 
 ArObject *decimal_compare(Decimal *self, ArObject *other, CompareMode mode) {
     DecimalUnderlying l = self->decimal;
-    DecimalUnderlying r;
+    DecimalUnderlying r = .0;
 
     IntegerUnderlying integer;
 
@@ -272,7 +272,7 @@ ArObject *decimal_compare(Decimal *self, ArObject *other, CompareMode mode) {
                     }
                 }
             }
-        } else r = .0;
+        }
     }
 
     ARGON_RICH_COMPARE_CASES(l, r, mode);

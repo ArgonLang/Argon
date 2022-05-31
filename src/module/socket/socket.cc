@@ -1153,7 +1153,7 @@ void socket_cleanup(Socket *self) {
 
 const TypeInfo SocketType = {
         TYPEINFO_STATIC_INIT,
-        "socket",
+        "Socket",
         nullptr,
         sizeof(Socket),
         TypeInfoFlags::BASE,

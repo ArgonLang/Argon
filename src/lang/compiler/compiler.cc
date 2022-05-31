@@ -260,13 +260,13 @@ bool Compiler::CompileAugAssignment(Binary *assignment) {
             return this->Emit(OpCodes::STSCOPE, idx, nullptr);
 
         return this->Emit(OpCodes::STATTR, idx, nullptr);
-    } else if (AR_TYPEOF(assignment->left, type_ast_subscript_)) {
+    } else if (AR_TYPEOF(assignment->left, type_ast_index_)) {
         if (!this->CompileSubscr((Subscript *) assignment->left, true, true))
             return false;
 
         COMPILE_OP();
 
-        if (!this->Emit(OpCodes::PB_HEAD, 3, nullptr))
+        if (!this->Emit(OpCodes::PB_HEAD, 2, nullptr))
             return false;
 
         return this->Emit(OpCodes::STSUBSCR, 0, nullptr);

@@ -52,7 +52,7 @@ Tuple *ParseCMDArgs(int argc, char **argv) {
     return args;
 }
 
-bool InitFD(Module *module) {
+bool InitFD(Module *self) {
     io::File *in;
     io::File *out;
     io::File *err = nullptr;
@@ -74,23 +74,23 @@ bool InitFD(Module *module) {
         io::SetBuffer(out, nullptr, 0, io::FileBufferMode::NONE);
 
     // FDs backup
-    if (!ModuleAddProperty(module, "__stdin", in, MODULE_ATTRIBUTE_PUB_CONST))
+    if (!ModuleAddProperty(self, "__stdin", in, MODULE_ATTRIBUTE_PUB_CONST))
         goto ERROR;
 
-    if (!ModuleAddProperty(module, "__stdout", out, MODULE_ATTRIBUTE_PUB_CONST))
+    if (!ModuleAddProperty(self, "__stdout", out, MODULE_ATTRIBUTE_PUB_CONST))
         goto ERROR;
 
-    if (!ModuleAddProperty(module, "__stderr", err, MODULE_ATTRIBUTE_PUB_CONST))
+    if (!ModuleAddProperty(self, "__stderr", err, MODULE_ATTRIBUTE_PUB_CONST))
         goto ERROR;
 
     // FDs
-    if (!ModuleAddProperty(module, "stdin", in, PropertyType::PUBLIC))
+    if (!ModuleAddProperty(self, "stdin", in, PropertyType::PUBLIC))
         goto ERROR;
 
-    if (!ModuleAddProperty(module, "stdout", out, PropertyType::PUBLIC))
+    if (!ModuleAddProperty(self, "stdout", out, PropertyType::PUBLIC))
         goto ERROR;
 
-    if (!ModuleAddProperty(module, "stderr", err, PropertyType::PUBLIC))
+    if (!ModuleAddProperty(self, "stderr", err, PropertyType::PUBLIC))
         goto ERROR;
 
     ok = true;
@@ -102,11 +102,11 @@ bool InitFD(Module *module) {
     return ok;
 }
 
-bool SetAbout(Module *module) {
+bool SetAbout(Module *self) {
 #define ADD_INFO(macro, key)                                                \
     if ((tmp = StringNew(macro)) == nullptr)                                \
         return false;                                                       \
-    if (!ModuleAddProperty(module, key, tmp, MODULE_ATTRIBUTE_PUB_CONST))   \
+    if (!ModuleAddProperty(self, key, tmp, MODULE_ATTRIBUTE_PUB_CONST))   \
         goto ERROR;                                                         \
     Release(tmp)
 
@@ -120,7 +120,7 @@ bool SetAbout(Module *module) {
     if ((tmp = IntegerNew(AR_MAJOR)) == nullptr)
         goto ERROR;
 
-    if (!ModuleAddProperty(module, "version_major", tmp, MODULE_ATTRIBUTE_PUB_CONST))
+    if (!ModuleAddProperty(self, "version_major", tmp, MODULE_ATTRIBUTE_PUB_CONST))
         goto ERROR;
 
     Release(tmp);
@@ -128,7 +128,7 @@ bool SetAbout(Module *module) {
     if ((tmp = IntegerNew(AR_MINOR)) == nullptr)
         goto ERROR;
 
-    if (!ModuleAddProperty(module, "version_minor", tmp, MODULE_ATTRIBUTE_PUB_CONST))
+    if (!ModuleAddProperty(self, "version_minor", tmp, MODULE_ATTRIBUTE_PUB_CONST))
         goto ERROR;
 
     Release(tmp);
@@ -136,7 +136,7 @@ bool SetAbout(Module *module) {
     if ((tmp = IntegerNew(AR_PATCH)) == nullptr)
         goto ERROR;
 
-    if (!ModuleAddProperty(module, "version_patch", tmp, MODULE_ATTRIBUTE_PUB_CONST))
+    if (!ModuleAddProperty(self, "version_patch", tmp, MODULE_ATTRIBUTE_PUB_CONST))
         goto ERROR;
 
     Release(tmp);
@@ -150,13 +150,13 @@ bool SetAbout(Module *module) {
 #undef ADD_INFO
 }
 
-bool SetArgs(Module *module) {
+bool SetArgs(Module *self) {
     Tuple *args;
 
     if ((args = ParseCMDArgs(global_cfg->argc, global_cfg->argv)) == nullptr)
         return false;
 
-    if (!ModuleAddProperty(module, "args", args, PropertyType::PUBLIC)) {
+    if (!ModuleAddProperty(self, "args", args, PropertyType::PUBLIC)) {
         Release(args);
         return false;
     }
@@ -165,7 +165,7 @@ bool SetArgs(Module *module) {
     return true;
 }
 
-bool SetExecutable(Module *module) {
+bool SetExecutable(Module *self) {
     unsigned long size = 1024;
     String *path;
     char *path_buf;
@@ -192,20 +192,20 @@ bool SetExecutable(Module *module) {
 
     size = 0;
     if (path != nullptr) {
-        size = ModuleAddProperty(module, "executable", path, MODULE_ATTRIBUTE_PUB_CONST);
+        size = ModuleAddProperty(self, "executable", path, MODULE_ATTRIBUTE_PUB_CONST);
         Release(path);
     }
 
     return size;
 }
 
-bool SetOsName(Module *module) {
+bool SetOsName(Module *self) {
     String *name;
 
     if ((name = StringIntern(_ARGON_PLATFORM_NAME)) == nullptr)
         return false;
 
-    if (!ModuleAddProperty(module, "os", name, MODULE_ATTRIBUTE_PUB_CONST)) {
+    if (!ModuleAddProperty(self, "os", name, MODULE_ATTRIBUTE_PUB_CONST)) {
         Release(name);
         return false;
     }
@@ -214,7 +214,7 @@ bool SetOsName(Module *module) {
     return true;
 }
 
-bool SetPS(Module *module) {
+bool SetPS(Module *self) {
     bool ok = false;
     String *ps1;
     String *ps2;
@@ -225,10 +225,10 @@ bool SetPS(Module *module) {
     if ((ps2 = StringIntern("... ")) == nullptr)
         goto ERROR;
 
-    if (!ModuleAddProperty(module, "ps1", ps1, PropertyType::PUBLIC))
+    if (!ModuleAddProperty(self, "ps1", ps1, PropertyType::PUBLIC))
         goto ERROR;
 
-    if (!ModuleAddProperty(module, "ps2", ps2, PropertyType::PUBLIC))
+    if (!ModuleAddProperty(self, "ps2", ps2, PropertyType::PUBLIC))
         goto ERROR;
 
     ok = true;
@@ -239,23 +239,23 @@ bool SetPS(Module *module) {
     return ok;
 }
 
-bool runtime_init(Module *module) {
-    if (!InitFD(module))
+bool runtime_init(Module *self) {
+    if (!InitFD(self))
         return false;
 
-    if (!SetOsName(module))
+    if (!SetOsName(self))
         return false;
 
-    if (!SetPS(module))
+    if (!SetPS(self))
         return false;
 
-    if (!SetAbout(module))
+    if (!SetAbout(self))
         return false;
 
-    if (!SetArgs(module))
+    if (!SetArgs(self))
         return false;
 
-    if (!SetExecutable(module))
+    if (!SetExecutable(self))
         return false;
 
     return true;
@@ -282,12 +282,12 @@ ARGON_FUNCTION5(runtime_, sleep, "Suspend execution of the calling ArRoutine for
                                  ""
                                  "- Parameter sec: amount of time in seconds."
                                  "- Returns: nil", 1, false) {
-    auto *integer = (Integer *) argv[0];
+    const auto *integer = (Integer *) argv[0];
 
     if (!AR_TYPEOF(argv[0], type_integer_))
         return ErrorFormat(type_type_error_, "sleep expected sec as integer, got: %s", AR_TYPE_NAME(argv[0]));
 
-    argon::vm::Sleep(integer->integer);
+    argon::vm::Sleep((unsigned int) integer->integer);
 
     return IncRef(NilVal);
 }
@@ -296,17 +296,17 @@ ARGON_FUNCTION5(runtime_, usleep, "Suspend execution of the calling ArRoutine fo
                                   ""
                                   "- Parameter usec: amount of time in micro-seconds."
                                   "- Returns: nil", 1, false) {
-    auto *integer = (Integer *) argv[0];
+    const auto *integer = (Integer *) argv[0];
 
     if (!AR_TYPEOF(argv[0], type_integer_))
         return ErrorFormat(type_type_error_, "usleep expected usec as integer, got: %s", AR_TYPE_NAME(argv[0]));
 
-    argon::vm::USleep(integer->integer);
+    argon::vm::USleep((unsigned int) integer->integer);
 
     return IncRef(NilVal);
 }
 
-ARGON_FUNCTION5(runtime_, yield, "Give another ArRoutine a chance to run on this thread."
+ARGON_FUNCTION5(runtime_, sched, "Give another ArRoutine a chance to run on this thread."
                                  ""
                                  "If this ArRoutine cannot be suspended and rescheduled, "
                                  "an operating system this_thread::yield call will be invoked."
@@ -321,7 +321,7 @@ const PropertyBulk runtime_bulk[] = {
         MODULE_EXPORT_FUNCTION(runtime_lockthread_),
         MODULE_EXPORT_FUNCTION(runtime_sleep_),
         MODULE_EXPORT_FUNCTION(runtime_usleep_),
-        MODULE_EXPORT_FUNCTION(runtime_yield_),
+        MODULE_EXPORT_FUNCTION(runtime_sched_),
         MODULE_EXPORT_SENTINEL
 };
 

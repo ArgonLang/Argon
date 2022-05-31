@@ -59,13 +59,17 @@ ArObject *match_str(const Match *self) {
     return ret;
 }
 
+bool match_is_true(Match *self) {
+    return self->start < self->end;
+}
+
 void match_cleanup(Match *self) {
     Release(self->match);
 }
 
 const TypeInfo REMatchType = {
         TYPEINFO_STATIC_INIT,
-        "match",
+        "Match",
         nullptr,
         sizeof(Match),
         TypeInfoFlags::BASE,
@@ -73,7 +77,7 @@ const TypeInfo REMatchType = {
         (VoidUnaryOp) match_cleanup,
         nullptr,
         (CompareOp) match_compare,
-        TypeInfo_IsTrue_True,
+        (BoolUnaryOp) match_is_true,
         nullptr,
         nullptr,
         (UnaryOp) match_str,
@@ -482,7 +486,7 @@ void pattern_cleanup(Pattern *self) {
 
 const TypeInfo REPatternType = {
         TYPEINFO_STATIC_INIT,
-        "pattern",
+        "Pattern",
         nullptr,
         sizeof(Pattern),
         TypeInfoFlags::BASE,
@@ -539,9 +543,9 @@ ARGON_FUNCTION5(regex_, compile, "Compile a regular expression pattern into a Pa
 }
 
 const PropertyBulk regex_bulk[] = {
-        MODULE_EXPORT_TYPE_ALIAS("match", type_re_match_),
-        MODULE_EXPORT_TYPE_ALIAS("pattern", type_re_pattern_),
-        MODULE_EXPORT_TYPE_ALIAS("regex_iterator", type_re_iterator_),
+        MODULE_EXPORT_TYPE(type_re_match_),
+        MODULE_EXPORT_TYPE(type_re_pattern_),
+        MODULE_EXPORT_TYPE(type_re_iterator_),
         MODULE_EXPORT_FUNCTION(regex_compile_),
         MODULE_EXPORT_SENTINEL
 };

@@ -154,35 +154,34 @@ ARGON_FUNCTION(input,
                ""
                "- Parameter prompt: string representing a default message before the input."
                "- Returns: string containing user input.", 1, false) {
+    StringBuilder builder;
     auto in = (io::File *) argon::vm::ContextRuntimeGetProperty("stdin", io::type_file_);
     auto out = (io::File *) argon::vm::ContextRuntimeGetProperty("stdout", io::type_file_);
     unsigned char *line = nullptr;
-    ArObject *str = nullptr;
     ArSSize len;
 
     if (in == nullptr || out == nullptr)
-        goto error;
+        goto ERROR;
 
-    if ((str = ToString(argv[0])) == nullptr)
-        goto error;
-
-    if (io::WriteObject(out, str) < 0)
-        goto error;
+    if (io::WriteObjectStr(out, argv[0]) < 0)
+        goto ERROR;
 
     io::Flush(out);
-    Release(str);
     Release(out);
 
-    if ((len = io::ReadLine(in, &line, 0)) < 0)
-        goto error;
+    if ((len = io::ReadLine(in, &line, -1)) < 0)
+        goto ERROR;
 
     Release(in);
-    return StringNewHoldBuffer(line, len);
 
-    error:
+    builder.Write(line, len, 0);
+    argon::memory::Free(line);
+
+    return builder.BuildString();
+
+    ERROR:
     Release(in);
     Release(out);
-    Release(str);
     return nullptr;
 }
 
@@ -431,23 +430,23 @@ ARGON_FUNCTION(println,
 }
 
 const PropertyBulk builtins_bulk[] = {
-        MODULE_EXPORT_TYPE_ALIAS("atom", type_atom_),
-        MODULE_EXPORT_TYPE_ALIAS("bool", type_bool_),
-        MODULE_EXPORT_TYPE_ALIAS("bounds", type_bounds_),
-        MODULE_EXPORT_TYPE_ALIAS("bytes", type_bytes_),
-        MODULE_EXPORT_TYPE_ALIAS("code", type_code_),
-        MODULE_EXPORT_TYPE_ALIAS("decimal", type_decimal_),
-        MODULE_EXPORT_TYPE_ALIAS("function", type_function_),
-        MODULE_EXPORT_TYPE_ALIAS("integer", type_integer_),
-        MODULE_EXPORT_TYPE_ALIAS("list", type_list_),
-        MODULE_EXPORT_TYPE_ALIAS("map", type_map_),
-        MODULE_EXPORT_TYPE_ALIAS("module", type_module_),
-        MODULE_EXPORT_TYPE_ALIAS("namespace", type_namespace_),
+        MODULE_EXPORT_TYPE(type_atom_),
+        MODULE_EXPORT_TYPE(type_bool_),
+        MODULE_EXPORT_TYPE(type_bounds_),
+        MODULE_EXPORT_TYPE(type_bytes_),
+        MODULE_EXPORT_TYPE(type_code_),
+        MODULE_EXPORT_TYPE(type_decimal_),
+        MODULE_EXPORT_TYPE(type_function_),
+        MODULE_EXPORT_TYPE(type_integer_),
+        MODULE_EXPORT_TYPE(type_list_),
+        MODULE_EXPORT_TYPE(type_map_),
+        MODULE_EXPORT_TYPE(type_module_),
+        MODULE_EXPORT_TYPE(type_namespace_),
         MODULE_EXPORT_TYPE_ALIAS("niltype", type_nil_),
-        MODULE_EXPORT_TYPE_ALIAS("option", type_option_),
-        MODULE_EXPORT_TYPE_ALIAS("set", type_set_),
-        MODULE_EXPORT_TYPE_ALIAS("string", type_string_),
-        MODULE_EXPORT_TYPE_ALIAS("tuple", type_tuple_),
+        MODULE_EXPORT_TYPE(type_option_),
+        MODULE_EXPORT_TYPE(type_set_),
+        MODULE_EXPORT_TYPE(type_string_),
+        MODULE_EXPORT_TYPE(type_tuple_),
 
         // Functions
         MODULE_EXPORT_FUNCTION(bind_),

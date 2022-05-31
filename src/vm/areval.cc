@@ -340,7 +340,7 @@ else                                            \
 #define BINARY_OP(routine, op, opchar)                                                          \
     if ((ret = Binary(routine, PEEK1(), TOP(), offsetof(OpSlots, op))) == nullptr) {            \
         if (!RoutineIsPanicking(routine)) {                                                     \
-            ErrorFormat(type_type_error_, "unsupported operand type '%s' for: '%s' and '%s'",   \
+            ErrorFormat(type_type_error_, "unsupported operand '%s' for: '%s' and '%s'",        \
             #opchar, PEEK1()->type->name, TOP()->type->name);                                   \
         }                                                                                       \
         goto ERROR;                                                                             \
@@ -349,11 +349,15 @@ else                                            \
     TOP_REPLACE(ret);                                                                           \
     DISPATCH()
 
-#define UNARY_OP(op)                                \
-    ret = TOP();                                    \
-    if((ret = ret->type->ops->op(ret)) == nullptr)  \
-        goto ERROR;                                 \
-    TOP_REPLACE(ret);                               \
+#define UNARY_OP(op, opchar)                                                                                    \
+    ret = TOP();                                                                                                \
+    if(AR_GET_TYPE(ret)->ops->op == nullptr) {                                                                  \
+        ErrorFormat(type_type_error_, "unsupported operand '%s' for type '%s'", #opchar, AR_TYPE_NAME(ret));    \
+        goto ERROR;                                                                                             \
+    }                                                                                                           \
+    if((ret = AR_GET_TYPE(ret)->ops->op(ret)) == nullptr)                                                       \
+        goto ERROR;                                                                                             \
+    TOP_REPLACE(ret);                                                                                           \
     DISPATCH()
 
     // FUNCTION START
@@ -412,7 +416,7 @@ else                                            \
             }
             TARGET_OP(DEC)
             {
-                UNARY_OP(dec);
+                UNARY_OP(dec, --);
             }
             TARGET_OP(DFR)
             {
@@ -516,7 +520,7 @@ else                                            \
             }
             TARGET_OP(INC)
             {
-                UNARY_OP(inc);
+                UNARY_OP(inc, ++);
             }
             TARGET_OP(INIT)
             {
@@ -532,7 +536,7 @@ else                                            \
             }
             TARGET_OP(INV)
             {
-                UNARY_OP(invert);
+                UNARY_OP(invert, ~);
             }
             TARGET_OP(IPADD)
             {
@@ -889,7 +893,7 @@ else                                            \
             }
             TARGET_OP(NEG)
             {
-                UNARY_OP(neg);
+                UNARY_OP(neg, -);
             }
             TARGET_OP(NJE)
             {
@@ -935,7 +939,7 @@ else                                            \
             }
             TARGET_OP(POS)
             {
-                UNARY_OP(pos);
+                UNARY_OP(pos, +);
             }
             TARGET_OP(PB_HEAD)
             {

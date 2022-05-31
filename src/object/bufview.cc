@@ -47,6 +47,7 @@ bool ViewEnlargeNew(BufferView *view, ArSize count) {
 
     MemoryCopy(tmp->buffer, view->buffer, view->len);
     view->buffer = tmp->buffer;
+    view->base = tmp->buffer;
 
     SharedBufferRelease(view->shared);
     view->shared = tmp;
@@ -55,17 +56,15 @@ bool ViewEnlargeNew(BufferView *view, ArSize count) {
 }
 
 bool argon::object::BufferViewEnlarge(BufferView *view, ArSize count) {
-    unsigned char *tmp;
     ArSize cap = count > 1 ? view->shared->cap + count : (view->shared->cap + 1) + ((view->shared->cap + 1) / 2);
+    unsigned char *tmp;
 
     if (!view->shared->IsWritable())
         return ViewEnlargeNew(view, count);
 
     // IsSlice
-    if (view->shared->buffer != view->buffer) {
+    if (view->shared->buffer != view->buffer)
         MemoryCopy(view->shared->buffer, view->buffer, view->len);
-        view->buffer = view->shared->buffer;
-    }
 
     if (view->len + count >= view->shared->cap) {
         if ((tmp = (unsigned char *) Realloc(view->shared->buffer, cap)) == nullptr)
@@ -73,8 +72,10 @@ bool argon::object::BufferViewEnlarge(BufferView *view, ArSize count) {
 
         view->shared->buffer = tmp;
         view->shared->cap = cap;
-        view->buffer = view->shared->buffer;
     }
+
+    view->buffer = view->shared->buffer;
+    view->base = view->shared->buffer;
 
     return true;
 }
@@ -84,6 +85,7 @@ bool argon::object::BufferViewInit(BufferView *view, ArSize capacity) {
         return false;
 
     view->buffer = view->shared->buffer;
+    view->base = view->buffer;
     view->len = 0;
 
     return true;
@@ -97,6 +99,7 @@ bool argon::object::BufferViewHoldBuffer(BufferView *view, unsigned char *buffer
     view->shared->cap = cap;
 
     view->buffer = buffer;
+    view->base = buffer;
     view->len = len;
 
     return true;
@@ -105,6 +108,7 @@ bool argon::object::BufferViewHoldBuffer(BufferView *view, unsigned char *buffer
 void argon::object::BufferViewDetach(BufferView *view) {
     SharedBufferRelease(view->shared);
     view->buffer = nullptr;
+    view->base = nullptr;
     view->len = 0;
 }
 
@@ -112,5 +116,25 @@ void argon::object::BufferViewInit(BufferView *dst, BufferView *src, ArSize star
     src->shared->Increment();
     dst->shared = src->shared;
     dst->buffer = src->buffer + start;
+    dst->base = dst->buffer;
     dst->len = len;
+}
+
+void argon::object::BufferViewMoveStart(BufferView *view, ArSSize offset) {
+    unsigned char *ns = view->buffer + offset;
+
+    if (ns > view->buffer + view->len) {
+        view->buffer += view->len;
+        view->len = 0;
+        return;
+    }
+
+    if (ns < view->base) {
+        view->len = (view->buffer + view->len) - view->base;
+        view->buffer = (unsigned char *) view->base;
+        return;
+    }
+
+    view->buffer = ns;
+    view->len += -offset;
 }

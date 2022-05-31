@@ -6,12 +6,16 @@
  * JSON Encoder/Decoder (RFC 8259)
 */
 
+import regex
 import math
+from error import NotImplemented
+
+let NUMBER_RE = regex::compile("(-?(?:0|[1-9]\d*))(\.\d+)?([eE][-+]?\d+)?", regex::MODE_ECMASCRIPT | regex::OPTIMIZE)
 
 pub trait ScannerCallback {
-    pub func parse_array(scanner, buffer, index) {}
-    pub func parse_object(scanner, buffer, index) {}
-    pub func parse_string(scanner, buffer, index) {}
+    pub func parse_array(scanner, buffer, index)
+    pub func parse_object(scanner, buffer, index)
+    pub func parse_string(scanner, buffer, index)
 }
 
 pub struct DecodeError {
@@ -24,22 +28,16 @@ pub struct DecodeError {
     }
 
     pub func __str() {
-        # todo err_str
-        return "%s: lines: ?, column: ?, index: %d" % (self.msg, self.index)
+        return "%s (index: %d):" % (self.msg, self.index)
     }
 }
 
 pub func skip_spaces(buffer, index) {
-    var length = len(buffer)
+    var c = buffer[index]
 
-    loop index < length {
-        var c = buffer[index]
-
-        if (c != 9 && c != 10 && c != 13 && c != 32) {
-            break
-        }
-
-        index = index + 1 # skip spaces, tabs and new-lines
+    loop c == '\t' || c == '\n' || c == '\r' || c == ' ' {
+        index += 1 # skip spaces, tabs and new-lines
+        c = buffer[index]
     }
 
     return index
@@ -48,51 +46,32 @@ pub func skip_spaces(buffer, index) {
 pub struct Scanner {
     var callbacks
 
-    func eat_digits(buffer, index) {
-        var length = len(buffer)
-
-        loop index < length {
-            var c = buffer[index]
-
-            if c < 48 || c > 57 {
-                break
-            }
-
-            index = index + 1
+    pub let new = (callback) => {
+        if !isimpl(callback, ScannerCallback) {
+            panic(NotImplemented::new("'%s' not implement %s" % (type(callback), ScannerCallback)))
         }
 
-        return index
+        return Scanner{callback}
     }
 
     func is_number(buffer, index) {
-        var length = len(buffer)
-        var start = index
-        var float = false
+        var view = buffer[index:]
+        var match
+        var int
+        var frac
+        var exp
 
-        if index < length && buffer[index] == 45 {
-            index = index + 1
+        match = NUMBER_RE.search(view)
+        if !match {
+            panic(DecodeError::new("number", buffer, index))
         }
 
-        index = self.eat_digits(buffer, index)
-        
-        if index < length && buffer[index] == 46 {
-            # fraction
-            index = index + 1
-            index = self.eat_digits(buffer, index)
-            float = true
+        int, frac, exp = match
+        if frac || exp {
+            return index + exp.end, view[:exp.end], true
         }
 
-        if index < length && (buffer[index] == 69 || buffer[index] == 101) {
-            # exponent
-            index = index + 1
-            if index < length && (buffer[index] == 43 || buffer[index] == 45) {
-                index = index + 1
-            }
-
-            index = self.eat_digits(buffer, index)
-        }
-
-        return index, buffer[start:index], float
+        return index + int.end, view[:int.end], false
     }
 
     pub func scan(buffer, index) {
@@ -102,43 +81,39 @@ pub struct Scanner {
         index = skip_spaces(buffer, index)
 
         switch buffer[index] {
-            case 34:
+            case '"':
                 return self.callbacks.parse_string(self, buffer, index + 1)
-            case 123:
-                return self.callbacks.parse_object(self, buffer, index + 1)
-            case 91:
+            case '[':
                 return self.callbacks.parse_array(self, buffer, index +1)
-            case 110:   # n
-            if buffer[index:index + 4] == b"null" {
-                return nil, index + 4
-            }
-            case 116:   # t
-            if buffer[index:index + 4] == b"true" {
-                return true, index + 4
-            }
-            case 102:   # f
-            if buffer[index:index + 5] == b"false" {
-                return false, index + 5
-            }
-            case 78:    # N
-            if buffer[index:index + 3] == b"NaN" {
-                return math::nan, index + 3
-            }
-            case 73:    # I
-            if buffer[index:index + 8] == b"Infinity" {
-                return math::inf, index + 8
-            }
-            case 45:    # -
-            if buffer[index:index + 9] == b"-Infinity" {
-                return -math::inf, index + 9
-            }
+            case '{':
+                return self.callbacks.parse_object(self, buffer, index + 1)
+            case 'n':
+                if buffer[index:index + 4] == b"null" {
+                    return nil, index + 4
+                }
+            case 't':
+                if buffer[index:index + 4] == b"true" {
+                    return true, index + 4
+                }
+            case 'f':
+                if buffer[index:index + 5] == b"false" {
+                    return false, index + 5
+                }
+            case 'N':
+                if buffer[index:index + 3] == b"NaN" {
+                    return math::nan, index + 3
+                }
+            case 'I':
+                if buffer[index:index + 8] == b"Infinity" {
+                    return math::inf, index + 8
+                }
+            case '-':
+                if buffer[index:index + 9] == b"-Infinity" {
+                    return -math::inf, index + 9
+                }
         }
 
         index, num_str, float = self.is_number(buffer, index)
-
-        if !num_str {
-            panic(DecodeError::new("number", buffer, index))
-        }
 
         if !float {
             return integer::new(num_str), index

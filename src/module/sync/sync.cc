@@ -13,11 +13,11 @@ using namespace argon::module;
 using namespace argon::module::sync;
 
 const PropertyBulk sync_bulk[] = {
-        MODULE_EXPORT_TYPE_ALIAS("Cond", type_cond_),
-        MODULE_EXPORT_TYPE_ALIAS("Locker", type_locker_),
-        MODULE_EXPORT_TYPE_ALIAS("Mutex", type_mutex_),
-        MODULE_EXPORT_TYPE_ALIAS("RWMutex", type_rwmutex_),
-        MODULE_EXPORT_TYPE_ALIAS("NotifyQueue", type_notifyqueue_),
+        MODULE_EXPORT_TYPE(type_cond_),
+        MODULE_EXPORT_TYPE(type_locker_),
+        MODULE_EXPORT_TYPE(type_mutex_),
+        MODULE_EXPORT_TYPE(type_rwmutex_),
+        MODULE_EXPORT_TYPE(type_notifyqueue_),
         MODULE_EXPORT_SENTINEL
 };
 

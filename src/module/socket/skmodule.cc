@@ -811,7 +811,7 @@ void SocketFinalize(Module *module) {
 }
 
 const PropertyBulk socket_bulk[] = {
-        MODULE_EXPORT_TYPE_ALIAS("Socket", type_socket_),
+        MODULE_EXPORT_TYPE(type_socket_),
         MODULE_EXPORT_FUNCTION(socket_create_),
         MODULE_EXPORT_FUNCTION(socket_getaddrinfo_),
         MODULE_EXPORT_FUNCTION(socket_getnameinfo_),

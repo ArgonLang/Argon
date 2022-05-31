@@ -100,6 +100,31 @@ ArSSize argon::object::support::Find(const unsigned char *buf, ArSize blen, cons
     return DoSearch(delta1, buf, blen, pattern, plen);
 }
 
+ArSSize argon::object::support::FindNewLine(const unsigned char *buf, ArSize *inout_len, bool universal) {
+    ArSize index = 0;
+
+    while (index < *inout_len) {
+        if (universal && buf[index] == '\r') {
+            if (index + 1 < *inout_len && buf[index + 1] == '\n') {
+                *inout_len = index;
+                return (ArSSize) index + 2;
+            }
+
+            *inout_len = index;
+            return (ArSSize) index + 1;
+        }
+
+        if (buf[index] == '\n') {
+            *inout_len = index;
+            return (ArSSize) index + 1;
+        }
+
+        index++;
+    }
+
+    return -1;
+}
+
 long argon::object::support::FindWhitespace(const unsigned char *buf, ArSize *inout_len, bool reverse) {
     ArSize idx = 0;
     ArSSize start;

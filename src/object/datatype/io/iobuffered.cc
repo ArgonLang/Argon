@@ -133,38 +133,48 @@ ArSSize ReadData(BufferedIO *bio, unsigned char *buffer, ArSize length) {
     return (ArSSize) total;
 }
 
-ArSSize ReadsByte(BufferedIO *bio, unsigned char stop, unsigned char *buffer, ArSize length) {
+ArSSize ReadLine(BufferedIO *bio, unsigned char *buffer, ArSize length) {
     std::unique_lock lock(bio->lock);
     const Bytes *biobuf = (Bytes *) bio->buffer;
     ArSize total = 0;
     ArSize rlen;
+    ArSSize next;
+
+    bool checknl = false;
+
+    if (length == 0)
+        return 0;
 
     while (length > 0) {
         if ((biobuf == nullptr || bio->index >= biobuf->view.len) && !ReadFromBase(bio))
             return -1;
 
         biobuf = (Bytes *) bio->buffer;
-        rlen = length;
+        rlen = biobuf->view.len - bio->index;
+
+        if (checknl) {
+            if (*(biobuf->view.buffer + bio->index) == '\n')
+                bio->index++;
+            break;
+        }
 
         if (biobuf->view.len == 0)
             return (ArSSize) total;
 
-        const auto *match = (unsigned char *) argon::memory::MemoryFind(biobuf->view.buffer + bio->index, stop,
-                                                                        biobuf->view.len - bio->index);
-        if (match != nullptr) {
-            if (rlen >= match - (biobuf->view.buffer + bio->index))
-                rlen = match - (biobuf->view.buffer + bio->index);
+        if (rlen > length)
+            rlen = length;
 
-            if (rlen == 0) {
-                while (bio->index < biobuf->view.len && *(biobuf->view.buffer + bio->index) == stop)
-                    bio->index++;
+        if ((next = argon::object::support::FindNewLine(biobuf->view.buffer + bio->index, &rlen)) > 0) {
+            argon::memory::MemoryCopy(buffer + total, biobuf->view.buffer + bio->index, rlen);
+            bio->index += next;
+            total += rlen;
 
+            if (*(biobuf->view.buffer + bio->index - 1) == '\r') {
+                // Check again in case of \r\n at the edge of buffer
+                checknl = true;
                 continue;
             }
 
-            argon::memory::MemoryCopy(buffer + total, biobuf->view.buffer + bio->index, rlen);
-            bio->index += rlen;
-            total += rlen;
             break;
         }
 
@@ -284,23 +294,26 @@ ARGON_METHOD5(buffered_, readinto, "", 1, false) {
 ARGON_METHOD5(buffered_, readline, "", 1, false) {
     auto *bio = (BufferedIO *) self;
     const auto *arint = (Integer *) argv[0];
-
     unsigned char *buffer;
     Bytes *bytes;
-
-    ArSize cap = ARGON_OBJECT_IO_DEFAULT_BUFFERED_CAP;
+    ArSize cap;
     ArSSize len;
 
     if (!CheckArgs("i:size", func, argv, count))
         return nullptr;
 
-    if (arint->integer > 0)
-        cap = arint->integer;
+    cap = arint->integer;
+
+    if (arint->integer == 0)
+        return ARGON_OBJECT_TUPLE_SUCCESS(BytesNew(0, true, false, true));
+
+    if (arint->integer < 0)
+        cap = ARGON_OBJECT_IO_DEFAULT_BUFFERED_CAP;
 
     if ((buffer = ArObjectNewRaw<unsigned char *>(cap)) == nullptr)
         return nullptr;
 
-    if ((len = ReadsByte(bio, '\n', buffer, cap)) < 0) {
+    if ((len = ReadLine(bio, buffer, cap)) < 0) {
         argon::memory::Free(buffer);
         return ARGON_OBJECT_TUPLE_ERROR(argon::vm::GetLastNonFatalError());
     }
@@ -385,10 +398,20 @@ const NativeFunc buffered_writer_methods[] = {
         ARGON_METHOD_SENTINEL
 };
 
+const TypeInfo *buffered_reader_bases[] = {
+        type_readT_,
+        nullptr
+};
+
+const TypeInfo *buffered_writer_bases[] = {
+        type_writeT_,
+        nullptr
+};
+
 const ObjectSlots buffered_reader_obj = {
         buffered_reader_methods,
         nullptr,
-        nullptr,
+        buffered_reader_bases,
         nullptr,
         nullptr,
         nullptr,
@@ -399,7 +422,7 @@ const ObjectSlots buffered_reader_obj = {
 const ObjectSlots buffered_writer_obj = {
         buffered_writer_methods,
         nullptr,
-        nullptr,
+        buffered_writer_bases,
         nullptr,
         nullptr,
         nullptr,
@@ -407,7 +430,21 @@ const ObjectSlots buffered_writer_obj = {
         -1
 };
 
-void buffer_cleanup(BufferedIO *self) {
+ArObject *buffered_str(BufferedIO *self) {
+    ArObject *res;
+    auto *tmp = (String *) ToString(self->base);
+
+    if (tmp == nullptr)
+        return nullptr;
+
+    res = StringNewFormat("<%s of %s>", AR_TYPE_NAME(self), tmp->buffer);
+
+    Release(tmp);
+
+    return res;
+}
+
+void buffered_cleanup(BufferedIO *self) {
     ArObject *error;
 
     if (AR_TYPEOF(self, type_buffered_writer_)) {
@@ -430,13 +467,13 @@ const TypeInfo BufferedReader = {
         sizeof(BufferedIO),
         TypeInfoFlags::BASE,
         nullptr,
-        (VoidUnaryOp) buffer_cleanup,
+        (VoidUnaryOp) buffered_cleanup,
         nullptr,
         nullptr,
         TypeInfo_IsTrue_True,
         nullptr,
         nullptr,
-        nullptr,
+        (UnaryOp) buffered_str,
         nullptr,
         nullptr,
         nullptr,
@@ -458,13 +495,13 @@ const TypeInfo BufferedWriter = {
         sizeof(BufferedIO),
         TypeInfoFlags::BASE,
         nullptr,
-        (VoidUnaryOp) buffer_cleanup,
+        (VoidUnaryOp) buffered_cleanup,
         nullptr,
         nullptr,
         TypeInfo_IsTrue_True,
         nullptr,
         nullptr,
-        nullptr,
+        (UnaryOp) buffered_str,
         nullptr,
         nullptr,
         nullptr,

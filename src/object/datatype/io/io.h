@@ -111,7 +111,7 @@ namespace argon::object::io {
 
     ArSSize Read(File *file, unsigned char *buf, ArSize count);
 
-    ArSSize ReadLine(File *file, unsigned char **buf, ArSize buf_len);
+    ArSSize ReadLine(File *file, unsigned char **buf, ArSSize buf_len);
 
     ArSize Tell(File *file);
 

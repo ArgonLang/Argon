@@ -301,7 +301,8 @@ ARGON_METHOD5(bytes_, isalnum,
               "# SEE"
               "- isalpha: Check if all characters in the bytes are alphabets."
               "- isascii: Check if all characters in the bytes are ascii."
-              "- isdigit: Check if all characters in the bytes are digits.", 0, false) {
+              "- isdigit: Check if all characters in the bytes are digits."
+              "- isxdigit: Check if all characters in the bytes are hex digits.", 0, false) {
     auto *bytes = (Bytes *) self;
     int chr;
 
@@ -324,7 +325,8 @@ ARGON_METHOD5(bytes_, isalpha,
               "# SEE"
               "- isalnum: Check if all characters in the bytes are alphanumeric (either alphabets or numbers)."
               "- isascii: Check if all characters in the bytes are ascii."
-              "- isdigit: Check if all characters in the bytes are digits.", 0, false) {
+              "- isdigit: Check if all characters in the bytes are digits."
+              "- isxdigit: Check if all characters in the bytes are hex digits.", 0, false) {
     auto *bytes = (Bytes *) self;
     int chr;
 
@@ -339,7 +341,6 @@ ARGON_METHOD5(bytes_, isalpha,
     return BoolToArBool(true);
 }
 
-
 ARGON_METHOD5(bytes_, isascii,
               "Check if all characters in the bytes are ascii."
               ""
@@ -348,7 +349,8 @@ ARGON_METHOD5(bytes_, isascii,
               "# SEE"
               "- isalnum: Check if all characters in the bytes are alphanumeric (either alphabets or numbers)."
               "- isalpha: Check if all characters in the bytes are alphabets."
-              "- isdigit: Check if all characters in the bytes are digits.", 0, false) {
+              "- isdigit: Check if all characters in the bytes are digits."
+              "- isxdigit: Check if all characters in the bytes are hex digits.", 0, false) {
     auto *bytes = (Bytes *) self;
     int chr;
 
@@ -363,7 +365,6 @@ ARGON_METHOD5(bytes_, isascii,
     return BoolToArBool(true);
 }
 
-
 ARGON_METHOD5(bytes_, isdigit,
               "Check if all characters in the bytes are digits."
               ""
@@ -372,7 +373,8 @@ ARGON_METHOD5(bytes_, isdigit,
               "# SEE"
               "- isalnum: Check if all characters in the bytes are alphanumeric (either alphabets or numbers)."
               "- isalpha: Check if all characters in the bytes are alphabets."
-              "- isascii: Check if all characters in the bytes are ascii.", 0, false) {
+              "- isascii: Check if all characters in the bytes are ascii."
+              "- isxdigit: Check if all characters in the bytes are hex digits.", 0, false) {
     auto *bytes = (Bytes *) self;
     int chr;
 
@@ -381,6 +383,28 @@ ARGON_METHOD5(bytes_, isdigit,
         chr = BUFFER_GET(bytes)[i];
 
         if (chr < '0' || chr > '9')
+            return BoolToArBool(false);
+    }
+
+    return BoolToArBool(true);
+}
+
+ARGON_METHOD5(bytes_, isxdigit,
+              "Check if all characters in the bytes are hex digits."
+              ""
+              "- Returns: true if all characters are hex digits, false otherwise."
+              ""
+              "# SEE"
+              "- isalnum: Check if all characters in the bytes are alphanumeric (either alphabets or numbers)."
+              "- isalpha: Check if all characters in the bytes are alphabets."
+              "- isdigit: Check if all characters in the bytes are digits."
+              "- isascii: Check if all characters in the bytes are ascii.", 0, false) {
+    auto *bytes = (Bytes *) self;
+    int chr;
+
+    RWLockRead lock(bytes->view.shared->lock);
+    for (ArSize i = 0; i < BUFFER_LEN(bytes); i++) {
+        if (std::isxdigit(BUFFER_GET(bytes)[i]) == 0)
             return BoolToArBool(false);
     }
 
@@ -561,7 +585,6 @@ ARGON_METHOD5(bytes_, rmprefix,
     return IncRef(bytes);
 }
 
-
 ARGON_METHOD5(bytes_, split,
               "Splits bytes at the specified separator, and returns a list."
               ""
@@ -591,7 +614,6 @@ ARGON_METHOD5(bytes_, split,
     return ret;
 }
 
-
 ARGON_METHOD5(bytes_, startswith,
               "Returns true if bytes starts with the specified value."
               ""
@@ -618,7 +640,6 @@ ARGON_METHOD5(bytes_, startswith,
 
     return BoolToArBool(res == 0);
 }
-
 
 ARGON_METHOD5(bytes_, str, "Convert bytes to str object."
                            ""
@@ -661,6 +682,7 @@ const NativeFunc bytes_methods[] = {
         bytes_isalpha_,
         bytes_isascii_,
         bytes_isdigit_,
+        bytes_isxdigit_,
         bytes_isfrozen_,
         bytes_join_,
         bytes_lower_,
@@ -794,6 +816,12 @@ ArObject *bytes_iadd(Bytes *self, ArObject *other) {
         return IncRef(self);
     }
 
+    if (AR_TYPEOF(other, type_integer_)) {
+        RWLockWrite lock(self->view.shared->lock);
+        BufferViewMoveStart(&self->view, ((Integer *) other)->integer);
+        return IncRef(self);
+    }
+
     if (!IsBufferable(other))
         return nullptr;
 
@@ -829,6 +857,17 @@ ArObject *bytes_iadd(Bytes *self, ArObject *other) {
     return IncRef(self);
 }
 
+ArObject *bytes_isub(Bytes *self, ArObject *other) {
+    if (!AR_TYPEOF(other, type_integer_))
+        return nullptr;
+
+    RWLockWrite lock(self->view.shared->lock);
+
+    BufferViewMoveStart(&self->view, -((Integer *) other)->integer);
+
+    return IncRef(self);
+}
+
 const OpSlots bytes_ops{
         (BinaryOp) bytes_add,
         nullptr,
@@ -845,7 +884,7 @@ const OpSlots bytes_ops{
         bytes_shr,
         nullptr,
         (BinaryOp) bytes_iadd,
-        nullptr,
+        (BinaryOp) bytes_isub,
         nullptr,
         nullptr,
         nullptr,
