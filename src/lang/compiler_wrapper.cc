@@ -7,6 +7,8 @@
 #include <lang/parser/parser.h>
 #include <lang/compiler/compiler.h>
 
+#include <vm/runtime.h>
+
 #include "compiler_wrapper.h"
 
 using namespace argon::lang;
@@ -21,9 +23,10 @@ Code *CompilerWrapper::Compile(const char *file_name, scanner::Scanner *scanner)
     File *ast;
 
     if ((ast = parser.Parse()) == nullptr) {
-        if (scanner->status != scanner::ScannerStatus::GOOD)
-            return (Code *) ErrorFormat(type_syntax_error_, "%s", scanner->GetStatusMessage());
-        return nullptr;
+        if (argon::vm::IsPanicking())
+            return nullptr;
+
+        return (Code *) ErrorFormat(type_syntax_error_, "%s", scanner->GetStatusMessage());
     }
 
     code = compiler.Compile(ast);
