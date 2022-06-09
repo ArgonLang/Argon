@@ -723,6 +723,7 @@ SSLContext *argon::module::ssl::SSLContextNew(SSLProtocol protocol) {
     const SSL_METHOD *method;
     X509_VERIFY_PARAM *params;
     SSLContext *ctx;
+    long options;
 
     switch (protocol) {
         case SSLProtocol::TLS:
@@ -759,6 +760,26 @@ SSLContext *argon::module::ssl::SSLContextNew(SSLProtocol protocol) {
         ctx->check_hname = false;
         SetVerifyMode(ctx, SSLVerify::CERT_NONE);
     }
+
+    options = SSL_OP_ALL & ~SSL_OP_DONT_INSERT_EMPTY_FRAGMENTS;
+
+#ifdef SSL_OP_NO_COMPRESSION
+    options |= SSL_OP_NO_COMPRESSION;
+#endif
+#ifdef SSL_OP_CIPHER_SERVER_PREFERENCE
+    options |= SSL_OP_CIPHER_SERVER_PREFERENCE;
+#endif
+#ifdef SSL_OP_SINGLE_DH_USE
+    options |= SSL_OP_SINGLE_DH_USE;
+#endif
+#ifdef SSL_OP_SINGLE_ECDH_USE
+    options |= SSL_OP_SINGLE_ECDH_USE;
+#endif
+#ifdef SSL_OP_IGNORE_UNEXPECTED_EOF
+    options |= SSL_OP_IGNORE_UNEXPECTED_EOF;
+#endif
+
+    SSL_CTX_set_options(ctx->ctx, options);
 
 #ifdef SSL_MODE_RELEASE_BUFFERS
     /*
