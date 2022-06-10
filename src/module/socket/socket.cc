@@ -120,19 +120,19 @@ inline ArObject *argon::module::socket::ErrorSetFromSocket() {
 ArSSize SockAccept(Socket *socket, void *data) {
     auto *addr = (SockAdrr *) data;
 
-    return accept(socket->sock, (sockaddr *) &addr->storage, (socklen_t *) &addr->socklen);
+    return accept(socket->sock, (sockaddr * ) & addr->storage, (socklen_t *) &addr->socklen);
 }
 
 ArSSize SockBind(Socket *socket, void *data) {
     auto *addr = (SockAdrr *) data;
 
-    return bind(socket->sock, (sockaddr *) &addr->storage, addr->socklen);
+    return bind(socket->sock, (sockaddr * ) & addr->storage, addr->socklen);
 }
 
 ArSSize SockConnect(Socket *socket, void *data) {
     auto *addr = (SockAdrr *) data;
 
-    return connect(socket->sock, (sockaddr *) &addr->storage, addr->socklen);
+    return connect(socket->sock, (sockaddr * ) & addr->storage, addr->socklen);
 }
 
 ArSSize SockRecv(Socket *socket, void *data) {
@@ -140,7 +140,7 @@ ArSSize SockRecv(Socket *socket, void *data) {
 
     buf->namelen = sizeof(sockaddr_storage);
 
-    return recvfrom(socket->sock, buf->buffer, buf->buflen, buf->flags, (sockaddr *) &buf->storage,
+    return recvfrom(socket->sock, buf->buffer, buf->buflen, buf->flags, (sockaddr * ) & buf->storage,
                     (socklen_t *) &buf->namelen);
 }
 
@@ -163,7 +163,7 @@ ArSSize SockSendMsg(Socket *socket, void *data) {
 ArSSize SockSend(Socket *socket, void *data) {
     auto *buf = (BufferObj *) data;
 
-    return sendto(socket->sock, buf->buffer, buf->buflen, buf->flags, (sockaddr *) &buf->storage,
+    return sendto(socket->sock, buf->buffer, buf->buflen, buf->flags, (sockaddr * ) & buf->storage,
                   sizeof(sockaddr_storage));
 }
 
@@ -329,10 +329,10 @@ ARGON_METHOD5(socket_, dup, "Duplicate the socket."
 }
 
 
-ARGON_METHOD5(socket_, inheritable, "Get the inheritable flag of the socket."
-                                    ""
-                                    "- Returns: true if the socket can be inherited in child processes, false otherwise.",
-              0, false) {
+ARGON_METHOD5(socket_, inheritable,
+              "Get the inheritable flag of the socket."
+              ""
+              "- Returns: true if the socket can be inherited in child processes, false otherwise.", 0, false) {
 #ifdef _ARGON_PLATFORM_WINDOWS
     unsigned long flags;
     int err;
@@ -372,7 +372,7 @@ ARGON_METHOD5(socket_, peername, "Return the remote address to which the socket 
     if ((namelen = SocketGetAddrLen(socket)) == 0)
         return nullptr;
 
-    if (getpeername(socket->sock, (sockaddr *) &storage, (socklen_t *) &namelen) != 0)
+    if (getpeername(socket->sock, (sockaddr * ) & storage, (socklen_t *) &namelen) != 0)
         return ErrorSetFromSocket();
 
     return SockAddrToArAddr(&storage, socket->family);
@@ -388,7 +388,7 @@ ARGON_METHOD5(socket_, sockname, "Return the socket’s own address."
     if ((namelen = SocketGetAddrLen(socket)) == 0)
         return nullptr;
 
-    if (getsockname(socket->sock, (sockaddr *) &storage, (socklen_t *) &namelen) != 0)
+    if (getsockname(socket->sock, (sockaddr * ) & storage, (socklen_t *) &namelen) != 0)
         return ErrorSetFromSocket();
 
     return SockAddrToArAddr(&storage, socket->family);
@@ -466,6 +466,14 @@ ARGON_METHOD5(socket_, recv, "Receive data from the socket."
     if (!CheckArgs("i:bufsize,i:flags", func, argv, count))
         return nullptr;
 
+    if (((Integer *) argv[0])->integer < 0) {
+        return ARGON_OBJECT_TUPLE_ERROR(
+                ErrorFormatNoPanic(type_value_error_,
+                                   "'%i' invalid size for %s",
+                                   ((Function *) func)->qname->buffer)
+        );
+    }
+
     buffer.buflen = ((Integer *) argv[0])->integer;
     buffer.flags = (int) ((Integer *) argv[1])->integer;
 
@@ -533,6 +541,14 @@ ARGON_METHOD5(socket_, recvfrom, "Receive data from the socket."
 
     if (!CheckArgs("i:bufsize,i:flags", func, argv, count))
         return nullptr;
+
+    if (((Integer *) argv[0])->integer < 0) {
+        return ARGON_OBJECT_TUPLE_ERROR(
+                ErrorFormatNoPanic(type_value_error_,
+                                   "'%i' invalid size for %s",
+                                   ((Function *) func)->qname->buffer)
+        );
+    }
 
     buffer.buflen = ((Integer *) argv[0])->integer;
     buffer.flags = (int) ((Integer *) argv[1])->integer;
@@ -804,6 +820,14 @@ ARGON_METHOD5(socket_, recvmsg, "Receive data from the socket and writing it int
 
     if (!CheckArgs("i:bufsize,i:ancsize,i:flags", func, argv, count))
         return nullptr;
+
+    if (((Integer *) argv[0])->integer < 0) {
+        return ARGON_OBJECT_TUPLE_ERROR(
+                ErrorFormatNoPanic(type_value_error_,
+                                   "'%i' invalid size for %s",
+                                   ((Function *) func)->qname->buffer)
+        );
+    }
 
     msg.msg.msg_name = &storage;
     msg.msg.msg_namelen = sizeof(sockaddr_storage);
@@ -1217,14 +1241,14 @@ bool argon::module::socket::ArAddrToSockAddr(ArObject *araddr, sockaddr_storage 
             break;
         }
 #if defined(_ARGON_PLATFORM_LINUX)
-            case AF_UNIX: {
-                auto *addr = (sockaddr_un *) addrstore;
-                auto *str = (String *) araddr;
+        case AF_UNIX: {
+            auto *addr = (sockaddr_un *) addrstore;
+            auto *str = (String *) araddr;
 
-                argon::memory::MemoryCopy(addr->sun_path, str->buffer,
-                                          str->len + 1 >= 104 ? 104 : str->len + 1);  // +1 -> '\0'
-                return true;
-            }
+            argon::memory::MemoryCopy(addr->sun_path, str->buffer,
+                                      str->len + 1 >= 104 ? 104 : str->len + 1);  // +1 -> '\0'
+            return true;
+        }
 #elif defined(_ARGON_PLATFORM_DARWIN)
             case AF_UNIX: {
                 auto *addr = (sockaddr_un *) addrstore;
@@ -1374,8 +1398,8 @@ ArObject *argon::module::socket::SockAddrToArAddr(sockaddr_storage *storage, int
                             ntohs(addr->sin6_scope_id));
         }
 #ifndef _ARGON_PLATFORM_WINDOWS
-            case AF_UNIX:
-                return StringNew(((sockaddr_un *) storage)->sun_path);
+        case AF_UNIX:
+            return StringNew(((sockaddr_un *) storage)->sun_path);
 #endif
         default:
             return (Tuple *) ErrorFormat(type_os_error_, "unsupported address family");
