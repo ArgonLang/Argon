@@ -11,6 +11,7 @@
 #include <object/datatype/bytes.h>
 #include <object/datatype/error.h>
 #include <object/datatype/function.h>
+#include <object/datatype/io/io.h>
 #include <object/datatype/integer.h>
 #include <object/datatype/nil.h>
 
@@ -83,28 +84,13 @@ ARGON_METHOD5(sslsocket_, pending, "", 0, false) {
 
 ARGON_METHOD5(sslsocket_, read, "", 1, false) {
     auto *sock = (SSLSocket *) self;
-    Bytes *bytes;
-    unsigned char *buffer;
-    ArSize size;
-    ArSSize ret;
+    ArObject *bytes;
 
     if (!CheckArgs("i:bufsize", func, argv, count))
         return nullptr;
 
-    size = ((Integer *) argv[0])->integer;
-
-    if ((buffer = ArObjectNewRaw<unsigned char *>(size)) == nullptr)
-        return nullptr;
-
-    if ((ret = SSLSocketRead(sock, buffer, size)) < 0) {
-        argon::memory::Free(buffer);
+    if ((bytes = io::Read(SSLSocketRead, sock, ((Integer *) argv[0])->integer)) == nullptr)
         return ARGON_OBJECT_TUPLE_ERROR(argon::vm::GetLastNonFatalError());
-    }
-
-    if ((bytes = BytesNewHoldBuffer(buffer, ret, size, true)) == nullptr) {
-        argon::memory::Free(buffer);
-        return nullptr;
-    }
 
     return ARGON_OBJECT_TUPLE_SUCCESS(bytes);
 }
@@ -131,7 +117,7 @@ ARGON_METHOD5(sslsocket_, read_into, "", 1, false) {
 }
 
 ARGON_METHOD5(sslsocket_, verify_client, "", 0, false) {
-    UniqueLock lock(((SSLSocket*)self)->lock);
+    UniqueLock lock(((SSLSocket *) self)->lock);
 
     if (SSL_verify_client_post_handshake(((SSLSocket *) self)->ssl) == 0)
         return SSLErrorGet();
@@ -142,7 +128,7 @@ ARGON_METHOD5(sslsocket_, verify_client, "", 0, false) {
 ARGON_METHOD5(sslsocket_, unwrap, "", 0, false) {
     ArObject *socket;
 
-    if((socket = SSLShutdown((SSLSocket *) self)) == nullptr)
+    if ((socket = SSLShutdown((SSLSocket *) self)) == nullptr)
         return ARGON_OBJECT_TUPLE_ERROR(argon::vm::GetLastNonFatalError());
 
     return ARGON_OBJECT_TUPLE_SUCCESS(socket);

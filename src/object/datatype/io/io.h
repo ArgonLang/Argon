@@ -8,8 +8,10 @@
 #include <cstring>
 #include <mutex>
 
-#include <object/arobject.h>
 #include <utils/enum_bitmask.h>
+
+#include <object/arobject.h>
+#include <object/datatype/bytes.h>
 
 #ifndef STDIN_FILENO
 #define STDIN_FILENO 0
@@ -23,10 +25,8 @@
 #define STDERR_FILENO 2
 #endif
 
-#define ARGON_OBJECT_IO_DEFAULT_BUFSIZE                 4096
-#define ARGON_OBJECT_IO_DEFAULT_BUFFERED_CAP            1024
-#define ARGON_OBJECT_IO_DEFAULT_READLINE_BUFSIZE        6
-#define ARGON_OBJECT_IO_DEFAULT_READLINE_BUFSIZE_INC    ARGON_OBJECT_IO_DEFAULT_READLINE_BUFSIZE
+#define ARGON_OBJECT_IO_DEFAULT_BUFSIZE 4096
+#define ARGON_OBJECT_IO_BUFSIZE_INC     (ARGON_OBJECT_IO_DEFAULT_BUFSIZE / 2)
 
 namespace argon::object::io {
 
@@ -89,9 +89,25 @@ namespace argon::object::io {
     extern const argon::object::TypeInfo *type_buffered_reader_;
     extern const argon::object::TypeInfo *type_buffered_writer_;
 
-    bool IOInit();
+    ArSSize Read(File *file, unsigned char *buf, ArSize count);
+
+    ArSSize ReadLine(File *file, unsigned char **buf, ArSSize buf_len);
+
+    ArSize Tell(File *file);
+
+    ArSSize Write(File *file, unsigned char *buf, ArSize count);
+
+    ArSSize WriteObject(File *file, argon::object::ArObject *obj);
+
+    ArSSize WriteObjectStr(File *file, argon::object::ArObject *obj);
+
+    inline ArSSize WriteString(File *file, const char *str) {
+        return Write(file, (unsigned char *) str, strlen(str));
+    }
 
     bool Flush(File *file);
+
+    bool IOInit();
 
     bool Isatty(File *file);
 
@@ -101,29 +117,58 @@ namespace argon::object::io {
 
     bool SetBuffer(File *file, unsigned char *buf, ArSSize cap, FileBufferMode mode);
 
-    File *Open(char *path, FileMode mode);
+    template<typename T, typename Func>
+    Bytes *Read(Func func(T *, unsigned char *, ArSize), T *bio, ArSSize size) {
+        unsigned char *buffer;
+        Bytes *bytes;
 
-    File *FdOpen(int fd, FileMode mode);
+        ArSize bufcap = size;
+        ArSize index = 0;
+        ArSSize rlen = 0;
+
+        if (size < 0)
+            bufcap = ARGON_OBJECT_IO_DEFAULT_BUFSIZE;
+        else if (size == 0)
+            return BytesNew(0, true, false, true);
+
+        if ((buffer = ArObjectNewRaw<unsigned char *>(bufcap)) == nullptr)
+            return nullptr;
+
+        do {
+            index += rlen;
+
+            if (index == bufcap) {
+                unsigned char *tmp = ArObjectRealloc(buffer, bufcap + ARGON_OBJECT_IO_BUFSIZE_INC);
+                if (tmp == nullptr) {
+                    argon::memory::Free(buffer);
+                    return nullptr;
+                }
+
+                buffer = tmp;
+                bufcap += ARGON_OBJECT_IO_BUFSIZE_INC;
+            }
+
+            if ((rlen = func(bio, buffer + index, bufcap - index)) < 0) {
+                argon::memory::Free(buffer);
+                return nullptr;
+            }
+        } while ((rlen >= bufcap - index) && size < 0);
+
+        index += rlen;
+
+        if ((bytes = BytesNewHoldBuffer(buffer, index, bufcap, true)) == nullptr)
+            argon::memory::Free(buffer);
+
+        return bytes;
+    }
 
     int Close(File *file);
 
     int GetFd(File *file);
 
-    ArSSize Read(File *file, unsigned char *buf, ArSize count);
+    File *FdOpen(int fd, FileMode mode);
 
-    ArSSize ReadLine(File *file, unsigned char **buf, ArSSize buf_len);
-
-    ArSize Tell(File *file);
-
-    ArSSize Write(File *file, unsigned char *buf, ArSize count);
-
-    inline ArSSize WriteString(File *file, const char *str) {
-        return Write(file, (unsigned char *) str, strlen(str));
-    }
-
-    ArSSize WriteObject(File *file, argon::object::ArObject *obj);
-
-    ArSSize WriteObjectStr(File *file, argon::object::ArObject *obj);
+    File *Open(char *path, FileMode mode);
 
 } // namespace argon::object::io
 

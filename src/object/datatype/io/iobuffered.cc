@@ -187,39 +187,6 @@ ArSSize ReadLine(BufferedIO *bio, unsigned char *buffer, ArSize length) {
     return (ArSSize) total;
 }
 
-ArObject *Read(BufferedIO *bio, ArObject *bytes, ArSSize cap) {
-    ArBuffer buffer = {};
-    unsigned char *raw;
-    ArSSize len;
-
-    if (cap <= 0)
-        cap = ARGON_OBJECT_IO_DEFAULT_BUFFERED_CAP;
-
-    if (bytes != nullptr) {
-        if (!BufferGet(bytes, &buffer, ArBufferFlags::WRITE))
-            return nullptr;
-
-        raw = buffer.buffer;
-        cap = (ArSSize) buffer.len;
-    } else if ((raw = ArObjectNewRaw<unsigned char *>(cap)) == nullptr)
-        return nullptr;
-
-    if ((len = ReadData(bio, raw, cap)) < 0) {
-        bytes != nullptr ? BufferRelease(&buffer) : argon::memory::Free(raw);
-        return nullptr;
-    }
-
-    if (bytes != nullptr) {
-        BufferRelease(&buffer);
-        return IncRef(bytes);
-    }
-
-    if ((bytes = BytesNewHoldBuffer(raw, len, cap, true)) == nullptr)
-        argon::memory::Free(raw);
-
-    return bytes;
-}
-
 ARGON_FUNCTION5(buffered_, new, "", 2, false) {
     const TypeInfo *base = ((Function *) func)->base;
     const auto *arint = (Integer *) argv[1];
@@ -272,23 +239,31 @@ ARGON_METHOD5(buffered_, read, "", 1, false) {
     if (!CheckArgs("i:size", func, argv, count))
         return nullptr;
 
-    if ((result = Read(bio, nullptr, ((Integer *) argv[0])->integer)) == nullptr)
+    if ((result = Read(ReadData, bio, ((Integer *) argv[0])->integer)) == nullptr)
         return ARGON_OBJECT_TUPLE_ERROR(argon::vm::GetLastNonFatalError());
 
     return ARGON_OBJECT_TUPLE_SUCCESS(result);
 }
 
 ARGON_METHOD5(buffered_, readinto, "", 1, false) {
+    ArBuffer buffer{};
     auto *bio = (BufferedIO *) self;
-    ArObject *result;
+    ArSSize len;
 
     if (!CheckArgs("B:buffer", func, argv, count))
         return nullptr;
 
-    if ((result = Read(bio, argv[0], 0)) == nullptr)
-        return ARGON_OBJECT_TUPLE_ERROR(argon::vm::GetLastNonFatalError());
+    if (!BufferGet(argv[0], &buffer, ArBufferFlags::WRITE))
+        return nullptr;
 
-    return ARGON_OBJECT_TUPLE_SUCCESS(result);
+    if ((len = ReadData(bio, buffer.buffer, buffer.len)) < 0) {
+        BufferRelease(&buffer);
+        return ARGON_OBJECT_TUPLE_ERROR(argon::vm::GetLastNonFatalError());
+    }
+
+    BufferRelease(&buffer);
+
+    return ARGON_OBJECT_TUPLE_SUCCESS(IntegerNew(len));
 }
 
 ARGON_METHOD5(buffered_, readline, "", 1, false) {
@@ -308,7 +283,7 @@ ARGON_METHOD5(buffered_, readline, "", 1, false) {
         return ARGON_OBJECT_TUPLE_SUCCESS(BytesNew(0, true, false, true));
 
     if (arint->integer < 0)
-        cap = ARGON_OBJECT_IO_DEFAULT_BUFFERED_CAP;
+        cap = ARGON_OBJECT_IO_DEFAULT_BUFSIZE;
 
     if ((buffer = ArObjectNewRaw<unsigned char *>(cap)) == nullptr)
         return nullptr;

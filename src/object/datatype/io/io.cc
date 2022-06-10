@@ -238,7 +238,7 @@ ARGON_METHOD5(file_, readline, "Read and return a single line from file."
         return ARGON_OBJECT_TUPLE_SUCCESS(BytesNew(0, true, false, true));
 
     if (arint->integer < 0)
-        cap = ARGON_OBJECT_IO_DEFAULT_BUFFERED_CAP;
+        cap = ARGON_OBJECT_IO_DEFAULT_BUFSIZE;
 
     if ((buffer = ArObjectNewRaw<unsigned char *>(cap)) == nullptr)
         return nullptr;
