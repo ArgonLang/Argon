@@ -1223,6 +1223,9 @@ Node *Parser::ParseLiteral() {
             assert(false); // Never get here!
     }
 
+    if (value == nullptr)
+        return nullptr;
+
     if ((literal = ArObjectNew<Unary>(RCType::INLINE, type_ast_literal_)) == nullptr) {
         Release(value);
         return nullptr;
