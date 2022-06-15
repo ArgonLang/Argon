@@ -526,8 +526,9 @@ else                                            \
             {
                 auto args = ARG16;
 
-                if ((ret = StructInit(*(cu_frame->eval_stack - args - 1), cu_frame->eval_stack - args,
-                                      args, argon::lang::I32ExtractFlag(cu_frame->instr_ptr))) == nullptr)
+                if ((ret = StructInit((const TypeInfo *) *(cu_frame->eval_stack - args - 1),
+                                      cu_frame->eval_stack - args, args,
+                                      argon::lang::I32ExtractFlag(cu_frame->instr_ptr))) == nullptr)
                     goto ERROR;
 
                 STACK_REWIND(args);

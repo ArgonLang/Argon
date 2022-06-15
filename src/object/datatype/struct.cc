@@ -170,13 +170,15 @@ bool NativeInitKeyPair(ArObject *instance, ArObject **values, ArSize count) {
 
 }
 
-ArObject *argon::object::StructInit(const ArObject *t_obj, ArObject **values, ArSize count, bool keypair) {
-    const TypeInfo *type = AR_GET_TYPEOBJ(t_obj);
+ArObject *argon::object::StructInit(const TypeInfo *type, ArObject **values, ArSize count, bool keypair) {
     ArObject *instance;
     Namespace **ns;
 
-    if (type->obj_actions == nullptr || type->flags != TypeInfoFlags::STRUCT)
-        return ErrorFormat(type_type_error_, "expected struct, found '%s'", type->type->name);
+    if (!AR_TYPEOF(type, type_type_))
+        return ErrorFormat(type_type_error_, "expected datatype, not instance of '%s'", type->type->name);
+
+    if (type->flags != TypeInfoFlags::STRUCT)
+        return ErrorFormat(type_type_error_, "'%s' is not a struct datatype", type->name);
 
     if ((instance = ArObjectGCNewTrack(type)) == nullptr)
         return nullptr;
