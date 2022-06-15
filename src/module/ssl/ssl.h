@@ -70,7 +70,11 @@ namespace argon::module::ssl {
 
     argon::object::ArObject *SSLErrorSet(const SSLSocket *socket, int ret);
 
+    bool SSLSocketDoHandshake(SSLSocket *socket);
+
     argon::object::Bytes *CertToDer(X509 *cert);
+
+    int SSLShutdown(SSLSocket *socket);
 
     argon::object::Map *DecodeCert(X509 *cert);
 
@@ -80,8 +84,6 @@ namespace argon::module::ssl {
 
 #endif
 
-    socket::Socket *SSLShutdown(SSLSocket *socket);
-
     SSLContext *SSLContextNew(SSLProtocol protocol);
 
     SSLSocket *SSLSocketNew(SSLContext *context, socket::Socket *socket,
@@ -90,8 +92,6 @@ namespace argon::module::ssl {
     argon::object::ArSSize SSLSocketRead(SSLSocket *socket, unsigned char *buffer, argon::object::ArSize size);
 
     argon::object::ArSSize SSLSocketWrite(SSLSocket *socket, const unsigned char *buffer, argon::object::ArSize size);
-
-    bool SSLSocketDoHandshake(SSLSocket *socket);
 
 } // namespace argon::module
 

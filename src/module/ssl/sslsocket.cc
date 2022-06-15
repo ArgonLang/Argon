@@ -126,12 +126,10 @@ ARGON_METHOD5(sslsocket_, verify_client, "", 0, false) {
 }
 
 ARGON_METHOD5(sslsocket_, unwrap, "", 0, false) {
-    ArObject *socket;
-
-    if ((socket = SSLShutdown((SSLSocket *) self)) == nullptr)
+    if (SSLShutdown((SSLSocket *) self) < 0)
         return ARGON_OBJECT_TUPLE_ERROR(argon::vm::GetLastNonFatalError());
 
-    return ARGON_OBJECT_TUPLE_SUCCESS(socket);
+    return ARGON_OBJECT_TUPLE_SUCCESS(IncRef(((SSLSocket *) self))->socket);
 }
 
 ARGON_METHOD5(sslsocket_, write, "", 2, false) {
@@ -305,6 +303,8 @@ const ObjectSlots sslsocket_obj = {
 };
 
 void sslsocket_cleanup(SSLSocket *self) {
+    SSLShutdown(self);
+
     Release(self->context);
     Release(self->hostname);
     Release(self->socket);
@@ -462,26 +462,40 @@ bool ConfigureHostname(SSLSocket *socket, const char *name, ArSize len) {
     return false;
 }
 
-argon::module::socket::Socket *argon::module::ssl::SSLShutdown(SSLSocket *socket) {
+int argon::module::ssl::SSLShutdown(SSLSocket *socket) {
     UniqueLock lock(socket->lock);
+    bool partial_close = false;
     int attempt = 0;
     int ret = 0;
 
     CheckNonBlockState(socket);
 
+    ERR_clear_error();
+
     while (attempt < 2 && ret <= 0) {
-        if (attempt > 0)
+        if (attempt > 0) {
             SSL_set_read_ahead(socket->ssl, 0);
 
-        if ((ret = SSL_shutdown(socket->ssl)) < 0) {
-            SSLErrorSet();
-            return nullptr;
+            auto *buf = argon::memory::Alloc(2046);
+
+            if (buf != nullptr) {
+                while (SSL_read(socket->ssl, buf, 2046) > 0);
+                argon::memory::Free(buf);
+            }
         }
+
+        if ((ret = SSL_shutdown(socket->ssl)) < 0 && !partial_close) {
+            SSLErrorSet();
+            return -1;
+        }
+
+        if (!partial_close)
+            partial_close = true;
 
         attempt++;
     }
 
-    return IncRef(socket->socket);
+    return partial_close ? 0 : 1;
 }
 
 SSLSocket *argon::module::ssl::SSLSocketNew(SSLContext *context, socket::Socket *socket,
