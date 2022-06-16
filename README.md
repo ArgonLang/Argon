@@ -8,22 +8,26 @@
 This is the main repository for Argon language. It contains interpreter and builtins libraries.
 
 # What's Argon
-Argon is an interpreted multi-paradigm programming language. Its syntax is mainly influenced by Python, Go and Rust, it is neat and simple to use. 
+Argon is an interpreted multi-paradigm programming language. Its syntax is mainly influenced by Python, Go and Rust and aims to be elegant, clean and simple to use. 
 
-```
+```js
+import enum
+
 let NOBLE_GAS = ["Helium", "Neon", "Argon", "Krypton", "Xenon"]
 
 NOBLE_GAS |> enum::group_by((itm) => {
     return itm |> len
 }) |> println
 
-# {6: [Helium], 4: [Neon], 5: [Argon, Xenon], 7: [Krypton]}
+/* {6: [Helium], 4: [Neon], 5: [Argon, Xenon], 7: [Krypton]} */
 ```
 
 # 🚀 Quick start
 The wiki is under development, you can view the current version here: [wiki](https://github.com/jacopodl/Argon/wiki)
 
 If you are looking for examples, you can find them here: [examples](https://github.com/ArgonLang/Argon/tree/master/example)
+
+A good way to start could also be to take a look at Argon's built-in modules [here](https://github.com/ArgonLang/Argon/tree/master/src/arlib)
 
 # 🛠️ Installing from source
 
@@ -81,7 +85,7 @@ through the play button(or press F5 key).
 ⚠️ Tested with Microsoft Visual Studio 2019.
 
 # ‼️ Notes
-Argon is under development, so many features are not yet active or available, a list (certainly not exhaustive) of the missing features is the following:
+Argon is under active development, so many features are not yet active or available, a list (certainly not exhaustive) of the missing features is the following:
 * ~~No support for interactive mode.~~
 * ~~Lack of most of the built-in functionality for basic DataType (e.g. bytes::find, bytestream::split, ...).~~
 * ~~Garbage collector not enabled (currently the memory is managed only by the ARC).~~
