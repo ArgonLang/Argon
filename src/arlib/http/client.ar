@@ -1,0 +1,991 @@
+/*
+ * This source file is part of the Argon project.
+ *
+ * Licensed under the Apache License v2.0
+ *
+ * HTTP 1.x client library
+*/
+
+import io
+import http::utils
+import regex
+import socket
+
+from error import TypeError, ValueError
+
+let MAXLINELEN = 2056
+let MAXLINELEN1 = MAXLINELEN + 1
+
+pub let METHOD_REQ_BODY = {"PATCH", "POST", "PUT"}
+
+struct IncompleteRead {
+    pub var data
+    pub var remaining
+
+    pub let new = (data, szrq) => {
+        return IncompleteRead{data, szrq - len(data)}
+    }
+
+    pub func __str {
+        return "IncompleteRead: %i bytes are missing to reach the %i requested" % (self.remaining, len(self.data) + self.remaining)
+    }
+}
+
+struct IncompleteResponse {
+    pub var response
+
+    pub func __str {
+        return "IncompleteResponse: a response is already present and is waiting to be completed"
+    }
+}
+
+pub trait HTTPConnection : io::Read, io::Write {
+    pub func close()
+
+    pub func connect(host, port)
+
+    pub func isconnected()
+
+    pub func read(length)
+
+    pub func write(data)
+}
+
+pub struct HTTPSocket impl HTTPConnection {
+    var connected = false
+    var sock
+    
+    pub func close() {
+        if self.connected {
+            self.sock.close()
+            self.connected = false
+            self.sock = nil
+        }
+    }
+
+    pub func connect(host, port) {
+        var sock, err = socket::create(socket::AF_INET, socket::SOCK_STREAM, 0)
+        var hip
+
+        if err != nil {
+            return nil, err
+        }
+
+        hip, err = socket::gethostbyname(host)
+        if err != nil {
+            return err
+        }
+        
+        err = sock.connect((hip, port))
+        if err != nil {
+            return err
+        }
+
+        self.connected = true
+        self.sock = sock
+    }
+
+    pub func isconnected() {
+        return self.connected
+    }
+
+    pub func read(size) {
+        if !self.connected {
+            return b"", "not connected"
+        }
+
+        return self.sock.recv(size, 0)
+    }
+
+    pub func write(data) {
+        if !self.connected {
+            return 0, "not connected"
+        }
+
+        return self.sock.send(data, nil, 0)
+    }
+}
+
+# TODO: Check for SSL support before importing
+import ssl
+
+pub struct HTTPSSocket impl HTTPConnection {
+        var connected = false
+        var sock
+        
+        pub func close() {
+            if self.connected {
+                var sock, err = self.sock.unwrap()
+                if err != nil {
+                    panic(err)
+                }
+
+                sock.close()
+                self.connected = false
+                self.sock = nil
+            }
+        }
+
+        pub func connect(host, port) {
+            var sock, err = socket::create(socket::AF_INET, socket::SOCK_STREAM, 0)
+            var hip
+
+            if err != nil {
+                return nil, err
+            }
+
+            hip, err = socket::gethostbyname(host)
+            if err != nil {
+                return err
+            }
+
+            err = sock.connect((hip, port))
+            if err != nil {
+                return err
+            }
+
+            self.connected = true
+            self.sock = ssl::DEFAULT_CONTEXT.wrap(sock, false, nil)
+        }
+
+        pub func isconnected() {
+            return self.connected
+        }
+
+        pub func read(size) {
+            if !self.connected {
+                return b"", "not connected"
+            }
+
+            return self.sock.read(size)
+        }
+
+        pub func write(data) {
+            if !self.connected {
+                return 0, "not connected"
+            }
+
+            return self.sock.write(data, nil)
+        }
+    }
+
+pub struct Request {
+    pub let DEFAULT_PORT = 80
+
+    var dest
+    var hconn
+    var proto
+    var headers
+
+    var tu_dest
+    var tu_headers
+
+    var cxn
+    var method
+    var response
+    var lines = []
+    var buflen = 4096
+    var status = @IDLE # Can be one of these: IDLE, REQUEST, REQUESTED
+
+    pub let new = (host, port, hconn) => {
+        var dest, err = utils::split_host_port(host, port, Request::DEFAULT_PORT)
+        if err != nil {
+            return nil, err
+        }
+
+        return Request {
+            dest,
+            hconn,
+            (11, "HTTP/1.1"),
+            {"user-agent": "Argon-http-client"}
+        }
+    }
+
+    pub func connect {
+        if self.cxn == nil {
+            self.cxn = self.hconn{}
+            
+            if !isimpl(self.cxn, HTTPConnection) {
+                self.cxn = nil
+                self.status = @IDLE
+                panic(TypeError::new("type that implements the HTTPConnection trait is required"))
+            }
+        }
+
+        var err = self.cxn.connect(self.dest[0], self.dest[1])
+        if err != nil {
+            return err
+        }
+
+        if self.tu_dest {
+            return self.tunnel()
+        }
+    }
+
+    pub func close() {
+        if self.response != nil {
+            self.cxn = nil
+            self.response = nil
+        }
+
+        self.cxn?.close()
+        self.cxn = nil
+        
+        self.status = @IDLE
+    }
+
+    func get_content_length(method, body) {
+        if body == nil {
+            # RFC 7230, Section 3.3.2: If the body is nil,
+            # we set Content-Length: 0 for methods that expect a body
+            return METHOD_REQ_BODY.contains(method.upper()) ? 0 : nil
+        }
+
+        # File-like object
+        if isimpl(body, io::Read) {
+            return nil
+        }
+
+        defer () => {
+            # If the length of the object cannot be obtained, returns nil!
+            recover() != nil ? returns(nil)
+        }()
+
+        return len(body)
+    }
+
+    pub func get_response {
+        if self.status != @REQUESTED {
+            return nil, "no requests sent that require a response"
+        }
+
+        if self.response != nil && self.response.isclosed() {
+            self.response = nil
+        }
+
+        if self.response != nil {
+            return nil, IncompleteResponse{self.response}
+        }
+
+        var r, err = Response::new(self.cxn, self.method)
+        if err != nil {
+            return r, err 
+        }
+
+        self.response = r
+        if r.will_close {
+            self.close()
+            self.response = nil
+        }
+
+        self.status = @IDLE
+
+        return r, nil
+    }
+
+    func prepare_request(method, url, headers) {
+        var err
+
+        if utils::METHOD_DISALLOWED_CHAR.search(method) {
+            return "method can't contain control characters"
+        }
+
+        url = url ?: "/"
+
+        if utils::PATH_DISALLOWED_CHAR.search(url) {
+            return "path can't contain control characters"
+        }
+
+        self.lines.append(b"%s %s %s" % (method, url, self.proto[1]))
+
+        if self.proto[0] != 11 {
+            return
+        }
+
+        if !headers.contains("host") {
+            var netloc = ""
+
+            if url.startswith("http") {
+                # TODO use URL library here
+                var urlf = url.find("//")
+
+                netloc = urlf > 0 ? url[urlf + 2:] : url
+            }
+
+            if netloc {
+                err = self.write_header("host", netloc)
+                if err != nil {
+                    return err
+                }
+            } else {
+                var host, port = self.dest
+
+                if self.tu_dest {
+                    host, port = self.tu_dest
+                }
+
+                # Check IPv6
+                if host.find("::") >= 0 {
+                    host = "[%s]" % host
+                }
+
+                err = self.write_header("host", port == Request::DEFAULT_PORT ? host : "%s:%s" % (host, port))
+                if err != nil {
+                    return err
+                }
+            }
+        }
+
+        if !headers.contains("accept-encoding") {
+            err = self.write_header("accept-encoding", "identity")
+            if err != nil {
+                return err
+            }
+        }
+    }
+
+    func raw_send(data) {
+        var err
+
+        if self.cxn == nil || !self.cxn.isconnected() {
+            err = self.connect()
+            if err != nil {
+                return err
+            }
+        }
+
+        _, err = self.cxn.write(data)
+        if err != nil {
+            return err
+        }
+    }
+
+    pub func request(method, url, headers, body) {
+        var chunked, err = false, nil
+
+        if self.status != @IDLE {
+            return "another request is in progress"
+        }
+
+        if headers != nil {
+            if type(headers) != map {
+                panic(ValueError::new("expected headers as map, not: '%s'" % type(headers)))
+            }
+
+            # Merging headers
+            var key, value
+            for key, value in self.headers {
+                if !headers.contains(key) {
+                    headers[key] = value
+                }
+            }
+        } else {
+            headers = self.headers
+        }
+
+        self.status = @REQUEST
+        self.lines = []
+
+        err = self.prepare_request(method, url, headers)
+        if err != nil {
+            self.status = @IDLE
+            return err
+        }
+
+        err = self.write_headers(headers)
+        if err != nil {
+            self.status = @IDLE
+            return err
+        }
+
+        self.method = method.upper()
+
+        if !headers.contains("content-length") {
+            if !headers.contains("transfer-encoding") {
+                var clen = self.get_content_length(method, body)
+                if clen == nil {
+                    if body != nil {
+                        chunked = true
+                        
+                        err = self.write_header("transfer-encoding", "chunked")
+                        if err != nil {
+                            self.status = @IDLE
+                            return err
+                        }
+                    }
+                } else {
+                    err = self.write_header("content-length", string::new(clen))
+                    if err != nil {
+                        self.status = @IDLE
+                        return err
+                    }
+                }
+            } else {
+                chunked = headers["transfer-encoding"].lower() == "chunked"
+            }
+        }
+
+        self.lines.append(b"\r\n")
+
+        return self.send(body, chunked)
+    }
+
+    func send(body, chunked) {
+        var err
+
+        if self.status != @REQUEST {
+            return "unexpected state for send()"
+        }
+
+        self.status = @REQUESTED
+
+        err = self.raw_send(b"\r\n".join(self.lines))
+        if err != nil {
+            self.status = @IDLE
+            return err
+        }
+
+        if body != nil {
+            if !chunked {
+                err = self.raw_send(body)
+                if err != nil {
+                    self.status = @IDLE
+                    return err
+                }
+
+                return
+            }
+
+            if isimpl(body, io::Read) {
+                return self.send_file(body)
+            }
+
+            var idx = 0
+            loop idx < len(body) {
+                var cursor = body[idx:idx + self.buflen]
+                
+                idx += self.buflen
+                
+                err = self.raw_send(b"%x\r\n%s\r\n" % (len(cursor), cursor))
+                if err != nil {
+                    self.status = @IDLE
+                    return err
+                }
+            }
+
+            err = self.raw_send(b"0\r\n\r\n")
+            if err != nil {
+                self.status = @IDLE
+                return err
+            }
+        }
+    }
+
+    func send_file(body) {
+        var buf, err = body.read(self.buflen)
+
+        loop buf || err {
+            if err != nil {
+                self.status = @IDLE
+                return err
+            }
+
+            err = self.raw_send(b"%x\r\n%s\r\n" % (len(buf), buf))
+            if err != nil {
+                self.status = @IDLE
+                return err
+            }
+
+            buf, err = body.read(self.buflen)            
+        }
+
+        err = self.raw_send(b"0\r\n\r\n")
+        if err != nil {
+            self.status = @IDLE
+            return err
+        }
+    }
+
+    pub func set_tunnel(host, port, headers) {
+        var err
+
+        if self.cxn != nil && self.cxn.isconnected() {
+            return "can't set up tunnel for established connection"
+        }
+
+        self.tu_dest, err = utils::split_host_port(host, port, Request::DEFAULT_PORT)
+        if err != nil {
+            return err
+        }
+
+        if headers {
+            self.tu_headers = headers
+        }
+    }
+
+    func tunnel {
+        var headers = [
+            b"CONNECT %s:%d %s" % (self.tu_dest[0], self.tu_dest[1], self.proto[1])
+        ]
+
+        var header, value
+        for header, value in self.tu_headers {
+            if !utils::HEADER_VALID_NAME.match(header) {
+                return "invalid header name: %s" % header
+            }
+
+            if utils::HEADER_INVALID_VALUE.match(value) {
+                return "invalid header value: %s: %s" % (header, value)
+            }
+
+            headers.append(b"%s: %s" % (header, value))
+        }
+
+        headers.append(b"")
+
+        headers = b"\r\n".join(headers)
+
+        var err = self.raw_send(headers)
+        if err != nil {
+            return err
+        }
+
+        var response
+        response, err = Response::new(self.cxn, self.method)
+        if err != nil {
+            return err
+        }
+
+        if response.code != 200 {
+            self.close()
+            return "tunnel connection failed: %d %s" % (response.code, response.reason)
+        }
+
+        return response.trim_trailer()
+    }
+
+    func write_header(key, value) {
+        if !utils::HEADER_VALID_NAME.match(key) {
+            return "invalid header name: %s" % key
+        }
+
+        if utils::HEADER_INVALID_VALUE.match(value) {
+            return "invalid header value: %s: %s" % (key, value)
+        }
+
+        self.lines.append(b"%s: %s" % (key, value))
+    }
+
+    func write_headers(headers) {
+        if type(headers) != map {
+            panic(ValueError::new("expected headers as map, not: '%s'" % type(headers)))
+        }
+
+        var key, value, err
+        for key, value in headers {
+            err = self.write_header(key, value)
+            if err != nil {
+                return err
+            }
+        }
+    }
+}
+
+pub struct Response impl io::Read {
+    var cxn
+    var bufio
+    var method
+
+    pub var version
+    pub var status
+    pub var reason
+
+    var headers
+    var length
+    var chunked
+    var chunksz
+
+    pub var will_close
+
+    pub let new = (cxn, method) => {
+        var response = Response{cxn, io::BufferedReader::new(cxn, 0), method}
+        var err = response.process()
+        if err != nil {
+            return nil, err
+        }
+
+        return response, nil
+    }
+
+    func check_close {
+        var conn = self.headers.get("connection").get_or("").lower()
+        self.will_close = false
+
+        if self.version == 11 {
+            # An HTTP/1.1 stay open unless explicitly closed.
+            if conn == "close" {
+                self.will_close = true
+            }
+            return
+        }
+
+        # HTTP/1.0
+
+        # Check for keep-alive header or connection: keep-alive
+        if conn == "keep-alive" || self.headers.contains("keep-alive") {
+            return
+        }
+
+        # Check for proxy-connection header, an experimental netscape hack
+        conn = self.headers.get("proxy-connection").get_or("").lower()
+        if conn == "keep-alive" {
+            return
+        }
+
+        self.will_close = true
+    }
+
+    func close_conn {
+        if self.will_close {
+            self.cxn.close()
+        }
+        
+        self.cxn = nil
+        self.bufio = nil
+    }
+
+    func compute_length {
+        var length = self.headers.get("content-length").get_or("")
+        self.length = nil
+
+        if length && !self.chunked {
+            length = integer::new(length)
+
+            # ignore negative lengths
+            if length >= 0 {
+                self.length = length
+            }
+        }
+
+        /*
+         * Check for response with body fixed length of zero
+         * NO_CONTENT:   204
+         * NO_MODIFIED:  304
+        */
+        if self.status == 204 || self.status == 304 || (self.status >= 100 && self.status < 200) || self.method == "HEAD" {
+            self.length = 0
+        }
+    }
+
+    func get_chunk() {
+        var buf
+        var err
+        var chunksz
+
+        if !self.chunksz {
+            if self.chunksz == 0 {
+                buf, err = self.read_exact(2) # CRLF
+                if err != nil {
+                    return 0, err
+                }
+            }
+
+            chunksz, err = self.read_chunk_size()
+            if err != nil {
+                return 0, err
+            }
+
+            if chunksz == 0 {
+                self.trim_trailer()
+                self.close_conn()
+                chunksz = nil
+            }
+
+            self.chunksz = chunksz
+        }
+
+        return self.chunksz, nil
+    }
+
+    pub func get_header(name, _default){
+        var value = self.headers.get(name)
+
+        if !value {
+            if _default != nil && type(_default) != string {
+                return ",".join(_default)
+            }
+
+            return _default
+        }
+
+        return value.get()
+    }
+
+    pub func get_headers {
+        return self.headers.items()
+    }
+
+    pub func isclosed {
+        return self.bufio == nil
+    }
+
+    func parse_headers {
+        var line, err, headers = nil, nil, {}
+
+        loop {
+            line, err = self.bufio.readline(MAXLINELEN1)
+            if err != nil {
+                return err
+            }
+
+            if len(line) > MAXLINELEN {
+                return "line too long"
+            }
+
+            if !line {
+                break
+            }
+
+            line = line.str().split(":", 1)
+
+            if len(line) < 2 {
+                return "'%s'invalid header" % line
+            }
+
+            headers[line[0].lower()] = line[1].trim()
+        }
+
+        self.headers = headers
+    }
+
+    func parse_status() {
+        var version = b""
+        var status
+        var reason
+
+        var line, err = self.bufio.readline(MAXLINELEN1)
+        if err != nil {
+            return "", 0, "", err
+        }
+
+        if !line {
+            return "", 0, "", "remote-end closed connection without response"
+        }
+
+        if len(line) > MAXLINELEN {
+            return "", 0, "", "status line too long"
+        }
+
+        line = line.split("", -1)
+        switch {
+            case len(line) > 2:
+                version, status, reason = line
+            case len(line) > 1:
+                version, status = line
+                reason = ""  
+        }
+
+        if !version.startswith("HTTP/") {
+            return "", 0, "", "bad status line"
+        }
+
+        status = integer::new(status)
+        if status < 100 || status > 999 {
+            return "", 0, "", "bad status line: %s" % status
+        }
+
+        return version, status, reason, nil
+    }
+
+    pub func process {
+        var version
+        var reason
+        var err
+
+        loop {
+            version, self.status, reason, err = self.parse_status()
+            if err != nil {
+                return err
+            }
+
+            if self.status != 100 {
+                break
+            }
+
+            # Skip contents for 100 response
+            loop {
+                var line, err = self.bufio.readline(-1)
+                if err != nil {
+                    return err
+                }
+
+                if !line {
+                    break
+                }
+            }
+        }
+
+        self.reason = string::new(reason).trim()
+
+        if version.rfind("1.0") > 0 || version.rfind("0.9") > 0 {
+            self.version = 10
+        } elif version.startswith("HTTP/1.") > 0 {
+            self.version = 11
+        } else {
+            return "unsupported protocol"
+        }
+
+        err = self.parse_headers()
+        if err != nil {
+            return err
+        }
+
+        self.chunked = self.headers.get("transfer-encoding").get_or("").lower() == "chunked"
+        
+        self.compute_length()
+
+        # check connection close at the end of the response
+        self.check_close()
+        self.will_close = !self.will_close && !self.chunked && self.length == nil
+    }
+
+    pub func read(size) {
+        var buf, err
+
+        if self.bufio == nil {
+            return b"", nil
+        }
+
+        if self.method == "HEAD" {
+            self.close_conn()
+            return b"", nil
+        }
+
+        if size == 0 {
+            return b"", nil
+        }
+
+        if self.chunked {
+            return self.read_chunk(size)
+        }
+
+        if size != nil && size > 0 {
+            if self.length != nil && size > self.length {
+                size = self.length
+            }
+
+            buf, err = self.bufio.read(size)
+            if err != nil {
+                return nil, err
+            }
+
+            if !buf && size > 0 {
+                self.close_conn()
+                return nil, IncompleteRead::new(buf, size)
+            } elif self.length != nil {
+                self.length -= len(buf)
+                if self.length == 0 {
+                    self.close_conn()
+                }
+            }
+
+            return buf, nil
+        }
+
+        if self.length == nil {
+            buf, err = self.bufio.read(-1)
+        } else {
+            buf, err = self.bufio.read(self.length)
+            if err != nil {
+                return nil, err
+            }
+
+            self.length = 0
+        }
+
+        self.close_conn()
+
+        return buf, err
+    }
+
+    func read_chunk(size) {
+        var line, err, chunksz, values = nil, nil, nil, []
+
+        if !self.chunked {
+            panic("not chunked")
+        }
+
+        chunksz, err = self.get_chunk()
+        if err != nil {
+            return b"", err
+        }
+
+        loop chunksz != nil {
+            if size > 0 && size < chunksz {
+                chunksz = size
+            }
+
+            line, err = self.read_exact(chunksz)
+            if err != nil {
+                return b"", err
+            }
+
+            values.append(line)
+
+            if size > 0 {
+                size -= chunksz
+            }
+
+            self.chunksz -= chunksz
+            
+            chunksz, err = self.get_chunk()
+            if err != nil {
+                return b"", err
+            }
+        }
+
+        return b"".join(values), nil
+    }
+
+    func read_chunk_size() {
+        var line, err = self.bufio.readline(MAXLINELEN1)
+        if err != nil {
+            return 0, err
+        }
+
+        var index = line.find(b";")
+        if index > 0 {
+            line = line[:index]
+        }
+
+        return integer::new(line, 16), nil
+    }
+
+    func read_exact(size) {
+        var data, err = self.bufio.read(size)
+        if err != nil {
+            return b"", err
+        }
+
+        if len(data) < size {
+            return b"", IncompleteRead::new(data, size)
+        }
+
+        return data, nil
+    }
+
+    pub func trim_trailer() {
+        var line , err = b" ", nil
+
+        loop line {
+            line, err = self.bufio.readline(MAXLINELEN1)
+            if err != nil {
+                return err
+            }
+
+            if len(line) > MAXLINELEN {
+                return "line too long to retrieve the trailer line"
+            }
+        }
+    }
+}

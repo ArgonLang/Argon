@@ -1,0 +1,51 @@
+
+/*
+ * This source file is part of the Argon project.
+ *
+ * Licensed under the Apache License v2.0
+ *
+ * HTTP library
+*/
+
+import regex
+
+pub let HEADER_VALID_NAME = regex::compile(r#"[^:\s][^:\r\n]*"#, regex::MODE_ECMASCRIPT | regex::OPTIMIZE)
+pub let HEADER_INVALID_VALUE = regex::compile(r#"\n(?![ \t])|\r(?![ \t\n])"#, regex::MODE_ECMASCRIPT | regex::OPTIMIZE)
+
+# Prevent http header injection.
+pub let METHOD_DISALLOWED_CHAR = regex::compile(r#"[\x00-\x1f]"#, regex::MODE_ECMASCRIPT | regex::OPTIMIZE)
+
+# Prevent CVE-2019-9740.
+pub let PATH_DISALLOWED_CHAR = regex::compile(r#"[\x00-\x20\x7f]"#, regex::MODE_ECMASCRIPT | regex::OPTIMIZE)
+
+pub func split_host_port(host, port, default_port) {
+    var colon = host.rfind(":")
+    var cpar = host.rfind("]")
+
+    if port == nil || port == 0 {
+        port = default_port
+
+        if colon > cpar {
+            port = integer::new(host[colon + 1:])
+
+            if port == 0 {
+                if host[colon + 1:] != "" {
+                    return nil, "non-numeric port: '%s'" % host[colon+1:]
+                }
+
+                port = default_port
+            }
+        }
+    }
+
+    if colon > -1 {
+        host = host[:colon]
+    }
+
+    # Check IPv6
+    if host[0] == "[" && host[-1] == "]" {
+        host = host[1:-1]
+    }
+
+    return (host, port), nil
+}
