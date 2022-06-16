@@ -182,7 +182,7 @@ pub func gethostbyname(name) {
         return nil, err
     }
 
-    return lookup[0][4][0]
+    return lookup[0][4][0], nil
 }
 
 pub func aton(ip_string) {
