@@ -174,7 +174,8 @@ ARGON_FUNCTION(input,
 
     Release(in);
 
-    builder.Write(line, len, 0);
+    // len - 1: ignore \n
+    builder.Write(line, len - 1, 0);
     argon::memory::Free(line);
 
     return builder.BuildString();

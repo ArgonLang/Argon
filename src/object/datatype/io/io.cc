@@ -863,6 +863,10 @@ ArSSize argon::object::io::ReadLine(File *file, unsigned char **buf, ArSSize buf
 
         if (*buf == nullptr) {
             allocated += total + rlen;
+
+            if (next > 0)
+                allocated++;
+
             if ((tmp = ArObjectRealloc<unsigned char *>(line, allocated)) == nullptr) {
                 if (*buf == nullptr)
                     memory::Free(line);
@@ -873,8 +877,9 @@ ArSSize argon::object::io::ReadLine(File *file, unsigned char **buf, ArSSize buf
 
         if (next > 0) {
             argon::memory::MemoryCopy(line + total, file->buffer.cur, rlen);
+            *(line + total + rlen) = '\n';
             file->buffer.cur += next;
-            total += rlen;
+            total += rlen + 1;
 
             if (*(file->buffer.cur - 1) == '\r') {
                 // Check again in case of \r\total at the edge of buffer

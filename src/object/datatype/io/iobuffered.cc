@@ -166,8 +166,9 @@ ArSSize ReadLine(BufferedIO *bio, unsigned char *buffer, ArSize length) {
 
         if ((next = argon::object::support::FindNewLine(biobuf->view.buffer + bio->index, &rlen)) > 0) {
             argon::memory::MemoryCopy(buffer + total, biobuf->view.buffer + bio->index, rlen);
+            *(buffer + rlen) = '\n';
             bio->index += next;
-            total += rlen;
+            total += rlen + 1;
 
             if (*(biobuf->view.buffer + bio->index - 1) == '\r') {
                 // Check again in case of \r\n at the edge of buffer
