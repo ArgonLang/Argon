@@ -380,7 +380,7 @@ bool Compiler::CompileInit(Binary *init) {
                     return false;
                 }
             } else {
-                if (this->PushStatic((String *) tmp, true, true) < 0) {
+                if (this->PushStatic((String *) ((Unary*)tmp)->value, true, true) < 0) {
                     Release(tmp);
                     Release(iter);
                     return false;
