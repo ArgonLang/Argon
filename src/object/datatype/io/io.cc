@@ -371,8 +371,7 @@ const NativeFunc file_methods[] = {
 };
 
 const TypeInfo *file_bases[] = {
-        type_readT_,
-        type_writeT_,
+        type_textioT_, // read, readinto, readline, write
         nullptr
 };
 
@@ -504,11 +503,14 @@ bool argon::object::io::IOInit() {
     if(!TypeInit((TypeInfo*)(type), nullptr))   \
         return false
 
-    INIT_TYPE(io::type_file_);
+    INIT_TYPE(io::type_readT_);
+    INIT_TYPE(io::type_textinputT_);
+    INIT_TYPE(io::type_textioT_);
+    INIT_TYPE(io::type_writeT_);
+
     INIT_TYPE(io::type_buffered_reader_);
     INIT_TYPE(io::type_buffered_writer_);
-    INIT_TYPE(io::type_readT_);
-    INIT_TYPE(io::type_writeT_);
+    INIT_TYPE(io::type_file_);
 
     return true;
 #undef INIT_TYPE

@@ -858,7 +858,8 @@ bool argon::object::TypeInit(TypeInfo *info, ArObject *ns) {
     if (ns == nullptr &&
         (info->obj_actions == nullptr ||
          info->obj_actions->methods == nullptr &&
-         info->obj_actions->members == nullptr))
+         info->obj_actions->members == nullptr &&
+         info->obj_actions->traits == nullptr))
         return true;
 
     // Calculate static MRO

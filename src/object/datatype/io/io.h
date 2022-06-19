@@ -73,6 +73,8 @@ namespace argon::object::io {
     extern const argon::object::TypeInfo *type_file_;
 
     extern const argon::object::TypeInfo *type_readT_;
+    extern const argon::object::TypeInfo *type_textinputT_;
+    extern const argon::object::TypeInfo *type_textioT_;
     extern const argon::object::TypeInfo *type_writeT_;
 
     struct BufferedIO : argon::object::ArObject {

@@ -375,7 +375,7 @@ const NativeFunc buffered_writer_methods[] = {
 };
 
 const TypeInfo *buffered_reader_bases[] = {
-        type_readT_,
+        type_textinputT_, // read, readinto, readline
         nullptr
 };
 

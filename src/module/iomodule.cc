@@ -76,6 +76,8 @@ const PropertyBulk io_bulk[] = {
         MODULE_EXPORT_TYPE(type_buffered_writer_),
         MODULE_EXPORT_TYPE(type_file_),
         MODULE_EXPORT_TYPE(type_readT_),
+        MODULE_EXPORT_TYPE(type_textinputT_),
+        MODULE_EXPORT_TYPE(type_textioT_),
         MODULE_EXPORT_TYPE(type_writeT_),
         MODULE_EXPORT_FUNCTION(io_open_),
         MODULE_EXPORT_FUNCTION(io_openfd_),
