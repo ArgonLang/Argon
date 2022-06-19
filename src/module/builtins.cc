@@ -213,9 +213,15 @@ ARGON_FUNCTION(isimpl,
 ARGON_FUNCTION(isinstance,
                "Check if object is an instance of indicated type."
                ""
-               "- Parameter obj: object to check."
-               "- Returns: true if the object is an instance of indicated type, false otherwise.", 2, false) {
-    return BoolToArBool(argv[0]->type == argv[1]);
+               "    - obj: object to check."
+               "    - ...types: types list."
+               "- Returns: true if the object is an instance of one of the indicated type, false otherwise.", 2, true) {
+    for (ArSize i = 1; i < count; i++) {
+        if(argv[0]->type == argv[i])
+            return BoolToArBool(true);
+    }
+
+    return BoolToArBool(false);
 }
 
 ARGON_FUNCTION(isiterable,
