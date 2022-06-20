@@ -916,7 +916,7 @@ ArObject *bytes_compare(Bytes *self, ArObject *other, CompareMode mode) {
     auto *o = (Bytes *) other;
     int left = 0;
     int right = 0;
-    int res;
+    int res = 0;
 
     if (!AR_SAME_TYPE(self, other))
         return nullptr;
@@ -928,7 +928,8 @@ ArObject *bytes_compare(Bytes *self, ArObject *other, CompareMode mode) {
         if (!o->frozen)
             o->view.shared->lock.RLock();
 
-        res = MemoryCompare(BUFFER_GET(self), BUFFER_GET(o), BUFFER_MAXLEN(self, o));
+        if (self->view.len > 0 || o->view.len > 0)
+            res = MemoryCompare(BUFFER_GET(self), BUFFER_GET(o), BUFFER_MAXLEN(self, o));
 
         if (!self->frozen)
             self->view.shared->lock.RUnlock();
