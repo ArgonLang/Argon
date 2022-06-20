@@ -133,6 +133,25 @@ void function_cleanup(Function *fn) {
     Release(fn->gns);
 }
 
+const NativeMember function_members []={
+        ARGON_MEMBER("arity", offsetof(Function, arity), NativeMemberType::SHORT, true),
+        ARGON_MEMBER("base", offsetof(Function, base), NativeMemberType::AROBJECT, true),
+        ARGON_MEMBER("name", offsetof(Function, name), NativeMemberType::AROBJECT, true),
+        ARGON_MEMBER("qname", offsetof(Function, qname), NativeMemberType::AROBJECT, true),
+        ARGON_MEMBER_SENTINEL
+};
+
+const ObjectSlots function_obj = {
+        nullptr,
+        function_members,
+        nullptr,
+        nullptr,
+        nullptr,
+        nullptr,
+        nullptr,
+        -1
+};
+
 const TypeInfo FunctionType = {
         TYPEINFO_STATIC_INIT,
         "function",
@@ -153,7 +172,7 @@ const TypeInfo FunctionType = {
         &function_iter,
         nullptr,
         nullptr,
-        nullptr,
+        &function_obj,
         nullptr,
         nullptr,
         nullptr,
