@@ -372,6 +372,8 @@ bool Compiler::CompileInit(Binary *init) {
         return false;
 
     if (AR_TYPEOF(init, type_ast_kwinit_)) {
+        flag = OpCodeINITFlags::DICT;
+
         while ((tmp = IteratorNext(iter)) != nullptr) {
             if (items++ & 0x01) {
                 if (!this->CompileExpression((Node *) tmp)) {
