@@ -49,7 +49,7 @@ ArObject *map_iter_peak(HMapIterator *iter) {
 
 HMAP_ITERATOR(map_iterator, map_iter_next, map_iter_peak);
 
-ArSize map_len(Map *self) {
+ArSize map_len(const Map *self) {
     return self->hmap.len;
 }
 
@@ -136,7 +136,7 @@ ARGON_FUNCTION5(map_, new, "Create an empty map or construct it from an iterable
         return nullptr;
 
     if (count == 1)
-        return MapNewFromIterable((const ArObject *) *argv);
+        return MapNew((const ArObject *) *argv);
 
     return MapNew();
 }
@@ -441,7 +441,7 @@ Map *argon::object::MapNew() {
     return map;
 }
 
-Map *argon::object::MapNewFromIterable(const ArObject *iterable) {
+Map *MapNewFromIterable(const ArObject *iterable) {
     ArObject *iter;
     ArObject *key;
     ArObject *value;
@@ -484,6 +484,28 @@ Map *argon::object::MapNewFromIterable(const ArObject *iterable) {
 
     Release(iter);
     return map;
+}
+
+Map *argon::object::MapNew(const ArObject *iterable) {
+    auto *o = (Map *) iterable;
+    Map *ret;
+
+    if (!AR_TYPEOF(iterable, type_map_))
+        return MapNewFromIterable(iterable);
+
+    if ((ret = MapNew()) == nullptr)
+        return nullptr;
+
+    RWLockRead lock(o->hmap.lock);
+
+    for (auto *cur = (MapEntry *) o->hmap.iter_begin; cur != nullptr; cur = (MapEntry *) cur->iter_next) {
+        if (!MapInsert(ret, cur->key, cur->value)) {
+            Release((ArObject **) &ret);
+            break;
+        }
+    }
+
+    return ret;
 }
 
 void argon::object::MapClear(Map *map) {

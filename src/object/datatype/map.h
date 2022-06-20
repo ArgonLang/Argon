@@ -22,7 +22,7 @@ namespace argon::object {
 
     Map *MapNew();
 
-    Map *MapNewFromIterable(const ArObject *iterable);
+    Map *MapNew(const ArObject *iterable);
 
     ArObject *MapGetNoException(Map *map, ArObject *key);
 
