@@ -29,10 +29,10 @@ ArObject *bounds_compare(Bounds *self, ArObject *other, CompareMode mode) {
         case CompareMode::EQ:
             val = self->start == o->start && self->stop == o->stop && self->step == o->step;
             break;
-        case CompareMode::GE:
+        case CompareMode::GR:
             val = self->start > o->start && self->stop > o->stop && self->step > o->step;
             break;
-        case CompareMode::GEQ:
+        case CompareMode::GRQ:
             val = self->start >= o->start && self->stop >= o->stop && self->step >= o->step;
             break;
         case CompareMode::LE:

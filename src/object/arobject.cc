@@ -570,7 +570,7 @@ ArObject *argon::object::PropertyGet(const ArObject *obj, const ArObject *key, b
 
 ArObject *argon::object::RichCompare(const ArObject *obj, const ArObject *other, CompareMode mode) {
     static const CompareMode reverse[] = {CompareMode::EQ, CompareMode::NE, CompareMode::LE,
-                                          CompareMode::LEQ, CompareMode::GE, CompareMode::GEQ};
+                                          CompareMode::LEQ, CompareMode::GR, CompareMode::GRQ};
     static const char *str_mode[] = {"==", "!=", ">", ">=", "<", "<="};
 
     ArObject *result = nullptr;

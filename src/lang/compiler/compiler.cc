@@ -512,10 +512,10 @@ bool Compiler::CompileBinary(Binary *expr) {
 
             // RELATIONAL
         case TokenType::GREATER:
-            ok = this->Emit(OpCodes::CMP, (int) CompareMode::GE, nullptr);
+            ok = this->Emit(OpCodes::CMP, (int) CompareMode::GR, nullptr);
             break;
         case TokenType::GREATER_EQ:
-            ok = this->Emit(OpCodes::CMP, (int) CompareMode::GEQ, nullptr);
+            ok = this->Emit(OpCodes::CMP, (int) CompareMode::GRQ, nullptr);
             break;
         case TokenType::LESS:
             ok = this->Emit(OpCodes::CMP, (int) CompareMode::LE, nullptr);

@@ -18,8 +18,8 @@ namespace argon::object {
     enum class CompareMode : unsigned char {
         EQ = 0,
         NE = 1,
-        GE = 2,
-        GEQ = 3,
+        GR = 2,
+        GRQ = 3,
         LE = 4,
         LEQ = 5
     };
@@ -31,9 +31,9 @@ namespace argon::object {
         case CompareMode::NE:                   \
             assert(false);                      \
             break;                              \
-        case CompareMode::GE:                   \
+        case CompareMode::GR:                   \
             return BoolToArBool((a) > (b));     \
-        case CompareMode::GEQ:                  \
+        case CompareMode::GRQ:                  \
             return BoolToArBool((a) >= (b));    \
         case CompareMode::LE:                   \
             return BoolToArBool((a) < (b));     \

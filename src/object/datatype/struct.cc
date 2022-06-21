@@ -4,10 +4,11 @@
 
 #include <vm/runtime.h>
 
-#include "nativewrap.h"
+#include "atom.h"
 #include "error.h"
-#include "tuple.h"
+#include "nativewrap.h"
 #include "struct.h"
+#include "tuple.h"
 
 using namespace argon::object;
 using namespace argon::memory;
@@ -22,6 +23,64 @@ const ObjectSlots struct_actions{
         nullptr,
         offsetof(Struct, names)
 };
+
+ArObject *struct_compare(Struct *self, ArObject *other, CompareMode mode) {
+    ArObject *args[] = {self, other, nullptr};
+    ArObject *func;
+    ArObject *ret;
+    Atom *cmp_mode;
+    String *key;
+
+    if ((key = StringIntern("__cmp")) == nullptr)
+        return nullptr;
+
+    func = PropertyGet(self, key, true);
+    Release(key);
+
+    if (func != nullptr) {
+        switch (mode) {
+            case CompareMode::EQ:
+                cmp_mode = AtomNew("EQ");
+                break;
+            case CompareMode::NE:
+                assert(false);
+            case CompareMode::GR:
+                cmp_mode = AtomNew("GR");
+                break;
+            case CompareMode::GRQ:
+                cmp_mode = AtomNew("GRQ");
+                break;
+            case CompareMode::LE:
+                cmp_mode = AtomNew("LE");
+                break;
+            case CompareMode::LEQ:
+                cmp_mode = AtomNew("LEQ");
+                break;
+        }
+
+        if (cmp_mode == nullptr) {
+            Release(func);
+            return nullptr;
+        }
+
+        args[2] = cmp_mode;
+
+        ret = argon::vm::Call(func, 3, args);
+
+        Release(cmp_mode);
+        Release(func);
+
+        if (IsNull(ret)) {
+            Release(ret);
+            return nullptr;
+        }
+
+        return ret;
+    }
+
+    Release(argon::vm::GetLastError()); // Ignore undeclared_method or private_modifier
+    return nullptr;
+}
 
 ArObject *struct_repr(Struct *self) {
     ArObject *args[] = {self};
@@ -84,8 +143,8 @@ const TypeInfo StructType = {
         nullptr,
         (VoidUnaryOp) struct_cleanup,
         (Trace) struct_trace,
-        nullptr,
-        nullptr,
+        (CompareOp) struct_compare,
+        TypeInfo_IsTrue_True,
         nullptr,
         (UnaryOp) struct_repr,
         (UnaryOp) struct_str,
