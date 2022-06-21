@@ -1,0 +1,369 @@
+/*
+ * This source file is part of the Argon project.
+ *
+ * Licensed under the Apache License v2.0
+ *
+ * INI Parser
+ * This module contains a parser for INI files,
+ * supports sections nested through the separator '.' (it is however possible to select a different one)
+ * and is able to transform an ini file into a map and vice versa.
+ *
+ * E.g.:
+   property without section are allowed = yes
+  
+   [section 1]
+   ; this is a comment
+   # and this is a comment too
+   key = value
+   ; a colon can be used instead of the equal
+   key1 : value
+  
+   [.nested 1]
+   ; this section is nested to the previous one if support for nested sections is enabled
+   key without value are allowed
+  
+   [section.inner1.inner2]
+   # the "section" section is created, then the "inner1" section and the "inner2" section
+   inner2 key = "Hello"
+ *
+ * are mapped to:
+ *
+   {
+   	 "property without section are allowed": "yes",
+   	 "section 1": {
+   	 	 "key": "value",
+   		 "key1": "value",
+   		 "nested 1": {
+   			 "key without value are allowed": null
+   		 }
+   	 },
+   	 "section": {
+   		 "inner1": {
+   			 "inner2": {
+   				 "inner2 key": ""Hello"
+   			 }
+   		 }
+   	 }
+   }
+*/
+
+import io
+import regex
+
+from error import TypeError
+
+let INI_COMMENTS = regex::compile(r#"\s*[;|#].*"#, regex::MODE_ECMASCRIPT | regex::OPTIMIZE)
+let INI_SECTION = regex::compile(r#"\s*\[(.+?)\]\s*$"#, regex::MODE_ECMASCRIPT | regex::OPTIMIZE)
+let INI_KONLY = regex::compile(r#"\s*(.+)?\s*$"#, regex::MODE_ECMASCRIPT | regex::OPTIMIZE)
+let INI_KV = regex::compile(r#"\s*(.+?)\s*[=|:]\s*(.+)*$"#, regex::MODE_ECMASCRIPT | regex::OPTIMIZE)
+
+struct Section {
+    pub var name
+    var nested
+    var props
+
+    pub func add_property(name, value) {
+        var prop
+
+        name = name.str().trim().lower()
+
+        if value {
+            value = value.str().trim()
+        }
+
+        if self.props == nil {
+            self.props = {name: value}
+            return
+        }
+
+        prop = self.props.get(name).get_or(nil)
+        if prop {
+            if isinstance(prop, list) {
+                prop.append(value)
+                return
+            }
+
+            self.props[name] = [prop, value]
+            return
+        }
+
+        self.props[name] = value
+    }
+
+    pub func add_section(name) {
+        if !isinstance(name, string) {
+            name = name.str()
+        }
+
+        if self.nested == nil {
+            self.nested = {name: Section{name}}
+        } elif !self.nested.contains(name) {
+            self.nested[name] = Section{name}
+        }
+
+        return self.nested[name]
+    }
+
+    pub func get_option(name) {
+        return self.props?.get(name).get_or(nil)
+    }
+
+    pub func get_options() {
+        return self.props?.items()
+    }
+
+    pub func get_section(section) {
+        return self.nested?.get(section).get_or(nil)
+    }
+
+    pub func to_map {
+        var ret = {}
+
+        if self.props {
+            ret = map::new(self.props)
+        }
+    
+        if self.nested {
+            var key, value
+            for key, value in self.nested {
+                ret[key] = value.to_map()
+            }
+        }
+
+        return ret
+    }
+
+    pub func write(section) {
+        var lines = []
+        var key, value
+
+        if section {
+            lines.append(b"\n[%s]" % section)
+        }
+
+        if self.props {
+            for key, value in self.props {
+                if !value {
+                    lines.append(b"%s" % key)
+                    continue
+                }
+
+                lines.append(b"%s = %s" % (key, value))
+            }
+        }
+
+        if self.nested {
+            for key, value in self.nested {
+                if !section {
+                    lines.append(value.write(key))
+                    continue
+                }
+
+                lines.append(value.write("%s.%s" % (section, key)))
+            }
+        }
+
+        return b"\n".join(lines)
+    }
+}
+
+pub struct IniParser {
+    var no_nested_section = false
+    var no_empty_key = false
+    var section_separator = "."
+
+    var main
+    var cur
+    var line
+
+    pub func from_map(settings) {
+        if self.main == nil {
+            self.main = Section{}
+            self.cur = self.main
+        }
+
+        var key, value
+        for key, value in settings {
+            if isinstance(value, map) {
+                var cur = self.cur
+                self.cur = self.cur.add_section(key)
+                self.from_map(value)
+                self.cur = cur
+                continue
+            }
+
+            self.cur.add_property(key, value)
+        }
+    }
+
+    pub func get(section, option, fallback) {
+        return (self.get_section(section)?.get_option(option)) ?: fallback
+    }
+
+    func get_section(name) {
+        if !self.no_nested_section {
+            var subs = name.split(self.section_separator, -1)
+            var section = self.main
+
+            if section == nil {
+                return nil
+            }
+
+            var sub
+            for sub in subs {
+                section = section.get_section(sub)
+                if section == nil {
+                    break
+                }
+            }
+
+            return section
+        }
+
+        return self.main?.get_section(name)
+    }
+
+    pub func get_options(section) {
+        return self.get_section(section)?.get_options()
+    }
+
+    pub func has_option(section, name) {
+        return self.get_section(section)?.get_option(name) != nil
+    }
+
+    pub func has_section(name) {
+        return self.get_section(name) != nil
+    }
+
+    func parse(line) {
+        # Ignore comments
+        if !line || INI_COMMENTS.match(line) {
+            return
+        }
+
+        if self.main == nil {
+            self.main = Section{}
+            self.cur = self.main
+        }
+
+        var match = INI_SECTION.match(line)
+        if match {
+            self.parse_section(match[0].match)
+            return
+        }
+
+        match = INI_KV.match(line)
+        if !match || len(match) < 2 {
+            match = INI_KONLY.match(line)
+            if !match {
+                return "%d invalid line"
+            }
+
+            if self.no_empty_key {
+                return "line %d: key '%s' is without value, in this mode it is not supported" % (self.line,
+                    match[0].match.str())
+            }
+
+            self.cur.add_property(match[0].match, nil)
+            return
+        }
+
+        self.cur.add_property(match[0].match, match[1].match)
+    }
+
+    func parse_section(section) {
+        if !self.no_nested_section {
+            var subs = section.split(self.section_separator, -1)
+            var first = true
+            var cursor
+
+            for cursor in subs {
+                if !cursor {
+                    first = false
+                    continue
+                }
+
+                self.cur = first ? self.main.add_section(cursor) : self.cur.add_section(cursor)
+                first = false
+            }
+
+            return
+        }
+
+        self.cur = self.main.add_section(section)        
+    }
+
+    pub func read(data) {
+        self.line = 0
+
+        if isimpl(data, io::TextInput) {
+            return self.read_file(data)
+        }
+
+        if isinstance(data, string, bytes) {
+            var gen = () => {
+                var current = data
+
+                if isinstance(current, string) {
+                    current = bytes::new(current)
+                }
+
+                var index = current.find("\n")
+                loop index >= 0 {
+                    yield current[:index]
+                    current = current[index + 1:]
+                    index = current.find("\n")
+                }
+            }
+
+            var line, err
+            for line in gen() {
+                self.line += 1
+                err = self.parse(line)
+                if err != nil {
+                    return err
+                }
+            }
+
+            return
+        }
+
+        panic(TypeError::new("%s can't understand %s" % (IniParser::read.qname, type(data))))
+    }
+
+    func read_file(file) {
+        var line, err = file.readline(-1)
+
+        loop line || err {
+            if err != nil {
+                return err
+            }
+
+            self.line += 1
+            err = self.parse(line[:-1])
+            if err != nil {
+                return err
+            }
+
+            line, err = file.readline(-1)
+        }
+    }
+
+    pub func to_map {
+        if self.main == nil {
+            return {}
+        }
+
+        if self.main.name == nil {
+            return self.main.to_map()
+        }
+
+        var ret = {}
+        ret[self.main.name] = self.main.to_map()
+        return ret
+    }
+
+    pub func write {
+        return self.main.write(nil)
+    }
+}
