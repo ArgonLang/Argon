@@ -117,7 +117,7 @@ pub struct HTTPSSocket impl HTTPConnection {
             if self.connected {
                 var sock, err = self.sock.unwrap()
                 if err != nil {
-                    panic(err)
+                    panic err
                 }
 
                 sock.close()
@@ -208,7 +208,7 @@ pub struct Request {
             if !isimpl(self.cxn, HTTPConnection) {
                 self.cxn = nil
                 self.status = @IDLE
-                panic(TypeError::new("type that implements the HTTPConnection trait is required"))
+                panic TypeError::new("type that implements the HTTPConnection trait is required")
             }
         }
 
@@ -369,7 +369,7 @@ pub struct Request {
 
         if headers != nil {
             if type(headers) != map {
-                panic(ValueError::new("expected headers as map, not: '%s'" % type(headers)))
+                panic ValueError::new("expected headers as map, not: '%s'" % type(headers))
             }
 
             # Merging headers
@@ -578,7 +578,7 @@ pub struct Request {
 
     func write_headers(headers) {
         if type(headers) != map {
-            panic(ValueError::new("expected headers as map, not: '%s'" % type(headers)))
+            panic ValueError::new("expected headers as map, not: '%s'" % type(headers))
         }
 
         var key, value, err
@@ -912,7 +912,7 @@ pub struct Response impl io::Read {
         var line, err, chunksz, values = nil, nil, nil, []
 
         if !self.chunked {
-            panic("not chunked")
+            panic "not chunked"
         }
 
         chunksz, err = self.get_chunk()

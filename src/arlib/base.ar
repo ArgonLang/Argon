@@ -62,7 +62,7 @@ pub func reverse_table(table) {
 
     for byte in table {
         if rt[byte] != 0 || (idx > 0 && byte == table[0]) {
-            panic(ValueError::new("duplicated byte(%d) in encode table" % rt[byte]))
+            panic ValueError::new("duplicated byte(%d) in encode table" % rt[byte])
         }
 
         rt[byte] = idx++

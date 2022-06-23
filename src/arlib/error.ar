@@ -10,7 +10,7 @@
 
     trait ErrorWrap {
         pub func unwrap {
-            panic(NotImplemented::new("you must implement unwrap"))
+            panic NotImplemented::new("you must implement unwrap")
         }
     }
 */

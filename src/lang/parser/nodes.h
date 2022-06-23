@@ -44,6 +44,7 @@ namespace argon::lang::parser {
     extern const object::TypeInfo *type_ast_spread_;
     extern const object::TypeInfo *type_ast_list_;
     extern const object::TypeInfo *type_ast_tuple_;
+    extern const object::TypeInfo *type_ast_panic_;
     extern const object::TypeInfo *type_ast_map_;
     extern const object::TypeInfo *type_ast_set_;
     extern const object::TypeInfo *type_ast_expression_;

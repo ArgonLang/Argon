@@ -113,6 +113,7 @@ namespace argon::lang::scanner {
         LET,
         LOOP,
         //NIL,
+        PANIC,
         PUB,
         RETURN,
         YIELD,

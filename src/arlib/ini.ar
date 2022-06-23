@@ -328,7 +328,7 @@ pub struct IniParser {
             return
         }
 
-        panic(TypeError::new("%s can't understand %s" % (IniParser::read.qname, type(data))))
+        panic TypeError::new("%s can't understand %s" % (IniParser::read.qname, type(data)))
     }
 
     func read_file(file) {

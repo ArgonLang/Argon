@@ -103,6 +103,12 @@ bool Compiler::Compile_(Node *node) {
         return this->CompileSwitch((Test *) node);
     else if (AR_TYPEOF(node, type_ast_assert_))
         return this->CompileAssertion((Binary *) node);
+    else if (AR_TYPEOF(node, type_ast_panic_)) {
+        if (!this->CompileExpression((Node *) ((Unary *) node)->value))
+            return false;
+
+        return this->Emit(OpCodes::PANIC, 0, nullptr);
+    }
 
     ErrorFormat(type_compile_error_, "invalid AST node: %s", AR_TYPE_NAME(node));
     return false;

@@ -1490,6 +1490,30 @@ Node *Parser::ParseMemberAccess(Node *left) {
     return binary;
 }
 
+Node *Parser::ParsePanic() {
+    Pos start = this->tkcur_.start;
+    Node *expr;
+    Unary *unary;
+
+    this->Eat();
+
+    if ((expr = this->ParseExpr()) == nullptr)
+        return nullptr;
+
+    if ((unary = ArObjectNew<Unary>(RCType::INLINE, type_ast_panic_)) == nullptr) {
+        Release(expr);
+        return nullptr;
+    }
+
+    unary->kind = TokenType::PANIC;
+    unary->start = start;
+    unary->end = expr->end;
+
+    unary->value = expr;
+
+    return unary;
+}
+
 Node *Parser::ParsePipeline(Node *left) {
     Node *right;
     Binary *call;
@@ -1684,6 +1708,9 @@ Node *Parser::ParseStatement() {
                     break;
                 case TokenType::LOOP:
                     tmp = this->ParseLoop();
+                    break;
+                case TokenType::PANIC:
+                    tmp = this->ParsePanic();
                     break;
                 case TokenType::IF:
                     tmp = this->ParseIf();

@@ -284,23 +284,6 @@ ARGON_FUNCTION(next,
     return ret;
 }
 
-ARGON_FUNCTION(panic,
-               "Stops normal execution of current ArRoutine."
-               ""
-               "When a function F calls panic, it's execution stops immediately, "
-               "after that, any deferred function run in usual way, and then F returns to its caller."
-               "To the caller, the invocation of function F behaves like a call to panic,"
-               "terminating caller function and executing any deferred functions."
-               "This behaviour continues until all function in the current ArRoutine have stopped."
-               "At that point, the program terminated with a non-zero exit code."
-               "You can control this termination sequence (panicking) using the built-in function recover."
-               ""
-               "- Parameter obj: an object that describe this error."
-               "- Returns: this function does not return to the caller.",
-               1, false) {
-    return argon::vm::Panic(argv[0]);
-}
-
 ARGON_FUNCTION(recover,
                "Allows a program to manage behavior of panicking ArRoutine."
                ""
@@ -469,7 +452,6 @@ const PropertyBulk builtins_bulk[] = {
         MODULE_EXPORT_FUNCTION(hasnext_),
         MODULE_EXPORT_FUNCTION(len_),
         MODULE_EXPORT_FUNCTION(next_),
-        MODULE_EXPORT_FUNCTION(panic_),
         MODULE_EXPORT_FUNCTION(print_),
         MODULE_EXPORT_FUNCTION(println_),
         MODULE_EXPORT_FUNCTION(recover_),

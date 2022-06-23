@@ -48,7 +48,7 @@ pub struct Scanner {
 
     pub let new = (callback) => {
         if !isimpl(callback, ScannerCallback) {
-            panic(NotImplemented::new("'%s' not implement %s" % (type(callback), ScannerCallback)))
+            panic NotImplemented::new("'%s' not implement %s" % (type(callback), ScannerCallback))
         }
 
         return Scanner{callback}
@@ -63,7 +63,7 @@ pub struct Scanner {
 
         match = NUMBER_RE.search(view)
         if !match {
-            panic(DecodeError::new("number", buffer, index))
+            panic DecodeError::new("number", buffer, index)
         }
 
         int, frac, exp = match

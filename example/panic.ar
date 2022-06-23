@@ -4,7 +4,7 @@ func div(value) {
     }()
 
     if type(value) != integer {
-        panic("expected integer, found: %s" % type(value))
+        panic "expected integer, found: %s" % type(value)
     }
 
     return 24 / 0

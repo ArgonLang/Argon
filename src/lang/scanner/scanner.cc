@@ -38,6 +38,7 @@ KwToken kw2tktype[] = {
         {"let",         TokenType::LET},
         {"loop",        TokenType::LOOP},
         {"nil",         TokenType::NIL},
+        {"panic",       TokenType::PANIC},
         {"pub",         TokenType::PUB},
         {"return",      TokenType::RETURN},
         {"self",        TokenType::SELF},

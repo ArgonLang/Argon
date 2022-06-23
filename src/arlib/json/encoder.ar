@@ -20,15 +20,15 @@ pub struct Encoder {
 
 	pub let new = (separators, nl, indent) => {
 		if type(separators) != tuple {
-			panic(TypeError::new("separators must be a tuple not '%s'" % type(separators)))
+			panic TypeError::new("separators must be a tuple not '%s'" % type(separators))
 		}
 
 		if len(separators) != 2 {
-			panic(ValueError::new("separators must have length of 2"))
+			panic ValueError::new("separators must have length of 2")
 		}
 
 		if type(indent) != integer {
-			panic(TypeError::new("indent must be a integer not '%s'" % type(indent)))
+			panic TypeError::new("indent must be a integer not '%s'" % type(indent))
 		}
 
 		return Encoder{separators, nl, indent}
@@ -71,7 +71,7 @@ pub struct Encoder {
 		}
 
 		if !isimpl(obj, JSONEncoder) {
-			panic(NotImplemented::new("object of type '%s' is not JSON serializable" % type(obj)))
+			panic NotImplemented::new("object of type '%s' is not JSON serializable" % type(obj))
 		}
 
 		return obj.encode(self, obj, buffer)
@@ -105,7 +105,7 @@ pub struct Encoder {
 			}
 
 			if type(key) != string {
-				panic(ValueError::new("expected string as key, not %s" % type(key)))
+				panic ValueError::new("expected string as key, not %s" % type(key))
 			}
 
 			buffer += b"\"%s\"%s" % (key, keysep)

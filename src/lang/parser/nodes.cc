@@ -114,6 +114,7 @@ UNARY_NEW(Identifier, "", argon::lang::parser::type_ast_identifier_);
 UNARY_NEW(List, "", argon::lang::parser::type_ast_list_);
 UNARY_NEW(Tuple, "", argon::lang::parser::type_ast_tuple_);
 UNARY_NEW(RestId, "", argon::lang::parser::type_ast_restid_);
+UNARY_NEW(Panic, "", argon::lang::parser::type_ast_panic_);
 UNARY_NEW(Spread, "", argon::lang::parser::type_ast_spread_);
 UNARY_NEW(Scope, "", argon::lang::parser::type_ast_scope_);
 UNARY_NEW(Map, "", argon::lang::parser::type_ast_map_);

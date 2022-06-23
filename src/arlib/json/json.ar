@@ -15,7 +15,7 @@ pub func decode(json) {
 
     if type(json) != bytes {
         if type(json) != string {
-            panic("json::decode expected string or bytes, not %s" % type(json))
+            panic "json::decode expected string or bytes, not %s" % type(json)
         }
 
         json = bytes::new(json)

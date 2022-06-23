@@ -22,7 +22,7 @@ pub struct Promise {
 
     pub let new = (executor) => {
         if executor != nil && !callable(executor) {
-            panic(TypeError::new("Promise::new argument is not a function"))
+            panic TypeError::new("Promise::new argument is not a function")
         }
 
         var promise = Promise{P_PENDING, nil, NotifyQueue::new()}
@@ -42,7 +42,7 @@ pub struct Promise {
 
     pub let all = (promises) => {
         if type(promises) != list && type(promises) != tuple {
-            panic(TypeError::new("Promise::all argument is not a list"))
+            panic TypeError::new("Promise::all argument is not a list")
         }
 
         if !promises {
@@ -77,7 +77,7 @@ pub struct Promise {
 
     pub let wait = (promises) => {
         if type(promises) != list && type(promises) != tuple {
-            panic(TypeError::new("Promise::wait argument is not a list"))
+            panic TypeError::new("Promise::wait argument is not a list")
         }
 
         if !promises {
@@ -171,7 +171,7 @@ pub struct Promise {
 
     pub func then(handler) {
         if !callable(handler) {
-            panic(TypeError::new("Promise::then argument is not a function"))
+            panic TypeError::new("Promise::then argument is not a function")
         }
 
         var promise = Promise::new(nil)
@@ -183,7 +183,7 @@ pub struct Promise {
 
     pub func catch(handler) {
         if !callable(handler) {
-            panic(TypeError::new("Promise::catch argument is not a function"))
+            panic TypeError::new("Promise::catch argument is not a function")
         }
 
         var promise = Promise::new(nil)

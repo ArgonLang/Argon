@@ -6,7 +6,7 @@ var nth
 var count = 0
 
 if nterms <= 0 {
-    panic("Please enter a positive integer")
+    panic "Please enter a positive integer"
 } elif nterms == 1 {
     println(n1)
     return

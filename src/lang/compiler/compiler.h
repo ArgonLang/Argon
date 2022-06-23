@@ -57,6 +57,8 @@ namespace argon::lang::compiler {
 
         bool CompileFunctionDefaultBody();
 
+        bool CompilePanic(argon::lang::parser::Unary *panic);
+
         int CompileSelector(argon::lang::parser::Binary *selector, bool dup, bool emit);
 
         bool CompileSafe(argon::lang::parser::Unary *safe);
