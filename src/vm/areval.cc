@@ -283,6 +283,7 @@ else                                            \
             &&LBL_NJE,
             &&LBL_NGV,
             &&LBL_NOT,
+            &&LBL_PANIC,
             &&LBL_POP,
             &&LBL_POS,
             &&LBL_PB_HEAD,
@@ -932,6 +933,12 @@ else                                            \
                 IncRef(ret);
                 TOP_REPLACE(ret);
                 DISPATCH();
+            }
+            TARGET_OP(PANIC)
+            {
+                Panic(TOP());
+                POP();
+                goto ERROR;
             }
             TARGET_OP(POP)
             {

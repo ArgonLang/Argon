@@ -91,6 +91,7 @@ namespace argon::lang {
         NGV,    // NEW_GLOBAL_VARIABLE
         //NLV,    // NEW_LOCAL_VARIABLE
         NOT,
+        PANIC,
         POP,
         POS,
         PB_HEAD,    // Push back head item of n position

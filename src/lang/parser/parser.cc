@@ -356,6 +356,36 @@ ArObject *Parser::ScopeAsNameList(bool id_only, bool with_alias) {
     return imp;
 }
 
+Node *Parser::ParseAssertion() {
+    Pos start = this->tkcur_.start;
+    Node *msg = nullptr;
+    Node *expr;
+    Node *ret;
+
+    this->Eat();
+
+    if ((expr = this->ParseExpr(EXPR_NO_LIST)) == nullptr)
+        return nullptr;
+
+    if (this->MatchEat(TokenType::COMMA, true)) {
+        msg = this->ParseExpr();
+        if (msg == nullptr) {
+            Release(expr);
+            return nullptr;
+        }
+    }
+
+    if ((ret = BinaryNew(TokenType::ASSERT, type_ast_assert_, expr, msg)) == nullptr) {
+        Release(expr);
+        Release(msg);
+        return nullptr;
+    }
+
+    ret->start = start;
+
+    return ret;
+}
+
 Node *Parser::ParseAssignment(Node *left) {
     TokenType kind = this->tkcur_.type;
     Node *right;
@@ -1630,6 +1660,9 @@ Node *Parser::ParseStatement() {
     do {
         if (this->TokenInRange(TokenType::KEYWORD_BEGIN, TokenType::KEYWORD_END)) {
             switch (this->tkcur_.type) {
+                case TokenType::ASSERT:
+                    tmp = this->ParseAssertion();
+                    break;
                 case TokenType::DEFER:
                 case TokenType::SPAWN:
                     tmp = this->ParseOOBCall();

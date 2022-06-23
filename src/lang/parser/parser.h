@@ -52,6 +52,8 @@ namespace argon::lang::parser {
 
         [[nodiscard]] argon::object::ArObject *TraitList();
 
+        [[nodiscard]] Node *ParseAssertion();
+
         [[nodiscard]] Node *ParseAssignment(Node *left);
 
         [[nodiscard]] Node *ParseOOBCall();

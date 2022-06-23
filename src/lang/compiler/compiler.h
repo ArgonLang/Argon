@@ -25,6 +25,8 @@ namespace argon::lang::compiler {
 
         bool Compile_(argon::lang::parser::Node *node);
 
+        bool CompileAssertion(argon::lang::parser::Binary *assertion);
+
         bool CompileAssignment(argon::lang::parser::Binary *assignment);
 
         bool CompileAugAssignment(argon::lang::parser::Binary *assignment);

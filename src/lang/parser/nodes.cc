@@ -126,6 +126,7 @@ UNARY_NEW(JmpDecl, "", argon::lang::parser::type_ast_jmp_);
 UNARY_NEW(SafeExpr, "", argon::lang::parser::type_ast_safe_);
 
 BINARY_NEW(Binary, "", argon::lang::parser::type_ast_binary_);
+BINARY_NEW(Assert, "", argon::lang::parser::type_ast_assert_);
 BINARY_NEW(Selector, "", argon::lang::parser::type_ast_selector_);
 BINARY_NEW(StructInit, "", argon::lang::parser::type_ast_init_);
 BINARY_NEW(StructKwInit, "", argon::lang::parser::type_ast_kwinit_);
@@ -224,7 +225,9 @@ Binary *argon::lang::parser::BinaryNew(scanner::TokenType kind, const TypeInfo *
         binary->right = right;
 
         binary->start = left->start;
-        binary->end = right->end;
+
+        if (right != nullptr)
+            binary->end = right->end;
 
         binary->kind = kind;
     }

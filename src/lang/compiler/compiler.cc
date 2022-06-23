@@ -101,6 +101,8 @@ bool Compiler::Compile_(Node *node) {
         return this->CompileForInLoop((Loop *) node);
     else if (AR_TYPEOF(node, type_ast_switch_))
         return this->CompileSwitch((Test *) node);
+    else if (AR_TYPEOF(node, type_ast_assert_))
+        return this->CompileAssertion((Binary *) node);
 
     ErrorFormat(type_compile_error_, "invalid AST node: %s", AR_TYPE_NAME(node));
     return false;
@@ -179,6 +181,57 @@ bool Compiler::CompileDeclarations(Assignment *assign) {
 
     Release(iter);
     return true;
+}
+
+bool Compiler::CompileAssertion(Binary *assertion) {
+    BasicBlock *end;
+    unsigned short args = 0;
+    int idx;
+
+    if ((end = BasicBlockNew()) == nullptr)
+        return false;
+
+    if (!this->CompileExpression((Node *) assertion->left)) {
+        BasicBlockDel(end);
+        return false;
+    }
+
+    if (!this->Emit(lang::OpCodes::JT, end, nullptr)) {
+        BasicBlockDel(end);
+        return false;
+    }
+
+    // Assertion failed!
+
+    if (this->PushStatic((ArObject *) type_assertion_error_, true, true) < 0)
+        goto ERROR;
+
+    if ((idx = this->PushStatic(StringNew("new"), true, false)) < 0)
+        goto ERROR;
+
+    if (!this->Emit(OpCodes::LDSCOPE, idx, nullptr))
+        goto ERROR;
+
+    if (assertion->right != nullptr) {
+        if (!this->CompileExpression((Node *) assertion->right))
+            goto ERROR;
+
+        args++;
+        TranslationUnitDecStack(this->unit_, 1);
+    }
+
+    if (!this->Emit(OpCodes::CALL, 0, args))
+        goto ERROR;
+
+    if (!this->Emit(OpCodes::PANIC, 0, nullptr))
+        goto ERROR;
+
+    TranslationUnitBlockAppend(this->unit_, end);
+    return true;
+
+    ERROR:
+    BasicBlockDel(end);
+    return false;
 }
 
 bool Compiler::CompileAssignment(Binary *assignment) {
@@ -382,7 +435,7 @@ bool Compiler::CompileInit(Binary *init) {
                     return false;
                 }
             } else {
-                if (this->PushStatic((String *) ((Unary*)tmp)->value, true, true) < 0) {
+                if (this->PushStatic((String *) ((Unary *) tmp)->value, true, true) < 0) {
                     Release(tmp);
                     Release(iter);
                     return false;
@@ -852,36 +905,25 @@ bool Compiler::CompileFunction(Construct *func) {
 }
 
 bool Compiler::CompileFunctionDefaultBody() {
-    auto *panic = StringIntern("panic");
-    ArObject *panic_msg;
-    bool ok = false;
+    ArObject *panic_msg = ErrorFormatNoPanic(type_unimplemented_error_,
+                                             "you must implement method %s",
+                                             this->unit_->qname->buffer);
 
-    panic_msg = ErrorFormatNoPanic(type_unimplemented_error_, "you must implement method %s",
-                                   this->unit_->qname->buffer);
+    if (panic_msg == nullptr)
+        return false;
 
-    if (panic == nullptr || panic_msg == nullptr)
-        goto ERROR;
+    if (this->PushStatic(panic_msg, false, true) < 0) {
+        Release(panic_msg);
+        return false;
+    }
 
-    if (!this->IdentifierLoad(panic))
-        goto ERROR;
+    if (!this->Emit(OpCodes::PANIC, 0, nullptr)) {
+        Release(panic_msg);
+        return false;
+    }
 
-    if (this->PushStatic(panic_msg, false, true) < 0)
-        goto ERROR;
-
-    TranslationUnitDecStack(this->unit_, 1);
-
-    if (!this->Emit(OpCodes::CALL, (unsigned char) OpCodeCallFlags{}, 1))
-        goto ERROR;
-
-    if (!this->Emit(OpCodes::POP, 0, nullptr))
-        goto ERROR;
-
-    ok = true;
-
-    ERROR:
-    Release(panic);
     Release(panic_msg);
-    return ok;
+    return true;
 }
 
 int Compiler::CompileSelector(Binary *selector, bool dup, bool emit) {
@@ -1810,6 +1852,7 @@ bool Compiler::Emit(OpCodes op, int arg, BasicBlock *dest) {
         case OpCodes::MOD:
         case OpCodes::CMP:
         case OpCodes::EQST:
+        case OpCodes::PANIC:
         case OpCodes::POP:
         case OpCodes::JF:
         case OpCodes::JT:

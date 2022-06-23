@@ -58,6 +58,7 @@ namespace argon::lang::parser {
         object::ArObject *right;
     };
     extern const object::TypeInfo *type_ast_binary_;
+    extern const object::TypeInfo *type_ast_assert_;
     extern const object::TypeInfo *type_ast_selector_;
     extern const object::TypeInfo *type_ast_init_;
     extern const object::TypeInfo *type_ast_kwinit_;
