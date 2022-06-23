@@ -17,6 +17,7 @@ struct KwToken {
 
 KwToken kw2tktype[] = {
         {"as",          TokenType::AS},
+        {"assert",      TokenType::ASSERT},
         {"break",       TokenType::BREAK},
         {"case",        TokenType::CASE},
         {"continue",    TokenType::CONTINUE},

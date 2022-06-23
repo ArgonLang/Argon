@@ -92,6 +92,7 @@ namespace argon::lang::scanner {
 
         KEYWORD_BEGIN,
         AS,
+        ASSERT,
         BREAK,
         CASE,
         CONTINUE,
