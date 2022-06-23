@@ -451,7 +451,7 @@ Node *Parser::ParseOOBCall() {
     return call;
 }
 
-Node *Parser::ParseBlock(bool nostatic) {
+Node *Parser::ParseBlock(DisableFeature dflag) {
     Node *tmp;
     List *stmt;
     Pos start;
@@ -467,7 +467,7 @@ Node *Parser::ParseBlock(bool nostatic) {
 
     end = this->tkcur_.end;
     while (!this->MatchEat(TokenType::RIGHT_BRACES, true)) {
-        if ((tmp = this->ParseDecls(nostatic)) == nullptr) {
+        if ((tmp = this->ParseDecls(dflag)) == nullptr) {
             Release(stmt);
             return nullptr;
         }
@@ -789,7 +789,7 @@ Node *Parser::ParseElvis(Node *left) {
 }
 
 Node *Parser::ParseExpr(int precedence) {
-    bool no_init = this->no_init_;
+    DisableFeature gbl_dflag = this->dflag_;
     bool safe = false;
     LedMeth led;
     NudMeth nud;
@@ -806,7 +806,7 @@ Node *Parser::ParseExpr(int precedence) {
     while (!this->Match(TokenType::END_OF_LINE, TokenType::SEMICOLON)
            && precedence < PeekPrecedence(this->tkcur_.type)) {
 
-        if (this->tkcur_.type == TokenType::LEFT_BRACES && no_init)
+        if (this->tkcur_.type == TokenType::LEFT_BRACES && ENUMBITMASK_ISTRUE(gbl_dflag, DisableFeature::INIT))
             break;
 
         if ((led = this->LookupLed()) == nullptr)
@@ -1001,18 +1001,18 @@ Node *Parser::ParseFor() {
             goto ERROR;
         }
 
-        this->no_init_ = true;
+        this->dflag_ |= DisableFeature::INIT;
         if ((inc = this->Expression()) == nullptr)
             goto ERROR;
-        this->no_init_ = false;
+        this->dflag_ &= ~DisableFeature::INIT;
     } else {
-        this->no_init_ = true;
+        this->dflag_ |= DisableFeature::INIT;
         if ((test = this->ParseExpr(EXPR_NO_ASSIGN)) == nullptr)
             goto ERROR;
-        this->no_init_ = false;
+        this->dflag_ &= ~DisableFeature::INIT;
     }
 
-    if ((body = this->ParseBlock(true)) == nullptr)
+    if ((body = this->ParseBlock(disable_static)) == nullptr)
         goto ERROR;
 
     if ((loop = ArObjectNew<Loop>(RCType::INLINE, type)) == nullptr)
@@ -1092,7 +1092,7 @@ Node *Parser::FuncDecl(bool pub, bool nobody) {
 
     tmp = nullptr;
     if (!nobody || this->Match(TokenType::LEFT_BRACES)) {
-        tmp = this->ParseBlock(true);
+        tmp = this->ParseBlock(disable_static);
         if (tmp == nullptr)
             goto ERROR;
 
@@ -1289,19 +1289,19 @@ Node *Parser::ParseLoop() {
     this->Eat();
 
     if (this->Match(TokenType::LEFT_BRACES)) {
-        if ((loop->body = this->ParseBlock(true)) == nullptr) {
+        if ((loop->body = this->ParseBlock(disable_static)) == nullptr) {
             Release(loop);
             return nullptr;
         }
     } else {
-        this->no_init_ = true;
+        this->dflag_ |= DisableFeature::INIT;
         if ((loop->test = this->ParseExpr(EXPR_NO_ASSIGN)) == nullptr) {
             Release(loop);
             return nullptr;
         }
-        this->no_init_ = false;
+        this->dflag_ &= ~DisableFeature::INIT;
 
-        if ((loop->body = this->ParseBlock(true)) == nullptr) {
+        if ((loop->body = this->ParseBlock(disable_static)) == nullptr) {
             Release(loop);
             return nullptr;
         }
@@ -1324,12 +1324,12 @@ Node *Parser::ParseIf() {
 
     this->Eat();
 
-    this->no_init_ = true;
+    this->dflag_ |= DisableFeature::INIT;
     if ((test->test = this->ParseExpr(EXPR_NO_ASSIGN)) == nullptr)
         goto ERROR;
-    this->no_init_ = false;
+    this->dflag_ &= ~DisableFeature::INIT;
 
-    if ((test->body = this->ParseBlock(false)) == nullptr)
+    if ((test->body = this->ParseBlock(DisableFeature{})) == nullptr)
         goto ERROR;
 
     test->end = ((Node *) test->body)->end;
@@ -1340,7 +1340,7 @@ Node *Parser::ParseIf() {
 
         test->end = ((Node *) test->orelse)->end;
     } else if (this->MatchEat(TokenType::ELSE, false)) {
-        if ((test->orelse = this->ParseBlock(false)) == nullptr)
+        if ((test->orelse = this->ParseBlock(DisableFeature{})) == nullptr)
             goto ERROR;
 
         test->end = ((Node *) test->orelse)->end;
@@ -1810,7 +1810,7 @@ Node *Parser::SwitchCase() {
         if (body == nullptr && (body = ListNew()) == nullptr)
             goto ERROR;
 
-        if ((tmp = this->ParseDecls(true)) == nullptr)
+        if ((tmp = this->ParseDecls(disable_static)) == nullptr)
             goto ERROR;
 
         if (!ListAppend(body, tmp)) {
@@ -1867,10 +1867,10 @@ Node *Parser::SwitchDecl() {
     this->Eat();
 
     if (!this->Match(TokenType::LEFT_BRACES)) {
-        this->no_init_ = true;
+        this->dflag_ |= DisableFeature::INIT;
         if ((test = this->ParseExpr(EXPR_NO_ASSIGN)) == nullptr)
             return nullptr;
-        this->no_init_ = false;
+        this->dflag_ &= ~DisableFeature::INIT;
     }
 
     if (!this->MatchEat(TokenType::LEFT_BRACES, false)) {
@@ -2240,7 +2240,7 @@ Node *Parser::ParseTupleLambda() {
             }
         }
 
-        if ((tmp = this->ParseBlock(true)) == nullptr) {
+        if ((tmp = this->ParseBlock(disable_static)) == nullptr) {
             Release(args);
             return nullptr;
         }
@@ -2391,25 +2391,31 @@ Node *Parser::ScopeAsName(bool id_only, bool with_alias) {
     return nullptr;
 }
 
-Node *Parser::ParseDecls(bool nostatic) {
+Node *Parser::ParseDecls(DisableFeature dflag) {
     Node *stmt;
     Pos start = this->tkcur_.start;
-    bool gbl_nostatic = this->no_static_;
+    DisableFeature gbl_dflag = this->dflag_;
     bool pub = false;
 
-    if (this->MatchEat(TokenType::PUB, false))
-        pub = true;
+    if (dflag != gbl_dflag)
+        this->dflag_ = dflag;
 
-    if (nostatic || gbl_nostatic)
-        this->no_static_ = true;
+    if (this->MatchEat(TokenType::PUB, false)) {
+        if (ENUMBITMASK_ISTRUE(this->dflag_, DisableFeature::MODIFIER_PUB))
+            return (Node *) ErrorFormat(type_syntax_error_, "unexpected use of 'pub' modifier in this context");
+
+        pub = true;
+    }
 
     switch (this->tkcur_.type) {
         case TokenType::WEAK:
+            if (ENUMBITMASK_ISTRUE(this->dflag_, DisableFeature::MODIFIER_WEAK))
+                return (Node *) ErrorFormat(type_syntax_error_, "unexpected use of 'weak' in this context");
         case TokenType::VAR:
             stmt = this->ParseVarDecl(false, pub);
             break;
         case TokenType::LET:
-            if (this->no_static_)
+            if (ENUMBITMASK_ISTRUE(this->dflag_, DisableFeature::DECL_LET))
                 return (Node *) ErrorFormat(type_syntax_error_, "unexpected use of 'let' in this context");
 
             stmt = this->ParseVarDecl(true, pub);
@@ -2418,13 +2424,13 @@ Node *Parser::ParseDecls(bool nostatic) {
             stmt = this->FuncDecl(pub, false);
             break;
         case TokenType::STRUCT:
-            if (this->no_static_)
+            if (ENUMBITMASK_ISTRUE(this->dflag_, DisableFeature::DECL_STRUCT))
                 return (Node *) ErrorFormat(type_syntax_error_, "unexpected struct declaration");
 
             stmt = this->StructDecl(pub);
             break;
         case TokenType::TRAIT:
-            if (this->no_static_)
+            if (ENUMBITMASK_ISTRUE(this->dflag_, DisableFeature::DECL_TRAIT))
                 return (Node *) ErrorFormat(type_syntax_error_, "unexpected trait declaration");
 
             stmt = this->TraitDecl(pub);
@@ -2439,7 +2445,7 @@ Node *Parser::ParseDecls(bool nostatic) {
     if (stmt != nullptr && pub)
         stmt->start = start;
 
-    this->no_static_ = gbl_nostatic;
+    this->dflag_ = gbl_dflag;
 
     return stmt;
 }
@@ -2492,7 +2498,7 @@ void Parser::EatTerm(TokenType stop) {
 Parser::Parser(Scanner *scanner, const char *filename) {
     this->scanner_ = scanner;
     this->filename_ = filename;
-    this->no_static_ = false;
+    this->dflag_ = DisableFeature{};
 }
 
 File *Parser::Parse() {
@@ -2506,10 +2512,10 @@ File *Parser::Parse() {
     // Initialize parser
     this->Eat();
 
-    this->no_init_ = false;
+    this->dflag_ &= ~DisableFeature::INIT;
 
     while (!this->MatchEat(TokenType::END_OF_FILE, true)) {
-        if ((tmp = this->ParseDecls(false)) == nullptr) {
+        if ((tmp = this->ParseDecls(DisableFeature{})) == nullptr) {
             Release(decls);
             return nullptr;
         }

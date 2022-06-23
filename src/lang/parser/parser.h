@@ -5,11 +5,29 @@
 #ifndef ARGON_LANG_PARSER_PARSER_H_
 #define ARGON_LANG_PARSER_PARSER_H_
 
+#include <utils/enum_bitmask.h>
+
 #include <lang/scanner/scanner.h>
 
 #include "nodes.h"
 
 namespace argon::lang::parser {
+    enum class DisableFeature {
+        DECL_VAR = 0x01,
+        DECL_LET = 0x01 << 1u,
+        DECL_STRUCT = 0x01 << 2u,
+        DECL_TRAIT = 0x01 << 3u,
+        MODIFIER_PUB = 0x01 << 4u,
+        MODIFIER_WEAK = 0x01 << 5u,
+        INIT = 0x01 << 6u
+    };
+}
+
+ENUMBITMASK_ENABLE(argon::lang::parser::DisableFeature);
+
+namespace argon::lang::parser {
+    constexpr auto disable_static = (DisableFeature) 0x3E;
+
     class Parser;
 
     using NudMeth = Node *(Parser::*)();
@@ -21,8 +39,7 @@ namespace argon::lang::parser {
 
         scanner::Token tkcur_;
 
-        bool no_init_;
-        bool no_static_;
+        DisableFeature dflag_;
 
         bool IsLiteral();
 
@@ -58,7 +75,7 @@ namespace argon::lang::parser {
 
         [[nodiscard]] Node *ParseOOBCall();
 
-        [[nodiscard]] Node *ParseBlock(bool nostatic);
+        [[nodiscard]] Node *ParseBlock(DisableFeature dflag);
 
         [[nodiscard]] Node *TypeDeclBlock(bool is_struct);
 
@@ -140,7 +157,7 @@ namespace argon::lang::parser {
 
         [[nodiscard]] Node *ScopeAsName(bool id_only, bool with_alias);
 
-        [[nodiscard]] Node *ParseDecls(bool nostatic);
+        [[nodiscard]] Node *ParseDecls(DisableFeature dflag);
 
         [[nodiscard]] NudMeth LookupNud();
 
