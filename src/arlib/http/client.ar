@@ -742,7 +742,7 @@ pub struct Response impl io::Read {
                 return "line too long"
             }
 
-            if !line {
+            if !line || line == b"\n" || line == b"\r\n" {
                 break
             }
 
@@ -752,7 +752,7 @@ pub struct Response impl io::Read {
                 return "'%s'invalid header" % line
             }
 
-            headers[line[0].lower()] = line[1].trim()
+            headers[line[0].lower()] = line[1][:-1].trim()
         }
 
         self.headers = headers
@@ -819,7 +819,7 @@ pub struct Response impl io::Read {
                     return err
                 }
 
-                if !line {
+                if !line || line == b"\n" || line == b"\r\n" {
                     break
                 }
             }
@@ -911,9 +911,7 @@ pub struct Response impl io::Read {
     func read_chunk(size) {
         var line, err, chunksz, values = nil, nil, nil, []
 
-        if !self.chunked {
-            panic "not chunked"
-        }
+        assert self.chunked, "not chunked!"
 
         chunksz, err = self.get_chunk()
         if err != nil {
@@ -975,7 +973,7 @@ pub struct Response impl io::Read {
     }
 
     pub func trim_trailer() {
-        var line , err = b" ", nil
+        var line, err = b" ", nil
 
         loop line {
             line, err = self.bufio.readline(MAXLINELEN1)
@@ -985,6 +983,10 @@ pub struct Response impl io::Read {
 
             if len(line) > MAXLINELEN {
                 return "line too long to retrieve the trailer line"
+            }
+
+            if !line || line == b"\n" || line == b"\r\n" {
+                break
             }
         }
     }
