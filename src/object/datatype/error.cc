@@ -66,8 +66,11 @@ const TypeInfo ErrorWrap = {
 };
 const TypeInfo *argon::object::type_error_wrap_ = &ErrorWrap;
 
-ARGON_FUNCTION5(error_, new, "", 1, false) {
-    return ErrorNew(((Function *) func)->base, *argv);
+ARGON_FUNCTION5(error_, new, "", 0, true) {
+    if (!VariadicCheckPositional((const char *) ((Function *) func)->qname->buffer, count, 0, 1))
+        return nullptr;
+
+    return ErrorNew(((Function *) func)->base, count > 0 ? *argv : nullptr);
 }
 
 ARGON_METHOD5(error_, unwrap, "", 0, false) {
@@ -104,6 +107,7 @@ const ObjectSlots error_obj = {
 const ObjectSlots *argon::object::_error_objs = &error_obj;
 
 // Runtime error types
+ARGON_ERROR_TYPE_SIMPLE(AssertionError, "", argon::object::type_assertion_error_);
 ARGON_ERROR_TYPE_SIMPLE(AccessViolation, "", argon::object::type_access_violation_);
 ARGON_ERROR_TYPE_SIMPLE(AttributeError, "", argon::object::type_attribute_error_);
 ARGON_ERROR_TYPE_SIMPLE(BufferError, "", argon::object::type_buffer_error_);
@@ -187,9 +191,9 @@ ArObject *argon::object::ErrorFormat(const TypeInfo *etype, const char *format, 
     ArObject *err;
     String *msg;
 
-            va_start(args, format);
+    va_start(args, format);
     msg = StringNewFormat(format, args);
-            va_end(args);
+    va_end(args);
 
     if (msg == nullptr)
         return nullptr;
@@ -211,9 +215,9 @@ ArObject *argon::object::ErrorFormatNoPanic(const TypeInfo *etype, const char *f
     ArObject *err;
     String *msg;
 
-            va_start(args, format);
+    va_start(args, format);
     msg = StringNewFormat(format, args);
-            va_end(args);
+    va_end(args);
 
     if (msg == nullptr)
         return nullptr;
@@ -356,6 +360,7 @@ bool argon::object::ErrorInit() {
         return false;
 
     INIT(argon::object::type_error_wrap_);
+    INIT(argon::object::type_assertion_error_);
     INIT(argon::object::type_access_violation_);
     INIT(argon::object::type_attribute_error_);
     INIT(argon::object::type_buffer_error_);

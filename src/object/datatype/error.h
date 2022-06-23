@@ -95,6 +95,7 @@ Error *(ptr_name) = (Error*) &(name)
     extern const TypeInfo *type_error_wrap_;
 
     // Runtime errors
+    extern const TypeInfo *type_assertion_error_;
     extern const TypeInfo *type_access_violation_;
     extern const TypeInfo *type_attribute_error_;
     extern const TypeInfo *type_buffer_error_;
