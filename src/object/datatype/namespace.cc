@@ -230,17 +230,69 @@ ArObject *argon::object::NamespaceGetValue(Namespace *ns, ArObject *key, Propert
     return nullptr;
 }
 
-Tuple *argon::object::NamespaceKeysToTuple(Namespace *ns) {
+List *argon::object::NamespaceMkInfo(Namespace *ns, PropertyType info) {
+    char buffer[10] = {};
+    List *keys;
+
+    if (ns == nullptr)
+        return ListNew();
+
     RWLockRead lock(ns->hmap.lock);
-    Tuple *keys;
 
-    int idx = 0;
-
-    if ((keys = TupleNew(ns->hmap.len)) == nullptr)
+    if ((keys = ListNew(ns->hmap.len)) == nullptr)
         return nullptr;
 
-    for (HEntry *cursor = ns->hmap.iter_begin; cursor != nullptr; cursor = cursor->iter_next)
-        TupleInsertAt(keys, idx++, cursor->key);
+    for (auto *cursor = (NsEntry *) ns->hmap.iter_begin; cursor != nullptr; cursor = (NsEntry *) cursor->iter_next) {
+        ArObject *tmp;
+        String *key;
+
+        bool wr = false;
+
+        if ((cursor->info & info) != info)
+            continue;
+
+        tmp = (Function *) cursor->GetObject();
+
+        if (tmp != nullptr && AR_TYPEOF(tmp, type_function_)) {
+            const auto *fn = (Function *) tmp;
+            auto arity = fn->IsMethod() ? fn->arity - 1 : fn->arity;
+
+            if (arity > 0)
+                snprintf(buffer, 10, "(%d%s)", arity, fn->IsVariadic() ? ", ..." : "");
+            else
+                snprintf(buffer, 10, "(%s)", fn->IsVariadic() ? "..." : "");
+
+            key = StringNewFormat("%s%s%s",
+                                  fn->IsMethod() ? "" : "::",
+                                  ((String *) cursor->key)->buffer,
+                                  buffer);
+
+            wr = true;
+        } else if (tmp != nullptr && AR_TYPEOF(tmp, type_type_) && ((TypeInfo *) tmp)->flags == TypeInfoFlags::STRUCT) {
+            buffer[0] = '{';
+            buffer[1] = '}';
+            buffer[2] = '\0';
+        }
+
+        if (!wr) {
+            key = StringNewFormat("%s%s%s",
+                                  cursor->info.IsConstant() ? "::" : "",
+                                  ((String *) cursor->key)->buffer,
+                                  buffer);
+        }
+
+        Release(tmp);
+
+        if (key == nullptr) {
+            Release(keys);
+            return nullptr;
+        }
+
+        ListAppend(keys, key);
+        Release(key);
+
+        buffer[0] = '\0';
+    }
 
     return keys;
 }

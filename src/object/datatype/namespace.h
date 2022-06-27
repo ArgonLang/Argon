@@ -8,8 +8,8 @@
 #include <object/arobject.h>
 #include <utils/enum_bitmask.h>
 
-#include "tuple.h"
 #include "hmap.h"
+#include "list.h"
 #include "nil.h"
 
 namespace argon::object {
@@ -106,7 +106,7 @@ namespace argon::object {
 
     ArObject *NamespaceGetValue(Namespace *ns, ArObject *key, PropertyInfo *info);
 
-    Tuple *NamespaceKeysToTuple(Namespace *ns);
+    List *NamespaceMkInfo(Namespace *ns, PropertyType info);
 
     bool NamespaceMerge(Namespace *dst, Namespace *src);
 

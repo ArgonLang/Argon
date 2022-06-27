@@ -82,41 +82,46 @@ ARGON_FUNCTION(callable,
 }
 
 ARGON_FUNCTION(dir,
-               "Returns the tuple of names in local scope or attributes of an object."
+               "Returns a list of names in the local scope or the attributes of the instance."
                ""
-               "Without arguments, returns a tuple with names in the current scope, with one argument, returns a tuple "
-               "with the attributes of the argument."
+               "Without arguments, returns a list with names in the current scope, with one argument, returns a list "
+               "with the instance attributes of the argument."
                ""
-               "- Parameter ...obj: object whose attributes you want to know."
-               "- Returns: tuple with attributes if any, otherwise an empty tuple.",
+               "- Parameter ...obj: object whose instance attributes you want to know."
+               "- Returns: list with attributes if any, otherwise an empty list.",
                0, true) {
-    const TypeInfo *ancestor;
-    ArObject *target;
+    ArObject *ret;
+    Frame *frame;
 
     if (!VariadicCheckPositional("dir", (int) count, 0, 1))
         return nullptr;
 
+    if (count > 0 && AR_TYPEOF(argv[0], type_module_))
+        return NamespaceMkInfo(((Module *) argv[0])->module_ns, PropertyType::PUBLIC);
+
+    frame = argon::vm::GetFrame();
+
     if (count == 0) {
-        auto *frame = argon::vm::GetFrame();
-        Tuple *items;
-
         if (frame == nullptr)
-            return nullptr;
+            return ListNew();
 
-        items = NamespaceKeysToTuple(frame->globals);
+        if (frame->instance != nullptr)
+            ret = NamespaceMkInfo((Namespace *) AR_GET_TYPE(frame->instance)->tp_map, PropertyType{});
+        else
+            ret = NamespaceMkInfo(frame->globals, PropertyType{});
+
         Release(frame);
-
-        return items;
+        return ret;
     }
 
-    target = argv[0];
+    if (frame != nullptr && frame->instance != nullptr && AR_GET_TYPE(frame->instance) == AR_GET_TYPE(argv[0]))
+        ret = NamespaceMkInfo((Namespace *) AR_GET_TYPE(argv[0])->tp_map, PropertyType{});
+    else
+        ret = NamespaceMkInfo((Namespace *) AR_GET_TYPE(argv[0])->tp_map, PropertyType::PUBLIC);
 
-    if (AR_TYPEOF(target, type_module_))
-        return NamespaceKeysToTuple(((Module *) target)->module_ns);
+    Release(frame);
 
-    ancestor = AR_GET_TYPEOBJ(target);
-
-    return ancestor->tp_map == nullptr ? TupleNew((ArSize) 0) : NamespaceKeysToTuple((Namespace *) ancestor->tp_map);
+    return ret;
 }
 
 ARGON_FUNCTION(exit,
@@ -217,7 +222,7 @@ ARGON_FUNCTION(isinstance,
                "    - ...types: types list."
                "- Returns: true if the object is an instance of one of the indicated type, false otherwise.", 2, true) {
     for (ArSize i = 1; i < count; i++) {
-        if(argv[0]->type == argv[i])
+        if (argv[0]->type == argv[i])
             return BoolToArBool(true);
     }
 
@@ -265,6 +270,28 @@ ARGON_FUNCTION(len,
         return ErrorFormat(type_type_error_, "type '%s' has no len", argv[0]->type->name);
 
     return IntegerNew(length);
+}
+
+ARGON_FUNCTION(lsattr,
+               "Returns the list of attributes of an object/datatype."
+               ""
+               "- Parameter obj: object/datatype whose attributes you want to know."
+               "- Returns: list with attributes if any, otherwise an empty list.",
+               1, false) {
+    const auto target = AR_GET_TYPEOBJ(argv[0]);
+    ArObject *ret;
+    Frame *frame;
+
+    frame = argon::vm::GetFrame();
+
+    if (frame != nullptr && frame->instance != nullptr && AR_GET_TYPE(frame->instance) == target)
+        ret = NamespaceMkInfo((Namespace *) target->tp_map, PropertyType{});
+    else
+        ret = NamespaceMkInfo((Namespace *) target->tp_map, PropertyType::PUBLIC);
+
+    Release(frame);
+
+    return ret;
 }
 
 ARGON_FUNCTION(next,
@@ -451,6 +478,7 @@ const PropertyBulk builtins_bulk[] = {
         MODULE_EXPORT_FUNCTION(iter_),
         MODULE_EXPORT_FUNCTION(hasnext_),
         MODULE_EXPORT_FUNCTION(len_),
+        MODULE_EXPORT_FUNCTION(lsattr_),
         MODULE_EXPORT_FUNCTION(next_),
         MODULE_EXPORT_FUNCTION(print_),
         MODULE_EXPORT_FUNCTION(println_),
