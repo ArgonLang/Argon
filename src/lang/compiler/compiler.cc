@@ -348,7 +348,7 @@ bool Compiler::CompileImportAlias(argon::lang::parser::Binary *alias, bool impfr
     if (!this->Emit(code, idx, nullptr))
         return false;
 
-    if (!this->IdentifierNew((String *) alias->right, SymbolType::VARIABLE, PropertyType{}, true))
+    if (!this->IdentifierNew((String *) alias->right, SymbolType::VARIABLE, PropertyType::CONST, true))
         return false;
 
     return true;
@@ -746,8 +746,9 @@ bool Compiler::CompileConstruct(Construct *construct) {
 
     TranslationUnitDecStack(this->unit_, impls);
 
-    return this->IdentifierNew(construct->name, scope == TUScope::STRUCT ? SymbolType::STRUCT : SymbolType::TRAIT,
-                               construct->pub ? PropertyType::PUBLIC : PropertyType{}, true);
+    return this->IdentifierNew(construct->name,
+                               scope == TUScope::STRUCT ? SymbolType::STRUCT : SymbolType::TRAIT,
+                               construct->pub ? PropertyType::PUBLIC | PropertyType::CONST : PropertyType::CONST, true);
 }
 
 bool Compiler::CompileFunction(Construct *func) {
