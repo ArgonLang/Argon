@@ -46,7 +46,7 @@ ArObject *MROSearch(const TypeInfo *type, ArObject *key, PropertyInfo *pinfo) {
 ArObject *type_get_static_attr(ArObject *self, ArObject *key) {
     const TypeInfo *type = AR_GET_TYPEOBJ(self);
     const TypeInfo *tp_base = type;
-    ArObject *instance = nullptr;
+    const ArObject *instance = nullptr;
     ArObject *obj;
 
     PropertyInfo pinfo{};
@@ -85,15 +85,12 @@ ArObject *type_get_static_attr(ArObject *self, ArObject *key) {
 }
 
 ArObject *type_get_attr(ArObject *self, ArObject *key) {
-    const TypeInfo *ancestor = AR_GET_TYPEOBJ(self);
+    const TypeInfo *ancestor = AR_GET_TYPE(self);
     auto **ns = (Namespace **) AR_GET_NSOFF(self);
-    ArObject *instance = nullptr;
+    const ArObject *instance = nullptr;
     ArObject *obj = nullptr;
 
     PropertyInfo pinfo{};
-
-    if (!AR_IS_TYPE_INSTANCE(self))
-        return ErrorFormat(type_type_error_, "object is not an instance of type '%s'", ancestor->name);
 
     if (AR_OBJECT_SLOT(self) == nullptr)
         return ErrorFormat(type_attribute_error_, "object of type '%s' does not support attribute(.) operator",
@@ -138,9 +135,6 @@ bool type_set_attr(ArObject *obj, ArObject *key, ArObject *value) {
 
     PropertyInfo pinfo{};
 
-    if (!AR_IS_TYPE_INSTANCE(obj))
-        return ErrorFormat(type_type_error_, "object is not an instance of type '%s'", AR_TYPE_NAME(obj));
-
     if (AR_OBJECT_SLOT(obj) == nullptr)
         return ErrorFormat(type_attribute_error_, "object of type '%s' does not support attribute(.) operator",
                            AR_TYPE_NAME(obj));
@@ -182,9 +176,31 @@ bool type_set_attr(ArObject *obj, ArObject *key, ArObject *value) {
     return NamespaceSetValue(*ns, key, value);
 }
 
+ArObject *type_doc_get(const TypeInfo *self) {
+    if(self->doc == nullptr)
+        return StringIntern("");
+
+    return StringNew(self->doc);
+}
+
+ArObject *type_name_get(const TypeInfo *self) {
+    return StringNew(self->name);
+}
+
+ArObject *type_size_get(const TypeInfo *self) {
+    return IntegerNew(self->size);
+}
+
+const NativeMember type_members[] = {
+        ARGON_MEMBER_GETSET("__doc", (NativeMemberGet) type_doc_get, nullptr, NativeMemberType::AROBJECT, true),
+        ARGON_MEMBER_GETSET("__name", (NativeMemberGet) type_name_get, nullptr, NativeMemberType::AROBJECT, true),
+        ARGON_MEMBER_GETSET("__size", (NativeMemberGet) type_size_get, nullptr, NativeMemberType::AROBJECT, true),
+        ARGON_MEMBER_SENTINEL
+};
+
 const ObjectSlots type_obj = {
         nullptr,
-        nullptr,
+        type_members,
         nullptr,
         type_get_attr,
         type_get_static_attr,
@@ -209,7 +225,7 @@ ArSize type_hash(ArObject *self) {
 }
 
 ArObject *type_str(ArObject *self) {
-    auto *tp = (TypeInfo *) self;
+    const auto *tp = (TypeInfo *) self;
 
     switch (tp->flags) {
         case TypeInfoFlags::STRUCT:

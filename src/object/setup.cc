@@ -29,6 +29,8 @@ bool argon::object::TypesInit() {
     if (!ErrorInit())
         return false;
 
+    INIT_TYPE(type_type_);
+
     INIT_TYPE(type_atom_);
     INIT_TYPE(type_bool_);
     INIT_TYPE(type_decimal_);
