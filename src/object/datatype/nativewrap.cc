@@ -69,7 +69,7 @@ NativeWrapper *argon::object::NativeWrapperNew(const NativeMember *member) {
     return native;
 }
 
-#define offset (((unsigned char*) native) + wrapper->offset)
+#define get_offset (((unsigned char*) native) + wrapper->offset)
 
 ArObject *argon::object::NativeWrapperGet(const NativeWrapper *wrapper, const ArObject *native) {
     void *tmp;
@@ -79,24 +79,24 @@ ArObject *argon::object::NativeWrapperGet(const NativeWrapper *wrapper, const Ar
 
     switch (wrapper->mtype) {
         case NativeMemberType::AROBJECT:
-            if ((tmp = *((ArObject **) offset)) != nullptr)
+            if ((tmp = *((ArObject **) get_offset)) != nullptr)
                 return IncRef((ArObject *) tmp);
             else
                 return IncRef(NilVal);
         case NativeMemberType::BOOL:
-            return BoolToArBool(*((bool *) offset));
+            return BoolToArBool(*((bool *) get_offset));
         case NativeMemberType::DOUBLE:
-            return DecimalNew(*((double *) offset));
+            return DecimalNew(*((double *) get_offset));
         case NativeMemberType::FLOAT:
-            return DecimalNew(*((float *) offset));
+            return DecimalNew(*((float *) get_offset));
         case NativeMemberType::INT:
-            return IntegerNew(*((int *) offset));
+            return IntegerNew(*((int *) get_offset));
         case NativeMemberType::LONG:
-            return IntegerNew(*((long *) offset));
+            return IntegerNew(*((long *) get_offset));
         case NativeMemberType::SHORT:
-            return IntegerNew(*((short *) offset));
+            return IntegerNew(*((short *) get_offset));
         case NativeMemberType::STRING:
-            if ((tmp = *((char **) offset)) != nullptr)
+            if ((tmp = *((char **) get_offset)) != nullptr)
                 return StringNew((char *) tmp);
             else
                 return IncRef(NilVal);
@@ -132,7 +132,7 @@ bool argon::object::NativeWrapperSet(const NativeWrapper *wrapper, ArObject *nat
     IntegerUnderlying integer;
     DecimalUnderlying decimal;
 
-    if (wrapper->readonly) {
+    if (wrapper->readonly || wrapper->offset < 0 && wrapper->set == nullptr) {
         ErrorFormat(type_unassignable_error_, "%s::%s is read-only", AR_TYPE_NAME(native), wrapper->name);
         return false;
     }
@@ -142,41 +142,41 @@ bool argon::object::NativeWrapperSet(const NativeWrapper *wrapper, ArObject *nat
 
     switch (wrapper->mtype) {
         case NativeMemberType::AROBJECT: {
-            auto **dst = (ArObject **) offset;
+            auto **dst = (ArObject **) get_offset;
             Release(*dst);
             *dst = IncRef(value);
             break;
         }
         case NativeMemberType::BOOL:
-            *((bool *) offset) = IsTrue(value);
+            *((bool *) get_offset) = IsTrue(value);
             break;
         case NativeMemberType::DOUBLE:
             if (!ExtractNumberOrError(wrapper, native, value, nullptr, &decimal))
                 return false;
-            *((double *) offset) = (double) decimal;
+            *((double *) get_offset) = (double) decimal;
             break;
         case NativeMemberType::FLOAT:
             if (!ExtractNumberOrError(wrapper, native, value, nullptr, &decimal))
                 return false;
-            *((float *) offset) = (float) decimal;
+            *((float *) get_offset) = (float) decimal;
             break;
         case NativeMemberType::INT:
             if (!ExtractNumberOrError(wrapper, native, value, &integer, nullptr))
                 return false;
-            *((int *) offset) = (int) integer;
+            *((int *) get_offset) = (int) integer;
             break;
         case NativeMemberType::LONG:
             if (!ExtractNumberOrError(wrapper, native, value, &integer, nullptr))
                 return false;
-            *((long *) offset) = integer;
+            *((long *) get_offset) = integer;
             break;
         case NativeMemberType::SHORT:
             if (!ExtractNumberOrError(wrapper, native, value, &integer, nullptr))
                 return false;
-            *((short *) offset) = (short) integer;
+            *((short *) get_offset) = (short) integer;
             break;
         case NativeMemberType::STRING: {
-            auto **str = (unsigned char **) offset;
+            auto **str = (unsigned char **) get_offset;
             auto *repr = (String *) ToString(value);
             unsigned char *tmp;
 
@@ -205,4 +205,4 @@ bool argon::object::NativeWrapperSet(const NativeWrapper *wrapper, ArObject *nat
     return true;
 }
 
-#undef offset
+#undef get_offset

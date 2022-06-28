@@ -278,16 +278,13 @@ ArObject *version_get(SSLSocket *self) {
 }
 
 const NativeMember sslsocket_members[] = {
-        ARGON_MEMBER_GETSET("alpn_selected", (NativeMemberGet) alpn_selected_get, nullptr,
-                            NativeMemberType::STRING, true),
-        ARGON_MEMBER_GETSET("cipher", (NativeMemberGet) cipher_get, nullptr, NativeMemberType::AROBJECT, true),
-        ARGON_MEMBER_GETSET("compression", (NativeMemberGet) compression_get, nullptr, NativeMemberType::STRING, true),
+        ARGON_MEMBER_GETSET("alpn_selected", (NativeMemberGet) alpn_selected_get, nullptr, NativeMemberType::STRING),
+        ARGON_MEMBER_GETSET("cipher", (NativeMemberGet) cipher_get, nullptr, NativeMemberType::AROBJECT),
+        ARGON_MEMBER_GETSET("compression", (NativeMemberGet) compression_get, nullptr, NativeMemberType::STRING),
         ARGON_MEMBER("hostname", offsetof(SSLSocket, hostname), NativeMemberType::AROBJECT, true),
-        ARGON_MEMBER_GETSET("session_reused", (NativeMemberGet) session_reused_get, nullptr,
-                            NativeMemberType::BOOL, true),
-        ARGON_MEMBER_GETSET("shared_cipher", (NativeMemberGet) shared_cipher_get, nullptr,
-                            NativeMemberType::AROBJECT, true),
-        ARGON_MEMBER_GETSET("version", (NativeMemberGet) version_get, nullptr, NativeMemberType::STRING, true),
+        ARGON_MEMBER_GETSET("session_reused", (NativeMemberGet) session_reused_get, nullptr, NativeMemberType::BOOL),
+        ARGON_MEMBER_GETSET("shared_cipher", (NativeMemberGet) shared_cipher_get, nullptr, NativeMemberType::AROBJECT),
+        ARGON_MEMBER_GETSET("version", (NativeMemberGet) version_get, nullptr, NativeMemberType::STRING),
         ARGON_MEMBER_SENTINEL
 };
 

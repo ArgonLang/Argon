@@ -192,9 +192,9 @@ ArObject *type_size_get(const TypeInfo *self) {
 }
 
 const NativeMember type_members[] = {
-        ARGON_MEMBER_GETSET("__doc", (NativeMemberGet) type_doc_get, nullptr, NativeMemberType::AROBJECT, true),
-        ARGON_MEMBER_GETSET("__name", (NativeMemberGet) type_name_get, nullptr, NativeMemberType::AROBJECT, true),
-        ARGON_MEMBER_GETSET("__size", (NativeMemberGet) type_size_get, nullptr, NativeMemberType::AROBJECT, true),
+        ARGON_MEMBER_GETSET("__doc", (NativeMemberGet) type_doc_get, nullptr, NativeMemberType::AROBJECT),
+        ARGON_MEMBER_GETSET("__name", (NativeMemberGet) type_name_get, nullptr, NativeMemberType::AROBJECT),
+        ARGON_MEMBER_GETSET("__size", (NativeMemberGet) type_size_get, nullptr, NativeMemberType::AROBJECT),
         ARGON_MEMBER_SENTINEL
 };
 
@@ -472,7 +472,7 @@ bool CalculateMRO(TypeInfo *type, TypeInfo **bases, ArSize count) {
 }
 
 ArObject *argon::object::ArObjectGCNew(const TypeInfo *type) {
-    auto obj =  GCNew(type->size);
+    auto obj = GCNew(type->size);
 
     if (obj != nullptr) {
         obj->ref_count = RefBits((unsigned char) RCType::GC);
@@ -822,7 +822,7 @@ bool InitMembers(TypeInfo *info) {
             if (nw == nullptr)
                 return false;
 
-            if (!NamespaceNewSymbol(ns, member->name, nw, PropertyType::CONST | PropertyType::PUBLIC)) {
+            if (!NamespaceNewSymbol(ns, member->name, nw, PropertyType::PUBLIC)) {
                 Release(nw);
                 return false;
             }

@@ -666,10 +666,8 @@ ArObject *session_ticket_get(SSLContext *context) {
 const NativeMember sslcontext_members[] = {
         ARGON_MEMBER("check_hostname", offsetof(SSLContext, check_hname), NativeMemberType::BOOL, true),
         ARGON_MEMBER("protocol", offsetof(SSLContext, protocol), NativeMemberType::INT, true),
-        ARGON_MEMBER_GETSET("security_level", (NativeMemberGet) security_level_get, nullptr,
-                            NativeMemberType::INT, true),
-        ARGON_MEMBER_GETSET("session_ticket", (NativeMemberGet) session_ticket_get, nullptr,
-                            NativeMemberType::INT, true),
+        ARGON_MEMBER_GETSET("security_level", (NativeMemberGet) security_level_get, nullptr, NativeMemberType::INT),
+        ARGON_MEMBER_GETSET("session_ticket", (NativeMemberGet) session_ticket_get, nullptr, NativeMemberType::INT),
         ARGON_MEMBER("sni_callback", offsetof(SSLContext, sni_callback), NativeMemberType::AROBJECT, true),
         ARGON_MEMBER("verify_mode", offsetof(SSLContext, verify_mode), NativeMemberType::INT, true),
         ARGON_MEMBER_SENTINEL

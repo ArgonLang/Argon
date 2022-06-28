@@ -133,7 +133,7 @@ ArObject *prefix##name##_fn(ArObject *func, ArObject *self, ArObject **argv, ArS
     };
 
 #define ARGON_MEMBER(name, offset, type, readonly)          {name, nullptr, nullptr, offset, type, readonly}
-#define ARGON_MEMBER_GETSET(name, get, set, type, readonly) {name, get, set, -1, type, readonly}
+#define ARGON_MEMBER_GETSET(name, get, set, type)           {name, get, set, -1, type, false}
 #define ARGON_MEMBER_SENTINEL                               {nullptr, nullptr, nullptr, -1, (NativeMemberType)0, false}
 
     using BufferGetFn = bool (*)(struct ArObject *obj, ArBuffer *buffer, ArBufferFlags flags);

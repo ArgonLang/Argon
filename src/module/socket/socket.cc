@@ -1136,7 +1136,7 @@ ArObject *blocking_get(const Socket *self) {
 }
 
 const NativeMember socket_members[] = {
-        ARGON_MEMBER_GETSET("blocking", (NativeMemberGet) blocking_get, nullptr, NativeMemberType::BOOL, true),
+        ARGON_MEMBER_GETSET("blocking", (NativeMemberGet) blocking_get, nullptr, NativeMemberType::BOOL),
         ARGON_MEMBER_SENTINEL
 };
 

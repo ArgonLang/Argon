@@ -131,17 +131,10 @@ void function_cleanup(Function *fn) {
     Release(fn->gns);
 }
 
-ArObject *function_get_code(const Function *self) {
-    if (self->IsNative())
-        return BytesNew();
-
-    return BytesNew(self->code->instr, self->code->instr_sz, true);
-}
-
 const NativeMember function_members[] = {
         ARGON_MEMBER("__arity", offsetof(Function, arity), NativeMemberType::SHORT, true),
         ARGON_MEMBER("__base", offsetof(Function, base), NativeMemberType::AROBJECT, true),
-        ARGON_MEMBER_GETSET("__code", (NativeMemberGet) function_get_code, nullptr, NativeMemberType::AROBJECT, true),
+        ARGON_MEMBER("__doc", offsetof(Function, doc), NativeMemberType::AROBJECT, true),
         ARGON_MEMBER("__name", offsetof(Function, name), NativeMemberType::AROBJECT, true),
         ARGON_MEMBER("__qname", offsetof(Function, qname), NativeMemberType::AROBJECT, true),
         ARGON_MEMBER_SENTINEL
