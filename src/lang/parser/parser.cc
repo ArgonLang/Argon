@@ -92,6 +92,7 @@ int PeekPrecedence(TokenType type) {
         case TokenType::LEFT_ROUND:
         case TokenType::DOT:
         case TokenType::QUESTION_DOT:
+        case TokenType::SCOPE:
             return 150;
         default:
             return 1000;
@@ -575,12 +576,15 @@ Node *Parser::ParseScope() {
     if ((ltmp = this->ParseIdentifier()) == nullptr)
         return nullptr;
 
-    while (this->Match(TokenType::SCOPE)) {
+    while (this->Match(TokenType::SCOPE, TokenType::DOT)) {
+        TokenType type = this->tkcur_.type;
+
         this->Eat();
 
         if (!this->Match(TokenType::IDENTIFIER)) {
             Release(ltmp);
-            return (Node *) ErrorFormat(type_syntax_error_, "expected identifier after '::' access operator");
+            return (Node *) ErrorFormat(type_syntax_error_, "expected identifier after '%s' access operator",
+                                        type == TokenType::SCOPE ? "::" : ".");
         }
 
         if ((rtmp = StringNew((const char *) this->tkcur_.buf)) == nullptr) {
@@ -594,7 +598,7 @@ Node *Parser::ParseScope() {
             return nullptr;
         }
 
-        scope->kind = TokenType::SCOPE;
+        scope->kind = type;
         scope->start = ltmp->start;
         scope->end = this->tkcur_.end;
         scope->colno = 0;
