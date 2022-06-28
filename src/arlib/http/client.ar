@@ -8,7 +8,6 @@
 
 import io
 import http::utils
-import regex
 import socket
 
 from error import TypeError, ValueError
@@ -39,7 +38,7 @@ struct IncompleteResponse {
     }
 }
 
-pub trait HTTPConnection : io::Read, io::Write {
+pub trait HTTPConnection : io.Read, io.Write {
     pub func close()
 
     pub func connect(host, port)
@@ -64,14 +63,14 @@ pub struct HTTPSocket impl HTTPConnection {
     }
 
     pub func connect(host, port) {
-        var sock, err = socket::create(socket::AF_INET, socket::SOCK_STREAM, 0)
+        var sock, err = socket.create(socket.AF_INET, socket.SOCK_STREAM, 0)
         var hip
 
         if err != nil {
             return nil, err
         }
 
-        hip, err = socket::gethostbyname(host)
+        hip, err = socket.gethostbyname(host)
         if err != nil {
             return err
         }
@@ -127,14 +126,14 @@ pub struct HTTPSSocket impl HTTPConnection {
         }
 
         pub func connect(host, port) {
-            var sock, err = socket::create(socket::AF_INET, socket::SOCK_STREAM, 0)
+            var sock, err = socket.create(socket.AF_INET, socket.SOCK_STREAM, 0)
             var hip
 
             if err != nil {
                 return nil, err
             }
 
-            hip, err = socket::gethostbyname(host)
+            hip, err = socket.gethostbyname(host)
             if err != nil {
                 return err
             }
@@ -145,7 +144,7 @@ pub struct HTTPSSocket impl HTTPConnection {
             }
 
             self.connected = true
-            self.sock = ssl::DEFAULT_CONTEXT.wrap(sock, false, nil)
+            self.sock = ssl.DEFAULT_CONTEXT.wrap(sock, false, nil)
         }
 
         pub func isconnected() {
@@ -188,7 +187,7 @@ pub struct Request {
     var status = @IDLE # Can be one of these: IDLE, REQUEST, REQUESTED
 
     pub let new = (host, port, hconn) => {
-        var dest, err = utils::split_host_port(host, port, Request::DEFAULT_PORT)
+        var dest, err = utils.split_host_port(host, port, Request::DEFAULT_PORT)
         if err != nil {
             return nil, err
         }
@@ -242,7 +241,7 @@ pub struct Request {
         }
 
         # File-like object
-        if isimpl(body, io::Read) {
+        if isimpl(body, io.Read) {
             return nil
         }
 
@@ -286,13 +285,13 @@ pub struct Request {
     func prepare_request(method, url, headers) {
         var err
 
-        if utils::METHOD_DISALLOWED_CHAR.search(method) {
+        if utils.METHOD_DISALLOWED_CHAR.search(method) {
             return "method can't contain control characters"
         }
 
         url = url ?: "/"
 
-        if utils::PATH_DISALLOWED_CHAR.search(url) {
+        if utils.PATH_DISALLOWED_CHAR.search(url) {
             return "path can't contain control characters"
         }
 
@@ -456,7 +455,7 @@ pub struct Request {
                 return
             }
 
-            if isimpl(body, io::Read) {
+            if isimpl(body, io.Read) {
                 return self.send_file(body)
             }
 
@@ -513,7 +512,7 @@ pub struct Request {
             return "can't set up tunnel for established connection"
         }
 
-        self.tu_dest, err = utils::split_host_port(host, port, Request::DEFAULT_PORT)
+        self.tu_dest, err = utils.split_host_port(host, port, Request.DEFAULT_PORT)
         if err != nil {
             return err
         }
@@ -530,11 +529,11 @@ pub struct Request {
 
         var header, value
         for header, value in self.tu_headers {
-            if !utils::HEADER_VALID_NAME.match(header) {
+            if !utils.HEADER_VALID_NAME.match(header) {
                 return "invalid header name: %s" % header
             }
 
-            if utils::HEADER_INVALID_VALUE.match(value) {
+            if utils.HEADER_INVALID_VALUE.match(value) {
                 return "invalid header value: %s: %s" % (header, value)
             }
 
@@ -565,11 +564,11 @@ pub struct Request {
     }
 
     func write_header(key, value) {
-        if !utils::HEADER_VALID_NAME.match(key) {
+        if !utils.HEADER_VALID_NAME.match(key) {
             return "invalid header name: %s" % key
         }
 
-        if utils::HEADER_INVALID_VALUE.match(value) {
+        if utils.HEADER_INVALID_VALUE.match(value) {
             return "invalid header value: %s: %s" % (key, value)
         }
 
@@ -591,7 +590,7 @@ pub struct Request {
     }
 }
 
-pub struct Response impl io::Read {
+pub struct Response impl io.Read {
     var cxn
     var bufio
     var method
@@ -608,7 +607,7 @@ pub struct Response impl io::Read {
     pub var will_close
 
     pub let new = (cxn, method) => {
-        var response = Response{cxn, io::BufferedReader::new(cxn, 0), method}
+        var response = Response{cxn, io.BufferedReader::new(cxn, 0), method}
         var err = response.process()
         if err != nil {
             return nil, err

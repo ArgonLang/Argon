@@ -10,7 +10,7 @@
 
 using namespace argon::object;
 
-ArObject *module_get_static_attr(Module *self, ArObject *key) {
+ArObject *module_get_attr(Module *self, ArObject *key) {
     auto *skey = (String *) key;
 
     PropertyInfo info{};
@@ -36,7 +36,7 @@ ArObject *module_get_static_attr(Module *self, ArObject *key) {
     return obj;
 }
 
-bool module_set_static_attr(Module *self, ArObject *key, ArObject *value) {
+bool module_set_attr(Module *self, ArObject *key, ArObject *value) {
     auto *skey = (String *) key;
 
     PropertyInfo pinfo{};
@@ -58,7 +58,7 @@ bool module_set_static_attr(Module *self, ArObject *key, ArObject *value) {
     }
 
     if (pinfo.IsConstant()) {
-        ErrorFormat(type_unassignable_error_, "unable to assign value to constant '%s::%s'", self->name->buffer,
+        ErrorFormat(type_unassignable_error_, "unable to assign value to constant '%s.%s'", self->name->buffer,
                     skey->buffer);
         return false;
     }
@@ -72,19 +72,15 @@ const ObjectSlots module_oslots = {
         nullptr,
         nullptr,
         nullptr,
+        (BinaryOp) module_get_attr,
         nullptr,
-        (BinaryOp) module_get_static_attr,
+        (BoolTernOp) module_set_attr,
         nullptr,
-        (BoolTernOp) module_set_static_attr,
         -1
 };
 
 ArObject *module_str(Module *self) {
     return StringCFormat("<module '%s'>", self->name);
-}
-
-bool module_is_true(ArObject *self) {
-    return true;
 }
 
 ArObject *module_compare(Module *self, ArObject *other, CompareMode mode) {
@@ -117,7 +113,7 @@ const TypeInfo ModuleType = {
         (VoidUnaryOp) module_cleanup,
         (Trace) module_trace,
         (CompareOp) module_compare,
-        module_is_true,
+        TypeInfo_IsTrue_True,
         nullptr,
         nullptr,
         (UnaryOp) module_str,
@@ -153,8 +149,8 @@ bool InitGlobals(Module *module) {
         return false
 
     if ((module->module_ns = NamespaceNew()) != nullptr) {
-        ADD_ID("__name", module->name);
         ADD_ID("__doc", module->doc);
+        ADD_ID("__name", module->name);
         return true;
     }
 

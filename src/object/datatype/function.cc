@@ -6,9 +6,11 @@
 #include <vm/runtime.h>
 
 #include <object/arobject.h>
+
 #include "bool.h"
-#include "function.h"
+#include "bytes.h"
 #include "error.h"
+#include "function.h"
 
 using namespace argon::object;
 using namespace argon::memory;
@@ -58,10 +60,6 @@ const IteratorSlots function_iter = {
         nullptr,
         nullptr
 };
-
-bool function_is_true(const Function *self) {
-    return true;
-}
 
 ArObject *function_compare(const Function *self, const ArObject *other, CompareMode mode) {
     auto *o = (const Function *) other;
@@ -133,11 +131,19 @@ void function_cleanup(Function *fn) {
     Release(fn->gns);
 }
 
-const NativeMember function_members []={
-        ARGON_MEMBER("arity", offsetof(Function, arity), NativeMemberType::SHORT, true),
-        ARGON_MEMBER("base", offsetof(Function, base), NativeMemberType::AROBJECT, true),
-        ARGON_MEMBER("name", offsetof(Function, name), NativeMemberType::AROBJECT, true),
-        ARGON_MEMBER("qname", offsetof(Function, qname), NativeMemberType::AROBJECT, true),
+ArObject *function_get_code(const Function *self) {
+    if (self->IsNative())
+        return BytesNew();
+
+    return BytesNew(self->code->instr, self->code->instr_sz, true);
+}
+
+const NativeMember function_members[] = {
+        ARGON_MEMBER("__arity", offsetof(Function, arity), NativeMemberType::SHORT, true),
+        ARGON_MEMBER("__base", offsetof(Function, base), NativeMemberType::AROBJECT, true),
+        ARGON_MEMBER_GETSET("__code", (NativeMemberGet) function_get_code, nullptr, NativeMemberType::AROBJECT, true),
+        ARGON_MEMBER("__name", offsetof(Function, name), NativeMemberType::AROBJECT, true),
+        ARGON_MEMBER("__qname", offsetof(Function, qname), NativeMemberType::AROBJECT, true),
         ARGON_MEMBER_SENTINEL
 };
 
@@ -162,7 +168,7 @@ const TypeInfo FunctionType = {
         (VoidUnaryOp) function_cleanup,
         (Trace) function_trace,
         (CompareOp) function_compare,
-        (BoolUnaryOp) function_is_true,
+        TypeInfo_IsTrue_True,
         (SizeTUnaryOp) function_hash,
         nullptr,
         (UnaryOp) function_str,

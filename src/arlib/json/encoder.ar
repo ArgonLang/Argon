@@ -52,13 +52,13 @@ pub struct Encoder {
 			buffer += b"\"%s\"" % obj
 			return buffer
 		case decimal:
-			if obj == math::nan {
+			if obj == math.nan {
 				buffer += b"NaN"
 				return buffer
-			} elif obj == math::inf {
+			} elif obj == math.inf {
 				buffer += b"Infinity"
 				return buffer
-			} elif obj == -math::inf {
+			} elif obj == -math.inf {
 				buffer += b"-Infinity"
 				return buffer
 			}

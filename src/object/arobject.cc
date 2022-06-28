@@ -168,7 +168,7 @@ bool type_set_attr(ArObject *obj, ArObject *key, ArObject *value) {
 
     Release(actual);
 
-    if (is_tpm) {
+    if (is_tpm || pinfo.IsConstant()) {
         ErrorFormat(type_unassignable_error_, "%s::%s is read-only", AR_TYPE_NAME(obj), ((String *) key)->buffer);
         return false;
     }
@@ -177,7 +177,7 @@ bool type_set_attr(ArObject *obj, ArObject *key, ArObject *value) {
 }
 
 ArObject *type_doc_get(const TypeInfo *self) {
-    if(self->doc == nullptr)
+    if (self->doc == nullptr)
         return StringIntern("");
 
     return StringNew(self->doc);
@@ -313,7 +313,8 @@ List *BuildBasesList(TypeInfo **types, ArSize count) {
 
         // Sanity check
         if (AR_GET_TYPE(types[i]) != type_type_) {
-            // is not a TypeInfo
+            ErrorFormat(type_type_error_, "you can only inherit from traits and '%s' is not",
+                        AR_GET_TYPE(types[i])->name);
             goto ERROR;
         }
 
@@ -433,7 +434,7 @@ Tuple *ComputeMRO(List *bases) {
 }
 
 bool CalculateMRO(TypeInfo *type, TypeInfo **bases, ArSize count) {
-    auto *mro = (Tuple *) type->mro;
+    const auto *mro = (Tuple *) type->mro;
     List *merge = nullptr;
     List *bases_list;
 
@@ -471,7 +472,7 @@ bool CalculateMRO(TypeInfo *type, TypeInfo **bases, ArSize count) {
 }
 
 ArObject *argon::object::ArObjectGCNew(const TypeInfo *type) {
-    auto obj = (ArObject *) GCNew(type->size);
+    auto obj =  GCNew(type->size);
 
     if (obj != nullptr) {
         obj->ref_count = RefBits((unsigned char) RCType::GC);

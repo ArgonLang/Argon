@@ -9,14 +9,14 @@
 
 import regex
 
-pub let HEADER_VALID_NAME = regex::compile(r#"[^:\s][^:\r\n]*"#, regex::MODE_ECMASCRIPT | regex::OPTIMIZE)
-pub let HEADER_INVALID_VALUE = regex::compile(r#"\n(?![ \t])|\r(?![ \t\n])"#, regex::MODE_ECMASCRIPT | regex::OPTIMIZE)
+pub let HEADER_VALID_NAME = regex.compile(r#"[^:\s][^:\r\n]*"#, regex.MODE_ECMASCRIPT | regex.OPTIMIZE)
+pub let HEADER_INVALID_VALUE = regex.compile(r#"\n(?![ \t])|\r(?![ \t\n])"#, regex.MODE_ECMASCRIPT | regex.OPTIMIZE)
 
 # Prevent http header injection.
-pub let METHOD_DISALLOWED_CHAR = regex::compile(r#"[\x00-\x1f]"#, regex::MODE_ECMASCRIPT | regex::OPTIMIZE)
+pub let METHOD_DISALLOWED_CHAR = regex.compile(r#"[\x00-\x1f]"#, regex.MODE_ECMASCRIPT | regex.OPTIMIZE)
 
 # Prevent CVE-2019-9740.
-pub let PATH_DISALLOWED_CHAR = regex::compile(r#"[\x00-\x20\x7f]"#, regex::MODE_ECMASCRIPT | regex::OPTIMIZE)
+pub let PATH_DISALLOWED_CHAR = regex.compile(r#"[\x00-\x20\x7f]"#, regex.MODE_ECMASCRIPT | regex.OPTIMIZE)
 
 pub func split_host_port(host, port, default_port) {
     var colon = host.rfind(":")
