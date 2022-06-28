@@ -352,7 +352,7 @@ else                                            \
 
 #define UNARY_OP(op, opchar)                                                                                    \
     ret = TOP();                                                                                                \
-    if(AR_GET_TYPE(ret)->ops->op == nullptr) {                                                                  \
+    if(AR_GET_TYPE(ret)->ops == nullptr || AR_GET_TYPE(ret)->ops->op == nullptr) {                              \
         ErrorFormat(type_type_error_, "unsupported operand '%s' for type '%s'", #opchar, AR_TYPE_NAME(ret));    \
         goto ERROR;                                                                                             \
     }                                                                                                           \
