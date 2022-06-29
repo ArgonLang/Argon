@@ -106,7 +106,7 @@ namespace argon::object {
 
     ArObject *NamespaceGetValue(Namespace *ns, ArObject *key, PropertyInfo *info);
 
-    List *NamespaceMkInfo(Namespace *ns, PropertyType info);
+    List *NamespaceMkInfo(Namespace *ns, PropertyType info, bool isinstance);
 
     bool NamespaceMerge(Namespace *dst, Namespace *src);
 

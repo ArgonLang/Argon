@@ -97,7 +97,7 @@ ARGON_FUNCTION(dir,
         return nullptr;
 
     if (count > 0 && AR_TYPEOF(argv[0], type_module_))
-        return NamespaceMkInfo(((Module *) argv[0])->module_ns, PropertyType::PUBLIC);
+        return NamespaceMkInfo(((Module *) argv[0])->module_ns, PropertyType::PUBLIC, false);
 
     frame = argon::vm::GetFrame();
 
@@ -106,18 +106,18 @@ ARGON_FUNCTION(dir,
             return ListNew();
 
         if (frame->instance != nullptr)
-            ret = NamespaceMkInfo((Namespace *) AR_GET_TYPE(frame->instance)->tp_map, PropertyType{});
+            ret = NamespaceMkInfo((Namespace *) AR_GET_TYPE(frame->instance)->tp_map, PropertyType{}, true);
         else
-            ret = NamespaceMkInfo(frame->globals, PropertyType{});
+            ret = NamespaceMkInfo(frame->globals, PropertyType{}, false);
 
         Release(frame);
         return ret;
     }
 
     if (frame != nullptr && frame->instance != nullptr && AR_GET_TYPE(frame->instance) == AR_GET_TYPE(argv[0]))
-        ret = NamespaceMkInfo((Namespace *) AR_GET_TYPE(argv[0])->tp_map, PropertyType{});
+        ret = NamespaceMkInfo((Namespace *) AR_GET_TYPE(argv[0])->tp_map, PropertyType{}, true);
     else
-        ret = NamespaceMkInfo((Namespace *) AR_GET_TYPE(argv[0])->tp_map, PropertyType::PUBLIC);
+        ret = NamespaceMkInfo((Namespace *) AR_GET_TYPE(argv[0])->tp_map, PropertyType::PUBLIC, true);
 
     Release(frame);
 
@@ -285,9 +285,9 @@ ARGON_FUNCTION(lsattr,
     frame = argon::vm::GetFrame();
 
     if (frame != nullptr && frame->instance != nullptr && AR_GET_TYPE(frame->instance) == target)
-        ret = NamespaceMkInfo((Namespace *) target->tp_map, PropertyType{});
+        ret = NamespaceMkInfo((Namespace *) target->tp_map, PropertyType{}, true);
     else
-        ret = NamespaceMkInfo((Namespace *) target->tp_map, PropertyType::PUBLIC);
+        ret = NamespaceMkInfo((Namespace *) target->tp_map, PropertyType::PUBLIC, true);
 
     Release(frame);
 
