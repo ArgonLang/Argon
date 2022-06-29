@@ -17,6 +17,59 @@
 using namespace argon::object;
 using namespace argon::memory;
 
+ArObject *list_iter_next(Iterator *self) {
+    UniqueLock lock(self->lock);
+    auto *list = (List *) self->obj;
+    ArObject *ret;
+
+    RWLockRead llock(list->lock);
+
+    if (!self->reversed) {
+        if (self->index < list->len) {
+            ret = IncRef(list->objects[self->index]);
+            self->index++;
+            return ret;
+        }
+
+        return nullptr;
+    }
+
+    if (self->index == 0)
+        return nullptr;
+
+    if (self->index - 1 >= list->len) {
+        self->index = 0;
+        return nullptr;
+    }
+
+    self->index--;
+
+    return IncRef(list->objects[self->index]);
+}
+
+ArObject *list_iter_peek(Iterator *self) {
+    UniqueLock lock(self->lock);
+    auto *list = (List *) self->obj;
+
+    RWLockRead llock(list->lock);
+
+    if (!self->reversed) {
+        if (self->index < list->len)
+            return IncRef(list->objects[self->index]);
+
+        return nullptr;
+    }
+
+    if (self->index == 0)
+        return nullptr;
+
+    return IncRef(list->objects[self->index - 1]);
+}
+
+ITERATOR_NEW(list_iterator, list_iter_next, list_iter_peek);
+
+// LIST
+
 ArSize list_len(ArObject *obj) {
     return ((List *) obj)->len;
 }
@@ -499,11 +552,11 @@ ArObject *list_str(List *self) {
 }
 
 ArObject *list_iter_get(List *self) {
-    return IteratorNew(self, false);
+    return IteratorNew(&type_list_iterator_, self, false);
 }
 
 ArObject *list_iter_rget(List *self) {
-    return IteratorNew(self, true);
+    return IteratorNew(&type_list_iterator_, self, true);
 }
 
 void list_trace(List *self, VoidUnaryOp trace) {
