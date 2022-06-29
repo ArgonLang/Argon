@@ -44,12 +44,15 @@ ArObject *MROSearch(const TypeInfo *type, ArObject *key, PropertyInfo *pinfo) {
 }
 
 ArObject *type_get_static_attr(ArObject *self, ArObject *key) {
-    const TypeInfo *type = AR_GET_TYPEOBJ(self);
+    auto *type = (const TypeInfo *) self;
     const TypeInfo *tp_base = type;
     const ArObject *instance = nullptr;
     ArObject *obj;
 
     PropertyInfo pinfo{};
+
+    if (!AR_TYPEOF(type, type_type_))
+        return ErrorFormat(type_type_error_, "a type is required, not an instance of %s", AR_TYPE_NAME(type));
 
     if (type->tp_map == nullptr && type->mro == nullptr)
         return ErrorFormat(type_attribute_error_, "type '%s' has no attributes", type->name);
