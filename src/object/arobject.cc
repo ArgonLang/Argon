@@ -44,12 +44,15 @@ ArObject *MROSearch(const TypeInfo *type, ArObject *key, PropertyInfo *pinfo) {
 }
 
 ArObject *type_get_static_attr(ArObject *self, ArObject *key) {
-    const TypeInfo *type = AR_GET_TYPEOBJ(self);
+    auto *type = (const TypeInfo *) self;
     const TypeInfo *tp_base = type;
     const ArObject *instance = nullptr;
     ArObject *obj;
 
     PropertyInfo pinfo{};
+
+    if (!AR_TYPEOF(type, type_type_))
+        return ErrorFormat(type_type_error_, "a type is required, not an instance of %s", AR_TYPE_NAME(type));
 
     if (type->tp_map == nullptr && type->mro == nullptr)
         return ErrorFormat(type_attribute_error_, "type '%s' has no attributes", type->name);
@@ -168,7 +171,7 @@ bool type_set_attr(ArObject *obj, ArObject *key, ArObject *value) {
 
     Release(actual);
 
-    if (is_tpm) {
+    if (is_tpm || pinfo.IsConstant()) {
         ErrorFormat(type_unassignable_error_, "%s::%s is read-only", AR_TYPE_NAME(obj), ((String *) key)->buffer);
         return false;
     }
@@ -177,7 +180,7 @@ bool type_set_attr(ArObject *obj, ArObject *key, ArObject *value) {
 }
 
 ArObject *type_doc_get(const TypeInfo *self) {
-    if(self->doc == nullptr)
+    if (self->doc == nullptr)
         return StringIntern("");
 
     return StringNew(self->doc);
@@ -192,9 +195,9 @@ ArObject *type_size_get(const TypeInfo *self) {
 }
 
 const NativeMember type_members[] = {
-        ARGON_MEMBER_GETSET("__doc", (NativeMemberGet) type_doc_get, nullptr, NativeMemberType::AROBJECT, true),
-        ARGON_MEMBER_GETSET("__name", (NativeMemberGet) type_name_get, nullptr, NativeMemberType::AROBJECT, true),
-        ARGON_MEMBER_GETSET("__size", (NativeMemberGet) type_size_get, nullptr, NativeMemberType::AROBJECT, true),
+        ARGON_MEMBER_GETSET("__doc", (NativeMemberGet) type_doc_get, nullptr, NativeMemberType::AROBJECT),
+        ARGON_MEMBER_GETSET("__name", (NativeMemberGet) type_name_get, nullptr, NativeMemberType::AROBJECT),
+        ARGON_MEMBER_GETSET("__size", (NativeMemberGet) type_size_get, nullptr, NativeMemberType::AROBJECT),
         ARGON_MEMBER_SENTINEL
 };
 
@@ -313,7 +316,8 @@ List *BuildBasesList(TypeInfo **types, ArSize count) {
 
         // Sanity check
         if (AR_GET_TYPE(types[i]) != type_type_) {
-            // is not a TypeInfo
+            ErrorFormat(type_type_error_, "you can only inherit from traits and '%s' is not",
+                        AR_GET_TYPE(types[i])->name);
             goto ERROR;
         }
 
@@ -433,7 +437,7 @@ Tuple *ComputeMRO(List *bases) {
 }
 
 bool CalculateMRO(TypeInfo *type, TypeInfo **bases, ArSize count) {
-    auto *mro = (Tuple *) type->mro;
+    const auto *mro = (Tuple *) type->mro;
     List *merge = nullptr;
     List *bases_list;
 
@@ -471,7 +475,7 @@ bool CalculateMRO(TypeInfo *type, TypeInfo **bases, ArSize count) {
 }
 
 ArObject *argon::object::ArObjectGCNew(const TypeInfo *type) {
-    auto obj = (ArObject *) GCNew(type->size);
+    auto obj = GCNew(type->size);
 
     if (obj != nullptr) {
         obj->ref_count = RefBits((unsigned char) RCType::GC);
@@ -821,7 +825,7 @@ bool InitMembers(TypeInfo *info) {
             if (nw == nullptr)
                 return false;
 
-            if (!NamespaceNewSymbol(ns, member->name, nw, PropertyType::CONST | PropertyType::PUBLIC)) {
+            if (!NamespaceNewSymbol(ns, member->name, nw, PropertyType::PUBLIC)) {
                 Release(nw);
                 return false;
             }

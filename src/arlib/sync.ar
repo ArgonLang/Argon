@@ -26,7 +26,7 @@ pub struct Once {
     var mutex
 
     pub let new = () => {
-        return Once{false, Mutex::new()}
+        return Once{false, Mutex.new()}
     }
 
     pub func do(fn) {

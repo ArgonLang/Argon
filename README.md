@@ -15,7 +15,7 @@ import enum
 
 let NOBLE_GAS = ["Helium", "Neon", "Argon", "Krypton", "Xenon"]
 
-NOBLE_GAS |> enum::group_by((itm) => {
+NOBLE_GAS |> enum.group_by((itm) => {
     return itm |> len
 }) |> println
 

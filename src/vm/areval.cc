@@ -488,7 +488,7 @@ else                                            \
             {
                 auto attribute = (String *) TupleGetItem(cu_code->statics, ARG32);
 
-                if ((ret = PropertyGet(TOP(), attribute, false)) == nullptr) {
+                if ((ret = PropertyGet(TOP(), attribute, true)) == nullptr) {
                     Release(attribute);
                     goto ERROR;
                 }

@@ -10,7 +10,7 @@ import regex
 import math
 from error import NotImplemented
 
-let NUMBER_RE = regex::compile("(-?(?:0|[1-9]\d*))(\.\d+)?([eE][-+]?\d+)?", regex::MODE_ECMASCRIPT | regex::OPTIMIZE)
+let NUMBER_RE = regex.compile("(-?(?:0|[1-9]\d*))(\.\d+)?([eE][-+]?\d+)?", regex.MODE_ECMASCRIPT | regex.OPTIMIZE)
 
 pub trait ScannerCallback {
     pub func parse_array(scanner, buffer, index)
@@ -101,15 +101,15 @@ pub struct Scanner {
                 }
             case 'N':
                 if buffer[index:index + 3] == b"NaN" {
-                    return math::nan, index + 3
+                    return math.nan, index + 3
                 }
             case 'I':
                 if buffer[index:index + 8] == b"Infinity" {
-                    return math::inf, index + 8
+                    return math.inf, index + 8
                 }
             case '-':
                 if buffer[index:index + 9] == b"-Infinity" {
-                    return -math::inf, index + 9
+                    return -math.inf, index + 9
                 }
         }
 

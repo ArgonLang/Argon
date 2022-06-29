@@ -52,10 +52,10 @@ import regex
 
 from error import TypeError
 
-let INI_COMMENTS = regex::compile(r#"\s*[;|#].*"#, regex::MODE_ECMASCRIPT | regex::OPTIMIZE)
-let INI_SECTION = regex::compile(r#"\s*\[(.+?)\]\s*$"#, regex::MODE_ECMASCRIPT | regex::OPTIMIZE)
-let INI_KONLY = regex::compile(r#"\s*(.+)?\s*$"#, regex::MODE_ECMASCRIPT | regex::OPTIMIZE)
-let INI_KV = regex::compile(r#"\s*(.+?)\s*[=|:]\s*(.+)*$"#, regex::MODE_ECMASCRIPT | regex::OPTIMIZE)
+let INI_COMMENTS = regex.compile(r#"\s*[;|#].*"#, regex.MODE_ECMASCRIPT | regex.OPTIMIZE)
+let INI_SECTION = regex.compile(r#"\s*\[(.+?)\]\s*$"#, regex.MODE_ECMASCRIPT | regex.OPTIMIZE)
+let INI_KONLY = regex.compile(r#"\s*(.+)?\s*$"#, regex.MODE_ECMASCRIPT | regex.OPTIMIZE)
+let INI_KV = regex.compile(r#"\s*(.+?)\s*[=|:]\s*(.+)*$"#, regex.MODE_ECMASCRIPT | regex.OPTIMIZE)
 
 struct Section {
     pub var name
@@ -296,7 +296,7 @@ pub struct IniParser {
     pub func read(data) {
         self.line = 0
 
-        if isimpl(data, io::TextInput) {
+        if isimpl(data, io.TextInput) {
             return self.read_file(data)
         }
 

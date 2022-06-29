@@ -230,7 +230,7 @@ ArObject *argon::object::NamespaceGetValue(Namespace *ns, ArObject *key, Propert
     return nullptr;
 }
 
-List *argon::object::NamespaceMkInfo(Namespace *ns, PropertyType info) {
+List *argon::object::NamespaceMkInfo(Namespace *ns, PropertyType info, bool isinstance) {
     char buffer[10] = {};
     List *keys;
 
@@ -263,7 +263,7 @@ List *argon::object::NamespaceMkInfo(Namespace *ns, PropertyType info) {
                 snprintf(buffer, 10, "(%s)", fn->IsVariadic() ? "..." : "");
 
             key = StringNewFormat("%s%s%s",
-                                  fn->IsMethod() ? "" : "::",
+                                  isinstance && !fn->IsMethod() ? "::" : "",
                                   ((String *) cursor->key)->buffer,
                                   buffer);
 
@@ -276,7 +276,7 @@ List *argon::object::NamespaceMkInfo(Namespace *ns, PropertyType info) {
 
         if (!wr) {
             key = StringNewFormat("%s%s%s",
-                                  cursor->info.IsConstant() ? "::" : "",
+                                  isinstance && cursor->info.IsConstant() ? "::" : "",
                                   ((String *) cursor->key)->buffer,
                                   buffer);
         }

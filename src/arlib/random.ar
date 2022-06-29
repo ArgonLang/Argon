@@ -32,7 +32,7 @@ pub func _randbelow(engine, num) {
     var rd
 
     if !isimpl(engine, Random) {
-        panic error::TypeError::new("invalid engine for _randbelow")
+        panic error.TypeError::new("invalid engine for _randbelow")
     }
 
     if num == 0 {
@@ -55,22 +55,22 @@ pub func _randrange(engine, start, stop, step) {
     var istep
 
     if !isimpl(engine, Random) {
-        panic error::TypeError::new("invalid engine for _randrange")
+        panic error.TypeError::new("invalid engine for _randrange")
     }
 
     istart = integer::new(start)
     if start != istart {
-        panic error::ValueError::new("non-integer start for _randrange")
+        panic error.ValueError::new("non-integer start for _randrange")
     }
 
     istop = integer::new(stop)
     if stop != istop {
-        panic error::ValueError::new("non-integer stop for _randrange")
+        panic error.ValueError::new("non-integer stop for _randrange")
     }
 
     istep = integer::new(step)
     if step != istep {
-        panic error::ValueError::new("non-integer step for _randrange")
+        panic error.ValueError::new("non-integer step for _randrange")
     }
 
     var width = istop - istart
@@ -80,7 +80,7 @@ pub func _randrange(engine, start, stop, step) {
             return istart + _randbelow(engine, width)
         }
 
-        panic error::ValueError::new("empty range for _randrange (%d, %d, %d)" % (istart, istop, width))
+        panic error.ValueError::new("empty range for _randrange (%d, %d, %d)" % (istart, istop, width))
     }
 
     var n
@@ -90,11 +90,11 @@ pub func _randrange(engine, start, stop, step) {
         case istep < 0:
             n = (width + istep + 1) // istep
         default:
-            panic error::ValueError::new("zero step for _randrange")
+            panic error.ValueError::new("zero step for _randrange")
     }
 
     if n <= 0 {
-        panic error::ValueError::new("empty range for _randrange")
+        panic error.ValueError::new("empty range for _randrange")
     }
 
     return istart + istep * _randbelow(engine, n)
@@ -104,7 +104,7 @@ pub func _randrange(engine, start, stop, step) {
 
 pub func _randbytes(engine, length) {
     if !isimpl(engine, Random) {
-        panic error::TypeError::new("invalid engine for _randbytes")
+        panic error.TypeError::new("invalid engine for _randbytes")
     }
 
     var bts = bytes::new(length)
@@ -120,7 +120,7 @@ pub func _randbytes(engine, length) {
 
 pub func _randlist(engine, start, stop, step, length) {
     if !isimpl(engine, Random) {
-        panic error::TypeError::new("invalid engine for _randlist")
+        panic error.TypeError::new("invalid engine for _randlist")
     }
 
     var ls = [0] * length
@@ -134,7 +134,7 @@ pub func _randlist(engine, start, stop, step, length) {
 
 pub func _randchoice(engine, seq) {
     if !isimpl(engine, Random) {
-        panic error::TypeError::new("invalid engine for _randchoice")
+        panic error.TypeError::new("invalid engine for _randchoice")
     }
 
     return seq[_randbelow(engine, len(seq))]
@@ -145,19 +145,19 @@ pub func _randsample(engine, population, k) {
     var plen = len(population)
 
     if !isimpl(engine, Random) {
-        panic error::TypeError::new("invalid engine for _randsample")
+        panic error.TypeError::new("invalid engine for _randsample")
     }
 
     if k < 0 {
-        panic error::ValueError::new("k is negative")
+        panic error.ValueError::new("k is negative")
     }
 
     if ik != k {
-        panic error::ValueError::new("non-integer k for _randsample")
+        panic error.ValueError::new("non-integer k for _randsample")
     }
 
     if ik > len(population) {
-        panic error::ValueError::new("sample larger than population")
+        panic error.ValueError::new("sample larger than population")
     }
 
     var sample = [nil] * ik

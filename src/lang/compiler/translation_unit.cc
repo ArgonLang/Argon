@@ -11,11 +11,15 @@
 using namespace argon::lang::compiler;
 using namespace argon::object;
 
-bool MakeQName(TranslationUnit *prev, TranslationUnit *unit, String *name) {
+bool MakeQName(const TranslationUnit *prev, TranslationUnit *unit, String *name) {
+    const char *sep = ".";
     String *tmp;
 
     if (prev != nullptr && name != nullptr && !StringEmpty(name)) {
-        if ((tmp = StringConcat(prev->name, "::", true)) == nullptr)
+        if (prev->scope != TUScope::MODULE)
+            sep = "::";
+
+        if ((tmp = StringConcat(prev->name, sep, true)) == nullptr)
             return false;
 
         if ((unit->qname = StringConcat(tmp, name)) == nullptr) {

@@ -9,7 +9,7 @@
 import regex
 from json::scanner import Scanner, ScannerCallback, DecodeError, skip_spaces
 
-let STRING_RE = regex::compile(r#".*?[^\\]""#, regex::MODE_ECMASCRIPT | regex::OPTIMIZE)
+let STRING_RE = regex.compile(r#".*?[^\\]""#, regex.MODE_ECMASCRIPT | regex.OPTIMIZE)
 
 pub struct Decoder impl ScannerCallback {
     pub func parse_array(scanner, buffer, index) {
