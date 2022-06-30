@@ -53,17 +53,11 @@ namespace argon::object {
         bool reversed;
     };
 
-    extern const TypeInfo *type_iterator_;
-
     ArObject *IteratorCompare(Iterator *self, ArObject *other, CompareMode mode);
 
     ArObject *IteratorStr(Iterator *iterator);
 
     Iterator *IteratorNew(const TypeInfo *type, ArObject *iterable, bool reversed);
-
-    inline Iterator *IteratorNew(ArObject *iterable, bool reversed) {
-        return IteratorNew(type_iterator_, iterable, reversed);
-    }
 
     inline void IteratorCleanup(Iterator *iterator) { Release(iterator->obj); }
 
