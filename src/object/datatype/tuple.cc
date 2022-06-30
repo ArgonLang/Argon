@@ -24,7 +24,7 @@ using namespace argon::object;
 
 ArObject *tuple_iter_next(Iterator *self) {
     UniqueLock lock(self->lock);
-    auto *tuple = (Tuple *) self->obj;
+    const auto *tuple = (Tuple *) self->obj;
     ArObject *ret;
 
     if (!self->reversed) {
@@ -47,7 +47,7 @@ ArObject *tuple_iter_next(Iterator *self) {
 
 ArObject *tuple_iter_peek(Iterator *self) {
     UniqueLock lock(self->lock);
-    auto *tuple = (Tuple *) self->obj;
+    const auto *tuple = (Tuple *) self->obj;
 
     if (!self->reversed) {
         if (self->index < tuple->len)
@@ -93,10 +93,14 @@ ArObject *tuple_get_slice(Tuple *self, Bounds *bounds) {
     if ((ret = TupleNew(slice_len)) == nullptr)
         return nullptr;
 
-    if (step >= 0) {
-        for (ArSize i = 0; start < stop; start += step)
-            ret->objects[i++] = IncRef(self->objects[start]);
-    } else {
+    if (slice_len > 0) {
+        if (step >= 0) {
+            for (ArSize i = 0; start < stop; start += step)
+                ret->objects[i++] = IncRef(self->objects[start]);
+
+            return ret;
+        }
+
         for (ArSize i = 0; stop < start; start += step)
             ret->objects[i++] = IncRef(self->objects[start]);
     }
@@ -379,7 +383,7 @@ Tuple *argon::object::TupleNew(const char *fmt, ...) {
     if ((tuple = TupleNew(flen)) == nullptr)
         return nullptr;
 
-            va_start(args, fmt);
+    va_start(args, fmt);
 
     for (int i = 0; i < flen; i++) {
         switch (fmt[i]) {
@@ -452,12 +456,12 @@ bool argon::object::TupleUnpack(Tuple *tuple, const char *fmt, ...) {
     ArObject *obj;
     ArSize flen;
 
-            va_start(args, fmt);
+    va_start(args, fmt);
 
     flen = strlen(fmt);
 
     if (tuple->len < flen) {
-                va_end(args);
+        va_end(args);
         return ErrorFormat(type_value_error_, "TupleUnpack: length of the tuple does not match the length of fmt");
     }
 
@@ -471,7 +475,7 @@ bool argon::object::TupleUnpack(Tuple *tuple, const char *fmt, ...) {
             case 's':
             case 'S':
                 if (!AR_TYPEOF(obj, type_string_)) {
-                            va_end(args);
+                    va_end(args);
                     return ErrorFormat(type_type_error_, "TupleUnpack: expected '%s' in index %d, not '%s'",
                                        type_string_->name, i, AR_TYPE_NAME(obj));
                 }
@@ -483,7 +487,7 @@ bool argon::object::TupleUnpack(Tuple *tuple, const char *fmt, ...) {
             case 'f':
             case 'F':
                 if (!AR_TYPEOF(obj, type_decimal_)) {
-                            va_end(args);
+                    va_end(args);
                     return ErrorFormat(type_type_error_, "TupleUnpack: expected '%s' in index %d, not '%s'",
                                        type_decimal_->name, AR_TYPE_NAME(obj));
                 }
@@ -493,7 +497,7 @@ bool argon::object::TupleUnpack(Tuple *tuple, const char *fmt, ...) {
             case 'i':
             case 'I':
                 if (!AR_TYPEOF(obj, type_integer_)) {
-                            va_end(args);
+                    va_end(args);
                     return ErrorFormat(type_type_error_, "TupleUnpack: expected '%s' in index %d, not '%s'",
                                        type_integer_->name, AR_TYPE_NAME(obj));
                 }
@@ -502,7 +506,7 @@ bool argon::object::TupleUnpack(Tuple *tuple, const char *fmt, ...) {
                 break;
             case 'l':
                 if (!AR_TYPEOF(obj, type_integer_)) {
-                            va_end(args);
+                    va_end(args);
                     return ErrorFormat(type_type_error_, "TupleUnpack: expected '%s' in index %d, not '%s'",
                                        type_integer_->name, AR_TYPE_NAME(obj));
                 }
@@ -512,7 +516,7 @@ bool argon::object::TupleUnpack(Tuple *tuple, const char *fmt, ...) {
             case 'h':
             case 'H':
                 if (!AR_TYPEOF(obj, type_integer_)) {
-                            va_end(args);
+                    va_end(args);
                     return ErrorFormat(type_type_error_, "TupleUnpack: expected '%s' in index %d, not '%s'",
                                        type_integer_->name, AR_TYPE_NAME(obj));
                 }
@@ -525,6 +529,6 @@ bool argon::object::TupleUnpack(Tuple *tuple, const char *fmt, ...) {
         }
     }
 
-            va_end(args);
+    va_end(args);
     return true;
 }

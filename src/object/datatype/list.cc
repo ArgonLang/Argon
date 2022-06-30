@@ -118,21 +118,25 @@ ArObject *list_get_slice(List *self, Bounds *bounds) {
     if ((ret = ListNew(slice_len)) == nullptr)
         return nullptr;
 
-    if (step >= 0) {
-        for (ArSize i = 0; start < stop; start += step) {
-            tmp = self->objects[start];
-            ret->objects[i++] = IncRef(tmp);
-            TrackIf(ret, tmp);
+    ret->len = slice_len;
+
+    if (slice_len > 0) {
+        if (step >= 0) {
+            for (ArSize i = 0; start < stop; start += step) {
+                tmp = self->objects[start];
+                ret->objects[i++] = IncRef(tmp);
+                TrackIf(ret, tmp);
+            }
+
+            return ret;
         }
-    } else {
+
         for (ArSize i = 0; stop < start; start += step) {
             tmp = self->objects[start];
             ret->objects[i++] = IncRef(tmp);
             TrackIf(ret, tmp);
         }
     }
-
-    ret->len = slice_len;
 
     return ret;
 }
