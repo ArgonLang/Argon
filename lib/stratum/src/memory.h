@@ -7,6 +7,7 @@
 #define STRATUM_MEMORY_H_
 
 #include <cstddef>
+#include <mutex>
 #include <new>
 
 #include <support/linklist.h>
