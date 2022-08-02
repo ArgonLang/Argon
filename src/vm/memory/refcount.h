@@ -64,7 +64,7 @@ namespace argon::vm::memory {
     public:
         RefBits() = default;
 
-        explicit RefBits(uintptr_t bits) : bits_(bits) {}
+        explicit constexpr RefBits(uintptr_t bits) : bits_(bits) {}
 
         /**
          * @brief Increment strong references counter.
@@ -146,7 +146,7 @@ namespace argon::vm::memory {
         RCObject GetObjectBase();
 
     public:
-        explicit RefCount(RCType status) noexcept;
+        explicit constexpr RefCount(RCType status) noexcept: bits_(RefBits((unsigned char) status)) {};
 
         /**
          * @brief Release a strong reference.

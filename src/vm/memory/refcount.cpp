@@ -11,11 +11,9 @@
 
 using namespace argon::vm::memory;
 
-RefCount::RefCount(RCType status) noexcept: bits_(RefBits((unsigned char) status)) {}
-
 RCObject RefCount::GetObjectBase() {
     auto obj = (argon::vm::datatype::ArObject *) this;
-    assert(((void *) obj == &(obj->ref_count_)) && "RefCount must be FIRST field in ArObject structure!");
+    assert(((void *) obj == &(obj->head_.ref_count_)) && "RefCount must be FIRST field in ArObject structure!");
     return (RCObject) obj;
 }
 
