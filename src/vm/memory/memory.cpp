@@ -13,3 +13,7 @@ void *argon::vm::memory::Alloc(size_t size) {
 void argon::vm::memory::Free(void *ptr) {
     stratum::Free(ptr);
 }
+
+void *argon::vm::memory::Realloc(void *ptr, size_t size) {
+    return stratum::Realloc(ptr, size);
+}

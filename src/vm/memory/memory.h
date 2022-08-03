@@ -14,6 +14,8 @@
 namespace argon::vm::memory {
     void *Alloc(size_t size);
 
+    void *Realloc(void *ptr, size_t size);
+
     void Free(void *ptr);
 }
 
