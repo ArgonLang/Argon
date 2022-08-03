@@ -148,6 +148,11 @@ namespace argon::vm::memory {
     public:
         explicit constexpr RefCount(RCType status) noexcept: bits_(RefBits((unsigned char) status)) {};
 
+        RefCount &operator=(RCType type) {
+            this->bits_ = RefBits((uintptr_t) type);
+            return *this;
+        }
+
         /**
          * @brief Release a strong reference.
          * @return True if the object no longer has strong references, false otherwise.
