@@ -208,12 +208,47 @@ namespace argon::vm::datatype {
         return t;
     }
 
+    template<typename T>
+    T *MakeObject(const TypeInfo *type) {
+        auto *ret = (ArObject *) argon::vm::memory::Alloc(type->size);
+        if (ret == nullptr)
+            return nullptr;
+
+        ret->head_.ref_count_ = memory::RCType::INLINE;
+        ret->head_.type_ = type;
+
+        return (T *) ret;
+    }
+
+    template<typename T>
+    T *MakeObject(TypeInfo *type) {
+        auto *ret = MakeObject<T>((const TypeInfo *) type);
+        if (ret != nullptr)
+            IncRef(type);
+
+        return ret;
+    }
+
+    template<typename T>
+    T *MakeGCObject(const TypeInfo *type) {
+        // TODO STUB
+        auto *ret = MakeObject<T>((const TypeInfo *) type);
+
+        return ret;
+    }
+
     void Release(ArObject *object);
 
     inline void Release(ArObject **object) {
         Release(*object);
         *object = nullptr;
     }
+
+    template<typename T>
+    inline void Release(T *t) {
+        Release((ArObject *) t);
+    }
+
 } // namespace argon::vm::datatype
 
 #endif // !ARGON_VM_DATATYPE_AROBJECT_H_
