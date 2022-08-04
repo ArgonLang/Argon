@@ -32,8 +32,8 @@ namespace argon::vm::datatype {
      * @param value true or false.
      * @return An Argon Boolean True or False.
      */
-    inline const ArObject *BoolToArBool(bool value) {
-        return (const ArObject *) (value ? True : False);
+    inline ArObject *BoolToArBool(bool value) {
+        return (ArObject *) (value ? True : False);
     }
 
 } // namespace argon::vm::datatype

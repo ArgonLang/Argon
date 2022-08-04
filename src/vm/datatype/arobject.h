@@ -9,31 +9,9 @@
 
 #include <vm/memory/refcount.h>
 
+#include "objectdef.h"
+
 namespace argon::vm::datatype {
-    using ArSize = size_t;
-    using ArSSize = long;
-
-    enum class CompareMode {
-        EQ = 0,
-        NE = 1,
-        GR = 2,
-        GRQ = 3,
-        LE = 4,
-        LEQ = 5
-    };
-
-    using ArSize_UnaryOp = ArSize (*)(const struct ArObject *);
-    using BinaryOp = struct ArObject *(*)(struct ArObject *, struct ArObject *);
-    using Bool_TernaryOp = bool (*)(struct ArObject *, struct ArObject *, struct ArObject *);
-    using Bool_UnaryOp = bool (*)(const struct ArObject *);
-    using CompareOp = struct ArObject *(*)(struct ArObject *, struct ArObject *, CompareMode);
-    using UnaryOp = struct ArObject *(*)(struct ArObject *);
-    using UnaryBoolOp = struct ArObject *(*)(struct ArObject *, bool);
-    using VariadicOp = struct ArObject *(*)(const struct TypeInfo *, ArObject **, ArSize);
-    using Void_UnaryOp = void (*)(struct ArObject *);
-
-    using TraceOp = void (*)(struct ArObject *, Void_UnaryOp);
-
 #define AROBJ_HEAD                      \
     struct {                            \
         memory::RefCount ref_count_;    \
@@ -155,10 +133,10 @@ namespace argon::vm::datatype {
         CompareOp compare;
 
         /// An optional pointer to function that returns the string representation.
-        UnaryOp repr;
+        UnaryConstOp repr;
 
         /// An optional pointer to function that returns the string conversion.
-        UnaryOp str;
+        UnaryConstOp str;
 
         /// An optional pointer to function that returns datatype iterator.
         UnaryBoolOp iter;
@@ -187,7 +165,7 @@ namespace argon::vm::datatype {
     };
 
 #define AR_GET_RC(object)           ((object)->head_.ref_count_)
-#define AR_GET_TYPE(object)         ((object)->type_)
+#define AR_GET_TYPE(object)         ((object)->head_.type_)
 #define AR_SAME_TYPE(object, other) (AR_GET_TYPE(object) == AR_GET_TYPE(other))
 #define AR_TYPE_NAME(object)        (AR_GET_TYPE(object)->name)
 #define AR_TYPEOF(object, type)     (AR_GET_TYPE(object) == (type))
@@ -196,9 +174,22 @@ namespace argon::vm::datatype {
         AROBJ_HEAD;
     };
 
+    ArObject *Compare(const ArObject *left, const ArObject *right, CompareMode mode);
+
     ArObject *Repr(const ArObject *object);
 
     ArObject *Str(const ArObject *object);
+
+    ArSize Hash(ArObject *object);
+
+    bool Equal(const ArObject *left, const ArObject *right);
+
+    inline bool EqualStrict(const ArObject *left, const ArObject *right){
+        if(AR_SAME_TYPE(left, right))
+            return Equal(left, right);
+
+        return false;
+    }
 
     template<typename T>
     T *IncRef(T *t) {
