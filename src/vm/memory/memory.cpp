@@ -10,6 +10,10 @@ void *argon::vm::memory::Alloc(size_t size) {
     return stratum::Alloc(size);
 }
 
+void *argon::vm::memory::Calloc(size_t size) {
+    return stratum::Calloc(size);
+}
+
 void argon::vm::memory::Free(void *ptr) {
     stratum::Free(ptr);
 }

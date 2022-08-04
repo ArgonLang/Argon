@@ -8,11 +8,17 @@
 #include <cstddef>
 
 #include <stratum/src/memory.h>
+#include <stratum/src/memutil.h>
 
 #define ARGON_VM_MEMORY_QUANTUM (STRATUM_QUANTUM)
 
 namespace argon::vm::memory {
+    const auto MemoryCopy = stratum::util::MemoryCopy;
+    const auto MemoryZero = stratum::util::MemoryZero;
+
     void *Alloc(size_t size);
+
+    void *Calloc(size_t size);
 
     void *Realloc(void *ptr, size_t size);
 
