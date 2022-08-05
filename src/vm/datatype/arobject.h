@@ -118,7 +118,7 @@ namespace argon::vm::datatype {
         VariadicOp ctor;
 
         /// Datatype destructor.
-        VariadicOp dtor;
+        Bool_UnaryOp dtor;
 
         /// GC trace.
         TraceOp trace;
@@ -174,7 +174,7 @@ namespace argon::vm::datatype {
         AROBJ_HEAD;
     };
 
-    ArObject *Compare(const ArObject *left, const ArObject *right, CompareMode mode);
+    ArObject *Compare(const ArObject *self, const ArObject *other, CompareMode mode);
 
     ArObject *Repr(const ArObject *object);
 
@@ -182,11 +182,11 @@ namespace argon::vm::datatype {
 
     ArSize Hash(ArObject *object);
 
-    bool Equal(const ArObject *left, const ArObject *right);
+    bool Equal(const ArObject *self, const ArObject *other);
 
-    inline bool EqualStrict(const ArObject *left, const ArObject *right){
-        if(AR_SAME_TYPE(left, right))
-            return Equal(left, right);
+    inline bool EqualStrict(const ArObject *self, const ArObject *other){
+        if(AR_SAME_TYPE(self, other))
+            return Equal(self, other);
 
         return false;
     }
