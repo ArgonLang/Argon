@@ -8,6 +8,8 @@
 #include "datatype/arobject.h"
 
 namespace argon::vm {
+    argon::vm::datatype::ArObject *GetLastError();
+
     void Panic(datatype::ArObject *panic);
 }
 

@@ -5,7 +5,11 @@
 #ifndef ARGON_VM_DATATYPE_ARSTRING_H_
 #define ARGON_VM_DATATYPE_ARSTRING_H_
 
+#include <stdarg.h>
+
 #include "arobject.h"
+
+#define ARGON_VM_DATATYPE_RAW_STRING(string)    ((string)->buffer)
 
 namespace argon::vm::datatype {
     enum class StringKind {
@@ -39,7 +43,34 @@ namespace argon::vm::datatype {
     extern const TypeInfo *type_string_;
 
     /**
+     * @brief Create a new string using a template.
+     *
+     * @param format Printf style format string.
+     * @param ... Arguments.
+     * @return A pointer to an Argon string object, otherwise nullptr.
+     */
+    String *StringFormat(const char *format, ...);
+
+    /**
+     * @brief Create a new string using a template.
+     *
+     * @param format Printf style format string.
+     * @param args Arguments.
+     * @return A pointer to an Argon string object, otherwise nullptr.
+     */
+    String *StringFormat(const char *format, va_list args);
+
+    /**
+     * @brief Creates an exact copy of a String object in the String pool and return it.
+     *
+     * @param string The C-string to convert to Argon string.
+     * @return A pointer to an Argon string object, otherwise nullptr.
+     */
+    String *StringIntern(const char *string);
+
+    /**
      * @brief Create new string.
+     *
      * @param string The C-string to convert to Argon string.
      * @param length The length of the C-string.
      * @return A pointer to an Argon string object, otherwise nullptr.
@@ -48,18 +79,26 @@ namespace argon::vm::datatype {
 
     /**
      * @brief Create new string.
+     *
      * @param string The C-string to convert to Argon string.
      * @return A pointer to an Argon string object, otherwise nullptr.
      */
     inline String *StringNew(const char *string) { return StringNew(string, strlen(string)); }
 
     /**
-     * @brief Create a new string using a template.
-     * @param format Printf style format string.
-     * @param ... Arguments.
+     * @brief Create new string.
+     *
+     * It allows you to build an empty String object (container only)
+     * which must subsequently be filled by the applicant.
+     *
+     * @param buffer Raw buffer containing the string
+     * (ownership of the buffer will be transferred to the created object).
+     * @param length Length of the buffer.
+     * @param cp_length Number of unicode code point in the buffer.
+     * @param kind StringKind.
      * @return A pointer to an Argon string object, otherwise nullptr.
      */
-    String *StringFormat(const char *format, ...);
+    String *StringNew(unsigned char *buffer, ArSize length, ArSize cp_length, StringKind kind);
 
 } // namespace argon::vm::datatype
 

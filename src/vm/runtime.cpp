@@ -5,6 +5,12 @@
 #include "runtime.h"
 
 using namespace argon::vm;
+using namespace argon::vm::datatype;
+
+ArObject *argon::vm::GetLastError() {
+    // TODO: STUB
+    assert(false);
+}
 
 void argon::vm::Panic(datatype::ArObject *panic) {
     // TODO: STUB
