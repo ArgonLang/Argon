@@ -77,8 +77,8 @@ namespace stratum::support {
         }
 
         void Sort(T *obj) {
-            T *cand = obj;
-            T *cur = obj;
+            T *cur = this->list;
+            T *cand = nullptr;
 
             while (cur != nullptr && obj->free >= cur->free) {
                 cand = cur;
@@ -87,6 +87,12 @@ namespace stratum::support {
 
             if (cand != obj) {
                 this->Remove(obj);
+
+                if (cand == nullptr) {
+                    this->Insert(obj);
+                    return;
+                }
+
                 this->After(cand, obj);
             }
         }

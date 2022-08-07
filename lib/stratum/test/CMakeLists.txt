@@ -1,42 +1,27 @@
-cmake_minimum_required(VERSION 3.15)
+if (ENABLE_TESTS)
+    include(FetchContent)
 
-# Download and unpack googletest at configure time
-configure_file(GTestDownloader.txt GTest/CMakeLists.txt)
+    FetchContent_Declare(
+            googletest
+            GIT_REPOSITORY https://github.com/google/googletest.git
+            GIT_TAG release-1.12.1
+    )
 
-execute_process(
-        COMMAND ${CMAKE_COMMAND} -G "${CMAKE_GENERATOR}" .
-        RESULT_VARIABLE result
-        WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/GTest
-)
+    # For Windows: Prevent overriding the parent project's compiler/linker settings
+    set(gtest_force_shared_crt ON CACHE BOOL "" FORCE)
 
-if (result)
-    message(FATAL_ERROR "CMake step for googletest failed: ${result}")
-endif ()
+    FetchContent_MakeAvailable(googletest)
 
-execute_process(COMMAND ${CMAKE_COMMAND} --build .
-        RESULT_VARIABLE result
-        WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/GTest)
+    file(GLOB_RECURSE TEST_SRC_FILES ${PROJECT_SOURCE_DIR}/test "*.cpp")
+    message(STATUS "Test case source files: ${TEST_SRC_FILES}")
 
-if (result)
-    message(FATAL_ERROR "Build step for googletest failed: ${result}")
-endif ()
+    add_executable(StratumTest ${TEST_SRC_FILES})
+    add_dependencies(StratumTest Stratum)
 
-# Prevent overriding the parent project's compiler/linker
-# settings on Windows
-set(gtest_force_shared_crt ON CACHE BOOL "" FORCE)
+    target_link_libraries(StratumTest Stratum GTest::gtest_main)
 
-# Add googletest directly to our build. This defines
-# the gtest and gtest_main targets.
-add_subdirectory(
-        ${CMAKE_CURRENT_BINARY_DIR}/googletest-src
-        ${CMAKE_CURRENT_BINARY_DIR}/googletest-build
-        EXCLUDE_FROM_ALL
-)
+    include(GoogleTest)
 
-file(GLOB_RECURSE TEST_SRC_FILES ${PROJECT_SOURCE_DIR}/test "*.cpp")
-message(STATUS "Test case source files: ${TEST_SRC_FILES}")
-
-add_executable(StratumTest ${TEST_SRC_FILES})
-#add_executable(StratumTest test_main.cpp min_heap.cpp queue.cpp memutil.cpp)
-add_dependencies(StratumTest Stratum)
-target_link_libraries(StratumTest Stratum gtest gtest_main)
+    enable_testing()
+    gtest_discover_tests(StratumTest)
+endif (ENABLE_TESTS)
