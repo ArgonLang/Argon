@@ -21,5 +21,6 @@ set(CMAKE_WINDOWS_EXPORT_ALL_SYMBOLS ON)
 include_directories(src)
 include_directories(lib)
 
-add_subdirectory(src)
 add_subdirectory(lib/stratum)
+add_subdirectory(src)
+add_subdirectory(test)
