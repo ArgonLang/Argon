@@ -1,9 +1,6 @@
 cmake_minimum_required(VERSION 3.15)
 project(Stratum VERSION 1.0.0)
 
-set(EXECUTABLE_OUTPUT_PATH "${PROJECT_SOURCE_DIR}/bin")
-set(LIBRARY_OUTPUT_PATH "${PROJECT_SOURCE_DIR}/bin")
-
 set(CMAKE_CXX_STANDARD 17)
 
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -15,12 +12,13 @@ add_subdirectory(src)
 add_subdirectory(test)
 
 option(BUILD_DOC "Build documentation" ON)
+option(ENABLE_TESTS "Enable tests" OFF)
 
 if (BUILD_DOC AND CMAKE_BUILD_TYPE MATCHES "^[Rr]elease")
     find_package(Doxygen)
     if (DOXYGEN_FOUND)
         set(DOXYGEN_IN ${PROJECT_SOURCE_DIR}/doxyfile.in)
-        set(DOXYGEN_OUT ${PROJECT_SOURCE_DIR}/bin/doxyfile)
+        set(DOXYGEN_OUT ${CMAKE_CURRENT_BINARY_DIR}/doxyfile)
 
         configure_file(${DOXYGEN_IN} ${DOXYGEN_OUT} @ONLY)
         message("Doxygen build started")
