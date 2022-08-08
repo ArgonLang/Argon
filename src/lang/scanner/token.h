@@ -11,7 +11,9 @@ namespace argon::lang::scanner {
     enum class TokenType {
         TK_NULL,
         END_OF_LINE,
-        END_OF_FILE
+        END_OF_FILE,
+        NUMBER,
+        DECIMAL
     };
 
     using Pos = size_t;

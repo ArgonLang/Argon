@@ -48,6 +48,67 @@ int DefaultPrompt(const char *prompt, FILE *fd, InputBuffer *ibuf) {
     return cur;
 }
 
+bool Scanner::TokenizeDecimal(Token *out_token, TokenType type, bool begin_zero) {
+    if (begin_zero && !this->sbuf_.PutChar('0')) {
+        this->status_ = ScannerStatus::NOMEM;
+        return false;
+    }
+
+    if (type == TokenType::DECIMAL && !this->sbuf_.PutChar('.')) {
+        this->status_ = ScannerStatus::NOMEM;
+        return false;
+    }
+
+    while (isdigit(this->Peek())) {
+        if (!this->sbuf_.PutChar((unsigned char) this->Next())) {
+            this->status_ = ScannerStatus::NOMEM;
+            return false;
+        }
+    }
+
+    // Look for a fractional part.
+    if (this->Peek() == '.' && type != TokenType::DECIMAL) {
+        if (!this->sbuf_.PutChar((unsigned char) this->Next())) {
+            this->status_ = ScannerStatus::NOMEM;
+            return false;
+        }
+
+        while (isdigit(this->Peek())) {
+            if (!this->sbuf_.PutChar((unsigned char) this->Next())) {
+                this->status_ = ScannerStatus::NOMEM;
+                return false;
+            }
+        }
+
+        type = TokenType::DECIMAL;
+    }
+
+    out_token->type = type;
+    out_token->loc.end = this->loc;
+    out_token->length = this->sbuf_.GetBuffer(&out_token->buffer);
+    return true;
+}
+
+bool Scanner::TokenizeNumber(Token *out_token) {
+    bool begin_zero = false;
+
+    if (this->Peek() == '0') {
+        this->Next();
+
+        switch (this->Peek()) {
+            case 'b':
+            case 'o':
+            case 'x':
+                assert(false);
+            default:
+                begin_zero = true;
+                break;
+        }
+    }
+
+    return this->TokenizeDecimal(out_token, TokenType::NUMBER, begin_zero);
+}
+
 int Scanner::UnderflowInteractive() {
     int err = this->promptfn_(this->prompt_, this->fd_, &this->ibuf_);
     if (err < 0)
@@ -109,6 +170,13 @@ bool Scanner::NextToken(Token *out_token) noexcept {
     // Reset error status
     this->status_ = ScannerStatus::GOOD;
 
+    if (out_token->buffer != nullptr) {
+        argon::vm::memory::Free(out_token->buffer);
+
+        out_token->buffer = nullptr;
+        out_token->length = 0;
+    }
+
     while ((value = this->Peek()) > 0) {
         out_token->loc.start = this->loc;
 
@@ -116,8 +184,12 @@ bool Scanner::NextToken(Token *out_token) noexcept {
         if (isblank(value)) {
             while (isblank(this->Peek()))
                 this->Next();
+
             continue;
         }
+
+        if (isdigit(value))
+            return this->TokenizeNumber(out_token);
 
         this->Next();
 
@@ -128,6 +200,10 @@ bool Scanner::NextToken(Token *out_token) noexcept {
                 out_token->loc.end = this->loc;
                 out_token->type = TokenType::END_OF_LINE;
                 return true;
+            case '.':
+                if (isdigit(this->Peek()))
+                    return this->TokenizeDecimal(out_token, TokenType::DECIMAL, false);
+                assert(false);
         }
     }
 
