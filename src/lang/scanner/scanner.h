@@ -10,6 +10,7 @@
 
 #include "ibuffer.h"
 #include "token.h"
+#include "sbuffer.h"
 
 namespace argon::lang::scanner {
     constexpr auto kScannerFileBuffer = 2048;
@@ -46,11 +47,17 @@ namespace argon::lang::scanner {
 
         InteractiveFn promptfn_ = nullptr;
 
+        StoreBuffer sbuf_;
+
         InputBuffer ibuf_;
 
         ScannerStatus status_ = ScannerStatus::GOOD;
 
         Position loc{1, 1, 0};
+
+        bool TokenizeDecimal(Token *out_token, TokenType type, bool begin_zero);
+
+        bool TokenizeNumber(Token *out_token);
 
         int Next() { return this->Peek(true); }
 
@@ -69,6 +76,6 @@ namespace argon::lang::scanner {
 
         bool NextToken(Token *out_token) noexcept;
     };
-}
+} // namespace argon::lang::scanner
 
 #endif // !ARGON_LANG_SCANNER_SCANNER_H_
