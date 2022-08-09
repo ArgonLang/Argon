@@ -55,9 +55,15 @@ namespace argon::lang::scanner {
 
         Position loc{1, 1, 0};
 
+        bool TokenizeBinary(Token *out_token);
+
         bool TokenizeDecimal(Token *out_token, TokenType type, bool begin_zero);
 
+        bool TokenizeHex(Token *out_token);
+
         bool TokenizeNumber(Token *out_token);
+
+        bool TokenizeOctal(Token *out_token);
 
         int Next() { return this->Peek(true); }
 

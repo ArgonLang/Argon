@@ -13,6 +13,9 @@ namespace argon::lang::scanner {
         END_OF_LINE,
         END_OF_FILE,
         NUMBER,
+        NUMBER_BIN,
+        NUMBER_OCT,
+        NUMBER_HEX,
         DECIMAL
     };
 

@@ -91,3 +91,36 @@ TEST(Scanner, Decimals) {
     ASSERT_TRUE(scanner.NextToken(&token));
     ASSERT_TRUE(TkEqual(&token, TokenType::END_OF_FILE, 26, 27, 1, 26, 27, 1));
 }
+
+TEST(Scanner, BinaryNumber) {
+    Scanner scanner("0b1010 0B101");
+    Token token{};
+
+    ASSERT_TRUE(scanner.NextToken(&token));
+    ASSERT_TRUE(TkEqual(&token, TokenType::NUMBER_BIN, 0, 1, 1, 6, 7, 1));
+
+    ASSERT_TRUE(scanner.NextToken(&token));
+    ASSERT_TRUE(TkEqual(&token, TokenType::NUMBER_BIN, 7, 8, 1, 12, 13, 1));
+}
+
+TEST(Scanner, OctalNumber) {
+    Scanner scanner("0o23423 0O02372");
+    Token token{};
+
+    ASSERT_TRUE(scanner.NextToken(&token));
+    ASSERT_TRUE(TkEqual(&token, TokenType::NUMBER_OCT, 0, 1, 1, 7, 8, 1));
+
+    ASSERT_TRUE(scanner.NextToken(&token));
+    ASSERT_TRUE(TkEqual(&token, TokenType::NUMBER_OCT, 8, 9, 1, 15, 16, 1));
+}
+
+TEST(Scanner, HexNumber) {
+    Scanner scanner("0xaba12 0X19Fa");
+    Token token{};
+
+    ASSERT_TRUE(scanner.NextToken(&token));
+    ASSERT_TRUE(TkEqual(&token, TokenType::NUMBER_HEX, 0, 1, 1, 7, 8, 1));
+
+    ASSERT_TRUE(scanner.NextToken(&token));
+    ASSERT_TRUE(TkEqual(&token, TokenType::NUMBER_HEX, 8, 9, 1, 14, 15, 1));
+}
