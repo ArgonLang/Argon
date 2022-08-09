@@ -48,6 +48,29 @@ int DefaultPrompt(const char *prompt, FILE *fd, InputBuffer *ibuf) {
     return cur;
 }
 
+bool Scanner::TokenizeBinary(Token *out_token) {
+    int value = this->Peek();
+
+    while (value >= '0' && value <= '1') {
+        if (!this->sbuf_.PutChar((unsigned char) this->Next())) {
+            this->status_ = ScannerStatus::NOMEM;
+            return false;
+        }
+
+        value = this->Peek();
+    }
+
+    if (isdigit(value)) {
+        this->status_ = ScannerStatus::INVALID_BINARY_LITERAL;
+        return false;
+    }
+
+    out_token->type = TokenType::NUMBER_BIN;
+    out_token->loc.end = this->loc;
+    out_token->length = this->sbuf_.GetBuffer(&out_token->buffer);
+    return true;
+}
+
 bool Scanner::TokenizeDecimal(Token *out_token, TokenType type, bool begin_zero) {
     if (begin_zero && !this->sbuf_.PutChar('0')) {
         this->status_ = ScannerStatus::NOMEM;
@@ -89,17 +112,45 @@ bool Scanner::TokenizeDecimal(Token *out_token, TokenType type, bool begin_zero)
     return true;
 }
 
+bool Scanner::TokenizeHex(Token *out_token) {
+    int value = this->Peek();
+
+    while (ishexnumber(value)) {
+        if (!this->sbuf_.PutChar((unsigned char) this->Next())) {
+            this->status_ = ScannerStatus::NOMEM;
+            return false;
+        }
+
+        value = this->Peek();
+    }
+
+    if (isalpha(value)) {
+        this->status_ = ScannerStatus::INVALID_HEX_LITERAL;
+        return false;
+    }
+
+    out_token->type = TokenType::NUMBER_HEX;
+    out_token->loc.end = this->loc;
+    out_token->length = this->sbuf_.GetBuffer(&out_token->buffer);
+    return true;
+}
+
 bool Scanner::TokenizeNumber(Token *out_token) {
     bool begin_zero = false;
 
     if (this->Peek() == '0') {
         this->Next();
 
-        switch (this->Peek()) {
+        switch (tolower(this->Peek())) {
             case 'b':
+                this->Next();
+                return this->TokenizeBinary(out_token);
             case 'o':
+                this->Next();
+                return this->TokenizeOctal(out_token);
             case 'x':
-                assert(false);
+                this->Next();
+                return this->TokenizeHex(out_token);
             default:
                 begin_zero = true;
                 break;
@@ -107,6 +158,29 @@ bool Scanner::TokenizeNumber(Token *out_token) {
     }
 
     return this->TokenizeDecimal(out_token, TokenType::NUMBER, begin_zero);
+}
+
+bool Scanner::TokenizeOctal(Token *out_token) {
+    int value = this->Peek();
+
+    while (value >= '0' && value <= '7') {
+        if (!this->sbuf_.PutChar((unsigned char) this->Next())) {
+            this->status_ = ScannerStatus::NOMEM;
+            return false;
+        }
+
+        value = this->Peek();
+    }
+
+    if (isdigit(value)) {
+        this->status_ = ScannerStatus::INVALID_OCTAL_LITERAL;
+        return false;
+    }
+
+    out_token->type = TokenType::NUMBER_OCT;
+    out_token->loc.end = this->loc;
+    out_token->length = this->sbuf_.GetBuffer(&out_token->buffer);
+    return true;
 }
 
 int Scanner::UnderflowInteractive() {
