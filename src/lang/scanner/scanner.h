@@ -55,6 +55,16 @@ namespace argon::lang::scanner {
 
         Position loc{1, 1, 0};
 
+        int HexToByte();
+
+        bool ParseEscape(int stop, bool ignore_unicode);
+
+        bool ParseHexEscape();
+
+        bool ParseOctEscape(int value);
+
+        bool ParseUnicode(bool extended);
+
         bool TokenizeBinary(Token *out_token);
 
         bool TokenizeDecimal(Token *out_token, TokenType type, bool begin_zero);
@@ -64,6 +74,12 @@ namespace argon::lang::scanner {
         bool TokenizeNumber(Token *out_token);
 
         bool TokenizeOctal(Token *out_token);
+
+        bool TokenizeRawString(Token *out_token);
+
+        bool TokenizeString(Token *out_token, bool byte_string);
+
+        bool TokenizeWord(Token *out_token);
 
         int Next() { return this->Peek(true); }
 
