@@ -124,3 +124,79 @@ TEST(Scanner, HexNumber) {
     ASSERT_TRUE(scanner.NextToken(&token));
     ASSERT_TRUE(TkEqual(&token, TokenType::NUMBER_HEX, 8, 9, 1, 14, 15, 1));
 }
+
+TEST(Scanner, Word) {
+    Scanner scanner("vax v4r v_48_ __private_var__ b as assert");
+    Token token{};
+
+    ASSERT_TRUE(scanner.NextToken(&token));
+    ASSERT_TRUE(TkEqual(&token, TokenType::IDENTIFIER, 0, 1, 1, 4, 5, 1));
+
+    ASSERT_TRUE(scanner.NextToken(&token));
+    ASSERT_TRUE(TkEqual(&token, TokenType::IDENTIFIER, 4, 5, 1, 8, 9, 1));
+
+    ASSERT_TRUE(scanner.NextToken(&token));
+    ASSERT_TRUE(TkEqual(&token, TokenType::IDENTIFIER, 8, 9, 1, 14, 15, 1));
+
+    ASSERT_TRUE(scanner.NextToken(&token));
+    ASSERT_TRUE(TkEqual(&token, TokenType::IDENTIFIER, 14, 15, 1, 30, 31, 1));
+
+    ASSERT_TRUE(scanner.NextToken(&token));
+    ASSERT_TRUE(TkEqual(&token, TokenType::IDENTIFIER, 30, 31, 1, 32, 33, 1));
+
+    ASSERT_TRUE(scanner.NextToken(&token));
+    ASSERT_TRUE(TkEqual(&token, TokenType::KW_AS, 32, 33, 1, 35, 36, 1));
+
+    ASSERT_TRUE(scanner.NextToken(&token));
+    ASSERT_TRUE(TkEqual(&token, TokenType::KW_ASSERT, 35, 36, 1, 41, 42, 1));
+}
+
+TEST(Scanner, LiteralByteString) {
+    Scanner scanner(R"(b"ByteString" b"Ignore\u2342Unico\U00002312de" b"�")");
+    Token token{};
+
+    ASSERT_TRUE(scanner.NextToken(&token));
+    ASSERT_TRUE(TkEqual(&token, TokenType::BYTE_STRING, 0, 1, 1, 13, 14, 1));
+
+    ASSERT_TRUE(scanner.NextToken(&token));
+    ASSERT_TRUE(TkEqual(&token, TokenType::BYTE_STRING, 14, 15, 1, 46, 47, 1));
+
+    ASSERT_FALSE(scanner.NextToken(&token));
+}
+
+TEST(Scanner, RawString) {
+    Scanner scanner(R"(r"plain" r#"plain hash"# r###"multiple hash"### r##"internal " h"#sh#"## r####"New "###
+Line!
+rString"#### r"")");
+    Token token{};
+
+    ASSERT_TRUE(scanner.NextToken(&token));
+    ASSERT_TRUE(TkEqual(&token, TokenType::RAW_STRING, 0, 1, 1, 8, 9, 1));
+
+    ASSERT_TRUE(scanner.NextToken(&token));
+    ASSERT_TRUE(TkEqual(&token, TokenType::RAW_STRING, 9, 10, 1, 24, 25, 1));
+
+    ASSERT_TRUE(scanner.NextToken(&token));
+    ASSERT_TRUE(TkEqual(&token, TokenType::RAW_STRING, 25, 26, 1, 47, 48, 1));
+
+    ASSERT_TRUE(scanner.NextToken(&token));
+    ASSERT_TRUE(TkEqual(&token, TokenType::RAW_STRING, 48, 49, 1, 72, 73, 1));
+
+    ASSERT_TRUE(scanner.NextToken(&token));
+    ASSERT_TRUE(TkEqual(&token, TokenType::RAW_STRING, 73, 74, 1, 106, 13, 3));
+
+    ASSERT_TRUE(scanner.NextToken(&token));
+    ASSERT_TRUE(TkEqual(&token, TokenType::RAW_STRING, 107, 14, 3, 110, 17, 3));
+
+    scanner = Scanner("r\"Error!");
+    ASSERT_FALSE(scanner.NextToken(&token));
+
+    scanner = Scanner("r#\"Error!\"");
+    ASSERT_FALSE(scanner.NextToken(&token));
+
+    scanner = Scanner("r##\"Error!##");
+    ASSERT_FALSE(scanner.NextToken(&token));
+
+    scanner = Scanner("r##Error!\"##");
+    ASSERT_FALSE(scanner.NextToken(&token));
+}

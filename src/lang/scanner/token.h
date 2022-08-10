@@ -16,7 +16,15 @@ namespace argon::lang::scanner {
         NUMBER_BIN,
         NUMBER_OCT,
         NUMBER_HEX,
-        DECIMAL
+        DECIMAL,
+        STRING,
+        BYTE_STRING,
+        RAW_STRING,
+        IDENTIFIER,
+        BLANK,
+
+        KW_AS,
+        KW_ASSERT
     };
 
     using Pos = size_t;
