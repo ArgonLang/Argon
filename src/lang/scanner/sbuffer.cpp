@@ -12,7 +12,7 @@ StoreBuffer::~StoreBuffer() {
     argon::vm::memory::Free(this->buffer_);
 }
 
-bool StoreBuffer::Enlarge(int increase) {
+bool StoreBuffer::Enlarge(size_t increase) {
     if (this->buffer_ == nullptr) {
         this->buffer_ = (unsigned char *) argon::vm::memory::Alloc(increase + 1);
         if (this->buffer_ == nullptr)
@@ -50,8 +50,34 @@ bool StoreBuffer::PutChar(unsigned char chr) {
     } while (true);
 }
 
+bool StoreBuffer::PutCharRepeat(unsigned char chr, int n) {
+    if (!this->Enlarge(n))
+        return false;
+
+    while (n > 0) {
+        *this->cursor_ = chr;
+        this->cursor_++;
+        n--;
+    }
+
+    return true;
+}
+
+bool StoreBuffer::PutString(const unsigned char *str, size_t length) {
+    if (!this->Enlarge(length + 8))
+        return false;
+
+    this->cursor_ = (unsigned char *) argon::vm::memory::MemoryCopy(this->cursor_, str, length);
+    return true;
+}
+
 unsigned int StoreBuffer::GetBuffer(unsigned char **buffer) {
     auto length = (unsigned int) (this->cursor_ - this->buffer_);
+
+    if (this->buffer_ == nullptr) {
+        *buffer = nullptr;
+        return 0;
+    }
 
     assert(this->cursor_ < (this->end_ + 1));
 

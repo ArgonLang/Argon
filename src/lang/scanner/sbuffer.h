@@ -12,12 +12,23 @@ namespace argon::lang::scanner {
         unsigned char *cursor_ = nullptr;
         unsigned char *end_ = nullptr;
 
-        bool Enlarge(int increase);
+        bool Enlarge(size_t increase);
 
     public:
         ~StoreBuffer();
 
         bool PutChar(unsigned char chr);
+
+        bool PutCharRepeat(unsigned char chr, int n);
+
+        bool PutString(const unsigned char *str, size_t length);
+
+        size_t GetLength() {
+            if (this->buffer_ == nullptr)
+                return 0;
+
+            return this->cursor_ - this->buffer_;
+        }
 
         unsigned int GetBuffer(unsigned char **buffer);
     };

@@ -13,6 +13,7 @@
 #define ARGON_VM_MEMORY_QUANTUM (STRATUM_QUANTUM)
 
 namespace argon::vm::memory {
+    const auto MemoryCompare = stratum::util::MemoryCompare;
     const auto MemoryCopy = stratum::util::MemoryCopy;
     const auto MemoryZero = stratum::util::MemoryZero;
 
