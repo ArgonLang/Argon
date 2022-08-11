@@ -15,8 +15,40 @@ struct KwToken {
 };
 
 constexpr KwToken kw2tktype[] = {
-        {"as",     TokenType::KW_AS},
-        {"assert", TokenType::KW_ASSERT}
+        {"as",          TokenType::KW_AS},
+        {"assert",      TokenType::KW_ASSERT},
+        {"break",       TokenType::KW_BREAK},
+        {"case",        TokenType::KW_CASE},
+        {"continue",    TokenType::KW_CONTINUE},
+        {"default",     TokenType::KW_DEFAULT},
+        {"defer",       TokenType::KW_DEFER},
+        {"elif",        TokenType::KW_ELIF},
+        {"else",        TokenType::KW_ELSE},
+        {"fallthrough", TokenType::KW_FALLTHROUGH},
+        {"false",       TokenType::FALSE},
+        {"for",         TokenType::KW_FOR},
+        {"from",        TokenType::KW_FROM},
+        {"func",        TokenType::KW_FUNC},
+        {"if",          TokenType::KW_IF},
+        {"in",          TokenType::KW_IN},
+        {"impl",        TokenType::KW_IMPL},
+        {"import",      TokenType::KW_IMPORT},
+        {"let",         TokenType::KW_LET},
+        {"loop",        TokenType::KW_LOOP},
+        {"nil",         TokenType::NIL},
+        {"panic",       TokenType::KW_PANIC},
+        {"pub",         TokenType::KW_PUB},
+        {"return",      TokenType::KW_RETURN},
+        {"self",        TokenType::SELF},
+        {"spawn",       TokenType::KW_SPAWN},
+        {"struct",      TokenType::KW_STRUCT},
+        {"switch",      TokenType::KW_SWITCH},
+        {"trait",       TokenType::KW_TRAIT},
+        {"trap",       TokenType::KW_TRAP},
+        {"true",        TokenType::TRUE},
+        {"var",         TokenType::KW_VAR},
+        {"yield",       TokenType::KW_YIELD},
+        {"weak",        TokenType::KW_WEAK}
 };
 
 int DefaultPrompt(const char *prompt, FILE *fd, InputBuffer *ibuf) {
