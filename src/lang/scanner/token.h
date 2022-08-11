@@ -16,6 +16,7 @@ namespace argon::lang::scanner {
         NUMBER_BIN,
         NUMBER_OCT,
         NUMBER_HEX,
+        NUMBER_CHR,
         DECIMAL,
         STRING,
         BYTE_STRING,
@@ -24,7 +25,63 @@ namespace argon::lang::scanner {
         BLANK,
 
         KW_AS,
-        KW_ASSERT
+        KW_ASSERT,
+
+        ATOM,
+        EXCLAMATION,
+        NOT_EQUAL,
+        NOT_EQUAL_STRICT,
+        PERCENT,
+        AMPERSAND,
+        AND,
+        LEFT_ROUND,
+        RIGHT_ROUND,
+        LEFT_SQUARE,
+        RIGHT_SQUARE,
+        LEFT_BRACES,
+        RIGHT_BRACES,
+        ASTERISK,
+        COMMA,
+        DOT,
+        COLON,
+        SCOPE,
+        SEMICOLON,
+        EQUAL,
+        EQUAL_EQUAL,
+        EQUAL_STRICT,
+        FAT_ARROW,
+        QUESTION,
+        QUESTION_DOT,
+        ELVIS,
+        OR,
+        PIPELINE,
+        TILDE,
+        CARET,
+        PIPE,
+
+        ASSIGN_MUL,
+        ASSIGN_ADD,
+        ASSIGN_SUB,
+        ASSIGN_SLASH,
+
+        GREATER_EQ,
+        LESS_EQ,
+        SHL,
+        SHR,
+        GREATER,
+        LESS,
+
+        PLUS,
+        PLUS_PLUS,
+        MINUS,
+        MINUS_MINUS,
+        SLASH,
+        SLASH_SLASH,
+
+        COMMENT,
+        COMMENT_INLINE,
+
+        ELLIPSIS
     };
 
     using Pos = size_t;

@@ -15,7 +15,7 @@ struct KwToken {
 };
 
 constexpr KwToken kw2tktype[] = {
-        {"as", TokenType::KW_AS},
+        {"as",     TokenType::KW_AS},
         {"assert", TokenType::KW_ASSERT}
 };
 
@@ -219,6 +219,24 @@ bool Scanner::ParseUnicode(bool extended) {
     return true;
 }
 
+bool Scanner::TokenizeAtom(Token *out_token) {
+    int value = this->Peek();
+
+    while (isalnum(value) || value == '_') {
+        if (!this->sbuf_.PutChar((unsigned char) this->Next())) {
+            this->status_ = ScannerStatus::NOMEM;
+            return false;
+        }
+
+        value = this->Peek();
+    }
+
+    out_token->type = TokenType::ATOM;
+    out_token->loc.end = this->loc;
+    out_token->length = this->sbuf_.GetBuffer(&out_token->buffer);
+    return true;
+}
+
 bool Scanner::TokenizeBinary(Token *out_token) {
     int value = this->Peek();
 
@@ -239,6 +257,94 @@ bool Scanner::TokenizeBinary(Token *out_token) {
     out_token->type = TokenType::NUMBER_BIN;
     out_token->loc.end = this->loc;
     out_token->length = this->sbuf_.GetBuffer(&out_token->buffer);
+    return true;
+}
+
+bool Scanner::TokenizeChar(Token *out_token) {
+    int value = this->Peek();
+
+    if (value == '\'') {
+        this->status_ = ScannerStatus::EMPTY_SQUOTE;
+        return false;
+    }
+
+    if (value == '\\') {
+        this->Next();
+
+        if (this->Peek() != '\\') {
+            if (!this->ParseEscape('\'', false))
+                return false;
+        } else {
+            if (!this->sbuf_.PutChar((unsigned char) this->Next())) {
+                this->status_ = ScannerStatus::NOMEM;
+                return false;
+            }
+        }
+    } else {
+        if (!this->sbuf_.PutChar((unsigned char) this->Next())) {
+            this->status_ = ScannerStatus::NOMEM;
+            return false;
+        }
+    }
+
+    if (this->Next() != '\'') {
+        this->status_ = ScannerStatus::INVALID_SQUOTE;
+        return false;
+    }
+
+    out_token->type = TokenType::NUMBER_CHR;
+    out_token->loc.end = this->loc;
+    out_token->length = this->sbuf_.GetBuffer(&out_token->buffer);
+    return true;
+}
+
+bool Scanner::TokenizeComment(Token *out_token, bool inline_comment) {
+    TokenType type = TokenType::COMMENT;
+    int peek;
+
+    if (inline_comment)
+        type = TokenType::COMMENT_INLINE;
+
+    // Skip newline/whitespace at comment start
+    for (int skip = this->Peek();
+         isspace(skip) || (!inline_comment && skip == '\n');
+         this->Next(), skip = this->Peek());
+
+    peek = this->Peek();
+    while (peek > 0 && (peek != '\n' || !inline_comment)) {
+        peek = this->Next();
+
+        if (this->Peek() == '*') {
+            this->Next();
+
+            if (this->Peek() == '/')
+                break;
+
+            if (!this->sbuf_.PutChar('*')) {
+                this->status_ = ScannerStatus::NOMEM;
+                return false;
+            }
+
+            peek = this->Peek();
+            continue;
+        }
+
+        if (!this->sbuf_.PutChar((unsigned char) peek)) {
+            this->status_ = ScannerStatus::NOMEM;
+            return false;
+        }
+
+        peek = this->Peek();
+    }
+
+    if (peek == 0)
+        return false;
+
+    out_token->type = type;
+    out_token->loc.end = this->loc;
+    out_token->length = this->sbuf_.GetBuffer(&out_token->buffer);
+
+    this->Next();
     return true;
 }
 
@@ -556,6 +662,17 @@ bool Scanner::NextToken(Token *out_token) noexcept {
     }
 
     while ((value = this->Peek()) > 0) {
+#define RETURN_TK(tk_type)          \
+    do {                            \
+    out_token->loc.end = this->loc; \
+    out_token->type = (tk_type);    \
+    return true; } while(false)
+
+#define CHECK_AGAIN(chr, tk_type)   \
+    if(this->Peek() == (chr)) {     \
+        this->Next();               \
+        RETURN_TK(tk_type); }
+
         out_token->loc.start = this->loc;
 
         // Skip spaces
@@ -581,10 +698,117 @@ bool Scanner::NextToken(Token *out_token) noexcept {
                 out_token->loc.end = this->loc;
                 out_token->type = TokenType::END_OF_LINE;
                 return true;
+            case '\r': // \r\n
+                CHECK_AGAIN('\n', TokenType::END_OF_LINE)
+                this->status_ = ScannerStatus::INVALID_TK;
+                return false;
+            case '\\':
+                if (this->Next() != '\n') {
+                    this->status_ = ScannerStatus::INVALID_LC;
+                    return false;
+                }
+                continue;
+            case '!':
+                if (this->Peek() == '=') {
+                    this->Next();
+                    CHECK_AGAIN('=', TokenType::NOT_EQUAL_STRICT)
+                    RETURN_TK(TokenType::NOT_EQUAL);
+                }
+                RETURN_TK(TokenType::EXCLAMATION);
+            case '"':
+                return this->TokenizeString(out_token, false);
+            case '#':
+                return this->TokenizeComment(out_token, true);
+            case '%':
+                RETURN_TK(TokenType::PERCENT);
+            case '&':
+                CHECK_AGAIN('&', TokenType::AND)
+                RETURN_TK(TokenType::AMPERSAND);
+            case '\'':
+                return this->TokenizeChar(out_token);
+            case '(':
+                RETURN_TK(TokenType::LEFT_ROUND);
+            case ')':
+                RETURN_TK(TokenType::RIGHT_ROUND);
+            case '*':
+                CHECK_AGAIN('=', TokenType::ASSIGN_MUL)
+                RETURN_TK(TokenType::ASTERISK);
+            case '+':
+                CHECK_AGAIN('=', TokenType::ASSIGN_ADD)
+                CHECK_AGAIN('+', TokenType::PLUS_PLUS)
+                RETURN_TK(TokenType::PLUS);
+            case ',':
+                RETURN_TK(TokenType::COMMA);
+            case '-':
+                CHECK_AGAIN('=', TokenType::ASSIGN_SUB)
+                CHECK_AGAIN('-', TokenType::MINUS_MINUS)
+                RETURN_TK(TokenType::MINUS);
             case '.':
+                if (this->Peek() == '.') {
+                    this->Next();
+                    CHECK_AGAIN('.', TokenType::ELLIPSIS)
+                    this->status_ = ScannerStatus::INVALID_TK;
+                    return false;
+                }
+
                 if (isdigit(this->Peek()))
                     return this->TokenizeDecimal(out_token, TokenType::DECIMAL, false);
-                assert(false);
+
+                RETURN_TK(TokenType::DOT);
+            case '/':
+                CHECK_AGAIN('/', TokenType::SLASH_SLASH)
+                CHECK_AGAIN('=', TokenType::ASSIGN_SLASH)
+                if (this->Peek() == '*') {
+                    this->Next();
+                    return this->TokenizeComment(out_token, false);
+                }
+                RETURN_TK(TokenType::SLASH);
+            case ':':
+                CHECK_AGAIN(':', TokenType::SCOPE)
+                RETURN_TK(TokenType::COLON);
+            case ';':
+                RETURN_TK(TokenType::SEMICOLON);
+            case '<':
+                CHECK_AGAIN('=', TokenType::LESS_EQ)
+                CHECK_AGAIN('<', TokenType::SHL)
+                RETURN_TK(TokenType::LESS);
+            case '=':
+                if (this->Peek() == '=') {
+                    this->Next();
+                    CHECK_AGAIN('=', TokenType::EQUAL_STRICT)
+                    RETURN_TK(TokenType::EQUAL_EQUAL);
+                }
+                CHECK_AGAIN('>', TokenType::FAT_ARROW)
+                RETURN_TK(TokenType::EQUAL);
+            case '>':
+                CHECK_AGAIN('=', TokenType::GREATER_EQ)
+                CHECK_AGAIN('>', TokenType::SHR)
+                RETURN_TK(TokenType::GREATER);
+            case '?':
+                CHECK_AGAIN(':', TokenType::ELVIS)
+                CHECK_AGAIN('.', TokenType::QUESTION_DOT)
+                RETURN_TK(TokenType::QUESTION);
+            case '@':
+                return this->TokenizeAtom(out_token);
+            case '[':
+                RETURN_TK(TokenType::LEFT_SQUARE);
+            case ']':
+                RETURN_TK(TokenType::RIGHT_SQUARE);
+            case '^':
+                RETURN_TK(TokenType::CARET);
+            case '{':
+                RETURN_TK(TokenType::LEFT_BRACES);
+            case '|':
+                CHECK_AGAIN('|', TokenType::OR)
+                CHECK_AGAIN('>', TokenType::PIPELINE)
+                RETURN_TK(TokenType::PIPE);
+            case '}':
+                RETURN_TK(TokenType::RIGHT_BRACES);
+            case '~':
+                RETURN_TK(TokenType::TILDE);
+            default:
+                this->status_ = ScannerStatus::INVALID_TK;
+                return false;
         }
     }
 
@@ -592,4 +816,29 @@ bool Scanner::NextToken(Token *out_token) noexcept {
     out_token->loc.end = this->loc;
     out_token->type = TokenType::END_OF_FILE;
     return true;
+}
+
+const char *Scanner::GetStatusMessage() const {
+    static const char *messages[] = {
+            "empty '' not allowed",
+            "end of file reached",
+            "invalid digit in binary literal",
+            "byte string can only contain ASCII literal characters",
+            "can't decode bytes in unicode sequence, escape format must be: \\Uhhhhhhhh",
+            "can't decode bytes in unicode sequence, escape format must be: \\uhhhh",
+            "can't decode byte, hex escape must be: \\xhh",
+            "invalid hexadecimal literal",
+            "expected new-line after line continuation character",
+            "invalid digit in octal literal",
+            "unterminated string",
+            "invalid raw string prologue",
+            "expected '",
+            "unterminated string",
+            "invalid token",
+            "illegal Unicode character",
+            "not enough memory",
+            "ok"
+    };
+
+    return messages[(int) this->status_];
 }

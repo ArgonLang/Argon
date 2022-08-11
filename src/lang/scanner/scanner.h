@@ -65,7 +65,13 @@ namespace argon::lang::scanner {
 
         bool ParseUnicode(bool extended);
 
+        bool TokenizeAtom(Token *out_token);
+
         bool TokenizeBinary(Token *out_token);
+
+        bool TokenizeChar(Token *out_token);
+
+        bool TokenizeComment(Token *out_token, bool inline_comment);
 
         bool TokenizeDecimal(Token *out_token, TokenType type, bool begin_zero);
 
@@ -97,6 +103,8 @@ namespace argon::lang::scanner {
         Scanner(const char *ps1, const char *ps2, FILE *fd) noexcept;
 
         bool NextToken(Token *out_token) noexcept;
+
+        const char *GetStatusMessage() const;
     };
 } // namespace argon::lang::scanner
 

@@ -35,6 +35,32 @@ TEST(Scanner, NewLine) {
     ASSERT_TRUE(TkEqual(&token, TokenType::END_OF_LINE, 0, 1, 1, 2, 1, 3));
 }
 
+TEST(Scanner, LineContinuation) {
+    Scanner scanner(R"(24 \
++ 1)");
+    Token token{};
+
+    ASSERT_TRUE(scanner.NextToken(&token));
+    ASSERT_TRUE(TkEqual(&token, TokenType::NUMBER, 0, 1, 1, 2, 3, 1));
+
+    ASSERT_TRUE(scanner.NextToken(&token));
+    ASSERT_TRUE(TkEqual(&token, TokenType::PLUS, 5, 1, 2, 6, 2, 2));
+
+    ASSERT_TRUE(scanner.NextToken(&token));
+    ASSERT_TRUE(TkEqual(&token, TokenType::NUMBER, 7, 3, 2, 8, 4, 2));
+}
+
+TEST(Scanner, Atom) {
+    Scanner scanner("@atom @_Atom_");
+    Token token{};
+
+    ASSERT_TRUE(scanner.NextToken(&token));
+    ASSERT_TRUE(TkEqual(&token, TokenType::ATOM, 0, 1, 1, 5, 6, 1));
+
+    ASSERT_TRUE(scanner.NextToken(&token));
+    ASSERT_TRUE(TkEqual(&token, TokenType::ATOM, 6, 7, 1, 13, 14, 1));
+}
+
 TEST(Scanner, Spaces) {
     Scanner scanner("\n   \n\n \n");
     Token token{};
@@ -198,5 +224,55 @@ rString"#### r"")");
     ASSERT_FALSE(scanner.NextToken(&token));
 
     scanner = Scanner("r##Error!\"##");
+    ASSERT_FALSE(scanner.NextToken(&token));
+}
+
+TEST(Scanner, SingleChar) {
+    Scanner scanner(R"('a' '\n' '\'' '\\' 'ri')");
+    Token token{};
+
+    ASSERT_TRUE(scanner.NextToken(&token));
+    ASSERT_TRUE(TkEqual(&token, TokenType::NUMBER_CHR, 0, 1, 1, 3, 4, 1));
+
+    ASSERT_TRUE(scanner.NextToken(&token));
+    ASSERT_TRUE(TkEqual(&token, TokenType::NUMBER_CHR, 4, 5, 1, 8, 9, 1));
+
+    ASSERT_TRUE(scanner.NextToken(&token));
+    ASSERT_TRUE(TkEqual(&token, TokenType::NUMBER_CHR, 9, 10, 1, 13, 14, 1));
+
+    ASSERT_TRUE(scanner.NextToken(&token));
+    ASSERT_TRUE(TkEqual(&token, TokenType::NUMBER_CHR, 14, 15, 1, 18, 19, 1));
+
+    ASSERT_FALSE(scanner.NextToken(&token));
+}
+
+TEST(Scanner, Comment) {
+    Scanner scanner(R"(# comment #null
+# Comment new
+# line)");
+    Token token{};
+
+    ASSERT_TRUE(scanner.NextToken(&token));
+    ASSERT_TRUE(TkEqual(&token, TokenType::COMMENT_INLINE, 0, 1, 1, 15, 16, 1));
+
+    ASSERT_TRUE(scanner.NextToken(&token));
+    ASSERT_TRUE(TkEqual(&token, TokenType::COMMENT_INLINE, 16, 1, 2, 29, 14, 2));
+
+    scanner = Scanner(R"(/*
+    multi
+    line
+    *comment
+    * / # 011298
+    */
+)");
+
+    ASSERT_TRUE(scanner.NextToken(&token));
+    ASSERT_TRUE(TkEqual(&token, TokenType::COMMENT, 0, 1, 1, 57, 6, 6));
+
+    scanner = Scanner(R"(/*
+unterminated
+comment *
+)");
+
     ASSERT_FALSE(scanner.NextToken(&token));
 }
