@@ -43,6 +43,13 @@ namespace argon::vm::datatype {
      * in case of error nullptr will be returned and the panic state will be set.
      */
     List *ListNew(ArSize capacity);
+
+    /**
+     * @brief Create a new list.
+     * @return A pointer to the newly created list object is returned,
+     * in case of error nullptr will be returned and the panic state will be set.
+     */
+    inline List *ListNew() { return ListNew(kListInitialCapacity); }
 }
 
 #endif // !ARGON_VM_LIST_H_

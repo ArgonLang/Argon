@@ -4,6 +4,7 @@
 
 #include <vm/datatype/atom.h>
 #include <vm/datatype/boolean.h>
+#include <vm/datatype/list.h>
 #include <vm/datatype/nil.h>
 
 #include "parsererr.h"
@@ -31,6 +32,8 @@ int Parser::PeekPrecedence(scanner::TokenType token) {
     switch (token) {
         case TokenType::PLUS:
         case TokenType::MINUS:
+        case TokenType::EXCLAMATION:
+        case TokenType::TILDE:
             return 10;
         default:
             return 1000;
@@ -53,6 +56,11 @@ Parser::NudMeth Parser::LookupNud(lang::scanner::TokenType token) const {
         case TokenType::BLANK:
         case TokenType::SELF:
             return &Parser::ParseIdentifier;
+        case TokenType::PLUS:
+        case TokenType::MINUS:
+        case TokenType::EXCLAMATION:
+        case TokenType::TILDE:
+            return &Parser::ParsePrefix;
         default:
             return nullptr;
     }
@@ -166,6 +174,27 @@ Node *Parser::ParseLiteral() {
     return literal;
 }
 
+Node *Parser::ParsePrefix() {
+    Position start = this->tkcur_.loc.start;
+    TokenType kind = TKCUR_TYPE;
+    Unary *unary;
+
+    this->Eat();
+
+    auto *right = this->ParseExpression(0, PeekPrecedence(kind));
+
+    unary = UnaryNew((ArObject *) right, kind, right->loc);
+
+    Release(right);
+
+    if (unary == nullptr)
+        throw DatatypeException();
+
+    unary->loc.start = start;
+
+    return (Node *) unary;
+}
+
 void Parser::Eat() {
     if (this->tkcur_.type == TokenType::END_OF_FILE)
         return;
@@ -177,5 +206,42 @@ void Parser::Eat() {
 // PUBLIC
 
 File *Parser::Parse() noexcept {
+    ARC result;
 
+    Position start{};
+    Position end{};
+
+    List *statements;
+
+    if ((statements = ListNew()) == nullptr)
+        return nullptr;
+
+    try {
+        this->Eat();
+
+        start = this->tkcur_.loc.start;
+
+        while (!this->Match(TokenType::END_OF_FILE)) {
+            result = (ArObject *) this->ParseExpression(0, 0);
+
+            if (!ListAppend(statements, result.Get())) {
+                Release(statements);
+                return nullptr;
+            }
+
+            end = this->tkcur_.loc.end;
+        }
+    } catch (const ParserException &) {
+        assert(false);
+    }
+
+    auto *file = FileNew(this->filename_, statements);
+    if (file != nullptr) {
+        file->loc.start = start;
+        file->loc.end = end;
+    }
+
+    Release(statements);
+
+    return file;
 }

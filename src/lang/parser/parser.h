@@ -49,6 +49,8 @@ namespace argon::lang::parser {
 
         Node *ParseLiteral();
 
+        Node *ParsePrefix();
+
         [[nodiscard]] NudMeth LookupNud(lang::scanner::TokenType token) const;
 
         void Eat();

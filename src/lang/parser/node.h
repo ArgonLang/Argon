@@ -7,6 +7,7 @@
 
 #include <lang/scanner/token.h>
 
+#include <vm/datatype/list.h>
 #include <vm/datatype/arobject.h>
 
 namespace argon::lang::parser {
@@ -20,7 +21,8 @@ namespace argon::lang::parser {
         BINARY,
         IDENTIFIER,
         LITERAL,
-        FILE
+        FILE,
+        UNARY
     };
 
     struct Node {
@@ -32,7 +34,7 @@ namespace argon::lang::parser {
 
         const char *filename;
 
-        Node *statements;
+        vm::datatype::List *statements;
     };
 
     struct Binary {
@@ -48,11 +50,19 @@ namespace argon::lang::parser {
         argon::vm::datatype::ArObject *value;
     };
 
-    File *FileNew(const char *filename, Node *statements);
+    File *FileNew(const char *filename, vm::datatype::List *statements);
 
     Binary *BinaryNew(Node *left, Node *right, scanner::TokenType token, NodeType type);
 
     Unary *UnaryNew(argon::vm::datatype::ArObject *value, NodeType type, const scanner::Loc &loc);
+
+    inline Unary *UnaryNew(argon::vm::datatype::ArObject *value, scanner::TokenType type, const scanner::Loc &loc) {
+        auto *unary = UnaryNew(value, NodeType::UNARY, loc);
+        if(unary!= nullptr)
+            unary->token_type = type;
+
+        return unary;
+    }
 
     template<typename T>
     T *NodeNew(const argon::vm::datatype::TypeInfo *type, NodeType kind) {

@@ -85,7 +85,7 @@ const argon::vm::datatype::TypeInfo UnaryType = {
         nullptr
 };
 
-File *argon::lang::parser::FileNew(const char *filename, Node *statements) {
+File *argon::lang::parser::FileNew(const char *filename, List *statements) {
     auto *file = NodeNew<File>(&FileType, NodeType::FILE);
 
     file->filename = filename;
