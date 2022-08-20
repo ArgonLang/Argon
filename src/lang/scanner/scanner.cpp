@@ -44,7 +44,7 @@ constexpr KwToken kw2tktype[] = {
         {"struct",      TokenType::KW_STRUCT},
         {"switch",      TokenType::KW_SWITCH},
         {"trait",       TokenType::KW_TRAIT},
-        {"trap",       TokenType::KW_TRAP},
+        {"trap",        TokenType::KW_TRAP},
         {"true",        TokenType::TRUE},
         {"var",         TokenType::KW_VAR},
         {"yield",       TokenType::KW_YIELD},
@@ -596,12 +596,18 @@ bool Scanner::TokenizeWord(Token *out_token) {
     if (value == 'r' && (this->Peek() == '#' || this->Peek() == '"'))
         return this->TokenizeRawString(out_token);
 
+    bool next = false;
     while (isalnum(value) || value == '_') {
         if (!this->sbuf_.PutChar((unsigned char) value)) {
             this->status_ = ScannerStatus::NOMEM;
             return false;
         }
-        value = this->Next();
+
+        if (next)
+            this->Next();
+
+        value = this->Peek();
+        next = true;
     }
 
     out_token->type = TokenType::IDENTIFIER;

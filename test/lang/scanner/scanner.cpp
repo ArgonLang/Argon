@@ -156,22 +156,22 @@ TEST(Scanner, Word) {
     Token token{};
 
     ASSERT_TRUE(scanner.NextToken(&token));
-    ASSERT_TRUE(TkEqual(&token, TokenType::IDENTIFIER, 0, 1, 1, 4, 5, 1));
+    ASSERT_TRUE(TkEqual(&token, TokenType::IDENTIFIER, 0, 1, 1, 3, 4, 1));
 
     ASSERT_TRUE(scanner.NextToken(&token));
-    ASSERT_TRUE(TkEqual(&token, TokenType::IDENTIFIER, 4, 5, 1, 8, 9, 1));
+    ASSERT_TRUE(TkEqual(&token, TokenType::IDENTIFIER, 4, 5, 1, 7, 8, 1));
 
     ASSERT_TRUE(scanner.NextToken(&token));
-    ASSERT_TRUE(TkEqual(&token, TokenType::IDENTIFIER, 8, 9, 1, 14, 15, 1));
+    ASSERT_TRUE(TkEqual(&token, TokenType::IDENTIFIER, 8, 9, 1, 13, 14, 1));
 
     ASSERT_TRUE(scanner.NextToken(&token));
-    ASSERT_TRUE(TkEqual(&token, TokenType::IDENTIFIER, 14, 15, 1, 30, 31, 1));
+    ASSERT_TRUE(TkEqual(&token, TokenType::IDENTIFIER, 14, 15, 1, 29, 30, 1));
 
     ASSERT_TRUE(scanner.NextToken(&token));
-    ASSERT_TRUE(TkEqual(&token, TokenType::IDENTIFIER, 30, 31, 1, 32, 33, 1));
+    ASSERT_TRUE(TkEqual(&token, TokenType::IDENTIFIER, 30, 31, 1, 31, 32, 1));
 
     ASSERT_TRUE(scanner.NextToken(&token));
-    ASSERT_TRUE(TkEqual(&token, TokenType::KW_AS, 32, 33, 1, 35, 36, 1));
+    ASSERT_TRUE(TkEqual(&token, TokenType::KW_AS, 32, 33, 1, 34, 35, 1));
 
     ASSERT_TRUE(scanner.NextToken(&token));
     ASSERT_TRUE(TkEqual(&token, TokenType::KW_ASSERT, 35, 36, 1, 41, 42, 1));
