@@ -20,6 +20,7 @@ namespace argon::lang::parser {
     enum class NodeType {
         BINARY,
         IDENTIFIER,
+        LIST,
         LITERAL,
         FILE,
         UNARY

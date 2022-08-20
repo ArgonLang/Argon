@@ -35,6 +35,8 @@ int Parser::PeekPrecedence(scanner::TokenType token) {
         case TokenType::EXCLAMATION:
         case TokenType::TILDE:
             return 10;
+        case TokenType::LEFT_SQUARE:
+            return 20;
         default:
             return 1000;
     }
@@ -61,6 +63,8 @@ Parser::NudMeth Parser::LookupNud(lang::scanner::TokenType token) const {
         case TokenType::EXCLAMATION:
         case TokenType::TILDE:
             return &Parser::ParsePrefix;
+        case TokenType::LEFT_SQUARE:
+            return &Parser::ParseList;
         default:
             return nullptr;
     }
@@ -113,6 +117,48 @@ Node *Parser::ParseInfix(PFlag flags, Node *left) {
         throw DatatypeException();
 
     return (Node *) binary;
+}
+
+Node *Parser::ParseList() {
+    Position start = this->tkcur_.loc.start;
+    ARC list;
+
+    this->Eat();
+    this->IgnoreNL();
+
+    list = (ArObject *) ListNew();
+    if (!list)
+        throw DatatypeException();
+
+    if (!this->Match(TokenType::RIGHT_SQUARE)) {
+        do {
+            this->IgnoreNL();
+
+            auto *itm = this->ParseExpression(0, 0);
+
+            if (!ListAppend((List *) list.Get(), (ArObject *) itm)) {
+                Release(itm);
+                throw DatatypeException();
+            }
+
+            Release(itm);
+
+            this->IgnoreNL();
+        } while (this->MatchEat(TokenType::COMMA));
+    }
+
+    auto *unary = UnaryNew(list.Get(), NodeType::LIST, this->tkcur_.loc);
+    if (unary == nullptr)
+        throw DatatypeException();
+
+    unary->loc.start = start;
+
+    if (!this->MatchEat(TokenType::RIGHT_SQUARE)) {
+        Release(unary);
+        throw ParserException("expected ']' after list definition");
+    }
+
+    return (Node *) unary;
 }
 
 Node *Parser::ParseLiteral() {
@@ -201,6 +247,17 @@ void Parser::Eat() {
 
     if (!this->scanner_.NextToken(&this->tkcur_))
         throw ScannerException();
+}
+
+void Parser::EatNL() {
+    this->IgnoreNL();
+    this->Eat();
+    this->IgnoreNL();
+}
+
+void Parser::IgnoreNL() {
+    while (this->Match(TokenType::END_OF_LINE))
+        this->Eat();
 }
 
 // PUBLIC

@@ -33,6 +33,15 @@ namespace argon::lang::parser {
             return true;
         }
 
+        bool MatchEat(scanner::TokenType type) {
+            if (this->Match(type)) {
+                this->Eat();
+                return true;
+            }
+
+            return false;
+        }
+
         [[nodiscard]] bool TokenInRange(scanner::TokenType begin, scanner::TokenType end) const {
             return this->tkcur_.type > begin && this->tkcur_.type < end;
         }
@@ -47,6 +56,8 @@ namespace argon::lang::parser {
 
         Node *ParseInfix(PFlag flags, Node *left);
 
+        Node *ParseList();
+
         Node *ParseLiteral();
 
         Node *ParsePrefix();
@@ -54,6 +65,10 @@ namespace argon::lang::parser {
         [[nodiscard]] NudMeth LookupNud(lang::scanner::TokenType token) const;
 
         void Eat();
+
+        void EatNL();
+
+        void IgnoreNL();
 
     public:
         Parser(const char *filename, lang::scanner::Scanner &scanner) noexcept: scanner_(scanner),
