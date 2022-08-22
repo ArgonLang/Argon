@@ -43,6 +43,9 @@ int Parser::PeekPrecedence(scanner::TokenType token) {
             return 40;
         case TokenType::PLUS_PLUS:
         case TokenType::MINUS_MINUS:
+        case TokenType::DOT:
+        case TokenType::QUESTION_DOT:
+        case TokenType::SCOPE:
             return 50;
         default:
             return 1000;
@@ -59,9 +62,13 @@ Parser::LedMeth Parser::LookupLed(lang::scanner::TokenType token) const {
         case TokenType::PLUS_PLUS:
         case TokenType::MINUS_MINUS:
             return &Parser::ParsePostInc;
+        case TokenType::DOT:
+        case TokenType::QUESTION_DOT:
+        case TokenType::SCOPE:
+            return &Parser::ParseSelector;
+        default:
+            return nullptr;
     }
-
-    return nullptr;
 }
 
 Parser::NudMeth Parser::LookupNud(lang::scanner::TokenType token) const {
@@ -137,7 +144,7 @@ Node *Parser::ParseDictSet() {
 
             this->IgnoreNL();
 
-            expr = this->ParseExpression(0, 0);
+            expr = this->ParseExpression(0, PeekPrecedence(TokenType::COMMA));
 
             if (!ListAppend((List *) list.Get(), (ArObject *) expr)) {
                 Release(expr);
@@ -399,6 +406,27 @@ Node *Parser::ParsePrefix() {
     unary->loc.start = start;
 
     return (Node *) unary;
+}
+
+Node *Parser::ParseSelector(PFlag flags, Node *left) {
+    TokenType kind = TKCUR_TYPE;
+
+    this->Eat();
+    this->IgnoreNL();
+
+    if (!this->Match(TokenType::IDENTIFIER))
+        throw ParserException("expected identifier after '.'/'?.'/'::' access operator");
+
+    auto *right = this->ParseExpression(0, PeekPrecedence(kind));
+
+    auto *binary = BinaryNew(left, right, kind, NodeType::SELECTOR);
+
+    Release(right);
+
+    if (binary == nullptr)
+        throw DatatypeException();
+
+    return (Node *) binary;
 }
 
 void Parser::Eat() {
