@@ -50,6 +50,8 @@ namespace argon::lang::parser {
 
         [[nodiscard]] LedMeth LookupLed(lang::scanner::TokenType token) const;
 
+        Node *ParseDictSet();
+
         Node *ParseExpression(PFlag flags, int precedence);
 
         Node *ParseIdentifier();
@@ -60,7 +62,7 @@ namespace argon::lang::parser {
 
         Node *ParseLiteral();
 
-        Node *ParseDictSet();
+        Node *ParsePostInc(PFlag flags, Node *left);
 
         Node *ParsePrefix();
 

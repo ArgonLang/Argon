@@ -21,11 +21,14 @@ namespace argon::lang::parser {
         BINARY,
         DICT,
         IDENTIFIER,
+        INDEX,
         LIST,
         LITERAL,
         FILE,
+        SELECTOR,
         SET,
-        UNARY
+        UNARY,
+        UPDATE
     };
 
     struct Node {
