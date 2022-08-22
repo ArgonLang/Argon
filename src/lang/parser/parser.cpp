@@ -30,13 +30,15 @@ Node *MakeIdentifier(const Token *token) {
 
 int Parser::PeekPrecedence(scanner::TokenType token) {
     switch (token) {
+        case TokenType::LEFT_BRACES:
+            return 10;
         case TokenType::PLUS:
         case TokenType::MINUS:
         case TokenType::EXCLAMATION:
         case TokenType::TILDE:
-            return 10;
-        case TokenType::LEFT_SQUARE:
             return 20;
+        case TokenType::LEFT_SQUARE:
+            return 30;
         default:
             return 1000;
     }
@@ -65,6 +67,8 @@ Parser::NudMeth Parser::LookupNud(lang::scanner::TokenType token) const {
             return &Parser::ParsePrefix;
         case TokenType::LEFT_SQUARE:
             return &Parser::ParseList;
+        case TokenType::LEFT_BRACES:
+            return &Parser::ParseDictSet;
         default:
             return nullptr;
     }
@@ -218,6 +222,92 @@ Node *Parser::ParseLiteral() {
         throw DatatypeException();
 
     return literal;
+}
+
+Node *Parser::ParseDictSet() {
+    Position start = this->tkcur_.loc.start;
+
+    // It does not matter, it is a placeholder.
+    // The important thing is that it is not DICT or SET.
+    NodeType type = NodeType::BINARY;
+
+    ARC list;
+
+    this->Eat();
+    this->IgnoreNL();
+
+    list = (ArObject *) ListNew();
+    if (!list)
+        throw DatatypeException();
+
+    if (this->Match(TokenType::RIGHT_BRACES)) {
+        auto *ret = UnaryNew(list.Get(), NodeType::DICT, this->tkcur_.loc);
+        if (ret == nullptr)
+            throw DatatypeException();
+
+        ret->loc.start = start;
+
+        this->Eat();
+
+        return (Node *) ret;
+    }
+
+    do {
+        this->IgnoreNL();
+
+        auto *expr = this->ParseExpression(0, 0);
+
+        if (!ListAppend((List *) list.Get(), (ArObject *) expr)) {
+            Release(expr);
+            throw DatatypeException();
+        }
+
+        Release(expr);
+
+        this->IgnoreNL();
+
+        if (this->MatchEat(TokenType::COLON)) {
+            if (type == NodeType::SET)
+                throw ParserException("you started defining a set, not a dict");
+
+            type = NodeType::DICT;
+
+            this->IgnoreNL();
+
+            expr = this->ParseExpression(0, 0);
+
+            if (!ListAppend((List *) list.Get(), (ArObject *) expr)) {
+                Release(expr);
+                throw DatatypeException();
+            }
+
+            Release(expr);
+
+            this->IgnoreNL();
+
+            continue;
+        }
+
+        if (type == NodeType::DICT)
+            throw ParserException("you started defining a dict, not a set");
+
+        type = NodeType::SET;
+    } while (this->MatchEat(TokenType::COMMA));
+
+    auto *unary = UnaryNew(list.Get(), type, this->tkcur_.loc);
+    if (unary == nullptr)
+        throw DatatypeException();
+
+    unary->loc.start = start;
+
+    if (!this->MatchEat(TokenType::RIGHT_BRACES)) {
+        Release(unary);
+        throw ParserException(type == NodeType::DICT ?
+                              "expected '}' after dict definition" :
+                              "expected '}' after set definition");
+    }
+
+    return (Node *) unary;
 }
 
 Node *Parser::ParsePrefix() {
