@@ -27,6 +27,7 @@ namespace argon::lang::parser {
         FILE,
         SELECTOR,
         SET,
+        TUPLE,
         UNARY,
         UPDATE
     };

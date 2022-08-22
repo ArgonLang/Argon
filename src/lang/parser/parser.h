@@ -54,6 +54,8 @@ namespace argon::lang::parser {
 
         Node *ParseExpression(PFlag flags, int precedence);
 
+        Node *ParseExpressionList(PFlag flags, Node *left);
+
         Node *ParseIdentifier();
 
         Node *ParseInfix(PFlag flags, Node *left);

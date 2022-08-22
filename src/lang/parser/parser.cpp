@@ -30,18 +30,20 @@ Node *MakeIdentifier(const Token *token) {
 
 int Parser::PeekPrecedence(scanner::TokenType token) {
     switch (token) {
-        case TokenType::LEFT_BRACES:
+        case TokenType::COMMA:
             return 10;
+        case TokenType::LEFT_BRACES:
+            return 20;
         case TokenType::PLUS:
         case TokenType::MINUS:
         case TokenType::EXCLAMATION:
         case TokenType::TILDE:
-            return 20;
-        case TokenType::LEFT_SQUARE:
             return 30;
+        case TokenType::LEFT_SQUARE:
+            return 40;
         case TokenType::PLUS_PLUS:
         case TokenType::MINUS_MINUS:
-            return 40;
+            return 50;
         default:
             return 1000;
     }
@@ -52,6 +54,8 @@ Parser::LedMeth Parser::LookupLed(lang::scanner::TokenType token) const {
         return &Parser::ParseInfix;
 
     switch (token) {
+        case TokenType::COMMA:
+            return &Parser::ParseExpressionList;
         case TokenType::PLUS_PLUS:
         case TokenType::MINUS_MINUS:
             return &Parser::ParsePostInc;
@@ -114,7 +118,7 @@ Node *Parser::ParseDictSet() {
     do {
         this->IgnoreNL();
 
-        auto *expr = this->ParseExpression(0, 0);
+        auto *expr = this->ParseExpression(0, PeekPrecedence(TokenType::COMMA));
 
         if (!ListAppend((List *) list.Get(), (ArObject *) expr)) {
             Release(expr);
@@ -190,6 +194,47 @@ Node *Parser::ParseExpression(PFlag flags, int precedence) {
     return (Node *) left.Unwrap();
 }
 
+Node *Parser::ParseExpressionList(PFlag flags, Node *left) {
+    int precedence = PeekPrecedence(TokenType::COMMA);
+    ARC list;
+    Position end{};
+
+    list = (ArObject *) ListNew();
+    if (!list)
+        throw DatatypeException();
+
+    if (!ListAppend((List *) list.Get(), (ArObject *) left))
+        throw DatatypeException();
+
+    this->Eat();
+
+    do {
+        this->IgnoreNL();
+
+        auto *expr = this->ParseExpression(0, precedence);
+
+        if (!ListAppend((List *) list.Get(), (ArObject *) expr)) {
+            Release(expr);
+            throw DatatypeException();
+        }
+
+        end = expr->loc.end;
+
+        Release(expr);
+
+        this->IgnoreNL();
+    } while (this->MatchEat(TokenType::COMMA));
+
+    auto *unary = UnaryNew(list.Get(), NodeType::TUPLE, this->tkcur_.loc);
+    if (unary == nullptr)
+        throw DatatypeException();
+
+    unary->loc.start = left->loc.start;
+    unary->loc.end = end;
+
+    return (Node *) unary;
+}
+
 Node *Parser::ParseIdentifier() {
     if (!this->Match(TokenType::IDENTIFIER, TokenType::BLANK, TokenType::SELF))
         throw ParserException("expected identifier");
@@ -233,7 +278,7 @@ Node *Parser::ParseList() {
         do {
             this->IgnoreNL();
 
-            auto *itm = this->ParseExpression(0, 0);
+            auto *itm = this->ParseExpression(0, PeekPrecedence(TokenType::COMMA));
 
             if (!ListAppend((List *) list.Get(), (ArObject *) itm)) {
                 Release(itm);
