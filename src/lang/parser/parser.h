@@ -70,6 +70,8 @@ namespace argon::lang::parser {
 
         Node *ParseSelector(PFlag flags, Node *left);
 
+        Node *ParseSubscript(PFlag flags, Node *left);
+
         [[nodiscard]] NudMeth LookupNud(lang::scanner::TokenType token) const;
 
         void Eat();

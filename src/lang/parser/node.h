@@ -27,6 +27,7 @@ namespace argon::lang::parser {
         FILE,
         SELECTOR,
         SET,
+        SLICE,
         TUPLE,
         UNARY,
         UPDATE
@@ -34,6 +35,13 @@ namespace argon::lang::parser {
 
     struct Node {
         NODEOBJ_HEAD;
+    };
+
+    struct Binary {
+        NODEOBJ_HEAD;
+
+        Node *left;
+        Node *right;
     };
 
     struct File {
@@ -44,11 +52,12 @@ namespace argon::lang::parser {
         vm::datatype::List *statements;
     };
 
-    struct Binary {
+    struct Subscript {
         NODEOBJ_HEAD;
 
-        Node *left;
-        Node *right;
+        Node *expression;
+        Node *start;
+        Node *stop;
     };
 
     struct Unary {
@@ -57,15 +66,17 @@ namespace argon::lang::parser {
         argon::vm::datatype::ArObject *value;
     };
 
+    Binary *BinaryNew(Node *left, Node *right, scanner::TokenType token, NodeType type);
+
     File *FileNew(const char *filename, vm::datatype::List *statements);
 
-    Binary *BinaryNew(Node *left, Node *right, scanner::TokenType token, NodeType type);
+    Subscript *SubscriptNew(Node *expr, Node *start, Node *stop);
 
     Unary *UnaryNew(argon::vm::datatype::ArObject *value, NodeType type, const scanner::Loc &loc);
 
     inline Unary *UnaryNew(argon::vm::datatype::ArObject *value, scanner::TokenType type, const scanner::Loc &loc) {
         auto *unary = UnaryNew(value, NodeType::UNARY, loc);
-        if(unary!= nullptr)
+        if (unary != nullptr)
             unary->token_type = type;
 
         return unary;

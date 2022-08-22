@@ -110,6 +110,20 @@ Binary *argon::lang::parser::BinaryNew(Node *left, Node *right, scanner::TokenTy
     return binary;
 }
 
+Subscript *argon::lang::parser::SubscriptNew(Node *expr, Node *start, Node *stop) {
+    auto *sub = NodeNew<Subscript>(&UnaryType, stop == nullptr ? NodeType::INDEX : NodeType::SLICE);
+
+    if (sub != nullptr) {
+        sub->expression = IncRef(expr);
+        sub->start = IncRef(start);
+        sub->stop = IncRef(stop);
+
+        sub->loc.start = expr->loc.start;
+    }
+
+    return sub;
+}
+
 Unary *argon::lang::parser::UnaryNew(ArObject *value, NodeType type, const scanner::Loc &loc) {
     auto *unary = NodeNew<Unary>(&UnaryType, type);
 

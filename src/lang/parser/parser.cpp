@@ -39,14 +39,14 @@ int Parser::PeekPrecedence(scanner::TokenType token) {
         case TokenType::EXCLAMATION:
         case TokenType::TILDE:
             return 30;
-        case TokenType::LEFT_SQUARE:
-            return 40;
         case TokenType::PLUS_PLUS:
         case TokenType::MINUS_MINUS:
+        case TokenType::LEFT_SQUARE:
+        case TokenType::LEFT_ROUND:
         case TokenType::DOT:
         case TokenType::QUESTION_DOT:
         case TokenType::SCOPE:
-            return 50;
+            return 40;
         default:
             return 1000;
     }
@@ -66,6 +66,8 @@ Parser::LedMeth Parser::LookupLed(lang::scanner::TokenType token) const {
         case TokenType::QUESTION_DOT:
         case TokenType::SCOPE:
             return &Parser::ParseSelector;
+        case TokenType::LEFT_SQUARE:
+            return &Parser::ParseSubscript;
         default:
             return nullptr;
     }
@@ -382,7 +384,11 @@ Node *Parser::ParsePostInc(PFlag flags, Node *left) {
         throw DatatypeException();
 
     unary->loc.start = left->loc.start;
+    unary->loc.end = this->tkcur_.loc.end;
+
     unary->token_type = TKCUR_TYPE;
+
+    this->Eat();
 
     return (Node *) unary;
 }
@@ -427,6 +433,43 @@ Node *Parser::ParseSelector(PFlag flags, Node *left) {
         throw DatatypeException();
 
     return (Node *) binary;
+}
+
+Node *Parser::ParseSubscript(PFlag flags, Node *left) {
+    ARC start;
+    ARC stop;
+
+    this->Eat();
+    this->IgnoreNL();
+
+    if (this->Match(TokenType::RIGHT_SQUARE))
+        throw ParserException("subscript definition (index | slice) cannot be empty");
+
+    start = (ArObject *) this->ParseExpression(0, 0);
+
+    this->IgnoreNL();
+
+    if (this->MatchEat(TokenType::COLON)) {
+        this->IgnoreNL();
+        stop = (ArObject *) this->ParseExpression(0, 0);
+    }
+
+    auto *slice = SubscriptNew(left, (Node *) start.Get(), (Node *) stop.Get());
+    if (slice == nullptr)
+        throw DatatypeException();
+
+    slice->loc.end = this->tkcur_.loc.end;
+
+    this->IgnoreNL();
+
+    if (!this->MatchEat(TokenType::RIGHT_SQUARE)) {
+        Release(slice);
+        throw ParserException(stop ?
+                              "expected ']' after slice definition" :
+                              "expected ']' after index definition");
+    }
+
+    return (Node *) slice;
 }
 
 void Parser::Eat() {
