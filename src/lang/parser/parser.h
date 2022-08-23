@@ -52,6 +52,8 @@ namespace argon::lang::parser {
 
         Node *ParseDictSet();
 
+        Node *ParseElvis(PFlag flags, Node *left);
+
         Node *ParseExpression(PFlag flags, int precedence);
 
         Node *ParseExpressionList(PFlag flags, Node *left);
@@ -71,6 +73,8 @@ namespace argon::lang::parser {
         Node *ParseSelector(PFlag flags, Node *left);
 
         Node *ParseSubscript(PFlag flags, Node *left);
+
+        Node *ParseTernary(PFlag flags, Node *left);
 
         [[nodiscard]] NudMeth LookupNud(lang::scanner::TokenType token) const;
 

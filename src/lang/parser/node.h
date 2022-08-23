@@ -20,6 +20,7 @@ namespace argon::lang::parser {
     enum class NodeType {
         BINARY,
         DICT,
+        ELVIS,
         IDENTIFIER,
         INDEX,
         LIST,
@@ -28,6 +29,7 @@ namespace argon::lang::parser {
         SELECTOR,
         SET,
         SLICE,
+        TERNARY,
         TUPLE,
         UNARY,
         UPDATE
@@ -60,6 +62,14 @@ namespace argon::lang::parser {
         Node *stop;
     };
 
+    struct Test {
+        NODEOBJ_HEAD;
+
+        Node *test;
+        Node *body;
+        Node *orelse;
+    };
+
     struct Unary {
         NODEOBJ_HEAD;
 
@@ -71,6 +81,8 @@ namespace argon::lang::parser {
     File *FileNew(const char *filename, vm::datatype::List *statements);
 
     Subscript *SubscriptNew(Node *expr, Node *start, Node *stop);
+
+    Test *TestNew(Node*test, Node*body, Node *orelse, NodeType type);
 
     Unary *UnaryNew(argon::vm::datatype::ArObject *value, NodeType type, const scanner::Loc &loc);
 

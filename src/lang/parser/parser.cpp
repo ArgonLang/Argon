@@ -34,11 +34,14 @@ int Parser::PeekPrecedence(scanner::TokenType token) {
             return 10;
         case TokenType::LEFT_BRACES:
             return 20;
+        case TokenType::ELVIS:
+        case TokenType::QUESTION:
+            return 30;
         case TokenType::PLUS:
         case TokenType::MINUS:
         case TokenType::EXCLAMATION:
         case TokenType::TILDE:
-            return 30;
+            return 40;
         case TokenType::PLUS_PLUS:
         case TokenType::MINUS_MINUS:
         case TokenType::LEFT_SQUARE:
@@ -46,7 +49,7 @@ int Parser::PeekPrecedence(scanner::TokenType token) {
         case TokenType::DOT:
         case TokenType::QUESTION_DOT:
         case TokenType::SCOPE:
-            return 40;
+            return 50;
         default:
             return 1000;
     }
@@ -68,6 +71,10 @@ Parser::LedMeth Parser::LookupLed(lang::scanner::TokenType token) const {
             return &Parser::ParseSelector;
         case TokenType::LEFT_SQUARE:
             return &Parser::ParseSubscript;
+        case TokenType::ELVIS:
+            return &Parser::ParseElvis;
+        case TokenType::QUESTION:
+            return &Parser::ParseTernary;
         default:
             return nullptr;
     }
@@ -180,6 +187,21 @@ Node *Parser::ParseDictSet() {
     }
 
     return (Node *) unary;
+}
+
+Node *Parser::ParseElvis(PFlag flags, Node *left) {
+    this->Eat();
+    this->IgnoreNL();
+
+    auto *expr = this->ParseExpression(0, 0);
+
+    auto *test = TestNew(left, nullptr, expr, NodeType::ELVIS);
+    if (test == nullptr) {
+        Release(expr);
+        throw DatatypeException();
+    }
+
+    return (Node *) test;
 }
 
 Node *Parser::ParseExpression(PFlag flags, int precedence) {
@@ -470,6 +492,32 @@ Node *Parser::ParseSubscript(PFlag flags, Node *left) {
     }
 
     return (Node *) slice;
+}
+
+Node *Parser::ParseTernary(PFlag flags, Node *left) {
+    ARC body;
+    ARC orelse;
+
+    this->Eat();
+    this->IgnoreNL();
+
+    body = (ArObject *) this->ParseExpression(0, 0);
+
+    this->IgnoreNL();
+
+    if (this->MatchEat(TokenType::COLON)) {
+        this->IgnoreNL();
+
+        orelse = (ArObject *) this->ParseExpression(0, 0);
+
+        this->IgnoreNL();
+    }
+
+    auto *test = TestNew(left, (Node *) body.Get(), (Node *) orelse.Get(), NodeType::TERNARY);
+    if (test == nullptr)
+        throw DatatypeException();
+
+    return (Node *) test;
 }
 
 void Parser::Eat() {

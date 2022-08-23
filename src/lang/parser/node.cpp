@@ -124,6 +124,23 @@ Subscript *argon::lang::parser::SubscriptNew(Node *expr, Node *start, Node *stop
     return sub;
 }
 
+Test *argon::lang::parser::TestNew(Node *test, Node *body, Node *orelse, NodeType type) {
+    auto *tst = NodeNew<Test>(&UnaryType, type);
+
+    if (tst != nullptr) {
+        tst->test = IncRef(test);
+        tst->body = IncRef(body);
+        tst->orelse = IncRef(orelse);
+
+        tst->loc.start = test->loc.start;
+
+        if (tst->orelse != nullptr)
+            tst->loc.end = orelse->loc.end;
+    }
+
+    return tst;
+}
+
 Unary *argon::lang::parser::UnaryNew(ArObject *value, NodeType type, const scanner::Loc &loc) {
     auto *unary = NodeNew<Unary>(&UnaryType, type);
 
