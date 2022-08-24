@@ -18,6 +18,7 @@ namespace argon::lang::parser {
     argon::lang::scanner::Loc loc
 
     enum class NodeType {
+        ASSIGNMENT,
         BINARY,
         DICT,
         ELVIS,

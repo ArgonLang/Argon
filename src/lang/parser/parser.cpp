@@ -30,18 +30,22 @@ Node *MakeIdentifier(const Token *token) {
 
 int Parser::PeekPrecedence(scanner::TokenType token) {
     switch (token) {
-        case TokenType::COMMA:
+        case TokenType::EQUAL:
+        case TokenType::ASSIGN_ADD:
+        case TokenType::ASSIGN_SUB:
             return 10;
-        case TokenType::LEFT_BRACES:
+        case TokenType::COMMA:
             return 20;
+        case TokenType::LEFT_BRACES:
+            return 30;
         case TokenType::ELVIS:
         case TokenType::QUESTION:
-            return 30;
+            return 40;
         case TokenType::PLUS:
         case TokenType::MINUS:
         case TokenType::EXCLAMATION:
         case TokenType::TILDE:
-            return 40;
+            return 50;
         case TokenType::PLUS_PLUS:
         case TokenType::MINUS_MINUS:
         case TokenType::LEFT_SQUARE:
@@ -49,7 +53,7 @@ int Parser::PeekPrecedence(scanner::TokenType token) {
         case TokenType::DOT:
         case TokenType::QUESTION_DOT:
         case TokenType::SCOPE:
-            return 50;
+            return 60;
         default:
             return 1000;
     }
@@ -75,6 +79,10 @@ Parser::LedMeth Parser::LookupLed(lang::scanner::TokenType token) const {
             return &Parser::ParseElvis;
         case TokenType::QUESTION:
             return &Parser::ParseTernary;
+        case TokenType::EQUAL:
+        case TokenType::ASSIGN_ADD:
+        case TokenType::ASSIGN_SUB:
+            return &Parser::ParseAssignment;
         default:
             return nullptr;
     }
@@ -101,6 +109,45 @@ Parser::NudMeth Parser::LookupNud(lang::scanner::TokenType token) const {
         default:
             return nullptr;
     }
+}
+
+Node *Parser::ParseAssignment(PFlag flags, Node *left) {
+    TokenType type = TKCUR_TYPE;
+
+    this->Eat();
+    this->IgnoreNL();
+
+    if (left->node_type != NodeType::IDENTIFIER &&
+        left->node_type != NodeType::INDEX &&
+        left->node_type != NodeType::TUPLE &&
+        left->node_type != NodeType::SELECTOR)
+        throw ParserException("expected identifier or list to the left of the assignment expression");
+
+    // Check for tuple content
+    if (left->node_type == NodeType::TUPLE) {
+        const auto *tuple = (List *) ((Unary *) left)->value;
+
+        for (ArSize i = 0; i < tuple->length; i++) {
+            const auto *itm = (Node *) tuple->objects[i];
+            if (itm->node_type != NodeType::IDENTIFIER &&
+                itm->node_type != NodeType::INDEX &&
+                itm->node_type != NodeType::SELECTOR)
+                throw ParserException(
+                        "expected identifier, subscript or selector to the left of the assignment expression");
+        }
+    }
+
+    auto *expr = this->ParseExpression(0, PeekPrecedence(TokenType::EQUAL));
+
+    auto *assign = BinaryNew(left, expr, type, NodeType::ASSIGNMENT);
+    if (assign == nullptr) {
+        Release(expr);
+        throw DatatypeException();
+    }
+
+    Release(expr);
+
+    return (Node *) assign;
 }
 
 Node *Parser::ParseDictSet() {
