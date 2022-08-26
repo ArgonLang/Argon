@@ -24,6 +24,7 @@ namespace argon::lang::parser {
         ELVIS,
         IDENTIFIER,
         INDEX,
+        INIT,
         LIST,
         LITERAL,
         FILE,
@@ -55,6 +56,15 @@ namespace argon::lang::parser {
         vm::datatype::List *statements;
     };
 
+    struct Initialization {
+        NODEOBJ_HEAD;
+
+        bool as_map;
+
+        Node *left;
+        argon::vm::datatype::ArObject *values;
+    };
+
     struct Subscript {
         NODEOBJ_HEAD;
 
@@ -80,6 +90,8 @@ namespace argon::lang::parser {
     Binary *BinaryNew(Node *left, Node *right, scanner::TokenType token, NodeType type);
 
     File *FileNew(const char *filename, vm::datatype::List *statements);
+
+    Initialization *InitNew(Node *left, vm::datatype::ArObject *list, const scanner::Loc &loc, bool as_map);
 
     Subscript *SubscriptNew(Node *expr, Node *start, Node *stop);
 

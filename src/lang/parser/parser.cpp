@@ -75,6 +75,8 @@ Parser::LedMeth Parser::LookupLed(lang::scanner::TokenType token) const {
             return &Parser::ParseSelector;
         case TokenType::LEFT_SQUARE:
             return &Parser::ParseSubscript;
+        case TokenType::LEFT_BRACES:
+            return &Parser::ParseInit;
         case TokenType::ELVIS:
             return &Parser::ParseElvis;
         case TokenType::QUESTION:
@@ -339,6 +341,81 @@ Node *Parser::ParseInfix(PFlag flags, Node *left) {
         throw DatatypeException();
 
     return (Node *) binary;
+}
+
+Node *Parser::ParseInit(PFlag flags, Node *left) {
+    ARC list;
+    bool kwargs = false;
+    int count = 0;
+
+    this->Eat();
+    this->IgnoreNL();
+
+    list = (ArObject *) ListNew();
+    if (!list)
+        throw DatatypeException();
+
+    if (this->Match(TokenType::RIGHT_BRACES)) {
+        auto *init = InitNew(left, nullptr, this->tkcur_.loc, false);
+        if (init == nullptr)
+            throw DatatypeException();
+
+        this->Eat();
+
+        return (Node *) init;
+    }
+
+    do {
+        this->IgnoreNL();
+
+        auto *key = this->ParseExpression(0, PeekPrecedence(TokenType::COMMA));
+
+        if (!ListAppend((List *) list.Get(), (ArObject *) key)) {
+            Release(key);
+            throw DatatypeException();
+        }
+
+        Release(key);
+
+        this->IgnoreNL();
+
+        count++;
+        if (this->MatchEat(TokenType::COLON)) {
+            if (--count != 0)
+                throw ParserException("can't mix field names with positional initialization");
+
+            auto *value = this->ParseExpression(0, PeekPrecedence(TokenType::COMMA));
+
+            if (!ListAppend((List *) list.Get(), (ArObject *) value)) {
+                Release(value);
+                throw DatatypeException();
+            }
+
+            Release(value);
+
+            kwargs = true;
+
+            this->IgnoreNL();
+
+            continue;
+        }
+
+        if (kwargs)
+            throw ParserException("can't mix positional with field names initialization");
+
+        this->IgnoreNL();
+    } while (this->MatchEat(TokenType::COMMA));
+
+    auto *init = InitNew(left, list.Get(), this->tkcur_.loc, count == 0);
+    if (init == nullptr)
+        throw DatatypeException();
+
+    if (!this->MatchEat(TokenType::RIGHT_BRACES)) {
+        Release(init);
+        throw ParserException("expected '}' after struct initialization");
+    }
+
+    return (Node *) init;
 }
 
 Node *Parser::ParseList() {

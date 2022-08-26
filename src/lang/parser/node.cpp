@@ -110,6 +110,22 @@ Binary *argon::lang::parser::BinaryNew(Node *left, Node *right, scanner::TokenTy
     return binary;
 }
 
+Initialization *argon::lang::parser::InitNew(Node *left, ArObject *list, const scanner::Loc &loc, bool as_map) {
+    auto *init = NodeNew<Initialization>(&UnaryType, NodeType::INIT);
+    if (init == nullptr)
+        return nullptr;
+
+    init->as_map = as_map;
+
+    init->left = IncRef(left);
+    init->values = IncRef(list);
+
+    init->loc.start = left->loc.start;
+    init->loc.end = loc.end;
+
+    return init;
+}
+
 Subscript *argon::lang::parser::SubscriptNew(Node *expr, Node *start, Node *stop) {
     auto *sub = NodeNew<Subscript>(&UnaryType, stop == nullptr ? NodeType::INDEX : NodeType::SLICE);
 

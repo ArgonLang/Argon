@@ -64,6 +64,8 @@ namespace argon::lang::parser {
 
         Node *ParseInfix(PFlag flags, Node *left);
 
+        Node *ParseInit(PFlag flags, Node *left);
+
         Node *ParseList();
 
         Node *ParseLiteral();
