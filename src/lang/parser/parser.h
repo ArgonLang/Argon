@@ -60,6 +60,8 @@ namespace argon::lang::parser {
 
         Node *ParseExpressionList(PFlag flags, Node *left);
 
+        Node *ParseFnCall(PFlag flags, Node *left);
+
         Node *ParseIdentifier();
 
         Node *ParseInfix(PFlag flags, Node *left);
@@ -69,6 +71,8 @@ namespace argon::lang::parser {
         Node *ParseList();
 
         Node *ParseLiteral();
+
+        Node *ParsePipeline(PFlag flags, Node *left);
 
         Node *ParsePostInc(PFlag flags, Node *left);
 

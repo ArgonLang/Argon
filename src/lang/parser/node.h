@@ -20,8 +20,10 @@ namespace argon::lang::parser {
     enum class NodeType {
         ASSIGNMENT,
         BINARY,
+        CALL,
         DICT,
         ELVIS,
+        ELLIPSIS,
         IDENTIFIER,
         INDEX,
         INIT,
@@ -46,6 +48,14 @@ namespace argon::lang::parser {
 
         Node *left;
         Node *right;
+    };
+
+    struct Call {
+        NODEOBJ_HEAD;
+
+        Node *left;
+        argon::vm::datatype::ArObject *args;
+        argon::vm::datatype::ArObject *kwargs;
     };
 
     struct File {
@@ -88,6 +98,8 @@ namespace argon::lang::parser {
     };
 
     Binary *BinaryNew(Node *left, Node *right, scanner::TokenType token, NodeType type);
+
+    Call *CallNew(Node *left, vm::datatype::ArObject *args, vm::datatype::ArObject *kwargs);
 
     File *FileNew(const char *filename, vm::datatype::List *statements);
 

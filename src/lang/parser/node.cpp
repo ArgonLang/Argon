@@ -110,6 +110,22 @@ Binary *argon::lang::parser::BinaryNew(Node *left, Node *right, scanner::TokenTy
     return binary;
 }
 
+Call *argon::lang::parser::CallNew(Node *left, ArObject *args,ArObject *kwargs) {
+    auto *call = NodeNew<Call>(&BinaryType, NodeType::CALL);
+
+    if (call != nullptr) {
+        call->left = IncRef(left);
+        call->args = IncRef(args);
+        call->kwargs = IncRef(kwargs);
+
+
+        call->loc.start = left->loc.start;
+        call->loc.end = {};
+    }
+
+    return call;
+}
+
 Initialization *argon::lang::parser::InitNew(Node *left, ArObject *list, const scanner::Loc &loc, bool as_map) {
     auto *init = NodeNew<Initialization>(&UnaryType, NodeType::INIT);
     if (init == nullptr)

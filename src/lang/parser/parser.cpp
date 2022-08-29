@@ -41,11 +41,13 @@ int Parser::PeekPrecedence(scanner::TokenType token) {
         case TokenType::ELVIS:
         case TokenType::QUESTION:
             return 40;
+        case TokenType::PIPELINE:
+            return 50;
         case TokenType::PLUS:
         case TokenType::MINUS:
         case TokenType::EXCLAMATION:
         case TokenType::TILDE:
-            return 50;
+            return 60;
         case TokenType::PLUS_PLUS:
         case TokenType::MINUS_MINUS:
         case TokenType::LEFT_SQUARE:
@@ -53,7 +55,7 @@ int Parser::PeekPrecedence(scanner::TokenType token) {
         case TokenType::DOT:
         case TokenType::QUESTION_DOT:
         case TokenType::SCOPE:
-            return 60;
+            return 70;
         default:
             return 1000;
     }
@@ -73,6 +75,10 @@ Parser::LedMeth Parser::LookupLed(lang::scanner::TokenType token) const {
         case TokenType::QUESTION_DOT:
         case TokenType::SCOPE:
             return &Parser::ParseSelector;
+        case TokenType::LEFT_ROUND:
+            return &Parser::ParseFnCall;
+        case TokenType::PIPELINE:
+            return &Parser::ParsePipeline;
         case TokenType::LEFT_SQUARE:
             return &Parser::ParseSubscript;
         case TokenType::LEFT_BRACES:
@@ -315,6 +321,113 @@ Node *Parser::ParseExpressionList(PFlag flags, Node *left) {
     return (Node *) unary;
 }
 
+Node *Parser::ParseFnCall(PFlag flags, Node *left) {
+    ARC arg;
+    ARC list;
+    ARC map;
+
+    int mode = 0;
+
+    // (
+    this->Eat();
+    this->IgnoreNL();
+
+    list = (ArObject *) ListNew();
+    if (!list)
+        throw DatatypeException();
+
+    if (this->Match(TokenType::RIGHT_ROUND)) {
+        auto *call = CallNew(left, list.Get(), nullptr);
+        if (call == nullptr)
+            throw DatatypeException();
+
+        call->loc.end = this->tkcur_.loc.end;
+        this->Eat();
+
+        return (Node *) call;
+    }
+
+    do {
+        this->IgnoreNL();
+
+        arg = (ArObject *) this->ParseExpression(0, PeekPrecedence(TokenType::COMMA));
+
+        if (this->MatchEat(TokenType::ELLIPSIS)) {
+            auto *ell = UnaryNew(arg.Get(), NodeType::ELLIPSIS, this->tkcur_.loc);
+            if (ell == nullptr)
+                throw DatatypeException();
+
+            ell->loc.start = ((Node *) arg.Get())->loc.start;
+
+            if (!ListAppend((List *) list.Get(), (ArObject *) ell)) {
+                Release(ell);
+                throw DatatypeException();
+            }
+
+            Release(ell);
+
+            this->IgnoreNL();
+
+            mode = 1;
+
+            continue;
+        }
+
+        if (this->MatchEat(TokenType::EQUAL)) {
+            if (((Node *) arg.Get())->node_type != NodeType::IDENTIFIER)
+                throw ParserException("only identifiers are allowed before the '=' sign");
+
+            this->IgnoreNL();
+
+            if (!map)
+                map = (ArObject *) ListNew();
+
+            if (!map)
+                throw DatatypeException();
+
+            if (!ListAppend((List *) map.Get(), arg.Get()))
+                throw DatatypeException();
+
+            auto *value = (ArObject *) this->ParseExpression(0, PeekPrecedence(TokenType::COMMA));
+
+            if (!ListAppend((List *) map.Get(), value)) {
+                Release(value);
+                throw DatatypeException();
+            }
+
+            Release(value);
+
+            this->IgnoreNL();
+
+            mode = 2;
+            continue;
+        }
+
+        if (mode >= 1)
+            throw ParserException("parameters to a function must be passed in the order: positional, ellipsis, kwargs");
+
+        if (!ListAppend((List *) list.Get(), arg.Get()))
+            throw DatatypeException();
+
+        this->IgnoreNL();
+    } while (this->MatchEat(TokenType::COMMA));
+
+    this->IgnoreNL();
+
+    auto *call = CallNew(left, list.Get(), map.Get());
+    if (call == nullptr)
+        throw DatatypeException();
+
+    call->loc.end = this->tkcur_.loc.end;
+
+    if (!this->MatchEat(TokenType::RIGHT_ROUND)) {
+        Release(call);
+        throw ParserException("expected ')' after last argument of function call");
+    }
+
+    return (Node *) call;
+}
+
 Node *Parser::ParseIdentifier() {
     if (!this->Match(TokenType::IDENTIFIER, TokenType::BLANK, TokenType::SELF))
         throw ParserException("expected identifier");
@@ -517,6 +630,49 @@ Node *Parser::ParseLiteral() {
         throw DatatypeException();
 
     return literal;
+}
+
+Node *Parser::ParsePipeline(PFlag flags, Node *left) {
+    Node *right;
+
+    this->Eat();
+    this->IgnoreNL();
+
+    right = this->ParseExpression(0, PeekPrecedence(TokenType::LEFT_BRACES) - 1);
+    if (right->node_type == NodeType::CALL) {
+        auto *call = (Call *) right;
+
+        if (!ListInsert((List *) call->args, (ArObject *) left, 0)) {
+            Release(right);
+            throw DatatypeException();
+        }
+
+        Release(right);
+
+        right->loc.start = left->loc.start;
+        return right;
+    }
+
+    auto *args = ListNew();
+    if (args == nullptr) {
+        Release(right);
+        throw DatatypeException();
+    }
+
+    if (!ListAppend(args, (ArObject *) left)) {
+        Release(right);
+        Release(args);
+        throw DatatypeException();
+    }
+
+    auto *call = CallNew(right, (ArObject *) args, nullptr);
+    Release(right);
+    Release(args);
+
+    if (call == nullptr)
+        throw DatatypeException();
+
+    return (Node *) call;
 }
 
 Node *Parser::ParsePostInc(PFlag flags, Node *left) {
