@@ -56,6 +56,8 @@ namespace argon::lang::parser {
 
         Node *ParseElvis(PFlag flags, Node *left);
 
+        Node *ParseExpression();
+
         Node *ParseExpression(PFlag flags, int precedence);
 
         Node *ParseExpressionList(PFlag flags, Node *left);

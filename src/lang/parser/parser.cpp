@@ -259,7 +259,34 @@ Node *Parser::ParseElvis(PFlag flags, Node *left) {
     return (Node *) test;
 }
 
+Node *Parser::ParseExpression() {
+    ARC expr;
+
+    expr = (ArObject *) this->ParseExpression(0, 0);
+
+    if (this->Match(TokenType::COLON))
+        return (Node *) expr.Unwrap();
+
+    // This trick allows us to check if there is an assignment expression under the Null Safety expression.
+    if (((Node *) expr.Get())->node_type == NodeType::SAFE_EXPR) {
+        auto *under_safe = ((Unary *) expr.Get())->value;
+
+        if (((Node *) under_safe)->node_type != NodeType::ASSIGNMENT) {
+            auto *unary = UnaryNew(expr.Get(), NodeType::EXPRESSION, this->tkcur_.loc);
+            if (unary == nullptr)
+                throw DatatypeException();
+
+            unary->loc = ((Node *) unary->value)->loc;
+
+            return (Node *) unary;
+        }
+    }
+
+    return (Node *) expr.Unwrap();
+}
+
 Node *Parser::ParseExpression(PFlag flags, int precedence) {
+    bool is_safe = false;
     LedMeth led;
     NudMeth nud;
 
@@ -274,7 +301,21 @@ Node *Parser::ParseExpression(PFlag flags, int precedence) {
         if ((led = this->LookupLed(TKCUR_TYPE)) == nullptr)
             break;
 
+        if (TKCUR_TYPE == TokenType::QUESTION_DOT)
+            is_safe = true;
+
         left = (ArObject *) (this->*led)(flags, (Node *) left.Get());
+    }
+
+    if (is_safe) {
+        // Encapsulates "null safety" expressions, e.g.: a?.b, a.b?.c(), a?.b = c?.o
+        auto *safe = UnaryNew(left.Get(), NodeType::SAFE_EXPR, this->tkcur_.loc);
+        if (safe == nullptr)
+            throw DatatypeException();
+
+        safe->loc = ((Node *) safe->value)->loc;
+
+        return (Node *) safe;
     }
 
     return (Node *) left.Unwrap();
@@ -838,7 +879,7 @@ File *Parser::Parse() noexcept {
         start = this->tkcur_.loc.start;
 
         while (!this->Match(TokenType::END_OF_FILE)) {
-            result = (ArObject *) this->ParseExpression(0, 0);
+            result = (ArObject *) this->ParseExpression();
 
             if (!ListAppend(statements, result.Get())) {
                 Release(statements);
