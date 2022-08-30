@@ -12,6 +12,14 @@
 namespace argon::lang::parser {
     using PFlag = int;
 
+    enum class ParserScope {
+        ENUM,
+        FUNCTION,
+        MODULE,
+        STRUCT,
+        TRAIT
+    };
+
     class Parser {
         using NudMeth = Node *(Parser::*)();
         using LedMeth = Node *(Parser::*)(PFlag flags, Node *);
@@ -52,6 +60,8 @@ namespace argon::lang::parser {
 
         Node *ParseAssignment(PFlag flags, Node *left);
 
+        Node *ParseDecls(ParserScope scope);
+
         Node *ParseDictSet();
 
         Node *ParseElvis(PFlag flags, Node *left);
@@ -82,9 +92,15 @@ namespace argon::lang::parser {
 
         Node *ParseSelector(PFlag flags, Node *left);
 
+        Node *ParseStatement(ParserScope scope);
+
         Node *ParseSubscript(PFlag flags, Node *left);
 
         Node *ParseTernary(PFlag flags, Node *left);
+
+        Node *ParseVarDecl(bool visibility, bool constant, bool weak);
+
+        Node *ParseVarDeclTuple(const scanner::Token &token, bool visibility, bool constant, bool weak);
 
         [[nodiscard]] NudMeth LookupNud(lang::scanner::TokenType token) const;
 

@@ -158,6 +158,57 @@ Node *Parser::ParseAssignment(PFlag flags, Node *left) {
     return (Node *) assign;
 }
 
+Node *Parser::ParseDecls(ParserScope scope) {
+    ARC stmt;
+    Position start = this->tkcur_.loc.start;
+    bool pub = false;
+
+    if (this->MatchEat(TokenType::KW_PUB)) {
+        pub = true;
+
+        if (scope != ParserScope::MODULE && scope != ParserScope::STRUCT && scope != ParserScope::TRAIT)
+            throw ParserException("unexpected use of 'pub' modifier in this context");
+
+        this->IgnoreNL();
+    }
+
+    switch (TKCUR_TYPE) {
+        case TokenType::KW_WEAK:
+            if (scope != ParserScope::STRUCT)
+                throw ParserException("unexpected use of 'weak' in this context");
+
+            this->Eat();
+            this->IgnoreNL();
+            stmt = (ArObject *) this->ParseVarDecl(pub, false, true);
+        case TokenType::KW_VAR:
+            this->Eat();
+            this->IgnoreNL();
+            stmt = (ArObject *) this->ParseVarDecl(pub, false, false);
+            break;
+        case TokenType::KW_LET:
+            this->Eat();
+            this->IgnoreNL();
+            stmt = (ArObject *) this->ParseVarDecl(pub, true, false);
+            break;
+        case TokenType::KW_FUNC:
+        case TokenType::KW_STRUCT:
+        case TokenType::KW_TRAIT:
+            assert(false);
+        default:
+            if (pub)
+                throw ParserException("expected declaration after 'pub' keyword");
+
+            stmt = (ArObject *) this->ParseStatement(scope);
+    }
+
+    auto *s = (Node *) stmt.Unwrap();
+
+    if (s != nullptr && pub)
+        s->loc.start = start;
+
+    return s;
+}
+
 Node *Parser::ParseDictSet() {
     Position start = this->tkcur_.loc.start;
 
@@ -778,6 +829,65 @@ Node *Parser::ParseSelector(PFlag flags, Node *left) {
     return (Node *) binary;
 }
 
+Node *Parser::ParseStatement(ParserScope scope) {
+    ARC expr;
+    ARC label;
+
+    do {
+        if (this->TokenInRange(TokenType::KEYWORD_BEGIN, TokenType::KEYWORD_END)) {
+            switch (TKCUR_TYPE) {
+                case TokenType::KW_ASSERT:
+                    break;
+                case TokenType::KW_DEFER:
+                case TokenType::KW_SPAWN:
+                    break;
+                case TokenType::KW_RETURN:
+                    break;
+                case TokenType::KW_YIELD:
+                    break;
+                case TokenType::KW_IMPORT:
+                    break;
+                case TokenType::KW_FROM:
+                    break;
+                case TokenType::KW_FOR:
+                    break;
+                case TokenType::KW_LOOP:
+                    break;
+                case TokenType::KW_PANIC:
+                    break;
+                case TokenType::KW_TRAP:
+                    break;
+                case TokenType::KW_IF:
+                    break;
+                case TokenType::KW_SWITCH:
+                    break;
+                case TokenType::KW_BREAK:
+                case TokenType::KW_CONTINUE:
+                case TokenType::KW_FALLTHROUGH:
+                    break;
+            }
+        } else
+            expr = (ArObject *) this->ParseExpression();
+
+        if (((Node *) expr.Get())->node_type != NodeType::IDENTIFIER || !this->MatchEat(TokenType::COLON))
+            break;
+
+        this->Eat();
+        this->IgnoreNL();
+
+        if (label)
+            throw ParserException("expected statement after label");
+
+        label = expr;
+    } while (true);
+
+    if (label) {
+
+    }
+
+    return (Node *) expr.Unwrap();
+}
+
 Node *Parser::ParseSubscript(PFlag flags, Node *left) {
     ARC start;
     ARC stop;
@@ -841,6 +951,89 @@ Node *Parser::ParseTernary(PFlag flags, Node *left) {
     return (Node *) test;
 }
 
+Node *Parser::ParseVarDecl(bool visibility, bool constant, bool weak) {
+    ARC assign;
+    Token token;
+
+    if (!this->Match(TokenType::IDENTIFIER)) {
+        throw ParserException(constant ? "expected identifier after let keyword"
+                                       : "expected identifier after var keyword");
+    }
+
+    token = this->tkcur_;
+
+    this->Eat();
+    this->IgnoreNL();
+    if (!this->MatchEat(TokenType::COMMA)) {
+        auto *id = MakeIdentifier(&token);
+        if (id == nullptr)
+            throw DatatypeException();
+
+        assign = (ArObject *) AssignmentNew((ArObject *) id, visibility, constant, weak);
+        Release(id);
+
+        if (!assign)
+            throw DatatypeException();
+
+        ((Node *) assign.Get())->loc = token.loc;
+    } else
+        assign = (ArObject *) this->ParseVarDeclTuple(token, visibility, constant, weak);
+
+    this->IgnoreNL();
+
+    if (this->MatchEat(TokenType::EQUAL)) {
+        this->IgnoreNL();
+
+        auto *values = this->ParseExpression(0, PeekPrecedence(TokenType::EQUAL));
+        auto *as = (Assignment *) assign.Get();
+
+        as->loc.end = values->loc.end;
+        as->value = (ArObject *) values;
+    } else if (constant)
+        throw ParserException("expected = after identifier/s in let declaration");
+
+    return (Node *) assign.Unwrap();
+}
+
+Node *Parser::ParseVarDeclTuple(const Token &token, bool visibility, bool constant, bool weak) {
+    ARC id;
+    ARC ids;
+
+    Position end{};
+
+    ids = (ArObject *) ListNew();
+    if (!ids)
+        throw DatatypeException();
+
+    id = (ArObject *) MakeIdentifier(&token);
+    if (!id)
+        throw DatatypeException();
+
+    if (!ListAppend((List *) ids.Get(), id.Get()))
+        throw DatatypeException();
+
+    do {
+        this->IgnoreNL();
+
+        id = (ArObject *) this->ParseIdentifier();
+        if (!ListAppend((List *) ids.Get(), id.Get()))
+            throw DatatypeException();
+
+        end = this->tkcur_.loc.end;
+
+        this->IgnoreNL();
+    } while (this->MatchEat(TokenType::COMMA));
+
+    auto *assign = AssignmentNew(ids.Get(), constant, visibility, weak);
+    if (assign == nullptr)
+        throw DatatypeException();
+
+    assign->loc.start = token.loc.start;
+    assign->loc.end = end;
+
+    return (Node *) assign;
+}
+
 void Parser::Eat() {
     if (this->tkcur_.type == TokenType::END_OF_FILE)
         return;
@@ -879,7 +1072,7 @@ File *Parser::Parse() noexcept {
         start = this->tkcur_.loc.start;
 
         while (!this->Match(TokenType::END_OF_FILE)) {
-            result = (ArObject *) this->ParseExpression();
+            result = (ArObject *) this->ParseDecls(ParserScope::MODULE);
 
             if (!ListAppend(statements, result.Get())) {
                 Release(statements);

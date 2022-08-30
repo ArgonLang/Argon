@@ -94,6 +94,24 @@ File *argon::lang::parser::FileNew(const char *filename, List *statements) {
     return file;
 }
 
+Assignment *argon::lang::parser::AssignmentNew(ArObject *name, bool constant, bool pub, bool weak) {
+    auto *assign = NodeNew<Assignment>(&BinaryType, NodeType::ASSIGNMENT);
+
+    if (assign != nullptr) {
+        assign->constant = constant;
+
+        assign->multi = AR_TYPEOF(name, type_list_);
+
+        assign->pub = pub;
+        assign->weak = weak;
+
+        assign->name = IncRef(name);
+        assign->value = nullptr;
+    }
+
+    return assign;
+}
+
 Binary *argon::lang::parser::BinaryNew(Node *left, Node *right, scanner::TokenType token, NodeType type) {
     auto *binary = NodeNew<Binary>(&BinaryType, type);
 
@@ -110,7 +128,7 @@ Binary *argon::lang::parser::BinaryNew(Node *left, Node *right, scanner::TokenTy
     return binary;
 }
 
-Call *argon::lang::parser::CallNew(Node *left, ArObject *args,ArObject *kwargs) {
+Call *argon::lang::parser::CallNew(Node *left, ArObject *args, ArObject *kwargs) {
     auto *call = NodeNew<Call>(&BinaryType, NodeType::CALL);
 
     if (call != nullptr) {

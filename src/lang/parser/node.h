@@ -45,6 +45,18 @@ namespace argon::lang::parser {
         NODEOBJ_HEAD;
     };
 
+    struct Assignment {
+        NODEOBJ_HEAD;
+
+        bool constant;
+        bool multi;
+        bool pub;
+        bool weak;
+
+        argon::vm::datatype::ArObject *name;
+        argon::vm::datatype::ArObject *value;
+    };
+
     struct Binary {
         NODEOBJ_HEAD;
 
@@ -98,6 +110,8 @@ namespace argon::lang::parser {
 
         argon::vm::datatype::ArObject *value;
     };
+
+    Assignment *AssignmentNew(vm::datatype::ArObject *name, bool constant, bool pub, bool weak);
 
     Binary *BinaryNew(Node *left, Node *right, scanner::TokenType token, NodeType type);
 
