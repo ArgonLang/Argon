@@ -58,7 +58,13 @@ namespace argon::lang::parser {
 
         [[nodiscard]] LedMeth LookupLed(lang::scanner::TokenType token) const;
 
+        argon::vm::datatype::ArObject *ParseParamList();
+
+        argon::vm::datatype::ArObject *ParseTraitList();
+
         Node *ParseAssignment(PFlag flags, Node *left);
+
+        Node *ParseBlock(ParserScope scope);
 
         Node *ParseDecls(ParserScope scope);
 
@@ -72,9 +78,13 @@ namespace argon::lang::parser {
 
         Node *ParseExpressionList(PFlag flags, Node *left);
 
+        Node *ParseFn(ParserScope scope);
+
         Node *ParseFnCall(PFlag flags, Node *left);
 
         Node *ParseIdentifier();
+
+        Node *ParseIDValue(NodeType type, const scanner::Position &start);
 
         Node *ParseInfix(PFlag flags, Node *left);
 
@@ -90,13 +100,19 @@ namespace argon::lang::parser {
 
         Node *ParsePrefix();
 
+        Node *ParseScope();
+
         Node *ParseSelector(PFlag flags, Node *left);
 
         Node *ParseStatement(ParserScope scope);
 
+        Node *ParseStructDecl();
+
         Node *ParseSubscript(PFlag flags, Node *left);
 
         Node *ParseTernary(PFlag flags, Node *left);
+
+        Node *ParseTraitDecl();
 
         Node *ParseVarDecl(bool visibility, bool constant, bool weak);
 

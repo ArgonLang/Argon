@@ -7,8 +7,9 @@
 
 #include <lang/scanner/token.h>
 
-#include <vm/datatype/list.h>
 #include <vm/datatype/arobject.h>
+#include <vm/datatype/list.h>
+#include <vm/datatype/arstring.h>
 
 namespace argon::lang::parser {
 #define NODEOBJ_HEAD                            \
@@ -20,6 +21,7 @@ namespace argon::lang::parser {
     enum class NodeType {
         ASSIGNMENT,
         BINARY,
+        BLOCK,
         CALL,
         DICT,
         ELVIS,
@@ -30,12 +32,17 @@ namespace argon::lang::parser {
         INIT,
         LIST,
         LITERAL,
+        KWARG,
         FILE,
+        FUNC,
+        REST,
         SAFE_EXPR,
         SELECTOR,
         SET,
         SLICE,
+        STRUCT,
         TERNARY,
+        TRAIT,
         TUPLE,
         UNARY,
         UPDATE
@@ -72,12 +79,28 @@ namespace argon::lang::parser {
         argon::vm::datatype::ArObject *kwargs;
     };
 
+    struct Construct {
+        NODEOBJ_HEAD;
+
+        vm::datatype::String *name;
+        vm::datatype::List *impls;
+        Node *body;
+    };
+
     struct File {
         NODEOBJ_HEAD;
 
         const char *filename;
 
         vm::datatype::List *statements;
+    };
+
+    struct Function {
+        NODEOBJ_HEAD;
+
+        vm::datatype::String *name;
+        vm::datatype::List *params;
+        Node *body;
     };
 
     struct Initialization {
@@ -117,13 +140,17 @@ namespace argon::lang::parser {
 
     Call *CallNew(Node *left, vm::datatype::ArObject *args, vm::datatype::ArObject *kwargs);
 
+    Construct *ConstructNew(vm::datatype::String *name, vm::datatype::List *impls, Node *body, NodeType type);
+
     File *FileNew(const char *filename, vm::datatype::List *statements);
+
+    Function *FunctionNew(vm::datatype::String *name, vm::datatype::List *params, Node *body);
 
     Initialization *InitNew(Node *left, vm::datatype::ArObject *list, const scanner::Loc &loc, bool as_map);
 
     Subscript *SubscriptNew(Node *expr, Node *start, Node *stop);
 
-    Test *TestNew(Node*test, Node*body, Node *orelse, NodeType type);
+    Test *TestNew(Node *test, Node *body, Node *orelse, NodeType type);
 
     Unary *UnaryNew(argon::vm::datatype::ArObject *value, NodeType type, const scanner::Loc &loc);
 

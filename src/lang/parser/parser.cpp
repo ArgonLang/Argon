@@ -119,6 +119,93 @@ Parser::NudMeth Parser::LookupNud(lang::scanner::TokenType token) const {
     }
 }
 
+ArObject *Parser::ParseParamList() {
+    ARC params;
+    ARC tmp;
+
+    Position start{};
+
+    int mode = 0;
+
+    params = (ArObject *) ListNew();
+    if (!params)
+        throw DatatypeException();
+
+    do {
+        this->IgnoreNL();
+
+        if (this->Match(TokenType::RIGHT_ROUND))
+            break;
+
+        if (this->Match(TokenType::ELLIPSIS)) {
+            if (mode > 0)
+                throw ParserException("");
+
+            mode = 1;
+
+            start = this->tkcur_.loc.start;
+
+            this->Eat();
+
+            if (!this->Match(TokenType::IDENTIFIER))
+                throw ParserException("expected identifier after '...'");
+
+            tmp = (ArObject *) this->ParseIDValue(NodeType::REST, start);
+        } else if (this->Match(TokenType::AMPERSAND)) {
+            if (mode > 1)
+                throw ParserException("");
+
+            mode = 2;
+
+            start = this->tkcur_.loc.start;
+
+            this->Eat();
+
+            if (!this->Match(TokenType::IDENTIFIER))
+                throw ParserException("expected identifier after '&'");
+
+            tmp = (ArObject *) this->ParseIDValue(NodeType::KWARG, start);
+        } else {
+            if (mode > 0)
+                throw ParserException("");
+
+            tmp = (ArObject *) this->ParseIdentifier();
+        }
+
+        if (!ListAppend((List *) params.Get(), tmp.Get()))
+            throw DatatypeException();
+
+        this->IgnoreNL();
+    } while (this->MatchEat(TokenType::COMMA));
+
+    return params.Unwrap();
+}
+
+ArObject *Parser::ParseTraitList() {
+    ARC list;
+
+    list = (ArObject *) ListNew();
+    if (!list)
+        throw DatatypeException();
+
+    do {
+        this->IgnoreNL();
+
+        auto *scope = this->ParseScope();
+
+        if (!ListAppend((List *) list.Get(), (ArObject *) scope)) {
+            Release(scope);
+            throw DatatypeException();
+        }
+
+        Release(scope);
+
+        this->IgnoreNL();
+    } while (this->MatchEat(TokenType::COMMA));
+
+    return list.Unwrap();
+}
+
 Node *Parser::ParseAssignment(PFlag flags, Node *left) {
     TokenType type = TKCUR_TYPE;
 
@@ -158,6 +245,45 @@ Node *Parser::ParseAssignment(PFlag flags, Node *left) {
     return (Node *) assign;
 }
 
+Node *Parser::ParseBlock(ParserScope scope) {
+    ARC stmts;
+
+    Position start = this->tkcur_.loc.start;
+
+    if (!this->MatchEat(TokenType::LEFT_BRACES))
+        throw ParserException("expected '{");
+
+    stmts = (ArObject *) ListNew();
+    if (!stmts)
+        throw DatatypeException();
+
+    this->IgnoreNL();
+    while (!this->Match(TokenType::RIGHT_BRACES)) {
+        this->IgnoreNL();
+
+        auto *stmt = this->ParseDecls(scope);
+
+        if (!ListAppend((List *) stmts.Get(), (ArObject *) stmt)) {
+            Release(stmt);
+            throw DatatypeException();
+        }
+
+        Release(stmt);
+
+        this->IgnoreNL();
+    }
+
+    auto *block = UnaryNew(stmts.Get(), NodeType::BLOCK, this->tkcur_.loc);
+    if (block == nullptr)
+        throw DatatypeException();
+
+    this->Eat();
+
+    block->loc.start = start;
+
+    return (Node *) block;
+}
+
 Node *Parser::ParseDecls(ParserScope scope) {
     ARC stmt;
     Position start = this->tkcur_.loc.start;
@@ -180,6 +306,7 @@ Node *Parser::ParseDecls(ParserScope scope) {
             this->Eat();
             this->IgnoreNL();
             stmt = (ArObject *) this->ParseVarDecl(pub, false, true);
+            break;
         case TokenType::KW_VAR:
             this->Eat();
             this->IgnoreNL();
@@ -191,12 +318,26 @@ Node *Parser::ParseDecls(ParserScope scope) {
             stmt = (ArObject *) this->ParseVarDecl(pub, true, false);
             break;
         case TokenType::KW_FUNC:
+            stmt = (ArObject *) this->ParseFn(scope);
+            break;
         case TokenType::KW_STRUCT:
+            if (scope != ParserScope::MODULE && scope != ParserScope::FUNCTION)
+                throw ParserException("unexpected struct declaration");
+
+            stmt = (ArObject *) this->ParseStructDecl();
+            break;
         case TokenType::KW_TRAIT:
-            assert(false);
+            if (scope != ParserScope::MODULE)
+                throw ParserException("unexpected trait declaration");
+
+            stmt = (ArObject *) this->ParseTraitDecl();
+            break;
         default:
             if (pub)
                 throw ParserException("expected declaration after 'pub' keyword");
+
+            if (scope == ParserScope::STRUCT || scope == ParserScope::TRAIT)
+                throw ParserException("unexpected statement here");
 
             stmt = (ArObject *) this->ParseStatement(scope);
     }
@@ -413,6 +554,45 @@ Node *Parser::ParseExpressionList(PFlag flags, Node *left) {
     return (Node *) unary;
 }
 
+Node *Parser::ParseFn(ParserScope scope) {
+    ARC name;
+    ARC params;
+    ARC body;
+    ARC tmp;
+
+    Position start = this->tkcur_.loc.start;
+
+    // eat 'func' keyword
+    this->Eat();
+
+    if (!this->Match(TokenType::IDENTIFIER))
+        throw ParserException("expected identifier after 'func' keyword");
+
+    name = (ArObject *) StringNew((const char *) this->tkcur_.buffer, this->tkcur_.length);
+
+    this->Eat();
+
+    if (this->MatchEat(TokenType::LEFT_ROUND)) {
+        params = this->ParseParamList();
+
+        this->IgnoreNL();
+
+        if (!this->MatchEat(TokenType::RIGHT_ROUND))
+            throw ParserException("expected ')' after function params");
+    }
+
+    if (scope != ParserScope::TRAIT || this->Match(TokenType::LEFT_BRACES))
+        body = (ArObject *) this->ParseBlock(ParserScope::FUNCTION);
+
+    auto *func = FunctionNew((String *) name.Get(), (List *) params.Get(), (Node *) body.Get());
+    if (func == nullptr)
+        throw DatatypeException();
+
+    func->loc.start = start;
+
+    return (Node *) func;
+}
+
 Node *Parser::ParseFnCall(PFlag flags, Node *left) {
     ARC arg;
     ARC list;
@@ -531,6 +711,25 @@ Node *Parser::ParseIdentifier() {
     this->Eat();
 
     return id;
+}
+
+Node *Parser::ParseIDValue(NodeType type, const scanner::Position &start) {
+    auto *str = StringNew((const char *) this->tkcur_.buffer, this->tkcur_.length);
+    if (str == nullptr)
+        throw DatatypeException();
+
+    auto *id = UnaryNew((ArObject *) str, type, this->tkcur_.loc);
+
+    Release(str);
+
+    if (id == nullptr)
+        throw DatatypeException();
+
+    id->loc.start = start;
+
+    this->Eat();
+
+    return (Node *) id;
 }
 
 Node *Parser::ParseInfix(PFlag flags, Node *left) {
@@ -808,6 +1007,23 @@ Node *Parser::ParsePrefix() {
     return (Node *) unary;
 }
 
+Node *Parser::ParseScope() {
+    ARC ident;
+
+    if (!this->Match(TokenType::IDENTIFIER))
+        throw ParserException("expected identifier");
+
+    ident = (ArObject *) this->ParseIdentifier();
+
+    this->IgnoreNL();
+    while (this->Match(TokenType::SCOPE, TokenType::DOT)) {
+        ident = (ArObject *) this->ParseSelector(0, (Node *) ident.Get());
+        this->IgnoreNL();
+    }
+
+    return (Node *) ident.Unwrap();
+}
+
 Node *Parser::ParseSelector(PFlag flags, Node *left) {
     TokenType kind = TKCUR_TYPE;
 
@@ -888,6 +1104,43 @@ Node *Parser::ParseStatement(ParserScope scope) {
     return (Node *) expr.Unwrap();
 }
 
+Node *Parser::ParseStructDecl() {
+    ARC name;
+    ARC impls;
+    ARC block;
+
+    Position start = this->tkcur_.loc.start;
+
+    // eat 'struct' keyword
+    this->Eat();
+
+    if (!this->Match(TokenType::IDENTIFIER))
+        throw ParserException("expected identifier after struct keyword");
+
+    name = (ArObject *) StringNew((const char *) this->tkcur_.buffer, this->tkcur_.length);
+
+    this->Eat();
+    this->IgnoreNL();
+
+    if (this->MatchEat(TokenType::KW_IMPL)) {
+        this->IgnoreNL();
+
+        impls = this->ParseTraitList();
+
+        this->IgnoreNL();
+    }
+
+    block = (ArObject *) this->ParseBlock(ParserScope::STRUCT);
+
+    auto *cstr = ConstructNew((String *) name.Get(), (List *) impls.Get(), (Node *) block.Get(), NodeType::STRUCT);
+    if (cstr == nullptr)
+        throw DatatypeException();
+
+    cstr->loc.start = start;
+
+    return (Node *) cstr;
+}
+
 Node *Parser::ParseSubscript(PFlag flags, Node *left) {
     ARC start;
     ARC stop;
@@ -949,6 +1202,43 @@ Node *Parser::ParseTernary(PFlag flags, Node *left) {
         throw DatatypeException();
 
     return (Node *) test;
+}
+
+Node *Parser::ParseTraitDecl() {
+    ARC name;
+    ARC impls;
+    ARC block;
+
+    Position start = this->tkcur_.loc.start;
+
+    // eat 'trait' keyword
+    this->Eat();
+
+    if (!this->Match(TokenType::IDENTIFIER))
+        throw ParserException("expected identifier after struct keyword");
+
+    name = (ArObject *) StringNew((const char *) this->tkcur_.buffer, this->tkcur_.length);
+
+    this->Eat();
+    this->IgnoreNL();
+
+    if (this->MatchEat(TokenType::COLON)) {
+        this->IgnoreNL();
+
+        impls = this->ParseTraitList();
+
+        this->IgnoreNL();
+    }
+
+    block = (ArObject *) this->ParseBlock(ParserScope::TRAIT);
+
+    auto *cstr = ConstructNew((String *) name.Get(), (List *) impls.Get(), (Node *) block.Get(), NodeType::TRAIT);
+    if (cstr == nullptr)
+        throw DatatypeException();
+
+    cstr->loc.start = start;
+
+    return (Node *) cstr;
 }
 
 Node *Parser::ParseVarDecl(bool visibility, bool constant, bool weak) {
@@ -1068,6 +1358,7 @@ File *Parser::Parse() noexcept {
 
     try {
         this->Eat();
+        this->IgnoreNL();
 
         start = this->tkcur_.loc.start;
 
@@ -1080,6 +1371,7 @@ File *Parser::Parse() noexcept {
             }
 
             end = this->tkcur_.loc.end;
+            this->IgnoreNL();
         }
     } catch (const ParserException &) {
         assert(false);

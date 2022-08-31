@@ -94,6 +94,24 @@ File *argon::lang::parser::FileNew(const char *filename, List *statements) {
     return file;
 }
 
+Function *argon::lang::parser::FunctionNew(String *name, List *params, Node *body) {
+    auto *func = NodeNew<Function>(&BinaryType, NodeType::FUNC);
+
+    if (func != nullptr) {
+        func->name = IncRef(name);
+        func->params = IncRef(params);
+        func->body = IncRef(body);
+
+        func->loc.start = {};
+        func->loc.end = {};
+
+        if (body != nullptr)
+            func->loc.end = body->loc.end;
+    }
+
+    return func;
+}
+
 Assignment *argon::lang::parser::AssignmentNew(ArObject *name, bool constant, bool pub, bool weak) {
     auto *assign = NodeNew<Assignment>(&BinaryType, NodeType::ASSIGNMENT);
 
@@ -142,6 +160,21 @@ Call *argon::lang::parser::CallNew(Node *left, ArObject *args, ArObject *kwargs)
     }
 
     return call;
+}
+
+Construct *argon::lang::parser::ConstructNew(String *name, List *impls, Node *body, NodeType type) {
+    auto *cstr = NodeNew<Construct>(&BinaryType, type);
+
+    if (cstr != nullptr) {
+        cstr->name = IncRef(name);
+        cstr->impls = IncRef(impls);
+        cstr->body = IncRef(body);
+
+        cstr->loc.start = {};
+        cstr->loc.end = body->loc.end;
+    }
+
+    return cstr;
 }
 
 Initialization *argon::lang::parser::InitNew(Node *left, ArObject *list, const scanner::Loc &loc, bool as_map) {
