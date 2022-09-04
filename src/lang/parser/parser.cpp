@@ -34,20 +34,22 @@ int Parser::PeekPrecedence(scanner::TokenType token) {
         case TokenType::ASSIGN_ADD:
         case TokenType::ASSIGN_SUB:
             return 10;
-        case TokenType::COMMA:
+        case TokenType::KW_IN:
             return 20;
-        case TokenType::LEFT_BRACES:
+        case TokenType::COMMA:
             return 30;
+        case TokenType::LEFT_BRACES:
+            return 40;
         case TokenType::ELVIS:
         case TokenType::QUESTION:
-            return 40;
-        case TokenType::PIPELINE:
             return 50;
+        case TokenType::PIPELINE:
+            return 60;
         case TokenType::PLUS:
         case TokenType::MINUS:
         case TokenType::EXCLAMATION:
         case TokenType::TILDE:
-            return 60;
+            return 70;
         case TokenType::PLUS_PLUS:
         case TokenType::MINUS_MINUS:
         case TokenType::LEFT_SQUARE:
@@ -55,7 +57,7 @@ int Parser::PeekPrecedence(scanner::TokenType token) {
         case TokenType::DOT:
         case TokenType::QUESTION_DOT:
         case TokenType::SCOPE:
-            return 70;
+            return 80;
         default:
             return 1000;
     }
@@ -66,6 +68,8 @@ Parser::LedMeth Parser::LookupLed(lang::scanner::TokenType token) const {
         return &Parser::ParseInfix;
 
     switch (token) {
+        case TokenType::KW_IN:
+            return &Parser::ParseIn;
         case TokenType::COMMA:
             return &Parser::ParseExpressionList;
         case TokenType::PLUS_PLUS:
@@ -633,7 +637,7 @@ Node *Parser::ParseFor() {
         if (this->MatchEat(scanner::TokenType::KW_VAR))
             init = (ArObject *) this->ParseVarDecl(false, false, false);
         else
-            init = (ArObject *) this->ParseExpression();
+            init = (ArObject *) this->ParseExpression(PeekPrecedence(scanner::TokenType::KW_IN));
     }
 
     this->IgnoreNL();
@@ -1016,6 +1020,19 @@ Node *Parser::ParseImport() {
     imp->loc.end = end;
 
     return (Node *) imp;
+}
+
+Node *Parser::ParseIn(Node *left) {
+    this->Eat();
+    this->IgnoreNL();
+
+    auto *expr = this->ParseExpression(PeekPrecedence(TokenType::EQUAL));
+
+    auto *binary = BinaryNew(left, expr, scanner::TokenType::TK_NULL, NodeType::IN);
+    if (binary == nullptr)
+        throw DatatypeException();
+
+    return expr;
 }
 
 Node *Parser::ParseInfix(Node *left) {

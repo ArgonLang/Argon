@@ -99,6 +99,8 @@ namespace argon::lang::parser {
 
         Node *ParseImport();
 
+        Node *ParseIn(Node *left);
+
         Node *ParseInfix(Node *left);
 
         Node *ParseInit(Node *left);

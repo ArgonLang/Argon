@@ -37,6 +37,7 @@ namespace argon::lang::parser {
         IMPORT,
         IMPORT_NAME,
         INDEX,
+        IN,
         INIT,
         JUMP,
         LABEL,
