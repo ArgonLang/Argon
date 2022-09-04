@@ -23,7 +23,7 @@ namespace argon::lang::parser {
 
     class Parser {
         using NudMeth = Node *(Parser::*)();
-        using LedMeth = Node *(Parser::*)(PFlag flags, Node *);
+        using LedMeth = Node *(Parser::*)(Node *);
 
         lang::scanner::Scanner &scanner_;
 
@@ -65,7 +65,7 @@ namespace argon::lang::parser {
 
         Node *ParseAssertion();
 
-        Node *ParseAssignment(PFlag flags, Node *left);
+        Node *ParseAssignment(Node *left);
 
         Node *ParseBCFLabel();
 
@@ -75,19 +75,19 @@ namespace argon::lang::parser {
 
         Node *ParseDictSet();
 
-        Node *ParseElvis(PFlag flags, Node *left);
+        Node *ParseElvis(Node *left);
 
         Node *ParseExpression();
 
-        Node *ParseExpression(PFlag flags, int precedence);
+        Node *ParseExpression(int precedence);
 
-        Node *ParseExpressionList(PFlag flags, Node *left);
+        Node *ParseExpressionList(Node *left);
 
         Node *ParseFor();
 
         Node *ParseFn(ParserScope scope);
 
-        Node *ParseFnCall(PFlag flags, Node *left);
+        Node *ParseFnCall(Node *left);
 
         Node *ParseFromImport();
 
@@ -99,9 +99,9 @@ namespace argon::lang::parser {
 
         Node *ParseImport();
 
-        Node *ParseInfix(PFlag flags, Node *left);
+        Node *ParseInfix(Node *left);
 
-        Node *ParseInit(PFlag flags, Node *left);
+        Node *ParseInit(Node *left);
 
         Node *ParseList();
 
@@ -111,27 +111,27 @@ namespace argon::lang::parser {
 
         Node *ParseOOBCall();
 
-        Node *ParsePipeline(PFlag flags, Node *left);
+        Node *ParsePipeline(Node *left);
 
-        Node *ParsePostInc(PFlag flags, Node *left);
+        Node *ParsePostInc(Node *left);
 
         Node *ParsePrefix();
 
         Node *ParseScope();
 
-        Node *ParseSelector(PFlag flags, Node *left);
+        Node *ParseSelector(Node *left);
 
         Node *ParseStatement(ParserScope scope);
 
         Node *ParseStructDecl();
 
-        Node *ParseSubscript(PFlag flags, Node *left);
+        Node *ParseSubscript(Node *left);
 
         Node *ParseSwitch();
 
         Node *ParseSwitchCase();
 
-        Node *ParseTernary(PFlag flags, Node *left);
+        Node *ParseTernary(Node *left);
 
         Node *ParseTraitDecl();
 
@@ -144,8 +144,6 @@ namespace argon::lang::parser {
         [[nodiscard]] NudMeth LookupNud(lang::scanner::TokenType token) const;
 
         void Eat();
-
-        void EatNL();
 
         void IgnoreNL();
 

@@ -215,13 +215,13 @@ Node *Parser::ParseAssertion() {
     this->Eat();
     this->IgnoreNL();
 
-    expr = (ArObject *) this->ParseExpression(0, PeekPrecedence(scanner::TokenType::COMMA));
+    expr = (ArObject *) this->ParseExpression(PeekPrecedence(scanner::TokenType::COMMA));
 
     this->IgnoreNL();
 
     if (this->MatchEat(scanner::TokenType::COMMA)) {
         this->IgnoreNL();
-        msg = (ArObject *) this->ParseExpression(0, 0);
+        msg = (ArObject *) this->ParseExpression(0);
     }
 
     auto *asrt = BinaryNew((Node *) expr.Get(), (Node *) msg.Get(), TokenType::TK_NULL, NodeType::ASSERT);
@@ -235,7 +235,7 @@ Node *Parser::ParseAssertion() {
     return (Node *) asrt;
 }
 
-Node *Parser::ParseAssignment(PFlag flags, Node *left) {
+Node *Parser::ParseAssignment(Node *left) {
     TokenType type = TKCUR_TYPE;
 
     this->Eat();
@@ -261,7 +261,7 @@ Node *Parser::ParseAssignment(PFlag flags, Node *left) {
         }
     }
 
-    auto *expr = this->ParseExpression(0, PeekPrecedence(TokenType::EQUAL));
+    auto *expr = this->ParseExpression(PeekPrecedence(TokenType::EQUAL));
 
     auto *assign = BinaryNew(left, expr, type, NodeType::ASSIGNMENT);
     if (assign == nullptr) {
@@ -440,7 +440,7 @@ Node *Parser::ParseDictSet() {
     do {
         this->IgnoreNL();
 
-        auto *expr = this->ParseExpression(0, PeekPrecedence(TokenType::COMMA));
+        auto *expr = this->ParseExpression(PeekPrecedence(TokenType::COMMA));
 
         if (!ListAppend((List *) list.Get(), (ArObject *) expr)) {
             Release(expr);
@@ -459,7 +459,7 @@ Node *Parser::ParseDictSet() {
 
             this->IgnoreNL();
 
-            expr = this->ParseExpression(0, PeekPrecedence(TokenType::COMMA));
+            expr = this->ParseExpression(PeekPrecedence(TokenType::COMMA));
 
             if (!ListAppend((List *) list.Get(), (ArObject *) expr)) {
                 Release(expr);
@@ -495,11 +495,11 @@ Node *Parser::ParseDictSet() {
     return (Node *) unary;
 }
 
-Node *Parser::ParseElvis(PFlag flags, Node *left) {
+Node *Parser::ParseElvis(Node *left) {
     this->Eat();
     this->IgnoreNL();
 
-    auto *expr = this->ParseExpression(0, 0);
+    auto *expr = this->ParseExpression(0);
 
     auto *test = TestNew(left, nullptr, expr, NodeType::ELVIS);
     if (test == nullptr) {
@@ -513,7 +513,7 @@ Node *Parser::ParseElvis(PFlag flags, Node *left) {
 Node *Parser::ParseExpression() {
     ARC expr;
 
-    expr = (ArObject *) this->ParseExpression(0, 0);
+    expr = (ArObject *) this->ParseExpression(0);
 
     if (this->Match(TokenType::COLON)) {
         if (((Node *) expr.Get())->node_type != NodeType::IDENTIFIER)
@@ -540,7 +540,7 @@ Node *Parser::ParseExpression() {
     return (Node *) expr.Unwrap();
 }
 
-Node *Parser::ParseExpression(PFlag flags, int precedence) {
+Node *Parser::ParseExpression(int precedence) {
     bool is_safe = false;
     LedMeth led;
     NudMeth nud;
@@ -559,7 +559,7 @@ Node *Parser::ParseExpression(PFlag flags, int precedence) {
         if (TKCUR_TYPE == TokenType::QUESTION_DOT)
             is_safe = true;
 
-        left = (ArObject *) (this->*led)(flags, (Node *) left.Get());
+        left = (ArObject *) (this->*led)((Node *) left.Get());
     }
 
     if (is_safe) {
@@ -576,7 +576,7 @@ Node *Parser::ParseExpression(PFlag flags, int precedence) {
     return (Node *) left.Unwrap();
 }
 
-Node *Parser::ParseExpressionList(PFlag flags, Node *left) {
+Node *Parser::ParseExpressionList(Node *left) {
     int precedence = PeekPrecedence(TokenType::COMMA);
     ARC list;
     Position end{};
@@ -593,7 +593,7 @@ Node *Parser::ParseExpressionList(PFlag flags, Node *left) {
     do {
         this->IgnoreNL();
 
-        auto *expr = this->ParseExpression(0, precedence);
+        auto *expr = this->ParseExpression(precedence);
 
         if (!ListAppend((List *) list.Get(), (ArObject *) expr)) {
             Release(expr);
@@ -651,7 +651,7 @@ Node *Parser::ParseFor() {
     this->IgnoreNL();
 
     if (type == NodeType::FOR) {
-        test = (ArObject *) this->ParseExpression(0, PeekPrecedence(scanner::TokenType::EQUAL));
+        test = (ArObject *) this->ParseExpression(PeekPrecedence(scanner::TokenType::EQUAL));
 
         this->IgnoreNL();
 
@@ -660,9 +660,9 @@ Node *Parser::ParseFor() {
 
         this->IgnoreNL();
 
-        inc = (ArObject *) this->ParseExpression(0, PeekPrecedence(scanner::TokenType::LEFT_BRACES));
+        inc = (ArObject *) this->ParseExpression(PeekPrecedence(scanner::TokenType::LEFT_BRACES));
     } else
-        test = (ArObject *) this->ParseExpression(0, PeekPrecedence(scanner::TokenType::LEFT_BRACES));
+        test = (ArObject *) this->ParseExpression(PeekPrecedence(scanner::TokenType::LEFT_BRACES));
 
 
     body = (ArObject *) this->ParseBlock(ParserScope::LOOP);
@@ -715,7 +715,7 @@ Node *Parser::ParseFn(ParserScope scope) {
     return (Node *) func;
 }
 
-Node *Parser::ParseFnCall(PFlag flags, Node *left) {
+Node *Parser::ParseFnCall(Node *left) {
     ARC arg;
     ARC list;
     ARC map;
@@ -744,7 +744,7 @@ Node *Parser::ParseFnCall(PFlag flags, Node *left) {
     do {
         this->IgnoreNL();
 
-        arg = (ArObject *) this->ParseExpression(0, PeekPrecedence(TokenType::COMMA));
+        arg = (ArObject *) this->ParseExpression(PeekPrecedence(TokenType::COMMA));
 
         if (this->MatchEat(TokenType::ELLIPSIS)) {
             auto *ell = UnaryNew(arg.Get(), NodeType::ELLIPSIS, this->tkcur_.loc);
@@ -782,7 +782,7 @@ Node *Parser::ParseFnCall(PFlag flags, Node *left) {
             if (!ListAppend((List *) map.Get(), arg.Get()))
                 throw DatatypeException();
 
-            auto *value = (ArObject *) this->ParseExpression(0, PeekPrecedence(TokenType::COMMA));
+            auto *value = (ArObject *) this->ParseExpression(PeekPrecedence(TokenType::COMMA));
 
             if (!ListAppend((List *) map.Get(), value)) {
                 Release(value);
@@ -936,7 +936,7 @@ Node *Parser::ParseIF() {
 
     this->Eat();
 
-    test = (ArObject *) this->ParseExpression(0, PeekPrecedence(scanner::TokenType::LEFT_BRACES));
+    test = (ArObject *) this->ParseExpression(PeekPrecedence(scanner::TokenType::LEFT_BRACES));
 
     body = (ArObject *) this->ParseBlock(ParserScope::BLOCK);
 
@@ -1018,13 +1018,13 @@ Node *Parser::ParseImport() {
     return (Node *) imp;
 }
 
-Node *Parser::ParseInfix(PFlag flags, Node *left) {
+Node *Parser::ParseInfix(Node *left) {
     TokenType kind = TKCUR_TYPE;
     ARC right;
 
     this->Eat();
 
-    right = (ArObject *) this->ParseExpression(flags, this->PeekPrecedence(kind));
+    right = (ArObject *) this->ParseExpression(this->PeekPrecedence(kind));
 
     auto *binary = BinaryNew(left, (Node *) right.Get(), kind, NodeType::BINARY);
     if (binary == nullptr)
@@ -1033,7 +1033,7 @@ Node *Parser::ParseInfix(PFlag flags, Node *left) {
     return (Node *) binary;
 }
 
-Node *Parser::ParseInit(PFlag flags, Node *left) {
+Node *Parser::ParseInit(Node *left) {
     ARC list;
     bool kwargs = false;
     int count = 0;
@@ -1058,7 +1058,7 @@ Node *Parser::ParseInit(PFlag flags, Node *left) {
     do {
         this->IgnoreNL();
 
-        auto *key = this->ParseExpression(0, PeekPrecedence(TokenType::COMMA));
+        auto *key = this->ParseExpression(PeekPrecedence(TokenType::COMMA));
 
         if (!ListAppend((List *) list.Get(), (ArObject *) key)) {
             Release(key);
@@ -1074,7 +1074,7 @@ Node *Parser::ParseInit(PFlag flags, Node *left) {
             if (--count != 0)
                 throw ParserException("can't mix field names with positional initialization");
 
-            auto *value = this->ParseExpression(0, PeekPrecedence(TokenType::COMMA));
+            auto *value = this->ParseExpression(PeekPrecedence(TokenType::COMMA));
 
             if (!ListAppend((List *) list.Get(), (ArObject *) value)) {
                 Release(value);
@@ -1123,7 +1123,7 @@ Node *Parser::ParseList() {
         do {
             this->IgnoreNL();
 
-            auto *itm = this->ParseExpression(0, PeekPrecedence(TokenType::COMMA));
+            auto *itm = this->ParseExpression(PeekPrecedence(TokenType::COMMA));
 
             if (!ListAppend((List *) list.Get(), (ArObject *) itm)) {
                 Release(itm);
@@ -1218,7 +1218,7 @@ Node *Parser::ParseLoop() {
     this->Eat();
 
     if (!this->Match(scanner::TokenType::LEFT_BRACES))
-        test = (ArObject *) this->ParseExpression(0, PeekPrecedence(scanner::TokenType::LEFT_BRACES));
+        test = (ArObject *) this->ParseExpression(PeekPrecedence(scanner::TokenType::LEFT_BRACES));
 
     body = (ArObject *) this->ParseBlock(ParserScope::LOOP);
 
@@ -1235,7 +1235,7 @@ Node *Parser::ParseOOBCall() {
     Position start = this->tkcur_.loc.start;
     TokenType type = TKCUR_TYPE;
 
-    auto *expr = this->ParseExpression(0, 0);
+    auto *expr = this->ParseExpression(0);
 
     if (expr->node_type != NodeType::CALL) {
         Release(expr);
@@ -1250,13 +1250,13 @@ Node *Parser::ParseOOBCall() {
     return expr;
 }
 
-Node *Parser::ParsePipeline(PFlag flags, Node *left) {
+Node *Parser::ParsePipeline(Node *left) {
     Node *right;
 
     this->Eat();
     this->IgnoreNL();
 
-    right = this->ParseExpression(0, PeekPrecedence(TokenType::LEFT_BRACES) - 1);
+    right = this->ParseExpression(PeekPrecedence(TokenType::LEFT_BRACES) - 1);
     if (right->node_type == NodeType::CALL) {
         auto *call = (Call *) right;
 
@@ -1293,7 +1293,7 @@ Node *Parser::ParsePipeline(PFlag flags, Node *left) {
     return (Node *) call;
 }
 
-Node *Parser::ParsePostInc(PFlag flags, Node *left) {
+Node *Parser::ParsePostInc(Node *left) {
     if (left->node_type != NodeType::IDENTIFIER &&
         left->node_type != NodeType::INDEX &&
         left->node_type != NodeType::SELECTOR)
@@ -1320,7 +1320,7 @@ Node *Parser::ParsePrefix() {
 
     this->Eat();
 
-    auto *right = this->ParseExpression(0, PeekPrecedence(kind));
+    auto *right = this->ParseExpression(PeekPrecedence(kind));
 
     unary = UnaryNew((ArObject *) right, kind, right->loc);
 
@@ -1344,14 +1344,14 @@ Node *Parser::ParseScope() {
 
     this->IgnoreNL();
     while (this->Match(TokenType::SCOPE, TokenType::DOT)) {
-        ident = (ArObject *) this->ParseSelector(0, (Node *) ident.Get());
+        ident = (ArObject *) this->ParseSelector((Node *) ident.Get());
         this->IgnoreNL();
     }
 
     return (Node *) ident.Unwrap();
 }
 
-Node *Parser::ParseSelector(PFlag flags, Node *left) {
+Node *Parser::ParseSelector(Node *left) {
     TokenType kind = TKCUR_TYPE;
 
     this->Eat();
@@ -1360,7 +1360,7 @@ Node *Parser::ParseSelector(PFlag flags, Node *left) {
     if (!this->Match(TokenType::IDENTIFIER))
         throw ParserException("expected identifier after '.'/'?.'/'::' access operator");
 
-    auto *right = this->ParseExpression(0, PeekPrecedence(kind));
+    auto *right = this->ParseExpression(PeekPrecedence(kind));
 
     auto *binary = BinaryNew(left, right, kind, NodeType::SELECTOR);
 
@@ -1420,7 +1420,7 @@ Node *Parser::ParseStatement(ParserScope scope) {
                     expr = (ArObject *) this->ParseSwitch();
                     break;
                 case TokenType::KW_BREAK:
-                    if (scope != ParserScope::LOOP || scope != ParserScope::SWITCH)
+                    if (scope != ParserScope::LOOP && scope != ParserScope::SWITCH)
                         throw ParserException("'break' not allowed outside loop or switch");
 
                     expr = (ArObject *) this->ParseBCFLabel();
@@ -1503,7 +1503,7 @@ Node *Parser::ParseStructDecl() {
     return (Node *) cstr;
 }
 
-Node *Parser::ParseSubscript(PFlag flags, Node *left) {
+Node *Parser::ParseSubscript(Node *left) {
     ARC start;
     ARC stop;
 
@@ -1513,13 +1513,13 @@ Node *Parser::ParseSubscript(PFlag flags, Node *left) {
     if (this->Match(TokenType::RIGHT_SQUARE))
         throw ParserException("subscript definition (index | slice) cannot be empty");
 
-    start = (ArObject *) this->ParseExpression(0, 0);
+    start = (ArObject *) this->ParseExpression(0);
 
     this->IgnoreNL();
 
     if (this->MatchEat(TokenType::COLON)) {
         this->IgnoreNL();
-        stop = (ArObject *) this->ParseExpression(0, 0);
+        stop = (ArObject *) this->ParseExpression(0);
     }
 
     auto *slice = SubscriptNew(left, (Node *) start.Get(), (Node *) stop.Get());
@@ -1551,7 +1551,7 @@ Node *Parser::ParseSwitch() {
     this->Eat();
 
     if (!this->Match(TokenType::LEFT_BRACES))
-        test = (ArObject *) this->ParseExpression(0, PeekPrecedence(scanner::TokenType::LEFT_BRACES));
+        test = (ArObject *) this->ParseExpression(PeekPrecedence(scanner::TokenType::LEFT_BRACES));
 
     if (!this->MatchEat(TokenType::LEFT_BRACES))
         throw ParserException("expected '{' after switch declaration");
@@ -1661,21 +1661,21 @@ Node *Parser::ParseSwitchCase() {
     return (Node *) sc;
 }
 
-Node *Parser::ParseTernary(PFlag flags, Node *left) {
+Node *Parser::ParseTernary(Node *left) {
     ARC body;
     ARC orelse;
 
     this->Eat();
     this->IgnoreNL();
 
-    body = (ArObject *) this->ParseExpression(0, 0);
+    body = (ArObject *) this->ParseExpression(0);
 
     this->IgnoreNL();
 
     if (this->MatchEat(TokenType::COLON)) {
         this->IgnoreNL();
 
-        orelse = (ArObject *) this->ParseExpression(0, 0);
+        orelse = (ArObject *) this->ParseExpression(0);
 
         this->IgnoreNL();
     }
@@ -1757,7 +1757,7 @@ Node *Parser::ParseVarDecl(bool visibility, bool constant, bool weak) {
     if (this->MatchEat(TokenType::EQUAL)) {
         this->IgnoreNL();
 
-        auto *values = this->ParseExpression(0, PeekPrecedence(TokenType::EQUAL));
+        auto *values = this->ParseExpression(PeekPrecedence(TokenType::EQUAL));
         auto *as = (Assignment *) assign.Get();
 
         as->loc.end = values->loc.end;
@@ -1815,7 +1815,7 @@ Node *Parser::ParseUnaryStmt(NodeType type, bool expr_required) {
     this->IgnoreNL();
 
     if (!this->Match(scanner::TokenType::END_OF_FILE, TokenType::SEMICOLON))
-        expr = this->ParseExpression(0, 0);
+        expr = this->ParseExpression(0);
     else if (expr_required)
         throw ParserException("expected expression");
 
@@ -1839,12 +1839,6 @@ void Parser::Eat() {
 
     if (!this->scanner_.NextToken(&this->tkcur_))
         throw ScannerException();
-}
-
-void Parser::EatNL() {
-    this->IgnoreNL();
-    this->Eat();
-    this->IgnoreNL();
 }
 
 void Parser::IgnoreNL() {
