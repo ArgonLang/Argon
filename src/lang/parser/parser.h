@@ -13,10 +13,11 @@ namespace argon::lang::parser {
     using PFlag = int;
 
     enum class ParserScope {
-        ENUM,
-        FUNCTION,
+        BLOCK,
+        LOOP,
         MODULE,
         STRUCT,
+        SWITCH,
         TRAIT
     };
 
@@ -82,7 +83,7 @@ namespace argon::lang::parser {
 
         Node *ParseExpressionList(PFlag flags, Node *left);
 
-        Node *ParseFor(ParserScope scope);
+        Node *ParseFor();
 
         Node *ParseFn(ParserScope scope);
 
@@ -94,7 +95,7 @@ namespace argon::lang::parser {
 
         Node *ParseIDValue(NodeType type, const scanner::Position &start);
 
-        Node *ParseIF(ParserScope scope);
+        Node *ParseIF();
 
         Node *ParseImport();
 
@@ -106,7 +107,7 @@ namespace argon::lang::parser {
 
         Node *ParseLiteral();
 
-        Node *ParseLoop(ParserScope scope);
+        Node *ParseLoop();
 
         Node *ParseOOBCall();
 

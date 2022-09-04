@@ -380,7 +380,7 @@ Node *Parser::ParseDecls(ParserScope scope) {
             stmt = (ArObject *) this->ParseFn(scope);
             break;
         case TokenType::KW_STRUCT:
-            if (scope != ParserScope::MODULE && scope != ParserScope::FUNCTION)
+            if (scope != ParserScope::MODULE && scope != ParserScope::BLOCK)
                 throw ParserException("unexpected struct declaration");
 
             stmt = (ArObject *) this->ParseStructDecl();
@@ -617,7 +617,7 @@ Node *Parser::ParseExpressionList(PFlag flags, Node *left) {
     return (Node *) unary;
 }
 
-Node *Parser::ParseFor(ParserScope scope) {
+Node *Parser::ParseFor() {
     ARC init;
     ARC test;
     ARC inc;
@@ -665,7 +665,7 @@ Node *Parser::ParseFor(ParserScope scope) {
         test = (ArObject *) this->ParseExpression(0, PeekPrecedence(scanner::TokenType::LEFT_BRACES));
 
 
-    body = (ArObject *) this->ParseBlock(scope);
+    body = (ArObject *) this->ParseBlock(ParserScope::LOOP);
 
     auto *loop = LoopNew((Node *) init.Get(), (Node *) test.Get(), (Node *) inc.Get(), (Node *) body.Get(), type);
     if (loop == nullptr)
@@ -704,7 +704,7 @@ Node *Parser::ParseFn(ParserScope scope) {
     }
 
     if (scope != ParserScope::TRAIT || this->Match(TokenType::LEFT_BRACES))
-        body = (ArObject *) this->ParseBlock(ParserScope::FUNCTION);
+        body = (ArObject *) this->ParseBlock(ParserScope::BLOCK);
 
     auto *func = FunctionNew((String *) name.Get(), (List *) params.Get(), (Node *) body.Get());
     if (func == nullptr)
@@ -926,7 +926,7 @@ Node *Parser::ParseIDValue(NodeType type, const scanner::Position &start) {
     return (Node *) id;
 }
 
-Node *Parser::ParseIF(ParserScope scope) {
+Node *Parser::ParseIF() {
     ARC test;
     ARC body;
     ARC orelse;
@@ -938,15 +938,15 @@ Node *Parser::ParseIF(ParserScope scope) {
 
     test = (ArObject *) this->ParseExpression(0, PeekPrecedence(scanner::TokenType::LEFT_BRACES));
 
-    body = (ArObject *) this->ParseBlock(scope);
+    body = (ArObject *) this->ParseBlock(ParserScope::BLOCK);
 
     end = ((Node *) body.Get())->loc.end;
 
     if (this->MatchEat(TokenType::KW_ELIF)) {
-        orelse = (ArObject *) this->ParseIF(scope);
+        orelse = (ArObject *) this->ParseIF();
         end = ((Node *) orelse.Get())->loc.end;
     } else if (this->MatchEat(TokenType::KW_ELSE)) {
-        orelse = (ArObject *) this->ParseBlock(scope);
+        orelse = (ArObject *) this->ParseBlock(ParserScope::BLOCK);
         end = ((Node *) orelse.Get())->loc.end;
     }
 
@@ -1209,7 +1209,7 @@ Node *Parser::ParseLiteral() {
     return literal;
 }
 
-Node *Parser::ParseLoop(ParserScope scope) {
+Node *Parser::ParseLoop() {
     ARC test;
     ARC body;
 
@@ -1220,7 +1220,7 @@ Node *Parser::ParseLoop(ParserScope scope) {
     if (!this->Match(scanner::TokenType::LEFT_BRACES))
         test = (ArObject *) this->ParseExpression(0, PeekPrecedence(scanner::TokenType::LEFT_BRACES));
 
-    body = (ArObject *) this->ParseBlock(scope);
+    body = (ArObject *) this->ParseBlock(ParserScope::LOOP);
 
     auto *loop = LoopNew(nullptr, (Node *) test.Get(), nullptr, (Node *) body.Get(), NodeType::LOOP);
     if (loop == nullptr)
@@ -1396,16 +1396,16 @@ Node *Parser::ParseStatement(ParserScope scope) {
                     expr = (ArObject *) this->ParseImport();
                     break;
                 case TokenType::KW_FROM:
-                    if (scope == ParserScope::FUNCTION)
-                        throw ParserException("function does not support this import mode");
+                    if (scope == ParserScope::BLOCK)
+                        throw ParserException("from-import not supported in this context");
 
                     expr = (ArObject *) this->ParseFromImport();
                     break;
                 case TokenType::KW_FOR:
-                    expr = (ArObject *) this->ParseFor(scope);
+                    expr = (ArObject *) this->ParseFor();
                     break;
                 case TokenType::KW_LOOP:
-                    expr = (ArObject *) this->ParseLoop(scope);
+                    expr = (ArObject *) this->ParseLoop();
                     break;
                 case TokenType::KW_PANIC:
                     expr = (ArObject *) this->ParseUnaryStmt(NodeType::PANIC, true);
@@ -1414,14 +1414,27 @@ Node *Parser::ParseStatement(ParserScope scope) {
                     expr = (ArObject *) this->ParseUnaryStmt(NodeType::TRAP, true);
                     break;
                 case TokenType::KW_IF:
-                    expr = (ArObject *) this->ParseIF(scope);
+                    expr = (ArObject *) this->ParseIF();
                     break;
                 case TokenType::KW_SWITCH:
                     expr = (ArObject *) this->ParseSwitch();
                     break;
                 case TokenType::KW_BREAK:
+                    if (scope != ParserScope::LOOP || scope != ParserScope::SWITCH)
+                        throw ParserException("'break' not allowed outside loop or switch");
+
+                    expr = (ArObject *) this->ParseBCFLabel();
+                    break;
                 case TokenType::KW_CONTINUE:
+                    if (scope != ParserScope::LOOP)
+                        throw ParserException("'continue' not allowed outside of loop");
+
+                    expr = (ArObject *) this->ParseBCFLabel();
+                    break;
                 case TokenType::KW_FALLTHROUGH:
+                    if (scope != ParserScope::SWITCH)
+                        throw ParserException("'fallthrough' not allowed outside of switch");
+
                     expr = (ArObject *) this->ParseBCFLabel();
                     break;
                 default:
