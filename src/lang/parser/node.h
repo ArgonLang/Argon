@@ -19,6 +19,7 @@ namespace argon::lang::parser {
     argon::lang::scanner::Loc loc
 
     enum class NodeType {
+        ASSERT,
         ASSIGNMENT,
         BINARY,
         BLOCK,
@@ -27,25 +28,39 @@ namespace argon::lang::parser {
         ELVIS,
         ELLIPSIS,
         EXPRESSION,
+        FILE,
+        FOR,
+        FOREACH,
+        FUNC,
         IDENTIFIER,
+        IF,
+        IMPORT,
+        IMPORT_NAME,
         INDEX,
         INIT,
+        JUMP,
+        LABEL,
         LIST,
         LITERAL,
+        LOOP,
         KWARG,
-        FILE,
-        FUNC,
+        PANIC,
         REST,
+        RETURN,
         SAFE_EXPR,
         SELECTOR,
         SET,
         SLICE,
         STRUCT,
+        SWITCH,
+        SWITCH_CASE,
         TERNARY,
         TRAIT,
+        TRAP,
         TUPLE,
         UNARY,
-        UPDATE
+        UPDATE,
+        YIELD
     };
 
     struct Node {
@@ -103,6 +118,13 @@ namespace argon::lang::parser {
         Node *body;
     };
 
+    struct Import {
+        NODEOBJ_HEAD;
+
+        Node *module;
+        argon::vm::datatype::ArObject *names;
+    };
+
     struct Initialization {
         NODEOBJ_HEAD;
 
@@ -112,12 +134,28 @@ namespace argon::lang::parser {
         argon::vm::datatype::ArObject *values;
     };
 
+    struct Loop {
+        NODEOBJ_HEAD;
+
+        Node *init;
+        Node *test;
+        Node *inc;
+        Node *body;
+    };
+
     struct Subscript {
         NODEOBJ_HEAD;
 
         Node *expression;
         Node *start;
         Node *stop;
+    };
+
+    struct SwitchCase {
+        NODEOBJ_HEAD;
+
+        vm::datatype::ArObject *conditions;
+        vm::datatype::ArObject *body;
     };
 
     struct Test {
@@ -146,9 +184,15 @@ namespace argon::lang::parser {
 
     Function *FunctionNew(vm::datatype::String *name, vm::datatype::List *params, Node *body);
 
+    Import *ImportNew(Node *module, argon::vm::datatype::ArObject *names);
+
     Initialization *InitNew(Node *left, vm::datatype::ArObject *list, const scanner::Loc &loc, bool as_map);
 
+    Loop *LoopNew( Node *init,Node *test,Node *inc,Node *body, NodeType type);
+
     Subscript *SubscriptNew(Node *expr, Node *start, Node *stop);
+
+    SwitchCase *SwitchCaseNew(vm::datatype::ArObject *conditions, vm::datatype::ArObject *body, const scanner::Loc &loc);
 
     Test *TestNew(Node *test, Node *body, Node *orelse, NodeType type);
 

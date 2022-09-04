@@ -206,6 +206,35 @@ ArObject *Parser::ParseTraitList() {
     return list.Unwrap();
 }
 
+Node *Parser::ParseAssertion() {
+    ARC expr;
+    ARC msg;
+
+    Position start = this->tkcur_.loc.start;
+
+    this->Eat();
+    this->IgnoreNL();
+
+    expr = (ArObject *) this->ParseExpression(0, PeekPrecedence(scanner::TokenType::COMMA));
+
+    this->IgnoreNL();
+
+    if (this->MatchEat(scanner::TokenType::COMMA)) {
+        this->IgnoreNL();
+        msg = (ArObject *) this->ParseExpression(0, 0);
+    }
+
+    auto *asrt = BinaryNew((Node *) expr.Get(), (Node *) msg.Get(), TokenType::TK_NULL, NodeType::ASSERT);
+    if (asrt == nullptr)
+        throw DatatypeException();
+
+    asrt->loc = this->tkcur_.loc;
+
+    asrt->loc.start = start;
+
+    return (Node *) asrt;
+}
+
 Node *Parser::ParseAssignment(PFlag flags, Node *left) {
     TokenType type = TKCUR_TYPE;
 
@@ -243,6 +272,36 @@ Node *Parser::ParseAssignment(PFlag flags, Node *left) {
     Release(expr);
 
     return (Node *) assign;
+}
+
+Node *Parser::ParseBCFLabel() {
+    Loc loc = this->tkcur_.loc;
+    TokenType type = TKCUR_TYPE;
+    Node *id = nullptr;
+
+    this->Eat();
+
+    if (this->Match(TokenType::IDENTIFIER)) {
+        if (type == scanner::TokenType::KW_FALLTHROUGH)
+            throw ParserException("unexpected label after fallthrough");
+
+        id = this->ParseIdentifier();
+    }
+
+    auto *unary = UnaryNew((ArObject *) id, NodeType::JUMP, this->tkcur_.loc);
+    if (unary == nullptr) {
+        Release(id);
+        throw DatatypeException();
+    }
+
+    unary->loc = loc;
+
+    if (id != nullptr)
+        unary->loc.end = id->loc.end;
+
+    Release(id);
+
+    return (Node *) unary;
 }
 
 Node *Parser::ParseBlock(ParserScope scope) {
@@ -456,8 +515,12 @@ Node *Parser::ParseExpression() {
 
     expr = (ArObject *) this->ParseExpression(0, 0);
 
-    if (this->Match(TokenType::COLON))
+    if (this->Match(TokenType::COLON)) {
+        if (((Node *) expr.Get())->node_type != NodeType::IDENTIFIER)
+            throw ParserException("unexpected syntax");
+
         return (Node *) expr.Unwrap();
+    }
 
     // This trick allows us to check if there is an assignment expression under the Null Safety expression.
     if (((Node *) expr.Get())->node_type == NodeType::SAFE_EXPR) {
@@ -552,6 +615,65 @@ Node *Parser::ParseExpressionList(PFlag flags, Node *left) {
     unary->loc.end = end;
 
     return (Node *) unary;
+}
+
+Node *Parser::ParseFor(ParserScope scope) {
+    ARC init;
+    ARC test;
+    ARC inc;
+    ARC body;
+
+    Position start = this->tkcur_.loc.start;
+    NodeType type = NodeType::FOR;
+
+    this->Eat();
+    this->IgnoreNL();
+
+    if (!this->MatchEat(TokenType::SEMICOLON)) {
+        if (this->MatchEat(scanner::TokenType::KW_VAR))
+            init = (ArObject *) this->ParseVarDecl(false, false, false);
+        else
+            init = (ArObject *) this->ParseExpression();
+    }
+
+    this->IgnoreNL();
+
+    if (this->MatchEat(TokenType::KW_IN)) {
+        const auto *check = (Node *) init.Get();
+
+        if (check->node_type != NodeType::IDENTIFIER && check->node_type != NodeType::TUPLE)
+            throw ParserException("expected identifier or tuple before 'in' in foreach");
+
+        type = NodeType::FOREACH;
+    } else if (this->MatchEat(TokenType::SEMICOLON))
+        throw ParserException("expected ';' after for initialization");
+
+    this->IgnoreNL();
+
+    if (type == NodeType::FOR) {
+        test = (ArObject *) this->ParseExpression(0, PeekPrecedence(scanner::TokenType::EQUAL));
+
+        this->IgnoreNL();
+
+        if (this->MatchEat(TokenType::SEMICOLON))
+            throw ParserException("expected ';' after test");
+
+        this->IgnoreNL();
+
+        inc = (ArObject *) this->ParseExpression(0, PeekPrecedence(scanner::TokenType::LEFT_BRACES));
+    } else
+        test = (ArObject *) this->ParseExpression(0, PeekPrecedence(scanner::TokenType::LEFT_BRACES));
+
+
+    body = (ArObject *) this->ParseBlock(scope);
+
+    auto *loop = LoopNew((Node *) init.Get(), (Node *) test.Get(), (Node *) inc.Get(), (Node *) body.Get(), type);
+    if (loop == nullptr)
+        throw DatatypeException();
+
+    loop->loc.start = start;
+
+    return (Node *) loop;
 }
 
 Node *Parser::ParseFn(ParserScope scope) {
@@ -700,6 +822,78 @@ Node *Parser::ParseFnCall(PFlag flags, Node *left) {
     return (Node *) call;
 }
 
+Node *Parser::ParseFromImport() {
+    // from "x/y/z" import xyz as x
+    ARC import_list;
+    ARC mname;
+
+    Position start = this->tkcur_.loc.start;
+    Position end{};
+
+    this->Eat();
+    this->IgnoreNL();
+
+    if (!this->Match(TokenType::STRING))
+        throw ParserException("expected module path as string after 'from'");
+
+    mname = (ArObject *) this->ParseLiteral();
+
+    this->IgnoreNL();
+
+    if (!this->MatchEat(TokenType::KW_IMPORT))
+        throw ParserException("expected 'import' after module path");
+
+    import_list = (ArObject *) ListNew();
+    if (!import_list)
+        throw DatatypeException();
+
+    do {
+        ARC id;
+        ARC alias;
+
+        this->IgnoreNL();
+
+        if (!this->Match(TokenType::IDENTIFIER))
+            throw ParserException("expected name");
+
+        id = (ArObject *) this->ParseLiteral();
+
+        this->IgnoreNL();
+
+        if (this->MatchEat(TokenType::KW_AS)) {
+            if (!this->Match(TokenType::IDENTIFIER))
+                throw ParserException("expected alias after 'as' keyword");
+
+            alias = (ArObject *) this->ParseLiteral();
+        }
+
+        auto *binary = BinaryNew((Node *) id.Get(), (Node *) alias.Get(), scanner::TokenType::TK_NULL,
+                                 NodeType::IMPORT_NAME);
+        if (binary == nullptr)
+            throw DatatypeException();
+
+        if (!ListAppend((List *) import_list.Get(), (ArObject *) binary)) {
+            Release(binary);
+            throw DatatypeException();
+        }
+
+        end = binary->loc.end;
+
+        Release(binary);
+
+        this->IgnoreNL();
+    } while (this->MatchEat(scanner::TokenType::COMMA));
+
+    auto *imp = ImportNew((Node *) mname.Get(), import_list.Get());
+    if (imp == nullptr)
+        throw DatatypeException();
+
+    imp->loc.start = start;
+    imp->loc.end = end;
+
+    return (Node *) imp;
+}
+
 Node *Parser::ParseIdentifier() {
     if (!this->Match(TokenType::IDENTIFIER, TokenType::BLANK, TokenType::SELF))
         throw ParserException("expected identifier");
@@ -730,6 +924,98 @@ Node *Parser::ParseIDValue(NodeType type, const scanner::Position &start) {
     this->Eat();
 
     return (Node *) id;
+}
+
+Node *Parser::ParseIF(ParserScope scope) {
+    ARC test;
+    ARC body;
+    ARC orelse;
+
+    Position start = this->tkcur_.loc.start;
+    Position end{};
+
+    this->Eat();
+
+    test = (ArObject *) this->ParseExpression(0, PeekPrecedence(scanner::TokenType::LEFT_BRACES));
+
+    body = (ArObject *) this->ParseBlock(scope);
+
+    end = ((Node *) body.Get())->loc.end;
+
+    if (this->MatchEat(TokenType::KW_ELIF)) {
+        orelse = (ArObject *) this->ParseIF(scope);
+        end = ((Node *) orelse.Get())->loc.end;
+    } else if (this->MatchEat(TokenType::KW_ELSE)) {
+        orelse = (ArObject *) this->ParseBlock(scope);
+        end = ((Node *) orelse.Get())->loc.end;
+    }
+
+    auto *tnode = TestNew((Node *) test.Get(), (Node *) body.Get(), (Node *) orelse.Get(), NodeType::IF);
+    if (tnode == nullptr)
+        throw DatatypeException();
+
+    tnode->loc.start = start;
+    tnode->loc.end = end;
+
+    return (Node *) tnode;
+}
+
+Node *Parser::ParseImport() {
+    ARC path;
+    ARC import_list;
+
+    Position start = this->tkcur_.loc.start;
+    Position end{};
+
+    this->Eat();
+
+    import_list = (ArObject *) ListNew();
+    if (!import_list)
+        throw DatatypeException();
+
+    do {
+        ARC id;
+
+        this->IgnoreNL();
+
+        if (!this->Match(TokenType::STRING))
+            throw ParserException("expected path as string after 'import'");
+
+        path = (ArObject *) this->ParseLiteral();
+
+        this->IgnoreNL();
+
+        if (this->MatchEat(scanner::TokenType::KW_AS)) {
+            this->IgnoreNL();
+
+            id = (ArObject *) this->ParseIdentifier();
+        }
+
+        end = this->tkcur_.loc.end;
+
+        auto *binary = BinaryNew((Node *) path.Get(), (Node *) id.Get(), scanner::TokenType::TK_NULL,
+                                 NodeType::IMPORT_NAME);
+        if (binary == nullptr)
+            throw DatatypeException();
+
+        if (!ListAppend((List *) import_list.Get(), (ArObject *) binary)) {
+            Release(binary);
+            throw DatatypeException();
+        }
+
+        Release(binary);
+
+        this->IgnoreNL();
+    } while (this->MatchEat(scanner::TokenType::COMMA));
+
+    auto *imp = ImportNew(nullptr, import_list.Get());
+    if (imp == nullptr)
+        throw DatatypeException();
+
+    imp->loc.start = start;
+    imp->loc.end = end;
+
+    return (Node *) imp;
 }
 
 Node *Parser::ParseInfix(PFlag flags, Node *left) {
@@ -923,6 +1209,47 @@ Node *Parser::ParseLiteral() {
     return literal;
 }
 
+Node *Parser::ParseLoop(ParserScope scope) {
+    ARC test;
+    ARC body;
+
+    Position start = this->tkcur_.loc.start;
+
+    this->Eat();
+
+    if (!this->Match(scanner::TokenType::LEFT_BRACES))
+        test = (ArObject *) this->ParseExpression(0, PeekPrecedence(scanner::TokenType::LEFT_BRACES));
+
+    body = (ArObject *) this->ParseBlock(scope);
+
+    auto *loop = LoopNew(nullptr, (Node *) test.Get(), nullptr, (Node *) body.Get(), NodeType::LOOP);
+    if (loop == nullptr)
+        throw DatatypeException();
+
+    loop->loc.start = start;
+
+    return (Node *) loop;
+}
+
+Node *Parser::ParseOOBCall() {
+    Position start = this->tkcur_.loc.start;
+    TokenType type = TKCUR_TYPE;
+
+    auto *expr = this->ParseExpression(0, 0);
+
+    if (expr->node_type != NodeType::CALL) {
+        Release(expr);
+        throw ParserException(type == scanner::TokenType::KW_DEFER ?
+                              "defer expected call expression" :
+                              "spawn expected call expression");
+    }
+
+    expr->loc.start = start;
+    expr->token_type = type;
+
+    return expr;
+}
+
 Node *Parser::ParsePipeline(PFlag flags, Node *left) {
     Node *right;
 
@@ -1053,34 +1380,52 @@ Node *Parser::ParseStatement(ParserScope scope) {
         if (this->TokenInRange(TokenType::KEYWORD_BEGIN, TokenType::KEYWORD_END)) {
             switch (TKCUR_TYPE) {
                 case TokenType::KW_ASSERT:
+                    expr = (ArObject *) this->ParseAssertion();
                     break;
                 case TokenType::KW_DEFER:
                 case TokenType::KW_SPAWN:
+                    expr = (ArObject *) this->ParseOOBCall();
                     break;
                 case TokenType::KW_RETURN:
+                    expr = (ArObject *) this->ParseUnaryStmt(NodeType::RETURN, false);
                     break;
                 case TokenType::KW_YIELD:
+                    expr = (ArObject *) this->ParseUnaryStmt(NodeType::YIELD, true);
                     break;
                 case TokenType::KW_IMPORT:
+                    expr = (ArObject *) this->ParseImport();
                     break;
                 case TokenType::KW_FROM:
+                    if (scope == ParserScope::FUNCTION)
+                        throw ParserException("function does not support this import mode");
+
+                    expr = (ArObject *) this->ParseFromImport();
                     break;
                 case TokenType::KW_FOR:
+                    expr = (ArObject *) this->ParseFor(scope);
                     break;
                 case TokenType::KW_LOOP:
+                    expr = (ArObject *) this->ParseLoop(scope);
                     break;
                 case TokenType::KW_PANIC:
+                    expr = (ArObject *) this->ParseUnaryStmt(NodeType::PANIC, true);
                     break;
                 case TokenType::KW_TRAP:
+                    expr = (ArObject *) this->ParseUnaryStmt(NodeType::TRAP, true);
                     break;
                 case TokenType::KW_IF:
+                    expr = (ArObject *) this->ParseIF(scope);
                     break;
                 case TokenType::KW_SWITCH:
+                    expr = (ArObject *) this->ParseSwitch();
                     break;
                 case TokenType::KW_BREAK:
                 case TokenType::KW_CONTINUE:
                 case TokenType::KW_FALLTHROUGH:
+                    expr = (ArObject *) this->ParseBCFLabel();
                     break;
+                default:
+                    assert(false);
             }
         } else
             expr = (ArObject *) this->ParseExpression();
@@ -1098,7 +1443,11 @@ Node *Parser::ParseStatement(ParserScope scope) {
     } while (true);
 
     if (label) {
+        auto *lbl = BinaryNew((Node *) label.Get(), (Node *) expr.Get(), TokenType::TK_NULL, NodeType::LABEL);
+        if (lbl == nullptr)
+            throw DatatypeException();
 
+        return (Node *) lbl;
     }
 
     return (Node *) expr.Unwrap();
@@ -1176,6 +1525,127 @@ Node *Parser::ParseSubscript(PFlag flags, Node *left) {
     }
 
     return (Node *) slice;
+}
+
+Node *Parser::ParseSwitch() {
+    ARC cases;
+    ARC test;
+
+    bool def = false;
+
+    Position start = this->tkcur_.loc.start;
+
+    this->Eat();
+
+    if (!this->Match(TokenType::LEFT_BRACES))
+        test = (ArObject *) this->ParseExpression(0, PeekPrecedence(scanner::TokenType::LEFT_BRACES));
+
+    if (!this->MatchEat(TokenType::LEFT_BRACES))
+        throw ParserException("expected '{' after switch declaration");
+
+    this->IgnoreNL();
+
+    cases = (ArObject *) ListNew();
+    if (!cases)
+        throw DatatypeException();
+
+    while (this->Match(scanner::TokenType::KW_CASE, TokenType::KW_DEFAULT)) {
+        if (this->Match(scanner::TokenType::KW_DEFAULT)) {
+            if (def)
+                throw ParserException("default case already defined");
+
+            def = true;
+        }
+
+        auto *cs = this->ParseSwitchCase();
+
+        if (!ListAppend((List *) cases.Get(), (ArObject *) cs)) {
+            Release(cs);
+            throw DatatypeException();
+        }
+
+        Release(cs);
+        this->IgnoreNL();
+    }
+
+    auto *sw = TestNew((Node *) test.Get(), (Node *) cases.Get(), nullptr, NodeType::SWITCH);
+    if (sw == nullptr)
+        throw DatatypeException();
+
+    sw->loc = this->tkcur_.loc;
+    sw->loc.start = start;
+
+    if (!this->MatchEat(TokenType::RIGHT_BRACES))
+        throw ParserException("expected '}' after switch declaration");
+
+    return (Node *) sw;
+}
+
+Node *Parser::ParseSwitchCase() {
+    Loc loc = this->tkcur_.loc;
+    ARC conditions;
+    ARC body;
+
+    if (this->MatchEat(scanner::TokenType::KW_CASE)) {
+        conditions = (ArObject *) ListNew();
+        if (!conditions)
+            throw DatatypeException();
+
+        do {
+            this->IgnoreNL();
+
+            auto *cond = this->ParseExpression();
+
+            if (!ListAppend((List *) conditions.Get(), (ArObject *) cond)) {
+                Release(cond);
+                throw DatatypeException();
+            }
+
+            Release(cond);
+
+            this->IgnoreNL();
+        } while (this->MatchEat(scanner::TokenType::SEMICOLON));
+    } else if (!this->MatchEat(scanner::TokenType::KW_DEFAULT))
+        throw ParserException("expected 'case' or 'default' label");
+
+    if (!this->MatchEat(scanner::TokenType::COLON)) {
+        if (!conditions)
+            throw ParserException("expected ':' after 'default' label");
+
+        throw ParserException("expected ':' after 'case' label");
+    }
+
+    loc.end = this->tkcur_.loc.end;
+
+    this->IgnoreNL();
+
+    while (!this->Match(TokenType::KW_CASE, TokenType::KW_DEFAULT, TokenType::RIGHT_BRACES)) {
+        if (!body) {
+            body = (ArObject *) ListNew();
+            if (!body)
+                throw DatatypeException();
+        }
+
+        // TODO check scope!
+        auto *decl = this->ParseDecls(ParserScope::MODULE);
+
+        if (!ListAppend((List *) body.Get(), (ArObject *) decl)) {
+            Release(decl);
+            throw DatatypeException();
+        }
+
+        Release(decl);
+
+        loc.end = decl->loc.end;
+
+        this->IgnoreNL();
+    }
+
+    auto sc = SwitchCaseNew(conditions.Get(), body.Get(), loc);
+    if (sc == nullptr)
+        throw DatatypeException();
+
+    return (Node *) sc;
 }
 
 Node *Parser::ParseTernary(PFlag flags, Node *left) {
@@ -1322,6 +1792,32 @@ Node *Parser::ParseVarDeclTuple(const Token &token, bool visibility, bool consta
     assign->loc.end = end;
 
     return (Node *) assign;
+}
+
+Node *Parser::ParseUnaryStmt(NodeType type, bool expr_required) {
+    Loc loc = this->tkcur_.loc;
+    Node *expr = nullptr;
+
+    this->Eat();
+    this->IgnoreNL();
+
+    if (!this->Match(scanner::TokenType::END_OF_FILE, TokenType::SEMICOLON))
+        expr = this->ParseExpression(0, 0);
+    else if (expr_required)
+        throw ParserException("expected expression");
+
+    auto *unary = UnaryNew((ArObject *) expr, type, loc);
+    if (unary == nullptr) {
+        Release(expr);
+        throw DatatypeException();
+    }
+
+    if (expr != nullptr)
+        unary->loc.end = expr->loc.end;
+
+    Release(expr);
+
+    return (Node *) unary;
 }
 
 void Parser::Eat() {

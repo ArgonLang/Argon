@@ -112,6 +112,19 @@ Function *argon::lang::parser::FunctionNew(String *name, List *params, Node *bod
     return func;
 }
 
+Import *argon::lang::parser::ImportNew(Node *module, ArObject *names) {
+    auto *imp = NodeNew<Import>(&BinaryType, NodeType::IMPORT);
+
+    if (imp != nullptr) {
+        imp->module = IncRef(module);
+        imp->names = IncRef(names);
+
+        imp->loc = {};
+    }
+
+    return imp;
+}
+
 Assignment *argon::lang::parser::AssignmentNew(ArObject *name, bool constant, bool pub, bool weak) {
     auto *assign = NodeNew<Assignment>(&BinaryType, NodeType::ASSIGNMENT);
 
@@ -140,7 +153,11 @@ Binary *argon::lang::parser::BinaryNew(Node *left, Node *right, scanner::TokenTy
         binary->token_type = token;
 
         binary->loc.start = left->loc.start;
-        binary->loc.end = right->loc.end;
+
+        binary->loc.end = {};
+
+        if (right != nullptr)
+            binary->loc.end = right->loc.end;
     }
 
     return binary;
@@ -193,6 +210,23 @@ Initialization *argon::lang::parser::InitNew(Node *left, ArObject *list, const s
     return init;
 }
 
+Loop *argon::lang::parser::LoopNew(Node *init, Node *test, Node *inc, Node *body, NodeType type) {
+    auto *loop = NodeNew<Loop>(&UnaryType, type);
+
+    if (loop != nullptr) {
+        loop->init = IncRef(init);
+        loop->test = IncRef(test);
+        loop->inc = IncRef(inc);
+        loop->body = IncRef(body);
+
+        loop->loc = {};
+
+        loop->loc.end = loop->body->loc.end;
+    }
+
+    return loop;
+}
+
 Subscript *argon::lang::parser::SubscriptNew(Node *expr, Node *start, Node *stop) {
     auto *sub = NodeNew<Subscript>(&UnaryType, stop == nullptr ? NodeType::INDEX : NodeType::SLICE);
 
@@ -205,6 +239,19 @@ Subscript *argon::lang::parser::SubscriptNew(Node *expr, Node *start, Node *stop
     }
 
     return sub;
+}
+
+SwitchCase *argon::lang::parser::SwitchCaseNew(ArObject *conditions, ArObject *body, const scanner::Loc &loc) {
+    auto *sw = NodeNew<SwitchCase>(&UnaryType, NodeType::SWITCH_CASE);
+
+    if (sw != nullptr) {
+        sw->conditions = IncRef(conditions);
+        sw->body = IncRef(body);
+
+        sw->loc = loc;
+    }
+
+    return sw;
 }
 
 Test *argon::lang::parser::TestNew(Node *test, Node *body, Node *orelse, NodeType type) {

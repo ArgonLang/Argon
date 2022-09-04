@@ -62,7 +62,11 @@ namespace argon::lang::parser {
 
         argon::vm::datatype::ArObject *ParseTraitList();
 
+        Node *ParseAssertion();
+
         Node *ParseAssignment(PFlag flags, Node *left);
+
+        Node *ParseBCFLabel();
 
         Node *ParseBlock(ParserScope scope);
 
@@ -78,13 +82,21 @@ namespace argon::lang::parser {
 
         Node *ParseExpressionList(PFlag flags, Node *left);
 
+        Node *ParseFor(ParserScope scope);
+
         Node *ParseFn(ParserScope scope);
 
         Node *ParseFnCall(PFlag flags, Node *left);
 
+        Node *ParseFromImport();
+
         Node *ParseIdentifier();
 
         Node *ParseIDValue(NodeType type, const scanner::Position &start);
+
+        Node *ParseIF(ParserScope scope);
+
+        Node *ParseImport();
 
         Node *ParseInfix(PFlag flags, Node *left);
 
@@ -93,6 +105,10 @@ namespace argon::lang::parser {
         Node *ParseList();
 
         Node *ParseLiteral();
+
+        Node *ParseLoop(ParserScope scope);
+
+        Node *ParseOOBCall();
 
         Node *ParsePipeline(PFlag flags, Node *left);
 
@@ -110,6 +126,10 @@ namespace argon::lang::parser {
 
         Node *ParseSubscript(PFlag flags, Node *left);
 
+        Node *ParseSwitch();
+
+        Node *ParseSwitchCase();
+
         Node *ParseTernary(PFlag flags, Node *left);
 
         Node *ParseTraitDecl();
@@ -117,6 +137,8 @@ namespace argon::lang::parser {
         Node *ParseVarDecl(bool visibility, bool constant, bool weak);
 
         Node *ParseVarDeclTuple(const scanner::Token &token, bool visibility, bool constant, bool weak);
+
+        Node *ParseUnaryStmt(NodeType type, bool expr_required);
 
         [[nodiscard]] NudMeth LookupNud(lang::scanner::TokenType token) const;
 
