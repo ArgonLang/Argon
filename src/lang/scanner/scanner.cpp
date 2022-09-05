@@ -16,7 +16,9 @@ struct KwToken {
 
 constexpr KwToken kw2tktype[] = {
         {"as",          TokenType::KW_AS},
+        {"async",       TokenType::KW_ASYNC},
         {"assert",      TokenType::KW_ASSERT},
+        {"await",       TokenType::KW_AWAIT},
         {"break",       TokenType::KW_BREAK},
         {"case",        TokenType::KW_CASE},
         {"continue",    TokenType::KW_CONTINUE},

@@ -41,7 +41,9 @@ namespace argon::lang::scanner {
 
         KEYWORD_BEGIN,
         KW_AS,
+        KW_ASYNC,
         KW_ASSERT,
+        KW_AWAIT,
         KW_BREAK,
         KW_CASE,
         KW_CONTINUE,
