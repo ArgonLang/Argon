@@ -126,8 +126,11 @@ namespace argon::lang::scanner {
 
         PLUS_PLUS,
         MINUS_MINUS,
+
+        COMMENT_BEGIN,
         COMMENT,
         COMMENT_INLINE,
+        COMMENT_END,
 
         ELLIPSIS
     };

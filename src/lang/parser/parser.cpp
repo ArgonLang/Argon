@@ -348,6 +348,8 @@ Node *Parser::ParseArrowOrTuple() {
                 throw ParserException("expression not allowed here");
         }
 
+        this->EnterDocContext();
+
         auto *body = this->ParseBlock(ParserScope::BLOCK);
 
         auto *func = FunctionNew(nullptr, (List *) items.Get(), body, false);
@@ -357,8 +359,11 @@ Node *Parser::ParseArrowOrTuple() {
         }
 
         func->loc.start = start;
+        func->doc = this->doc_string_->Unwrap();
 
         Release(body);
+
+        this->ExitDocContext();
 
         return (Node *) func;
     }
@@ -814,6 +819,8 @@ Node *Parser::ParseFn(ParserScope scope, bool pub) {
             throw ParserException("expected ')' after function params");
     }
 
+    this->EnterDocContext();
+
     if (scope != ParserScope::TRAIT || this->Match(TokenType::LEFT_BRACES))
         body = (ArObject *) this->ParseBlock(ParserScope::BLOCK);
 
@@ -822,6 +829,9 @@ Node *Parser::ParseFn(ParserScope scope, bool pub) {
         throw DatatypeException();
 
     func->loc.start = start;
+    func->doc = this->doc_string_->Unwrap();
+
+    this->ExitDocContext();
 
     return (Node *) func;
 }
@@ -1605,7 +1615,7 @@ Node *Parser::ParseStructDecl() {
     this->Eat();
 
     if (!this->Match(TokenType::IDENTIFIER))
-        throw ParserException("expected identifier after struct keyword");
+        throw ParserException("expected identifier after 'struct' keyword");
 
     name = (ArObject *) StringNew((const char *) this->tkcur_.buffer, this->tkcur_.length);
 
@@ -1620,6 +1630,8 @@ Node *Parser::ParseStructDecl() {
         this->IgnoreNL();
     }
 
+    this->EnterDocContext();
+
     block = (ArObject *) this->ParseBlock(ParserScope::STRUCT);
 
     auto *cstr = ConstructNew((String *) name.Get(), (List *) impls.Get(), (Node *) block.Get(), NodeType::STRUCT);
@@ -1627,6 +1639,9 @@ Node *Parser::ParseStructDecl() {
         throw DatatypeException();
 
     cstr->loc.start = start;
+    cstr->doc = this->doc_string_->Unwrap();
+
+    this->ExitDocContext();
 
     return (Node *) cstr;
 }
@@ -1767,8 +1782,7 @@ Node *Parser::ParseSwitchCase() {
                 throw DatatypeException();
         }
 
-        // TODO check scope!
-        auto *decl = this->ParseDecls(ParserScope::MODULE);
+        auto *decl = this->ParseDecls(ParserScope::SWITCH);
 
         if (!ListAppend((List *) body.Get(), (ArObject *) decl)) {
             Release(decl);
@@ -1826,7 +1840,7 @@ Node *Parser::ParseTraitDecl() {
     this->Eat();
 
     if (!this->Match(TokenType::IDENTIFIER))
-        throw ParserException("expected identifier after struct keyword");
+        throw ParserException("expected identifier after 'trait' keyword");
 
     name = (ArObject *) StringNew((const char *) this->tkcur_.buffer, this->tkcur_.length);
 
@@ -1841,6 +1855,8 @@ Node *Parser::ParseTraitDecl() {
         this->IgnoreNL();
     }
 
+    this->EnterDocContext();
+
     block = (ArObject *) this->ParseBlock(ParserScope::TRAIT);
 
     auto *cstr = ConstructNew((String *) name.Get(), (List *) impls.Get(), (Node *) block.Get(), NodeType::TRAIT);
@@ -1848,6 +1864,9 @@ Node *Parser::ParseTraitDecl() {
         throw DatatypeException();
 
     cstr->loc.start = start;
+    cstr->doc = this->doc_string_->Unwrap();
+
+    this->ExitDocContext();
 
     return (Node *) cstr;
 }
@@ -1965,8 +1984,25 @@ void Parser::Eat() {
     if (this->tkcur_.type == TokenType::END_OF_FILE)
         return;
 
-    if (!this->scanner_.NextToken(&this->tkcur_))
-        throw ScannerException();
+    do {
+        if (!this->scanner_.NextToken(&this->tkcur_))
+            throw ScannerException();
+
+        if (this->doc_string_->uninterrupted &&
+            this->TokenInRange(TokenType::COMMENT_BEGIN, TokenType::COMMENT_END)) {
+            this->doc_string_->AddString(this->tkcur_);
+        }
+    } while (this->TokenInRange(scanner::TokenType::COMMENT_BEGIN, scanner::TokenType::COMMENT_END));
+
+    this->doc_string_->uninterrupted = false;
+}
+
+void Parser::EnterDocContext() {
+    auto *ds = DocStringNew(this->doc_string_);
+    if (ds == nullptr)
+        throw DatatypeException();
+
+    this->doc_string_ = ds;
 }
 
 void Parser::IgnoreNL() {
@@ -1978,6 +2014,7 @@ void Parser::IgnoreNL() {
 
 File *Parser::Parse() noexcept {
     ARC result;
+    ARC doc;
 
     Position start{};
     Position end{};
@@ -1988,6 +2025,8 @@ File *Parser::Parse() noexcept {
         return nullptr;
 
     try {
+        this->EnterDocContext();
+
         this->Eat();
         this->IgnoreNL();
 
@@ -2004,6 +2043,10 @@ File *Parser::Parse() noexcept {
             end = this->tkcur_.loc.end;
             this->IgnoreNL();
         }
+
+        doc = (ArObject *) this->doc_string_->Unwrap();
+
+        this->ExitDocContext();
     } catch (const ParserException &) {
         assert(false);
     }
@@ -2012,6 +2055,7 @@ File *Parser::Parse() noexcept {
     if (file != nullptr) {
         file->loc.start = start;
         file->loc.end = end;
+        file->doc = (String *) doc.Unwrap();
     }
 
     Release(statements);

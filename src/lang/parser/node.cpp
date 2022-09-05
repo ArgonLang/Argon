@@ -103,6 +103,7 @@ Function *argon::lang::parser::FunctionNew(String *name, List *params, Node *bod
         func->pub = pub;
 
         func->name = IncRef(name);
+        func->doc = nullptr;
         func->params = IncRef(params);
         func->body = IncRef(body);
 
@@ -188,6 +189,7 @@ Construct *argon::lang::parser::ConstructNew(String *name, List *impls, Node *bo
 
     if (cstr != nullptr) {
         cstr->name = IncRef(name);
+        cstr->doc = nullptr;
         cstr->impls = IncRef(impls);
         cstr->body = IncRef(body);
 

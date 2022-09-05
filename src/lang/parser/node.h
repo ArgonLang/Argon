@@ -99,6 +99,8 @@ namespace argon::lang::parser {
         NODEOBJ_HEAD;
 
         vm::datatype::String *name;
+        vm::datatype::String *doc;
+
         vm::datatype::List *impls;
         Node *body;
     };
@@ -107,6 +109,8 @@ namespace argon::lang::parser {
         NODEOBJ_HEAD;
 
         const char *filename;
+
+        vm::datatype::String *doc;
 
         vm::datatype::List *statements;
     };
@@ -118,6 +122,8 @@ namespace argon::lang::parser {
         bool pub;
 
         vm::datatype::String *name;
+        vm::datatype::String *doc;
+
         vm::datatype::List *params;
         Node *body;
     };

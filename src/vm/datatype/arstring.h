@@ -43,6 +43,25 @@ namespace argon::vm::datatype {
     extern const TypeInfo *type_string_;
 
     /**
+     * @brief Concatenate two string.
+     *
+     * @param left Left string.
+     * @param right Right string.
+     * @return A pointer to an Argon string object, otherwise nullptr.
+     */
+    String *StringConcat(String *left, String right);
+
+    /**
+     * @brief Concatenate Argon string to a C-string.
+     *
+     * @param left Argon string.
+     * @param right C-string.
+     * @param length Length of C-string.
+     * @return A pointer to an Argon string object, otherwise nullptr.
+     */
+    String *StringConcat(String *left, const char *string, ArSize length);
+
+    /**
      * @brief Create a new string using a template.
      *
      * @param format Printf style format string.

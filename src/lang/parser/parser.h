@@ -7,11 +7,10 @@
 
 #include <lang/scanner/scanner.h>
 
+#include "docstring.h"
 #include "node.h"
 
 namespace argon::lang::parser {
-    using PFlag = int;
-
     enum class ParserScope {
         BLOCK,
         LOOP,
@@ -28,6 +27,8 @@ namespace argon::lang::parser {
         lang::scanner::Scanner &scanner_;
 
         const char *filename_;
+
+        DocString *doc_string_;
 
         lang::scanner::Token tkcur_;
 
@@ -153,11 +154,22 @@ namespace argon::lang::parser {
 
         void Eat();
 
+        void EnterDocContext();
+
+        void ExitDocContext() {
+            this->doc_string_ = DocStringDel(this->doc_string_);
+        }
+
         void IgnoreNL();
 
     public:
         Parser(const char *filename, lang::scanner::Scanner &scanner) noexcept: scanner_(scanner),
                                                                                 filename_(filename) {}
+
+        ~Parser() {
+            while (this->doc_string_ != nullptr)
+                this->doc_string_ = DocStringDel(this->doc_string_);
+        }
 
         File *Parse() noexcept;
     };
