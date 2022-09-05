@@ -114,6 +114,9 @@ namespace argon::lang::parser {
     struct Function {
         NODEOBJ_HEAD;
 
+        bool async;
+        bool pub;
+
         vm::datatype::String *name;
         vm::datatype::List *params;
         Node *body;
@@ -183,17 +186,18 @@ namespace argon::lang::parser {
 
     File *FileNew(const char *filename, vm::datatype::List *statements);
 
-    Function *FunctionNew(vm::datatype::String *name, vm::datatype::List *params, Node *body);
+    Function *FunctionNew(vm::datatype::String *name, vm::datatype::List *params, Node *body, bool pub);
 
     Import *ImportNew(Node *module, argon::vm::datatype::ArObject *names);
 
     Initialization *InitNew(Node *left, vm::datatype::ArObject *list, const scanner::Loc &loc, bool as_map);
 
-    Loop *LoopNew( Node *init,Node *test,Node *inc,Node *body, NodeType type);
+    Loop *LoopNew(Node *init, Node *test, Node *inc, Node *body, NodeType type);
 
     Subscript *SubscriptNew(Node *expr, Node *start, Node *stop);
 
-    SwitchCase *SwitchCaseNew(vm::datatype::ArObject *conditions, vm::datatype::ArObject *body, const scanner::Loc &loc);
+    SwitchCase *
+    SwitchCaseNew(vm::datatype::ArObject *conditions, vm::datatype::ArObject *body, const scanner::Loc &loc);
 
     Test *TestNew(Node *test, Node *body, Node *orelse, NodeType type);
 

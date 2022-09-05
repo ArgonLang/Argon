@@ -94,10 +94,14 @@ File *argon::lang::parser::FileNew(const char *filename, List *statements) {
     return file;
 }
 
-Function *argon::lang::parser::FunctionNew(String *name, List *params, Node *body) {
+Function *argon::lang::parser::FunctionNew(String *name, List *params, Node *body, bool pub) {
     auto *func = NodeNew<Function>(&BinaryType, NodeType::FUNC);
 
     if (func != nullptr) {
+
+        func->async = false;
+        func->pub = pub;
+
         func->name = IncRef(name);
         func->params = IncRef(params);
         func->body = IncRef(body);

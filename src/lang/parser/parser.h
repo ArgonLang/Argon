@@ -59,13 +59,19 @@ namespace argon::lang::parser {
 
         [[nodiscard]] LedMeth LookupLed(lang::scanner::TokenType token) const;
 
-        argon::vm::datatype::ArObject *ParseParamList();
+        argon::vm::datatype::ArObject *ParseParamList(bool parse_expr);
 
         argon::vm::datatype::ArObject *ParseTraitList();
 
         Node *ParseAssertion();
 
         Node *ParseAssignment(Node *left);
+
+        Node *ParseAsync(ParserScope scope, bool pub);
+
+        Node *ParseAsync();
+
+        Node *ParseArrowOrTuple();
 
         Node *ParseBCFLabel();
 
@@ -85,7 +91,7 @@ namespace argon::lang::parser {
 
         Node *ParseFor();
 
-        Node *ParseFn(ParserScope scope);
+        Node *ParseFn(ParserScope scope, bool pub);
 
         Node *ParseFnCall(Node *left);
 

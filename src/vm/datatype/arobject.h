@@ -213,7 +213,7 @@ namespace argon::vm::datatype {
 
     template<typename T>
     T *MakeObject(TypeInfo *type) {
-        auto *ret = MakeObject<T>((const TypeInfo *) type);
+        auto *ret = MakeObject < T > ((const TypeInfo *) type);
         if (ret != nullptr)
             IncRef(type);
 
@@ -245,6 +245,8 @@ namespace argon::vm::datatype {
 
     public:
         ARC() = default;
+
+        explicit ARC(ArObject *object) : object_(object) {}
 
         ARC(ARC &other) = delete;
 

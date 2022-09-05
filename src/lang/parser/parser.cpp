@@ -105,6 +105,8 @@ Parser::NudMeth Parser::LookupNud(lang::scanner::TokenType token) const {
         return &Parser::ParseLiteral;
 
     switch (token) {
+        case scanner::TokenType::KW_ASYNC:
+            return &Parser::ParseAsync;
         case TokenType::IDENTIFIER:
         case TokenType::BLANK:
         case TokenType::SELF:
@@ -114,6 +116,8 @@ Parser::NudMeth Parser::LookupNud(lang::scanner::TokenType token) const {
         case TokenType::EXCLAMATION:
         case TokenType::TILDE:
             return &Parser::ParsePrefix;
+        case TokenType::LEFT_ROUND:
+            return &Parser::ParseArrowOrTuple;
         case TokenType::LEFT_SQUARE:
             return &Parser::ParseList;
         case TokenType::LEFT_BRACES:
@@ -123,7 +127,7 @@ Parser::NudMeth Parser::LookupNud(lang::scanner::TokenType token) const {
     }
 }
 
-ArObject *Parser::ParseParamList() {
+ArObject *Parser::ParseParamList(bool parse_expr) {
     ARC params;
     ARC tmp;
 
@@ -173,7 +177,10 @@ ArObject *Parser::ParseParamList() {
             if (mode > 0)
                 throw ParserException("");
 
-            tmp = (ArObject *) this->ParseIdentifier();
+            if (parse_expr)
+                tmp = (ArObject *) this->ParseExpression(PeekPrecedence(scanner::TokenType::COMMA));
+            else
+                tmp = (ArObject *) this->ParseIdentifier();
         }
 
         if (!ListAppend((List *) params.Get(), tmp.Get()))
@@ -278,6 +285,103 @@ Node *Parser::ParseAssignment(Node *left) {
     return (Node *) assign;
 }
 
+Node *Parser::ParseAsync(ParserScope scope, bool pub) {
+    Position start = this->tkcur_.loc.start;
+
+    this->Eat();
+    this->IgnoreNL();
+
+    auto *func = (Function *) this->ParseFn(scope, pub);
+
+    func->async = true;
+    func->loc.start = start;
+
+    return (Node *) func;
+}
+
+Node *Parser::ParseAsync() {
+    Position start = this->tkcur_.loc.start;
+    Node *expr;
+
+    this->Eat();
+    this->IgnoreNL();
+
+    expr = this->ParseExpression(PeekPrecedence(TokenType::LEFT_ROUND));
+    if (expr->node_type != NodeType::FUNC)
+        throw ParserException("expected function after async keyword");
+
+    auto *func = (Function *) expr;
+    func->async = true;
+    func->loc.start = start;
+
+    return expr;
+}
+
+Node *Parser::ParseArrowOrTuple() {
+    ARC items;
+
+    Position start = this->tkcur_.loc.start;
+    Position end{};
+
+    this->Eat();
+    this->IgnoreNL();
+
+    items = this->ParseParamList(true);
+
+    this->IgnoreNL();
+
+    end = this->tkcur_.loc.end;
+
+    if (!this->MatchEat(scanner::TokenType::RIGHT_ROUND))
+        throw ParserException("expected ')' after tuple/function definition");
+
+    this->IgnoreNL();
+
+    if (this->MatchEat(scanner::TokenType::FAT_ARROW)) {
+        // Check param list
+        const auto *list = (List *) items.Get();
+        for (ArSize i = 0; i < list->length; i++) {
+            const auto *node = (Node *) list->objects[i];
+            if (node->node_type != NodeType::IDENTIFIER
+                && node->node_type != NodeType::REST
+                && node->node_type != NodeType::KWARG)
+                throw ParserException("expression not allowed here");
+        }
+
+        auto *body = this->ParseBlock(ParserScope::BLOCK);
+
+        auto *func = FunctionNew(nullptr, (List *) items.Get(), body, false);
+        if (func == nullptr) {
+            Release(body);
+            throw DatatypeException();
+        }
+
+        func->loc.start = start;
+
+        Release(body);
+
+        return (Node *) func;
+    }
+
+    const auto *list = (List *) items.Get();
+    for (ArSize i = 0; i < list->length; i++) {
+        const auto *node = (Node *) list->objects[i];
+        if (node->node_type == NodeType::REST)
+            throw ParserException("unexpected rest operator");
+        else if (node->node_type == NodeType::KWARG)
+            throw ParserException("unexpected kwarg operator");
+    }
+
+    auto *unary = UnaryNew(items.Get(), NodeType::TUPLE, this->tkcur_.loc);
+    if (unary == nullptr)
+        throw DatatypeException();
+
+    unary->loc.start = start;
+    unary->loc.end = end;
+
+    return (Node *) unary;
+}
+
 Node *Parser::ParseBCFLabel() {
     Loc loc = this->tkcur_.loc;
     TokenType type = TKCUR_TYPE;
@@ -380,8 +484,11 @@ Node *Parser::ParseDecls(ParserScope scope) {
             this->IgnoreNL();
             stmt = (ArObject *) this->ParseVarDecl(pub, true, false);
             break;
+        case TokenType::KW_ASYNC:
+            stmt = (ArObject *) this->ParseAsync(scope, pub);
+            break;
         case TokenType::KW_FUNC:
-            stmt = (ArObject *) this->ParseFn(scope);
+            stmt = (ArObject *) this->ParseFn(scope, pub);
             break;
         case TokenType::KW_STRUCT:
             if (scope != ParserScope::MODULE && scope != ParserScope::BLOCK)
@@ -680,7 +787,7 @@ Node *Parser::ParseFor() {
     return (Node *) loop;
 }
 
-Node *Parser::ParseFn(ParserScope scope) {
+Node *Parser::ParseFn(ParserScope scope, bool pub) {
     ARC name;
     ARC params;
     ARC body;
@@ -699,7 +806,7 @@ Node *Parser::ParseFn(ParserScope scope) {
     this->Eat();
 
     if (this->MatchEat(TokenType::LEFT_ROUND)) {
-        params = this->ParseParamList();
+        params = this->ParseParamList(false);
 
         this->IgnoreNL();
 
@@ -710,7 +817,7 @@ Node *Parser::ParseFn(ParserScope scope) {
     if (scope != ParserScope::TRAIT || this->Match(TokenType::LEFT_BRACES))
         body = (ArObject *) this->ParseBlock(ParserScope::BLOCK);
 
-    auto *func = FunctionNew((String *) name.Get(), (List *) params.Get(), (Node *) body.Get());
+    auto *func = FunctionNew((String *) name.Get(), (List *) params.Get(), (Node *) body.Get(), pub);
     if (func == nullptr)
         throw DatatypeException();
 
@@ -1256,9 +1363,15 @@ Node *Parser::ParseOOBCall() {
 
     if (expr->node_type != NodeType::CALL) {
         Release(expr);
-        throw ParserException(type == scanner::TokenType::KW_DEFER ?
-                              "defer expected call expression" :
-                              "spawn expected call expression");
+
+        if (type == scanner::TokenType::KW_AWAIT)
+            throw ParserException("await expected call expression");
+        else if (type == scanner::TokenType::KW_DEFER)
+            throw ParserException("defer expected call expression");
+        else if (type == scanner::TokenType::KW_SPAWN)
+            throw ParserException("spawn expected call expression");
+        else
+            assert(false);
     }
 
     expr->loc.start = start;
@@ -1394,71 +1507,69 @@ Node *Parser::ParseStatement(ParserScope scope) {
     ARC label;
 
     do {
-        if (this->TokenInRange(TokenType::KEYWORD_BEGIN, TokenType::KEYWORD_END)) {
-            switch (TKCUR_TYPE) {
-                case TokenType::KW_ASSERT:
-                    expr = (ArObject *) this->ParseAssertion();
-                    break;
-                case TokenType::KW_DEFER:
-                case TokenType::KW_SPAWN:
-                    expr = (ArObject *) this->ParseOOBCall();
-                    break;
-                case TokenType::KW_RETURN:
-                    expr = (ArObject *) this->ParseUnaryStmt(NodeType::RETURN, false);
-                    break;
-                case TokenType::KW_YIELD:
-                    expr = (ArObject *) this->ParseUnaryStmt(NodeType::YIELD, true);
-                    break;
-                case TokenType::KW_IMPORT:
-                    expr = (ArObject *) this->ParseImport();
-                    break;
-                case TokenType::KW_FROM:
-                    if (scope == ParserScope::BLOCK)
-                        throw ParserException("from-import not supported in this context");
+        switch (TKCUR_TYPE) {
+            case TokenType::KW_ASSERT:
+                expr = (ArObject *) this->ParseAssertion();
+                break;
+            case TokenType::KW_AWAIT:
+            case TokenType::KW_DEFER:
+            case TokenType::KW_SPAWN:
+                expr = (ArObject *) this->ParseOOBCall();
+                break;
+            case TokenType::KW_RETURN:
+                expr = (ArObject *) this->ParseUnaryStmt(NodeType::RETURN, false);
+                break;
+            case TokenType::KW_YIELD:
+                expr = (ArObject *) this->ParseUnaryStmt(NodeType::YIELD, true);
+                break;
+            case TokenType::KW_IMPORT:
+                expr = (ArObject *) this->ParseImport();
+                break;
+            case TokenType::KW_FROM:
+                if (scope == ParserScope::BLOCK)
+                    throw ParserException("from-import not supported in this context");
 
-                    expr = (ArObject *) this->ParseFromImport();
-                    break;
-                case TokenType::KW_FOR:
-                    expr = (ArObject *) this->ParseFor();
-                    break;
-                case TokenType::KW_LOOP:
-                    expr = (ArObject *) this->ParseLoop();
-                    break;
-                case TokenType::KW_PANIC:
-                    expr = (ArObject *) this->ParseUnaryStmt(NodeType::PANIC, true);
-                    break;
-                case TokenType::KW_TRAP:
-                    expr = (ArObject *) this->ParseUnaryStmt(NodeType::TRAP, true);
-                    break;
-                case TokenType::KW_IF:
-                    expr = (ArObject *) this->ParseIF();
-                    break;
-                case TokenType::KW_SWITCH:
-                    expr = (ArObject *) this->ParseSwitch();
-                    break;
-                case TokenType::KW_BREAK:
-                    if (scope != ParserScope::LOOP && scope != ParserScope::SWITCH)
-                        throw ParserException("'break' not allowed outside loop or switch");
+                expr = (ArObject *) this->ParseFromImport();
+                break;
+            case TokenType::KW_FOR:
+                expr = (ArObject *) this->ParseFor();
+                break;
+            case TokenType::KW_LOOP:
+                expr = (ArObject *) this->ParseLoop();
+                break;
+            case TokenType::KW_PANIC:
+                expr = (ArObject *) this->ParseUnaryStmt(NodeType::PANIC, true);
+                break;
+            case TokenType::KW_TRAP:
+                expr = (ArObject *) this->ParseUnaryStmt(NodeType::TRAP, true);
+                break;
+            case TokenType::KW_IF:
+                expr = (ArObject *) this->ParseIF();
+                break;
+            case TokenType::KW_SWITCH:
+                expr = (ArObject *) this->ParseSwitch();
+                break;
+            case TokenType::KW_BREAK:
+                if (scope != ParserScope::LOOP && scope != ParserScope::SWITCH)
+                    throw ParserException("'break' not allowed outside loop or switch");
 
-                    expr = (ArObject *) this->ParseBCFLabel();
-                    break;
-                case TokenType::KW_CONTINUE:
-                    if (scope != ParserScope::LOOP)
-                        throw ParserException("'continue' not allowed outside of loop");
+                expr = (ArObject *) this->ParseBCFLabel();
+                break;
+            case TokenType::KW_CONTINUE:
+                if (scope != ParserScope::LOOP)
+                    throw ParserException("'continue' not allowed outside of loop");
 
-                    expr = (ArObject *) this->ParseBCFLabel();
-                    break;
-                case TokenType::KW_FALLTHROUGH:
-                    if (scope != ParserScope::SWITCH)
-                        throw ParserException("'fallthrough' not allowed outside of switch");
+                expr = (ArObject *) this->ParseBCFLabel();
+                break;
+            case TokenType::KW_FALLTHROUGH:
+                if (scope != ParserScope::SWITCH)
+                    throw ParserException("'fallthrough' not allowed outside of switch");
 
-                    expr = (ArObject *) this->ParseBCFLabel();
-                    break;
-                default:
-                    assert(false);
-            }
-        } else
-            expr = (ArObject *) this->ParseExpression();
+                expr = (ArObject *) this->ParseBCFLabel();
+                break;
+            default:
+                expr = (ArObject *) this->ParseExpression();
+        }
 
         if (((Node *) expr.Get())->node_type != NodeType::IDENTIFIER || !this->MatchEat(TokenType::COLON))
             break;
