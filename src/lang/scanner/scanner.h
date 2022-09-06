@@ -33,6 +33,7 @@ namespace argon::lang::scanner {
         INVALID_STR,
         INVALID_TK,
         INVALID_UCHR,
+        INVALID_U_NUM,
         NOMEM,
         GOOD
     };
@@ -96,15 +97,44 @@ namespace argon::lang::scanner {
         int UnderflowInteractive();
 
     public:
+        /**
+         * @brief Initialize the scanner using a string and length.
+         *
+         * @param str Pointer to the string that contains the source code.
+         * @param length Length of the string that contains the source code.
+         */
         Scanner(const char *str, unsigned long length) noexcept: ibuf_((unsigned char *) str, length) {}
 
+        /**
+         * @brief Initialize the scanner using a string.
+         *
+         * @param str Pointer to the string that contains the source code.
+         */
         explicit Scanner(const char *str) noexcept: Scanner(str, strlen(str)) {};
 
+        /**
+         * @brief Initialize the scanner using a file to read from and prompts to show (interactive mode).
+         *
+         * @param ps1 Pointer to Prompt 1.
+         * @param ps2 Pointer to Prompt 2.
+         * @param fd Pointer to FILE.
+         */
         Scanner(const char *ps1, const char *ps2, FILE *fd) noexcept;
 
+        /**
+         * @brief Reads the next token from the stream and returns it.
+         *
+         * @param out_token Pointer to the token to fill.
+         * @return True in case of success, false otherwise (you can use GetStatusMessage to know the error).
+         */
         bool NextToken(Token *out_token) noexcept;
 
-        const char *GetStatusMessage() const;
+        /**
+         * @brief Get Scanner status message.
+         *
+         * @return Scanner status message.
+         */
+        [[nodiscard]] const char *GetStatusMessage() const;
     };
 } // namespace argon::lang::scanner
 

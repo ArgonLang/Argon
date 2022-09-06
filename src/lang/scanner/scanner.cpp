@@ -16,7 +16,9 @@ struct KwToken {
 
 constexpr KwToken kw2tktype[] = {
         {"as",          TokenType::KW_AS},
+        {"async",       TokenType::KW_ASYNC},
         {"assert",      TokenType::KW_ASSERT},
+        {"await",       TokenType::KW_AWAIT},
         {"break",       TokenType::KW_BREAK},
         {"case",        TokenType::KW_CASE},
         {"continue",    TokenType::KW_CONTINUE},
@@ -44,7 +46,7 @@ constexpr KwToken kw2tktype[] = {
         {"struct",      TokenType::KW_STRUCT},
         {"switch",      TokenType::KW_SWITCH},
         {"trait",       TokenType::KW_TRAIT},
-        {"trap",       TokenType::KW_TRAP},
+        {"trap",        TokenType::KW_TRAP},
         {"true",        TokenType::TRUE},
         {"var",         TokenType::KW_VAR},
         {"yield",       TokenType::KW_YIELD},
@@ -115,7 +117,7 @@ int Scanner::HexToByte() {
 
 bool Scanner::ParseEscape(int stop, bool ignore_unicode) {
     int value = this->Next();
-    bool ok = true;
+    bool ok;
 
     if (value == stop) {
         if (!this->sbuf_.PutChar((unsigned char) value)) {
@@ -433,7 +435,7 @@ bool Scanner::TokenizeHex(Token *out_token) {
         value = this->Peek();
     }
 
-    if (isalpha(value)) {
+    if (isalpha(value) && (value != 'u' && value != 'U')) {
         this->status_ = ScannerStatus::INVALID_HEX_LITERAL;
         return false;
     }
@@ -445,7 +447,7 @@ bool Scanner::TokenizeHex(Token *out_token) {
 }
 
 bool Scanner::TokenizeNumber(Token *out_token) {
-    bool begin_zero = false;
+    bool ok;
 
     if (this->Peek() == '0') {
         this->Next();
@@ -453,20 +455,45 @@ bool Scanner::TokenizeNumber(Token *out_token) {
         switch (tolower(this->Peek())) {
             case 'b':
                 this->Next();
-                return this->TokenizeBinary(out_token);
+                ok = this->TokenizeBinary(out_token);
+                break;
             case 'o':
                 this->Next();
-                return this->TokenizeOctal(out_token);
+                ok = this->TokenizeOctal(out_token);
+                break;
             case 'x':
                 this->Next();
-                return this->TokenizeHex(out_token);
-            default:
-                begin_zero = true;
+                ok = this->TokenizeHex(out_token);
                 break;
+            default:
+                ok = this->TokenizeDecimal(out_token, TokenType::NUMBER, true);
+        }
+    } else
+        ok = this->TokenizeDecimal(out_token, TokenType::NUMBER, false);
+
+    if (ok && (this->Peek() == 'u' || this->Peek() == 'U')) {
+        this->Next();
+
+        switch (out_token->type) {
+            case TokenType::NUMBER_BIN:
+                out_token->type = TokenType::U_NUMBER_BIN;
+                break;
+            case TokenType::NUMBER_OCT:
+                out_token->type = TokenType::U_NUMBER_OCT;
+                break;
+            case TokenType::NUMBER_HEX:
+                out_token->type = TokenType::U_NUMBER_HEX;
+                break;
+            case TokenType::NUMBER:
+                out_token->type = TokenType::U_NUMBER;
+                break;
+            default:
+                this->status_ = ScannerStatus::INVALID_U_NUM;
+                return false;
         }
     }
 
-    return this->TokenizeDecimal(out_token, TokenType::NUMBER, begin_zero);
+    return ok;
 }
 
 bool Scanner::TokenizeOctal(Token *out_token) {
@@ -596,12 +623,18 @@ bool Scanner::TokenizeWord(Token *out_token) {
     if (value == 'r' && (this->Peek() == '#' || this->Peek() == '"'))
         return this->TokenizeRawString(out_token);
 
+    bool next = false;
     while (isalnum(value) || value == '_') {
         if (!this->sbuf_.PutChar((unsigned char) value)) {
             this->status_ = ScannerStatus::NOMEM;
             return false;
         }
-        value = this->Next();
+
+        if (next)
+            this->Next();
+
+        value = this->Peek();
+        next = true;
     }
 
     out_token->type = TokenType::IDENTIFIER;
@@ -868,6 +901,7 @@ const char *Scanner::GetStatusMessage() const {
             "unterminated string",
             "invalid token",
             "illegal Unicode character",
+            "invalid unsigned qualifier here",
             "not enough memory",
             "ok"
     };

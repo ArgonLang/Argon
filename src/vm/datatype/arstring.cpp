@@ -71,6 +71,14 @@ const TypeInfo StringType = {
 };
 const TypeInfo *argon::vm::datatype::type_string_ = &StringType;
 
+String *argon::vm::datatype::StringConcat(String *left, String right) {
+    assert(false);
+}
+
+String *argon::vm::datatype::StringConcat(String *left, const char *string, ArSize length) {
+    assert(false);
+}
+
 String *argon::vm::datatype::StringFormat(const char *format, ...) {
     // TODO: STUB
     assert(false);

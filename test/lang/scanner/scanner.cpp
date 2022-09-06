@@ -76,7 +76,7 @@ TEST(Scanner, Spaces) {
 }
 
 TEST(Scanner, Numbers) {
-    Scanner scanner("0 000123 123 010697 1");
+    Scanner scanner("0 000123 123 010697 1 12u 24U");
     Token token{};
 
     ASSERT_TRUE(scanner.NextToken(&token));
@@ -93,6 +93,12 @@ TEST(Scanner, Numbers) {
 
     ASSERT_TRUE(scanner.NextToken(&token));
     ASSERT_TRUE(TkEqual(&token, TokenType::NUMBER, 20, 21, 1, 21, 22, 1));
+
+    ASSERT_TRUE(scanner.NextToken(&token));
+    ASSERT_TRUE(TkEqual(&token, TokenType::U_NUMBER, 22, 23, 1, 24, 25, 1));
+
+    ASSERT_TRUE(scanner.NextToken(&token));
+    ASSERT_TRUE(TkEqual(&token, TokenType::U_NUMBER, 26, 27, 1, 28, 29, 1));
 }
 
 TEST(Scanner, Decimals) {
@@ -119,7 +125,7 @@ TEST(Scanner, Decimals) {
 }
 
 TEST(Scanner, BinaryNumber) {
-    Scanner scanner("0b1010 0B101");
+    Scanner scanner("0b1010 0B101 0b1010u");
     Token token{};
 
     ASSERT_TRUE(scanner.NextToken(&token));
@@ -127,10 +133,13 @@ TEST(Scanner, BinaryNumber) {
 
     ASSERT_TRUE(scanner.NextToken(&token));
     ASSERT_TRUE(TkEqual(&token, TokenType::NUMBER_BIN, 7, 8, 1, 12, 13, 1));
+
+    ASSERT_TRUE(scanner.NextToken(&token));
+    ASSERT_TRUE(TkEqual(&token, TokenType::U_NUMBER_BIN, 13, 14, 1, 19, 20, 1));
 }
 
 TEST(Scanner, OctalNumber) {
-    Scanner scanner("0o23423 0O02372");
+    Scanner scanner("0o23423 0O02372 0o2u");
     Token token{};
 
     ASSERT_TRUE(scanner.NextToken(&token));
@@ -138,10 +147,13 @@ TEST(Scanner, OctalNumber) {
 
     ASSERT_TRUE(scanner.NextToken(&token));
     ASSERT_TRUE(TkEqual(&token, TokenType::NUMBER_OCT, 8, 9, 1, 15, 16, 1));
+
+    ASSERT_TRUE(scanner.NextToken(&token));
+    ASSERT_TRUE(TkEqual(&token, TokenType::U_NUMBER_OCT, 16, 17, 1, 19, 20, 1));
 }
 
 TEST(Scanner, HexNumber) {
-    Scanner scanner("0xaba12 0X19Fa");
+    Scanner scanner("0xaba12 0X19Fa 0xFFu");
     Token token{};
 
     ASSERT_TRUE(scanner.NextToken(&token));
@@ -149,6 +161,9 @@ TEST(Scanner, HexNumber) {
 
     ASSERT_TRUE(scanner.NextToken(&token));
     ASSERT_TRUE(TkEqual(&token, TokenType::NUMBER_HEX, 8, 9, 1, 14, 15, 1));
+
+    ASSERT_TRUE(scanner.NextToken(&token));
+    ASSERT_TRUE(TkEqual(&token, TokenType::U_NUMBER_HEX, 15, 16, 1, 19, 20, 1));
 }
 
 TEST(Scanner, Word) {
@@ -156,22 +171,22 @@ TEST(Scanner, Word) {
     Token token{};
 
     ASSERT_TRUE(scanner.NextToken(&token));
-    ASSERT_TRUE(TkEqual(&token, TokenType::IDENTIFIER, 0, 1, 1, 4, 5, 1));
+    ASSERT_TRUE(TkEqual(&token, TokenType::IDENTIFIER, 0, 1, 1, 3, 4, 1));
 
     ASSERT_TRUE(scanner.NextToken(&token));
-    ASSERT_TRUE(TkEqual(&token, TokenType::IDENTIFIER, 4, 5, 1, 8, 9, 1));
+    ASSERT_TRUE(TkEqual(&token, TokenType::IDENTIFIER, 4, 5, 1, 7, 8, 1));
 
     ASSERT_TRUE(scanner.NextToken(&token));
-    ASSERT_TRUE(TkEqual(&token, TokenType::IDENTIFIER, 8, 9, 1, 14, 15, 1));
+    ASSERT_TRUE(TkEqual(&token, TokenType::IDENTIFIER, 8, 9, 1, 13, 14, 1));
 
     ASSERT_TRUE(scanner.NextToken(&token));
-    ASSERT_TRUE(TkEqual(&token, TokenType::IDENTIFIER, 14, 15, 1, 30, 31, 1));
+    ASSERT_TRUE(TkEqual(&token, TokenType::IDENTIFIER, 14, 15, 1, 29, 30, 1));
 
     ASSERT_TRUE(scanner.NextToken(&token));
-    ASSERT_TRUE(TkEqual(&token, TokenType::IDENTIFIER, 30, 31, 1, 32, 33, 1));
+    ASSERT_TRUE(TkEqual(&token, TokenType::IDENTIFIER, 30, 31, 1, 31, 32, 1));
 
     ASSERT_TRUE(scanner.NextToken(&token));
-    ASSERT_TRUE(TkEqual(&token, TokenType::KW_AS, 32, 33, 1, 35, 36, 1));
+    ASSERT_TRUE(TkEqual(&token, TokenType::KW_AS, 32, 33, 1, 34, 35, 1));
 
     ASSERT_TRUE(scanner.NextToken(&token));
     ASSERT_TRUE(TkEqual(&token, TokenType::KW_ASSERT, 35, 36, 1, 41, 42, 1));

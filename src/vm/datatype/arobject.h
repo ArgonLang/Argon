@@ -12,10 +12,10 @@
 #include "objectdef.h"
 
 namespace argon::vm::datatype {
-#define AROBJ_HEAD                      \
-    struct {                            \
-        memory::RefCount ref_count_;    \
-        const struct TypeInfo *type_;   \
+#define AROBJ_HEAD                              \
+    struct {                                    \
+        argon::vm::memory::RefCount ref_count_; \
+        const struct TypeInfo *type_;           \
     } head_
 
 #define AROBJ_HEAD_INIT(type) {                                         \
@@ -184,8 +184,8 @@ namespace argon::vm::datatype {
 
     bool Equal(const ArObject *self, const ArObject *other);
 
-    inline bool EqualStrict(const ArObject *self, const ArObject *other){
-        if(AR_SAME_TYPE(self, other))
+    inline bool EqualStrict(const ArObject *self, const ArObject *other) {
+        if (AR_SAME_TYPE(self, other))
             return Equal(self, other);
 
         return false;
@@ -213,7 +213,7 @@ namespace argon::vm::datatype {
 
     template<typename T>
     T *MakeObject(TypeInfo *type) {
-        auto *ret = MakeObject<T>((const TypeInfo *) type);
+        auto *ret = MakeObject < T > ((const TypeInfo *) type);
         if (ret != nullptr)
             IncRef(type);
 
@@ -239,6 +239,58 @@ namespace argon::vm::datatype {
     inline void Release(T *t) {
         Release((ArObject *) t);
     }
+
+    class ARC {
+        ArObject *object_ = nullptr;
+
+    public:
+        ARC() = default;
+
+        explicit ARC(ArObject *object) : object_(object) {}
+
+        ARC(ARC &other) = delete;
+
+        ~ARC() {
+            Release(this->object_);
+        }
+
+        ARC &operator=(ArObject *object) {
+            Release(this->object_);
+
+            this->object_ = object;
+
+            return *this;
+        }
+
+        ARC &operator=(const ARC &other) {
+            if (this == &other)
+                return *this;
+
+            Release(this->object_);
+
+            this->object_ = IncRef(other.object_);
+
+            return *this;
+        }
+
+        ARC &operator=(ARC &&other) = delete;
+
+        ArObject *Get() {
+            return this->object_;
+        }
+
+        ArObject *Unwrap() {
+            auto tmp = this->object_;
+
+            this->object_ = nullptr;
+
+            return tmp;
+        }
+
+        explicit operator bool() const {
+            return this->object_ != nullptr;
+        }
+    };
 
 } // namespace argon::vm::datatype
 
