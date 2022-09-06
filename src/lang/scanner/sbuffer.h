@@ -23,11 +23,11 @@ namespace argon::lang::scanner {
 
         bool PutString(const unsigned char *str, size_t length);
 
-        size_t GetLength() {
+        [[nodiscard]] size_t GetLength() const {
             if (this->buffer_ == nullptr)
                 return 0;
 
-            return this->cursor_ - this->buffer_;
+            return (size_t) (this->cursor_ - this->buffer_);
         }
 
         unsigned int GetBuffer(unsigned char **buffer);

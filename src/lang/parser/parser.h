@@ -163,6 +163,12 @@ namespace argon::lang::parser {
         void IgnoreNL();
 
     public:
+        /**
+         * @brief Initialize the parser with a filename and the scanner.
+         *
+         * @param filename Source code name.
+         * @param scanner Reference to Scanner.
+         */
         Parser(const char *filename, lang::scanner::Scanner &scanner) noexcept: scanner_(scanner),
                                                                                 filename_(filename) {}
 
@@ -171,6 +177,11 @@ namespace argon::lang::parser {
                 this->doc_string_ = DocStringDel(this->doc_string_);
         }
 
+        /**
+         * @brief Parses the source code.
+         *
+         * @return A pointer to the first node of the AST or nullptr in case of error.
+         */
         File *Parse() noexcept;
     };
 
