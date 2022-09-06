@@ -33,6 +33,7 @@ namespace argon::lang::scanner {
         INVALID_STR,
         INVALID_TK,
         INVALID_UCHR,
+        INVALID_U_NUM,
         NOMEM,
         GOOD
     };
@@ -104,7 +105,7 @@ namespace argon::lang::scanner {
 
         bool NextToken(Token *out_token) noexcept;
 
-        const char *GetStatusMessage() const;
+        [[nodiscard]] const char *GetStatusMessage() const;
     };
 } // namespace argon::lang::scanner
 
