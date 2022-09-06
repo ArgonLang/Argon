@@ -131,7 +131,7 @@ namespace argon::lang::parser {
     struct Import {
         NODEOBJ_HEAD;
 
-        Node *module;
+        Node *mod;
         argon::vm::datatype::ArObject *names;
     };
 
@@ -194,7 +194,7 @@ namespace argon::lang::parser {
 
     Function *FunctionNew(vm::datatype::String *name, vm::datatype::List *params, Node *body, bool pub);
 
-    Import *ImportNew(Node *module, argon::vm::datatype::ArObject *names);
+    Import *ImportNew(Node *mod, argon::vm::datatype::ArObject *names);
 
     Initialization *InitNew(Node *left, vm::datatype::ArObject *list, const scanner::Loc &loc, bool as_map);
 

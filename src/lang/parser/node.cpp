@@ -2,88 +2,156 @@
 //
 // Licensed under the Apache License v2.0
 
+#include <vm/memory/memory.h>
+
 #include "node.h"
 
 using namespace argon::lang::parser;
 using namespace argon::vm::datatype;
 
-const argon::vm::datatype::TypeInfo BinaryType = {
-        AROBJ_HEAD_INIT_TYPE,
-        "Binary",
-        nullptr,
-        nullptr,
-        sizeof(Binary),
-        TypeInfoFlags::BASE,
-        nullptr,
-        nullptr,
-        nullptr,
-        nullptr,
-        nullptr,
-        nullptr,
-        nullptr,
-        nullptr,
-        nullptr,
-        nullptr,
-        nullptr,
-        nullptr,
-        nullptr,
-        nullptr,
-        nullptr,
-        nullptr,
-        nullptr
-};
+#define NODE_NEW(StructName, alias, doc, dtor, compare)     \
+const argon::vm::datatype::TypeInfo StructName##Type = {    \
+        AROBJ_HEAD_INIT_TYPE,                               \
+        #alias,                                             \
+        nullptr,                                            \
+        nullptr,                                            \
+        sizeof(StructName),                                 \
+        TypeInfoFlags::BASE,                                \
+        nullptr,                                            \
+        (Bool_UnaryOp) (dtor),                              \
+        nullptr,                                            \
+        nullptr,                                            \
+        nullptr,                                            \
+        (compare),                                          \
+        nullptr,                                            \
+        nullptr,                                            \
+        nullptr,                                            \
+        nullptr,                                            \
+        nullptr,                                            \
+        nullptr,                                            \
+        nullptr,                                            \
+        nullptr,                                            \
+        nullptr,                                            \
+        nullptr,                                            \
+        nullptr }
 
-const argon::vm::datatype::TypeInfo FileType = {
-        AROBJ_HEAD_INIT_TYPE,
-        "File",
-        nullptr,
-        nullptr,
-        sizeof(File),
-        TypeInfoFlags::BASE,
-        nullptr,
-        nullptr,
-        nullptr,
-        nullptr,
-        nullptr,
-        nullptr,
-        nullptr,
-        nullptr,
-        nullptr,
-        nullptr,
-        nullptr,
-        nullptr,
-        nullptr,
-        nullptr,
-        nullptr,
-        nullptr,
-        nullptr
-};
+// DTORs
 
-const argon::vm::datatype::TypeInfo UnaryType = {
-        AROBJ_HEAD_INIT_TYPE,
-        "Unary",
-        nullptr,
-        nullptr,
-        sizeof(Unary),
-        TypeInfoFlags::BASE,
-        nullptr,
-        nullptr,
-        nullptr,
-        nullptr,
-        nullptr,
-        nullptr,
-        nullptr,
-        nullptr,
-        nullptr,
-        nullptr,
-        nullptr,
-        nullptr,
-        nullptr,
-        nullptr,
-        nullptr,
-        nullptr,
-        nullptr
-};
+bool assignment_dtor(Assignment *self) {
+    Release(self->name);
+    Release(self->value);
+
+    return true;
+}
+
+bool binary_dtor(Binary *self) {
+    Release(self->left);
+    Release(self->right);
+
+    return true;
+}
+
+bool call_dtor(Call *self) {
+    Release(self->left);
+    Release(self->args);
+    Release(self->kwargs);
+
+    return true;
+}
+
+bool construct_dtor(Construct *self) {
+    Release(self->name);
+    Release(self->doc);
+    Release(self->impls);
+    Release(self->body);
+
+    return true;
+}
+
+bool file_dtor(File *self) {
+    argon::vm::memory::Free((void *) self->filename);
+    Release(self->doc);
+    Release(self->statements);
+
+    return true;
+}
+
+bool function_dtor(Function *self) {
+    Release(self->name);
+    Release(self->doc);
+    Release(self->params);
+    Release(self->body);
+
+    return true;
+}
+
+bool import_dtor(Import *self) {
+    Release(self->mod);
+    Release(self->names);
+
+    return true;
+}
+
+bool initialization_dtor(Initialization *self) {
+    Release(self->left);
+    Release(self->values);
+
+    return true;
+}
+
+bool loop_dtor(Loop *self) {
+    Release(self->init);
+    Release(self->test);
+    Release(self->inc);
+    Release(self->body);
+
+    return true;
+}
+
+bool subscript_dtor(Subscript *self) {
+    Release(self->expression);
+    Release(self->start);
+    Release(self->stop);
+
+    return true;
+}
+
+bool switchcase_dtor(SwitchCase *self) {
+    Release(self->conditions);
+    Release(self->body);
+
+    return true;
+}
+
+bool test_dtor(Test *self) {
+    Release(self->test);
+    Release(self->body);
+    Release(self->orelse);
+
+    return true;
+}
+
+bool unary_dtor(Unary *self) {
+    Release(self->value);
+
+    return true;
+}
+
+// TYPEs DEF
+
+NODE_NEW(Assignment, Assignment, nullptr, assignment_dtor, nullptr);
+NODE_NEW(Binary, Binary, nullptr, binary_dtor, nullptr);
+NODE_NEW(Call, Call, nullptr, call_dtor, nullptr);
+NODE_NEW(Construct, Construct, nullptr, construct_dtor, nullptr);
+NODE_NEW(File, File, nullptr, file_dtor, nullptr);
+NODE_NEW(Function, Function, nullptr, function_dtor, nullptr);
+NODE_NEW(Import, Import, nullptr, import_dtor, nullptr);
+NODE_NEW(Initialization, Initialization, nullptr, initialization_dtor, nullptr);
+NODE_NEW(Loop, Loop, nullptr, loop_dtor, nullptr);
+NODE_NEW(Subscript, Subscript, nullptr, subscript_dtor, nullptr);
+NODE_NEW(SwitchCase, SwitchCase, nullptr, switchcase_dtor, nullptr);
+NODE_NEW(Test, Test, nullptr, test_dtor, nullptr);
+NODE_NEW(Unary, Unary, nullptr, unary_dtor, nullptr);
 
 File *argon::lang::parser::FileNew(const char *filename, List *statements) {
     auto *file = NodeNew<File>(&FileType, NodeType::FILE);
@@ -95,7 +163,7 @@ File *argon::lang::parser::FileNew(const char *filename, List *statements) {
 }
 
 Function *argon::lang::parser::FunctionNew(String *name, List *params, Node *body, bool pub) {
-    auto *func = NodeNew<Function>(&BinaryType, NodeType::FUNC);
+    auto *func = NodeNew<Function>(&FunctionType, NodeType::FUNC);
 
     if (func != nullptr) {
 
@@ -117,11 +185,11 @@ Function *argon::lang::parser::FunctionNew(String *name, List *params, Node *bod
     return func;
 }
 
-Import *argon::lang::parser::ImportNew(Node *module, ArObject *names) {
-    auto *imp = NodeNew<Import>(&BinaryType, NodeType::IMPORT);
+Import *argon::lang::parser::ImportNew(Node *mod, ArObject *names) {
+    auto *imp = NodeNew<Import>(&ImportType, NodeType::IMPORT);
 
     if (imp != nullptr) {
-        imp->module = IncRef(module);
+        imp->mod = IncRef(mod);
         imp->names = IncRef(names);
 
         imp->loc = {};
@@ -131,7 +199,7 @@ Import *argon::lang::parser::ImportNew(Node *module, ArObject *names) {
 }
 
 Assignment *argon::lang::parser::AssignmentNew(ArObject *name, bool constant, bool pub, bool weak) {
-    auto *assign = NodeNew<Assignment>(&BinaryType, NodeType::ASSIGNMENT);
+    auto *assign = NodeNew<Assignment>(&AssignmentType, NodeType::ASSIGNMENT);
 
     if (assign != nullptr) {
         assign->constant = constant;
@@ -169,7 +237,7 @@ Binary *argon::lang::parser::BinaryNew(Node *left, Node *right, scanner::TokenTy
 }
 
 Call *argon::lang::parser::CallNew(Node *left, ArObject *args, ArObject *kwargs) {
-    auto *call = NodeNew<Call>(&BinaryType, NodeType::CALL);
+    auto *call = NodeNew<Call>(&CallType, NodeType::CALL);
 
     if (call != nullptr) {
         call->left = IncRef(left);
@@ -185,7 +253,7 @@ Call *argon::lang::parser::CallNew(Node *left, ArObject *args, ArObject *kwargs)
 }
 
 Construct *argon::lang::parser::ConstructNew(String *name, List *impls, Node *body, NodeType type) {
-    auto *cstr = NodeNew<Construct>(&BinaryType, type);
+    auto *cstr = NodeNew<Construct>(&ConstructType, type);
 
     if (cstr != nullptr) {
         cstr->name = IncRef(name);
@@ -201,7 +269,7 @@ Construct *argon::lang::parser::ConstructNew(String *name, List *impls, Node *bo
 }
 
 Initialization *argon::lang::parser::InitNew(Node *left, ArObject *list, const scanner::Loc &loc, bool as_map) {
-    auto *init = NodeNew<Initialization>(&UnaryType, NodeType::INIT);
+    auto *init = NodeNew<Initialization>(&InitializationType, NodeType::INIT);
     if (init == nullptr)
         return nullptr;
 
@@ -217,7 +285,7 @@ Initialization *argon::lang::parser::InitNew(Node *left, ArObject *list, const s
 }
 
 Loop *argon::lang::parser::LoopNew(Node *init, Node *test, Node *inc, Node *body, NodeType type) {
-    auto *loop = NodeNew<Loop>(&UnaryType, type);
+    auto *loop = NodeNew<Loop>(&LoopType, type);
 
     if (loop != nullptr) {
         loop->init = IncRef(init);
@@ -234,7 +302,7 @@ Loop *argon::lang::parser::LoopNew(Node *init, Node *test, Node *inc, Node *body
 }
 
 Subscript *argon::lang::parser::SubscriptNew(Node *expr, Node *start, Node *stop) {
-    auto *sub = NodeNew<Subscript>(&UnaryType, stop == nullptr ? NodeType::INDEX : NodeType::SLICE);
+    auto *sub = NodeNew<Subscript>(&SubscriptType, stop == nullptr ? NodeType::INDEX : NodeType::SLICE);
 
     if (sub != nullptr) {
         sub->expression = IncRef(expr);
@@ -248,7 +316,7 @@ Subscript *argon::lang::parser::SubscriptNew(Node *expr, Node *start, Node *stop
 }
 
 SwitchCase *argon::lang::parser::SwitchCaseNew(ArObject *conditions, ArObject *body, const scanner::Loc &loc) {
-    auto *sw = NodeNew<SwitchCase>(&UnaryType, NodeType::SWITCH_CASE);
+    auto *sw = NodeNew<SwitchCase>(&SwitchCaseType, NodeType::SWITCH_CASE);
 
     if (sw != nullptr) {
         sw->conditions = IncRef(conditions);
@@ -261,7 +329,7 @@ SwitchCase *argon::lang::parser::SwitchCaseNew(ArObject *conditions, ArObject *b
 }
 
 Test *argon::lang::parser::TestNew(Node *test, Node *body, Node *orelse, NodeType type) {
-    auto *tst = NodeNew<Test>(&UnaryType, type);
+    auto *tst = NodeNew<Test>(&TestType, type);
 
     if (tst != nullptr) {
         tst->test = IncRef(test);
