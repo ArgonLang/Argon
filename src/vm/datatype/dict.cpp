@@ -2,10 +2,11 @@
 //
 // Licensed under the Apache License v2.0
 
-#include "arstring.h"
+#include <cassert>
 
-#include "dict.h"
+#include "arstring.h"
 #include "error.h"
+#include "dict.h"
 
 using namespace argon::vm::datatype;
 

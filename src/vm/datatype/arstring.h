@@ -5,7 +5,8 @@
 #ifndef ARGON_VM_DATATYPE_ARSTRING_H_
 #define ARGON_VM_DATATYPE_ARSTRING_H_
 
-#include <stdarg.h>
+#include <cstdarg>
+#include <cstring>
 
 #include "arobject.h"
 

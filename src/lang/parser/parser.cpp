@@ -2,6 +2,8 @@
 //
 // Licensed under the Apache License v2.0
 
+#include <cassert>
+
 #include <vm/datatype/atom.h>
 #include <vm/datatype/boolean.h>
 #include <vm/datatype/bytes.h>

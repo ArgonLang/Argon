@@ -2,9 +2,12 @@
 //
 // Licensed under the Apache License v2.0
 
+#include <cassert>
+
+#include <vm/runtime.h>
+
 #include "atom.h"
 #include "error.h"
-#include "vm/runtime.h"
 
 using namespace argon::vm::datatype;
 

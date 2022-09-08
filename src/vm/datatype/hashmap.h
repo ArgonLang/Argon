@@ -5,7 +5,9 @@
 #ifndef ARGON_VM_DATATYPE_HASHMAP_H_
 #define ARGON_VM_DATATYPE_HASHMAP_H_
 
-#include "arobject.h"
+#include <functional>
+
+#include "objectdef.h"
 
 namespace argon::vm::datatype {
     constexpr auto kHashMapInitialSize = 24;

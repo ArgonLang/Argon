@@ -5,6 +5,8 @@
 #ifndef ARGON_VM_DATATYPE_BYTES_H_
 #define ARGON_VM_DATATYPE_BYTES_H_
 
+#include <cstring>
+
 #include "arobject.h"
 #include "bufview.h"
 
