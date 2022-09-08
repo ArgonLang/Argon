@@ -69,8 +69,7 @@ bool argon::vm::datatype::ErrorInit() {
     return true;
 }
 
-Error *argon::vm::datatype::ErrorNewFormat(const char *id, const char 
-*format, ...) {
+Error *argon::vm::datatype::ErrorNewFormat(const char *id, const char *format, ...) {
     va_list args;
     Error *err;
     String *msg;
@@ -104,8 +103,7 @@ Error *argon::vm::datatype::ErrorNewFormat(const char *id, const char
     return err;
 }
 
-Error *argon::vm::datatype::ErrorFormat(const char *id, const char 
-*format, ...) {
+Error *argon::vm::datatype::ErrorFormat(const char *id, const char *format, ...) {
     assert(false);
 }
 

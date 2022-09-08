@@ -71,21 +71,79 @@ const TypeInfo StringType = {
 };
 const TypeInfo *argon::vm::datatype::type_string_ = &StringType;
 
-String *argon::vm::datatype::StringConcat(String *left, String right) {
-    assert(false);
+ArSize argon::vm::datatype::StringSubstrLen(const String *string, ArSize offset, ArSize graphemes) {
+    const unsigned char *buf = STR_BUF(string) + offset;
+    const unsigned char *end = STR_BUF(string) + string->length;
+
+    if (graphemes == 0)
+        return 0;
+
+    while (graphemes-- && buf < end) {
+        if (*buf >> 7u == 0x0)
+            buf += 1;
+        else if (*buf >> 5u == 0x6)
+            buf += 2;
+        else if (*buf >> 4u == 0xE)
+            buf += 3;
+        else if (*buf >> 3u == 0x1E)
+            buf += 4;
+    }
+
+    return buf - (STR_BUF(string) + offset);
 }
 
-String *argon::vm::datatype::StringConcat(String *left, const char *string, ArSize length) {
+String *argon::vm::datatype::StringConcat(const String *left, const String *right) {
+    String *ret = StringInit(STR_LEN(left) + STR_LEN(right), true);
+
+    if (ret != nullptr) {
+        memory::MemoryCopy(ret->buffer, STR_BUF(left), STR_LEN(left));
+        memory::MemoryCopy(ret->buffer + STR_LEN(left), STR_BUF(right), STR_LEN(right));
+
+        ret->kind = left->kind;
+
+        if (right->kind > left->kind)
+            ret->kind = right->kind;
+
+        ret->cp_length = left->cp_length + right->cp_length;
+    }
+
+    return ret;
+}
+
+String *argon::vm::datatype::StringConcat(const String *left, const char *string, ArSize length) {
     assert(false);
 }
 
 String *argon::vm::datatype::StringFormat(const char *format, ...) {
-    // TODO: STUB
-    assert(false);
+    va_list args;
+    String *str;
+
+    va_start(args, format);
+    str = StringFormat(format, args);
+    va_end(args);
+
+    return str;
 }
 
 String *argon::vm::datatype::StringFormat(const char *format, va_list args) {
-    assert(false);
+    va_list vargs2;
+    String *str;
+    int sz;
+
+    va_copy(vargs2, args);
+    sz = vsnprintf(nullptr, 0, format, vargs2) + 1; // +1 is for '\0'
+    va_end(vargs2);
+
+    if ((str = StringInit(sz - 1, true)) == nullptr)
+        return nullptr;
+
+    str->cp_length = sz - 1;
+
+    va_copy(vargs2, args);
+    vsnprintf((char *) STR_BUF(str), sz, format, vargs2);
+    va_end(vargs2);
+
+    return str;
 }
 
 String *argon::vm::datatype::StringIntern(const char *string) {

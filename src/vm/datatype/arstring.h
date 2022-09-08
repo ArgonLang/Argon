@@ -42,6 +42,8 @@ namespace argon::vm::datatype {
     };
     extern const TypeInfo *type_string_;
 
+    ArSize StringSubstrLen(const String *string, ArSize offset, ArSize graphemes);
+
     /**
      * @brief Concatenate two string.
      *
@@ -49,7 +51,7 @@ namespace argon::vm::datatype {
      * @param right Right string.
      * @return A pointer to an Argon string object, otherwise nullptr.
      */
-    String *StringConcat(String *left, String right);
+    String *StringConcat(const String *left, const String *right);
 
     /**
      * @brief Concatenate Argon string to a C-string.
@@ -59,7 +61,7 @@ namespace argon::vm::datatype {
      * @param length Length of C-string.
      * @return A pointer to an Argon string object, otherwise nullptr.
      */
-    String *StringConcat(String *left, const char *string, ArSize length);
+    String *StringConcat(const String *left, const char *string, ArSize length);
 
     /**
      * @brief Create a new string using a template.

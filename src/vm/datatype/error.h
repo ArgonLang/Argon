@@ -26,6 +26,14 @@ namespace argon::vm::datatype {
             (const char *) "out of memory while creating an error"
     };
 
+    constexpr const char *kOverflowError[] = {
+            (const char *) "OverflowError"
+    };
+
+    constexpr const char *kTypeError[] = {
+            (const char *) "TypeError",
+    };
+
     constexpr const char *kUnhashableError[] = {
             (const char *) "Unhashable",
             (const char *) "unhashable type: '%s'"
@@ -34,6 +42,10 @@ namespace argon::vm::datatype {
     constexpr const char *kUnicodeError[] = {
             (const char *) "UnicodeError",
             (const char *) "can't decode byte 0x%x in unicode sequence"
+    };
+
+    constexpr const char *kValueError[] = {
+            (const char *) "ValueError"
     };
 
     struct Error {
