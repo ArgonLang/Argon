@@ -32,7 +32,8 @@ namespace argon::vm::datatype {
      * @brief Allows you to use the datatype as if it were a buffer.
      */
     struct BufferSlots {
-
+        BufferGetFn get_buffer;
+        BufferRelFn rel_buffer;
     };
 
     /**
@@ -182,6 +183,11 @@ namespace argon::vm::datatype {
 
     ArSize Hash(ArObject *object);
 
+    bool BufferGet(ArObject *object, ArBuffer *buffer, BufferFlags flags);
+
+    bool BufferSimpleFill(const ArObject *object, ArBuffer *buffer, BufferFlags flags, unsigned char *raw,
+                          ArSize item_size, ArSize nelem, bool writable);
+
     bool Equal(const ArObject *self, const ArObject *other);
 
     inline bool EqualStrict(const ArObject *self, const ArObject *other) {
@@ -190,6 +196,8 @@ namespace argon::vm::datatype {
 
         return false;
     }
+
+    void BufferRelease(ArBuffer *buffer);
 
     template<typename T>
     T *IncRef(T *t) {

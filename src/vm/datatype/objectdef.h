@@ -7,9 +7,16 @@
 
 #include <cstddef>
 
+#include <util/enum_bitmask.h>
+
 namespace argon::vm::datatype {
     using ArSize = size_t;
     using ArSSize = long;
+
+    enum class BufferFlags {
+        READ,
+        WRITE
+    };
 
     enum class CompareMode {
         EQ = 0,
@@ -32,6 +39,26 @@ namespace argon::vm::datatype {
     using Void_UnaryOp = void (*)(struct ArObject *);
 
     using TraceOp = void (*)(struct ArObject *, Void_UnaryOp);
+
+    struct ArBuffer {
+        ArObject *object;
+
+        unsigned char *buffer;
+
+        struct {
+            ArSize item_size;
+            ArSize nelem;
+        } geometry;
+
+        ArSize length;
+        BufferFlags flags;
+    };
+
+    using BufferGetFn = bool (*)(struct ArObject *object, ArBuffer *buffer, BufferFlags flags);
+    using BufferRelFn = void (*)(ArBuffer *buffer);
+
 } // namespace argon::vm::datatype
+
+ENUMBITMASK_ENABLE(argon::vm::datatype::BufferFlags);
 
 #endif // !ARGON_VM_DATATYPE_OBJECTDEF_H_

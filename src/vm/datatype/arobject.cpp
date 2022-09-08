@@ -4,6 +4,7 @@
 
 #include "arstring.h"
 #include "boolean.h"
+#include "error.h"
 
 #include "arobject.h"
 
@@ -65,14 +66,6 @@ ArObject *argon::vm::datatype::Str(const ArObject *object) {
     return Repr(object);
 }
 
-bool argon::vm::datatype::Equal(const ArObject *self, const ArObject *other) {
-    auto *cmp = Compare(self, other, CompareMode::EQ);
-    bool result = ArBoolToBool((Boolean *) cmp);
-
-    Release(cmp);
-    return result;
-}
-
 ArSize argon::vm::datatype::Hash(ArObject *object) {
     auto hash = AR_GET_TYPE(object)->hash;
 
@@ -82,9 +75,65 @@ ArSize argon::vm::datatype::Hash(ArObject *object) {
     return 0;
 }
 
+bool argon::vm::datatype::BufferGet(ArObject *object, ArBuffer *buffer, BufferFlags flags) {
+    const auto *buf_slot = AR_GET_TYPE(object)->buffer;
+
+    if (buf_slot == nullptr || buf_slot->get_buffer == nullptr) {
+        ErrorFormat(kTypeError[0], "bytes-like object is required, not '%s'", AR_TYPE_NAME(object));
+        return false;
+    }
+
+    auto ok = buf_slot->get_buffer(object, buffer, flags);
+
+    if (ok)
+        buffer->object = IncRef(object);
+
+    return ok;
+}
+
+bool argon::vm::datatype::BufferSimpleFill(const ArObject *object, ArBuffer *buffer, BufferFlags flags,
+                                           unsigned char *raw, ArSize item_size, ArSize nelem, bool writable) {
+    if (buffer == nullptr) {
+        ErrorFormat(kTypeError[0], "bad call to BufferSimpleFill, buffer == nullptr");
+        return false;
+    }
+
+    if (ENUMBITMASK_ISTRUE(flags, BufferFlags::WRITE) && !writable) {
+        ErrorFormat(kBufferError[0], kBufferError[1], AR_TYPE_NAME(object));
+        return false;
+    }
+
+    buffer->buffer = raw;
+    buffer->object = nullptr; // Filled by BufferGet
+    buffer->geometry.item_size = item_size;
+    buffer->geometry.nelem = nelem;
+    buffer->length = item_size * nelem;
+    buffer->flags = flags;
+
+    return true;
+}
+
+bool argon::vm::datatype::Equal(const ArObject *self, const ArObject *other) {
+    auto *cmp = Compare(self, other, CompareMode::EQ);
+    bool result = ArBoolToBool((Boolean *) cmp);
+
+    Release(cmp);
+    return result;
+}
+
+void argon::vm::datatype::BufferRelease(ArBuffer *buffer) {
+    if (buffer->object == nullptr)
+        return;
+
+    if (AR_GET_TYPE(buffer->object)->buffer->rel_buffer != nullptr)
+        AR_GET_TYPE(buffer->object)->buffer->rel_buffer(buffer);
+
+    Release(&buffer->object);
+}
+
 void argon::vm::datatype::Release(ArObject *object) {
     // TODO: TMP IMPL!
-    if(object== nullptr)
+    if (object == nullptr)
         return;
 
     if (AR_GET_RC(object).DecStrong()) {
