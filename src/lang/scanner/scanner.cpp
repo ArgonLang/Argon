@@ -97,6 +97,8 @@ inline unsigned char HexDigitToNumber(int chr) {
     return (isdigit(chr)) ? ((char) chr) - '0' : (unsigned char) (10 + (tolower(chr) - 'a'));
 }
 
+inline bool IsHexDigit(int chr) { return (chr >= '0' && chr <= '9') || (tolower(chr) >= 'a' && tolower(chr) <= 'f'); }
+
 inline bool IsOctDigit(int chr) { return chr >= '0' && chr <= '7'; }
 
 int Scanner::HexToByte() {
@@ -106,7 +108,7 @@ int Scanner::HexToByte() {
     for (int i = 1; i >= 0; i--) {
         curr = this->Next();
 
-        if (!ishexnumber(curr))
+        if (!IsHexDigit(curr))
             return -1;
 
         byte |= HexDigitToNumber(curr) << (unsigned char) (i * 4);
@@ -426,7 +428,7 @@ bool Scanner::TokenizeDecimal(Token *out_token, TokenType type, bool begin_zero)
 bool Scanner::TokenizeHex(Token *out_token) {
     int value = this->Peek();
 
-    while (ishexnumber(value)) {
+    while (IsHexDigit(value)) {
         if (!this->sbuf_.PutChar((unsigned char) this->Next())) {
             this->status_ = ScannerStatus::NOMEM;
             return false;
