@@ -29,14 +29,28 @@ ArObject *StringFormatter::NextArg() {
             return this->fmt_.args;
     }
 
-    this->error_ = ErrorNew(kTypeError[0], "not enough argument for format string");
+    this->error_ = (ArObject *) ErrorNew(kTypeError[0], "not enough argument for format string");
 
     return nullptr;
 }
 
 ArSSize StringFormatter::FormatBytes() {
-    assert(false);
-    return 0;
+    ArBuffer buffer{};
+    ArObject *obj;
+
+    if ((obj = this->NextArg()) == nullptr)
+        return -1;
+
+    if (!BufferGet(obj, &buffer, BufferFlags::READ)) {
+        this->error_ = argon::vm::GetLastError();
+        return -1;
+    }
+
+    auto wlen = this->Write(buffer.buffer, buffer.length, 0);
+
+    BufferRelease(&buffer);
+
+    return wlen;
 }
 
 ArSSize StringFormatter::FormatString() {
@@ -69,7 +83,7 @@ ArSSize StringFormatter::Write(const unsigned char *buffer, ArSize length, int o
     if (!this->BufferResize(length + overalloc))
         return -1;
 
-    auto *buf = this->output_.cursor;
+    const auto *buf = this->output_.cursor;
 
     this->output_.cursor = (unsigned char *) memory::MemoryCopy(this->output_.cursor, buffer, length);
 
@@ -130,7 +144,7 @@ bool StringFormatter::BufferResize(ArSize length) {
         length++;
 
     if ((tmp = (unsigned char *) memory::Realloc(this->output_.buffer, cap + length)) == nullptr) {
-        this->error_ = (Error *) argon::vm::GetLastError();
+        this->error_ = argon::vm::GetLastError();
         return false;
     }
 
@@ -185,9 +199,9 @@ bool StringFormatter::Format() {
             result = this->FormatChar();
             break;
         default:
-            this->error_ = ErrorNewFormat(kValueError[0],
-                                          "unsupported format character '%c' (0x%x)",
-                                          (31 <= op && op <= 126 ? '?' : op), op);
+            this->error_ = (ArObject *) ErrorNewFormat(kValueError[0],
+                                                       "unsupported format character '%c' (0x%x)",
+                                                       (31 <= op && op <= 126 ? '?' : op), op);
             break;
     }
 
@@ -209,7 +223,7 @@ bool StringFormatter::NextSpecifier() {
     while ((base + index) < this->fmt_.end) {
         if (*(base + index++) == '%') {
             if ((base + index) >= this->fmt_.end) {
-                this->error_ = ErrorNew(kValueError[0], "incomplete format specifier");
+                this->error_ = (ArObject *) ErrorNew(kValueError[0], "incomplete format specifier");
                 return -1;
             }
 
@@ -307,8 +321,8 @@ bool StringFormatter::ParseStarOption(bool prec) {
     if (num == nullptr)
         return false;
 
-    if (!IsIntType((ArObject *) num)) {
-        // TODO: type_type_error_, "* wants integer not '%s'", AR_TYPE_NAME(num));
+    if (!IsIntType((const ArObject *) num)) {
+        this->error_ = (ArObject *) ErrorNewFormat(kTypeError[0], "* wants integer not '%s'", AR_TYPE_NAME(num));
         return false;
     }
 
@@ -341,7 +355,7 @@ int StringFormatter::FormatChar() {
         const auto *str = (const String *) obj;
 
         if (str->cp_length > 1) {
-            this->error_ = ErrorNew(kTypeError[0], "%%c requires a single char not string");
+            this->error_ = (ArObject *) ErrorNew(kTypeError[0], "%%c requires a single char not string");
             return -1;
         }
 
@@ -350,14 +364,15 @@ int StringFormatter::FormatChar() {
         auto slen = StringIntToUTF8((unsigned int) ((const Integer *) obj)->uint, sequence);
 
         if (slen == 0) {
-            this->error_ = ErrorNew(kOverflowError[0], "%%c arg not in range(0x110000)");
+            this->error_ = (ArObject *) ErrorNew(kOverflowError[0], "%%c arg not in range(0x110000)");
             return -1;
         }
 
         return (int) this->Write(sequence, slen, 0);
     }
 
-    this->error_ = ErrorNewFormat(kTypeError[0], "%%c requires integer or char not '%s'", AR_TYPE_NAME(obj));
+    this->error_ = (ArObject *) ErrorNewFormat(kTypeError[0], "%%c requires integer or char not '%s'",
+                                               AR_TYPE_NAME(obj));
     return -1;
 }
 
@@ -377,8 +392,8 @@ int StringFormatter::FormatInteger(int base, bool unsign, bool upper) {
         return -1;
 
     if (!AR_TYPEOF(number, type_int_) && !AR_TYPEOF(number, type_uint_)) {
-        this->error_ = ErrorNewFormat(kTypeError[0], "%%%c requires integer not '%s'",
-                                      *this->fmt_.cursor, AR_TYPE_NAME(number));
+        this->error_ = (ArObject *) ErrorNewFormat(kTypeError[0], "%%%c requires integer not '%s'",
+                                                   *this->fmt_.cursor, AR_TYPE_NAME(number));
 
         return -1;
     }
@@ -482,7 +497,7 @@ StringFormatter::~StringFormatter() {
     vm::memory::Free(this->output_.buffer);
 }
 
-Error *StringFormatter::GetError() {
+ArObject *StringFormatter::GetError() {
     return this->error_;
 }
 

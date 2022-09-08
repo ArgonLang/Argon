@@ -21,7 +21,7 @@ namespace argon::vm::datatype {
     };
 
     class StringFormatter {
-        Error *error_ = nullptr;
+        ArObject *error_ = nullptr;
 
         struct {
             const unsigned char *cursor = nullptr;
@@ -120,7 +120,7 @@ namespace argon::vm::datatype {
 
         ~StringFormatter();
 
-        Error *GetError();
+        ArObject *GetError();
 
         unsigned char *Format(ArSize *out_len, ArSize *out_cap);
 
