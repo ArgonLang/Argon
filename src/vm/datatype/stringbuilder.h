@@ -60,6 +60,8 @@ namespace argon::vm::datatype {
 
     int StringIntToUTF8(unsigned int glyph, unsigned char *buf);
 
+    int StringUTF8ToInt(const unsigned char *buf);
+
 } // namespace argon::vm::datatype
 
 #endif // !ARGON_VM_DATATYPE_STRINGBUILDER_H_
