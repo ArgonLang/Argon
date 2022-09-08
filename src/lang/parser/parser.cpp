@@ -4,8 +4,12 @@
 
 #include <vm/datatype/atom.h>
 #include <vm/datatype/boolean.h>
+#include <vm/datatype/bytes.h>
+#include <vm/datatype/decimal.h>
+#include <vm/datatype/integer.h>
 #include <vm/datatype/list.h>
 #include <vm/datatype/nil.h>
+#include <vm/datatype/stringbuilder.h>
 
 #include "parsererr.h"
 #include "parser.h"
@@ -1288,36 +1292,46 @@ Node *Parser::ParseLiteral() {
     ARC value;
     Node *literal;
 
-    //TODO: Missing some literals
-
     switch (this->tkcur_.type) {
         case TokenType::ATOM:
             value = (ArObject *) AtomNew((const char *) this->tkcur_.buffer);
             break;
         case TokenType::NUMBER:
-            //value = IntegerNew((const char *) this->tkcur_.buf, 10);
+            value = (ArObject *) IntNew((const char *) this->tkcur_.buffer, 10);
+            break;
+        case TokenType::U_NUMBER:
+            value = (ArObject *) UIntNew((const char *) this->tkcur_.buffer, 10);
             break;
         case TokenType::NUMBER_BIN:
-            //value = IntegerNew((const char *) this->tkcur_.buf, 2);
+            value = (ArObject *) IntNew((const char *) this->tkcur_.buffer, 2);
+            break;
+        case TokenType::U_NUMBER_BIN:
+            value = (ArObject *) UIntNew((const char *) this->tkcur_.buffer, 2);
             break;
         case TokenType::NUMBER_OCT:
-            //value = IntegerNew((const char *) this->tkcur_.buf, 8);
+            value = (ArObject *) IntNew((const char *) this->tkcur_.buffer, 8);
+            break;
+        case TokenType::U_NUMBER_OCT:
+            value = (ArObject *) UIntNew((const char *) this->tkcur_.buffer, 8);
             break;
         case TokenType::NUMBER_HEX:
-            //value = IntegerNew((const char *) this->tkcur_.buf, 16);
+            value = (ArObject *) IntNew((const char *) this->tkcur_.buffer, 16);
+            break;
+        case TokenType::U_NUMBER_HEX:
+            value = (ArObject *) UIntNew((const char *) this->tkcur_.buffer, 16);
             break;
         case TokenType::DECIMAL:
-            //value = DecimalNew((const char *) this->tkcur_.buf);
+            value = (ArObject *) DecimalNew((const char *) this->tkcur_.buffer);
             break;
         case TokenType::NUMBER_CHR:
-            //value = IntegerNew(StringUTF8toInt((const unsigned char *) this->tkcur_.buf));
+            value = (ArObject *) IntNew(StringUTF8ToInt((const unsigned char *) this->tkcur_.buffer));
             break;
         case TokenType::STRING:
         case TokenType::RAW_STRING:
             value = (ArObject *) StringNew((const char *) this->tkcur_.buffer, this->tkcur_.length);
             break;
         case TokenType::BYTE_STRING:
-            //value = BytesNew(this->tkcur_.buf, this->tkcur_.buflen, true);
+            value = (ArObject *) BytesNew(this->tkcur_.buffer, this->tkcur_.length, true);
             break;
         case TokenType::FALSE:
             value = (ArObject *) IncRef(False);
