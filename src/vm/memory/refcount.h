@@ -153,6 +153,11 @@ namespace argon::vm::memory {
             return *this;
         }
 
+        RefCount &operator=(RefBits bits) {
+            this->bits_ = bits;
+            return *this;
+        }
+
         /**
          * @brief Release a strong reference.
          * @return True if the object no longer has strong references, false otherwise.
@@ -196,6 +201,14 @@ namespace argon::vm::memory {
         bool IsStatic() const {
             return this->bits_.load(std::memory_order_relaxed).IsStatic();
         }
+
+        /**
+         * @brief Returns the object it is associated with.
+         *
+         * @return Returns the object it is associated with. In case of weak reference,
+         * it can return the object or nullptr if the object has already been deleted.
+         */
+        RCObject GetObject();
 
         /**
          * @brief Increase the number of weak references.

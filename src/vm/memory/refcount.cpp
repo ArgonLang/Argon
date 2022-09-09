@@ -132,6 +132,27 @@ bool RefCount::IncStrong() {
     return true;
 }
 
+RCObject RefCount::GetObject() {
+    RefBits current = this->bits_.load(std::memory_order_consume);
+
+    if (current.IsInlineCounter()) {
+        this->IncStrong();
+        return this->GetObjectBase();
+    }
+
+    auto side = current.GetSideTable();
+    uintptr_t strong = side->strong.load(std::memory_order_consume);
+    uintptr_t desired;
+
+    do {
+        desired = strong + 1;
+        if (desired == 1)
+            return nullptr;
+    } while (side->strong.compare_exchange_weak(strong, desired, std::memory_order_relaxed));
+
+    return side->object;
+}
+
 RefBits RefCount::IncWeak() {
     auto side = this->AllocOrGetSideTable();
     if (side != nullptr) {
