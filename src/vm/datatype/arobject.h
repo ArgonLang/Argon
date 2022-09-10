@@ -300,6 +300,63 @@ namespace argon::vm::datatype {
         }
     };
 
+    class RefStore {
+        union {
+            ArObject *s_value;
+            memory::RefCount w_value;
+        };
+
+        bool weak_ = false;
+
+    public:
+        ~RefStore() {
+            this->Release();
+        }
+
+        ArObject *Get() {
+            if (!this->weak_) {
+                if (!this->s_value->head_.ref_count_.IncStrong())
+                    return nullptr;
+
+                return this->s_value;
+            }
+
+            return (ArObject *) this->w_value.GetObject();
+        }
+
+        void Store(ArObject *object, bool weak) {
+            if (!weak || object->head_.ref_count_.IsStatic()) {
+                object->head_.ref_count_.IncStrong();
+                this->s_value = object;
+                this->weak_ = false;
+                return;
+            }
+
+            // TODO: other logic here!
+
+            this->w_value = object->head_.ref_count_.IncWeak();
+            this->weak_ = true;
+        }
+
+        void Store(ArObject *object) {
+            bool strong = true;
+
+            if (this->s_value != nullptr && this->weak_)
+                strong = false;
+
+            this->Store(object, strong);
+        }
+
+        void Release() {
+            if (this->weak_)
+                this->w_value.DecWeak();
+            else
+                this->s_value->head_.ref_count_.DecStrong();
+
+            this->s_value = nullptr;
+        }
+    };
+
 } // namespace argon::vm::datatype
 
 #endif // !ARGON_VM_DATATYPE_AROBJECT_H_
