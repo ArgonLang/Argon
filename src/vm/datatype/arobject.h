@@ -217,7 +217,7 @@ namespace argon::vm::datatype {
 
     template<typename T>
     T *MakeObject(TypeInfo *type) {
-        auto *ret = MakeObject < T > ((const TypeInfo *) type);
+        auto *ret = MakeObject<T>((const TypeInfo *) type);
         if (ret != nullptr)
             IncRef(type);
 
@@ -321,14 +321,14 @@ namespace argon::vm::datatype {
         }
 
         void Store(ArObject *object, bool weak) {
-            if (!weak || object->head_.ref_count_.IsStatic()) {
+            if (!weak
+                || object->head_.ref_count_.IsStatic()
+                || ENUMBITMASK_ISFALSE(AR_GET_TYPE(object)->flags, TypeInfoFlags::WEAKABLE)) {
                 object->head_.ref_count_.IncStrong();
                 this->s_value = object;
                 this->weak_ = false;
                 return;
             }
-
-            // TODO: other logic here!
 
             this->w_value = object->head_.ref_count_.IncWeak();
             this->weak_ = true;

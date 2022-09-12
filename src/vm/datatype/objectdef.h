@@ -28,7 +28,15 @@ namespace argon::vm::datatype {
     };
 
     enum class TypeInfoFlags : unsigned int {
-        BASE
+        // BIT FLAGS | OBJECT TYPE
+        //                       ^--- Two bits to represent the type of object.
+        BASE = 0,
+        TRAIT = 1,
+        STRUCT = 2,
+
+        // BIT_FLAGS
+        INITIALIZED = 1 << 2,
+        WEAKABLE = 1 << 3
     };
 
     using ArSize_UnaryOp = ArSize (*)(const struct ArObject *);
@@ -99,5 +107,7 @@ ArObject *name##_fn(ArObject *_func, ArObject *_self, ArObject **args, ArObject 
 } // namespace argon::vm::datatype
 
 ENUMBITMASK_ENABLE(argon::vm::datatype::BufferFlags);
+
+ENUMBITMASK_ENABLE(argon::vm::datatype::TypeInfoFlags);
 
 #endif // !ARGON_VM_DATATYPE_OBJECTDEF_H_
