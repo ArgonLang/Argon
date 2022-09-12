@@ -24,10 +24,6 @@ namespace argon::vm::datatype {
 
 #define AROBJ_HEAD_INIT_TYPE AROBJ_HEAD_INIT(nullptr)
 
-    enum class TypeInfoFlags : unsigned int {
-        BASE
-    };
-
     /**
      * @brief Allows you to use the datatype as if it were a buffer.
      */
