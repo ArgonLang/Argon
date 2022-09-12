@@ -4,6 +4,8 @@
 
 #include <cassert>
 
+#include <vm/datatype/setup.h>
+
 #include "runtime.h"
 
 using namespace argon::vm;
@@ -12,6 +14,13 @@ using namespace argon::vm::datatype;
 ArObject *argon::vm::GetLastError() {
     // TODO: STUB
     assert(false);
+}
+
+bool argon::vm::Initialize() {
+    // TODO: STUB
+    assert(memory::MemoryInit());
+    assert(Setup());
+    return true;
 }
 
 void argon::vm::Panic(datatype::ArObject *panic) {

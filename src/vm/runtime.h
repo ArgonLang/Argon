@@ -10,6 +10,8 @@
 namespace argon::vm {
     argon::vm::datatype::ArObject *GetLastError();
 
+    bool Initialize();
+
     void Panic(datatype::ArObject *panic);
 }
 
