@@ -44,7 +44,11 @@ namespace argon::vm::datatype {
      * @brief Models the behavior of the datatype when used as an object (e.g. mytype.property).
      */
     struct ObjectSlots {
+        const struct TypeInfo **traits;
+        const FunctionDef *methods;
+        const void *_stub;
 
+        int nsoff;
     };
 
     /**
@@ -158,7 +162,7 @@ namespace argon::vm::datatype {
 
         ArObject *_t1;
 
-        ArObject *_t2;
+        ArObject *tp_map;
     };
 
 #define AR_GET_RC(object)           ((object)->head_.ref_count_)
@@ -192,6 +196,8 @@ namespace argon::vm::datatype {
 
         return false;
     }
+
+    bool TypeInit(const TypeInfo *type, ArObject *auxiliary);
 
     void BufferRelease(ArBuffer *buffer);
 

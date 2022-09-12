@@ -7,6 +7,8 @@
 #include "error.h"
 
 #include "arobject.h"
+#include "namespace.h"
+#include "function.h"
 
 using namespace argon::vm::datatype;
 
@@ -119,6 +121,83 @@ bool argon::vm::datatype::Equal(const ArObject *self, const ArObject *other) {
 
     Release(cmp);
     return result;
+}
+
+bool InitMembers(TypeInfo *type) {
+    auto *ns = (Namespace *) type->tp_map;
+
+    if (type->object == nullptr)
+        return true;
+
+    // Function/Method
+    if (type->object->methods != nullptr) {
+        for (const FunctionDef *cursor = type->object->methods; cursor->name != nullptr; cursor++) {
+            auto *fn = (ArObject *) FunctionNew(cursor, type);
+            if (fn == nullptr)
+                return false;
+
+            if (!NamespaceNewSymbol(ns, cursor->name, fn, AttributeFlag::CONST | AttributeFlag::PUBLIC)) {
+                Release(fn);
+                return false;
+            }
+
+            Release(fn);
+        }
+    }
+
+    // TODO members
+
+    return true;
+}
+
+bool argon::vm::datatype::TypeInit(const TypeInfo *type, ArObject *auxiliary) {
+    auto *unsafe_tp = (TypeInfo *) type;
+
+    if (ENUMBITMASK_ISTRUE(type->flags, TypeInfoFlags::INITIALIZED))
+        return true;
+
+    assert(type->tp_map == nullptr);
+
+    // TODO: traits here
+
+    // Build tp_map
+    unsafe_tp->tp_map = IncRef(auxiliary);
+    if (auxiliary == nullptr) {
+        unsafe_tp->tp_map = (ArObject *) NamespaceNew();
+        if (unsafe_tp->tp_map == nullptr)
+            return false;
+    }
+
+    // Push members
+    if (!InitMembers(unsafe_tp)) {
+        Release(&unsafe_tp->tp_map);
+        return false;
+    }
+
+    // TODO: Override check!
+
+    if (type->qname == nullptr) {
+        unsafe_tp->qname = type->name;
+
+        if (!type->head_.ref_count_.IsStatic()) {
+            auto qn_len = strlen(type->name);
+
+            auto *qname = (char *) vm::memory::Alloc(qn_len + 1);
+            if (qname == nullptr) {
+                Release(&unsafe_tp->tp_map);
+                return false;
+            }
+
+            vm::memory::MemoryCopy(qname, type->name, qn_len);
+            qname[qn_len] = '\0';
+
+            unsafe_tp->qname = qname;
+        }
+    }
+
+    *((TypeInfoFlags *) &type->flags) = unsafe_tp->flags | TypeInfoFlags::INITIALIZED;
+
+    return true;
 }
 
 void argon::vm::datatype::BufferRelease(ArBuffer *buffer) {
