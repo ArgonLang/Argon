@@ -50,6 +50,24 @@ ArObject *argon::vm::datatype::Compare(const ArObject *self, const ArObject *oth
     return result;
 }
 
+ArObject *argon::vm::datatype::IteratorGet(ArObject *object, bool reversed) {
+    if (AR_GET_TYPE(object)->iter == nullptr) {
+        ErrorFormat(kTypeError[0], "'%s' is not iterable", AR_TYPE_NAME(object));
+        return nullptr;
+    }
+
+    return AR_GET_TYPE(object)->iter(object, reversed);
+}
+
+ArObject *argon::vm::datatype::IteratorNext(ArObject *iterator) {
+    if (AR_GET_TYPE(iterator)->iter == nullptr) {
+        ErrorFormat(kTypeError[0], "expected an iterator not '%s'", AR_TYPE_NAME(iterator));
+        return nullptr;
+    }
+
+    return AR_GET_TYPE(iterator)->iter_next(iterator);
+}
+
 ArObject *argon::vm::datatype::Repr(const ArObject *object) {
     auto repr = AR_GET_TYPE(object)->repr;
 

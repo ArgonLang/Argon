@@ -177,6 +177,10 @@ namespace argon::vm::datatype {
 
     ArObject *Compare(const ArObject *self, const ArObject *other, CompareMode mode);
 
+    ArObject *IteratorGet(ArObject *object, bool reversed);
+
+    ArObject *IteratorNext(ArObject *iterator);
+
     ArObject *Repr(const ArObject *object);
 
     ArObject *Str(const ArObject *object);
@@ -223,7 +227,7 @@ namespace argon::vm::datatype {
 
     template<typename T>
     T *MakeObject(TypeInfo *type) {
-        auto *ret = MakeObject<T>((const TypeInfo *) type);
+        auto *ret = MakeObject < T > ((const TypeInfo *) type);
         if (ret != nullptr)
             IncRef(type);
 
