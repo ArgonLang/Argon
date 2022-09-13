@@ -75,7 +75,7 @@ Integer *argon::vm::datatype::IntNew(const char *string, int base) {
     if (si != nullptr)
         si->sint = std::strtol(string, nullptr, base);
 
-    return nullptr;
+    return si;
 }
 
 Integer *argon::vm::datatype::UIntNew(UIntegerUnderlying number) {
