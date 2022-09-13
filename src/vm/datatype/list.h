@@ -19,6 +19,17 @@ namespace argon::vm::datatype {
     };
     extern const TypeInfo *type_list_;
 
+    struct ListIterator {
+        AROBJ_HEAD;
+
+        List *list;
+
+        ArSize index;
+
+        bool reverse;
+    };
+    extern const TypeInfo *type_list_iterator_;
+
     /**
      * @brief Append object to the list.
      * @param list List object.

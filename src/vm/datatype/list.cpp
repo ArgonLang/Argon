@@ -27,6 +27,18 @@ bool CheckSize(List *list, ArSize count) {
     return true;
 }
 
+ArObject *list_iter(List *self, bool reverse) {
+    auto *li = MakeGCObject<ListIterator>(type_list_iterator_);
+
+    if (li != nullptr) {
+        li->list = IncRef(self);
+        li->index = 0;
+        li->reverse = reverse;
+    }
+
+    return (ArObject *) li;
+}
+
 const TypeInfo ListType = {
         AROBJ_HEAD_INIT_TYPE,
         "List",
@@ -42,7 +54,7 @@ const TypeInfo ListType = {
         nullptr,
         nullptr,
         nullptr,
-        nullptr,
+        (UnaryBoolOp) list_iter,
         nullptr,
         nullptr,
         nullptr,
@@ -102,3 +114,59 @@ List *argon::vm::datatype::ListNew(ArSize capacity) {
 
     return list;
 }
+
+// LIST ITERATOR
+
+ArObject *listiterator_iter(ListIterator *self, bool reversed) {
+    if (self->reverse == reversed)
+        return (ArObject *) IncRef(self);
+
+    return list_iter(self->list, reversed);
+}
+
+ArObject *listiterator_iter_next(ListIterator *self) {
+    if (!self->reverse) {
+        if (self->index < self->list->length) {
+            auto *tmp = IncRef(self->list->objects[self->index]);
+
+            self->index++;
+
+            return tmp;
+        }
+        return nullptr;
+    }
+
+    if (self->list->length - self->index == 0)
+        return nullptr;
+
+    self->index++;
+
+    return IncRef(self->list->objects[self->list->length - self->index]);
+}
+
+const TypeInfo ListIteratorType = {
+        AROBJ_HEAD_INIT_TYPE,
+        "ListIterator",
+        nullptr,
+        nullptr,
+        sizeof(List),
+        TypeInfoFlags::BASE,
+        nullptr,
+        nullptr,
+        nullptr,
+        nullptr,
+        nullptr,
+        nullptr,
+        nullptr,
+        nullptr,
+        (UnaryBoolOp) listiterator_iter,
+        (UnaryOp) listiterator_iter_next,
+        nullptr,
+        nullptr,
+        nullptr,
+        nullptr,
+        nullptr,
+        nullptr,
+        nullptr
+};
+const TypeInfo *argon::vm::datatype::type_list_iterator_ = &ListIteratorType;
