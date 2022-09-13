@@ -644,22 +644,26 @@ Node *Parser::ParseExpression() {
         return (Node *) expr.Unwrap();
     }
 
+    auto *ret = (Node *) expr.Unwrap();
+
     // This trick allows us to check if there is an assignment expression under the Null Safety expression.
-    if (((Node *) expr.Get())->node_type == NodeType::SAFE_EXPR) {
-        auto *under_safe = ((Unary *) expr.Get())->value;
+    if (ret->node_type == NodeType::SAFE_EXPR)
+        ret = (Node *) ((Unary *) ret)->value;
 
-        if (((Node *) under_safe)->node_type != NodeType::ASSIGNMENT) {
-            auto *unary = UnaryNew(expr.Get(), NodeType::EXPRESSION, this->tkcur_.loc);
-            if (unary == nullptr)
-                throw DatatypeException();
+    if (ret->node_type != NodeType::ASSIGNMENT) {
+        auto *unary = UnaryNew((ArObject *) ret, NodeType::EXPRESSION, this->tkcur_.loc);
 
-            unary->loc = ((Node *) unary->value)->loc;
+        Release(ret);
 
-            return (Node *) unary;
-        }
+        if (unary == nullptr)
+            throw DatatypeException();
+
+        unary->loc = ((Node *) unary->value)->loc;
+
+        return (Node *) unary;
     }
 
-    return (Node *) expr.Unwrap();
+    return ret;
 }
 
 Node *Parser::ParseExpression(int precedence) {
