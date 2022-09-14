@@ -8,12 +8,69 @@
 
 #include "compilererr.h"
 #include "compiler.h"
+#include "vm/datatype/integer.h"
 
 using namespace argon::lang;
 using namespace argon::lang::parser;
 using namespace argon::vm::datatype;
 
+int Compiler::LoadStatic(ArObject *value, bool store, bool emit) {
+    ArObject *tmp;
+    Integer *index;
+    IntegerUnderlying idx = -1;
+
+    IncRef(value);
+
+    if (store) {
+        // Check if value are already present in TranslationUnit
+        if ((tmp = DictLookup(this->unit_->statics_map, value)) == nullptr) {
+            // Value not found in the current TranslationUnit, trying in global_statics
+            if ((tmp = DictLookup(this->statics_globals_, value)) != nullptr) {
+                // Recover already existing object and discard the actual one
+                Release(value);
+                value = tmp;
+            } else if (!DictInsert(this->statics_globals_, value, value)) {
+                Release(value);
+                throw DatatypeException();
+            }
+
+            if ((index = UIntNew(this->unit_->statics->length)) == nullptr) {
+                Release(value);
+                throw DatatypeException();
+            }
+
+            if (!DictInsert(this->unit_->statics_map, value, (ArObject *) index)) {
+                Release(value);
+                Release(index);
+                throw DatatypeException();
+            }
+
+            Release(&index);
+        } else {
+            idx = ((Integer *) tmp)->sint;
+            Release(tmp);
+        }
+    }
+
+    if (!store || idx == -1) {
+        idx = (IntegerUnderlying) this->unit_->statics->length;
+        if (!ListAppend(this->unit_->statics, value)) {
+            Release(value);
+            throw DatatypeException();
+        }
+    }
+
+    Release(value);
+
+    if (emit)
+        this->unit_->Emit(vm::OpCode::LSTATIC, (int) idx, nullptr, nullptr);
+
+    return (int) idx;
+}
+
 void Compiler::Binary(const parser::Binary *binary) {
+    // todo: check node type
+
     this->Expression(binary->left);
     this->Expression(binary->right);
 
@@ -102,6 +159,9 @@ void Compiler::Compile(const Node *node) {
 
 void Compiler::Expression(const Node *node) {
     switch (node->node_type) {
+        case NodeType::LITERAL:
+            this->LoadStatic(((const Unary *) node)->value, true, true);
+            break;
         case NodeType::BINARY:
             this->Binary((const parser::Binary *) node);
             break;

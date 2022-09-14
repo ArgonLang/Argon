@@ -18,6 +18,8 @@ namespace argon::lang {
 
         vm::datatype::Dict *statics_globals_ = nullptr;
 
+        int LoadStatic(vm::datatype::ArObject *value, bool store, bool emit);
+
         void Binary(const parser::Binary *binary);
 
         void Compile(const parser::Node *node);
