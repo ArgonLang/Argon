@@ -10,7 +10,8 @@
 
 #include "arobject.h"
 
-#define ARGON_VM_DATATYPE_RAW_STRING(string)    ((string)->buffer)
+#define ARGON_RAW_STRING(string)        ((string)->buffer)
+#define ARGON_RAW_STRING_LENGTH(string) ((string)->length)
 
 namespace argon::vm::datatype {
     enum class StringKind {
@@ -44,6 +45,10 @@ namespace argon::vm::datatype {
     extern const TypeInfo *type_string_;
 
     ArSize StringSubstrLen(const String *string, ArSize offset, ArSize graphemes);
+
+    inline bool StringIsEmpty(const String *string) {
+        return string->length == 0;
+    }
 
     /**
      * @brief Concatenate two string.
