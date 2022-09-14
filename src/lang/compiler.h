@@ -28,6 +28,8 @@ namespace argon::lang {
 
         void CompileTest(const parser::Binary *test);
 
+        void CompileUnary(const parser::Unary *unary);
+
         void Expression(const parser::Node *node);
 
         void TUScopeEnter(vm::datatype::String *name, SymbolType context);

@@ -238,16 +238,42 @@ void Compiler::CompileTest(const parser::Binary *test) {
     this->unit_->BlockAppend(end);
 }
 
+void Compiler::CompileUnary(const parser::Unary *unary) {
+    this->Expression((const Node *) unary->value);
+
+    switch (unary->token_type) {
+        case scanner::TokenType::EXCLAMATION:
+            this->unit_->Emit(vm::OpCode::NOT, &unary->loc);
+            break;
+        case scanner::TokenType::TILDE:
+            this->unit_->Emit(vm::OpCode::INV, &unary->loc);
+            break;
+        case scanner::TokenType::PLUS:
+            this->unit_->Emit(vm::OpCode::POS, &unary->loc);
+            break;
+        case scanner::TokenType::MINUS:
+            this->unit_->Emit(vm::OpCode::NEG, &unary->loc);
+            break;
+        default:
+            throw CompilerException("invalid TokenType for CompileUnary");
+    }
+}
+
 void Compiler::Expression(const Node *node) {
     switch (node->node_type) {
         case NodeType::LITERAL:
             this->LoadStatic(((const Unary *) node)->value, true, true);
             break;
         case NodeType::BINARY:
-            if (node->token_type == scanner::TokenType::AND || node->token_type == scanner::TokenType::OR)
+            if (node->token_type == scanner::TokenType::AND || node->token_type == scanner::TokenType::OR) {
                 this->CompileTest((const parser::Binary *) node);
+                break;
+            }
 
             this->Binary((const parser::Binary *) node);
+            break;
+        case NodeType::UNARY:
+            this->CompileUnary((const Unary *) node);
             break;
         case NodeType::LIST:
         case NodeType::TUPLE:
