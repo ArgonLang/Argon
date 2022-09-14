@@ -24,6 +24,8 @@ namespace argon::lang {
 
         void Compile(const parser::Node *node);
 
+        void CompileLTDS(const parser::Unary *list);
+
         void Expression(const parser::Node *node);
 
         void TUScopeEnter(vm::datatype::String *name, SymbolType context);

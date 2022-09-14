@@ -157,6 +157,44 @@ void Compiler::Compile(const Node *node) {
     }
 }
 
+void Compiler::CompileLTDS(const Unary *list) {
+    ARC iter;
+    ARC tmp;
+
+    vm::OpCode code;
+    int items = 0;
+
+    iter = IteratorGet(list->value, false);
+    if (!iter)
+        throw DatatypeException();
+
+    while ((tmp = IteratorNext(iter.Get()))) {
+        this->Expression((Node *) tmp.Get());
+        items++;
+    }
+
+    switch (list->node_type) {
+        case NodeType::LIST:
+            code = vm::OpCode::MKLT;
+            break;
+        case NodeType::TUPLE:
+            code = vm::OpCode::MKTP;
+            break;
+        case NodeType::DICT:
+            code = vm::OpCode::MKDT;
+            break;
+        case NodeType::SET:
+            code = vm::OpCode::MKST;
+            break;
+        default:
+            throw CompilerException("");
+    }
+
+    this->unit_->DecrementStack(items);
+
+    this->unit_->Emit(code, items, nullptr, &list->loc);
+}
+
 void Compiler::Expression(const Node *node) {
     switch (node->node_type) {
         case NodeType::LITERAL:
@@ -164,6 +202,12 @@ void Compiler::Expression(const Node *node) {
             break;
         case NodeType::BINARY:
             this->Binary((const parser::Binary *) node);
+            break;
+        case NodeType::LIST:
+        case NodeType::TUPLE:
+        case NodeType::DICT:
+        case NodeType::SET:
+            this->CompileLTDS((const Unary *) node);
             break;
     }
 }
