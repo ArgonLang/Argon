@@ -24,6 +24,8 @@ namespace argon::lang {
 
         void Compile(const parser::Node *node);
 
+        void CompileElvis(const parser::Test *test);
+
         void CompileLTDS(const parser::Unary *list);
 
         void CompileTest(const parser::Binary *test);

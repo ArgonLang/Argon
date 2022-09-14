@@ -4,11 +4,11 @@
 
 #include <vm/opcode.h>
 
+#include <vm/datatype/integer.h>
 #include <lang/scanner/token.h>
 
 #include "compilererr.h"
 #include "compiler.h"
-#include "vm/datatype/integer.h"
 
 using namespace argon::lang;
 using namespace argon::lang::parser;
@@ -157,6 +157,26 @@ void Compiler::Compile(const Node *node) {
     }
 }
 
+void Compiler::CompileElvis(const parser::Test *test) {
+    BasicBlock *end;
+
+    this->Expression(test->test);
+
+    if ((end = BasicBlockNew()) == nullptr)
+        throw DatatypeException();
+
+    try {
+        this->unit_->Emit(vm::OpCode::JTOP, 0, end, &test->loc);
+
+        this->Expression(test->orelse);
+    } catch (const std::exception &) {
+        BasicBlockDel(end);
+        throw;
+    }
+
+    this->unit_->BlockAppend(end);
+}
+
 void Compiler::CompileLTDS(const Unary *list) {
     ARC iter;
     ARC tmp;
@@ -261,6 +281,9 @@ void Compiler::CompileUnary(const parser::Unary *unary) {
 
 void Compiler::Expression(const Node *node) {
     switch (node->node_type) {
+        case NodeType::ELVIS:
+            this->CompileElvis((const Test*)node);
+            break;
         case NodeType::LITERAL:
             this->LoadStatic(((const Unary *) node)->value, true, true);
             break;
