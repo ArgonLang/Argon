@@ -54,6 +54,10 @@ namespace argon::lang {
             unsigned int current;
         } stack;
 
+        bool BlockNew();
+
+        void BlockAppend(BasicBlock *block);
+
         void DecrementStack(int size) {
             this->stack.current -= size;
             assert(this->stack.current < 0x00FFFFFF);

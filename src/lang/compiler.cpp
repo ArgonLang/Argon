@@ -195,12 +195,58 @@ void Compiler::CompileLTDS(const Unary *list) {
     this->unit_->Emit(code, items, nullptr, &list->loc);
 }
 
+void Compiler::CompileTest(const parser::Binary *test) {
+    auto *cursor = test;
+    BasicBlock *end;
+    int deep = 0;
+
+    if ((end = BasicBlockNew()) == nullptr)
+        throw DatatypeException();
+
+    while (cursor->left->token_type == scanner::TokenType::AND || cursor->left->token_type == scanner::TokenType::OR) {
+        cursor = (const parser::Binary *) cursor->left;
+        deep++;
+    }
+
+    try {
+        this->Expression(cursor->left);
+
+        do {
+            if (cursor->token_type == scanner::TokenType::AND)
+                this->unit_->Emit(vm::OpCode::JFOP, 0, end, &cursor->loc);
+            else if (cursor->token_type == scanner::TokenType::OR)
+                this->unit_->Emit(vm::OpCode::JTOP, 0, end, &cursor->loc);
+            else
+                throw CompilerException("invalid TokenType for CompileTest");
+
+            if (!this->unit_->BlockNew())
+                throw DatatypeException();
+
+            this->Expression(cursor->right);
+
+            deep--;
+
+            cursor = test;
+            for (int i = 0; i < deep; i++)
+                cursor = (const parser::Binary *) test->left;
+        } while (deep >= 0);
+    } catch (const std::exception &) {
+        BasicBlockDel(end);
+        throw;
+    }
+
+    this->unit_->BlockAppend(end);
+}
+
 void Compiler::Expression(const Node *node) {
     switch (node->node_type) {
         case NodeType::LITERAL:
             this->LoadStatic(((const Unary *) node)->value, true, true);
             break;
         case NodeType::BINARY:
+            if (node->token_type == scanner::TokenType::AND || node->token_type == scanner::TokenType::OR)
+                this->CompileTest((const parser::Binary *) node);
+
             this->Binary((const parser::Binary *) node);
             break;
         case NodeType::LIST:

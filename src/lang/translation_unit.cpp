@@ -34,6 +34,19 @@ void BlockAppend(TranslationUnit *unit, BasicBlock *block) {
     }
 }
 
+bool TranslationUnit::BlockNew() {
+    auto *block = BasicBlockNew();
+    if (block == nullptr)
+        return false;
+
+    ::BlockAppend(this, block);
+    return true;
+}
+
+void TranslationUnit::BlockAppend(argon::lang::BasicBlock *block) {
+    ::BlockAppend(this, block);
+}
+
 void TranslationUnit::Emit(vm::OpCode opcode, int arg, BasicBlock *dest, const scanner::Loc *loc) {
     auto *instr = this->bb.cur->AddInstr(opcode, arg);
     if (instr != nullptr) {
