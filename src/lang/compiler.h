@@ -6,11 +6,28 @@
 #define ARGON_LANG_COMPILER_H_
 
 #include <vm/datatype/code.h>
+#include <vm/datatype/dict.h>
 
 #include <lang/parser/node.h>
 
+#include "translation_unit.h"
+
 namespace argon::lang {
-    class Compiler{
+    class Compiler {
+        TranslationUnit *unit_ = nullptr;
+
+        vm::datatype::Dict *statics_globals_ = nullptr;
+
+        void Binary(const parser::Binary *binary);
+
+        void Compile(const parser::Node *node);
+
+        void Expression(const parser::Node *node);
+
+        void TUScopeEnter(vm::datatype::String *name, SymbolType context);
+
+        void TUScopeExit();
+
     public:
         Compiler() noexcept = default;
 
