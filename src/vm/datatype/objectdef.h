@@ -27,6 +27,25 @@ namespace argon::vm::datatype {
         LEQ = 5
     };
 
+#define ARGON_RICH_COMPARE_CASES(a, b, mode)    \
+    switch (mode) {                             \
+        case CompareMode::EQ:                   \
+            return BoolToArBool((a) == (b));    \
+        case CompareMode::NE:                   \
+            assert(false);                      \
+            break;                              \
+        case CompareMode::GR:                   \
+            return BoolToArBool((a) > (b));     \
+        case CompareMode::GRQ:                  \
+            return BoolToArBool((a) >= (b));    \
+        case CompareMode::LE:                   \
+            return BoolToArBool((a) < (b));     \
+        case CompareMode::LEQ:                  \
+            return BoolToArBool((a) <= (b));    \
+        default:                                \
+            assert(false);                      \
+    }                                           \
+
     enum class TypeInfoFlags : unsigned int {
         // BIT FLAGS | OBJECT TYPE
         //                       ^--- Two bits to represent the type of object.

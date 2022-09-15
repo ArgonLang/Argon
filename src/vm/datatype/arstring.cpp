@@ -6,12 +6,13 @@
 
 #include <vm/runtime.h>
 
+#include "boolean.h"
 #include "dict.h"
+#include "hash_magic.h"
 #include "stringbuilder.h"
 #include "arstring.h"
 
 using namespace argon::vm::datatype;
-using namespace argon::vm::memory;
 
 #define STR_BUF(str) ((str)->buffer)
 #define STR_LEN(str) ((str)->length)
@@ -26,7 +27,7 @@ String *StringInit(ArSize len, bool mkbuf) {
 
         if (mkbuf) {
             // +1 is '\0'
-            str->buffer = (unsigned char *) Alloc(len + 1);
+            str->buffer = (unsigned char *) argon::vm::memory::Alloc(len + 1);
             if (str->buffer == nullptr) {
                 Release(str);
                 return nullptr;
@@ -46,6 +47,38 @@ String *StringInit(ArSize len, bool mkbuf) {
     return str;
 }
 
+ArObject *string_compare(const String *self, const ArObject *other, CompareMode mode) {
+    const auto *o = (const String *) other;
+    int left = 0;
+    int right = 0;
+    int res;
+
+    if (!AR_SAME_TYPE(self, other))
+        return nullptr;
+
+    if (self == o)
+        return BoolToArBool(true);
+
+    if (mode == CompareMode::EQ && self->kind != o->kind)
+        return BoolToArBool(false);
+
+    res = StringCompare(self, o);
+    if (res < 0)
+        left = -1;
+    else if (res > 0)
+        right = -1;
+
+    ARGON_RICH_COMPARE_CASES(left, right, mode)
+}
+
+
+ArSize string_hash(String *self){
+    if (self->hash == 0)
+        self->hash = HashBytes(self->buffer, self->length);
+
+    return self->hash;
+}
+
 const TypeInfo StringType = {
         AROBJ_HEAD_INIT_TYPE,
         "String",
@@ -56,9 +89,9 @@ const TypeInfo StringType = {
         nullptr,
         nullptr,
         nullptr,
+        (ArSize_UnaryOp) string_hash,
         nullptr,
-        nullptr,
-        nullptr,
+        (CompareOp) string_compare,
         nullptr,
         nullptr,
         nullptr,
@@ -92,6 +125,23 @@ ArSize argon::vm::datatype::StringSubstrLen(const String *string, ArSize offset,
     }
 
     return buf - (STR_BUF(string) + offset);
+}
+
+int argon::vm::datatype::StringCompare(const String *left, const String *right) {
+    ArSize idx1 = 0;
+    ArSize idx2 = 0;
+
+    unsigned char c1;
+    unsigned char c2;
+
+    do {
+        c1 = ARGON_RAW_STRING(left)[idx1++];
+        c2 = ARGON_RAW_STRING(right)[idx2++];
+
+        // Take care of '\0', String->len not include '\0'
+    } while (c1 == c2 && idx1 < ARGON_RAW_STRING_LENGTH(left) + 1);
+
+    return c1 - c2;
 }
 
 String *argon::vm::datatype::StringConcat(const String *left, const String *right) {

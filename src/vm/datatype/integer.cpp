@@ -2,9 +2,27 @@
 //
 // Licensed under the Apache License v2.0
 
+#include "boolean.h"
 #include "integer.h"
 
 using namespace argon::vm::datatype;
+
+ArObject *number_compare(const Integer *self, const Integer *other, CompareMode mode) {
+    if (!AR_SAME_TYPE(self, other))
+        return nullptr;
+
+    if (self == other && mode == CompareMode::EQ)
+        return BoolToArBool(true);
+
+    auto left = self->uint;
+    auto right = other->uint;
+
+    ARGON_RICH_COMPARE_CASES(left, right, mode)
+}
+
+ArSize number_hash(const Integer *self) {
+    return self->uint;
+}
 
 const TypeInfo IntegerType = {
         AROBJ_HEAD_INIT_TYPE,
@@ -16,9 +34,9 @@ const TypeInfo IntegerType = {
         nullptr,
         nullptr,
         nullptr,
+        (ArSize_UnaryOp)number_hash,
         nullptr,
-        nullptr,
-        nullptr,
+        (CompareOp) number_compare,
         nullptr,
         nullptr,
         nullptr,
@@ -43,9 +61,9 @@ const TypeInfo UIntegerType = {
         nullptr,
         nullptr,
         nullptr,
+        (ArSize_UnaryOp)number_hash,
         nullptr,
-        nullptr,
-        nullptr,
+        (CompareOp) number_compare,
         nullptr,
         nullptr,
         nullptr,
@@ -66,7 +84,7 @@ Integer *argon::vm::datatype::IntNew(IntegerUnderlying number) {
     if (si != nullptr)
         si->sint = number;
 
-    return nullptr;
+    return si;
 }
 
 Integer *argon::vm::datatype::IntNew(const char *string, int base) {
@@ -84,7 +102,7 @@ Integer *argon::vm::datatype::UIntNew(UIntegerUnderlying number) {
     if (ui != nullptr)
         ui->uint = number;
 
-    return nullptr;
+    return ui;
 }
 
 Integer *argon::vm::datatype::UIntNew(const char *string, int base) {
@@ -93,5 +111,5 @@ Integer *argon::vm::datatype::UIntNew(const char *string, int base) {
     if (ui != nullptr)
         ui->uint = std::strtoul(string, nullptr, base);
 
-    return nullptr;
+    return ui;
 }

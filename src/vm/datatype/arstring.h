@@ -46,9 +46,15 @@ namespace argon::vm::datatype {
 
     ArSize StringSubstrLen(const String *string, ArSize offset, ArSize graphemes);
 
+    inline bool StringEqual(const String *string, const char *c_str) {
+        return strcmp((const char *) ARGON_RAW_STRING(string), c_str)==0;
+    }
+
     inline bool StringIsEmpty(const String *string) {
         return string->length == 0;
     }
+
+    int StringCompare(const String *left, const String *right);
 
     /**
      * @brief Concatenate two string.
