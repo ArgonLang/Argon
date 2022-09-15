@@ -66,6 +66,17 @@ SymbolT *argon::lang::SymbolInsert(SymbolT *table, String *name, bool *out_inser
     return sym;
 }
 
+SymbolT *argon::lang::SymbolLookup(const SymbolT *table, String *name) {
+    SymbolT *sym = nullptr;
+
+    for (const SymbolT *cur = table; cur != nullptr; cur = cur->back) {
+        if ((sym = (SymbolT *) DictLookup(cur->stable, (ArObject*)name)) != nullptr)
+            break;
+    }
+
+    return sym;
+}
+
 SymbolT *argon::lang::SymbolNew(String *name) {
     auto *symt = MakeObject<SymbolT>(type_symt_);
 

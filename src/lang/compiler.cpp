@@ -5,10 +5,13 @@
 #include <vm/opcode.h>
 
 #include <vm/datatype/integer.h>
+#include <vm/datatype/nil.h>
+
 #include <lang/scanner/token.h>
 
 #include "compilererr.h"
 #include "compiler.h"
+
 
 using namespace argon::lang;
 using namespace argon::lang::parser;
@@ -66,6 +69,30 @@ int Compiler::LoadStatic(ArObject *value, bool store, bool emit) {
         this->unit_->Emit(vm::OpCode::LSTATIC, (int) idx, nullptr, nullptr);
 
     return (int) idx;
+}
+
+SymbolT *Compiler::IdentifierLookupOrCreate(String *name, SymbolType type) {
+    List *dst = this->unit_->names;
+
+    SymbolT *sym;
+    if ((sym = SymbolLookup(this->unit_->symt, name)) == nullptr) {
+        if ((sym = SymbolInsert(this->unit_->symt, name, nullptr, type)) == nullptr)
+            return nullptr;
+
+        if (this->unit_->IsFreeVar(name)) {
+            dst = this->unit_->enclosed;
+            sym->free = true;
+        }
+
+        sym->id = (unsigned int) dst->length;
+
+        if (!ListAppend(dst, (ArObject *) name)) {
+            Release(sym);
+            return nullptr;
+        }
+    }
+
+    return sym;
 }
 
 void Compiler::Binary(const parser::Binary *binary) {
@@ -215,6 +242,44 @@ void Compiler::CompileLTDS(const Unary *list) {
     this->unit_->Emit(code, items, nullptr, &list->loc);
 }
 
+void Compiler::CompileTernary(const parser::Test *test) {
+    BasicBlock *orelse;
+    BasicBlock *end;
+
+    if ((orelse = BasicBlockNew()) == nullptr)
+        throw DatatypeException();
+
+    if ((end = BasicBlockNew()) == nullptr) {
+        BasicBlockDel(orelse);
+        throw DatatypeException();
+    }
+
+    try {
+        this->Expression(test->test);
+
+        this->unit_->Emit(vm::OpCode::JF, orelse, &test->test->loc);
+
+        this->Expression(test->body);
+
+        this->unit_->Emit(vm::OpCode::JMP, end, nullptr);
+
+        this->unit_->DecrementStack(1);
+
+        this->unit_->BlockAppend(orelse);
+
+        if (test->orelse != nullptr)
+            this->Expression(test->orelse);
+        else
+            this->LoadStatic((ArObject *) Nil, true, true);
+
+        this->unit_->BlockAppend(end);
+    } catch (...) {
+        BasicBlockDel(orelse);
+        BasicBlockDel(end);
+        throw;
+    }
+}
+
 void Compiler::CompileTest(const parser::Binary *test) {
     auto *cursor = test;
     BasicBlock *end;
@@ -282,10 +347,13 @@ void Compiler::CompileUnary(const parser::Unary *unary) {
 void Compiler::Expression(const Node *node) {
     switch (node->node_type) {
         case NodeType::ELVIS:
-            this->CompileElvis((const Test*)node);
+            this->CompileElvis((const Test *) node);
             break;
         case NodeType::LITERAL:
             this->LoadStatic(((const Unary *) node)->value, true, true);
+            break;
+        case NodeType::UNARY:
+            this->CompileUnary((const Unary *) node);
             break;
         case NodeType::BINARY:
             if (node->token_type == scanner::TokenType::AND || node->token_type == scanner::TokenType::OR) {
@@ -295,8 +363,11 @@ void Compiler::Expression(const Node *node) {
 
             this->Binary((const parser::Binary *) node);
             break;
-        case NodeType::UNARY:
-            this->CompileUnary((const Unary *) node);
+        case NodeType::TERNARY:
+            this->CompileTernary((const parser::Test *) node);
+            break;
+        case NodeType::IDENTIFIER:
+            this->LoadIdentifier((String *) ((const Unary *) node)->value);
             break;
         case NodeType::LIST:
         case NodeType::TUPLE:
@@ -305,6 +376,38 @@ void Compiler::Expression(const Node *node) {
             this->CompileLTDS((const Unary *) node);
             break;
     }
+}
+
+void Compiler::LoadIdentifier(String *identifier) {
+    // N.B. Unknown variable, by default does not raise an error,
+    // but tries to load it from the global namespace.
+    SymbolT *sym;
+    ArSize sym_id;
+
+    if (StringEqual(identifier, (const char *) "_"))
+        throw CompilerException("cannot use '_' as value");
+
+    if ((sym = this->IdentifierLookupOrCreate(identifier, SymbolType::VARIABLE)) == nullptr)
+        throw CompilerException("");
+
+    sym_id = sym->id;
+
+    Release(sym);
+
+    auto scope = this->unit_->symt->type;
+    if (scope != SymbolType::STRUCT &&
+        scope != SymbolType::TRAIT &&
+        sym->nested > 0) {
+        if (sym->declared) {
+            this->unit_->Emit(vm::OpCode::LDLC, (int) sym_id, nullptr, nullptr);
+            return;
+        } else if (sym->free) {
+            this->unit_->Emit(vm::OpCode::LDENC, (int) sym_id, nullptr, nullptr);
+            return;
+        }
+    }
+
+    this->unit_->Emit(vm::OpCode::LDGBL, (int) sym_id, nullptr, nullptr);
 }
 
 void Compiler::TUScopeEnter(String *name, SymbolType context) {

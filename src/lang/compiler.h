@@ -20,6 +20,8 @@ namespace argon::lang {
 
         int LoadStatic(vm::datatype::ArObject *value, bool store, bool emit);
 
+        SymbolT *IdentifierLookupOrCreate(vm::datatype::String *name, SymbolType type);
+
         void Binary(const parser::Binary *binary);
 
         void Compile(const parser::Node *node);
@@ -28,11 +30,15 @@ namespace argon::lang {
 
         void CompileLTDS(const parser::Unary *list);
 
+        void CompileTernary(const parser::Test *test);
+
         void CompileTest(const parser::Binary *test);
 
         void CompileUnary(const parser::Unary *unary);
 
         void Expression(const parser::Node *node);
+
+        void LoadIdentifier(vm::datatype::String *identifier);
 
         void TUScopeEnter(vm::datatype::String *name, SymbolType context);
 

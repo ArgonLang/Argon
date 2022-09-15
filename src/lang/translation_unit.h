@@ -56,6 +56,8 @@ namespace argon::lang {
 
         bool BlockNew();
 
+        bool IsFreeVar(vm::datatype::String *id);
+
         void BlockAppend(BasicBlock *block);
 
         void DecrementStack(int size) {
@@ -67,6 +69,10 @@ namespace argon::lang {
 
         void Emit(vm::OpCode opcode, const scanner::Loc *loc) {
             this->Emit(opcode, 0, nullptr, loc);
+        }
+
+        void Emit(vm::OpCode opcode, BasicBlock *dest, const scanner::Loc *loc) {
+            this->Emit(opcode, 0, dest, loc);
         }
 
         void IncrementStack(int size) {

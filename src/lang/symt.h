@@ -48,6 +48,8 @@ namespace argon::lang {
 
     SymbolT *SymbolInsert(SymbolT *table, vm::datatype::String *name, bool *out_inserted, SymbolType type);
 
+    SymbolT *SymbolLookup(const SymbolT *table, vm::datatype::String *name);
+
     SymbolT *SymbolNew(vm::datatype::String *name);
 }
 

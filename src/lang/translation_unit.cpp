@@ -43,6 +43,26 @@ bool TranslationUnit::BlockNew() {
     return true;
 }
 
+bool TranslationUnit::IsFreeVar(String *id) {
+    // Look back in the TranslationUnits,
+    // if a variable with the same name exists and is declared or free
+    // in turn then this is a free variable
+    SymbolT *sym;
+
+    for (TranslationUnit *tu = this->prev; tu != nullptr && tu->symt->type == SymbolType::FUNC; tu = tu->prev) {
+        sym = SymbolLookup(tu->symt, id);
+        if (sym != nullptr) {
+            if (sym->declared || sym->free) {
+                Release(sym);
+                return true;
+            }
+            Release(sym);
+        }
+    }
+
+    return false;
+}
+
 void TranslationUnit::BlockAppend(argon::lang::BasicBlock *block) {
     ::BlockAppend(this, block);
 }
