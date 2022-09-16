@@ -21,9 +21,13 @@ namespace argon::vm {
     enum class OpCode : unsigned char {
         ADD,
         CMP,
+        DEC,
         DIV,
+        DUP,
         EQST,
         IDIV,
+        INC,
+        INIT,
         INV,
         JF,
         JFOP,
@@ -48,15 +52,22 @@ namespace argon::vm {
         POS,
         SHL,
         SHR,
+        STENC,
+        STLC,
+        STGBL,
         SUB
     };
 
     constexpr short StackChange[] = {
             -1,
             -1,
+            0,
+            -1,
+            1,
             -1,
             -1,
-            -1,
+            0,
+            1,
             -1,
             -1,
             -1,
@@ -79,6 +90,9 @@ namespace argon::vm {
             0,
             -1,
             0,
+            -1,
+            -1,
+            -1,
             -1,
             -1,
             -1
@@ -88,10 +102,14 @@ namespace argon::vm {
             1,
             2,
             1,
+            1,
+            1,
             2,
             1,
             1,
             4,
+            1,
+            4,
             4,
             4,
             4,
@@ -114,7 +132,15 @@ namespace argon::vm {
             1,
             1,
             1,
+            2,
+            2,
+            4,
             1
+    };
+
+    enum class OpCodeInitMode : unsigned char {
+        POSITIONAL,
+        KWARGS
     };
 
 } // namespace argon::vm

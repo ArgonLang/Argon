@@ -28,6 +28,8 @@ namespace argon::lang {
 
         void CompileElvis(const parser::Test *test);
 
+        void CompileInit(const parser::Initialization *init);
+
         void CompileLTDS(const parser::Unary *list);
 
         void CompileTernary(const parser::Test *test);
@@ -36,9 +38,13 @@ namespace argon::lang {
 
         void CompileUnary(const parser::Unary *unary);
 
+        void CompileUpdate(const parser::Unary *update);
+
         void Expression(const parser::Node *node);
 
         void LoadIdentifier(vm::datatype::String *identifier);
+
+        void StoreVariable(vm::datatype::String *name);
 
         void TUScopeEnter(vm::datatype::String *name, SymbolType context);
 

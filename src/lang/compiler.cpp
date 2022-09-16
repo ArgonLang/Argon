@@ -204,6 +204,41 @@ void Compiler::CompileElvis(const parser::Test *test) {
     this->unit_->BlockAppend(end);
 }
 
+void Compiler::CompileInit(const parser::Initialization *init) {
+    vm::OpCodeInitMode mode = init->as_map ? vm::OpCodeInitMode::KWARGS : vm::OpCodeInitMode::POSITIONAL;
+    ARC iter;
+    ARC tmp;
+
+    this->Expression(init->left);
+
+    iter = IteratorGet(init->values, false);
+    if (!iter)
+        throw DatatypeException();
+
+    unsigned char items = 0;
+    while ((tmp = IteratorNext(iter.Get()))) {
+        const auto *node = (const Node *) tmp.Get();
+
+        if (init->as_map) {
+            if (items++ & 0x01) {
+                this->Expression(node);
+                continue;
+            }
+
+            // TODO: check node
+            this->LoadStatic(((const Unary *) node)->value, true, true);
+            continue;
+        }
+
+        items++;
+        this->Expression(node);
+    }
+
+    this->unit_->DecrementStack(items + 1); // +1 init->left
+
+    this->unit_->Emit(vm::OpCode::INIT, (unsigned char) mode, items, &init->loc);
+}
+
 void Compiler::CompileLTDS(const Unary *list) {
     ARC iter;
     ARC tmp;
@@ -344,6 +379,29 @@ void Compiler::CompileUnary(const parser::Unary *unary) {
     }
 }
 
+void Compiler::CompileUpdate(const parser::Unary *update) {
+    const auto *value = (const Node *) update->value;
+
+    this->Expression((const Node *) update->value);
+
+    this->unit_->Emit(vm::OpCode::DUP, nullptr);
+
+    if(update->token_type==scanner::TokenType::PLUS_PLUS)
+        this->unit_->Emit(vm::OpCode::INC, &update->loc);
+    else if(update->token_type == scanner::TokenType::MINUS_MINUS)
+        this->unit_->Emit(vm::OpCode::DEC, &update->loc);
+    else
+        throw CompilerException("");
+
+    if (value->node_type == parser::NodeType::IDENTIFIER)
+        this->StoreVariable((String *) ((const Unary *) value)->value);
+    else if (value->node_type == parser::NodeType::INDEX) {
+        // TODO
+    } else if (value->node_type == parser::NodeType::SELECTOR) {
+// TODO
+    }
+}
+
 void Compiler::Expression(const Node *node) {
     switch (node->node_type) {
         case NodeType::ELVIS:
@@ -369,11 +427,17 @@ void Compiler::Expression(const Node *node) {
         case NodeType::IDENTIFIER:
             this->LoadIdentifier((String *) ((const Unary *) node)->value);
             break;
+        case NodeType::INIT:
+            this->CompileInit((const parser::Initialization *) node);
+            break;
         case NodeType::LIST:
         case NodeType::TUPLE:
         case NodeType::DICT:
         case NodeType::SET:
             this->CompileLTDS((const Unary *) node);
+            break;
+        case NodeType::UPDATE:
+            this->CompileUpdate((const Unary *) node);
             break;
     }
 }
@@ -408,6 +472,28 @@ void Compiler::LoadIdentifier(String *identifier) {
     }
 
     this->unit_->Emit(vm::OpCode::LDGBL, (int) sym_id, nullptr, nullptr);
+}
+
+void Compiler::StoreVariable(String *name) {
+    vm::OpCode code = vm::OpCode::STGBL;
+    SymbolT *sym;
+
+    if (StringEqual(name, (const char *) "_"))
+        this->unit_->Emit(vm::OpCode::POP, nullptr);
+
+    if ((sym = this->IdentifierLookupOrCreate(name, SymbolType::VARIABLE)) == nullptr)
+        throw CompilerException("");
+
+    if (sym->declared && (this->unit_->symt->type == SymbolType::FUNC || sym->nested > 0))
+        code = vm::OpCode::STLC;
+    else if (sym->free)
+        code = vm::OpCode::STENC;
+
+    auto sym_id = sym->id;
+
+    Release(sym);
+
+    this->unit_->Emit(code, (int) sym_id, nullptr, nullptr);
 }
 
 void Compiler::TUScopeEnter(String *name, SymbolType context) {

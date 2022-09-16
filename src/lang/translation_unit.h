@@ -75,6 +75,11 @@ namespace argon::lang {
             this->Emit(opcode, 0, dest, loc);
         }
 
+        void Emit(vm::OpCode opcode, unsigned char flags, unsigned short arg, const scanner::Loc *loc) {
+            int combined = flags << 16 | arg;
+            this->Emit(opcode, combined, nullptr, loc);
+        }
+
         void IncrementStack(int size) {
             this->stack.current += size;
             if (this->stack.current > this->stack.required)
