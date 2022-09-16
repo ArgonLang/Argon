@@ -5,6 +5,8 @@
 #ifndef ARGON_VM_BASICBLOCK_H_
 #define ARGON_VM_BASICBLOCK_H_
 
+#include <vm/datatype/arstring.h>
+
 #include <vm/opcode.h>
 
 namespace argon::lang {
@@ -35,9 +37,25 @@ namespace argon::lang {
         Instr *AddInstr(vm::OpCode opcode, int arg);
     };
 
+    struct JBlock {
+        JBlock *prev;
+
+        argon::vm::datatype::String *label;
+
+        BasicBlock *start;
+        BasicBlock *end;
+
+        unsigned short nested;
+        bool loop;
+    };
+
     BasicBlock *BasicBlockNew();
 
     BasicBlock *BasicBlockDel(BasicBlock *block);
+
+    JBlock *JBlockNew(JBlock *prev, argon::vm::datatype::String *label, unsigned short nested);
+
+    JBlock *JBlockDel(JBlock *jb);
 }
 
 #endif // !ARGON_VM_BASICBLOCK_H_

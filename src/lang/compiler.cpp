@@ -12,7 +12,6 @@
 #include "compilererr.h"
 #include "compiler.h"
 
-
 using namespace argon::lang;
 using namespace argon::lang::parser;
 using namespace argon::vm::datatype;
@@ -277,6 +276,99 @@ void Compiler::CompileLTDS(const Unary *list) {
     this->unit_->Emit(code, items, nullptr, &list->loc);
 }
 
+void Compiler::CompileSafe(const parser::Unary *unary) {
+    BasicBlock *end;
+    const JBlock *jb;
+
+    if ((end = BasicBlockNew()) == nullptr)
+        throw DatatypeException();
+
+    try {
+        jb = this->unit_->JBNew(nullptr, end);
+
+        if (((Node *) unary->value)->node_type == parser::NodeType::ASSIGNMENT)
+            this->Compile((const Node *) unary->value);
+        else
+            this->Expression((const Node *) unary->value);
+
+        this->unit_->BlockAppend(end);
+
+        this->unit_->JBPop(jb);
+    } catch (...) {
+        BasicBlockDel(end);
+        throw;
+    }
+}
+
+void Compiler::CompileSelector(const parser::Binary *selector, bool dup, bool emit) {
+    const auto *cursor = selector;
+    vm::OpCode code;
+    int deep;
+    int idx;
+
+    deep = 0;
+    while (cursor->left->node_type == parser::NodeType::SELECTOR) {
+        cursor = (const parser::Binary *) cursor->left;
+        deep++;
+    }
+
+    this->Expression(cursor->left);
+
+    do {
+        if (cursor->token_type == scanner::TokenType::SCOPE)
+            code = vm::OpCode::LDSCOPE;
+        else if (cursor->token_type == scanner::TokenType::DOT)
+            code = vm::OpCode::LDATTR;
+        else if (cursor->token_type == scanner::TokenType::QUESTION_DOT) {
+            code = vm::OpCode::LDATTR;
+            this->unit_->Emit(vm::OpCode::JNIL, this->unit_->jstack->end, nullptr);
+        } else
+            throw CompilerException("unexpected TokenType in selector expression");
+
+        idx = this->LoadStatic(((const Unary *) cursor->right)->value, true, false);
+
+        if (dup && deep == 0) {
+            this->unit_->Emit(vm::OpCode::DUP, 1, nullptr, nullptr);
+
+            this->unit_->IncrementStack(1);
+        }
+
+        if (deep > 0 || emit)
+            this->unit_->Emit(code, idx, nullptr, &cursor->loc);
+
+        deep--;
+        cursor = selector;
+        for (int i = 0; i < deep; i++)
+            cursor = (const parser::Binary *) selector->left;
+    } while (deep >= 0);
+}
+
+void Compiler::CompileSubscr(const parser::Subscript *subscr, bool dup, bool emit) {
+    this->Expression(subscr->expression);
+
+    if (subscr->start != nullptr)
+        this->Expression(subscr->start);
+    else
+        this->LoadStatic((ArObject *) Nil, true, true);
+
+    if (subscr->node_type == parser::NodeType::SLICE) {
+        if (subscr->stop != nullptr)
+            this->Expression(subscr->stop);
+        else
+            this->LoadStatic((ArObject *) Nil, true, true);
+
+        this->unit_->Emit(vm::OpCode::MKBND, nullptr);
+    }
+
+    if (dup) {
+        this->unit_->Emit(vm::OpCode::DUP, 2, nullptr, nullptr);
+        this->unit_->IncrementStack(2);
+    }
+
+    if (emit)
+        this->unit_->Emit(vm::OpCode::SUBSCR, &subscr->loc);
+}
+
 void Compiler::CompileTernary(const parser::Test *test) {
     BasicBlock *orelse;
     BasicBlock *end;
@@ -384,11 +476,12 @@ void Compiler::CompileUpdate(const parser::Unary *update) {
 
     this->Expression((const Node *) update->value);
 
-    this->unit_->Emit(vm::OpCode::DUP, nullptr);
+    this->unit_->Emit(vm::OpCode::DUP, 1, nullptr, nullptr);
+    this->unit_->IncrementStack(1);
 
-    if(update->token_type==scanner::TokenType::PLUS_PLUS)
+    if (update->token_type == scanner::TokenType::PLUS_PLUS)
         this->unit_->Emit(vm::OpCode::INC, &update->loc);
-    else if(update->token_type == scanner::TokenType::MINUS_MINUS)
+    else if (update->token_type == scanner::TokenType::MINUS_MINUS)
         this->unit_->Emit(vm::OpCode::DEC, &update->loc);
     else
         throw CompilerException("");
@@ -438,6 +531,16 @@ void Compiler::Expression(const Node *node) {
             break;
         case NodeType::UPDATE:
             this->CompileUpdate((const Unary *) node);
+            break;
+        case NodeType::SAFE_EXPR:
+            this->CompileSafe((const Unary *) node);
+            break;
+        case NodeType::SELECTOR:
+            this->CompileSelector((const parser::Binary *) node, false, true);
+            break;
+        case NodeType::INDEX:
+        case NodeType::SLICE:
+            this->CompileSubscr((const Subscript *) node, false, true);
             break;
     }
 }

@@ -44,6 +44,8 @@ namespace argon::lang {
         /// Closure.
         vm::datatype::List *enclosed;
 
+        JBlock *jstack;
+
         struct {
             BasicBlock *start;
             BasicBlock *cur;
@@ -57,6 +59,10 @@ namespace argon::lang {
         bool BlockNew();
 
         bool IsFreeVar(vm::datatype::String *id);
+
+        JBlock *JBNew(vm::datatype::String *label);
+
+        JBlock *JBNew(vm::datatype::String *label, BasicBlock *end);
 
         void BlockAppend(BasicBlock *block);
 
@@ -85,6 +91,8 @@ namespace argon::lang {
             if (this->stack.current > this->stack.required)
                 this->stack.required = this->stack.current;
         }
+
+        void JBPop(const JBlock *block);
     };
 
     TranslationUnit *TranslationUnitNew(TranslationUnit *prev, vm::datatype::String *name, SymbolT *symt);

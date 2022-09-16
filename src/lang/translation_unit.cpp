@@ -63,6 +63,40 @@ bool TranslationUnit::IsFreeVar(String *id) {
     return false;
 }
 
+JBlock *TranslationUnit::JBNew(String *label) {
+    BasicBlock *begin = this->bb.cur;
+    JBlock *block = this->jstack;
+
+    for (; block != nullptr; block = block->prev) {
+        if (StringCompare(block->label, label) == 0 && block->nested == this->symt->nested)
+            break;
+    }
+
+    if (block == nullptr) {
+        if (this->bb.cur->size > 0) {
+            if ((begin = BasicBlockNew()) == nullptr)
+                throw DatatypeException();
+            ::BlockAppend(this, begin);
+        }
+
+        if ((block = JBlockNew(this->jstack, label, this->symt->nested)) == nullptr)
+            throw DatatypeException();
+
+        block->start = begin;
+        this->jstack = block;
+    }
+
+    return block;
+}
+
+JBlock *TranslationUnit::JBNew(String *label, BasicBlock *end) {
+    auto *jb = this->JBNew(label);
+
+    jb->end = end;
+
+    return jb;
+}
+
 void TranslationUnit::BlockAppend(argon::lang::BasicBlock *block) {
     ::BlockAppend(this, block);
 }
@@ -83,6 +117,23 @@ void TranslationUnit::Emit(vm::OpCode opcode, int arg, BasicBlock *dest, const s
     }
 
     throw DatatypeException();
+}
+
+void TranslationUnit::JBPop(const JBlock *block) {
+    JBlock *tmp = this->jstack;
+
+    if (tmp == block) {
+        this->jstack = JBlockDel(tmp);
+        return;
+    }
+
+    for (JBlock *cur = this->jstack->prev; cur != nullptr; cur = tmp) {
+        if (cur == block) {
+            tmp->prev = JBlockDel(cur);
+            break;
+        }
+        tmp = cur;
+    }
 }
 
 TranslationUnit *argon::lang::TranslationUnitNew(TranslationUnit *prev, String *name, SymbolT *symt) {

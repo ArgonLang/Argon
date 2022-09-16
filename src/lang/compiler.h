@@ -32,6 +32,12 @@ namespace argon::lang {
 
         void CompileLTDS(const parser::Unary *list);
 
+        void CompileSafe(const parser::Unary *unary);
+
+        void CompileSelector(const parser::Binary *selector, bool dup, bool emit);
+
+        void CompileSubscr(const parser::Subscript *subscr, bool dup, bool emit);
+
         void CompileTernary(const parser::Test *test);
 
         void CompileTest(const parser::Binary *test);

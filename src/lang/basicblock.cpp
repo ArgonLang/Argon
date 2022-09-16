@@ -8,30 +8,6 @@
 
 using namespace argon::lang;
 
-BasicBlock *argon::lang::BasicBlockNew() {
-    return (BasicBlock *) vm::memory::Calloc(sizeof(BasicBlock));
-}
-
-BasicBlock *argon::lang::BasicBlockDel(BasicBlock *block) {
-    BasicBlock *prev;
-
-    if (block == nullptr)
-        return nullptr;
-
-    prev = block->next;
-
-    // Cleanup instr
-    Instr *tmp;
-    for (Instr *cur = block->instr.head; cur != nullptr; cur = tmp) {
-        tmp = cur->next;
-        argon::vm::memory::Free(cur);
-    }
-
-    argon::vm::memory::Free(block);
-
-    return prev;
-}
-
 Instr *BasicBlock::AddInstr(vm::OpCode opcode, int arg) {
     auto *i = (Instr *) argon::vm::memory::Alloc(sizeof(Instr));
 
@@ -60,4 +36,55 @@ Instr *BasicBlock::AddInstr(vm::OpCode opcode, int arg) {
     }
 
     return i;
+}
+
+BasicBlock *argon::lang::BasicBlockNew() {
+    return (BasicBlock *) vm::memory::Calloc(sizeof(BasicBlock));
+}
+
+BasicBlock *argon::lang::BasicBlockDel(BasicBlock *block) {
+    BasicBlock *prev;
+
+    if (block == nullptr)
+        return nullptr;
+
+    prev = block->next;
+
+    // Cleanup instr
+    Instr *tmp;
+    for (Instr *cur = block->instr.head; cur != nullptr; cur = tmp) {
+        tmp = cur->next;
+        argon::vm::memory::Free(cur);
+    }
+
+    argon::vm::memory::Free(block);
+
+    return prev;
+}
+
+JBlock *argon::lang::JBlockNew(JBlock *prev, argon::vm::datatype::String *label, unsigned short nested) {
+    auto *j = (JBlock *) argon::vm::memory::Calloc(sizeof(JBlock));
+
+    if (j != nullptr) {
+        j->prev = prev;
+        j->label = IncRef(label);
+        j->nested = nested;
+    }
+
+    return j;
+}
+
+JBlock *argon::lang::JBlockDel(JBlock *jb) {
+    JBlock *prev;
+
+    if (jb == nullptr)
+        return nullptr;
+
+    prev = jb->prev;
+
+    Release(jb->label);
+
+    vm::memory::Free(jb);
+
+    return prev;
 }
