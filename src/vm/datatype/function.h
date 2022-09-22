@@ -17,7 +17,8 @@ namespace argon::vm::datatype {
         CLOSURE = 1u << 3,
         VARIADIC = 1u << 4,
         KWARGS = 1u << 5,
-        GENERATOR = 1u << 6
+        GENERATOR = 1u << 6,
+        ASYNC = 1u << 7
     };
 }
 

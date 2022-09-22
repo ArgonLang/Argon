@@ -7,6 +7,8 @@
 
 #include <vm/datatype/code.h>
 #include <vm/datatype/dict.h>
+#include <vm/datatype/function.h>
+#include <vm/datatype/namespace.h>
 
 #include <lang/parser/node.h>
 
@@ -20,13 +22,24 @@ namespace argon::lang {
 
         int LoadStatic(vm::datatype::ArObject *value, bool store, bool emit);
 
+        vm::datatype::String *MakeFname();
+
         SymbolT *IdentifierLookupOrCreate(vm::datatype::String *name, SymbolType type);
 
         void Binary(const parser::Binary *binary);
 
         void Compile(const parser::Node *node);
 
+        void CompileBlock(const parser::Node *node, bool sub);
+
         void CompileElvis(const parser::Test *test);
+
+        void CompileFunction(const parser::Function *func);
+
+        void CompileFunctionDefaultBody();
+
+        void CompileFunctionParams(vm::datatype::List *params, unsigned short &p_count,
+                                   vm::datatype::FunctionFlags &flags);
 
         void CompileInit(const parser::Initialization *init);
 
@@ -48,7 +61,13 @@ namespace argon::lang {
 
         void Expression(const parser::Node *node);
 
+        void IdentifierNew(vm::datatype::String *name, SymbolType stype, vm::datatype::AttributeFlag aflags, bool emit);
+
+        void IdentifierNew(const char *name, SymbolType stype, vm::datatype::AttributeFlag aflags, bool emit);
+
         void LoadIdentifier(vm::datatype::String *identifier);
+
+        void PushAtom(const char *key, bool emit);
 
         void StoreVariable(vm::datatype::String *name);
 

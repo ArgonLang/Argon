@@ -17,6 +17,7 @@ namespace argon::lang {
         GENERATOR,
         LABEL,
         MODULE,
+        NESTED,
         STRUCT,
         TRAIT,
         UNKNOWN,
@@ -27,6 +28,8 @@ namespace argon::lang {
         AROBJ_HEAD;
 
         SymbolT *back;
+
+        SymbolT *nested_stack;
 
         vm::datatype::String *name;
 
@@ -46,11 +49,15 @@ namespace argon::lang {
     };
     extern const argon::vm::datatype::TypeInfo *type_symt_;
 
+    bool SymbolNewSub(SymbolT *table);
+
     SymbolT *SymbolInsert(SymbolT *table, vm::datatype::String *name, bool *out_inserted, SymbolType type);
 
     SymbolT *SymbolLookup(const SymbolT *table, vm::datatype::String *name);
 
     SymbolT *SymbolNew(vm::datatype::String *name);
+
+    void SymbolExitSub(SymbolT *table);
 }
 
 #endif // !ARGON_LANG_SYMT_H_

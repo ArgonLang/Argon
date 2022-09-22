@@ -8,6 +8,7 @@
 #include <vm/opcode.h>
 
 #include <vm/datatype/arstring.h>
+#include <vm/datatype/code.h>
 #include <vm/datatype/dict.h>
 #include <vm/datatype/list.h>
 
@@ -56,9 +57,13 @@ namespace argon::lang {
             unsigned int current;
         } stack;
 
+        unsigned int anon_count_;
+
         bool BlockNew();
 
         bool IsFreeVar(vm::datatype::String *id);
+
+        vm::datatype::Code *Assemble();
 
         JBlock *JBNew(vm::datatype::String *label);
 

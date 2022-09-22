@@ -11,6 +11,7 @@
 
 #include "compilererr.h"
 #include "compiler.h"
+#include "vm/datatype/atom.h"
 
 using namespace argon::lang;
 using namespace argon::lang::parser;
@@ -68,6 +69,20 @@ int Compiler::LoadStatic(ArObject *value, bool store, bool emit) {
         this->unit_->Emit(vm::OpCode::LSTATIC, (int) idx, nullptr, nullptr);
 
     return (int) idx;
+}
+
+String *Compiler::MakeFname() {
+    String *name;
+
+    if (this->unit_->name != nullptr)
+        name = StringFormat("%s$%d", ARGON_RAW_STRING(this->unit_->name), this->unit_->anon_count_++);
+    else
+        name = StringFormat("$%d", this->unit_->anon_count_++);
+
+    if (name == nullptr)
+        throw DatatypeException();
+
+    return name;
 }
 
 SymbolT *Compiler::IdentifierLookupOrCreate(String *name, SymbolType type) {
@@ -174,6 +189,9 @@ void Compiler::Binary(const parser::Binary *binary) {
 
 void Compiler::Compile(const Node *node) {
     switch (node->node_type) {
+        case NodeType::FUNC:
+            this->CompileFunction((const parser::Function *) node);
+            break;
         case parser::NodeType::EXPRESSION:
             this->Expression((Node *) ((const Unary *) node)->value);
             this->unit_->Emit(vm::OpCode::POP, nullptr);
@@ -181,6 +199,26 @@ void Compiler::Compile(const Node *node) {
         default:
             assert(false);
     }
+}
+
+void Compiler::CompileBlock(const parser::Node *node, bool sub) {
+    ARC iter;
+    ARC stmt;
+
+    iter = IteratorGet(((const Unary *) node)->value, false);
+    if (!iter)
+        throw DatatypeException();
+
+    if (sub) {
+        if (!SymbolNewSub(this->unit_->symt))
+            throw DatatypeException();
+    }
+
+    while ((stmt = IteratorNext(iter.Get())))
+        this->Compile((const Node *) stmt.Get());
+
+    if (sub)
+        SymbolExitSub(this->unit_->symt);
 }
 
 void Compiler::CompileElvis(const parser::Test *test) {
@@ -201,6 +239,129 @@ void Compiler::CompileElvis(const parser::Test *test) {
     }
 
     this->unit_->BlockAppend(end);
+}
+
+void Compiler::CompileFunction(const parser::Function *func) {
+    ARC code;
+    ARC fname;
+
+    FunctionFlags flags{};
+
+    unsigned short p_count = 0;
+
+    fname = (ArObject *) func->name;
+    if (func->name == nullptr)
+        fname = (ArObject *) this->MakeFname();
+
+    this->TUScopeEnter((String *) fname.Get(), SymbolType::FUNC);
+
+    // Push self as first param in method definition
+    if (func->name != nullptr && this->unit_->prev != nullptr) {
+        auto pscope = this->unit_->prev->symt->type;
+
+        if (pscope == SymbolType::STRUCT || pscope == SymbolType::TRAIT) {
+            this->IdentifierNew("self", SymbolType::VARIABLE, {}, false);
+            flags |= FunctionFlags::METHOD;
+            p_count++;
+        }
+    }
+
+    this->CompileFunctionParams(func->params, p_count, flags);
+
+    if (func->body != nullptr) {
+        this->CompileBlock(func->body, true);
+    } else
+        this->CompileFunctionDefaultBody();
+
+    // If the function is empty or the last statement is not return,
+    // forcefully enter return as last statement
+    if (this->unit_->bb.cur->instr.tail == nullptr ||
+        this->unit_->bb.cur->instr.tail->opcode != (unsigned char) vm::OpCode::RET) {
+        if (this->unit_->symt->type == SymbolType::GENERATOR)
+            this->PushAtom("stop", true);
+        else
+            this->LoadStatic((ArObject *) Nil, true, true);
+
+        this->unit_->Emit(vm::OpCode::RET, &func->loc);
+    }
+
+    // Update function flags if is a generator
+    if (this->unit_->symt->type == SymbolType::GENERATOR)
+        flags |= FunctionFlags::GENERATOR;
+
+    code = (ArObject *) this->unit_->Assemble();
+
+    this->TUScopeExit();
+
+    this->LoadStatic(fname.Get(), true, true);
+
+    this->LoadStatic(code.Get(), false, true);
+
+    // Load closure
+    const auto *fn_code = (const Code *) code.Get();
+
+    if (fn_code->enclosed->length > 0) {
+        for (ArSize i = 0; i < fn_code->enclosed->length; i++)
+            this->LoadIdentifier((String *) fn_code->enclosed->objects[i]);
+
+        this->unit_->DecrementStack((int) fn_code->enclosed->length);
+
+        this->unit_->Emit(vm::OpCode::MKLT, (int) fn_code->enclosed->length, nullptr, nullptr);
+
+        this->unit_->DecrementStack(1);
+
+        flags |= FunctionFlags::CLOSURE;
+    }
+
+    if (func->async)
+        flags |= FunctionFlags::ASYNC;
+
+    this->unit_->Emit(vm::OpCode::MKFN, (unsigned char) flags, p_count, &func->loc);
+
+    if (func->name != nullptr) {
+        auto aflags = AttributeFlag::CONST;
+
+        if (func->pub)
+            aflags |= AttributeFlag::PUBLIC;
+
+        this->IdentifierNew(func->name, this->unit_->symt->type, aflags, true);
+    }
+}
+
+void Compiler::CompileFunctionDefaultBody() {
+    // TODO default body
+}
+
+void Compiler::CompileFunctionParams(vm::datatype::List *params, unsigned short &p_count, FunctionFlags &flags) {
+    ARC iter;
+    ARC param;
+
+    if (params == nullptr)
+        return;
+
+    iter = IteratorGet((ArObject *) params, false);
+    if (!iter)
+        throw DatatypeException();
+
+    while ((param = IteratorNext(iter.Get()))) {
+        const auto *p = (Node *) param.Get();
+
+        // TODO check unary!
+
+        this->IdentifierNew((String *) ((const Unary *) p)->value, SymbolType::VARIABLE, {}, false);
+
+        p_count++;
+
+        if (p->node_type == parser::NodeType::REST) {
+            flags |= FunctionFlags::VARIADIC;
+            p_count--;
+            break;
+        } else if (p->node_type == parser::NodeType::KWARG) {
+            flags |= FunctionFlags::KWARGS;
+            p_count--;
+            break;
+        }
+    }
 }
 
 void Compiler::CompileInit(const parser::Initialization *init) {
@@ -497,6 +658,9 @@ void Compiler::CompileUpdate(const parser::Unary *update) {
 
 void Compiler::Expression(const Node *node) {
     switch (node->node_type) {
+        case NodeType::FUNC:
+            this->CompileFunction((const parser::Function *) node);
+            break;
         case NodeType::ELVIS:
             this->CompileElvis((const Test *) node);
             break;
@@ -545,6 +709,67 @@ void Compiler::Expression(const Node *node) {
     }
 }
 
+void Compiler::IdentifierNew(String *name, SymbolType stype, AttributeFlag aflags, bool emit) {
+    ARC sym;
+    ArObject *arname;
+
+    bool inserted;
+
+    if (StringEqual(name, "_"))
+        throw CompilerException("cannot use '_' as name of identifier");
+
+    sym = (ArObject *) SymbolInsert(this->unit_->symt, name, &inserted, stype);
+    if (!sym)
+        throw DatatypeException();
+
+    auto *dest = this->unit_->names;
+    auto *p_sym = (SymbolT *) sym.Get();
+
+    p_sym->declared = true;
+
+    if (stype == SymbolType::CONSTANT ||
+        this->unit_->symt->type == SymbolType::TRAIT ||
+        this->unit_->symt->type == SymbolType::STRUCT ||
+        p_sym->nested == 0) {
+        auto id = !inserted ? p_sym->id : dest->length;
+
+        if (emit)
+            this->unit_->Emit(vm::OpCode::NGV, (unsigned char) aflags, (unsigned short) id, nullptr);
+
+        if (!inserted)
+            return;
+    } else {
+        dest = this->unit_->locals;
+
+        if (emit)
+            this->unit_->Emit(vm::OpCode::STLC, (int) dest->length, nullptr, nullptr);
+    }
+
+    if (!inserted)
+        arname = ListGet(!p_sym->free ? this->unit_->names : this->unit_->enclosed, p_sym->id);
+    else
+        arname = (ArObject *) IncRef(name);
+
+    p_sym->id = dest->length;
+
+    if (!ListAppend(dest, arname)) {
+        Release(arname);
+        throw DatatypeException();
+    }
+
+    Release(arname);
+}
+
+void Compiler::IdentifierNew(const char *name, SymbolType stype, AttributeFlag aflags, bool emit) {
+    ARC id;
+
+    id = (ArObject *) StringIntern(name);
+    if (!id)
+        throw DatatypeException();
+
+    this->IdentifierNew((String *) id.Get(), stype, aflags, emit);
+}
+
 void Compiler::LoadIdentifier(String *identifier) {
     // N.B. Unknown variable, by default does not raise an error,
     // but tries to load it from the global namespace.
@@ -575,6 +800,16 @@ void Compiler::LoadIdentifier(String *identifier) {
     }
 
     this->unit_->Emit(vm::OpCode::LDGBL, (int) sym_id, nullptr, nullptr);
+}
+
+void Compiler::PushAtom(const char *key, bool emit) {
+    ARC atom;
+
+    atom = (ArObject *) AtomNew(key);
+    if (!atom)
+        throw DatatypeException();
+
+    this->LoadStatic(atom.Get(), false, emit);
 }
 
 void Compiler::StoreVariable(String *name) {

@@ -34,6 +34,31 @@ const argon::vm::datatype::TypeInfo SymbolTType = {
 };
 const argon::vm::datatype::TypeInfo *argon::lang::type_symt_ = &SymbolTType;
 
+bool argon::lang::SymbolNewSub(SymbolT *table) {
+    if (table->sub == nullptr) {
+        table->sub = ListNew();
+        if (table->sub == nullptr)
+            return false;
+    }
+
+    auto *subt = SymbolNew(nullptr);
+    if (subt == nullptr)
+        return false;
+
+    if (!ListAppend(table->sub, (ArObject *) subt)) {
+        Release(subt);
+        return false;
+    }
+
+    Release(subt);
+
+    subt->nested = table->nested + 1;
+    subt->type = SymbolType::NESTED;
+
+    table->nested_stack = subt;
+    return true;
+}
+
 SymbolT *argon::lang::SymbolInsert(SymbolT *table, String *name, bool *out_inserted, SymbolType type) {
     SymbolT *sym;
 
@@ -70,7 +95,12 @@ SymbolT *argon::lang::SymbolLookup(const SymbolT *table, String *name) {
     SymbolT *sym = nullptr;
 
     for (const SymbolT *cur = table; cur != nullptr; cur = cur->back) {
-        if ((sym = (SymbolT *) DictLookup(cur->stable, (ArObject*)name)) != nullptr)
+        for (const SymbolT *nested = cur->nested_stack; nested != nullptr; nested = nested->back) {
+            if ((sym = (SymbolT *) DictLookup(nested->stable, (ArObject *) name)) != nullptr)
+                return sym;
+        }
+
+        if ((sym = (SymbolT *) DictLookup(cur->stable, (ArObject *) name)) != nullptr)
             break;
     }
 
@@ -82,6 +112,7 @@ SymbolT *argon::lang::SymbolNew(String *name) {
 
     if (symt != nullptr) {
         symt->back = nullptr;
+        symt->nested_stack = nullptr;
 
         symt->name = IncRef(name);
 
@@ -92,7 +123,7 @@ SymbolT *argon::lang::SymbolNew(String *name) {
 
         symt->sub = nullptr;
 
-        symt->id = (ArSize) symt;
+        symt->id = 0;
 
         symt->type = SymbolType::MODULE;
 
@@ -104,4 +135,9 @@ SymbolT *argon::lang::SymbolNew(String *name) {
     }
 
     return symt;
+}
+
+void argon::lang::SymbolExitSub(SymbolT *table) {
+    if (table->nested_stack != nullptr)
+        table->nested_stack = table->nested_stack->back;
 }

@@ -11,7 +11,7 @@ using namespace argon::vm::datatype;
 bool MakeQName(const TranslationUnit *prev, TranslationUnit *unit, String *name) {
     const char *sep = "%s.%s";
 
-    if (prev != nullptr && name != nullptr && !StringIsEmpty(name)) {
+    if (prev != nullptr && prev->qname != nullptr && name != nullptr && !StringIsEmpty(name)) {
         if (prev->symt->type != SymbolType::MODULE)
             sep = "%s::%s";
 
@@ -61,6 +61,10 @@ bool TranslationUnit::IsFreeVar(String *id) {
     }
 
     return false;
+}
+
+Code *TranslationUnit::Assemble() {
+    return nullptr;
 }
 
 JBlock *TranslationUnit::JBNew(String *label) {
@@ -169,6 +173,8 @@ TranslationUnit *argon::lang::TranslationUnitNew(TranslationUnit *prev, String *
             goto ERROR;
 
         BlockAppend(tu, block);
+
+        tu->anon_count_ = 0;
     }
 
     return tu;
