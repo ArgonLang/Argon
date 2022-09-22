@@ -20,6 +20,8 @@ namespace argon::lang {
 
         vm::datatype::Dict *statics_globals_ = nullptr;
 
+        int CompileSelector(const parser::Binary *selector, bool dup, bool emit);
+
         int LoadStatic(vm::datatype::ArObject *value, bool store, bool emit);
 
         vm::datatype::String *MakeFname();
@@ -31,6 +33,8 @@ namespace argon::lang {
         void Compile(const parser::Node *node);
 
         void CompileBlock(const parser::Node *node, bool sub);
+
+        void CompileCall(const parser::Call *call);
 
         void CompileElvis(const parser::Test *test);
 
@@ -46,8 +50,6 @@ namespace argon::lang {
         void CompileLTDS(const parser::Unary *list);
 
         void CompileSafe(const parser::Unary *unary);
-
-        void CompileSelector(const parser::Binary *selector, bool dup, bool emit);
 
         void CompileSubscr(const parser::Subscript *subscr, bool dup, bool emit);
 

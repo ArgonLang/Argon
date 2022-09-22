@@ -17,6 +17,51 @@ using namespace argon::lang;
 using namespace argon::lang::parser;
 using namespace argon::vm::datatype;
 
+int Compiler::CompileSelector(const parser::Binary *selector, bool dup, bool emit) {
+    const auto *cursor = selector;
+    vm::OpCode code;
+    int deep;
+    int idx;
+
+    deep = 0;
+    while (cursor->left->node_type == parser::NodeType::SELECTOR) {
+        cursor = (const parser::Binary *) cursor->left;
+        deep++;
+    }
+
+    this->Expression(cursor->left);
+
+    do {
+        if (cursor->token_type == scanner::TokenType::SCOPE)
+            code = vm::OpCode::LDSCOPE;
+        else if (cursor->token_type == scanner::TokenType::DOT)
+            code = vm::OpCode::LDATTR;
+        else if (cursor->token_type == scanner::TokenType::QUESTION_DOT) {
+            code = vm::OpCode::LDATTR;
+            this->unit_->Emit(vm::OpCode::JNIL, this->unit_->jstack->end, nullptr);
+        } else
+            throw CompilerException("unexpected TokenType in selector expression");
+
+        idx = this->LoadStatic(((const Unary *) cursor->right)->value, true, false);
+
+        if (dup && deep == 0) {
+            this->unit_->Emit(vm::OpCode::DUP, 1, nullptr, nullptr);
+
+            this->unit_->IncrementStack(1);
+        }
+
+        if (deep > 0 || emit)
+            this->unit_->Emit(code, idx, nullptr, &cursor->loc);
+
+        deep--;
+        cursor = selector;
+        for (int i = 0; i < deep; i++)
+            cursor = (const parser::Binary *) selector->left;
+    } while (deep >= 0);
+
+    return idx;
+}
+
 int Compiler::LoadStatic(ArObject *value, bool store, bool emit) {
     ArObject *tmp;
     Integer *index;
@@ -48,7 +93,7 @@ int Compiler::LoadStatic(ArObject *value, bool store, bool emit) {
                 throw DatatypeException();
             }
 
-            Release(&index);
+            Release((ArObject **) &index);
         } else {
             idx = ((Integer *) tmp)->sint;
             Release(tmp);
@@ -189,6 +234,9 @@ void Compiler::Binary(const parser::Binary *binary) {
 
 void Compiler::Compile(const Node *node) {
     switch (node->node_type) {
+        case NodeType::CALL:
+            this->CompileCall((const parser::Call *) node);
+            break;
         case NodeType::FUNC:
             this->CompileFunction((const parser::Function *) node);
             break;
@@ -219,6 +267,52 @@ void Compiler::CompileBlock(const parser::Node *node, bool sub) {
 
     if (sub)
         SymbolExitSub(this->unit_->symt);
+}
+
+void Compiler::CompileCall(const parser::Call *call) {
+    ARC iter;
+    ARC param;
+
+    int args = 0;
+    vm::OpCode code = vm::OpCode::CALL;
+
+    if (call->left->node_type == parser::NodeType::SELECTOR &&
+        call->left->token_type != scanner::TokenType::SCOPE) {
+        auto idx = this->CompileSelector((const parser::Binary *) call->left, false, false);
+
+        this->unit_->Emit(vm::OpCode::LDMETH, idx, nullptr, nullptr);
+
+        args = 1;
+
+        //  flags |= OpCodeCallFlags::METHOD;
+    } else
+        this->Expression(call->left);
+
+    iter = IteratorGet(call->args, false);
+    if (!iter)
+        throw DatatypeException();
+
+    while ((param = IteratorNext(iter.Get()))) {
+        const auto *tmp = (const Node *) param.Get();
+
+        if (tmp->node_type == parser::NodeType::ELLIPSIS) {
+            this->Expression((const Node *) ((const Unary *) tmp)->value);
+            //  flags |= OpCodeCallFlags::SPREAD;
+        } else
+            this->Expression(tmp);
+
+        args++;
+    }
+
+    // KWARGS HERE!!!
+
+    if (call->token_type == scanner::TokenType::KW_DEFER)
+        code = vm::OpCode::DFR;
+    else if (call->token_type == scanner::TokenType::KW_SPAWN)
+        code = vm::OpCode::SPW;
+
+    //this->unit_->Emit(code, (unsigned char) flags, args, &call->loc);
+    assert(false);
 }
 
 void Compiler::CompileElvis(const parser::Test *test) {
@@ -461,49 +555,6 @@ void Compiler::CompileSafe(const parser::Unary *unary) {
     }
 }
 
-void Compiler::CompileSelector(const parser::Binary *selector, bool dup, bool emit) {
-    const auto *cursor = selector;
-    vm::OpCode code;
-    int deep;
-    int idx;
-
-    deep = 0;
-    while (cursor->left->node_type == parser::NodeType::SELECTOR) {
-        cursor = (const parser::Binary *) cursor->left;
-        deep++;
-    }
-
-    this->Expression(cursor->left);
-
-    do {
-        if (cursor->token_type == scanner::TokenType::SCOPE)
-            code = vm::OpCode::LDSCOPE;
-        else if (cursor->token_type == scanner::TokenType::DOT)
-            code = vm::OpCode::LDATTR;
-        else if (cursor->token_type == scanner::TokenType::QUESTION_DOT) {
-            code = vm::OpCode::LDATTR;
-            this->unit_->Emit(vm::OpCode::JNIL, this->unit_->jstack->end, nullptr);
-        } else
-            throw CompilerException("unexpected TokenType in selector expression");
-
-        idx = this->LoadStatic(((const Unary *) cursor->right)->value, true, false);
-
-        if (dup && deep == 0) {
-            this->unit_->Emit(vm::OpCode::DUP, 1, nullptr, nullptr);
-
-            this->unit_->IncrementStack(1);
-        }
-
-        if (deep > 0 || emit)
-            this->unit_->Emit(code, idx, nullptr, &cursor->loc);
-
-        deep--;
-        cursor = selector;
-        for (int i = 0; i < deep; i++)
-            cursor = (const parser::Binary *) selector->left;
-    } while (deep >= 0);
-}
-
 void Compiler::CompileSubscr(const parser::Subscript *subscr, bool dup, bool emit) {
     this->Expression(subscr->expression);
 
@@ -658,6 +709,9 @@ void Compiler::CompileUpdate(const parser::Unary *update) {
 
 void Compiler::Expression(const Node *node) {
     switch (node->node_type) {
+        case NodeType::CALL:
+            this->CompileCall((const parser::Call *) node);
+            break;
         case NodeType::FUNC:
             this->CompileFunction((const parser::Function *) node);
             break;
@@ -892,6 +946,7 @@ Code *Compiler::Compile(File *node) {
         while ((decl = IteratorNext(decl_iter.Get())))
             this->Compile((Node *) decl.Get());
 
+        return this->unit_->Assemble();
     } catch (std::exception) {
 
     }
