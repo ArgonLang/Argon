@@ -18,6 +18,7 @@ using namespace argon::vm::datatype;
 #define STR_LEN(str) ((str)->length)
 
 static Dict *intern = nullptr;
+static String *empty_string = nullptr;
 
 String *StringInit(ArSize len, bool mkbuf) {
     auto str = MakeObject<String>(type_string_);
@@ -72,7 +73,7 @@ ArObject *string_compare(const String *self, const ArObject *other, CompareMode 
 }
 
 
-ArSize string_hash(String *self){
+ArSize string_hash(String *self) {
     if (self->hash == 0)
         self->hash = HashBytes(self->buffer, self->length);
 
@@ -208,7 +209,7 @@ String *argon::vm::datatype::StringIntern(const char *string) {
             return nullptr;
 
         // Insert empty string
-        if ((ret = StringNew("", 0)) == nullptr)
+        if ((ret = StringInit(0, true)) == nullptr)
             return nullptr;
 
         if (!DictInsert(intern, (ArObject *) ret, (ArObject *) ret)) {
@@ -218,11 +219,16 @@ String *argon::vm::datatype::StringIntern(const char *string) {
 
         ret->intern = true;
 
+        empty_string = ret;
+
         if (string == nullptr || strlen(string) == 0)
             return ret;
 
         Release(ret);
     }
+
+    if (string == nullptr || strlen(string) == 0)
+        return IncRef(empty_string);
 
     if ((ret = (String *) DictLookup(intern, string)) == nullptr) {
         if ((ret = StringNew(string)) == nullptr)
