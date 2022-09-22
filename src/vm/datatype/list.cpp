@@ -66,6 +66,18 @@ const TypeInfo ListType = {
 };
 const TypeInfo *argon::vm::datatype::type_list_ = &ListType;
 
+ArObject *argon::vm::datatype::ListGet(List *list, ArSSize index) {
+    if (index < 0)
+        index = (ArSSize) list->length + index;
+
+    if (index >= 0 && index < list->length)
+        return IncRef(list->objects[index]);
+
+    // TODO: SetError?!
+
+    return nullptr;
+}
+
 bool argon::vm::datatype::ListAppend(List *list, ArObject *object) {
     if (!CheckSize(list, 1))
         return false;

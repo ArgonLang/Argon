@@ -30,6 +30,8 @@ namespace argon::vm::datatype {
     };
     extern const TypeInfo *type_list_iterator_;
 
+    ArObject *ListGet(List *list, ArSSize index);
+
     /**
      * @brief Append object to the list.
      * @param list List object.
