@@ -52,7 +52,7 @@ namespace argon::vm::datatype {
                 this->free_max = free_nodes;
             }
 
-            return false;
+            return this->map != nullptr;
         }
 
         bool Initialize() {

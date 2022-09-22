@@ -133,7 +133,7 @@ Dict *argon::vm::datatype::DictNew() {
     auto *dict = MakeGCObject<Dict>(type_dict_);
 
     if (dict != nullptr && !dict->hmap.Initialize())
-        Release(dict);
+        Release((ArObject **) &dict);
 
     return dict;
 }
