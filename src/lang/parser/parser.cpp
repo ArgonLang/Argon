@@ -1389,6 +1389,9 @@ Node *Parser::ParseOOBCall() {
     Position start = this->tkcur_.loc.start;
     TokenType type = TKCUR_TYPE;
 
+    this->Eat();
+    this->IgnoreNL();
+
     auto *expr = this->ParseExpression(0);
 
     if (expr->node_type != NodeType::CALL) {
@@ -1400,6 +1403,8 @@ Node *Parser::ParseOOBCall() {
             throw ParserException("defer expected call expression");
         else if (type == scanner::TokenType::KW_SPAWN)
             throw ParserException("spawn expected call expression");
+        else if (type == scanner::TokenType::KW_TRAP)
+            throw ParserException("trap expected call expression");
         else
             assert(false);
     }
@@ -1544,6 +1549,7 @@ Node *Parser::ParseStatement(ParserScope scope) {
             case TokenType::KW_AWAIT:
             case TokenType::KW_DEFER:
             case TokenType::KW_SPAWN:
+            case TokenType::KW_TRAP:
                 expr = (ArObject *) this->ParseOOBCall();
                 break;
             case TokenType::KW_RETURN:
@@ -1569,9 +1575,6 @@ Node *Parser::ParseStatement(ParserScope scope) {
                 break;
             case TokenType::KW_PANIC:
                 expr = (ArObject *) this->ParseUnaryStmt(NodeType::PANIC, true);
-                break;
-            case TokenType::KW_TRAP:
-                expr = (ArObject *) this->ParseUnaryStmt(NodeType::TRAP, true);
                 break;
             case TokenType::KW_IF:
                 expr = (ArObject *) this->ParseIF();
