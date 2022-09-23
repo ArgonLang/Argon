@@ -63,8 +63,62 @@ bool TranslationUnit::IsFreeVar(String *id) {
     return false;
 }
 
-Code *TranslationUnit::Assemble() {
-    return nullptr;
+Code *TranslationUnit::Assemble() const {
+    Code *code;
+
+    unsigned char *instr_buf;
+    unsigned char *instr_cur;
+
+    unsigned int instr_sz = 0;
+
+    for (BasicBlock *cursor = this->bb.start; cursor != nullptr; cursor = cursor->next) {
+        cursor->offset = instr_sz;
+        instr_sz += cursor->size;
+    }
+
+    if (instr_sz == 0) {
+        code = CodeNew(nullptr, 0, this->stack.required, this->statics, this->names, this->locals, this->enclosed);
+        if (code == nullptr)
+            throw DatatypeException();
+
+        return code;
+    }
+
+    if ((instr_buf = (unsigned char *) vm::memory::Alloc(instr_sz)) == nullptr)
+        throw DatatypeException();
+
+    instr_cur = instr_buf;
+
+    for (BasicBlock *cursor = this->bb.start; cursor != nullptr; cursor = cursor->next) {
+        for (Instr *instr = cursor->instr.head; instr != nullptr; instr = instr->next) {
+            auto arg = instr->oparg & 0x00FFFFFF; // extract arg
+
+            if (instr->jmp != nullptr)
+                arg = instr->jmp->offset;
+
+            switch ((instr->oparg & 0xFF000000) >> 24u) {
+                case 4:
+                    *((argon::vm::Instr32 *) instr_cur) = arg << 8 | instr->opcode;
+                    instr_cur += 4;
+                    break;
+                case 2:
+                    *((argon::vm::Instr16 *) instr_cur) = (argon::vm::Instr16) (arg << 8 | instr->opcode);
+                    instr_cur += 2;
+                    break;
+                default:
+                    *instr_cur = instr->opcode;
+                    instr_cur++;
+            }
+        }
+    }
+
+    code = CodeNew(instr_buf, instr_sz, this->stack.required, this->statics, this->names, this->locals, this->enclosed);
+    if (code == nullptr) {
+        vm::memory::Free(instr_buf);
+        throw DatatypeException();
+    }
+
+    return code;
 }
 
 JBlock *TranslationUnit::JBNew(String *label) {

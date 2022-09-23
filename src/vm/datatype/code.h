@@ -6,6 +6,7 @@
 #define ARGON_VM_DATATYPE_CODE_H_
 
 #include "arobject.h"
+#include "list.h"
 #include "tuple.h"
 
 namespace argon::vm::datatype {
@@ -39,6 +40,14 @@ namespace argon::vm::datatype {
         ArSize hash;
     };
     extern const TypeInfo *type_code_;
+
+    Code *CodeNew(const unsigned char *instr,
+                  unsigned int instr_sz,
+                  unsigned int stack_sz,
+                  List *statics,
+                  List *names,
+                  List *locals,
+                  List *enclosed);
 }
 
 #endif // !ARGON_VM_DATATYPE_CODE_H_
