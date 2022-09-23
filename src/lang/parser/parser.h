@@ -170,7 +170,8 @@ namespace argon::lang::parser {
          * @param scanner Reference to Scanner.
          */
         Parser(const char *filename, lang::scanner::Scanner &scanner) noexcept: scanner_(scanner),
-                                                                                filename_(filename) {}
+                                                                                filename_(filename),
+                                                                                doc_string_(nullptr) {}
 
         ~Parser() {
             while (this->doc_string_ != nullptr)
