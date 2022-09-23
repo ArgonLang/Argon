@@ -24,7 +24,15 @@ namespace argon::vm::datatype {
      * @param index Location to insert the object.
      * @return True on success, false otherwise.
      */
-    bool TupleInsert(Tuple *tuple, ArObject *object, ArSize index);
+    bool TupleInsert(Tuple * tuple, ArObject * object, ArSize index);
+
+    /**
+     * @brief Create a new tuple from iterable.
+     * @param iterable Pointer to an iterable object.
+     * @return A pointer to the newly created tuple object is returned,
+     * in case of error nullptr will be returned and the panic state will be set.
+     */
+    Tuple *TupleNew(ArObject *iterable);
 
     /**
      * @brief Create a new tuple.

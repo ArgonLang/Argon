@@ -4,6 +4,7 @@
 
 #include "nil.h"
 #include "tuple.h"
+#include "list.h"
 
 using namespace argon::vm::datatype;
 
@@ -43,6 +44,40 @@ bool argon::vm::datatype::TupleInsert(Tuple *tuple, ArObject *object, ArSize ind
     tuple->objects[index] = object == nullptr ? (ArObject *) Nil : IncRef(object);
 
     return true;
+}
+
+Tuple *argon::vm::datatype::TupleNew(ArObject *iterable) {
+    auto *tuple = MakeObject<Tuple>(type_tuple_);
+
+    if (tuple == nullptr)
+        return nullptr;
+
+    tuple->objects = nullptr;
+    tuple->length = 0;
+
+    if (AR_TYPEOF(iterable, type_list_)) {
+        // Fast-path
+        const auto *list = (List *) iterable;
+
+        tuple->length = list->length;
+
+        if (list->length > 0) {
+            tuple->objects = (ArObject **) argon::vm::memory::Alloc(list->length * sizeof(void *));
+            if (tuple->objects == nullptr) {
+                Release(tuple);
+                return nullptr;
+            }
+
+            for (ArSize i = 0; i < tuple->length; i++)
+                tuple->objects[i] = list->objects[i];
+        }
+
+        return tuple;
+    }
+
+    assert(false);
+
+    return tuple;
 }
 
 Tuple *argon::vm::datatype::TupleNew(ArSize length) {
