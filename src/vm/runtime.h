@@ -12,6 +12,8 @@ namespace argon::vm {
 
     bool Initialize();
 
+    bool IsPanicking();
+
     void Panic(datatype::ArObject *panic);
 }
 

@@ -23,6 +23,11 @@ bool argon::vm::Initialize() {
     return true;
 }
 
+bool argon::vm::IsPanicking() {
+    // TODO: STUB
+    return false;
+}
+
 void argon::vm::Panic(datatype::ArObject *panic) {
     // TODO: STUB
     assert(false);
