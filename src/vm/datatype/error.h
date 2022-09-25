@@ -35,6 +35,12 @@ namespace argon::vm::datatype {
             (const char *) "OverflowError"
     };
 
+    constexpr const char *kRuntimeError[] = {
+            (const char *) "RuntimeError",
+            (const char *) "unsupported operand '%s' for type '%s'",
+            (const char *) "unsupported operand '%s' for: '%s' and '%s'"
+    };
+
     constexpr const char *kTypeError[] = {
             (const char *) "TypeError",
     };

@@ -38,7 +38,7 @@ namespace argon::vm {
         Frame *frame;
 
         /// Pointer to object that describe actual routine panic (if any...).
-        Panic *panic;
+        struct Panic *panic;
 
         /// Routine status.
         FiberStatus status;
