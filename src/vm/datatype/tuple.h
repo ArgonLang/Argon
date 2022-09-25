@@ -17,6 +17,8 @@ namespace argon::vm::datatype {
     };
     extern const TypeInfo *type_tuple_;
 
+    ArObject *TupleGet(const Tuple *tuple, ArSSize index);
+
     /**
      * @brief Inserts an element into the tuple at the indicated location.
      * @param tuple Tuple object.

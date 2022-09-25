@@ -35,6 +35,18 @@ const TypeInfo TupleType = {
 };
 const TypeInfo *argon::vm::datatype::type_tuple_ = &TupleType;
 
+ArObject *argon::vm::datatype::TupleGet(const Tuple *tuple, ArSSize index) {
+    if (index < 0)
+        index = (ArSSize) tuple->length + index;
+
+    if (index >= 0 && index < tuple->length)
+        return IncRef(tuple->objects[index]);
+
+    // TODO: SetError?!
+
+    return nullptr;
+}
+
 bool argon::vm::datatype::TupleInsert(Tuple *tuple, ArObject *object, ArSize index) {
     if (index >= tuple->length)
         return false;
