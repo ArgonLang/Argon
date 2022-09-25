@@ -95,6 +95,13 @@ ArSize argon::vm::datatype::Hash(ArObject *object) {
     return 0;
 }
 
+bool argon::vm::datatype::IsTrue(const ArObject *object) {
+    if (AR_GET_TYPE(object)->is_true == nullptr)
+        return true;
+
+    return AR_GET_TYPE(object)->is_true(object);
+}
+
 bool argon::vm::datatype::BufferGet(ArObject *object, ArBuffer *buffer, BufferFlags flags) {
     const auto *buf_slot = AR_GET_TYPE(object)->buffer;
 

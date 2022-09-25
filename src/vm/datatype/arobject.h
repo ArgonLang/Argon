@@ -187,6 +187,8 @@ namespace argon::vm::datatype {
 
     ArSize Hash(ArObject *object);
 
+    bool IsTrue(const ArObject *object);
+
     bool BufferGet(ArObject *object, ArBuffer *buffer, BufferFlags flags);
 
     bool BufferSimpleFill(const ArObject *object, ArBuffer *buffer, BufferFlags flags, unsigned char *raw,
