@@ -5,6 +5,7 @@
 #ifndef ARGON_VM_DATATYPE_OBJECTDEF_H_
 #define ARGON_VM_DATATYPE_OBJECTDEF_H_
 
+#include <cassert>
 #include <cstddef>
 
 #include <util/enum_bitmask.h>

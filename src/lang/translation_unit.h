@@ -5,6 +5,8 @@
 #ifndef ARGON_LANG_TRANSLATION_UNIT_H_
 #define ARGON_LANG_TRANSLATION_UNIT_H_
 
+#include <cassert>
+
 #include <vm/opcode.h>
 
 #include <vm/datatype/arstring.h>

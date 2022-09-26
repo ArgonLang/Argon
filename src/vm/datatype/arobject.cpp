@@ -5,10 +5,10 @@
 #include "arstring.h"
 #include "boolean.h"
 #include "error.h"
+#include "function.h"
+#include "namespace.h"
 
 #include "arobject.h"
-#include "namespace.h"
-#include "function.h"
 
 using namespace argon::vm::datatype;
 
