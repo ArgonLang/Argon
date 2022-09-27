@@ -51,11 +51,37 @@ int Parser::PeekPrecedence(scanner::TokenType token) {
             return 50;
         case TokenType::PIPELINE:
             return 60;
+        case TokenType::OR:
+            return 70;
+        case TokenType::AND:
+            return 80;
+        case TokenType::PIPE:
+            return 90;
+        case TokenType::CARET:
+            return 100;
+        case TokenType::EQUAL_EQUAL:
+        case TokenType::EQUAL_STRICT:
+        case TokenType::NOT_EQUAL:
+        case TokenType::NOT_EQUAL_STRICT:
+            return 110;
+        case TokenType::LESS:
+        case TokenType::LESS_EQ:
+        case TokenType::GREATER:
+        case TokenType::GREATER_EQ:
+            return 120;
+        case TokenType::SHL:
+        case TokenType::SHR:
+            return 130;
         case TokenType::PLUS:
         case TokenType::MINUS:
         case TokenType::EXCLAMATION:
         case TokenType::TILDE:
-            return 70;
+            return 140;
+        case TokenType::ASTERISK:
+        case TokenType::SLASH:
+        case TokenType::SLASH_SLASH:
+        case TokenType::PERCENT:
+            return 150;
         case TokenType::PLUS_PLUS:
         case TokenType::MINUS_MINUS:
         case TokenType::LEFT_SQUARE:
@@ -63,7 +89,7 @@ int Parser::PeekPrecedence(scanner::TokenType token) {
         case TokenType::DOT:
         case TokenType::QUESTION_DOT:
         case TokenType::SCOPE:
-            return 80;
+            return 160;
         default:
             return 1000;
     }
