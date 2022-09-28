@@ -45,6 +45,16 @@ namespace argon::vm::datatype {
             (const char *) "TypeError",
     };
 
+    constexpr const char *kUnassignableError[] = {
+            (const char *) "UnassignableError",
+            (const char *) "unable to assign value to constant '%s'"
+    };
+
+    constexpr const char *kUndeclaredeError[] = {
+            (const char *) "UndeclaredError",
+            (const char *) "'%s' undeclared global variable"
+    };
+
     constexpr const char *kUnhashableError[] = {
             (const char *) "Unhashable",
             (const char *) "unhashable type: '%s'"

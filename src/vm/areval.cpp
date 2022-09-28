@@ -196,6 +196,24 @@ ArObject *argon::vm::Eval(Fiber *fiber) {
                 PUSH(ListGet(cu_frame->enclosed, I16Arg(cu_frame->instr_ptr)));
                 DISPATCH();
             }
+            TARGET_OP(LDGBL) {
+                auto *key = TupleGet(cu_code->names, I16Arg(cu_frame->instr_ptr));
+
+                if ((ret = NamespaceLookup(cu_frame->globals, key, nullptr)) != nullptr) {
+                    Release(key);
+                    PUSH(ret);
+                    DISPATCH();
+                }
+
+                // TODO: check builtins
+                //ErrorFormat(kUndeclaredeError[0], kUndeclaredeError[1], ARGON_RAW_STRING((String *) ret));
+                //goto END_LOOP;
+
+                Release(key);
+
+                PUSH(ret);
+                DISPATCH();
+            }
             TARGET_OP(LDLC) {
                 PUSH(IncRef(cu_frame->locals[I16Arg(cu_frame->instr_ptr)]));
                 DISPATCH();
@@ -327,6 +345,27 @@ ArObject *argon::vm::Eval(Fiber *fiber) {
             }
             TARGET_OP(STENC) {
                 ListInsert(cu_frame->enclosed, TOP(), I16Arg(cu_frame->instr_ptr));
+                POP();
+                DISPATCH();
+            }
+            TARGET_OP(STGBL) {
+                ret = TupleGet(cu_code->names, I16Arg(cu_frame->instr_ptr));
+                AttributeProperty aprop{};
+
+                if (!NamespaceContains(cu_frame->globals, ret, &aprop)) {
+                    Release(ret);
+                    ErrorFormat(kUndeclaredeError[0], kUndeclaredeError[1], ARGON_RAW_STRING((String *) ret));
+                    goto END_LOOP;
+                }
+
+                if (aprop.IsConstant()) {
+                    ErrorFormat(kUnassignableError[0], kUnassignableError[1], ARGON_RAW_STRING((String *) ret));
+                    goto END_LOOP;
+                }
+
+                NamespaceSet(cu_frame->globals, ret, TOP());
+
+                Release(ret);
                 POP();
                 DISPATCH();
             }
