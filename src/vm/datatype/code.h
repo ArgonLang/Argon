@@ -6,12 +6,16 @@
 #define ARGON_VM_DATATYPE_CODE_H_
 
 #include "arobject.h"
+#include "arstring.h"
 #include "list.h"
 #include "tuple.h"
 
 namespace argon::vm::datatype {
     struct Code {
         AROBJ_HEAD;
+
+        /// Code documentation
+        String *doc;
 
         /* Static resources */
         Tuple *statics;
@@ -42,12 +46,13 @@ namespace argon::vm::datatype {
     extern const TypeInfo *type_code_;
 
     Code *CodeNew(const unsigned char *instr,
-                  unsigned int instr_sz,
-                  unsigned int stack_sz,
+                  String *doc,
                   List *statics,
                   List *names,
                   List *locals,
-                  List *enclosed);
+                  List *enclosed,
+                  unsigned int instr_sz,
+                  unsigned int stack_sz);
 }
 
 #endif // !ARGON_VM_DATATYPE_CODE_H_

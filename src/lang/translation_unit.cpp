@@ -77,7 +77,8 @@ Code *TranslationUnit::Assemble() const {
     }
 
     if (instr_sz == 0) {
-        code = CodeNew(nullptr, 0, this->stack.required, this->statics, this->names, this->locals, this->enclosed);
+        code = CodeNew(nullptr, nullptr, this->statics, this->names, this->locals,
+                       this->enclosed, 0, this->stack.required);
         if (code == nullptr)
             throw DatatypeException();
 
@@ -112,7 +113,8 @@ Code *TranslationUnit::Assemble() const {
         }
     }
 
-    code = CodeNew(instr_buf, instr_sz, this->stack.required, this->statics, this->names, this->locals, this->enclosed);
+    code = CodeNew(instr_buf, nullptr, this->statics, this->names, this->locals,
+                   this->enclosed, instr_sz, this->stack.required);
     if (code == nullptr) {
         vm::memory::Free(instr_buf);
         throw DatatypeException();

@@ -33,8 +33,8 @@ const TypeInfo CodeType = {
 };
 const TypeInfo *argon::vm::datatype::type_code_ = &CodeType;
 
-Code *argon::vm::datatype::CodeNew(const unsigned char *instr, unsigned int instr_sz, unsigned int stack_sz,
-                                   List *statics, List *names, List *locals, List *enclosed) {
+Code *argon::vm::datatype::CodeNew(const unsigned char *instr, String *doc, List *statics, List *names,
+                                   List *locals, List *enclosed, unsigned int instr_sz, unsigned int stack_sz) {
     auto *code = MakeObject<Code>(&CodeType);
 
     if (code != nullptr) {
@@ -42,6 +42,8 @@ Code *argon::vm::datatype::CodeNew(const unsigned char *instr, unsigned int inst
         code->instr_end = instr + instr_sz;
         code->instr_sz = instr_sz;
         code->stack_sz = stack_sz;
+
+        code->doc = IncRef(doc);
 
         if ((code->statics = TupleNew((ArObject *) statics)) == nullptr)
             Release(code);
@@ -51,7 +53,6 @@ Code *argon::vm::datatype::CodeNew(const unsigned char *instr, unsigned int inst
             Release(code);
         if ((code->enclosed = TupleNew((ArObject *) enclosed)) == nullptr)
             Release(code);
-
     }
 
     return code;
