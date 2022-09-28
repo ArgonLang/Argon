@@ -76,8 +76,6 @@ namespace argon::vm::datatype {
         // Inplace update
         BinaryOp inp_add;
         BinaryOp inp_sub;
-        BinaryOp inp_mul;
-        BinaryOp inp_div;
         UnaryOp inc;
         UnaryOp dec;
     };
@@ -158,7 +156,7 @@ namespace argon::vm::datatype {
         SubscriptSlots *subscriptable;
 
         /// Pointer to OpSlots structure that contains the common operations for an object.
-        OpSlots *ops;
+        const OpSlots *ops;
 
         ArObject *_t1;
 

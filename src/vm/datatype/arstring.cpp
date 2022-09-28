@@ -4,11 +4,13 @@
 
 #include <cassert>
 
+#include <vm/memory/memory.h>
 #include <vm/runtime.h>
 
 #include "boolean.h"
 #include "dict.h"
 #include "hash_magic.h"
+#include "integer.h"
 #include "stringbuilder.h"
 #include "arstring.h"
 
@@ -72,13 +74,66 @@ ArObject *string_compare(const String *self, const ArObject *other, CompareMode 
     ARGON_RICH_COMPARE_CASES(left, right, mode)
 }
 
-
 ArSize string_hash(String *self) {
     if (self->hash == 0)
         self->hash = HashBytes(self->buffer, self->length);
 
     return self->hash;
 }
+
+ArObject *string_add(const String *left, const String *right) {
+    if (AR_TYPEOF(left, type_string_) && AR_SAME_TYPE(left, right))
+        return (ArObject *) StringConcat(left, right);
+
+    return nullptr;
+}
+
+ArObject *string_mul(const String *left, const ArObject *right) {
+    const auto *l =  left;
+    String *ret = nullptr;
+    UIntegerUnderlying times;
+
+    // int * str -> str * int
+    if (!AR_TYPEOF(left, type_string_)) {
+        l = (const String *) right;
+        right = (const ArObject *) left;
+    }
+
+    if (AR_TYPEOF(right, type_uint_)) {
+        times = ((const Integer *) right)->uint;
+        if ((ret = StringInit(l->length * times, true)) != nullptr) {
+            ret->cp_length = l->cp_length * times;
+
+            while (times--)
+                argon::vm::memory::MemoryCopy(ret->buffer + l->length * times, l->buffer, l->length);
+
+            ret->kind = l->kind;
+        }
+    }
+
+    return (ArObject *) ret;
+}
+
+const OpSlots string_ops = {
+        (BinaryOp) string_add,
+        nullptr,
+        (BinaryOp) string_mul,
+        nullptr,
+        nullptr,
+        nullptr,
+        nullptr,
+        nullptr,
+        nullptr,
+        nullptr,
+        nullptr,
+        nullptr,
+        nullptr,
+        nullptr,
+        (BinaryOp) string_add,
+        nullptr,
+        nullptr,
+        nullptr
+};
 
 const TypeInfo StringType = {
         AROBJ_HEAD_INIT_TYPE,
@@ -101,7 +156,7 @@ const TypeInfo StringType = {
         nullptr,
         nullptr,
         nullptr,
-        nullptr,
+        &string_ops,
         nullptr,
         nullptr
 };
