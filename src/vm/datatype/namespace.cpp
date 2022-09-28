@@ -65,6 +65,19 @@ const TypeInfo NamespaceType = {
 };
 const TypeInfo *argon::vm::datatype::type_namespace_ = &NamespaceType;
 
+ArObject *argon::vm::datatype::NamespaceLookup(Namespace *ns, ArObject *key, AttributeProperty *out_aprop) {
+    NSEntry  *entry = ns->ns.Lookup(key);
+
+    if(entry != nullptr){
+        if(out_aprop != nullptr)
+            *out_aprop = entry->value.properties;
+
+        return entry->value.value.Get();
+    }
+
+    return nullptr;
+}
+
 bool argon::vm::datatype::NamespaceContains(Namespace *ns, ArObject *key, AttributeProperty *out_aprop) {
     const NSEntry *entry = ns->ns.Lookup(key);
 

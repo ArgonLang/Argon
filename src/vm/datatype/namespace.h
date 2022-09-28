@@ -55,6 +55,8 @@ namespace argon::vm::datatype {
     };
     extern const TypeInfo *type_namespace_;
 
+    ArObject *NamespaceLookup(Namespace *ns, ArObject *key, AttributeProperty *out_aprop);
+
     /**
      * @brief Checks if the namespace contains the key and returns its AttributeProperty.
      *
