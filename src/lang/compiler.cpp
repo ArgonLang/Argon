@@ -130,6 +130,26 @@ String *Compiler::MakeFname() {
     return name;
 }
 
+String *Compiler::MakeQname(String *name) {
+    const char *sep = "%s.%s";
+
+    String *qname;
+
+    assert(name != nullptr);
+
+    if (this->unit_->qname != nullptr) {
+        if (this->unit_->symt->type != SymbolType::MODULE)
+            sep = "%s::%s";
+
+        if ((qname = StringFormat(sep, ARGON_RAW_STRING(this->unit_->qname), ARGON_RAW_STRING(name))) == nullptr)
+            throw DatatypeException();
+
+        return qname;
+    }
+
+    return IncRef(name);
+}
+
 SymbolT *Compiler::IdentifierLookupOrCreate(String *name, SymbolType type) {
     List *dst = this->unit_->names;
 
@@ -338,6 +358,8 @@ void Compiler::CompileElvis(const parser::Test *test) {
 void Compiler::CompileFunction(const parser::Function *func) {
     ARC code;
     ARC fname;
+    ARC qname;
+    ARC fdoc;
 
     FunctionFlags flags{};
 
@@ -346,6 +368,12 @@ void Compiler::CompileFunction(const parser::Function *func) {
     fname = (ArObject *) func->name;
     if (func->name == nullptr)
         fname = (ArObject *) this->MakeFname();
+
+    qname = (ArObject *) this->MakeQname((String *) fname.Get());
+
+    fdoc = (ArObject *) func->doc;
+    if (func->doc == nullptr)
+        fdoc = (ArObject *) StringIntern("");
 
     this->TUScopeEnter((String *) fname.Get(), SymbolType::FUNC);
 
@@ -389,6 +417,8 @@ void Compiler::CompileFunction(const parser::Function *func) {
 
     this->LoadStatic(fname.Get(), true, true);
 
+    this->LoadStatic(qname.Get(), false, true);
+
     this->LoadStatic(code.Get(), false, true);
 
     // Load closure
@@ -400,7 +430,7 @@ void Compiler::CompileFunction(const parser::Function *func) {
 
         this->unit_->DecrementStack((int) fn_code->enclosed->length);
 
-        this->unit_->Emit(vm::OpCode::MKLT, (int) fn_code->enclosed->length, nullptr, nullptr);
+        this->unit_->Emit(vm::OpCode::MKTP, (int) fn_code->enclosed->length, nullptr, nullptr);
 
         this->unit_->DecrementStack(1);
 
@@ -924,6 +954,8 @@ Compiler::~Compiler() {
 }
 
 Code *Compiler::Compile(File *node) {
+    String *module_name;
+
     // Initialize global_statics
     if (this->statics_globals_ == nullptr) {
         this->statics_globals_ = DictNew();
@@ -931,12 +963,15 @@ Code *Compiler::Compile(File *node) {
             return nullptr;
     }
 
+    if ((module_name = StringNew(node->filename)) == nullptr)
+        return nullptr;
+
     try {
         ARC decl_iter;
         ARC decl;
 
         // Let's start creating a new context
-        this->TUScopeEnter(nullptr, SymbolType::MODULE);
+        this->TUScopeEnter(module_name, SymbolType::MODULE);
 
         decl_iter = IteratorGet((ArObject *) node->statements, false);
         if (!decl_iter)
@@ -948,7 +983,7 @@ Code *Compiler::Compile(File *node) {
 
         return this->unit_->Assemble();
     } catch (std::exception) {
-
+        Release(module_name);
     }
 
     return nullptr;

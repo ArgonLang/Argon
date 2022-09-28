@@ -4,6 +4,7 @@
 
 #include <vm/datatype/boolean.h>
 #include <vm/datatype/error.h>
+#include <vm/datatype/function.h>
 
 #include "opcode.h"
 #include "runtime.h"
@@ -53,6 +54,8 @@ ArObject *argon::vm::Eval(Fiber *fiber) {
     continue
 
 #define PEEK1() (*(cu_frame->eval_stack - 2))
+#define PEEK2() (*(cu_frame->eval_stack - 3))
+#define PEEK3() (*(cu_frame->eval_stack - 4))
 #define POP()   Release(*(--cu_frame->eval_stack))
 
 #define PUSH(obj) do {              \
@@ -115,7 +118,7 @@ ArObject *argon::vm::Eval(Fiber *fiber) {
                 auto items = I16Arg(cu_frame->instr_ptr);
                 auto **cursor = cu_frame->eval_stack - items;
 
-                while(items--)
+                while (items--)
                     PUSH(IncRef(*(cursor++)));
 
                 DISPATCH();
@@ -227,6 +230,33 @@ ArObject *argon::vm::Eval(Fiber *fiber) {
 
                 cu_frame->eval_stack -= args;
                 PUSH((ArObject *) dict);
+                DISPATCH();
+            }
+            TARGET_OP(MKFN) {
+                auto flags = (FunctionFlags) I32Flag(cu_frame->instr_ptr);
+                auto *name = (String *) PEEK2();
+                auto *qname = (String *) PEEK1();
+                Tuple *enclosed = nullptr;
+
+                ret = TOP();
+
+                if (ENUMBITMASK_ISTRUE(flags, FunctionFlags::CLOSURE)) {
+                    enclosed = (Tuple *) TOP();
+                    ret = PEEK1();
+                    qname = (String *) PEEK2();
+                    name = (String *) PEEK3();
+                }
+
+                ret = (ArObject *) FunctionNew((Code *) ret, name, qname, cu_frame->globals,
+                                               enclosed, I16Arg(cu_frame->instr_ptr), flags);
+                if (ret == nullptr)
+                    goto END_LOOP;
+
+                if (ENUMBITMASK_ISTRUE(flags, FunctionFlags::CLOSURE))
+                    POP();
+
+                POP();
+                TOP_REPLACE(ret);
                 DISPATCH();
             }
             TARGET_OP(MKLT) {

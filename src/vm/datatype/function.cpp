@@ -60,7 +60,7 @@ Function *argon::vm::datatype::FunctionNew(const FunctionDef *func, TypeInfo *ba
     if ((name = StringNew(func->name)) == nullptr)
         return nullptr;
 
-    if((qname = StringFormat("%s::%s", base->qname, func->name))== nullptr){
+    if ((qname = StringFormat("%s::%s", base->qname, func->name)) == nullptr) {
         Release(name);
         return nullptr;
     }
@@ -90,6 +90,20 @@ Function *argon::vm::datatype::FunctionNew(const FunctionDef *func, TypeInfo *ba
     Release(name);
     Release(qname);
     Release(doc);
+
+    return fn;
+}
+
+Function *argon::vm::datatype::FunctionNew(Code *code, String *name, String *qname, Namespace *ns,
+                                           Tuple *enclosed, unsigned short arity, FunctionFlags flags) {
+    auto *fn = ::FunctionNew(name, nullptr, arity, flags);
+
+    if (fn != nullptr) {
+        fn->qname = IncRef(qname);
+        fn->enclosed = IncRef(enclosed);
+        fn->gns = IncRef(ns);
+        fn->code = IncRef(code);
+    }
 
     return fn;
 }

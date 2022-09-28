@@ -26,6 +26,8 @@ namespace argon::lang {
 
         vm::datatype::String *MakeFname();
 
+        vm::datatype::String *MakeQname(vm::datatype::String *name);
+
         SymbolT *IdentifierLookupOrCreate(vm::datatype::String *name, SymbolType type);
 
         void Binary(const parser::Binary *binary);

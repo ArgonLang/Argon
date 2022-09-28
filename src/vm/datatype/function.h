@@ -7,18 +7,19 @@
 
 #include "arobject.h"
 #include "arstring.h"
+#include "code.h"
 #include "tuple.h"
 #include "namespace.h"
 
 namespace argon::vm::datatype {
     enum class FunctionFlags : unsigned char {
         NATIVE = 1,
-        METHOD = 1u << 2,
-        CLOSURE = 1u << 3,
-        VARIADIC = 1u << 4,
-        KWARGS = 1u << 5,
-        GENERATOR = 1u << 6,
-        ASYNC = 1u << 7
+        METHOD = 1u << 1,
+        CLOSURE = 1u << 2,
+        VARIADIC = 1u << 3,
+        KWARGS = 1u << 4,
+        GENERATOR = 1u << 5,
+        ASYNC = 1u << 6
     };
 }
 
@@ -30,7 +31,7 @@ namespace argon::vm::datatype {
 
         union {
             /// Pointer to Argon code.
-            // Code *code;
+            Code *code;
 
             /// Pointer to native code.
             FunctionPtr native;
@@ -68,6 +69,9 @@ namespace argon::vm::datatype {
     extern const TypeInfo *type_function_;
 
     Function *FunctionNew(const FunctionDef *func, TypeInfo *base);
+
+    Function *FunctionNew(Code *code, String *name, String *qname, Namespace *ns,
+                          Tuple *enclosed, unsigned short arity, FunctionFlags flags);
 
 } // namespace argon::vm::datatype
 
