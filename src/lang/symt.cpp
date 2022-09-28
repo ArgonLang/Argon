@@ -52,14 +52,14 @@ bool argon::lang::SymbolNewSub(SymbolT *table) {
 
     Release(subt);
 
-    subt->nested = table->nested + 1;
     subt->type = SymbolType::NESTED;
+    subt->nested = table->nested;
 
     table->nested_stack = subt;
     return true;
 }
 
-SymbolT *argon::lang::SymbolInsert(SymbolT *table, String *name, bool *out_inserted, SymbolType type) {
+SymbolT *argon::lang::SymbolInsert(SymbolT *table, String *name, SymbolType type) {
     SymbolT *sym;
 
     bool inserted = false;
@@ -78,15 +78,13 @@ SymbolT *argon::lang::SymbolInsert(SymbolT *table, String *name, bool *out_inser
             Release(sym);
             return nullptr;
         }
-
-        inserted = true;
     }
 
     sym->type = type;
     sym->nested = table->nested;
 
-    if (out_inserted != nullptr)
-        *out_inserted = inserted;
+    if (table->type != SymbolType::MODULE)
+        sym->nested++;
 
     return sym;
 }
@@ -123,7 +121,7 @@ SymbolT *argon::lang::SymbolNew(String *name) {
 
         symt->sub = nullptr;
 
-        symt->id = 0;
+        symt->id = -1;
 
         symt->type = SymbolType::MODULE;
 

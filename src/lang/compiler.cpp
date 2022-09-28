@@ -155,7 +155,7 @@ SymbolT *Compiler::IdentifierLookupOrCreate(String *name, SymbolType type) {
 
     SymbolT *sym;
     if ((sym = SymbolLookup(this->unit_->symt, name)) == nullptr) {
-        if ((sym = SymbolInsert(this->unit_->symt, name, nullptr, type)) == nullptr)
+        if ((sym = SymbolInsert(this->unit_->symt, name, type)) == nullptr)
             return nullptr;
 
         if (this->unit_->IsFreeVar(name)) {
@@ -448,7 +448,7 @@ void Compiler::CompileFunction(const parser::Function *func) {
         if (func->pub)
             aflags |= AttributeFlag::PUBLIC;
 
-        this->IdentifierNew(func->name, this->unit_->symt->type, aflags, true);
+        this->IdentifierNew(func->name, SymbolType::FUNC, aflags, true);
     }
 }
 
@@ -797,12 +797,10 @@ void Compiler::IdentifierNew(String *name, SymbolType stype, AttributeFlag aflag
     ARC sym;
     ArObject *arname;
 
-    bool inserted;
-
     if (StringEqual(name, "_"))
         throw CompilerException("cannot use '_' as name of identifier");
 
-    sym = (ArObject *) SymbolInsert(this->unit_->symt, name, &inserted, stype);
+    sym = (ArObject *) SymbolInsert(this->unit_->symt, name, stype);
     if (!sym)
         throw DatatypeException();
 
@@ -811,16 +809,15 @@ void Compiler::IdentifierNew(String *name, SymbolType stype, AttributeFlag aflag
 
     p_sym->declared = true;
 
-    if (stype == SymbolType::CONSTANT ||
+    if (this->unit_->symt->type == SymbolType::STRUCT ||
         this->unit_->symt->type == SymbolType::TRAIT ||
-        this->unit_->symt->type == SymbolType::STRUCT ||
         p_sym->nested == 0) {
-        auto id = !inserted ? p_sym->id : dest->length;
+        auto id = p_sym->id >= 0 ? p_sym->id : dest->length;
 
         if (emit)
             this->unit_->Emit(vm::OpCode::NGV, (unsigned char) aflags, (unsigned short) id, nullptr);
 
-        if (!inserted)
+        if (p_sym->id >= 0)
             return;
     } else {
         dest = this->unit_->locals;
@@ -829,7 +826,7 @@ void Compiler::IdentifierNew(String *name, SymbolType stype, AttributeFlag aflag
             this->unit_->Emit(vm::OpCode::STLC, (int) dest->length, nullptr, nullptr);
     }
 
-    if (!inserted)
+    if (p_sym->id >= 0)
         arname = ListGet(!p_sym->free ? this->unit_->names : this->unit_->enclosed, p_sym->id);
     else
         arname = (ArObject *) IncRef(name);
@@ -928,7 +925,7 @@ void Compiler::TUScopeEnter(String *name, SymbolType context) {
         if ((symt = SymbolNew(name)) == nullptr)
             throw DatatypeException();
     } else {
-        if ((symt = SymbolInsert(this->unit_->symt, name, nullptr, context)) == nullptr)
+        if ((symt = SymbolInsert(this->unit_->symt, name, context)) == nullptr)
             throw DatatypeException();
     }
 

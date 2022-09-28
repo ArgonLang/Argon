@@ -37,7 +37,7 @@ namespace argon::lang {
 
         vm::datatype::List *sub;
 
-        vm::datatype::ArSize id;
+        vm::datatype::ArSSize id;
 
         SymbolType type;
 
@@ -51,7 +51,7 @@ namespace argon::lang {
 
     bool SymbolNewSub(SymbolT *table);
 
-    SymbolT *SymbolInsert(SymbolT *table, vm::datatype::String *name, bool *out_inserted, SymbolType type);
+    SymbolT *SymbolInsert(SymbolT *table, vm::datatype::String *name, SymbolType type);
 
     SymbolT *SymbolLookup(const SymbolT *table, vm::datatype::String *name);
 

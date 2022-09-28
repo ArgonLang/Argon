@@ -300,6 +300,17 @@ ArObject *argon::vm::Eval(Fiber *fiber) {
             TARGET_OP(NEG) {
                 UNARY_OP(neg, -);
             }
+            TARGET_OP(NGV) {
+                ret = TupleGet(cu_code->names, I16Arg(cu_frame->instr_ptr));
+
+                if (!NamespaceNewSymbol(cu_frame->globals, ret, TOP(),
+                                        (AttributeFlag) (I32Arg(cu_frame->instr_ptr) >> 16u)))
+                    goto END_LOOP;
+
+                Release(ret);
+                POP();
+                DISPATCH();
+            }
             TARGET_OP(NOT) {
                 TOP_REPLACE(BoolToArBool(!IsTrue(TOP())));
                 DISPATCH();
