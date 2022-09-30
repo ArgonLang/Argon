@@ -38,6 +38,10 @@ namespace argon::lang {
 
         void CompileCall(const parser::Call *call);
 
+        void CompileCallKwArgs(vm::datatype::ArObject *args, int &args_count, vm::OpCodeCallMode &mode);
+
+        void CompileCallPositional(vm::datatype::ArObject *args, int &args_count, vm::OpCodeCallMode &mode);
+
         void CompileElvis(const parser::Test *test);
 
         void CompileFunction(const parser::Function *func);

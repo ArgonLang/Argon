@@ -5,6 +5,8 @@
 #ifndef ARGON_VM_OPCODE_H_
 #define ARGON_VM_OPCODE_H_
 
+#include "util/enum_bitmask.h"
+
 namespace argon::vm {
     using Instr32 = unsigned int;
     using Instr16 = unsigned short;
@@ -28,6 +30,7 @@ namespace argon::vm {
         DIV,
         DUP,
         EQST,
+        EXTD,
         IDIV,
         INC,
         INIT,
@@ -58,6 +61,7 @@ namespace argon::vm {
         NEG,
         NGV,
         NOT,
+        PLT,
         POP,
         POS,
         RET,
@@ -82,15 +86,16 @@ namespace argon::vm {
             0,
             -1,
             -1,
-            0,
-            0,
-            0,
             -1,
-            -1,
+            0,
             0,
             0,
             -1,
             -1,
+            0,
+            0,
+            -1,
+            -1,
             1,
             1,
             1,
@@ -110,6 +115,7 @@ namespace argon::vm {
             -1,
             -1,
             0,
+            -1,
             -1,
             -1,
             0,
@@ -136,6 +142,7 @@ namespace argon::vm {
             2,
             1,
             1,
+            1,
             4,
             1,
             4,
@@ -163,6 +170,7 @@ namespace argon::vm {
             1,
             1,
             4,
+            1,
             1,
             1,
             1,
@@ -181,6 +189,14 @@ namespace argon::vm {
         POSITIONAL,
         KWARGS
     };
+
+    enum class OpCodeCallMode : unsigned char {
+        FASTCALL = 0,
+        REST_PARAMS = 1,
+        KW_PARAMS = 1 << 1u
+    };
 } // namespace argon::vm
+
+ENUMBITMASK_ENABLE(argon::vm::OpCodeCallMode);
 
 #endif // !ARGON_VM_OPCODE_H_

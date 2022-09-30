@@ -100,6 +100,10 @@ ArObject *argon::vm::Eval(Fiber *fiber) {
             TARGET_OP(ADD) {
                 BINARY_OP(add, +);
             }
+            TARGET_OP(CALL) {
+                auto args = I16Arg(cu_frame->instr_ptr);
+                assert(false);
+            }
             TARGET_OP(CMP) {
                 if ((ret = Compare(PEEK1(), TOP(), (CompareMode) I16Arg(cu_frame->instr_ptr))) == nullptr)
                     goto END_LOOP;
@@ -139,6 +143,18 @@ ArObject *argon::vm::Eval(Fiber *fiber) {
 
                 POP();
                 TOP_REPLACE(ret);
+                DISPATCH();
+            }
+            TARGET_OP(EXTD) {
+                if (!AR_TYPEOF(PEEK1(), type_list_)) {
+                    ErrorFormat(kRuntimeError[0], "unexpected type in evaluation stack during EXTD execution");
+                    goto END_LOOP;
+                }
+
+                if (!ListExtend((List *) PEEK1(), TOP()))
+                    goto END_LOOP;
+
+                POP();
                 DISPATCH();
             }
             TARGET_OP(IDIV) {
@@ -207,9 +223,8 @@ ArObject *argon::vm::Eval(Fiber *fiber) {
 
                 // TODO: check builtins
                 //ErrorFormat(kUndeclaredeError[0], kUndeclaredeError[1], ARGON_RAW_STRING((String *) ret));
-                //goto END_LOOP;
-
                 Release(key);
+                goto END_LOOP;
 
                 PUSH(ret);
                 DISPATCH();
@@ -273,7 +288,8 @@ ArObject *argon::vm::Eval(Fiber *fiber) {
                 if (ENUMBITMASK_ISTRUE(flags, FunctionFlags::CLOSURE))
                     POP();
 
-                POP();
+                POP(); // Name
+                POP(); // QName
                 TOP_REPLACE(ret);
                 DISPATCH();
             }
@@ -331,6 +347,18 @@ ArObject *argon::vm::Eval(Fiber *fiber) {
             }
             TARGET_OP(NOT) {
                 TOP_REPLACE(BoolToArBool(!IsTrue(TOP())));
+                DISPATCH();
+            }
+            TARGET_OP(PLT) {
+                if (!AR_TYPEOF(PEEK1(), type_list_)) {
+                    ErrorFormat(kRuntimeError[0], "unexpected type in evaluation stack during PLT execution");
+                    goto END_LOOP;
+                }
+
+                if (!ListAppend((List *) PEEK1(), TOP()))
+                    goto END_LOOP;
+
+                POP();
                 DISPATCH();
             }
             TARGET_OP(POP) {

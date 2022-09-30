@@ -293,8 +293,9 @@ void Compiler::CompileCall(const parser::Call *call) {
     ARC iter;
     ARC param;
 
-    int args = 0;
     vm::OpCode code = vm::OpCode::CALL;
+    vm::OpCodeCallMode mode = vm::OpCodeCallMode::FASTCALL;
+    int args = 0;
 
     if (call->left->node_type == parser::NodeType::SELECTOR &&
         call->left->token_type != scanner::TokenType::SCOPE) {
@@ -303,12 +304,63 @@ void Compiler::CompileCall(const parser::Call *call) {
         this->unit_->Emit(vm::OpCode::LDMETH, idx, nullptr, nullptr);
 
         args = 1;
-
-        //  flags |= OpCodeCallFlags::METHOD;
     } else
         this->Expression(call->left);
 
-    iter = IteratorGet(call->args, false);
+    if (call->args != nullptr)
+        this->CompileCallPositional(call->args, args, mode);
+
+    if (call->kwargs != nullptr)
+        this->CompileCallKwArgs(call->kwargs, args, mode);
+
+    if (call->token_type == scanner::TokenType::KW_DEFER)
+        code = vm::OpCode::DFR;
+    else if (call->token_type == scanner::TokenType::KW_SPAWN)
+        code = vm::OpCode::SPW;
+
+    this->unit_->Emit(code, (unsigned char) mode, args, &call->loc);
+}
+
+void Compiler::CompileCallKwArgs(vm::datatype::ArObject *args, int &args_count, vm::OpCodeCallMode &mode) {
+    ARC iter;
+    ARC param;
+    ARC keys;
+
+    int index = 0;
+
+    iter = IteratorGet(args, false);
+    if (!iter)
+        throw DatatypeException();
+
+    keys = (ArObject *) ListNew();
+    if (!keys)
+        throw DatatypeException();
+
+    while ((param = IteratorNext(iter.Get()))) {
+        const auto *tmp = (const Unary *) param.Get();
+
+        if ((index & 1) == 0) {
+            if (!ListAppend((List *) keys.Get(), tmp->value))
+                throw DatatypeException();
+        } else {
+            this->Expression((const Node *) tmp);
+            args_count++;
+        }
+
+        index++;
+    }
+
+    if (keys)
+        this->LoadStatic(keys.Get(), false, true);
+
+    args_count++;
+}
+
+void Compiler::CompileCallPositional(vm::datatype::ArObject *args, int &args_count, vm::OpCodeCallMode &mode) {
+    ARC iter;
+    ARC param;
+
+    iter = IteratorGet(args, false);
     if (!iter)
         throw DatatypeException();
 
@@ -316,23 +368,26 @@ void Compiler::CompileCall(const parser::Call *call) {
         const auto *tmp = (const Node *) param.Get();
 
         if (tmp->node_type == parser::NodeType::ELLIPSIS) {
+            if (ENUMBITMASK_ISFALSE(mode, vm::OpCodeCallMode::REST_PARAMS))
+                this->unit_->Emit(vm::OpCode::MKLT, args_count, nullptr, nullptr);
+
             this->Expression((const Node *) ((const Unary *) tmp)->value);
-            //  flags |= OpCodeCallFlags::SPREAD;
-        } else
+
+            this->unit_->Emit(vm::OpCode::EXTD, nullptr);
+
+            mode |= vm::OpCodeCallMode::REST_PARAMS;
+        } else {
             this->Expression(tmp);
 
-        args++;
+            if (ENUMBITMASK_ISTRUE(mode, vm::OpCodeCallMode::REST_PARAMS))
+                this->unit_->Emit(vm::OpCode::PLT, nullptr);
+        }
+
+        args_count++;
     }
 
-    // KWARGS HERE!!!
-
-    if (call->token_type == scanner::TokenType::KW_DEFER)
-        code = vm::OpCode::DFR;
-    else if (call->token_type == scanner::TokenType::KW_SPAWN)
-        code = vm::OpCode::SPW;
-
-    //this->unit_->Emit(code, (unsigned char) flags, args, &call->loc);
-    assert(false);
+    if (ENUMBITMASK_ISTRUE(mode, vm::OpCodeCallMode::REST_PARAMS))
+        args_count = 1;
 }
 
 void Compiler::CompileElvis(const parser::Test *test) {

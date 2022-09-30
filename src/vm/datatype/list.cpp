@@ -87,6 +87,25 @@ bool argon::vm::datatype::ListAppend(List *list, ArObject *object) {
     return true;
 }
 
+bool argon::vm::datatype::ListExtend(List *list, ArObject *iterator) {
+    if (AR_TYPEOF(iterator, type_list_)) {
+        // Fast-path
+        const auto *right = (const List *) iterator;
+
+        if (!CheckSize(list, right->length))
+            return false;
+
+        for (ArSize i = 0; i < right->length; i++)
+            list->objects[list->length + i] = IncRef(right->objects[i]);
+
+        list->length += right->length;
+
+        return true;
+    }
+
+    assert(false);
+}
+
 bool argon::vm::datatype::ListInsert(List *list, ArObject *object, ArSSize index) {
     if (index < 0)
         index = ((ArSSize) list->length) + index;
@@ -139,8 +158,6 @@ List *argon::vm::datatype::ListNew(ArObject *iterable) {
 
         for (ArSize i = 0; i < list->length; i++)
             ret->objects[i] = list->objects[i];
-
-        // TODO: trackif
 
         return ret;
     }
