@@ -58,6 +58,14 @@ namespace argon::vm::datatype {
     List *ListNew(ArSize capacity);
 
     /**
+     * @brief Create a new list from iterable.
+     * @param iterable Pointer to an iterable object.
+     * @return A pointer to the newly created list object is returned,
+     * in case of error nullptr will be returned and the panic state will be set.
+     */
+    List *ListNew(ArObject *iterable);
+
+    /**
      * @brief Create a new list.
      * @return A pointer to the newly created list object is returned,
      * in case of error nullptr will be returned and the panic state will be set.

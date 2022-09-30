@@ -127,6 +127,29 @@ List *argon::vm::datatype::ListNew(ArSize capacity) {
     return list;
 }
 
+List *argon::vm::datatype::ListNew(ArObject *iterable) {
+    List *ret = nullptr;
+
+    if (AR_TYPEOF(iterable, type_list_)) {
+        // Fast-path
+        const auto *list = (List *) iterable;
+
+        if ((ret = ListNew(list->length)) == nullptr)
+            return nullptr;
+
+        for (ArSize i = 0; i < list->length; i++)
+            ret->objects[i] = list->objects[i];
+
+        // TODO: trackif
+
+        return ret;
+    }
+
+    assert(false);
+
+    return nullptr;
+}
+
 // LIST ITERATOR
 
 ArObject *listiterator_iter(ListIterator *self, bool reversed) {
