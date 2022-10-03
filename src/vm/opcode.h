@@ -61,6 +61,7 @@ namespace argon::vm {
         NEG,
         NGV,
         NOT,
+        PANIC,
         PLT,
         POP,
         POS,
@@ -72,7 +73,8 @@ namespace argon::vm {
         STGBL,
         STLC,
         SUB,
-        SUBSCR
+        SUBSCR,
+        YLD
     };
 
     constexpr short StackChange[] = {
@@ -118,7 +120,9 @@ namespace argon::vm {
             -1,
             -1,
             -1,
+            -1,
             0,
+            -1,
             -1,
             -1,
             -1,
@@ -177,10 +181,12 @@ namespace argon::vm {
             1,
             1,
             1,
+            1,
             4,
             2,
             4,
             2,
+            1,
             1,
             1
     };

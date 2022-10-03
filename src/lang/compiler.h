@@ -51,6 +51,8 @@ namespace argon::lang {
         void CompileFunctionParams(vm::datatype::List *params, unsigned short &p_count,
                                    vm::datatype::FunctionFlags &flags);
 
+        void CompileIf(const parser::Test *test);
+
         void CompileInit(const parser::Initialization *init);
 
         void CompileLTDS(const parser::Unary *list);

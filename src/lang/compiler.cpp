@@ -254,15 +254,44 @@ void Compiler::Binary(const parser::Binary *binary) {
 
 void Compiler::Compile(const Node *node) {
     switch (node->node_type) {
+        case NodeType::ASSERT:
+            assert(false);
         case NodeType::CALL:
             this->CompileCall((const parser::Call *) node);
-            break;
-        case NodeType::FUNC:
-            this->CompileFunction((const parser::Function *) node);
             break;
         case parser::NodeType::EXPRESSION:
             this->Expression((Node *) ((const Unary *) node)->value);
             this->unit_->Emit(vm::OpCode::POP, nullptr);
+            break;
+        case NodeType::FUNC:
+            this->CompileFunction((const parser::Function *) node);
+            break;
+        case NodeType::PANIC:
+            this->Expression((const Node *) ((const Unary *) node)->value);
+            this->unit_->Emit(vm::OpCode::PANIC, &node->loc);
+            break;
+        case NodeType::RETURN:
+            if (((const Unary *) node)->value != nullptr)
+                this->Expression((const Node *) ((const Unary *) node)->value);
+            else
+                this->LoadStatic((ArObject *) Nil, true, true);
+
+            this->unit_->Emit(vm::OpCode::RET, &node->loc);
+            break;
+        case NodeType::SAFE_EXPR:
+            this->CompileSafe((const Unary *) node);
+            break;
+        case NodeType::IF:
+            this->CompileIf((const Test *) node);
+            break;
+        case NodeType::YIELD:
+            if (this->unit_->symt->type != SymbolType::FUNC && this->unit_->symt->type != SymbolType::GENERATOR)
+                throw CompilerException("yield outside function definition");
+
+            this->unit_->symt->type = SymbolType::GENERATOR;
+
+            this->Expression((const Node *) ((const Unary *) node)->value);
+            this->unit_->Emit(vm::OpCode::YLD, &node->loc);
             break;
         default:
             assert(false);
@@ -541,6 +570,48 @@ void Compiler::CompileFunctionParams(vm::datatype::List *params, unsigned short 
             break;
         }
     }
+}
+
+void Compiler::CompileIf(const parser::Test *test) {
+    BasicBlock *orelse;
+    BasicBlock *end;
+
+    if ((end = BasicBlockNew()) == nullptr)
+        throw DatatypeException();
+
+    orelse = end;
+
+    try {
+        this->Expression(test->test);
+
+        this->unit_->Emit(vm::OpCode::JF, orelse, &test->loc);
+
+        this->unit_->BlockNew();
+
+        this->CompileBlock(test->body, true);
+
+        if (test->orelse != nullptr) {
+            if ((end = BasicBlockNew()) == nullptr)
+                throw DatatypeException();
+
+            this->unit_->Emit(vm::OpCode::JMP, end, nullptr);
+
+            this->unit_->BlockAppend(orelse);
+            orelse = nullptr; // Avoid releasing it in case of an exception.
+
+            this->CompileBlock(test->orelse, true);
+        }
+    } catch (...) {
+        if (orelse != end) {
+            BasicBlockDel(orelse);
+            BasicBlockDel(end);
+        } else
+            BasicBlockDel(end);
+
+        throw;
+    }
+
+    this->unit_->BlockAppend(end);
 }
 
 void Compiler::CompileInit(const parser::Initialization *init) {
