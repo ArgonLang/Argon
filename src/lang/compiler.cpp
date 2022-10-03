@@ -382,6 +382,7 @@ void Compiler::CompileCallKwArgs(vm::datatype::ArObject *args, int &args_count, 
     if (keys)
         this->LoadStatic(keys.Get(), false, true);
 
+    mode |= vm::OpCodeCallMode::KW_PARAMS;
     args_count++;
 }
 
