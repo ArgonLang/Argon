@@ -266,6 +266,9 @@ void Compiler::Compile(const Node *node) {
             this->Expression((Node *) ((const Unary *) node)->value);
             this->unit_->Emit(vm::OpCode::POP, nullptr);
             break;
+        case NodeType::FOR:
+            this->CompileForLoop((const Loop *) node);
+            break;
         case NodeType::FUNC:
             this->CompileFunction((const parser::Function *) node);
             break;
@@ -273,8 +276,8 @@ void Compiler::Compile(const Node *node) {
             this->CompileJump((const parser::Unary *) node);
             break;
         case NodeType::LABEL:
-            this->unit_->JBNew((String *)((const Unary *)((const parser::Binary *)node)->left)->value);
-            this->Compile(((const parser::Binary *)node)->right);
+            this->unit_->JBNew((String *) ((const Unary *) ((const parser::Binary *) node)->left)->value);
+            this->Compile(((const parser::Binary *) node)->right);
             break;
         case NodeType::LOOP:
             this->CompileLoop((const Loop *) node);
@@ -319,10 +322,8 @@ void Compiler::CompileBlock(const parser::Node *node, bool sub) {
     if (!iter)
         throw DatatypeException();
 
-    if (sub) {
-        if (!SymbolNewSub(this->unit_->symt))
-            throw DatatypeException();
-    }
+    if (sub && !SymbolNewSub(this->unit_->symt))
+        throw DatatypeException();
 
     while ((stmt = IteratorNext(iter.Get())))
         this->Compile((const Node *) stmt.Get());
@@ -450,6 +451,54 @@ void Compiler::CompileElvis(const parser::Test *test) {
         throw;
     }
 
+    this->unit_->BlockAppend(end);
+}
+
+void Compiler::CompileForLoop(const parser::Loop *loop) {
+    BasicBlock *begin;
+    BasicBlock *end;
+    const JBlock *jb;
+
+    if (!SymbolNewSub(this->unit_->symt))
+        throw DatatypeException();
+
+    if (loop->init != nullptr)
+        this->Compile(loop->init);
+
+    if (!this->unit_->BlockNew())
+        throw DatatypeException();
+
+    begin = this->unit_->bb.cur;
+
+    if ((end = BasicBlockNew()) == nullptr)
+        throw DatatypeException();
+
+    try {
+        jb = this->unit_->JBNew(begin, end);
+
+        // Compile test
+        this->Expression(loop->test);
+
+        this->unit_->Emit(vm::OpCode::JF, end, nullptr);
+
+        this->unit_->BlockNew();
+
+        // Compile body
+        this->CompileBlock(loop->body, false);
+
+        // Compile Inc
+        if (loop->inc != nullptr)
+            this->Compile(loop->inc);
+
+        this->unit_->Emit(vm::OpCode::JMP, begin, nullptr);
+    } catch (...) {
+        BasicBlockDel(end);
+        throw;
+    }
+
+    SymbolExitSub(this->unit_->symt);
+
+    this->unit_->JBPop(jb);
     this->unit_->BlockAppend(end);
 }
 

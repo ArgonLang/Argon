@@ -44,6 +44,8 @@ namespace argon::lang {
 
         void CompileElvis(const parser::Test *test);
 
+        void CompileForLoop(const parser::Loop *loop);
+
         void CompileFunction(const parser::Function *func);
 
         void CompileFunctionDefaultBody();

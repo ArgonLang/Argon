@@ -781,7 +781,7 @@ Node *Parser::ParseFor() {
     this->Eat();
     this->IgnoreNL();
 
-    if (!this->MatchEat(TokenType::SEMICOLON)) {
+    if (!this->Match(TokenType::SEMICOLON)) {
         if (this->MatchEat(scanner::TokenType::KW_VAR))
             init = (ArObject *) this->ParseVarDecl(false, false, false);
         else
@@ -797,7 +797,7 @@ Node *Parser::ParseFor() {
             throw ParserException("expected identifier or tuple before 'in' in foreach");
 
         type = NodeType::FOREACH;
-    } else if (this->MatchEat(TokenType::SEMICOLON))
+    } else if (!this->MatchEat(TokenType::SEMICOLON))
         throw ParserException("expected ';' after for initialization");
 
     this->IgnoreNL();
@@ -807,7 +807,7 @@ Node *Parser::ParseFor() {
 
         this->IgnoreNL();
 
-        if (this->MatchEat(TokenType::SEMICOLON))
+        if (!this->MatchEat(TokenType::SEMICOLON))
             throw ParserException("expected ';' after test");
 
         this->IgnoreNL();
