@@ -256,6 +256,9 @@ void Compiler::Compile(const Node *node) {
     switch (node->node_type) {
         case NodeType::ASSERT:
             assert(false);
+        case NodeType::BLOCK:
+            this->CompileBlock(node, true);
+            break;
         case NodeType::CALL:
             this->CompileCall((const parser::Call *) node);
             break;
@@ -600,7 +603,7 @@ void Compiler::CompileIf(const parser::Test *test) {
             this->unit_->BlockAppend(orelse);
             orelse = nullptr; // Avoid releasing it in case of an exception.
 
-            this->CompileBlock(test->orelse, true);
+            this->Compile(test->orelse);
         }
     } catch (...) {
         if (orelse != end) {

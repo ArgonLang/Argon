@@ -1099,7 +1099,7 @@ Node *Parser::ParseIF() {
 
     end = ((Node *) body.Get())->loc.end;
 
-    if (this->MatchEat(TokenType::KW_ELIF)) {
+    if (this->Match(TokenType::KW_ELIF)) {
         orelse = (ArObject *) this->ParseIF();
         end = ((Node *) orelse.Get())->loc.end;
     } else if (this->MatchEat(TokenType::KW_ELSE)) {
