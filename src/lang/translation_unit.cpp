@@ -157,6 +157,36 @@ JBlock *TranslationUnit::JBNew(String *label, BasicBlock *end) {
     return jb;
 }
 
+JBlock *TranslationUnit::JBNew(BasicBlock *start, BasicBlock *end) {
+    String *label = nullptr;
+
+    if (this->jstack != nullptr) {
+        if (this->jstack->start->size == 0)
+            label = this->jstack->label;
+    }
+
+    auto *jb = this->JBNew(label);
+
+    jb->start = start;
+    jb->end = end;
+
+    jb->loop = true;
+
+    return jb;
+}
+
+JBlock *TranslationUnit::FindLoop(String *label) {
+    for (JBlock *block = this->jstack; block != nullptr; block = block->prev) {
+        if (!block->loop)
+            continue;
+
+        if (label == nullptr || (block->label != nullptr && StringCompare(block->label, label) == 0))
+            return block;
+    }
+
+    return nullptr;
+}
+
 void TranslationUnit::BlockAppend(argon::lang::BasicBlock *block) {
     ::BlockAppend(this, block);
 }

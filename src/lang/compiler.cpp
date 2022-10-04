@@ -269,6 +269,16 @@ void Compiler::Compile(const Node *node) {
         case NodeType::FUNC:
             this->CompileFunction((const parser::Function *) node);
             break;
+        case NodeType::JUMP:
+            this->CompileJump((const parser::Unary *) node);
+            break;
+        case NodeType::LABEL:
+            this->unit_->JBNew((String *)((const Unary *)((const parser::Binary *)node)->left)->value);
+            this->Compile(((const parser::Binary *)node)->right);
+            break;
+        case NodeType::LOOP:
+            this->CompileLoop((const Loop *) node);
+            break;
         case NodeType::PANIC:
             this->Expression((const Node *) ((const Unary *) node)->value);
             this->unit_->Emit(vm::OpCode::PANIC, &node->loc);
@@ -653,6 +663,61 @@ void Compiler::CompileInit(const parser::Initialization *init) {
     this->unit_->Emit(vm::OpCode::INIT, (unsigned char) mode, items, &init->loc);
 }
 
+void Compiler::CompileJump(const parser::Unary *jump) {
+    BasicBlock *dst = nullptr;
+    JBlock *jb;
+
+    if (jump->token_type == scanner::TokenType::KW_BREAK ||
+        jump->token_type == scanner::TokenType::KW_CONTINUE) {
+
+        if ((jb = this->unit_->FindLoop((String *) jump->value)) == nullptr) {
+            // TODO ErrorFormat(type_compile_error_, "unknown \"loop label\", the loop named '%s' cannot be %s",
+            // ((String *) jmp->value)->buffer, jmp->kind == TokenType::BREAK ? "breaked" : "continued");
+            throw DatatypeException();
+        }
+
+        dst = jb->end;
+
+        if (jump->token_type == scanner::TokenType::KW_CONTINUE)
+            dst = jb->start;
+    }
+
+    this->unit_->Emit(vm::OpCode::JMP, dst, &jump->loc);
+}
+
+void Compiler::CompileLoop(const parser::Loop *loop) {
+    BasicBlock *begin;
+    BasicBlock *end;
+    const JBlock *jb;
+
+    if (!this->unit_->BlockNew())
+        throw DatatypeException();
+
+    begin = this->unit_->bb.cur;
+
+    if ((end = BasicBlockNew()) == nullptr)
+        throw DatatypeException();
+
+    try {
+        jb = this->unit_->JBNew(begin, end);
+
+        if (loop->test != nullptr) {
+            this->Expression(loop->test);
+            this->unit_->Emit(vm::OpCode::JF, end, nullptr);
+        }
+
+        this->CompileBlock(loop->body, true);
+
+        this->unit_->Emit(vm::OpCode::JMP, begin, nullptr);
+    } catch (...) {
+        BasicBlockDel(end);
+        throw;
+    }
+
+    this->unit_->JBPop(jb);
+    this->unit_->BlockAppend(end);
+}
+
 void Compiler::CompileLTDS(const Unary *list) {
     ARC iter;
     ARC tmp;
@@ -699,7 +764,7 @@ void Compiler::CompileSafe(const parser::Unary *unary) {
         throw DatatypeException();
 
     try {
-        jb = this->unit_->JBNew(nullptr, end);
+        jb = this->unit_->JBNew((String *) nullptr, end);
 
         if (((Node *) unary->value)->node_type == parser::NodeType::ASSIGNMENT)
             this->Compile((const Node *) unary->value);

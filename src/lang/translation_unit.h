@@ -65,11 +65,15 @@ namespace argon::lang {
 
         bool IsFreeVar(vm::datatype::String *id);
 
-        vm::datatype::Code *Assemble() const;
+        [[nodiscard]] vm::datatype::Code *Assemble() const;
 
         JBlock *JBNew(vm::datatype::String *label);
 
         JBlock *JBNew(vm::datatype::String *label, BasicBlock *end);
+
+        JBlock *JBNew(BasicBlock *start, BasicBlock *end);
+
+        JBlock *FindLoop(vm::datatype::String *label);
 
         void BlockAppend(BasicBlock *block);
 

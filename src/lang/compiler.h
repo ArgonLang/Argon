@@ -55,6 +55,10 @@ namespace argon::lang {
 
         void CompileInit(const parser::Initialization *init);
 
+        void CompileJump(const parser::Unary *jump);
+
+        void CompileLoop(const parser::Loop *loop);
+
         void CompileLTDS(const parser::Unary *list);
 
         void CompileSafe(const parser::Unary *unary);
