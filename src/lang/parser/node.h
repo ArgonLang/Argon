@@ -24,6 +24,7 @@ namespace argon::lang::parser {
         BINARY,
         BLOCK,
         CALL,
+        DECLARATION,
         DICT,
         ELVIS,
         ELLIPSIS,

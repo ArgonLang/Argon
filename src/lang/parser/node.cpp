@@ -199,7 +199,7 @@ Import *argon::lang::parser::ImportNew(Node *mod, ArObject *names) {
 }
 
 Assignment *argon::lang::parser::AssignmentNew(ArObject *name, bool constant, bool pub, bool weak) {
-    auto *assign = NodeNew<Assignment>(&AssignmentType, NodeType::ASSIGNMENT);
+    auto *assign = NodeNew<Assignment>(&AssignmentType, NodeType::DECLARATION);
 
     if (assign != nullptr) {
         assign->constant = constant;
