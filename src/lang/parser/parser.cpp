@@ -286,6 +286,7 @@ Node *Parser::ParseAssignment(Node *left) {
 
     if (left->node_type != NodeType::IDENTIFIER &&
         left->node_type != NodeType::INDEX &&
+        left->node_type != NodeType::SLICE &&
         left->node_type != NodeType::TUPLE &&
         left->node_type != NodeType::SELECTOR)
         throw ParserException("expected identifier or list to the left of the assignment expression");

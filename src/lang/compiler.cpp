@@ -321,7 +321,29 @@ void Compiler::Compile(const Node *node) {
 }
 
 void Compiler::CompileAssignment(const parser::Binary *assign) {
+    if (assign->token_type != scanner::TokenType::EQUAL)
+        assert(false);// TODO
 
+    this->Expression(assign->right);
+
+    if (assign->left->node_type == NodeType::IDENTIFIER)
+        this->StoreVariable((String *) ((const parser::Unary *) assign->left)->value);
+    else if (assign->left->node_type == NodeType::SELECTOR) {
+        auto idx = this->CompileSelector((const parser::Binary *) assign->left, false, false);
+
+        if (assign->left->token_type == scanner::TokenType::SCOPE) {
+            this->unit_->Emit(vm::OpCode::STSCOPE, idx, nullptr, &assign->loc);
+            return;
+        }
+
+        this->unit_->Emit(vm::OpCode::STATTR, idx, nullptr, &assign->loc);
+    } else if (assign->left->node_type == parser::NodeType::INDEX ||
+               assign->left->node_type == parser::NodeType::SLICE) {
+        this->CompileSubscr((const Subscript *) assign->left, false, false);
+
+        this->unit_->Emit(vm::OpCode::STSUBSCR, &assign->loc);
+    }else if(assign->left->node_type == parser::NodeType::TUPLE)
+        assert(false); // this->CompileUnpack((List *) ((Unary *) assignment->left)->value);
 }
 
 void Compiler::CompileBlock(const parser::Node *node, bool sub) {
