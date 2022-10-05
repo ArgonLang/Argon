@@ -269,6 +269,9 @@ void Compiler::Compile(const Node *node) {
         case NodeType::FOR:
             this->CompileForLoop((const Loop *) node);
             break;
+        case NodeType::FOREACH:
+            this->CompileForEach((const Loop *) node);
+            break;
         case NodeType::FUNC:
             this->CompileFunction((const parser::Function *) node);
             break;
@@ -452,6 +455,57 @@ void Compiler::CompileElvis(const parser::Test *test) {
     }
 
     this->unit_->BlockAppend(end);
+}
+
+void Compiler::CompileForEach(const parser::Loop *loop) {
+    BasicBlock *end = nullptr;
+    BasicBlock *begin;
+    const JBlock *jb;
+
+    if (!SymbolNewSub(this->unit_->symt))
+        throw DatatypeException();
+
+    if ((end = BasicBlockNew()) == nullptr)
+        throw DatatypeException();
+
+    try {
+        this->Expression(loop->test);
+
+        this->unit_->Emit(vm::OpCode::LDITER, nullptr);
+
+        if (!this->unit_->BlockNew())
+            throw DatatypeException();
+
+        begin = this->unit_->bb.cur;
+
+        jb = this->unit_->JBNew(begin, end);
+
+        this->unit_->Emit(vm::OpCode::NJE, end, nullptr);
+
+        if (!this->unit_->BlockNew())
+            throw DatatypeException();
+
+        if (loop->init->node_type == NodeType::IDENTIFIER)
+            this->StoreVariable((String *) ((const Unary *) loop->init)->value);
+        else if (loop->init->node_type == NodeType::TUPLE) {
+            // TODO: compile unpack
+            assert(false);
+        }
+
+        this->Compile(loop->body);
+
+        this->unit_->Emit(vm::OpCode::JMP, begin, nullptr);
+    } catch (...) {
+        BasicBlockDel(end);
+        throw;
+    }
+
+    SymbolExitSub(this->unit_->symt);
+
+    this->unit_->JBPop(jb);
+    this->unit_->BlockAppend(end);
+
+    this->unit_->DecrementStack(1); // NJE remove iterator from eval stack
 }
 
 void Compiler::CompileForLoop(const parser::Loop *loop) {
