@@ -15,7 +15,7 @@ using namespace argon::vm::datatype;
         return (ArObject *) ErrorFormat(kUnhashableError[0], kUnhashableError[1], AR_TYPE_NAME(key));   \
 } while(0)
 
-const TypeInfo DictType = {
+TypeInfo DictType = {
         AROBJ_HEAD_INIT_TYPE,
         "Dict",
         nullptr,

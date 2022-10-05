@@ -9,7 +9,7 @@
 
 using namespace argon::vm::datatype;
 
-const TypeInfo BytesType = {
+TypeInfo BytesType = {
         AROBJ_HEAD_INIT_TYPE,
         "Bytes",
         nullptr,

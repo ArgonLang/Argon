@@ -6,7 +6,7 @@
 
 using namespace argon::vm::datatype;
 
-const TypeInfo SetType = {
+TypeInfo SetType = {
         AROBJ_HEAD_INIT_TYPE,
         "Set",
         nullptr,

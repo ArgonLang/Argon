@@ -167,7 +167,7 @@ const OpSlots integer_ops = {
         (UnaryOp) integer_dec
 };
 
-const TypeInfo IntegerType = {
+TypeInfo IntegerType = {
         AROBJ_HEAD_INIT_TYPE,
         "Int",
         nullptr,
@@ -194,7 +194,7 @@ const TypeInfo IntegerType = {
 };
 const TypeInfo *argon::vm::datatype::type_int_ = &IntegerType;
 
-const TypeInfo UIntegerType = {
+TypeInfo UIntegerType = {
         AROBJ_HEAD_INIT_TYPE,
         "UInt",
         nullptr,

@@ -27,7 +27,7 @@ bool atom_dtor(Atom *self) {
     return true;
 }
 
-const TypeInfo AtomType = {
+TypeInfo AtomType = {
         AROBJ_HEAD_INIT_TYPE,
         "Atom",
         nullptr,

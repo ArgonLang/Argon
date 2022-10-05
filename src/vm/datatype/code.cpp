@@ -6,7 +6,7 @@
 
 using namespace argon::vm::datatype;
 
-const TypeInfo CodeType = {
+TypeInfo CodeType = {
         AROBJ_HEAD_INIT_TYPE,
         "Code",
         nullptr,

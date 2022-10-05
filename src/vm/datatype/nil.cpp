@@ -14,7 +14,7 @@ ArSize nil_hash(const ArObject *) {
     return 0;
 }
 
-const TypeInfo NilType = {
+TypeInfo NilType = {
         AROBJ_HEAD_INIT_TYPE,
         "Nil",
         nullptr,

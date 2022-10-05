@@ -39,7 +39,7 @@ ArObject *list_iter(List *self, bool reverse) {
     return (ArObject *) li;
 }
 
-const TypeInfo ListType = {
+TypeInfo ListType = {
         AROBJ_HEAD_INIT_TYPE,
         "List",
         nullptr,
@@ -196,7 +196,7 @@ ArObject *listiterator_iter_next(ListIterator *self) {
     return IncRef(self->list->objects[self->list->length - self->index]);
 }
 
-const TypeInfo ListIteratorType = {
+TypeInfo ListIteratorType = {
         AROBJ_HEAD_INIT_TYPE,
         "ListIterator",
         nullptr,

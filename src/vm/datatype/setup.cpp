@@ -9,6 +9,7 @@
 #include "bytes.h"
 #include "decimal.h"
 #include "dict.h"
+#include "error.h"
 #include "function.h"
 #include "integer.h"
 #include "list.h"
@@ -25,6 +26,9 @@ bool argon::vm::datatype::Setup() {
 #define INIT(type)                  \
     if(!TypeInit((type), nullptr))  \
         return false
+
+    if(!ErrorInit())
+        return false;
 
     INIT(type_atom_);
     INIT(type_boolean_);

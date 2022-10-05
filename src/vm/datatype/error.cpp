@@ -16,7 +16,7 @@ Error *argon::vm::datatype::error_oom = nullptr;
 Error *argon::vm::datatype::error_err_oom = nullptr;
 Error *argon::vm::datatype::error_while_error = nullptr;
 
-const TypeInfo ErrorType = {
+TypeInfo ErrorType = {
         AROBJ_HEAD_INIT_TYPE,
         "Error",
         nullptr,
@@ -114,7 +114,7 @@ Error *argon::vm::datatype::ErrorNew(ArObject *id, String *reason) {
     auto *err = MakeObject<Error>(type_error_);
 
     if (err != nullptr) {
-        if (err->detail.Initialize()) {
+        if (!err->detail.Initialize()) {
             Release(err);
             return nullptr;
         }

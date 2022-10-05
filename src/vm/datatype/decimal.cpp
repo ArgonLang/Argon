@@ -6,7 +6,7 @@
 
 using namespace argon::vm::datatype;
 
-const TypeInfo DecimalType = {
+TypeInfo DecimalType = {
         AROBJ_HEAD_INIT_TYPE,
         "Decimal",
         nullptr,

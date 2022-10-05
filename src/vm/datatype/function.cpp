@@ -6,7 +6,7 @@
 
 using namespace argon::vm::datatype;
 
-const TypeInfo FunctionType = {
+TypeInfo FunctionType = {
         AROBJ_HEAD_INIT_TYPE,
         "Function",
         nullptr,

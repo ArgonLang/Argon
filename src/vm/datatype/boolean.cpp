@@ -17,7 +17,7 @@ ArSize boolean_hash(const Boolean *self) {
     return self->value ? kTrueAsInt : kFalseAsInt;
 }
 
-const TypeInfo BooleanType = {
+TypeInfo BooleanType = {
         AROBJ_HEAD_INIT_TYPE,
         "Bool",
         nullptr,

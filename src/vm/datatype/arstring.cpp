@@ -135,7 +135,7 @@ const OpSlots string_ops = {
         nullptr
 };
 
-const TypeInfo StringType = {
+TypeInfo StringType = {
         AROBJ_HEAD_INIT_TYPE,
         "String",
         nullptr,

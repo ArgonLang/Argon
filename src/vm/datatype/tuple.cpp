@@ -8,7 +8,7 @@
 
 using namespace argon::vm::datatype;
 
-const TypeInfo TupleType = {
+TypeInfo TupleType = {
         AROBJ_HEAD_INIT_TYPE,
         "Tuple",
         nullptr,

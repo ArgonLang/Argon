@@ -38,7 +38,7 @@ bool NewEntry(Namespace *ns, ArObject *key, ArObject *value, AttributeFlag aa) {
     return true;
 }
 
-const TypeInfo NamespaceType = {
+TypeInfo NamespaceType = {
         AROBJ_HEAD_INIT_TYPE,
         "Namespace",
         nullptr,
