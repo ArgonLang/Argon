@@ -256,6 +256,9 @@ void Compiler::Compile(const Node *node) {
     switch (node->node_type) {
         case NodeType::ASSERT:
             assert(false);
+        case NodeType::ASSIGNMENT:
+            this->CompileAssignment((const parser::Binary *) node);
+            break;
         case NodeType::BLOCK:
             this->CompileBlock(node, true);
             break;
@@ -315,6 +318,10 @@ void Compiler::Compile(const Node *node) {
         default:
             assert(false);
     }
+}
+
+void Compiler::CompileAssignment(const parser::Binary *assign) {
+
 }
 
 void Compiler::CompileBlock(const parser::Node *node, bool sub) {

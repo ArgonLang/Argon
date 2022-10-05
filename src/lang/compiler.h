@@ -34,6 +34,8 @@ namespace argon::lang {
 
         void Compile(const parser::Node *node);
 
+        void CompileAssignment(const parser::Binary *assign);
+
         void CompileBlock(const parser::Node *node, bool sub);
 
         void CompileCall(const parser::Call *call);
