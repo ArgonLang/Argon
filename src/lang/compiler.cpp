@@ -321,8 +321,10 @@ void Compiler::Compile(const Node *node) {
 }
 
 void Compiler::CompileAssignment(const parser::Binary *assign) {
-    if (assign->token_type != scanner::TokenType::EQUAL)
-        assert(false);// TODO
+    if (assign->token_type != scanner::TokenType::EQUAL) {
+        this->CompileAugAssignment(assign);
+        return;
+    }
 
     this->Expression(assign->right);
 
@@ -342,8 +344,64 @@ void Compiler::CompileAssignment(const parser::Binary *assign) {
         this->CompileSubscr((const Subscript *) assign->left, false, false);
 
         this->unit_->Emit(vm::OpCode::STSUBSCR, &assign->loc);
-    }else if(assign->left->node_type == parser::NodeType::TUPLE)
+    } else if (assign->left->node_type == parser::NodeType::TUPLE)
         assert(false); // this->CompileUnpack((List *) ((Unary *) assignment->left)->value);
+}
+
+void Compiler::CompileAugAssignment(const parser::Binary *assign) {
+#define COMPILE_OP()                        \
+    this->Expression(assign->right);        \
+    this->unit_->Emit(opcode, &assign->loc)
+
+    vm::OpCode opcode;
+    int idx;
+
+    // Select opcode
+    switch (assign->token_type) {
+        case scanner::TokenType::ASSIGN_ADD:
+            opcode = vm::OpCode::IPADD;
+            break;
+        case scanner::TokenType::ASSIGN_SUB:
+            opcode = vm::OpCode::IPSUB;
+            break;
+        default:
+            throw CompilerException(""); // TODO message
+    }
+
+    switch (assign->left->node_type) {
+        case NodeType::IDENTIFIER:
+            this->LoadIdentifier((String *) ((const Unary *) assign->left)->value);
+
+            COMPILE_OP();
+
+            this->StoreVariable((String *) ((const Unary *) assign->left)->value);
+            break;
+        case NodeType::SELECTOR:
+            idx = this->CompileSelector((const parser::Binary *) assign->left, true, true);
+
+            COMPILE_OP();
+
+            this->unit_->Emit(vm::OpCode::PBHEAD, 1, nullptr, nullptr);
+
+            if (assign->left->token_type == scanner::TokenType::SCOPE)
+                this->unit_->Emit(vm::OpCode::STSCOPE, idx, nullptr, &assign->loc);
+
+            this->unit_->Emit(vm::OpCode::STATTR, idx, nullptr, &assign->loc);
+            break;
+        case NodeType::INDEX:
+        case NodeType::SLICE:
+            this->CompileSubscr((const Subscript *) assign->left, true, true);
+
+            COMPILE_OP();
+
+            this->unit_->Emit(vm::OpCode::PBHEAD, 3, nullptr, nullptr);
+            this->unit_->Emit(vm::OpCode::STSUBSCR, &assign->loc);
+            break;
+        default:
+            throw CompilerException(""); // TODO message
+    }
+
+#undef COMPILE_OP
 }
 
 void Compiler::CompileBlock(const parser::Node *node, bool sub) {
