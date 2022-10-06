@@ -79,6 +79,8 @@ namespace argon::lang {
 
         void CompileUnary(const parser::Unary *unary);
 
+        void CompileUnpack(vm::datatype::List *list);
+
         void CompileUpdate(const parser::Unary *update);
 
         void Expression(const parser::Node *node);

@@ -345,7 +345,7 @@ void Compiler::CompileAssignment(const parser::Binary *assign) {
 
         this->unit_->Emit(vm::OpCode::STSUBSCR, &assign->loc);
     } else if (assign->left->node_type == parser::NodeType::TUPLE)
-        assert(false); // this->CompileUnpack((List *) ((Unary *) assignment->left)->value);
+        this->CompileUnpack((List *) ((const Unary *) assign->left)->value);
 }
 
 void Compiler::CompileAugAssignment(const parser::Binary *assign) {
@@ -574,10 +574,8 @@ void Compiler::CompileForEach(const parser::Loop *loop) {
 
         if (loop->init->node_type == NodeType::IDENTIFIER)
             this->StoreVariable((String *) ((const Unary *) loop->init)->value);
-        else if (loop->init->node_type == NodeType::TUPLE) {
-            // TODO: compile unpack
-            assert(false);
-        }
+        else if (loop->init->node_type == NodeType::TUPLE)
+            this->CompileUnpack((List *) ((const Unary *) loop->init)->value);
 
         this->Compile(loop->body);
 
@@ -1096,6 +1094,29 @@ void Compiler::CompileUnary(const parser::Unary *unary) {
         default:
             throw CompilerException("invalid TokenType for CompileUnary");
     }
+}
+
+void Compiler::CompileUnpack(List *list) {
+    ARC iter;
+    ARC tmp;
+    Instr *instr;
+
+    iter = IteratorGet((ArObject *) list, false);
+    if (!iter)
+        throw DatatypeException();
+
+    this->unit_->Emit(vm::OpCode::UNPACK, nullptr);
+    instr = this->unit_->bb.cur->instr.tail;
+
+    ArSize items = 0;
+    while ((tmp = IteratorNext(iter.Get()))) {
+        const auto *id = (const Unary *) tmp.Get();
+        this->unit_->IncrementStack(1);
+        this->StoreVariable((String *) id->value);
+        items++;
+    }
+
+    instr->oparg = items;
 }
 
 void Compiler::CompileUpdate(const parser::Unary *update) {

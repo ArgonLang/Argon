@@ -82,6 +82,7 @@ namespace argon::vm {
         STSUBSCR,
         SUB,
         SUBSCR,
+        UNPACK,
         YLD
     };
 
@@ -145,6 +146,7 @@ namespace argon::vm {
             -1,
             -2,
             -3,
+            -1,
             -1,
             -1,
             -1
@@ -212,6 +214,7 @@ namespace argon::vm {
             1,
             1,
             1,
+            2,
             1
     };
 
