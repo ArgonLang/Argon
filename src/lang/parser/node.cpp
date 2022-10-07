@@ -336,6 +336,7 @@ Test *argon::lang::parser::TestNew(Node *test, Node *body, Node *orelse, NodeTyp
         tst->body = IncRef(body);
         tst->orelse = IncRef(orelse);
 
+        if(test != nullptr)
         tst->loc.start = test->loc.start;
 
         if (tst->orelse != nullptr)

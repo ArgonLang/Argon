@@ -73,6 +73,11 @@ namespace argon::lang {
 
         void CompileSubscr(const parser::Subscript *subscr, bool dup, bool emit);
 
+        void CompileSwitch(const parser::Test *test);
+
+        void CompileSwitchCase(const parser::SwitchCase *sw, BasicBlock **ltest, BasicBlock **lbody,
+                               BasicBlock **_default, BasicBlock *end, bool as_if);
+
         void CompileTernary(const parser::Test *test);
 
         void CompileTest(const parser::Binary *test);

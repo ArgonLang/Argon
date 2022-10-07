@@ -41,6 +41,7 @@ namespace argon::vm {
         JFOP,
         JMP,
         JNIL,
+        JT,
         JTOP,
         LAND,
         LDATTR,
@@ -82,6 +83,7 @@ namespace argon::vm {
         STSUBSCR,
         SUB,
         SUBSCR,
+        TEST,
         UNPACK,
         YLD
     };
@@ -107,6 +109,7 @@ namespace argon::vm {
             -1,
             0,
             0,
+            -1,
             -1,
             -1,
             0,
@@ -148,6 +151,7 @@ namespace argon::vm {
             -3,
             -1,
             -1,
+            0,
             -1,
             -1
     };
@@ -169,6 +173,7 @@ namespace argon::vm {
             1,
             1,
             1,
+            4,
             4,
             4,
             4,
@@ -211,6 +216,7 @@ namespace argon::vm {
             4,
             2,
             4,
+            1,
             1,
             1,
             1,

@@ -1800,7 +1800,7 @@ Node *Parser::ParseSwitchCase() {
         do {
             this->IgnoreNL();
 
-            auto *cond = this->ParseExpression();
+            auto *cond = this->ParseExpression(PeekPrecedence(scanner::TokenType::PIPELINE) - 1);
 
             if (!ListAppend((List *) conditions.Get(), (ArObject *) cond)) {
                 Release(cond);

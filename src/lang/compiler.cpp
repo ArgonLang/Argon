@@ -303,6 +303,9 @@ void Compiler::Compile(const Node *node) {
         case NodeType::SAFE_EXPR:
             this->CompileSafe((const Unary *) node);
             break;
+        case NodeType::SWITCH:
+            this->CompileSwitch((const Test *) node);
+            break;
         case NodeType::IF:
             this->CompileIf((const Test *) node);
             break;
@@ -992,6 +995,157 @@ void Compiler::CompileSubscr(const parser::Subscript *subscr, bool dup, bool emi
 
     if (emit)
         this->unit_->Emit(vm::OpCode::SUBSCR, &subscr->loc);
+}
+
+void Compiler::CompileSwitch(const parser::Test *test) {
+    BasicBlock *ltest = nullptr;
+    BasicBlock *lbody = nullptr;
+    BasicBlock *_default = nullptr;
+    BasicBlock *bodies;
+    BasicBlock *end;
+    BasicBlock *tests;
+
+    bool as_if = true;
+
+    if (!this->unit_->BlockNew())
+        throw DatatypeException();
+
+    tests = this->unit_->bb.cur;
+
+    if ((bodies = BasicBlockNew()) == nullptr)
+        throw DatatypeException();
+
+    if ((end = BasicBlockNew()) == nullptr) {
+        BasicBlockDel(bodies);
+        throw DatatypeException();
+    }
+
+    try {
+        ARC iter;
+        ARC scase;
+
+        // Compile test expression (if any)
+        if (test->test != nullptr) {
+            this->Expression(test->test);
+            as_if = false;
+        }
+
+        iter = IteratorGet((ArObject *) test->body, false);
+        if (!iter)
+            throw DatatypeException();
+
+        ltest = tests;
+        lbody = bodies;
+
+        while ((scase = IteratorNext(iter.Get()))) {
+            this->CompileSwitchCase((const parser::SwitchCase *) scase.Get(), &ltest, &lbody, &_default, end, as_if);
+
+            // Switch to test thread
+            this->unit_->bb.cur = ltest;
+        }
+
+        // End of test thread
+        if (!as_if)
+            this->unit_->Emit(vm::OpCode::POP, nullptr);
+
+        this->unit_->Emit(vm::OpCode::JMP, _default == nullptr ? end : _default, nullptr);
+    } catch (...) {
+        BasicBlockDel(bodies);
+        BasicBlockDel(end);
+        throw;
+    }
+
+    // Set test bodies
+
+    // *** Remove last useless jmo instruction ***
+    if (lbody->instr.head != nullptr) {
+        for (Instr *cursor = lbody->instr.head; cursor != nullptr; cursor = cursor->next) {
+            if (cursor->next != nullptr && cursor->next->jmp == end) {
+                vm::memory::Free(cursor->next);
+                cursor->next = nullptr;
+                lbody->instr.tail = cursor;
+                lbody->size -= vm::OpCodeOffset[(int) vm::OpCode::JMP];
+                break;
+            }
+        }
+    }
+    // *********************************************
+
+    this->unit_->BlockAppend(bodies);
+    this->unit_->bb.cur = lbody;
+
+    // Set end block
+    this->unit_->BlockAppend(end);
+}
+
+void Compiler::CompileSwitchCase(const SwitchCase *sw, BasicBlock **ltest, BasicBlock **lbody,
+                                 BasicBlock **_default, BasicBlock *end, bool as_if) {
+    ARC iter;
+    ARC tmp;
+
+    bool fallthrough = false;
+
+    if ((*lbody)->size > 0) {
+        // Switch to bodies thread
+        this->unit_->bb.cur = *lbody;
+
+        if (!this->unit_->BlockNew())
+            throw DatatypeException();
+
+        *lbody = this->unit_->bb.cur;
+
+        // Return to test thread
+        this->unit_->bb.cur = *ltest;
+    }
+
+    if (sw->conditions != nullptr) {
+        iter = IteratorGet(sw->conditions, false);
+        if (!iter)
+            throw DatatypeException();
+
+        while ((tmp = IteratorNext(iter.Get()))) {
+            this->Expression((const Node *) tmp.Get());
+
+            if (!as_if)
+                this->unit_->Emit(vm::OpCode::TEST, &sw->loc);
+
+            this->unit_->Emit(vm::OpCode::JT, *lbody, &sw->loc);
+
+            // Save last test block
+            if (!this->unit_->BlockNew())
+                throw DatatypeException();
+
+            *ltest = this->unit_->bb.cur;
+        }
+    }
+
+    // Switch to bodies thread
+    this->unit_->bb.cur = *lbody;
+
+    if (sw->conditions == nullptr && *_default == nullptr)
+        *_default = this->unit_->bb.cur;
+
+    // Process body
+    if (sw->body) {
+        iter = IteratorGet(sw->body, false);
+        if (!iter)
+            throw DatatypeException();
+
+        while ((tmp = IteratorNext(iter.Get()))) {
+            const auto *node = (const Node *) tmp.Get();
+
+            fallthrough = true;
+            if (node->token_type != scanner::TokenType::KW_FALLTHROUGH) {
+                fallthrough = false;
+                this->Compile(node);
+            }
+        }
+    }
+
+    if (!fallthrough)
+        this->unit_->Emit(vm::OpCode::JMP, end, nullptr);
+
+    *lbody = this->unit_->bb.cur;
 }
 
 void Compiler::CompileTernary(const parser::Test *test) {
