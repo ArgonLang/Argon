@@ -10,6 +10,10 @@
 #include "hashmap.h"
 
 namespace argon::vm::datatype {
+    constexpr const char *kAssertionError[] = {
+            (const char *) "AssertionError"
+    };
+
     constexpr const char *kBufferError[] = {
             (const char *) "BufferError",
             (const char *) "buffer of object '%s' is not writable"

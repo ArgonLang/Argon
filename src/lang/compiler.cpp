@@ -4,6 +4,7 @@
 
 #include <vm/opcode.h>
 
+#include <vm/datatype/error.h>
 #include <vm/datatype/integer.h>
 #include <vm/datatype/nil.h>
 
@@ -255,7 +256,8 @@ void Compiler::Binary(const parser::Binary *binary) {
 void Compiler::Compile(const Node *node) {
     switch (node->node_type) {
         case NodeType::ASSERT:
-            assert(false);
+            this->CompileAssertion((const parser::Binary *) node);
+            break;
         case NodeType::ASSIGNMENT:
             this->CompileAssignment((const parser::Binary *) node);
             break;
@@ -325,6 +327,42 @@ void Compiler::Compile(const Node *node) {
         default:
             assert(false);
     }
+}
+
+void Compiler::CompileAssertion(const parser::Binary *binary) {
+    BasicBlock *end;
+    unsigned short args = 1;
+
+    if ((end = BasicBlockNew()) == nullptr)
+        throw DatatypeException();
+
+    try {
+        this->Expression(binary->left);
+
+        this->unit_->Emit(vm::OpCode::JT, end, &binary->loc);
+
+        if (!this->unit_->BlockNew())
+            throw DatatypeException();
+
+        // Assertion failed:
+        this->LoadStatic((ArObject *) type_error_, true, true);
+
+        this->PushAtom(kAssertionError[0], true);
+
+        if (binary->right != nullptr) {
+            this->Expression(binary->right);
+            args++;
+        }
+
+        this->unit_->Emit(vm::OpCode::CALL, (unsigned char) vm::OpCodeCallMode::FASTCALL, args, &binary->loc);
+
+        this->unit_->Emit(vm::OpCode::PANIC, &binary->loc);
+    } catch (...) {
+        BasicBlockDel(end);
+        throw;
+    }
+
+    this->unit_->BlockAppend(end);
 }
 
 void Compiler::CompileAssignment(const parser::Binary *assign) {
