@@ -230,6 +230,9 @@ TranslationUnit *argon::lang::TranslationUnitNew(TranslationUnit *prev, String *
     auto *tu = (TranslationUnit *) argon::vm::memory::Alloc(sizeof(TranslationUnit));
 
     if (tu != nullptr) {
+        if (symt->type == SymbolType::STRUCT || symt->type == SymbolType::TRAIT)
+            vm::memory::MemoryCopy(tu, prev, sizeof(TranslationUnit));
+
         tu->prev = prev;
 
         tu->symt = IncRef(symt);
@@ -239,26 +242,28 @@ TranslationUnit *argon::lang::TranslationUnitNew(TranslationUnit *prev, String *
             return nullptr;
         }
 
-        if ((tu->statics_map = DictNew()) == nullptr)
-            goto ERROR;
+        if (symt->type != SymbolType::STRUCT && symt->type != SymbolType::TRAIT) {
+            if ((tu->statics_map = DictNew()) == nullptr)
+                goto ERROR;
 
-        if ((tu->statics = ListNew()) == nullptr)
-            goto ERROR;
+            if ((tu->statics = ListNew()) == nullptr)
+                goto ERROR;
 
-        if ((tu->names = ListNew()) == nullptr)
-            goto ERROR;
+            if ((tu->names = ListNew()) == nullptr)
+                goto ERROR;
 
-        if ((tu->locals = ListNew()) == nullptr)
-            goto ERROR;
+            if ((tu->locals = ListNew()) == nullptr)
+                goto ERROR;
 
-        if ((tu->enclosed = ListNew()) == nullptr)
-            goto ERROR;
+            if ((tu->enclosed = ListNew()) == nullptr)
+                goto ERROR;
 
-        auto *block = BasicBlockNew();
-        if (block == nullptr)
-            goto ERROR;
+            auto *block = BasicBlockNew();
+            if (block == nullptr)
+                goto ERROR;
 
-        BlockAppend(tu, block);
+            BlockAppend(tu, block);
+        }
 
         tu->anon_count_ = 0;
     }
@@ -281,6 +286,19 @@ TranslationUnit *argon::lang::TranslationUnitNew(TranslationUnit *prev, String *
 
 TranslationUnit *argon::lang::TranslationUnitDel(TranslationUnit *unit) {
     auto *prev = unit->prev;
+
+    if (unit->symt->type == SymbolType::STRUCT || unit->symt->type == SymbolType::TRAIT) {
+        auto stack = unit->stack.required + prev->stack.current;
+
+        prev->bb.cur = unit->bb.cur;
+
+        if (prev->stack.required < stack)
+            prev->stack.required = stack;
+
+        argon::vm::memory::Free(unit);
+
+        return prev;
+    }
 
     // Free all BasicBlock
     BasicBlock *tmp = unit->bb.start;

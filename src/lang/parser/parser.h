@@ -132,7 +132,7 @@ namespace argon::lang::parser {
 
         Node *ParseStatement(ParserScope scope);
 
-        Node *ParseStructDecl();
+        Node *ParseStructDecl(bool pub);
 
         Node *ParseSubscript(Node *left);
 
@@ -142,7 +142,7 @@ namespace argon::lang::parser {
 
         Node *ParseTernary(Node *left);
 
-        Node *ParseTraitDecl();
+        Node *ParseTraitDecl(bool pub);
 
         Node *ParseVarDecl(bool visibility, bool constant, bool weak);
 

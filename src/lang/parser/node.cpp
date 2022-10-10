@@ -252,10 +252,11 @@ Call *argon::lang::parser::CallNew(Node *left, ArObject *args, ArObject *kwargs)
     return call;
 }
 
-Construct *argon::lang::parser::ConstructNew(String *name, List *impls, Node *body, NodeType type) {
+Construct *argon::lang::parser::ConstructNew(String *name, List *impls, Node *body, NodeType type, bool pub) {
     auto *cstr = NodeNew<Construct>(&ConstructType, type);
 
     if (cstr != nullptr) {
+        cstr->pub = pub;
         cstr->name = IncRef(name);
         cstr->doc = nullptr;
         cstr->impls = IncRef(impls);

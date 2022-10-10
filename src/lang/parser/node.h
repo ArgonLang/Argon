@@ -99,6 +99,8 @@ namespace argon::lang::parser {
     struct Construct {
         NODEOBJ_HEAD;
 
+        bool pub;
+
         vm::datatype::String *name;
         vm::datatype::String *doc;
 
@@ -189,7 +191,7 @@ namespace argon::lang::parser {
 
     Call *CallNew(Node *left, vm::datatype::ArObject *args, vm::datatype::ArObject *kwargs);
 
-    Construct *ConstructNew(vm::datatype::String *name, vm::datatype::List *impls, Node *body, NodeType type);
+    Construct *ConstructNew(vm::datatype::String *name, vm::datatype::List *impls, Node *body, NodeType type, bool pub);
 
     File *FileNew(const char *filename, vm::datatype::List *statements);
 

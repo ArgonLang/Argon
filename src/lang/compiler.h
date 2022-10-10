@@ -46,6 +46,8 @@ namespace argon::lang {
 
         void CompileCallPositional(vm::datatype::ArObject *args, int &args_count, vm::OpCodeCallMode &mode);
 
+        void CompileConstruct(const parser::Construct *construct);
+
         void CompileElvis(const parser::Test *test);
 
         void CompileForEach(const parser::Loop *loop);

@@ -532,13 +532,13 @@ Node *Parser::ParseDecls(ParserScope scope) {
             if (scope != ParserScope::MODULE && scope != ParserScope::BLOCK)
                 throw ParserException("unexpected struct declaration");
 
-            stmt = (ArObject *) this->ParseStructDecl();
+            stmt = (ArObject *) this->ParseStructDecl(pub);
             break;
         case TokenType::KW_TRAIT:
             if (scope != ParserScope::MODULE)
                 throw ParserException("unexpected trait declaration");
 
-            stmt = (ArObject *) this->ParseTraitDecl();
+            stmt = (ArObject *) this->ParseTraitDecl(pub);
             break;
         default:
             if (pub)
@@ -1654,7 +1654,7 @@ Node *Parser::ParseStatement(ParserScope scope) {
     return (Node *) expr.Unwrap();
 }
 
-Node *Parser::ParseStructDecl() {
+Node *Parser::ParseStructDecl(bool pub) {
     ARC name;
     ARC impls;
     ARC block;
@@ -1684,7 +1684,7 @@ Node *Parser::ParseStructDecl() {
 
     block = (ArObject *) this->ParseBlock(ParserScope::STRUCT);
 
-    auto *cstr = ConstructNew((String *) name.Get(), (List *) impls.Get(), (Node *) block.Get(), NodeType::STRUCT);
+    auto *cstr = ConstructNew((String *) name.Get(), (List *) impls.Get(), (Node *) block.Get(), NodeType::STRUCT, pub);
     if (cstr == nullptr)
         throw DatatypeException();
 
@@ -1879,7 +1879,7 @@ Node *Parser::ParseTernary(Node *left) {
     return (Node *) test;
 }
 
-Node *Parser::ParseTraitDecl() {
+Node *Parser::ParseTraitDecl(bool pub) {
     ARC name;
     ARC impls;
     ARC block;
@@ -1909,7 +1909,7 @@ Node *Parser::ParseTraitDecl() {
 
     block = (ArObject *) this->ParseBlock(ParserScope::TRAIT);
 
-    auto *cstr = ConstructNew((String *) name.Get(), (List *) impls.Get(), (Node *) block.Get(), NodeType::TRAIT);
+    auto *cstr = ConstructNew((String *) name.Get(), (List *) impls.Get(), (Node *) block.Get(), NodeType::TRAIT, pub);
     if (cstr == nullptr)
         throw DatatypeException();
 

@@ -303,6 +303,10 @@ void Compiler::Compile(const Node *node) {
         case NodeType::SAFE_EXPR:
             this->CompileSafe((const Unary *) node);
             break;
+        case NodeType::STRUCT:
+        case NodeType::TRAIT:
+            this->CompileConstruct((const parser::Construct *) node);
+            break;
         case NodeType::SWITCH:
             this->CompileSwitch((const Test *) node);
             break;
@@ -525,6 +529,68 @@ void Compiler::CompileCallPositional(vm::datatype::ArObject *args, int &args_cou
 
     if (ENUMBITMASK_ISTRUE(mode, vm::OpCodeCallMode::REST_PARAMS))
         args_count = 1;
+}
+
+void Compiler::CompileConstruct(const parser::Construct *construct) {
+    vm::OpCode opcode = vm::OpCode::MKSTRUCT;
+    SymbolType stype = SymbolType::STRUCT;
+    AttributeFlag aflags = AttributeFlag::CONST;
+    int impls = 0;
+
+    ARC qname;
+    ARC doc;
+
+    if (construct->node_type == NodeType::TRAIT) {
+        stype = SymbolType::TRAIT;
+        opcode = vm::OpCode::MKTRAIT;
+    }
+
+    qname = (ArObject *) this->MakeQname(construct->name);
+
+    doc = (ArObject *) construct->doc;
+    if (!doc)
+        doc = (ArObject *) StringIntern("");
+
+    this->TUScopeEnter(construct->name, stype);
+
+    this->LoadStatic((ArObject *) construct->name, true, true);
+
+    this->LoadStatic(qname.Get(), false, true);
+
+    this->LoadStatic(doc.Get(), false, true);
+
+    this->unit_->Emit(vm::OpCode::MKNS, &construct->loc);
+
+    this->CompileBlock(construct->body, false);
+
+    if (construct->impls != nullptr) {
+        ARC iter;
+        ARC tmp;
+
+        iter = IteratorGet((ArObject *) construct->impls, false);
+        if (!iter)
+            throw DatatypeException();
+
+        while ((tmp = IteratorNext(iter.Get()))) {
+            this->Expression((const Node *) tmp.Get());
+            impls++;
+        }
+    }
+
+    this->unit_->DecrementStack(impls);
+
+    this->unit_->Emit(opcode, impls, nullptr, &construct->loc);
+
+    this->unit_->DecrementStack(1);
+
+    this->TUScopeExit();
+
+    if (construct->pub)
+        aflags |= AttributeFlag::PUBLIC;
+
+    this->unit_->IncrementStack(1);
+
+    this->IdentifierNew(construct->name, stype, aflags, true);
 }
 
 void Compiler::CompileElvis(const parser::Test *test) {
@@ -1058,7 +1124,7 @@ void Compiler::CompileSwitch(const parser::Test *test) {
     // Set test bodies
 
     // *** Remove last useless jmo instruction ***
-    if (lbody->instr.head != nullptr) {
+    if (lbody != nullptr) {
         for (Instr *cursor = lbody->instr.head; cursor != nullptr; cursor = cursor->next) {
             if (cursor->next != nullptr && cursor->next->jmp == end) {
                 vm::memory::Free(cursor->next);
@@ -1369,9 +1435,13 @@ void Compiler::IdentifierNew(String *name, SymbolType stype, AttributeFlag aflag
 
     p_sym->declared = true;
 
-    if (this->unit_->symt->type == SymbolType::STRUCT ||
-        this->unit_->symt->type == SymbolType::TRAIT ||
-        p_sym->nested == 0) {
+    if (this->unit_->symt->type == SymbolType::STRUCT || this->unit_->symt->type == SymbolType::TRAIT) {
+        this->LoadStatic((ArObject *) name, true, true);
+        this->unit_->Emit(vm::OpCode::NSTORE, (unsigned char) aflags, nullptr, nullptr);
+        return;
+    }
+
+    if (p_sym->nested == 0) {
         auto id = p_sym->id >= 0 ? p_sym->id : dest->length;
 
         if (emit)
