@@ -80,6 +80,7 @@ SymbolT *argon::lang::SymbolInsert(SymbolT *table, String *name, SymbolType type
         }
     }
 
+    sym->back = table;
     sym->type = type;
     sym->nested = table->nested;
 
