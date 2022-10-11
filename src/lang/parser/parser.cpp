@@ -508,18 +508,12 @@ Node *Parser::ParseDecls(ParserScope scope) {
             if (scope != ParserScope::STRUCT)
                 throw ParserException("unexpected use of 'weak' in this context");
 
-            this->Eat();
-            this->IgnoreNL();
             stmt = (ArObject *) this->ParseVarDecl(pub, false, true);
             break;
         case TokenType::KW_VAR:
-            this->Eat();
-            this->IgnoreNL();
             stmt = (ArObject *) this->ParseVarDecl(pub, false, false);
             break;
         case TokenType::KW_LET:
-            this->Eat();
-            this->IgnoreNL();
             stmt = (ArObject *) this->ParseVarDecl(pub, true, false);
             break;
         case TokenType::KW_ASYNC:
@@ -783,7 +777,7 @@ Node *Parser::ParseFor() {
     this->IgnoreNL();
 
     if (!this->Match(TokenType::SEMICOLON)) {
-        if (this->MatchEat(scanner::TokenType::KW_VAR))
+        if (this->Match(scanner::TokenType::KW_VAR))
             init = (ArObject *) this->ParseVarDecl(false, false, false);
         else
             init = (ArObject *) this->ParseExpression(PeekPrecedence(scanner::TokenType::KW_IN));
@@ -1925,15 +1919,19 @@ Node *Parser::ParseVarDecl(bool visibility, bool constant, bool weak) {
     ARC assign;
     Token token;
 
+    this->Eat();
+    this->IgnoreNL();
+
     if (!this->Match(TokenType::IDENTIFIER)) {
         throw ParserException(constant ? "expected identifier after let keyword"
                                        : "expected identifier after var keyword");
     }
 
-    token = this->tkcur_;
+    token = std::move(this->tkcur_);
 
     this->Eat();
     this->IgnoreNL();
+
     if (!this->MatchEat(TokenType::COMMA)) {
         auto *id = MakeIdentifier(&token);
         if (id == nullptr)

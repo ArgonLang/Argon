@@ -159,6 +159,27 @@ namespace argon::lang::scanner {
         TokenType type = TokenType::TK_NULL;
 
         Loc loc{};
+
+        Token() = default;
+
+        Token(Token &other) = delete;
+
+        ~Token() {
+            vm::memory::Free(this->buffer);
+        }
+
+        Token &operator=(const Token &other) = delete;
+
+        Token &operator=(Token &&other) noexcept {
+            this->buffer = other.buffer;
+            this->length = other.length;
+            this->type = other.type;
+            this->loc = other.loc;
+
+            other.buffer = nullptr;
+
+            return *this;
+        }
     };
 
 } // namespace argon::lang::scanner
