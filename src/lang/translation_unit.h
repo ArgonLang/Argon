@@ -97,6 +97,11 @@ namespace argon::lang {
             this->Emit(opcode, combined, nullptr, loc);
         }
 
+        void IncrementRequiredStack(int size) {
+            if (this->stack.current + size > this->stack.required)
+                this->stack.required = this->stack.current = size;
+        }
+
         void IncrementStack(int size) {
             this->stack.current += size;
             if (this->stack.current > this->stack.required)

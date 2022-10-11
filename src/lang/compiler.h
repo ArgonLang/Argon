@@ -50,6 +50,8 @@ namespace argon::lang {
 
         void CompileConstruct(const parser::Construct *construct);
 
+        void CompileDeclaration(const parser::Assignment *declaration);
+
         void CompileElvis(const parser::Test *test);
 
         void CompileForEach(const parser::Loop *loop);

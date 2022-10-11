@@ -267,6 +267,9 @@ void Compiler::Compile(const Node *node) {
         case NodeType::CALL:
             this->CompileCall((const parser::Call *) node);
             break;
+        case NodeType::DECLARATION:
+            this->CompileDeclaration((const Assignment *) node);
+            break;
         case parser::NodeType::EXPRESSION:
             this->Expression((Node *) ((const Unary *) node)->value);
             this->unit_->Emit(vm::OpCode::POP, nullptr);
@@ -629,6 +632,74 @@ void Compiler::CompileConstruct(const parser::Construct *construct) {
     this->unit_->IncrementStack(1);
 
     this->IdentifierNew(construct->name, stype, aflags, true);
+}
+
+void Compiler::CompileDeclaration(const parser::Assignment *declaration) {
+    SymbolType stype = SymbolType::VARIABLE;
+    AttributeFlag aflags{};
+
+    if (declaration->constant) {
+        stype = SymbolType::CONSTANT;
+        aflags = AttributeFlag::CONST;
+    }
+
+    if (declaration->pub)
+        aflags |= AttributeFlag::PUBLIC;
+
+    if (declaration->weak) {
+        if (declaration->constant)
+            throw CompilerException(""); // TODO
+
+        aflags |= AttributeFlag::WEAK;
+    }
+
+    if (!declaration->multi) {
+        if (declaration->value == nullptr) {
+            if (declaration->constant)
+                throw CompilerException(""); // TODO
+
+            this->LoadStatic((ArObject *) Nil, true, true);
+        } else
+            this->Expression((const Node *) declaration->value);
+
+        this->IdentifierNew((String *) ((const Unary *) declaration->name)->value, stype, aflags, true);
+
+        return;
+    }
+
+    ARC iter;
+    ARC tmp;
+
+    Instr *unpack = nullptr;
+
+    if (declaration->value != nullptr) {
+        this->Expression((const Node *) declaration->value);
+
+        this->unit_->Emit(vm::OpCode::UNPACK, 0, nullptr, &declaration->loc);
+
+        unpack = this->unit_->bb.cur->instr.tail;
+    }
+
+    iter = IteratorGet(declaration->name, false);
+    if (!iter)
+        throw DatatypeException();
+
+    unsigned short count = 0;
+    while ((tmp = IteratorNext(iter.Get()))) {
+        if (declaration->value == nullptr)
+            this->LoadStatic((ArObject *) Nil, true, true);
+        else
+            this->unit_->IncrementStack(1);
+
+        this->IdentifierNew((String *) ((const Unary*)tmp.Get())->value, stype, aflags, true);
+
+        count++;
+    }
+
+    if (declaration->value != nullptr) {
+        this->unit_->IncrementRequiredStack(count);
+        unpack->oparg = count;
+    }
 }
 
 void Compiler::CompileElvis(const parser::Test *test) {
