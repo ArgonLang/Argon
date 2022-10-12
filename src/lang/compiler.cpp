@@ -131,6 +131,23 @@ String *Compiler::MakeFname() {
     return name;
 }
 
+String *Compiler::MakeImportName(const vm::datatype::String *mod_name) {
+    const unsigned char *end = ARGON_RAW_STRING(mod_name) + ARGON_RAW_STRING_LENGTH(mod_name);
+    unsigned int idx = 0;
+
+    while (idx < ARGON_RAW_STRING_LENGTH(mod_name) && std::isalnum(*((end - idx) - 1)))
+        idx++;
+
+    if (!std::isalpha(*(end - idx)))
+        throw CompilerException(""); // alias required
+
+    auto *ret = StringNew((const char *) end - idx, idx);
+    if (ret == nullptr)
+        throw DatatypeException();
+
+    return ret;
+}
+
 String *Compiler::MakeQname(String *name) {
     const char *sep = "%s.%s";
 
@@ -285,6 +302,9 @@ void Compiler::Compile(const Node *node) {
             break;
         case NodeType::JUMP:
             this->CompileJump((const parser::Unary *) node);
+            break;
+        case NodeType::IMPORT:
+            this->CompileImport((const parser::Import *) node);
             break;
         case NodeType::LABEL:
             this->unit_->JBNew((String *) ((const Unary *) ((const parser::Binary *) node)->left)->value);
@@ -1002,6 +1022,57 @@ void Compiler::CompileIf(const parser::Test *test) {
     }
 
     this->unit_->BlockAppend(end);
+}
+
+void Compiler::CompileImport(const parser::Import *import) {
+    ARC iter;
+    ARC tmp;
+
+    if (import->mod != nullptr) {
+        auto idx = this->LoadStatic(((const Unary *) import->mod)->value, true, false);
+        this->unit_->Emit(vm::OpCode::IMPMOD, idx, nullptr, &import->loc);
+    }
+
+    if (import->names == nullptr) {
+        this->unit_->Emit(vm::OpCode::IMPALL, &import->loc);
+        return;
+    }
+
+    iter = IteratorGet(import->names, false);
+    if (!iter)
+        throw DatatypeException();
+
+    while ((tmp = IteratorNext(iter.Get())))
+        this->CompileImportAlias((const parser::Binary *) tmp.Get(), import->mod != nullptr);
+
+    if (import->mod != nullptr)
+        this->unit_->Emit(vm::OpCode::POP, nullptr);
+}
+
+void Compiler::CompileImportAlias(const parser::Binary *alias, bool impfrm) {
+    vm::OpCode code = vm::OpCode::IMPMOD;
+    int idx;
+
+    ARC name;
+
+    idx = this->LoadStatic(((const Unary *) alias->left)->value, true, false);
+
+    if (impfrm)
+        code = vm::OpCode::IMPFRM;
+
+    this->unit_->Emit(code, idx, nullptr, &alias->loc);
+
+    if (alias->right != nullptr)
+        name = (ArObject *) ((const Unary *) alias->right)->value;
+
+    if (!name) {
+        if (impfrm) {
+            name = ((const Unary *) alias->left)->value;
+        } else
+            name = (ArObject *) this->MakeImportName((String *) ((const Unary *) alias->left)->value);
+    }
+
+    this->IdentifierNew((String *) name.Get(), SymbolType::CONSTANT, AttributeFlag::CONST, true);
 }
 
 void Compiler::CompileInit(const parser::Initialization *init) {

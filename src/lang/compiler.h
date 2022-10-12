@@ -26,6 +26,8 @@ namespace argon::lang {
 
         vm::datatype::String *MakeFname();
 
+        static vm::datatype::String *MakeImportName(const vm::datatype::String *mod_name);
+
         vm::datatype::String *MakeQname(vm::datatype::String *name);
 
         SymbolT *IdentifierLookupOrCreate(vm::datatype::String *name, SymbolType type);
@@ -66,6 +68,10 @@ namespace argon::lang {
                                    vm::datatype::FunctionFlags &flags);
 
         void CompileIf(const parser::Test *test);
+
+        void CompileImport(const parser::Import *import);
+
+        void CompileImportAlias(const parser::Binary *alias, bool impfrm);
 
         void CompileInit(const parser::Initialization *init);
 
