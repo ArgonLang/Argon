@@ -185,10 +185,12 @@ Function *argon::lang::parser::FunctionNew(String *name, List *params, Node *bod
     return func;
 }
 
-Import *argon::lang::parser::ImportNew(Node *mod, ArObject *names) {
+Import *argon::lang::parser::ImportNew(Node *mod, ArObject *names, bool pub) {
     auto *imp = NodeNew<Import>(&ImportType, NodeType::IMPORT);
 
     if (imp != nullptr) {
+        imp->pub = pub;
+
         imp->mod = IncRef(mod);
         imp->names = IncRef(names);
 
@@ -337,8 +339,8 @@ Test *argon::lang::parser::TestNew(Node *test, Node *body, Node *orelse, NodeTyp
         tst->body = IncRef(body);
         tst->orelse = IncRef(orelse);
 
-        if(test != nullptr)
-        tst->loc.start = test->loc.start;
+        if (test != nullptr)
+            tst->loc.start = test->loc.start;
 
         if (tst->orelse != nullptr)
             tst->loc.end = orelse->loc.end;

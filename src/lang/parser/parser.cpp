@@ -504,6 +504,15 @@ Node *Parser::ParseDecls(ParserScope scope) {
     }
 
     switch (TKCUR_TYPE) {
+        case TokenType::KW_IMPORT:
+            stmt = (ArObject *) this->ParseImport(pub);
+            break;
+        case TokenType::KW_FROM:
+            if (scope == ParserScope::BLOCK)
+                throw ParserException("from-import not supported in this context");
+
+            stmt = (ArObject *) this->ParseFromImport(pub);
+            break;
         case TokenType::KW_WEAK:
             if (scope != ParserScope::STRUCT)
                 throw ParserException("unexpected use of 'weak' in this context");
@@ -974,7 +983,7 @@ Node *Parser::ParseFnCall(Node *left) {
     return (Node *) call;
 }
 
-Node *Parser::ParseFromImport() {
+Node *Parser::ParseFromImport(bool pub) {
     // from "x/y/z" import xyz as x
     ARC import_list;
     ARC mname;
@@ -995,20 +1004,20 @@ Node *Parser::ParseFromImport() {
     if (!this->MatchEat(TokenType::KW_IMPORT))
         throw ParserException("expected 'import' after module path");
 
-    import_list = (ArObject *) ListNew();
-    if (!import_list)
-        throw DatatypeException();
-
     do {
         ARC id;
         ARC alias;
 
         this->IgnoreNL();
 
-        if (!this->Match(TokenType::IDENTIFIER))
-            throw ParserException("expected name");
+        if (!this->Match(TokenType::IDENTIFIER)) {
+            if (this->MatchEat(TokenType::ASTERISK))
+                break;
 
-        id = (ArObject *) this->ParseLiteral();
+            throw ParserException("expected name");
+        }
+
+        id = (ArObject *) this->ParseIdentifier();
 
         this->IgnoreNL();
 
@@ -1016,13 +1025,19 @@ Node *Parser::ParseFromImport() {
             if (!this->Match(TokenType::IDENTIFIER))
                 throw ParserException("expected alias after 'as' keyword");
 
-            alias = (ArObject *) this->ParseLiteral();
+            alias = (ArObject *) this->ParseIdentifier();
         }
 
         auto *binary = BinaryNew((Node *) id.Get(), (Node *) alias.Get(), scanner::TokenType::TK_NULL,
                                  NodeType::IMPORT_NAME);
         if (binary == nullptr)
             throw DatatypeException();
+
+        if (!import_list) {
+            import_list = (ArObject *) ListNew();
+            if (!import_list)
+                throw DatatypeException();
+        }
 
         if (!ListAppend((List *) import_list.Get(), (ArObject *) binary)) {
             Release(binary);
@@ -1036,7 +1051,7 @@ Node *Parser::ParseFromImport() {
         this->IgnoreNL();
     } while (this->MatchEat(scanner::TokenType::COMMA));
 
-    auto *imp = ImportNew((Node *) mname.Get(), import_list.Get());
+    auto *imp = ImportNew((Node *) mname.Get(), import_list.Get(), pub);
     if (imp == nullptr)
         throw DatatypeException();
 
@@ -1112,7 +1127,7 @@ Node *Parser::ParseIF() {
     return (Node *) tnode;
 }
 
-Node *Parser::ParseImport() {
+Node *Parser::ParseImport(bool pub) {
     ARC path;
     ARC import_list;
 
@@ -1160,7 +1175,7 @@ Node *Parser::ParseImport() {
         this->IgnoreNL();
     } while (this->MatchEat(scanner::TokenType::COMMA));
 
-    auto *imp = ImportNew(nullptr, import_list.Get());
+    auto *imp = ImportNew(nullptr, import_list.Get(), pub);
     if (imp == nullptr)
         throw DatatypeException();
 
@@ -1578,15 +1593,6 @@ Node *Parser::ParseStatement(ParserScope scope) {
                 break;
             case TokenType::KW_YIELD:
                 expr = (ArObject *) this->ParseUnaryStmt(NodeType::YIELD, true);
-                break;
-            case TokenType::KW_IMPORT:
-                expr = (ArObject *) this->ParseImport();
-                break;
-            case TokenType::KW_FROM:
-                if (scope == ParserScope::BLOCK)
-                    throw ParserException("from-import not supported in this context");
-
-                expr = (ArObject *) this->ParseFromImport();
                 break;
             case TokenType::KW_FOR:
                 expr = (ArObject *) this->ParseFor();

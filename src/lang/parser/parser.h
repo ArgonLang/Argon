@@ -96,7 +96,7 @@ namespace argon::lang::parser {
 
         Node *ParseFnCall(Node *left);
 
-        Node *ParseFromImport();
+        Node *ParseFromImport(bool pub);
 
         Node *ParseIdentifier();
 
@@ -104,7 +104,7 @@ namespace argon::lang::parser {
 
         Node *ParseIF();
 
-        Node *ParseImport();
+        Node *ParseImport(bool pub);
 
         Node *ParseIn(Node *left);
 
