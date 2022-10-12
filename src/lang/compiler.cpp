@@ -691,7 +691,7 @@ void Compiler::CompileDeclaration(const parser::Assignment *declaration) {
         else
             this->unit_->IncrementStack(1);
 
-        this->IdentifierNew((String *) ((const Unary*)tmp.Get())->value, stype, aflags, true);
+        this->IdentifierNew((String *) ((const Unary *) tmp.Get())->value, stype, aflags, true);
 
         count++;
     }
@@ -857,7 +857,7 @@ void Compiler::CompileFunction(const parser::Function *func) {
     if (func->body != nullptr) {
         this->CompileBlock(func->body, true);
     } else
-        this->CompileFunctionDefaultBody();
+        this->CompileFunctionDefaultBody(func, (String *) fname.Get());
 
     // If the function is empty or the last statement is not return,
     // forcefully enter return as last statement
@@ -916,8 +916,18 @@ void Compiler::CompileFunction(const parser::Function *func) {
     }
 }
 
-void Compiler::CompileFunctionDefaultBody() {
-    // TODO default body
+void Compiler::CompileFunctionDefaultBody(const parser::Function *func, String *fname) {
+    ARC msg;
+
+    msg = (ArObject *) StringFormat(kNotImplementedError[1], ARGON_RAW_STRING(fname));
+
+    this->LoadStatic((ArObject *) type_error_, true, true);
+
+    this->PushAtom(kNotImplementedError[0], true);
+
+    this->LoadStatic(msg.Get(), false, true);
+
+    this->unit_->Emit(vm::OpCode::CALL, (unsigned char) vm::OpCodeCallMode::FASTCALL, 2, &func->loc);
 }
 
 void Compiler::CompileFunctionParams(vm::datatype::List *params, unsigned short &p_count, FunctionFlags &flags) {

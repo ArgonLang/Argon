@@ -29,6 +29,11 @@ namespace argon::vm::datatype {
             (const char *) "an error occurred while creating an error"
     };
 
+    constexpr const char *kNotImplementedError[] = {
+            (const char *) "NotImplementedError",
+            (const char *) "you must implement method %s"
+    };
+
     constexpr const char *kOOMError[] = {
             (const char *) "OutOfMemory",
             (const char *) "out of memory",
