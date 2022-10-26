@@ -2101,8 +2101,12 @@ File *Parser::Parse() noexcept {
         doc = (ArObject *) this->doc_string_->Unwrap();
 
         this->ExitDocContext();
-    } catch (const ParserException &) {
-        assert(false);
+    } catch (const ParserException &e) {
+        ErrorFormat(kParserError[0], "%s", e.what());
+        return nullptr;
+    } catch (const DatatypeException &e) {
+        // This exception can be safely ignored!
+        e.what(); // To avoid problems with the linter
     }
 
     auto *file = FileNew(this->filename_, statements);

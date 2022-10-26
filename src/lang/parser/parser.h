@@ -11,6 +11,10 @@
 #include "node.h"
 
 namespace argon::lang::parser {
+    constexpr const char *kParserError[] = {
+            (const char *) "ParserError"
+    };
+
     enum class ParserScope {
         BLOCK,
         LOOP,
