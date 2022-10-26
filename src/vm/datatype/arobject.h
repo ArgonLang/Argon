@@ -12,10 +12,10 @@
 #include "objectdef.h"
 
 namespace argon::vm::datatype {
-#define AROBJ_HEAD                              \
-    struct {                                    \
-        argon::vm::memory::RefCount ref_count_; \
-        const struct TypeInfo *type_;           \
+#define AROBJ_HEAD                                                      \
+    struct {                                                            \
+        argon::vm::memory::RefCount ref_count_;                         \
+        const struct argon::vm::datatype::TypeInfo *type_;              \
     } head_
 
 #define AROBJ_HEAD_INIT(type) {                                         \
