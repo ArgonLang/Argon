@@ -15,6 +15,10 @@
 #include "translation_unit.h"
 
 namespace argon::lang {
+    constexpr const char *kCompilerError[] = {
+            (const char *) "CompilerError"
+    };
+
     class Compiler {
         TranslationUnit *unit_ = nullptr;
 

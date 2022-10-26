@@ -18,6 +18,13 @@ using namespace argon::lang;
 using namespace argon::lang::parser;
 using namespace argon::vm::datatype;
 
+#define CHECK_AST_NODE(node, node_type, message)    \
+    do {                                            \
+    if (!AR_TYPEOF(node, node_type))                \
+        throw CompilerException(message);           \
+    } while(false)                                  \
+
+
 int Compiler::CompileSelector(const parser::Binary *selector, bool dup, bool emit) {
     const auto *cursor = selector;
     vm::OpCode code;
@@ -138,8 +145,10 @@ String *Compiler::MakeImportName(const vm::datatype::String *mod_name) {
     while (idx < ARGON_RAW_STRING_LENGTH(mod_name) && std::isalnum(*((end - idx) - 1)))
         idx++;
 
-    if (!std::isalpha(*(end - idx)))
-        throw CompilerException(""); // alias required
+    if (!std::isalpha(*(end - idx))) {
+        ErrorFormat(kCompilerError[0], "alias required for: %s", ARGON_RAW_STRING(mod_name));
+        throw DatatypeException();
+    }
 
     auto *ret = StringNew((const char *) end - idx, idx);
     if (ret == nullptr)
@@ -174,7 +183,7 @@ SymbolT *Compiler::IdentifierLookupOrCreate(String *name, SymbolType type) {
     SymbolT *sym;
     if ((sym = SymbolLookup(this->unit_->symt, name)) == nullptr) {
         if ((sym = SymbolInsert(this->unit_->symt, name, type)) == nullptr)
-            return nullptr;
+            throw DatatypeException();
 
         if (this->unit_->IsFreeVar(name)) {
             dst = this->unit_->enclosed;
@@ -185,7 +194,7 @@ SymbolT *Compiler::IdentifierLookupOrCreate(String *name, SymbolType type) {
 
         if (!ListAppend(dst, (ArObject *) name)) {
             Release(sym);
-            return nullptr;
+            throw DatatypeException();
         }
     }
 
@@ -193,7 +202,7 @@ SymbolT *Compiler::IdentifierLookupOrCreate(String *name, SymbolType type) {
 }
 
 void Compiler::Binary(const parser::Binary *binary) {
-    // todo: check node type
+    CHECK_AST_NODE(binary, type_ast_binary_, "Compiler::Binary: invalid AST node");
 
     this->Expression(binary->left);
     this->Expression(binary->right);
@@ -265,8 +274,7 @@ void Compiler::Binary(const parser::Binary *binary) {
             this->unit_->Emit(vm::OpCode::CMP, (int) CompareMode::LEQ, nullptr, &binary->loc);
             break;
         default:
-            // TODO: fix
-            throw CompilerException("");
+            throw CompilerException("failed to map token to binary operation(invalid token found)");
     }
 }
 
@@ -417,6 +425,8 @@ void Compiler::CompileAssignment(const parser::Binary *assign) {
 }
 
 void Compiler::CompileAugAssignment(const parser::Binary *assign) {
+    const char *assign_op_token = "+=";
+
 #define COMPILE_OP()                        \
     this->Expression(assign->right);        \
     this->unit_->Emit(opcode, &assign->loc)
@@ -431,9 +441,10 @@ void Compiler::CompileAugAssignment(const parser::Binary *assign) {
             break;
         case scanner::TokenType::ASSIGN_SUB:
             opcode = vm::OpCode::IPSUB;
+            assign_op_token = "-=";
             break;
         default:
-            throw CompilerException(""); // TODO message
+            throw CompilerException("invalid token for CompileAugAssignment");
     }
 
     switch (assign->left->node_type) {
@@ -466,7 +477,8 @@ void Compiler::CompileAugAssignment(const parser::Binary *assign) {
             this->unit_->Emit(vm::OpCode::STSUBSCR, &assign->loc);
             break;
         default:
-            throw CompilerException(""); // TODO message
+            ErrorFormat(kCompilerError[0], "%s operator cannot be applied to the left expression", assign_op_token);
+            throw DatatypeException();
     }
 
 #undef COMPILE_OP
@@ -668,7 +680,7 @@ void Compiler::CompileDeclaration(const parser::Assignment *declaration) {
 
     if (declaration->weak) {
         if (declaration->constant)
-            throw CompilerException(""); // TODO
+            throw CompilerException("weak modifier cannot be used with a constant declaration");
 
         aflags |= AttributeFlag::WEAK;
     }
@@ -676,7 +688,7 @@ void Compiler::CompileDeclaration(const parser::Assignment *declaration) {
     if (!declaration->multi) {
         if (declaration->value == nullptr) {
             if (declaration->constant)
-                throw CompilerException(""); // TODO
+                throw CompilerException("defining a constant requires a value");
 
             this->LoadStatic((ArObject *) Nil, true, true);
         } else
@@ -964,7 +976,8 @@ void Compiler::CompileFunctionParams(vm::datatype::List *params, unsigned short 
     while ((param = IteratorNext(iter.Get()))) {
         const auto *p = (Node *) param.Get();
 
-        // TODO check unary!
+        CHECK_AST_NODE(p, type_ast_unary_,
+                       "Compiler::CompileFunctionParams: expects a unary node as an element in the parameter list");
 
         this->IdentifierNew((String *) ((const Unary *) p)->value, SymbolType::VARIABLE, {}, false);
 
@@ -973,11 +986,11 @@ void Compiler::CompileFunctionParams(vm::datatype::List *params, unsigned short 
         if (p->node_type == parser::NodeType::REST) {
             flags |= FunctionFlags::VARIADIC;
             p_count--;
-            break;
+            return;
         } else if (p->node_type == parser::NodeType::KWARG) {
             flags |= FunctionFlags::KWARGS;
             p_count--;
-            break;
+            return;
         }
     }
 }
@@ -1096,7 +1109,9 @@ void Compiler::CompileInit(const parser::Initialization *init) {
                 continue;
             }
 
-            // TODO: check node
+            CHECK_AST_NODE(node, type_ast_unary_,
+                           "Compiler::CompileInit: expects a unary node as a key in the initialization list");
+
             this->LoadStatic(((const Unary *) node)->value, true, true);
             continue;
         }
@@ -1118,8 +1133,9 @@ void Compiler::CompileJump(const parser::Unary *jump) {
         jump->token_type == scanner::TokenType::KW_CONTINUE) {
 
         if ((jb = this->unit_->FindLoop((String *) jump->value)) == nullptr) {
-            // TODO ErrorFormat(type_compile_error_, "unknown \"loop label\", the loop named '%s' cannot be %s",
-            // ((String *) jmp->value)->buffer, jmp->kind == TokenType::BREAK ? "breaked" : "continued");
+            ErrorFormat(kCompilerError[0], "unknown loop label, the loop '%s' cannot be %s",
+                        ARGON_RAW_STRING((String *) ((const Unary *) jump->value)->value),
+                        jump->token_type == scanner::TokenType::KW_BREAK ? "breaked" : "continued");
             throw DatatypeException();
         }
 
@@ -1195,7 +1211,7 @@ void Compiler::CompileLTDS(const Unary *list) {
             code = vm::OpCode::MKST;
             break;
         default:
-            throw CompilerException("");
+            throw CompilerException("invalid AST node type for CompileLTDS");
     }
 
     this->unit_->DecrementStack(items);
@@ -1486,6 +1502,8 @@ void Compiler::CompileTest(const parser::Binary *test) {
 }
 
 void Compiler::CompileUnary(const parser::Unary *unary) {
+    CHECK_AST_NODE(unary, type_ast_unary_, "Compiler::Unary: invalid AST node");
+
     this->Expression((const Node *) unary->value);
 
     switch (unary->token_type) {
@@ -1542,14 +1560,25 @@ void Compiler::CompileUpdate(const parser::Unary *update) {
     else if (update->token_type == scanner::TokenType::MINUS_MINUS)
         this->unit_->Emit(vm::OpCode::DEC, &update->loc);
     else
-        throw CompilerException("");
+        throw CompilerException("invalid TokenType for CompileUpdate");
 
     if (value->node_type == parser::NodeType::IDENTIFIER)
         this->StoreVariable((String *) ((const Unary *) value)->value);
     else if (value->node_type == parser::NodeType::INDEX) {
-        // TODO
+        this->unit_->Emit(vm::OpCode::PBHEAD, 3, nullptr, nullptr);
+        this->unit_->Emit(vm::OpCode::PBHEAD, 3, nullptr, nullptr);
+        this->unit_->Emit(vm::OpCode::STSUBSCR, &update->loc);
     } else if (value->node_type == parser::NodeType::SELECTOR) {
-// TODO
+        this->unit_->Emit(vm::OpCode::PBHEAD, 2, nullptr, nullptr);
+        this->unit_->Emit(vm::OpCode::PBHEAD, 2, nullptr, nullptr);
+
+        auto code = vm::OpCode::STATTR;
+        if (value->token_type == scanner::TokenType::SCOPE)
+            code = vm::OpCode::STSCOPE;
+
+        auto idx = this->CompileSelector((const parser::Binary *) value, false, false);
+
+        this->unit_->Emit(code, idx, nullptr, &update->loc);
     }
 }
 
@@ -1606,6 +1635,8 @@ void Compiler::Expression(const Node *node) {
         case NodeType::SLICE:
             this->CompileSubscr((const Subscript *) node, false, true);
             break;
+        default:
+            assert(false);
     }
 }
 
@@ -1680,8 +1711,7 @@ void Compiler::LoadIdentifier(String *identifier) {
     if (StringEqual(identifier, (const char *) "_"))
         throw CompilerException("cannot use '_' as value");
 
-    if ((sym = this->IdentifierLookupOrCreate(identifier, SymbolType::VARIABLE)) == nullptr)
-        throw CompilerException("");
+    sym = this->IdentifierLookupOrCreate(identifier, SymbolType::VARIABLE);
 
     sym_id = sym->id;
 
@@ -1720,8 +1750,7 @@ void Compiler::StoreVariable(String *name) {
     if (StringEqual(name, (const char *) "_"))
         this->unit_->Emit(vm::OpCode::POP, nullptr);
 
-    if ((sym = this->IdentifierLookupOrCreate(name, SymbolType::VARIABLE)) == nullptr)
-        throw CompilerException("");
+    sym = this->IdentifierLookupOrCreate(name, SymbolType::VARIABLE);
 
     if (sym->declared && (this->unit_->symt->type == SymbolType::FUNC || sym->nested > 0))
         code = vm::OpCode::STLC;
