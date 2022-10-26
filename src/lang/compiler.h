@@ -100,7 +100,7 @@ namespace argon::lang {
 
         void CompileUnary(const parser::Unary *unary);
 
-        void CompileUnpack(vm::datatype::List *list);
+        void CompileUnpack(vm::datatype::List *list, const scanner::Loc *loc);
 
         void CompileUpdate(const parser::Unary *update);
 
@@ -114,7 +114,7 @@ namespace argon::lang {
 
         void PushAtom(const char *key, bool emit);
 
-        void StoreVariable(vm::datatype::String *name);
+        void StoreVariable(vm::datatype::String *name, const scanner::Loc *loc);
 
         void TUScopeEnter(vm::datatype::String *name, SymbolType context);
 

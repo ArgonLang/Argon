@@ -46,7 +46,7 @@ int Compiler::CompileSelector(const parser::Binary *selector, bool dup, bool emi
             code = vm::OpCode::LDATTR;
         else if (cursor->token_type == scanner::TokenType::QUESTION_DOT) {
             code = vm::OpCode::LDATTR;
-            this->unit_->Emit(vm::OpCode::JNIL, this->unit_->jstack->end, nullptr);
+            this->unit_->Emit(vm::OpCode::JNIL, this->unit_->jstack->end, &cursor->loc);
         } else
             throw CompilerException("unexpected TokenType in selector expression");
 
@@ -370,7 +370,7 @@ void Compiler::CompileAssertion(const parser::Binary *binary) {
     try {
         this->Expression(binary->left);
 
-        this->unit_->Emit(vm::OpCode::JT, end, &binary->loc);
+        this->unit_->Emit(vm::OpCode::JT, end, nullptr);
 
         if (!this->unit_->BlockNew())
             throw DatatypeException();
@@ -405,7 +405,7 @@ void Compiler::CompileAssignment(const parser::Binary *assign) {
     this->Expression(assign->right);
 
     if (assign->left->node_type == NodeType::IDENTIFIER)
-        this->StoreVariable((String *) ((const parser::Unary *) assign->left)->value);
+        this->StoreVariable((String *) ((const parser::Unary *) assign->left)->value, &assign->loc);
     else if (assign->left->node_type == NodeType::SELECTOR) {
         auto idx = this->CompileSelector((const parser::Binary *) assign->left, false, false);
 
@@ -421,7 +421,7 @@ void Compiler::CompileAssignment(const parser::Binary *assign) {
 
         this->unit_->Emit(vm::OpCode::STSUBSCR, &assign->loc);
     } else if (assign->left->node_type == parser::NodeType::TUPLE)
-        this->CompileUnpack((List *) ((const Unary *) assign->left)->value);
+        this->CompileUnpack((List *) ((const Unary *) assign->left)->value, &assign->loc);
 }
 
 void Compiler::CompileAugAssignment(const parser::Binary *assign) {
@@ -453,7 +453,7 @@ void Compiler::CompileAugAssignment(const parser::Binary *assign) {
 
             COMPILE_OP();
 
-            this->StoreVariable((String *) ((const Unary *) assign->left)->value);
+            this->StoreVariable((String *) ((const Unary *) assign->left)->value, &assign->loc);
             break;
         case NodeType::SELECTOR:
             idx = this->CompileSelector((const parser::Binary *) assign->left, true, true);
@@ -462,8 +462,10 @@ void Compiler::CompileAugAssignment(const parser::Binary *assign) {
 
             this->unit_->Emit(vm::OpCode::PBHEAD, 1, nullptr, nullptr);
 
-            if (assign->left->token_type == scanner::TokenType::SCOPE)
+            if (assign->left->token_type == scanner::TokenType::SCOPE) {
                 this->unit_->Emit(vm::OpCode::STSCOPE, idx, nullptr, &assign->loc);
+                break;
+            }
 
             this->unit_->Emit(vm::OpCode::STATTR, idx, nullptr, &assign->loc);
             break;
@@ -632,7 +634,7 @@ void Compiler::CompileConstruct(const parser::Construct *construct) {
 
     this->LoadStatic(doc.Get(), false, true);
 
-    this->unit_->Emit(vm::OpCode::MKNS, &construct->loc);
+    this->unit_->Emit(vm::OpCode::MKNS, nullptr);
 
     this->CompileBlock(construct->body, false);
 
@@ -743,7 +745,7 @@ void Compiler::CompileElvis(const parser::Test *test) {
         throw DatatypeException();
 
     try {
-        this->unit_->Emit(vm::OpCode::JTOP, 0, end, &test->loc);
+        this->unit_->Emit(vm::OpCode::JTOP, nullptr);
 
         this->Expression(test->orelse);
     } catch (const std::exception &) {
@@ -783,9 +785,9 @@ void Compiler::CompileForEach(const parser::Loop *loop) {
             throw DatatypeException();
 
         if (loop->init->node_type == NodeType::IDENTIFIER)
-            this->StoreVariable((String *) ((const Unary *) loop->init)->value);
+            this->StoreVariable((String *) ((const Unary *) loop->init)->value, &loop->init->loc);
         else if (loop->init->node_type == NodeType::TUPLE)
-            this->CompileUnpack((List *) ((const Unary *) loop->init)->value);
+            this->CompileUnpack((List *) ((const Unary *) loop->init)->value, &loop->init->loc);
 
         this->Compile(loop->body);
 
@@ -1007,7 +1009,7 @@ void Compiler::CompileIf(const parser::Test *test) {
     try {
         this->Expression(test->test);
 
-        this->unit_->Emit(vm::OpCode::JF, orelse, &test->loc);
+        this->unit_->Emit(vm::OpCode::JF, orelse, nullptr);
 
         this->unit_->BlockNew();
 
@@ -1145,7 +1147,7 @@ void Compiler::CompileJump(const parser::Unary *jump) {
             dst = jb->start;
     }
 
-    this->unit_->Emit(vm::OpCode::JMP, dst, &jump->loc);
+    this->unit_->Emit(vm::OpCode::JMP, dst, nullptr);
 }
 
 void Compiler::CompileLoop(const parser::Loop *loop) {
@@ -1257,7 +1259,7 @@ void Compiler::CompileSubscr(const parser::Subscript *subscr, bool dup, bool emi
         else
             this->LoadStatic((ArObject *) Nil, true, true);
 
-        this->unit_->Emit(vm::OpCode::MKBND, nullptr);
+        this->unit_->Emit(vm::OpCode::MKBND, &subscr->loc);
     }
 
     if (dup) {
@@ -1381,7 +1383,7 @@ void Compiler::CompileSwitchCase(const SwitchCase *sw, BasicBlock **ltest, Basic
             if (!as_if)
                 this->unit_->Emit(vm::OpCode::TEST, &sw->loc);
 
-            this->unit_->Emit(vm::OpCode::JT, *lbody, &sw->loc);
+            this->unit_->Emit(vm::OpCode::JT, *lbody, nullptr);
 
             // Save last test block
             if (!this->unit_->BlockNew())
@@ -1435,7 +1437,7 @@ void Compiler::CompileTernary(const parser::Test *test) {
     try {
         this->Expression(test->test);
 
-        this->unit_->Emit(vm::OpCode::JF, orelse, &test->test->loc);
+        this->unit_->Emit(vm::OpCode::JF, orelse, nullptr);
 
         this->Expression(test->body);
 
@@ -1476,9 +1478,9 @@ void Compiler::CompileTest(const parser::Binary *test) {
 
         do {
             if (cursor->token_type == scanner::TokenType::AND)
-                this->unit_->Emit(vm::OpCode::JFOP, 0, end, &cursor->loc);
+                this->unit_->Emit(vm::OpCode::JFOP, 0, end, nullptr);
             else if (cursor->token_type == scanner::TokenType::OR)
-                this->unit_->Emit(vm::OpCode::JTOP, 0, end, &cursor->loc);
+                this->unit_->Emit(vm::OpCode::JTOP, 0, end, nullptr);
             else
                 throw CompilerException("invalid TokenType for CompileTest");
 
@@ -1524,7 +1526,7 @@ void Compiler::CompileUnary(const parser::Unary *unary) {
     }
 }
 
-void Compiler::CompileUnpack(List *list) {
+void Compiler::CompileUnpack(List *list, const scanner::Loc *loc) {
     ARC iter;
     ARC tmp;
     Instr *instr;
@@ -1533,14 +1535,14 @@ void Compiler::CompileUnpack(List *list) {
     if (!iter)
         throw DatatypeException();
 
-    this->unit_->Emit(vm::OpCode::UNPACK, nullptr);
+    this->unit_->Emit(vm::OpCode::UNPACK, loc);
     instr = this->unit_->bb.cur->instr.tail;
 
     ArSize items = 0;
     while ((tmp = IteratorNext(iter.Get()))) {
         const auto *id = (const Unary *) tmp.Get();
         this->unit_->IncrementStack(1);
-        this->StoreVariable((String *) id->value);
+        this->StoreVariable((String *) id->value, nullptr);
         items++;
     }
 
@@ -1563,7 +1565,7 @@ void Compiler::CompileUpdate(const parser::Unary *update) {
         throw CompilerException("invalid TokenType for CompileUpdate");
 
     if (value->node_type == parser::NodeType::IDENTIFIER)
-        this->StoreVariable((String *) ((const Unary *) value)->value);
+        this->StoreVariable((String *) ((const Unary *) value)->value, &update->loc);
     else if (value->node_type == parser::NodeType::INDEX) {
         this->unit_->Emit(vm::OpCode::PBHEAD, 3, nullptr, nullptr);
         this->unit_->Emit(vm::OpCode::PBHEAD, 3, nullptr, nullptr);
@@ -1743,7 +1745,7 @@ void Compiler::PushAtom(const char *key, bool emit) {
     this->LoadStatic(atom.Get(), false, emit);
 }
 
-void Compiler::StoreVariable(String *name) {
+void Compiler::StoreVariable(String *name, const scanner::Loc *loc) {
     vm::OpCode code = vm::OpCode::STGBL;
     SymbolT *sym;
 
@@ -1761,7 +1763,7 @@ void Compiler::StoreVariable(String *name) {
 
     Release(sym);
 
-    this->unit_->Emit(code, (int) sym_id, nullptr, nullptr);
+    this->unit_->Emit(code, (int) sym_id, nullptr, loc);
 }
 
 void Compiler::TUScopeEnter(String *name, SymbolType context) {
@@ -1796,10 +1798,14 @@ void Compiler::TUScopeExit() {
 }
 
 Compiler::~Compiler() {
+    while (this->unit_ != nullptr)
+        this->unit_ = TranslationUnitDel(this->unit_);
 
+    Release(this->statics_globals_);
 }
 
 Code *Compiler::Compile(File *node) {
+    Code *code = nullptr;
     String *module_name;
 
     // Initialize global_statics
@@ -1827,10 +1833,12 @@ Code *Compiler::Compile(File *node) {
         while ((decl = IteratorNext(decl_iter.Get())))
             this->Compile((Node *) decl.Get());
 
-        return this->unit_->Assemble();
+        code = this->unit_->Assemble();
+
+        this->TUScopeExit();
     } catch (std::exception) {
         Release(module_name);
     }
 
-    return nullptr;
+    return code;
 }
