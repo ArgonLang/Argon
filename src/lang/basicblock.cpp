@@ -16,11 +16,9 @@ Instr *BasicBlock::AddInstr(vm::OpCode opcode, int arg) {
     if (i != nullptr) {
         i->next = nullptr;
 
-        assert(((unsigned char) opcode) < sizeof(vm::StackChange));
+        assert(((unsigned char) opcode) < sizeof(vm::OpCodeOffset));
 
-        auto op_size = vm::OpCodeOffset[(unsigned char) opcode];
-
-        this->size += op_size;
+        this->size += vm::OpCodeOffset[(unsigned char) opcode];
 
         if (this->instr.head == nullptr) {
             this->instr.head = i;
@@ -31,7 +29,7 @@ Instr *BasicBlock::AddInstr(vm::OpCode opcode, int arg) {
         }
 
         i->opcode = (unsigned char) opcode;
-        i->oparg = op_size << 24u | arg; // | instr_len | argument |
+        i->oparg = arg;
 
         i->jmp = nullptr;
         i->lineno = 0;

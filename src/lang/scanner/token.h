@@ -7,6 +7,8 @@
 
 #include <cstddef>
 
+#include <vm/datatype/arobject.h>
+
 namespace argon::lang::scanner {
     enum class TokenType {
         TK_NULL,

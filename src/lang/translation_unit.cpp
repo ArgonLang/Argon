@@ -97,7 +97,7 @@ Code *TranslationUnit::Assemble() const {
             if (instr->jmp != nullptr)
                 arg = instr->jmp->offset;
 
-            switch ((instr->oparg & 0xFF000000) >> 24u) {
+            switch (vm::OpCodeOffset[instr->opcode]) {
                 case 4:
                     *((argon::vm::Instr32 *) instr_cur) = arg << 8 | instr->opcode;
                     instr_cur += 4;
