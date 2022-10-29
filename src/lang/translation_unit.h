@@ -99,7 +99,7 @@ namespace argon::lang {
 
         void IncrementRequiredStack(int size) {
             if (this->stack.current + size > this->stack.required)
-                this->stack.required = this->stack.current = size;
+                this->stack.required = this->stack.current + size;
         }
 
         void IncrementStack(int size) {
