@@ -17,6 +17,17 @@ namespace argon::vm::datatype {
     };
     extern const TypeInfo *type_tuple_;
 
+    struct TupleIterator {
+        AROBJ_HEAD;
+
+        Tuple *tuple;
+
+        ArSize index;
+
+        bool reverse;
+    };
+    extern const TypeInfo *type_tuple_iterator_;
+
     ArObject *TupleGet(const Tuple *tuple, ArSSize index);
 
     /**

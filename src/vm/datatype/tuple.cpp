@@ -8,6 +8,18 @@
 
 using namespace argon::vm::datatype;
 
+ArObject *tuple_iter(Tuple *self, bool reverse) {
+    auto *li = MakeGCObject<TupleIterator>(type_tuple_iterator_);
+
+    if (li != nullptr) {
+        li->tuple = IncRef(self);
+        li->index = 0;
+        li->reverse = reverse;
+    }
+
+    return (ArObject *) li;
+}
+
 TypeInfo TupleType = {
         AROBJ_HEAD_INIT_TYPE,
         "Tuple",
@@ -23,7 +35,7 @@ TypeInfo TupleType = {
         nullptr,
         nullptr,
         nullptr,
-        nullptr,
+        (UnaryBoolOp) tuple_iter,
         nullptr,
         nullptr,
         nullptr,
@@ -124,3 +136,59 @@ Tuple *argon::vm::datatype::TupleNew(ArObject **objects, ArSize count) {
 
     return tuple;
 }
+
+// TUPLE ITERATOR
+
+ArObject *tupleiterator_iter(TupleIterator *self, bool reversed) {
+    if (self->reverse == reversed)
+        return (ArObject *) IncRef(self);
+
+    return tuple_iter(self->tuple, reversed);
+}
+
+ArObject *tupleiterator_iter_next(TupleIterator *self) {
+    if (!self->reverse) {
+        if (self->index < self->tuple->length) {
+            auto *tmp = IncRef(self->tuple->objects[self->index]);
+
+            self->index++;
+
+            return tmp;
+        }
+        return nullptr;
+    }
+
+    if (self->tuple->length - self->index == 0)
+        return nullptr;
+
+    self->index++;
+
+    return IncRef(self->tuple->objects[self->tuple->length - self->index]);
+}
+
+TypeInfo TupleIteratorType = {
+        AROBJ_HEAD_INIT_TYPE,
+        "TupleIterator",
+        nullptr,
+        nullptr,
+        sizeof(List),
+        TypeInfoFlags::BASE,
+        nullptr,
+        nullptr,
+        nullptr,
+        nullptr,
+        nullptr,
+        nullptr,
+        nullptr,
+        nullptr,
+        (UnaryBoolOp) tupleiterator_iter,
+        (UnaryOp) tupleiterator_iter_next,
+        nullptr,
+        nullptr,
+        nullptr,
+        nullptr,
+        nullptr,
+        nullptr,
+        nullptr
+};
+const TypeInfo *argon::vm::datatype::type_tuple_iterator_ = &TupleIteratorType;
