@@ -7,6 +7,7 @@
 #include "error.h"
 #include "function.h"
 #include "namespace.h"
+#include "nil.h"
 
 #include "arobject.h"
 
@@ -93,6 +94,10 @@ ArSize argon::vm::datatype::Hash(ArObject *object) {
         return hash(object);
 
     return 0;
+}
+
+bool argon::vm::datatype::IsNull(const ArObject *object) {
+    return object == nullptr || object == (ArObject *) Nil;
 }
 
 bool argon::vm::datatype::IsTrue(const ArObject *object) {

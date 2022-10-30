@@ -3,6 +3,7 @@
 // Licensed under the Apache License v2.0
 
 #include <vm/datatype/boolean.h>
+#include <vm/datatype/bounds.h>
 #include <vm/datatype/error.h>
 #include <vm/datatype/function.h>
 
@@ -37,6 +38,39 @@ ArObject *Binary(ArObject *l, ArObject *r, int offset) {
 #undef GET_BINARY_OP
 }
 
+int Unpack(ArObject *iterable, ArObject **eval_stack, int len) {
+    ArObject *iter;
+    ArObject *item;
+
+    if (!AR_ISITERABLE(iterable)) {
+        ErrorFormat(kTypeError[0], "unpacking expression was expecting an iterable not a '%s'", AR_TYPE_NAME(iterable));
+        return false;
+    }
+
+    if ((iter = IteratorGet(iterable, false)) == nullptr)
+        return false;
+
+    eval_stack += len;
+
+    auto count = 0;
+    while ((item = IteratorNext(iter)) != nullptr && count < len)
+        *(eval_stack - ++count) = item;
+
+    Release(iter);
+
+    if (count != len) {
+        // Revert partial changes
+        for (auto i = 0; i < count; i++)
+            Release(*(eval_stack - i));
+
+        ErrorFormat(kTypeError[0], "incompatible number of value to unpack (expected '%d' got '%d')", len, count);
+
+        return -1;
+    }
+
+    return count;
+}
+
 ArObject *argon::vm::Eval(Fiber *fiber) {
 #ifndef ARGON_FF_COMPUTED_GOTO
 #define TARGET_OP(op) case OpCode::op:
@@ -62,6 +96,8 @@ ArObject *argon::vm::Eval(Fiber *fiber) {
     *cu_frame->eval_stack = obj;    \
     cu_frame->eval_stack++;         \
     } while(0)
+
+#define STACK_REWIND(offset)    for(ArSize i = offset; i>0; POP(), i--)
 
 #define TOP()   (*(cu_frame->eval_stack - 1))
 
@@ -166,8 +202,14 @@ ArObject *argon::vm::Eval(Fiber *fiber) {
             TARGET_OP(INV) {
                 UNARY_OP(invert, ~);
             }
+            TARGET_OP(IPADD) {
+                BINARY_OP(inp_add, +=);
+            }
+            TARGET_OP(IPSUB) {
+                BINARY_OP(inp_sub, -=);
+            }
             TARGET_OP(JF) {
-                // JUMP FALSE
+                // JUMP IF FALSE
                 if (!IsTrue(TOP())) {
                     POP();
                     JUMPTO(I32Arg(cu_frame->instr_ptr));
@@ -194,6 +236,16 @@ ArObject *argon::vm::Eval(Fiber *fiber) {
                     JUMPTO(I32Arg(cu_frame->instr_ptr));
                 }
 
+                DISPATCH();
+            }
+            TARGET_OP(JT) {
+                // JUMP IF TRUE
+                if (IsTrue(TOP())) {
+                    POP();
+                    JUMPTO(I32Arg(cu_frame->instr_ptr));
+                }
+
+                POP();
                 DISPATCH();
             }
             TARGET_OP(JTOP) {
@@ -229,6 +281,13 @@ ArObject *argon::vm::Eval(Fiber *fiber) {
                 PUSH(ret);
                 DISPATCH();
             }
+            TARGET_OP(LDITER) {
+                if ((ret = IteratorGet(TOP(), false)) == nullptr)
+                    goto END_LOOP;
+
+                TOP_REPLACE(ret);
+                DISPATCH();
+            }
             TARGET_OP(LDLC) {
                 PUSH(IncRef(cu_frame->locals[I16Arg(cu_frame->instr_ptr)]));
                 DISPATCH();
@@ -242,6 +301,22 @@ ArObject *argon::vm::Eval(Fiber *fiber) {
             }
             TARGET_OP(LXOR) {
                 BINARY_OP(l_xor, ^);
+            }
+            TARGET_OP(MKBND) {
+                ArObject *stop = TOP();
+                ArObject *start = PEEK1();
+
+                cu_frame->eval_stack -= 2;
+
+                ret = (ArObject *) BoundsNew(start, stop, (ArObject *) Nil);
+                Release(stop);
+                Release(start);
+
+                if (ret == nullptr)
+                    goto END_LOOP;
+
+                TOP_REPLACE(ret);
+                DISPATCH();
             }
             TARGET_OP(MKDT) {
                 auto args = I32Arg(cu_frame->instr_ptr);
@@ -309,6 +384,13 @@ ArObject *argon::vm::Eval(Fiber *fiber) {
                 PUSH((ArObject *) list);
                 DISPATCH();
             }
+            TARGET_OP(MKNS) {
+                if ((ret = (ArObject *) NamespaceNew()) == nullptr)
+                    goto END_LOOP;
+
+                PUSH(ret);
+                DISPATCH();
+            }
             TARGET_OP(MKTP) {
                 auto args = I32Arg(cu_frame->instr_ptr);
                 auto tuple = TupleNew(args);
@@ -345,8 +427,51 @@ ArObject *argon::vm::Eval(Fiber *fiber) {
                 POP();
                 DISPATCH();
             }
+            TARGET_OP(NJE) {
+                if ((ret = IteratorNext(TOP())) != nullptr) {
+                    PUSH(ret);
+                    DISPATCH();
+                }
+
+                if (IsPanicking())
+                    goto END_LOOP;
+
+                POP();
+                JUMPTO(I32Arg(cu_frame->instr_ptr));
+            }
             TARGET_OP(NOT) {
                 TOP_REPLACE(BoolToArBool(!IsTrue(TOP())));
+                DISPATCH();
+            }
+            TARGET_OP(NSTORE) {
+                if (!AR_TYPEOF(PEEK1(), type_namespace_)) {
+                    ErrorFormat(kRuntimeError[0], "unexpected type in evaluation stack during NSTORE execution");
+                    goto END_LOOP;
+                }
+
+                if (!NamespaceNewSymbol((Namespace *) PEEK2(), PEEK1(), TOP(),
+                                        (AttributeFlag) I16Arg(cu_frame->instr_ptr)))
+                    goto END_LOOP;
+
+                STACK_REWIND(3);
+                DISPATCH();
+            }
+            TARGET_OP(PANIC) {
+                Panic(TOP());
+                POP();
+
+                goto END_LOOP;
+            }
+            TARGET_OP(PBHEAD) {
+                auto len = I16Arg(cu_frame->instr_ptr);
+
+                ret = TOP(); // Save TOP
+
+                for (ArSize i = 0; i < len; i++)
+                    *(cu_frame->eval_stack - i - 1) = *(cu_frame->eval_stack - i - 2);
+
+                *(cu_frame->eval_stack - (len + 1)) = ret;
+
                 DISPATCH();
             }
             TARGET_OP(PLT) {
@@ -364,6 +489,9 @@ ArObject *argon::vm::Eval(Fiber *fiber) {
             TARGET_OP(POP) {
                 POP();
                 DISPATCH();
+            }
+            TARGET_OP(POS) {
+                UNARY_OP(pos, +);
             }
             TARGET_OP(SHL) {
                 BINARY_OP(shl, >>);
@@ -403,6 +531,33 @@ ArObject *argon::vm::Eval(Fiber *fiber) {
                 Release(cu_frame->locals[idx]);
                 cu_frame->locals[idx] = TOP();
                 cu_frame->eval_stack--;
+                DISPATCH();
+            }
+            TARGET_OP(SUB) {
+                BINARY_OP(sub, -);
+            }
+            TARGET_OP(TEST) {
+                if (Equal(PEEK1(), TOP())) {
+                    POP();
+                    TOP_REPLACE(BoolToArBool(true));
+                    DISPATCH();
+                }
+
+                TOP_REPLACE(BoolToArBool(false));
+                DISPATCH();
+            }
+            TARGET_OP(UNPACK) {
+                ret = TOP();
+
+                auto inc = Unpack(ret, cu_frame->eval_stack - 1, I16Arg(cu_frame->instr_ptr));
+                if (inc < 0) {
+                    Release(ret);
+                    goto END_LOOP;
+                }
+
+                cu_frame->eval_stack += inc - 1;
+
+                Release(ret);
                 DISPATCH();
             }
             default:
