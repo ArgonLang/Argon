@@ -56,6 +56,8 @@ namespace argon::lang {
 
         void CompileConstruct(const parser::Construct *construct);
 
+        void CompileContains(const parser::Binary *contains);
+
         void CompileDeclaration(const parser::Assignment *declaration);
 
         void CompileElvis(const parser::Test *test);

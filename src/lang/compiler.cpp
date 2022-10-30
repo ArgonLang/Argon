@@ -668,6 +668,15 @@ void Compiler::CompileConstruct(const parser::Construct *construct) {
     this->IdentifierNew(construct->name, stype, aflags, true);
 }
 
+void Compiler::CompileContains(const parser::Binary *contains) {
+    CHECK_AST_NODE(contains, type_ast_binary_, "Compiler::CompileContains: invalid AST node");
+
+    this->Expression(contains->left);
+    this->Expression(contains->right);
+
+    this->unit_->Emit(vm::OpCode::CNT, &contains->loc);
+}
+
 void Compiler::CompileDeclaration(const parser::Assignment *declaration) {
     SymbolType stype = SymbolType::VARIABLE;
     AttributeFlag aflags{};
@@ -1594,6 +1603,9 @@ void Compiler::Expression(const Node *node) {
             break;
         case NodeType::ELVIS:
             this->CompileElvis((const Test *) node);
+            break;
+        case NodeType::IN:
+            this->CompileContains((const parser::Binary *) node);
             break;
         case NodeType::LITERAL:
             this->LoadStatic(((const Unary *) node)->value, true, true);

@@ -148,6 +148,21 @@ ArObject *argon::vm::Eval(Fiber *fiber) {
                 TOP_REPLACE(ret);
                 DISPATCH();
             }
+            TARGET_OP(CNT) {
+                ret = TOP();
+
+                if (AR_GET_TYPE(ret)->subscriptable == nullptr || AR_GET_TYPE(ret)->subscriptable->item_in == nullptr) {
+                    ErrorFormat(kRuntimeError[0], kRuntimeError[1], "in", AR_TYPE_NAME(ret));
+                    goto END_LOOP;
+                }
+
+                if ((ret = AR_GET_TYPE(ret)->subscriptable->item_in(TOP(), PEEK1())) == nullptr)
+                    goto END_LOOP;
+
+                POP();
+                TOP_REPLACE(ret);
+                DISPATCH();
+            }
             TARGET_OP(DEC) {
                 UNARY_OP(dec, --);
             }
