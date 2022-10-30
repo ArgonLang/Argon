@@ -1195,7 +1195,7 @@ Node *Parser::ParseIn(Node *left) {
     if (binary == nullptr)
         throw DatatypeException();
 
-    return expr;
+    return (Node *) binary;
 }
 
 Node *Parser::ParseInfix(Node *left) {
