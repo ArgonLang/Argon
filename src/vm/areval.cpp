@@ -151,7 +151,7 @@ ArObject *argon::vm::Eval(Fiber *fiber) {
             TARGET_OP(CNT) {
                 ret = TOP();
 
-                if (AR_GET_TYPE(ret)->subscriptable == nullptr || AR_GET_TYPE(ret)->subscriptable->item_in == nullptr) {
+                if (!AR_ISSUBSCRIPTABLE(ret) || AR_GET_TYPE(ret)->subscriptable->item_in == nullptr) {
                     ErrorFormat(kRuntimeError[0], kRuntimeError[1], "in", AR_TYPE_NAME(ret));
                     goto END_LOOP;
                 }
@@ -548,8 +548,37 @@ ArObject *argon::vm::Eval(Fiber *fiber) {
                 cu_frame->eval_stack--;
                 DISPATCH();
             }
+            TARGET_OP(STSUBSCR) {
+                auto *subscr = PEEK1();
+
+                if (!AR_ISSUBSCRIPTABLE(subscr) || AR_GET_TYPE(subscr)->subscriptable->set_item == nullptr) {
+                    ErrorFormat(kTypeError[0], "'%s' not subscriptable", AR_TYPE_NAME(subscr));
+                    return nullptr;
+                }
+
+                if (!AR_GET_TYPE(subscr)->subscriptable->set_item(subscr, TOP(), PEEK2()))
+                    goto END_LOOP;
+
+                STACK_REWIND(3);
+                DISPATCH();
+            }
             TARGET_OP(SUB) {
                 BINARY_OP(sub, -);
+            }
+            TARGET_OP(SUBSCR) {
+                auto *subscr = PEEK1();
+
+                if (!AR_ISSUBSCRIPTABLE(subscr) || AR_GET_TYPE(subscr)->subscriptable->get_item == nullptr) {
+                    ErrorFormat(kTypeError[0], "'%s' not subscriptable", AR_TYPE_NAME(subscr));
+                    return nullptr;
+                }
+
+                if ((ret = AR_GET_TYPE(subscr)->subscriptable->get_item(subscr, TOP())) == nullptr)
+                    goto END_LOOP;
+
+                POP();
+                TOP_REPLACE(ret);
+                DISPATCH();
             }
             TARGET_OP(TEST) {
                 if (Equal(PEEK1(), TOP())) {

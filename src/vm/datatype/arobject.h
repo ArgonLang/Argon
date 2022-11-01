@@ -166,6 +166,7 @@ namespace argon::vm::datatype {
 #define AR_GET_RC(object)           ((object)->head_.ref_count_)
 #define AR_GET_TYPE(object)         ((object)->head_.type_)
 #define AR_ISITERABLE(object)       (AR_GET_TYPE(object)->iter != nullptr)
+#define AR_ISSUBSCRIPTABLE(object)  (AR_GET_TYPE(object)->subscriptable != nullptr)
 #define AR_SAME_TYPE(object, other) (AR_GET_TYPE(object) == AR_GET_TYPE(other))
 #define AR_TYPE_NAME(object)        (AR_GET_TYPE(object)->name)
 #define AR_TYPEOF(object, type)     (AR_GET_TYPE(object) == (type))
