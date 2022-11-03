@@ -28,6 +28,11 @@ bool argon::vm::IsPanicking() {
     return false;
 }
 
+void argon::vm::DiscardLastPanic() {
+    // TODO: STUB
+    assert(false);
+}
+
 void argon::vm::Panic(datatype::ArObject *panic) {
     // TODO: STUB
     assert(false);

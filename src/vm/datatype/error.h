@@ -60,7 +60,8 @@ namespace argon::vm::datatype {
     constexpr const char *kRuntimeError[] = {
             (const char *) "RuntimeError",
             (const char *) "unsupported operand '%s' for type '%s'",
-            (const char *) "unsupported operand '%s' for: '%s' and '%s'"
+            (const char *) "unsupported operand '%s' for: '%s' and '%s'",
+            (const char *) "malformed code object, code::statics out of bound %d/%d"
     };
 
     constexpr const char *kTypeError[] = {
