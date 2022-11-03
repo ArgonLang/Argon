@@ -10,8 +10,21 @@
 #include "hashmap.h"
 
 namespace argon::vm::datatype {
+    constexpr const char *kAccessViolationError[] = {
+            (const char *) "AccessViolationError",
+            (const char *) "access violation, member '%s' of '%s' are private",
+            (const char *) "in order to access to non const member '%s' an instance of '%s' is required"
+    };
+
     constexpr const char *kAssertionError[] = {
             (const char *) "AssertionError"
+    };
+
+    constexpr const char *kAttributeError[] = {
+            (const char *) "AttributeError",
+            (const char *) "object of type '%s' does not support dot(.) operator",
+            (const char *) "object of type '%s' does not support scope(::) operator",
+            (const char *) "unknown attribute '%s' of instance '%s'"
     };
 
     constexpr const char *kBufferError[] = {
@@ -52,11 +65,13 @@ namespace argon::vm::datatype {
 
     constexpr const char *kTypeError[] = {
             (const char *) "TypeError",
+            (const char *) "a type is required, not an instance of %s"
     };
 
     constexpr const char *kUnassignableError[] = {
             (const char *) "UnassignableError",
-            (const char *) "unable to assign value to constant '%s'"
+            (const char *) "unable to assign value to constant '%s'",
+            (const char *) "%s::%s is read-only"
     };
 
     constexpr const char *kUndeclaredeError[] = {

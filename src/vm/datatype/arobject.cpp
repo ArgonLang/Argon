@@ -13,6 +13,194 @@
 
 using namespace argon::vm::datatype;
 
+ArObject *MROSearch(const TypeInfo *type, ArObject *key, AttributeProperty *aprop) {
+    if (type->_t1 == nullptr)
+        return nullptr;
+
+    const auto *mro = (Tuple *) type->_t1;
+    for (ArSize i = 0; i < mro->length; i++) {
+        const auto *cursor = (const TypeInfo *) mro->objects[i];
+
+        if (cursor->tp_map != nullptr) {
+            auto *ret = NamespaceLookup((Namespace *) cursor->tp_map, key, aprop);
+            if (ret != nullptr)
+                return ret;
+        }
+    }
+
+    return nullptr;
+}
+
+ArObject *type_compare(const ArObject *self, const ArObject *other, CompareMode mode) {
+    if (!AR_SAME_TYPE(self, other) || mode != CompareMode::EQ)
+        return nullptr;
+
+    return BoolToArBool(self == other);
+}
+
+ArObject *type_get_attr(const ArObject *self, ArObject *key, bool static_attr) {
+    const TypeInfo *ancestor = AR_GET_TYPE(self);
+    auto **ns = (Namespace **) AR_GET_NSOFFSET(self);
+    const ArObject *instance = nullptr;
+    ArObject *ret = nullptr;
+
+    AttributeProperty aprop{};
+
+    if (!AR_HAVE_OBJECT_BEHAVIOUR(self)) {
+        ErrorFormat(kAttributeError[0], static_attr ? kAttributeError[2] : kAttributeError[1], ancestor->name);
+        return nullptr;
+    }
+
+    if (static_attr && !AR_TYPEOF(self, type_type_)) {
+        ErrorFormat(kTypeError[0], kTypeError[1], AR_TYPE_NAME(self));
+        return nullptr;
+    }
+
+    // TODO if (argon::vm::GetRoutine()->frame != nullptr)
+    //        instance = argon::vm::GetRoutine()->frame->instance;
+
+    if (!static_attr && AR_SLOT_OBJECT(self)->namespace_offset >= 0)
+        ret = NamespaceLookup(*ns, key, &aprop);
+
+    if (ret == nullptr) {
+        if (ancestor->tp_map != nullptr)
+            ret = NamespaceLookup((Namespace *) ancestor->tp_map, key, &aprop);
+
+        if (ret == nullptr && ancestor->_t1 != nullptr)
+            ret = MROSearch(ancestor, key, &aprop);
+    }
+
+    if (ret == nullptr) {
+        ErrorFormat(kAttributeError[0], kAttributeError[3], ARGON_RAW_STRING((String *) key), ancestor->name);
+        return nullptr;
+    }
+
+    if (static_attr && !aprop.IsConstant()) {
+        ErrorFormat(kAccessViolationError[0], kAccessViolationError[2],
+                    ARGON_RAW_STRING((String *) key), ancestor->name);
+        Release(&ret);
+    }
+
+    if (!aprop.IsPublic() && !TraitIsImplemented(instance, ancestor)) {
+        ErrorFormat(kAccessViolationError[0], kAccessViolationError[1],
+                    ARGON_RAW_STRING((String *) key), ancestor->name);
+        Release(&ret);
+    }
+
+    // TODO check for NativeWrapper
+
+    return ret;
+}
+
+ArObject *type_repr(const TypeInfo *self) {
+    return nullptr;
+}
+
+ArSize type_hash(TypeInfo *self) {
+    return (ArSize) self; // returns memory pointer as ArSize
+}
+
+bool type_dtor(TypeInfo *self) {
+    /*
+     * NB: Destructor is only called on dynamically generated types,
+     * in fact it will never be called on basic types such as atom, bytes, decimal, etc.
+     */
+    argon::vm::memory::Free((void *) self->name);
+    argon::vm::memory::Free((void *) self->qname);
+    argon::vm::memory::Free((void *) self->doc);
+
+    Release(self->_t1);
+    Release(self->tp_map);
+
+    return true;
+}
+
+bool type_set_attr(ArObject *self, ArObject *key, ArObject *value, bool static_attr) {
+    auto **ns = (Namespace **) AR_GET_NSOFFSET(self);
+    const ArObject *instance = nullptr;
+    ArObject *current = nullptr;
+
+    bool is_tpm = false;
+
+    AttributeProperty aprop{};
+
+    if (!AR_HAVE_OBJECT_BEHAVIOUR(self)) {
+        ErrorFormat(kAttributeError[0], static_attr ? kAttributeError[2] : kAttributeError[1], AR_TYPE_NAME(self));
+        return false;
+    }
+
+    // TODO if (argon::vm::GetRoutine()->frame != nullptr)
+    //        instance = argon::vm::GetRoutine()->frame->instance;
+
+    if (AR_SLOT_OBJECT(self)->namespace_offset < 0) {
+        ns = (Namespace **) &(AR_GET_TYPE(self)->tp_map);
+        is_tpm = true;
+    }
+
+    if ((current = NamespaceLookup(*ns, key, &aprop)) == nullptr) {
+        ErrorFormat(kAttributeError[0], kAttributeError[3], AR_TYPE_NAME(self));
+        return false;
+    }
+
+    if (!aprop.IsPublic() && (instance == nullptr || !AR_SAME_TYPE(instance, self))) {
+        ErrorFormat(kAccessViolationError[0], kAccessViolationError[1],
+                    ARGON_RAW_STRING((String *) key), AR_TYPE_NAME(self));
+
+        Release(current);
+        return false;
+    }
+
+    // TODO: nativewrapper
+
+    Release(current);
+
+    if (is_tpm || aprop.IsConstant()) {
+        ErrorFormat(kUnassignableError[0], kUnassignableError[2],
+                    AR_TYPE_QNAME(self), ARGON_RAW_STRING((String *) key));
+
+        Release(current);
+        return false;
+    }
+
+    return NamespaceSet(*ns, key, value);
+}
+
+const ObjectSlots type_objslot = {
+        nullptr,
+        nullptr,
+        nullptr,
+        type_get_attr,
+        type_set_attr,
+        -1
+};
+
+TypeInfo TypeType = {
+        AROBJ_HEAD_INIT_TYPE,
+        "Type",
+        nullptr,
+        nullptr,
+        0,
+        TypeInfoFlags::BASE,
+        nullptr,
+        (Bool_UnaryOp) type_dtor,
+        nullptr,
+        (ArSize_UnaryOp) type_hash,
+        nullptr,
+        type_compare,
+        (UnaryConstOp) type_repr,
+        nullptr,
+        nullptr,
+        nullptr,
+        nullptr,
+        nullptr,
+        &type_objslot,
+        nullptr,
+        nullptr,
+        nullptr,
+        nullptr
+};
+const TypeInfo *argon::vm::datatype::type_type_ = &TypeType;
+
 ArObject *argon::vm::datatype::Compare(const ArObject *self, const ArObject *other, CompareMode mode) {
     static const CompareMode reverse[] = {CompareMode::EQ, CompareMode::NE, CompareMode::LE,
                                           CompareMode::LEQ, CompareMode::GR, CompareMode::GRQ};
@@ -69,6 +257,15 @@ ArObject *argon::vm::datatype::IteratorNext(ArObject *iterator) {
     return AR_GET_TYPE(iterator)->iter_next(iterator);
 }
 
+ArObject *argon::vm::datatype::AttributeLoad(const ArObject *object, ArObject *key, bool static_attr) {
+    AttributeGetter aload = type_type_->object->get_attr;
+
+    if (AR_HAVE_OBJECT_BEHAVIOUR(object) && AR_SLOT_OBJECT(object)->get_attr != nullptr)
+        aload = AR_SLOT_OBJECT(object)->get_attr;
+
+    return aload(object, key, static_attr);
+}
+
 ArObject *argon::vm::datatype::Repr(const ArObject *object) {
     auto repr = AR_GET_TYPE(object)->repr;
 
@@ -96,15 +293,13 @@ ArSize argon::vm::datatype::Hash(ArObject *object) {
     return 0;
 }
 
-bool argon::vm::datatype::IsNull(const ArObject *object) {
-    return object == nullptr || object == (ArObject *) Nil;
-}
+bool argon::vm::datatype::AttributeSet(ArObject *object, ArObject *key, ArObject *value, bool static_attr) {
+    AttributeWriter awrite = type_type_->object->set_attr;
 
-bool argon::vm::datatype::IsTrue(const ArObject *object) {
-    if (AR_GET_TYPE(object)->is_true == nullptr)
-        return true;
+    if (AR_HAVE_OBJECT_BEHAVIOUR(object) && AR_SLOT_OBJECT(object)->set_attr != nullptr)
+        awrite = AR_SLOT_OBJECT(object)->set_attr;
 
-    return AR_GET_TYPE(object)->is_true(object);
+    return awrite(object, key, value, static_attr);
 }
 
 bool argon::vm::datatype::BufferGet(ArObject *object, ArBuffer *buffer, BufferFlags flags) {
@@ -151,6 +346,17 @@ bool argon::vm::datatype::Equal(const ArObject *self, const ArObject *other) {
 
     Release(cmp);
     return result;
+}
+
+bool argon::vm::datatype::IsNull(const ArObject *object) {
+    return object == nullptr || object == (ArObject *) Nil;
+}
+
+bool argon::vm::datatype::IsTrue(const ArObject *object) {
+    if (AR_GET_TYPE(object)->is_true == nullptr)
+        return true;
+
+    return AR_GET_TYPE(object)->is_true(object);
 }
 
 bool InitMembers(TypeInfo *type) {
@@ -228,6 +434,29 @@ bool argon::vm::datatype::TypeInit(const TypeInfo *type, ArObject *auxiliary) {
     *((TypeInfoFlags *) &type->flags) = unsafe_tp->flags | TypeInfoFlags::INITIALIZED;
 
     return true;
+}
+
+bool argon::vm::datatype::TraitIsImplemented(const ArObject *object, const TypeInfo *type) {
+    const TypeInfo *obj_type;
+
+    if (object == nullptr || type == nullptr)
+        return false;
+
+    obj_type = AR_GET_TYPE(object);
+
+    if (obj_type == type)
+        return true;
+
+    if (obj_type->_t1 == nullptr)
+        return false;
+
+    const auto *mro = (Tuple *) obj_type->_t1;
+    for (ArSize i = 0; i < mro->length; i++) {
+        if ((const TypeInfo *) mro->objects[i] == type)
+            return true;
+    }
+
+    return false;
 }
 
 void argon::vm::datatype::BufferRelease(ArBuffer *buffer) {

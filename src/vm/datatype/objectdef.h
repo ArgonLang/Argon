@@ -60,6 +60,8 @@ namespace argon::vm::datatype {
     };
 
     using ArSize_UnaryOp = ArSize (*)(const struct ArObject *);
+    using AttributeGetter = struct ArObject *(*)(const struct ArObject *, struct ArObject *, bool static_attr);
+    using AttributeWriter = bool (*)(struct ArObject *, struct ArObject *, struct ArObject *, bool static_attr);
     using BinaryOp = struct ArObject *(*)(struct ArObject *, struct ArObject *);
     using Bool_TernaryOp = bool (*)(struct ArObject *, struct ArObject *, struct ArObject *);
     using Bool_UnaryOp = bool (*)(const struct ArObject *);

@@ -22,7 +22,7 @@ namespace argon::vm::datatype {
         argon::vm::memory::RefCount(argon::vm::memory::RCType::STATIC), \
         (type) }
 
-#define AROBJ_HEAD_INIT_TYPE AROBJ_HEAD_INIT(nullptr)
+#define AROBJ_HEAD_INIT_TYPE AROBJ_HEAD_INIT(argon::vm::datatype::type_type_)
 
     /**
      * @brief Allows you to use the datatype as if it were a buffer.
@@ -44,11 +44,14 @@ namespace argon::vm::datatype {
      * @brief Models the behavior of the datatype when used as an object (e.g. mytype.property).
      */
     struct ObjectSlots {
-        const struct TypeInfo **traits;
         const FunctionDef *methods;
-        const void *_stub;
+        const void *members;
+        const struct TypeInfo **traits;
 
-        int nsoff;
+        AttributeGetter get_attr;
+        AttributeWriter set_attr;
+
+        int namespace_offset;
     };
 
     /**
@@ -144,16 +147,16 @@ namespace argon::vm::datatype {
         UnaryOp iter_next;
 
         /// Pointer to BufferSlots structure relevant only if the object implements bufferable behavior.
-        BufferSlots *buffer;
+        const BufferSlots *buffer;
 
         /// Pointer to NumberSlots structure relevant only if the object implements numeric behavior.
-        NumberSlots *number;
+        const NumberSlots *number;
 
         /// Pointer to ObjectSlots structure relevant only if the object implements instance like behavior.
-        ObjectSlots *object;
+        const ObjectSlots *object;
 
         /// Pointer to SubscriptSlots structure relevant only if the object implements "container" behavior.
-        SubscriptSlots *subscriptable;
+        const SubscriptSlots *subscriptable;
 
         /// Pointer to OpSlots structure that contains the common operations for an object.
         const OpSlots *ops;
@@ -163,13 +166,27 @@ namespace argon::vm::datatype {
         ArObject *tp_map;
     };
 
-#define AR_GET_RC(object)           ((object)->head_.ref_count_)
-#define AR_GET_TYPE(object)         ((object)->head_.type_)
-#define AR_ISITERABLE(object)       (AR_GET_TYPE(object)->iter != nullptr)
-#define AR_ISSUBSCRIPTABLE(object)  (AR_GET_TYPE(object)->subscriptable != nullptr)
-#define AR_SAME_TYPE(object, other) (AR_GET_TYPE(object) == AR_GET_TYPE(other))
-#define AR_TYPE_NAME(object)        (AR_GET_TYPE(object)->name)
-#define AR_TYPEOF(object, type)     (AR_GET_TYPE(object) == (type))
+    extern const TypeInfo *type_type_;
+
+#define AR_GET_RC(object)                   ((object)->head_.ref_count_)
+#define AR_GET_TYPE(object)                 ((object)->head_.type_)
+
+#define AR_SLOT_BUFFER(object)              ((AR_GET_TYPE(object))->buffer)
+#define AR_SLOT_NUMBER(object)              ((AR_GET_TYPE(object))->number)
+#define AR_SLOT_OBJECT(_object)             ((AR_GET_TYPE(_object))->object)
+#define AR_SLOT_SUBSCRIPTABLE(object)       ((AR_GET_TYPE(object))->subscriptable)
+
+#define AR_ISITERABLE(object)               (AR_GET_TYPE(object)->iter != nullptr)
+#define AR_ISSUBSCRIPTABLE(object)          (AR_SLOT_SUBSCRIPTABLE(object) != nullptr)
+#define AR_HAVE_OBJECT_BEHAVIOUR(_object)   (AR_SLOT_OBJECT(_object) != nullptr)
+
+#define AR_SAME_TYPE(object, other)         (AR_GET_TYPE(object) == AR_GET_TYPE(other))
+#define AR_TYPE_NAME(object)                (AR_GET_TYPE(object)->name)
+#define AR_TYPE_QNAME(object)               (AR_GET_TYPE(object)->qname)
+#define AR_TYPEOF(object, type)             (AR_GET_TYPE(object) == (type))
+
+#define AR_GET_NSOFFSET(object)             (AR_HAVE_OBJECT_BEHAVIOUR(object) ?  \
+    ((ArObject **) (((unsigned char *) (object)) + AR_SLOT_OBJECT(object)->namespace_offset)) : nullptr)
 
     struct ArObject {
         AROBJ_HEAD;
@@ -181,15 +198,15 @@ namespace argon::vm::datatype {
 
     ArObject *IteratorNext(ArObject *iterator);
 
+    ArObject *AttributeLoad(const ArObject *object, ArObject *key, bool static_attr);
+
     ArObject *Repr(const ArObject *object);
 
     ArObject *Str(const ArObject *object);
 
     ArSize Hash(ArObject *object);
 
-    bool IsNull(const ArObject *object);
-
-    bool IsTrue(const ArObject *object);
+    bool AttributeSet(ArObject *object, ArObject *key, ArObject *value, bool static_attr);
 
     bool BufferGet(ArObject *object, ArBuffer *buffer, BufferFlags flags);
 
@@ -205,7 +222,13 @@ namespace argon::vm::datatype {
         return false;
     }
 
+    bool IsNull(const ArObject *object);
+
+    bool IsTrue(const ArObject *object);
+
     bool TypeInit(const TypeInfo *type, ArObject *auxiliary);
+
+    bool TraitIsImplemented(const ArObject *object, const TypeInfo *type);
 
     void BufferRelease(ArBuffer *buffer);
 
