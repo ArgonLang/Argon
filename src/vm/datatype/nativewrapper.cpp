@@ -12,8 +12,8 @@
 
 using namespace argon::vm::datatype;
 
-constexpr char *NativeTypeStr[] = {"BOOL", "DOUBLE", "FLOAT", "INT", "LONG", "OBJECT",
-                                   "SHORT", "STRING", "UINT", "ULONG", "USHORT"};
+constexpr const char *NativeTypeStr[] = {"BOOL", "DOUBLE", "FLOAT", "INT", "LONG", "OBJECT",
+                                         "SHORT", "STRING", "UINT", "ULONG", "USHORT"};
 
 TypeInfo NativeWrapperType = {
         AROBJ_HEAD_INIT_TYPE,

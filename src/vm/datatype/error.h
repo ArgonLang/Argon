@@ -44,7 +44,8 @@ namespace argon::vm::datatype {
 
     constexpr const char *kNotImplementedError[] = {
             (const char *) "NotImplementedError",
-            (const char *) "you must implement method %s"
+            (const char *) "you must implement method %s",
+            (const char *)"operator '%s' not supported between instance of '%s' and '%s'"
     };
 
     constexpr const char *kOOMError[] = {

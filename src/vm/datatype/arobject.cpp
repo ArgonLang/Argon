@@ -234,11 +234,12 @@ ArObject *argon::vm::datatype::Compare(const ArObject *self, const ArObject *oth
         result = rc(other, self, reverse[(int) mode]);
 
     if (result == nullptr) {
-        /* TODO: ERROR
-        if (mode != CompareMode::EQ)
-            return ErrorFormat(type_not_implemented_, "operator '%s' not supported between instance of '%s' and '%s'",
-                               str_mode[(int) mode], AR_TYPE_NAME(obj), AR_TYPE_NAME(other));
-                               */
+        if (mode != CompareMode::EQ) {
+            ErrorFormat(kNotImplementedError[0], kNotImplementedError[2], str_mode[(int) mode],
+                        AR_TYPE_NAME(self), AR_TYPE_NAME(other));
+            return nullptr;
+        }
+
         result = (ArObject *) IncRef(False);
     }
 
