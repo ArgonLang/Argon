@@ -126,6 +126,35 @@ ArObject *name##_fn(ArObject *_func, ArObject *_self, ArObject **args, ArObject 
 FunctionDef name = {#name, doc, name##_fn, arity, variadic, kw, true};                                  \
 ArObject *name##_fn(ArObject *_func, ArObject *_self, ArObject **args, ArObject *kwargs, ArSize argc)
 
+    using MemberGetFn = ArObject *(*)(const ArObject *);
+    using MemberSetFn = bool (*)(const ArObject *, ArObject *value);
+
+    enum class MemberType {
+        BOOL,
+        DOUBLE,
+        FLOAT,
+        INT,
+        LONG,
+        OBJECT,
+        SHORT,
+        STRING,
+        UINT,
+        ULONG,
+        USHORT
+    };
+
+    struct MemberDef {
+        const char *name;
+
+        MemberGetFn get;
+        MemberSetFn set;
+
+        MemberType type;
+
+        int offset;
+        bool readonly;
+    };
+
 } // namespace argon::vm::datatype
 
 ENUMBITMASK_ENABLE(argon::vm::datatype::BufferFlags);

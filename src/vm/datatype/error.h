@@ -61,7 +61,8 @@ namespace argon::vm::datatype {
             (const char *) "RuntimeError",
             (const char *) "unsupported operand '%s' for type '%s'",
             (const char *) "unsupported operand '%s' for: '%s' and '%s'",
-            (const char *) "malformed code object, code::statics out of bound %d/%d"
+            (const char *) "malformed code object, code::statics out of bound %d/%d",
+            (const char *) "unknown native type for the %s::%s property"
     };
 
     constexpr const char *kTypeError[] = {
