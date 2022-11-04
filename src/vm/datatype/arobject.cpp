@@ -7,6 +7,7 @@
 #include "error.h"
 #include "function.h"
 #include "namespace.h"
+#include "nativewrapper.h"
 #include "nil.h"
 
 #include "arobject.h"
@@ -87,7 +88,13 @@ ArObject *type_get_attr(const ArObject *self, ArObject *key, bool static_attr) {
         Release(&ret);
     }
 
-    // TODO check for NativeWrapper
+    if (AR_TYPEOF(ret, type_native_wrapper_)) {
+        auto *value = NativeWrapperGet((NativeWrapper *) ret, self);
+
+        Release(ret);
+
+        return value;
+    }
 
     return ret;
 }
@@ -150,7 +157,13 @@ bool type_set_attr(ArObject *self, ArObject *key, ArObject *value, bool static_a
         return false;
     }
 
-    // TODO: nativewrapper
+    if (AR_TYPEOF(current, type_native_wrapper_)) {
+        auto ok = NativeWrapperSet((NativeWrapper *) current, self, value);
+
+        Release(current);
+
+        return ok;
+    }
 
     Release(current);
 
@@ -158,7 +171,6 @@ bool type_set_attr(ArObject *self, ArObject *key, ArObject *value, bool static_a
         ErrorFormat(kUnassignableError[0], kUnassignableError[2],
                     AR_TYPE_QNAME(self), ARGON_RAW_STRING((String *) key));
 
-        Release(current);
         return false;
     }
 
