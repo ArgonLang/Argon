@@ -381,7 +381,7 @@ bool InitMembers(TypeInfo *type) {
     // Function/Method
     if (type->object->methods != nullptr) {
         for (const FunctionDef *cursor = type->object->methods; cursor->name != nullptr; cursor++) {
-            auto *fn = (ArObject *) FunctionNew(cursor, type);
+            auto *fn = (ArObject *) FunctionNew(cursor, type, nullptr);
             if (fn == nullptr)
                 return false;
 

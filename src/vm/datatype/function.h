@@ -68,7 +68,7 @@ namespace argon::vm::datatype {
     };
     extern const TypeInfo *type_function_;
 
-    Function *FunctionNew(const FunctionDef *func, TypeInfo *base);
+    Function *FunctionNew(const FunctionDef *func, TypeInfo *base, Namespace *ns);
 
     Function *FunctionNew(Code *code, String *name, String *qname, Namespace *ns,
                           Tuple *enclosed, unsigned short arity, FunctionFlags flags);

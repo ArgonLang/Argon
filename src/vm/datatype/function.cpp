@@ -51,7 +51,7 @@ Function *FunctionNew(String *name, String *doc, unsigned short arity, FunctionF
     return fn;
 }
 
-Function *argon::vm::datatype::FunctionNew(const FunctionDef *func, TypeInfo *base) {
+Function *argon::vm::datatype::FunctionNew(const FunctionDef *func, TypeInfo *base, Namespace *ns) {
     FunctionFlags flags = FunctionFlags::NATIVE;
     String *name;
     String *qname;
@@ -85,6 +85,7 @@ Function *argon::vm::datatype::FunctionNew(const FunctionDef *func, TypeInfo *ba
     if (fn != nullptr) {
         fn->native = func->func;
         fn->base = IncRef(base);
+        fn->gns = IncRef(ns);
     }
 
     Release(name);
