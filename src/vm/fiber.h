@@ -58,6 +58,8 @@ namespace argon::vm {
 
     Frame *FrameNew(Fiber *fiber, datatype::Code *code, datatype::Namespace *globals, bool floating);
 
+    struct Panic *PanicNew(struct Panic *prev, datatype::ArObject *object);
+
     void FrameDel(Frame *frame);
 
 } // namespace argon::vm

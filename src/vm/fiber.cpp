@@ -31,7 +31,7 @@ void Fiber::FrameDel(Frame *frame) {
 
     auto subtract = (unsigned long) (((unsigned char *) this->stack_cur) - ((unsigned char *) frame));
 
-    assert(subtract < ((unsigned long) this));
+    assert(subtract < ((uintptr_t) this));
 
     this->stack_cur = ((unsigned char *) this->stack_cur) - subtract;
 }
@@ -80,6 +80,19 @@ Frame *argon::vm::FrameNew(Fiber *fiber, Code *code, Namespace *globals, bool fl
         frame->locals[slots] = nullptr;
 
     return frame;
+}
+
+Panic *argon::vm::PanicNew(Panic *prev, ArObject *object) {
+    auto *panic = (Panic *) memory::Alloc(sizeof(Panic));
+
+    if (panic != nullptr) {
+        panic->panic = prev;
+        panic->object = IncRef(object);
+        panic->recovered = false;
+        panic->aborted = prev != nullptr;
+    }
+
+    return panic;
 }
 
 void argon::vm::FrameDel(Frame *frame) {
