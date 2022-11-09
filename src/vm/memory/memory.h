@@ -17,6 +17,7 @@ namespace argon::vm::memory {
     const auto MemoryCopy = stratum::util::MemoryCopy;
     const auto MemoryZero = stratum::util::MemoryZero;
     const auto MemoryInit = stratum::Initialize;
+    const auto MemoryFinalize = stratum::Finalize;
 
     void *Alloc(size_t size);
 
