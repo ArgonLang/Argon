@@ -82,19 +82,6 @@ Frame *argon::vm::FrameNew(Fiber *fiber, Code *code, Namespace *globals, bool fl
     return frame;
 }
 
-Panic *argon::vm::PanicNew(Panic *prev, ArObject *object) {
-    auto *panic = (Panic *) memory::Alloc(sizeof(Panic));
-
-    if (panic != nullptr) {
-        panic->panic = prev;
-        panic->object = IncRef(object);
-        panic->recovered = false;
-        panic->aborted = prev != nullptr;
-    }
-
-    return panic;
-}
-
 void argon::vm::FrameDel(Frame *frame) {
     const auto *code = frame->code;
 

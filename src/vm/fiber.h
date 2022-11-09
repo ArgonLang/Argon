@@ -9,6 +9,7 @@
 #include <vm/datatype/code.h>
 #include <vm/datatype/namespace.h>
 
+#include "panic.h"
 #include "frame.h"
 
 namespace argon::vm {
@@ -17,20 +18,6 @@ namespace argon::vm {
         RUNNABLE,
         RUNNING,
         SUSPENDED
-    };
-
-    struct Panic {
-        /// Prev panic.
-        Panic *panic;
-
-        /// Pointer to panic object.
-        datatype::ArObject *object;
-
-        /// This panic was recovered?
-        bool recovered;
-
-        /// This panic was aborted? if so, a new panic has occurred during the management of this panic.
-        bool aborted;
     };
 
     struct Fiber {
@@ -57,8 +44,6 @@ namespace argon::vm {
     Fiber *FiberNew(unsigned int stack_space);
 
     Frame *FrameNew(Fiber *fiber, datatype::Code *code, datatype::Namespace *globals, bool floating);
-
-    struct Panic *PanicNew(struct Panic *prev, datatype::ArObject *object);
 
     void FrameDel(Frame *frame);
 
