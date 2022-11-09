@@ -21,6 +21,11 @@ namespace argon::vm {
     };
 
     struct Fiber {
+        struct {
+            Fiber *next;
+            Fiber *prev;
+        } rq;
+
         /// Current execution frame.
         Frame *frame;
 
