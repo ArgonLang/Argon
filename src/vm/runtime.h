@@ -5,14 +5,22 @@
 #ifndef ARGON_VM_RUNTIME_H_
 #define ARGON_VM_RUNTIME_H_
 
-#include "datatype/arobject.h"
+#include <vm/datatype/arobject.h>
+
+#include "config.h"
 
 namespace argon::vm {
+    constexpr const unsigned short kVCoreDefault = 4;
+
     argon::vm::datatype::ArObject *GetLastError();
 
-    bool Initialize();
+    bool Initialize(const Config *config);
 
     bool IsPanicking();
+
+    Fiber *GetFiber();
+
+    Frame *GetFrame();
 
     void DiscardLastPanic();
 
