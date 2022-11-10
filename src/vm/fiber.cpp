@@ -82,6 +82,14 @@ Frame *argon::vm::FrameNew(Fiber *fiber, Code *code, Namespace *globals, bool fl
     return frame;
 }
 
+void argon::vm::FiberDel(Fiber *fiber) {
+    assert(fiber->frame == nullptr);
+
+    Release(fiber->future);
+
+    memory::Free(fiber);
+}
+
 void argon::vm::FrameDel(Frame *frame) {
     const auto *code = frame->code;
 

@@ -21,6 +21,9 @@ namespace argon::vm {
         int cmd;
         int file;
         int max_vc;
+        int max_ost;
+        int fiber_ss;
+        int fiber_pool;
     };
 
     extern const Config *kConfigDefault;

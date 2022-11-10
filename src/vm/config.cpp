@@ -15,6 +15,9 @@ constexpr Config DefaultConfig = {
         false,
         0,
         0,
-        0
+        0,
+        -1,
+        -1,
+        -1
 };
 const Config *argon::vm::kConfigDefault = &DefaultConfig;

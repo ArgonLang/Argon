@@ -7,12 +7,16 @@
 
 #include <vm/datatype/arobject.h>
 #include <vm/datatype/code.h>
+#include <vm/datatype/future.h>
 #include <vm/datatype/namespace.h>
 
 #include "panic.h"
 #include "frame.h"
 
 namespace argon::vm {
+    constexpr const unsigned short kFiberStackSize = 1024; // 1KB
+    constexpr const unsigned short kFiberPoolSize = 254; // Items
+
     enum class FiberStatus : unsigned char {
         BLOCKED,
         RUNNABLE,
@@ -25,6 +29,8 @@ namespace argon::vm {
             Fiber *next;
             Fiber *prev;
         } rq;
+
+        datatype::Future *future;
 
         /// Current execution frame.
         Frame *frame;
@@ -49,6 +55,8 @@ namespace argon::vm {
     Fiber *FiberNew(unsigned int stack_space);
 
     Frame *FrameNew(Fiber *fiber, datatype::Code *code, datatype::Namespace *globals, bool floating);
+
+    void FiberDel(Fiber *fiber);
 
     void FrameDel(Frame *frame);
 
