@@ -39,11 +39,20 @@ namespace argon::vm {
         Fiber *Dequeue();
 
         /**
+         * @brief Steal half of queued items from another queue.
+         *
+         * @param min_len Minimum target queue length for stealing items in the queue.
+         * @param queue Other queue.
+         * @return Dequeue an item from the queue if present, otherwise return nullptr.
+         */
+        Fiber *StealDequeue(unsigned short min_len, FiberQueue &queue);
+
+        /**
          * @brief Insert fiber into the queue.
          *
          * @param fiber to insert.
          * @return Returns true if the item has been added to the queue,
-         * otherwise false(the maximum number of items in the queue reached)
+         * otherwise false(the maximum number of items in the queue reached).
          */
         bool Enqueue(Fiber *fiber);
 
@@ -64,6 +73,15 @@ namespace argon::vm {
          * otherwise false(the maximum number of items in the queue reached)
          */
         bool InsertHead(Fiber *fiber);
+
+        /**
+         * @brief Steal half of queued items from another queue.
+         *
+         * @param min_len Minimum target queue length for stealing items in the queue.
+         * @param queue Other queue.
+         * @return Number of stealing items.
+         */
+        unsigned int StealHalf(unsigned short min_len, FiberQueue &queue);
 
         /**
          * @brief Allows a node in any position to leave the queue.
