@@ -27,7 +27,7 @@ namespace argon::vm::datatype {
     };
     extern const TypeInfo *type_future_;
 
-    ArObject *FutureResult(Future *future);
+    ArObject *FutureResult(Future *future, ArObject *success, ArObject *error);
 
     Future *FutureNew();
 

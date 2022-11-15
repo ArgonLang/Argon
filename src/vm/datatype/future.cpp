@@ -6,6 +6,13 @@
 
 using namespace argon::vm::datatype;
 
+bool future_dtor(Future *self) {
+    Release(self->success);
+    Release(self->error);
+
+    return true;
+}
+
 TypeInfo FutureType = {
         AROBJ_HEAD_INIT_TYPE,
         "Future",
@@ -14,7 +21,7 @@ TypeInfo FutureType = {
         sizeof(Future),
         TypeInfoFlags::BASE,
         nullptr,
-        nullptr,
+        (Bool_UnaryOp) future_dtor,
         nullptr,
         nullptr,
         nullptr,
@@ -33,9 +40,15 @@ TypeInfo FutureType = {
 };
 const TypeInfo *argon::vm::datatype::type_future_ = &FutureType;
 
-ArObject *argon::vm::datatype::FutureResult(Future *future) {
-    // TODO: implement this
-    return nullptr;
+ArObject *argon::vm::datatype::FutureResult(Future *future, ArObject *success, ArObject *error) {
+    future->error = nullptr;
+
+    if (success != nullptr)
+        future->success = IncRef(success);
+    else
+        future->error = IncRef(error);
+
+    future->wait.cond.notify_one();
 }
 
 Future *argon::vm::datatype::FutureNew() {

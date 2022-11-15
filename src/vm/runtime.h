@@ -13,8 +13,11 @@
 #include "fiber.h"
 
 namespace argon::vm {
-    constexpr const unsigned short kVCoreDefault = 4;
     constexpr const unsigned int kOSThreadMax = 10000;
+    constexpr const unsigned int kOSTStealWorkAttempts = 3;
+    constexpr const unsigned short kScheduleTickBeforeCheck = 32;
+    constexpr const unsigned short kVCoreDefault = 4;
+    constexpr const unsigned short kVCoreQueueLengthMax = 256;
 
     argon::vm::datatype::ArObject *Eval(datatype::Code *code, datatype::Namespace *ns);
 
