@@ -116,13 +116,13 @@ namespace argon::vm::datatype {
 
     Error *ErrorNewFormat(const char *id, const char *format, ...);
 
-    Error *ErrorFormat(const char *id, const char *format, ...);
-
     Error *ErrorNew(ArObject *id, String *reason);
 
     Error *ErrorNew(const char *id, String *reason);
 
     Error *ErrorNew(const char *id, const char *reason);
+
+    void ErrorFormat(const char *id, const char *format, ...);
 
 } // namespace argon::vm::datatype
 

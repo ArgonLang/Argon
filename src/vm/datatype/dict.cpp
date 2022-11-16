@@ -10,10 +10,13 @@
 
 using namespace argon::vm::datatype;
 
-#define CHECK_HASHABLE(key) do {                                                                        \
-    if(Hash(key) == 0)                                                                                  \
-        return (ArObject *) ErrorFormat(kUnhashableError[0], kUnhashableError[1], AR_TYPE_NAME(key));   \
-} while(0)
+#define CHECK_HASHABLE(key, retval)                                                     \
+    do {                                                                                \
+        if(Hash(key) == 0) {                                                            \
+            ErrorFormat(kUnhashableError[0], kUnhashableError[1], AR_TYPE_NAME(key));   \
+            return retval;                                                              \
+        }                                                                               \
+    } while(0)
 
 TypeInfo DictType = {
         AROBJ_HEAD_INIT_TYPE,
@@ -43,7 +46,7 @@ TypeInfo DictType = {
 const TypeInfo *argon::vm::datatype::type_dict_ = &DictType;
 
 ArObject *argon::vm::datatype::DictLookup(const Dict *dict, ArObject *key) {
-    CHECK_HASHABLE(key);
+    CHECK_HASHABLE(key, nullptr);
 
     auto entry = dict->hmap.Lookup(key);
     if (entry == nullptr)
@@ -66,7 +69,7 @@ ArObject *argon::vm::datatype::DictLookup(const Dict *dict, const char *key) {
 bool argon::vm::datatype::DictInsert(Dict *dict, ArObject *key, ArObject *value) {
     HEntry<ArObject, ArObject *> *entry;
 
-    CHECK_HASHABLE(key);
+    CHECK_HASHABLE(key, false);
 
     if ((entry = dict->hmap.Lookup(key)) != nullptr) {
         Release(entry->value);
@@ -104,7 +107,7 @@ bool argon::vm::datatype::DictInsert(Dict *dict, const char *key, ArObject *valu
 }
 
 bool argon::vm::datatype::DictRemove(Dict *dict, ArObject *key) {
-    CHECK_HASHABLE(key);
+    CHECK_HASHABLE(key, false);
 
     auto *entry = dict->hmap.Remove(key);
     if (entry == nullptr)

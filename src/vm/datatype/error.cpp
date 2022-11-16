@@ -72,16 +72,20 @@ bool argon::vm::datatype::ErrorInit() {
     return true;
 }
 
-Error *argon::vm::datatype::ErrorNewFormat(const char *id, const char *format, ...) {
-    va_list args;
-    Error *err;
+Error *ErrorNewFormatVA(const char *id, const char *format, va_list args) {
+    Error *err = nullptr;
     String *msg;
 
-    va_start(args, format);
     msg = StringFormat(format, args);
-    va_end(args);
 
-    if (msg == nullptr) {
+    if (msg != nullptr)
+        err = ErrorNew(id, msg);
+
+    Release(msg);
+
+    if (msg == nullptr || err == nullptr) {
+        Release(err);
+
         err = (Error *) argon::vm::GetLastError();
         if (err == error_oom) {
             Release(err);
@@ -97,27 +101,25 @@ Error *argon::vm::datatype::ErrorNewFormat(const char *id, const char *format, .
         return nullptr;
     }
 
-    if ((err = ErrorNew(id, msg)) == nullptr) {
-        Release(msg);
-        return nullptr;
-    }
-
-    Release(msg);
     return err;
 }
 
-Error *argon::vm::datatype::ErrorFormat(const char *id, const char *format, ...) {
-    assert(false);
+Error *argon::vm::datatype::ErrorNewFormat(const char *id, const char *format, ...) {
+    va_list args;
+    Error *err;
+
+    va_start(args, format);
+    err = ErrorNewFormatVA(id, format, args);
+    va_end(args);
+
+    return err;
 }
 
 Error *argon::vm::datatype::ErrorNew(ArObject *id, String *reason) {
     auto *err = MakeObject<Error>(type_error_);
 
     if (err != nullptr) {
-        if (!err->detail.Initialize()) {
-            Release(err);
-            return nullptr;
-        }
+        memory::MemoryZero(&err->detail, sizeof(HashMap<ArObject *, ArObject>));
 
         err->reason = (ArObject *) IncRef(reason);
         err->id = IncRef(id);
@@ -157,4 +159,18 @@ Error *argon::vm::datatype::ErrorNew(const char *id, const char *reason) {
     Release(aid);
     Release(sreason);
     return err;
+}
+
+void argon::vm::datatype::ErrorFormat(const char *id, const char *format, ...) {
+    va_list args;
+    Error *err;
+
+    va_start(args, format);
+    err = ErrorNewFormatVA(id, format, args);
+    va_end(args);
+
+    if (err != nullptr)
+        argon::vm::Panic((ArObject *) err);
+
+    Release(err);
 }
