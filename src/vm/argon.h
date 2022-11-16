@@ -6,7 +6,7 @@
 #define ARGON_VM_ARGON_H_
 
 namespace argon::vm {
-
+    int ArgonMain(int argc, char **argv);
 } // namespace argon::vm
 
 #endif // !ARGON_VM_ARGON_H_

@@ -27,6 +27,8 @@ namespace argon::vm {
     };
 
     extern const Config *kConfigDefault;
-}
+
+    bool ConfigInit(Config *config, int argc, char **argv);
+} // namespace argon::vm
 
 #endif // !ARGON_VM_CONFIG_H_

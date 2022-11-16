@@ -21,6 +21,10 @@ namespace argon::vm {
 
     argon::vm::datatype::ArObject *Eval(datatype::Code *code, datatype::Namespace *ns);
 
+    argon::vm::datatype::ArObject *EvalFile(const char *name, const char *path, datatype::Namespace *ns);
+
+    argon::vm::datatype::ArObject *EvalString(const char *name, const char *source, datatype::Namespace *ns);
+
     argon::vm::datatype::ArObject *GetLastError();
 
     bool Initialize(const Config *config);

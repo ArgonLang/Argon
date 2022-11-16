@@ -2,7 +2,9 @@
 //
 // Licensed under the Apache License v2.0
 
-int main(int argc, char **argv) {
+#include <vm/argon.h>
 
+int main(int argc, char **argv) {
+    return argon::vm::ArgonMain(argc, argv);
 }
 

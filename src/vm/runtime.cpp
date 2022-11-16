@@ -6,6 +6,8 @@
 #include <cassert>
 #include <random>
 
+#include <lang/compiler_wrapper.h>
+
 #include <vm/datatype/future.h>
 #include <vm/datatype/setup.h>
 
@@ -547,6 +549,41 @@ ArObject *argon::vm::Eval(Code *code, Namespace *ns) {
         result = IncRef(future->error);
 
     Release(future);
+
+    return result;
+}
+
+ArObject *argon::vm::EvalFile(const char *name, const char *path, Namespace *ns) {
+    lang::CompilerWrapper c_wrapper;
+    FILE *f;
+
+    if ((f = fopen(path, "r")) == nullptr)
+        return nullptr; // TODO: set Error from ERRNO
+
+    auto *code = c_wrapper.Compile(name, f);
+
+    fclose(f);
+
+    if (code == nullptr)
+        return nullptr;
+
+    auto *result = Eval(code, ns);
+
+    Release(code);
+
+    return result;
+}
+
+ArObject *argon::vm::EvalString(const char *name, const char *source, Namespace *ns) {
+    lang::CompilerWrapper c_wrapper;
+
+    auto *code = c_wrapper.Compile(name, source);
+    if (code == nullptr)
+        return nullptr;
+
+    auto *result = Eval(code, ns);
+
+    Release(code);
 
     return result;
 }
