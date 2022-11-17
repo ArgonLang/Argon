@@ -297,15 +297,6 @@ ArObject *argon::vm::datatype::Str(const ArObject *object) {
     return Repr(object);
 }
 
-ArSize argon::vm::datatype::Hash(ArObject *object) {
-    auto hash = AR_GET_TYPE(object)->hash;
-
-    if (hash != nullptr)
-        return hash(object);
-
-    return 0;
-}
-
 bool argon::vm::datatype::AttributeSet(ArObject *object, ArObject *key, ArObject *value, bool static_attr) {
     AttributeWriter awrite = type_type_->object->set_attr;
 
@@ -359,6 +350,19 @@ bool argon::vm::datatype::Equal(const ArObject *self, const ArObject *other) {
 
     Release(cmp);
     return result;
+}
+
+bool argon::vm::datatype::Hash(ArObject *object, ArSize *out_hash) {
+    auto hash = AR_GET_TYPE(object)->hash;
+
+    if (hash != nullptr) {
+        if (out_hash != nullptr)
+            *out_hash = hash(object);
+
+        return true;
+    }
+
+    return false;
 }
 
 bool argon::vm::datatype::IsNull(const ArObject *object) {

@@ -204,8 +204,6 @@ namespace argon::vm::datatype {
 
     ArObject *Str(const ArObject *object);
 
-    ArSize Hash(ArObject *object);
-
     bool AttributeSet(ArObject *object, ArObject *key, ArObject *value, bool static_attr);
 
     bool BufferGet(ArObject *object, ArBuffer *buffer, BufferFlags flags);
@@ -221,6 +219,8 @@ namespace argon::vm::datatype {
 
         return false;
     }
+
+    bool Hash(ArObject *object, ArSize *out_hash);
 
     bool IsNull(const ArObject *object);
 

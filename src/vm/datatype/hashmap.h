@@ -65,7 +65,9 @@ namespace argon::vm::datatype {
             if (!this->Resize())
                 return false;
 
-            index = Hash(entry->key) % this->capacity;
+            Hash(entry->key, &index);
+
+            index %= this->capacity;
 
             entry->next = this->map[index];
             this->map[index] = entry;
@@ -94,7 +96,9 @@ namespace argon::vm::datatype {
 
             for (ArSize i = 0; i < this->capacity; i++) {
                 for (HEntry<K, V> *prev = nullptr, *cur = new_map[i], *next; cur != nullptr; cur = next) {
-                    hash = Hash(cur->key) % new_cap;
+                    Hash(cur->key, &hash);
+
+                    hash %= new_cap;
                     next = cur->next;
 
                     if (hash == i) {
@@ -131,7 +135,11 @@ namespace argon::vm::datatype {
         }
 
         HEntry<K, V> *Lookup(K *key) const {
-            ArSize index = Hash(key) % this->capacity;
+            ArSize index;
+
+            Hash(key, &index);
+
+            index %= this->capacity;
 
             for (HEntry<K, V> *cur = this->map[index]; cur != nullptr; cur = cur->next)
                 if (EqualStrict(key, cur->key))
@@ -141,7 +149,11 @@ namespace argon::vm::datatype {
         }
 
         HEntry<K, V> *Remove(K *key) {
-            ArSize index = Hash(key) % this->capacity;
+            ArSize index;
+
+            Hash(key, &index);
+
+            index %= this->capacity;
 
             for (HEntry<K, V> *cur = this->map[index]; cur != nullptr; cur = cur->next) {
                 if (EqualStrict(key, cur->key)) {

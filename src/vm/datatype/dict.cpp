@@ -12,7 +12,7 @@ using namespace argon::vm::datatype;
 
 #define CHECK_HASHABLE(key, retval)                                                     \
     do {                                                                                \
-        if(Hash(key) == 0) {                                                            \
+        if(!Hash(key, nullptr)) {                                                            \
             ErrorFormat(kUnhashableError[0], kUnhashableError[1], AR_TYPE_NAME(key));   \
             return retval;                                                              \
         }                                                                               \
