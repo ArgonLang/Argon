@@ -115,7 +115,7 @@ namespace argon::lang::parser {
     struct File {
         NODEOBJ_HEAD;
 
-        const char *filename;
+        char *filename;
 
         vm::datatype::String *doc;
 

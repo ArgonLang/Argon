@@ -156,9 +156,20 @@ NODE_NEW(Unary, type_ast_unary_, Unary, nullptr, unary_dtor, nullptr);
 
 File *argon::lang::parser::FileNew(const char *filename, List *statements) {
     auto *file = NodeNew<File>(&FileAstType, NodeType::FILE);
+    size_t length = strlen(filename);
 
-    file->filename = filename;
-    file->statements = IncRef(statements);
+    if (file != nullptr) {
+        if ((file->filename = (char *) vm::memory::Alloc(length + 1)) == nullptr) {
+            Release(file);
+            return nullptr;
+        }
+
+        vm::memory::MemoryCopy(file->filename, filename, length);
+
+        file->filename[length] = '\0';
+
+        file->statements = IncRef(statements);
+    }
 
     return file;
 }
