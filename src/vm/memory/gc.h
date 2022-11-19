@@ -74,9 +74,19 @@ namespace argon::vm::memory {
 
     datatype::ArSize Collect();
 
+    bool GCEnable(bool enable);
+
+    bool GCIsEnabled();
+
     GCHead *GCGetHead(datatype::ArObject *object);
 
     void Sweep();
+
+    void ThresholdCollect();
+
+    void Track(datatype::ArObject *object);
+
+    void Untrack(datatype::ArObject *object);
 }
 
 #endif // !ARGON_MEMORY_GC_H_

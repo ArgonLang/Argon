@@ -23,6 +23,9 @@ ArSize deallocations = 0;
 std::mutex track_lock;          // GC lock
 std::mutex garbage_lock;        // Garbage lock
 
+std::atomic_bool enabled = true;
+std::atomic_bool gc_requested = false;
+
 // Prototypes
 inline void InitGCRefCount(GCHead *, const argon::vm::datatype::ArObject *);
 
@@ -215,6 +218,14 @@ ArSize argon::vm::memory::Collect() {
     return total_count;
 }
 
+bool argon::vm::memory::GCEnable(bool enable) {
+    return atomic_exchange(&enabled, enable);
+}
+
+bool argon::vm::memory::GCIsEnabled() {
+    return enabled;
+}
+
 GCHead *argon::vm::memory::GCGetHead(datatype::ArObject *object) {
     if (object == nullptr || !AR_GET_RC(object).IsGcObject())
         return nullptr;
@@ -241,5 +252,59 @@ void argon::vm::memory::Sweep() {
         Release(AR_GET_TYPE(obj));
 
         memory::Free(tmp);
+    }
+}
+
+void argon::vm::memory::ThresholdCollect() {
+    bool requested = false;
+
+    if (!enabled || (allocations - deallocations) < generations[0].threshold)
+        return;
+
+    if (!gc_requested.compare_exchange_strong(requested, true, std::memory_order_relaxed))
+        return;
+
+    // TODO: STOP THE WORLD!
+
+    Collect(0);
+
+    for (unsigned short i = 1; i < kGCGenerations; i++)
+        if (generations[i - 1].times >= generations[i].threshold)
+            Collect(i);
+
+    gc_requested = false;
+
+    // TODO: START THE WORLD
+
+    Sweep();
+}
+
+void argon::vm::memory::Track(datatype::ArObject *object) {
+    auto *head = GCGetHead(object);
+
+    if (head == nullptr)
+        return;
+
+    ThresholdCollect();
+
+    std::unique_lock lock(track_lock);
+    if (!head->IsTracked()) {
+        GCHeadInsert(&(generations[0].list), head);
+        total_tracked++;
+        allocations++;
+    }
+}
+
+void argon::vm::memory::Untrack(datatype::ArObject *object) {
+    auto *head = GCGetHead(object);
+
+    if (head == nullptr)
+        return;
+
+    std::unique_lock lock(track_lock);
+    if (head->IsTracked()) {
+        GCHeadRemove(head);
+        total_tracked--;
+        deallocations++;
     }
 }
