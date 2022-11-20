@@ -2,6 +2,8 @@
 //
 // Licensed under the Apache License v2.0
 
+#include <vm/datatype/arobject.h>
+
 #include "gc.h"
 
 using namespace argon::vm::datatype;
@@ -166,11 +168,20 @@ void SearchRoots(GCGeneration *generation) {
 
 // PUBLIC
 
-argon::vm::datatype::ArObject *argon::vm::memory::GCNew(ArSize length) {
-    auto *gobj = (GCHead *) memory::Alloc(sizeof(GCHead) + length);
-    if (gobj != nullptr) {
-        memory::MemoryZero(gobj, sizeof(GCHead));
-        return (argon::vm::datatype::ArObject *) (((unsigned char *) gobj) + sizeof(GCHead));
+argon::vm::datatype::ArObject *argon::vm::memory::GCNew(ArSize length, bool track) {
+    auto *head = (GCHead *) memory::Alloc(sizeof(GCHead) + length);
+    if (head != nullptr) {
+        memory::MemoryZero(head, sizeof(GCHead));
+
+        if (track) {
+            std::unique_lock lock(track_lock);
+
+            GCHeadInsert(&(generations[0].list), head);
+            total_tracked++;
+            allocations++;
+        }
+
+        return (argon::vm::datatype::ArObject *) (((unsigned char *) head) + sizeof(GCHead));
     }
 
     return nullptr;

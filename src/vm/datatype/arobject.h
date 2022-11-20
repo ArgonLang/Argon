@@ -7,190 +7,12 @@
 
 #include <cstddef>
 
-#include <vm/memory/refcount.h>
+#include <vm/memory/gc.h>
 
 #include "objectdef.h"
 
 namespace argon::vm::datatype {
-#define AROBJ_HEAD                                                      \
-    struct {                                                            \
-        argon::vm::memory::RefCount ref_count_;                         \
-        const struct argon::vm::datatype::TypeInfo *type_;              \
-    } head_
-
-#define AROBJ_HEAD_INIT(type) {                                         \
-        argon::vm::memory::RefCount(argon::vm::memory::RCType::STATIC), \
-        (type) }
-
-#define AROBJ_HEAD_INIT_TYPE AROBJ_HEAD_INIT(argon::vm::datatype::type_type_)
-
-    /**
-     * @brief Allows you to use the datatype as if it were a buffer.
-     */
-    struct BufferSlots {
-        BufferGetFn get_buffer;
-        BufferRelFn rel_buffer;
-    };
-
-    /**
-     * @brief Allows you to use the datatype as if it were a number in contexts that require it (e.g. slice).
-     */
-    struct NumberSlots {
-        UnaryOp as_index;
-        UnaryOp as_integer;
-    };
-
-    /**
-     * @brief Models the behavior of the datatype when used as an object (e.g. mytype.property).
-     */
-    struct ObjectSlots {
-        const FunctionDef *methods;
-        const void *members;
-        const struct TypeInfo **traits;
-
-        AttributeGetter get_attr;
-        AttributeWriter set_attr;
-
-        int namespace_offset;
-    };
-
-    /**
-     * @brief Model the behavior of the datatype with the common operations (e.g. +, -, /, *).
-     */
-    struct OpSlots {
-        // Math
-        BinaryOp add;
-        BinaryOp sub;
-        BinaryOp mul;
-        BinaryOp div;
-        BinaryOp idiv;
-        BinaryOp mod;
-        UnaryOp pos;
-        UnaryOp neg;
-
-        // Logical op
-        BinaryOp l_and;
-        BinaryOp l_or;
-        BinaryOp l_xor;
-        BinaryOp shl;
-        BinaryOp shr;
-        UnaryOp invert;
-
-        // Inplace update
-        BinaryOp inp_add;
-        BinaryOp inp_sub;
-        UnaryOp inc;
-        UnaryOp dec;
-    };
-
-    /**
-     * @brief Models the behavior of the datatype that supports the subscript [] operator (e.g. list, dict, tuple).
-     */
-    struct SubscriptSlots {
-        ArSize_UnaryOp length;
-        BinaryOp get_item;
-        Bool_TernaryOp set_item;
-        BinaryOp get_slice;
-        Bool_TernaryOp set_slice;
-        BinaryOp item_in;
-    };
-
-    /**
-     * @brief An Argon type is represented by this structure.
-     */
-    struct TypeInfo {
-        AROBJ_HEAD;
-
-        /// Datatype name
-        const char *name;
-
-        /// An optional qualified name for datatype.
-        const char *qname;
-
-        /// An optional datatype documentation.
-        const char *doc;
-
-        /// Size of the object represented by this datatype (used for memory allocation).
-        const unsigned int size;
-
-        /// Datatype flags (change the behavior of the datatype under certain circumstances).
-        const TypeInfoFlags flags;
-
-        /// Datatype constructor.
-        VariadicOp ctor;
-
-        /// Datatype destructor.
-        Bool_UnaryOp dtor;
-
-        /// GC trace.
-        TraceOp trace;
-
-        /// Pointer to a function that implements datatype hashing.
-        ArSize_UnaryOp hash;
-
-        /// An optional pointer to function that returns datatype truthiness (if nullptr, the default is true).
-        Bool_UnaryOp is_true;
-
-        /// An optional pointer to function that make this datatype comparable.
-        CompareOp compare;
-
-        /// An optional pointer to function that returns the string representation.
-        UnaryConstOp repr;
-
-        /// An optional pointer to function that returns the string conversion.
-        UnaryConstOp str;
-
-        /// An optional pointer to function that returns datatype iterator.
-        UnaryBoolOp iter;
-
-        /// An optional pointer to function that returns next element.
-        UnaryOp iter_next;
-
-        /// Pointer to BufferSlots structure relevant only if the object implements bufferable behavior.
-        const BufferSlots *buffer;
-
-        /// Pointer to NumberSlots structure relevant only if the object implements numeric behavior.
-        const NumberSlots *number;
-
-        /// Pointer to ObjectSlots structure relevant only if the object implements instance like behavior.
-        const ObjectSlots *object;
-
-        /// Pointer to SubscriptSlots structure relevant only if the object implements "container" behavior.
-        const SubscriptSlots *subscriptable;
-
-        /// Pointer to OpSlots structure that contains the common operations for an object.
-        const OpSlots *ops;
-
-        ArObject *_t1;
-
-        ArObject *tp_map;
-    };
-
     extern const TypeInfo *type_type_;
-
-#define AR_GET_RC(object)                   ((object)->head_.ref_count_)
-#define AR_GET_TYPE(object)                 ((object)->head_.type_)
-
-#define AR_SLOT_BUFFER(object)              ((AR_GET_TYPE(object))->buffer)
-#define AR_SLOT_NUMBER(object)              ((AR_GET_TYPE(object))->number)
-#define AR_SLOT_OBJECT(_object)             ((AR_GET_TYPE(_object))->object)
-#define AR_SLOT_SUBSCRIPTABLE(object)       ((AR_GET_TYPE(object))->subscriptable)
-
-#define AR_ISITERABLE(object)               (AR_GET_TYPE(object)->iter != nullptr)
-#define AR_ISSUBSCRIPTABLE(object)          (AR_SLOT_SUBSCRIPTABLE(object) != nullptr)
-#define AR_HAVE_OBJECT_BEHAVIOUR(_object)   (AR_SLOT_OBJECT(_object) != nullptr)
-
-#define AR_SAME_TYPE(object, other)         (AR_GET_TYPE(object) == AR_GET_TYPE(other))
-#define AR_TYPE_NAME(object)                (AR_GET_TYPE(object)->name)
-#define AR_TYPE_QNAME(object)               (AR_GET_TYPE(object)->qname)
-#define AR_TYPEOF(object, type)             (AR_GET_TYPE(object) == (type))
-
-#define AR_GET_NSOFFSET(object)             (AR_HAVE_OBJECT_BEHAVIOUR(object) ?  \
-    ((ArObject **) (((unsigned char *) (object)) + AR_SLOT_OBJECT(object)->namespace_offset)) : nullptr)
-
-    struct ArObject {
-        AROBJ_HEAD;
-    };
 
     ArObject *Compare(const ArObject *self, const ArObject *other, CompareMode mode);
 
@@ -246,15 +68,15 @@ namespace argon::vm::datatype {
         if (ret == nullptr)
             return nullptr;
 
-        ret->head_.ref_count_ = memory::RCType::INLINE;
-        ret->head_.type_ = type;
+        AR_GET_RC(ret) = memory::RCType::INLINE;
+        AR_GET_TYPE(ret) = type;
 
         return (T *) ret;
     }
 
     template<typename T>
     T *MakeObject(TypeInfo *type) {
-        auto *ret = MakeObject < T > ((const TypeInfo *) type);
+        auto *ret = MakeObject<T>((const TypeInfo *) type);
         if (ret != nullptr)
             IncRef(type);
 
@@ -262,9 +84,23 @@ namespace argon::vm::datatype {
     }
 
     template<typename T>
-    T *MakeGCObject(const TypeInfo *type) {
-        // TODO STUB
-        auto *ret = MakeObject<T>((const TypeInfo *) type);
+    T *MakeGCObject(const TypeInfo *type, bool track) {
+        // N.B: It's risky to track an object before initializing its ReferenceCounter,
+        // but we can do it because the GC doesn't cycle until all worker threads have stopped,
+        // including the one currently allocating a new object.
+        auto *ret = memory::GCNew(type->size, track);
+
+        AR_GET_RC(ret) = memory::RCType::GC;
+        AR_GET_TYPE(ret) = type;
+
+        return (T *) ret;
+    }
+
+    template<typename T>
+    T *MakeGCObject(TypeInfo *type, bool track) {
+        auto *ret = MakeGCObject<T>((const TypeInfo *) type, track);
+        if (ret != nullptr)
+            IncRef(type);
 
         return ret;
     }

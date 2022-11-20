@@ -28,7 +28,7 @@ bool CheckSize(List *list, ArSize count) {
 }
 
 ArObject *list_iter(List *self, bool reverse) {
-    auto *li = MakeGCObject<ListIterator>(type_list_iterator_);
+    auto *li = MakeGCObject<ListIterator>(type_list_iterator_, false);
 
     if (li != nullptr) {
         li->list = IncRef(self);
@@ -126,7 +126,7 @@ bool argon::vm::datatype::ListInsert(List *list, ArObject *object, ArSSize index
 }
 
 List *argon::vm::datatype::ListNew(ArSize capacity) {
-    auto *list = MakeGCObject<List>(type_list_);
+    auto *list = MakeGCObject<List>(type_list_, false);
 
     if (list != nullptr) {
         list->objects = nullptr;

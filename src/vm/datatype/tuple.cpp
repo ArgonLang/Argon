@@ -9,7 +9,7 @@
 using namespace argon::vm::datatype;
 
 ArObject *tuple_iter(Tuple *self, bool reverse) {
-    auto *li = MakeGCObject<TupleIterator>(type_tuple_iterator_);
+    auto *li = MakeObject<TupleIterator>(type_tuple_iterator_);
 
     if (li != nullptr) {
         li->tuple = IncRef(self);

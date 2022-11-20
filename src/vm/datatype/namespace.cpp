@@ -124,7 +124,7 @@ bool argon::vm::datatype::NamespaceSet(Namespace *ns, ArObject *key, ArObject *v
 }
 
 Namespace *argon::vm::datatype::NamespaceNew() {
-    auto *ns = MakeGCObject<Namespace>(&NamespaceType);
+    auto *ns = MakeGCObject<Namespace>(&NamespaceType, true);
 
     if (ns != nullptr && !ns->ns.Initialize())
         Release(ns);

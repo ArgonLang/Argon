@@ -34,7 +34,7 @@ TypeInfo FunctionType = {
 const TypeInfo *argon::vm::datatype::type_function_ = &FunctionType;
 
 Function *FunctionNew(String *name, String *doc, unsigned short arity, FunctionFlags flags) {
-    auto *fn = MakeGCObject<Function>(type_function_);
+    auto *fn = MakeGCObject<Function>(type_function_, false);
 
     if (fn != nullptr) {
         fn->name = IncRef(name);

@@ -5,7 +5,7 @@
 #ifndef ARGON_MEMORY_GC_H_
 #define ARGON_MEMORY_GC_H_
 
-#include <vm/datatype/arobject.h>
+#include <vm/datatype/objectdef.h>
 
 #include "memory.h"
 
@@ -68,7 +68,7 @@ namespace argon::vm::memory {
         int times;
     };
 
-    datatype::ArObject *GCNew(datatype::ArSize length);
+    datatype::ArObject *GCNew(datatype::ArSize length, bool track);
 
     datatype::ArSize Collect(unsigned short generation);
 

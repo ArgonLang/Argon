@@ -235,7 +235,7 @@ Module *argon::vm::datatype::ModuleNew(ModuleInit *init) {
 }
 
 Module *argon::vm::datatype::ModuleNew(String *name, String *doc) {
-    auto *mod = MakeGCObject<Module>(type_module_);
+    auto *mod = MakeGCObject<Module>(type_module_, true);
 
     if (mod != nullptr) {
         if ((mod->ns = NamespaceNew()) == nullptr) {

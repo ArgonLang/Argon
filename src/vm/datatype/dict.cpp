@@ -133,7 +133,7 @@ bool argon::vm::datatype::DictRemove(Dict *dict, const char *key) {
 }
 
 Dict *argon::vm::datatype::DictNew() {
-    auto *dict = MakeGCObject<Dict>(type_dict_);
+    auto *dict = MakeGCObject<Dict>(type_dict_, false);
 
     if (dict != nullptr && !dict->hmap.Initialize())
         Release((ArObject **) &dict);
