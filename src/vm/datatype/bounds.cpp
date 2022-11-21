@@ -41,7 +41,7 @@ ArObject *bounds_compare(const Bounds *self, const Bounds *other, CompareMode mo
     return BoolToArBool(val);
 }
 
-ArObject *bounds_str(const Bounds *self) {
+ArObject *bounds_str(Bounds *self) {
     // return StringFormat("bounds(%i, %i, %i)", self->start, self->stop, self->step);
     return nullptr;
 }
@@ -68,7 +68,7 @@ TypeInfo BoundsType = {
         nullptr,
         (CompareOp) bounds_compare,
         nullptr,
-        (UnaryConstOp) bounds_str,
+        (UnaryOp) bounds_str,
         nullptr,
         nullptr,
         nullptr,

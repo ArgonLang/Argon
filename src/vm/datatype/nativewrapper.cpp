@@ -109,7 +109,7 @@ bool SetNumber(const NativeWrapper *wrapper, const ArObject *native, const ArObj
 }
 
 bool SetString(char **string, const ArObject *value) {
-    auto *str = (String *) Str(value);
+    auto *str = (String *) Str((ArObject *) value);
     char *tmp;
 
     if (str == nullptr)

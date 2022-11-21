@@ -288,7 +288,7 @@ ArObject *argon::vm::datatype::Repr(const ArObject *object) {
     return (ArObject *) StringFormat("<object %s @%p>", AR_TYPE_NAME(object), object);
 }
 
-ArObject *argon::vm::datatype::Str(const ArObject *object) {
+ArObject *argon::vm::datatype::Str(ArObject *object) {
     auto str = AR_GET_TYPE(object)->str;
 
     if (str != nullptr)

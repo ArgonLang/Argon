@@ -24,7 +24,7 @@ namespace argon::vm::datatype {
 
     ArObject *Repr(const ArObject *object);
 
-    ArObject *Str(const ArObject *object);
+    ArObject *Str(ArObject *object);
 
     bool AttributeSet(ArObject *object, ArObject *key, ArObject *value, bool static_attr);
 

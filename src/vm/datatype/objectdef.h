@@ -47,6 +47,7 @@ namespace argon::vm::datatype {
             return BoolToArBool((a) <= (b));    \
         default:                                \
             assert(false);                      \
+            return nullptr;                     \
     }                                           \
 
     enum class TypeInfoFlags : unsigned int {
@@ -283,7 +284,7 @@ ArObject *name##_fn(ArObject *_func, ArObject *_self, ArObject **args, ArObject 
         UnaryConstOp repr;
 
         /// An optional pointer to function that returns the string conversion.
-        UnaryConstOp str;
+        UnaryOp str;
 
         /// An optional pointer to function that returns datatype iterator.
         UnaryBoolOp iter;

@@ -54,7 +54,7 @@ ArSSize StringFormatter::FormatBytes() {
 }
 
 ArSSize StringFormatter::FormatString() {
-    const ArObject *obj;
+    ArObject *obj;
     String *str;
     ArSize str_len;
 
