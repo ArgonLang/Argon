@@ -8,6 +8,8 @@
 #include <cstdarg>
 #include <cstring>
 
+#include <vm/datatype/support/byteops.h>
+
 #include "arobject.h"
 
 #define ARGON_RAW_STRING(string)        ((string)->buffer)
@@ -44,16 +46,61 @@ namespace argon::vm::datatype {
     };
     extern const TypeInfo *type_string_;
 
+    /**
+     * @bref Returns the length of a unicode substring.
+     * This function is useful for taking substrings of length n from a unicode string,
+     * indicating the number of graphemes instead of the length in bytes,
+     * the function takes care of returning the correct length in bytes.
+     *
+     * @param string Argon string.
+     * @param offset String offset.
+     * @param graphemes Number of graphemes to include in the substring.
+     * @return Returns the length in bytes that is needed to correctly allocate the content of the substring.
+     */
     ArSize StringSubstrLen(const String *string, ArSize offset, ArSize graphemes);
 
+    /**
+     * @brief Search for a string within a string.
+     *
+     * @param string Argon string.
+     * @param pattern Argon string containing the pattern to search for.
+     * @return Returns the index at which the pattern value was found, otherwise -1.
+     */
+    inline ArSSize StringFind(const String *string, const String *pattern){
+        return support::Find(string->buffer, string->length, pattern->buffer, pattern->length, false);
+    }
+
+    /**
+     * @brief Check if two strings are equal
+     *
+     * @param string Argon string.
+     * @param c_str C-string.
+     * @return Returns true if the strings are equal, false otherwise.
+     */
     inline bool StringEqual(const String *string, const char *c_str) {
         return strcmp((const char *) ARGON_RAW_STRING(string), c_str)==0;
     }
 
+    /**
+     * @brief Check if string is empty.
+     *
+     * @param string Argon string.
+     * @return Returns true if the string is empty, false otherwise.
+     */
     inline bool StringIsEmpty(const String *string) {
         return string->length == 0;
     }
 
+    /**
+     * @brief Compares two strings lexicographically.
+     *
+     * @param left Left Argon string.
+     * @param right Right Argon string.
+     * @return An int value:
+     * 0 if the string is equal to the other string.
+     * < 0 if the string is lexicographically less than the other string.
+     * > 0 if the string is lexicographically greater than the other string (more characters).
+     */
     int StringCompare(const String *left, const String *right);
 
     /**
@@ -97,9 +144,20 @@ namespace argon::vm::datatype {
      * @brief Creates an exact copy of a String object in the String pool and return it.
      *
      * @param string The C-string to convert to Argon string.
+     * @param length The length of the C-string.
      * @return A pointer to an Argon string object, otherwise nullptr.
      */
-    String *StringIntern(const char *string);
+    String *StringIntern(const char *string, ArSize length);
+
+    /**
+     * @brief Creates an exact copy of a String object in the String pool and return it.
+     *
+     * @param string The C-string to convert to Argon string.
+     * @return A pointer to an Argon string object, otherwise nullptr.
+     */
+    inline String *StringIntern(const char *string) {
+        return StringIntern(string, strlen(string));
+    }
 
     /**
      * @brief Create new string.

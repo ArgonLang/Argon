@@ -45,7 +45,7 @@ namespace argon::vm::datatype {
     constexpr const char *kNotImplementedError[] = {
             (const char *) "NotImplementedError",
             (const char *) "you must implement method %s",
-            (const char *)"operator '%s' not supported between instance of '%s' and '%s'"
+            (const char *) "operator '%s' not supported between instance of '%s' and '%s'"
     };
 
     constexpr const char *kOOMError[] = {
@@ -68,7 +68,8 @@ namespace argon::vm::datatype {
 
     constexpr const char *kTypeError[] = {
             (const char *) "TypeError",
-            (const char *) "a type is required, not an instance of %s"
+            (const char *) "a type is required, not an instance of %s",
+            (const char *) "expected '%s' got '%s'"
     };
 
     constexpr const char *kUnassignableError[] = {
@@ -89,7 +90,9 @@ namespace argon::vm::datatype {
 
     constexpr const char *kUnicodeError[] = {
             (const char *) "UnicodeError",
-            (const char *) "can't decode byte 0x%x in unicode sequence"
+            (const char *) "can't decode byte 0x%x in unicode sequence",
+            (const char *) "unable to index a unicode string",
+            (const char *) "unable to slice a unicode string"
     };
 
     constexpr const char *kValueError[] = {

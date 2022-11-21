@@ -8,6 +8,7 @@
 #include <vm/runtime.h>
 
 #include "boolean.h"
+#include "bounds.h"
 #include "dict.h"
 #include "hash_magic.h"
 #include "integer.h"
@@ -50,36 +51,98 @@ String *StringInit(ArSize len, bool mkbuf) {
     return str;
 }
 
-ArObject *string_compare(const String *self, const ArObject *other, CompareMode mode) {
-    const auto *o = (const String *) other;
-    int left = 0;
-    int right = 0;
-    int res;
+bool string_get_buffer(String *self, ArBuffer *buffer, BufferFlags flags) {
+    return BufferSimpleFill((ArObject *) self, buffer, flags, self->buffer, 1, self->length, false);
+}
 
-    if (!AR_SAME_TYPE(self, other))
+const BufferSlots string_buffer = {
+        (BufferGetFn) string_get_buffer,
+        nullptr
+};
+
+const FunctionDef string_methods[] = {
+        ARGON_METHOD_SENTINEL
+};
+
+const ObjectSlots string_objslot = {
+        string_methods,
+        nullptr,
+        nullptr,
+        nullptr,
+        nullptr,
+        -1
+};
+
+ArSize string_length(const String *self) {
+    return STR_LEN(self);
+}
+
+ArObject *string_get_item(const String *self, ArObject *index) {
+    ArSSize idx;
+
+    if (self->kind != StringKind::ASCII) {
+        ErrorFormat(kUnicodeError[0], kUnicodeError[2]);
+        return nullptr;
+    }
+
+    if (AR_TYPEOF(index, type_int_)) {
+        idx = ((Integer *) index)->sint;
+        if (idx < 0)
+            idx = (ArSSize) (STR_LEN(self) + idx);
+    } else {
+        ErrorFormat(kTypeError[0], kTypeError[2], type_int_->name, AR_TYPE_NAME(index));
+        return nullptr;
+    }
+
+    return (ArObject *) StringIntern((const char *) STR_BUF(self) + idx, 1);
+}
+
+ArObject *string_get_slice(const String *self, ArObject *bounds) {
+    auto *b = (Bounds *) bounds;
+    String *ret;
+
+    ArSSize slice_len;
+    ArSSize start;
+    ArSSize stop;
+    ArSSize step;
+
+    if (self->kind != StringKind::ASCII) {
+        ErrorFormat(kUnicodeError[0], kUnicodeError[3]);
+        return nullptr;
+    }
+
+    slice_len = BoundsIndex(b, STR_LEN(self), &start, &stop, &step);
+
+    if ((ret = StringInit(slice_len, true)) == nullptr)
         return nullptr;
 
-    if (self == o)
-        return BoolToArBool(true);
+    ret->cp_length = slice_len;
 
-    if (mode == CompareMode::EQ && self->kind != o->kind)
-        return BoolToArBool(false);
+    if (step >= 0) {
+        for (ArSize i = 0; start < stop; start += step)
+            ret->buffer[i++] = self->buffer[start];
+    } else {
+        for (ArSize i = 0; stop < start; start += step)
+            ret->buffer[i++] = self->buffer[start];
+    }
 
-    res = StringCompare(self, o);
-    if (res < 0)
-        left = -1;
-    else if (res > 0)
-        right = -1;
-
-    ARGON_RICH_COMPARE_CASES(left, right, mode)
+    return (ArObject *) ret;
 }
 
-ArSize string_hash(String *self) {
-    if (self->hash == 0)
-        self->hash = HashBytes(self->buffer, self->length);
+ArObject *string_in(const String *self, const String *pattern) {
+    ArSSize index = StringFind(self, pattern);
 
-    return self->hash;
+    return BoolToArBool(index >= 0);
 }
+
+const SubscriptSlots string_subscript = {
+        (ArSize_UnaryOp) string_length,
+        (BinaryOp) string_get_item,
+        nullptr,
+        (BinaryOp) string_get_slice,
+        nullptr,
+        (BinaryOp) string_in
+};
 
 ArObject *string_add(const String *left, const String *right) {
     if (AR_TYPEOF(left, type_string_) && AR_SAME_TYPE(left, right))
@@ -89,7 +152,7 @@ ArObject *string_add(const String *left, const String *right) {
 }
 
 ArObject *string_mul(const String *left, const ArObject *right) {
-    const auto *l =  left;
+    const auto *l = left;
     String *ret = nullptr;
     UIntegerUnderlying times;
 
@@ -135,6 +198,72 @@ const OpSlots string_ops = {
         nullptr
 };
 
+ArObject *string_compare(const String *self, const ArObject *other, CompareMode mode) {
+    const auto *o = (const String *) other;
+    int left = 0;
+    int right = 0;
+    int res;
+
+    if (!AR_SAME_TYPE(self, other))
+        return nullptr;
+
+    if (self == o)
+        return BoolToArBool(true);
+
+    if (mode == CompareMode::EQ && self->kind != o->kind)
+        return BoolToArBool(false);
+
+    res = StringCompare(self, o);
+    if (res < 0)
+        left = -1;
+    else if (res > 0)
+        right = -1;
+
+    ARGON_RICH_COMPARE_CASES(left, right, mode)
+}
+
+ArObject *string_str(String *self) {
+    return (ArObject *) IncRef(self);
+}
+
+ArObject *string_repr(const String *self) {
+    StringBuilder builder;
+
+    builder.Write((const unsigned char *) "\"", 1, STR_LEN(self) + 1);
+    builder.WriteEscaped(STR_BUF(self), STR_LEN(self), 1, true);
+    builder.Write((const unsigned char *) "\"", 1, 0);
+
+    auto *ret = (ArObject *) builder.BuildString();
+    if (ret == nullptr) {
+        ret = (ArObject *) builder.GetError();
+
+        argon::vm::Panic(ret);
+
+        Release(ret);
+
+        return nullptr;
+    }
+
+    return ret;
+}
+
+ArSize string_hash(String *self) {
+    if (self->hash == 0)
+        self->hash = HashBytes(STR_BUF(self), STR_LEN(self));
+
+    return self->hash;
+}
+
+bool string_dtor(String *self) {
+    argon::vm::memory::Free(STR_BUF(self));
+
+    return true;
+}
+
+bool string_istrue(String *self) {
+    return STR_LEN(self) > 0;
+}
+
 TypeInfo StringType = {
         AROBJ_HEAD_INIT_TYPE,
         "String",
@@ -143,19 +272,19 @@ TypeInfo StringType = {
         sizeof(String),
         TypeInfoFlags::BASE,
         nullptr,
-        nullptr,
+        (Bool_UnaryOp) string_dtor,
         nullptr,
         (ArSize_UnaryOp) string_hash,
-        nullptr,
+        (Bool_UnaryOp) string_istrue,
         (CompareOp) string_compare,
+        (UnaryConstOp) string_repr,
+        (UnaryOp) string_str,
         nullptr,
         nullptr,
+        &string_buffer,
         nullptr,
-        nullptr,
-        nullptr,
-        nullptr,
-        nullptr,
-        nullptr,
+        &string_objslot,
+        &string_subscript,
         &string_ops,
         nullptr,
         nullptr
@@ -219,7 +348,15 @@ String *argon::vm::datatype::StringConcat(const String *left, const String *righ
 }
 
 String *argon::vm::datatype::StringConcat(const String *left, const char *string, ArSize length) {
-    assert(false);
+    auto *astr = StringNew(string, length);
+    if (astr == nullptr)
+        return nullptr;
+
+    auto *concat = StringConcat(left, astr);
+
+    Release(astr);
+
+    return concat;
 }
 
 String *argon::vm::datatype::StringFormat(const char *format, ...) {
@@ -254,7 +391,7 @@ String *argon::vm::datatype::StringFormat(const char *format, va_list args) {
     return str;
 }
 
-String *argon::vm::datatype::StringIntern(const char *string) {
+String *argon::vm::datatype::StringIntern(const char *string, ArSize length) {
     String *ret;
 
     // Initialize intern
@@ -276,17 +413,17 @@ String *argon::vm::datatype::StringIntern(const char *string) {
 
         empty_string = ret;
 
-        if (string == nullptr || strlen(string) == 0)
+        if (string == nullptr || length == 0)
             return ret;
 
         Release(ret);
     }
 
-    if (string == nullptr || strlen(string) == 0)
+    if (string == nullptr || length == 0)
         return IncRef(empty_string);
 
     if ((ret = (String *) DictLookup(intern, string)) == nullptr) {
-        if ((ret = StringNew(string)) == nullptr)
+        if ((ret = StringNew(string, length)) == nullptr)
             return nullptr;
 
         if (!DictInsert(intern, (ArObject *) ret, (ArObject *) ret)) {
