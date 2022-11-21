@@ -38,6 +38,29 @@ ArObject *Binary(ArObject *l, ArObject *r, int offset) {
 #undef GET_BINARY_OP
 }
 
+ArObject *Subscribe(ArObject *subscr, ArObject *index) {
+    if (!AR_ISSUBSCRIPTABLE(subscr)) {
+        ErrorFormat(kTypeError[0], "'%s' not subscriptable", AR_TYPE_NAME(subscr));
+        return nullptr;
+    }
+
+    if (AR_TYPEOF(index, type_bounds_)) {
+        if (AR_SLOT_SUBSCRIPTABLE(subscr)->get_slice == nullptr) {
+            ErrorFormat(kTypeError[0], "'%s' does not support slice operations", AR_TYPE_NAME(subscr));
+            return nullptr;
+        }
+
+        return AR_SLOT_SUBSCRIPTABLE(subscr)->get_slice(subscr, index);
+    }
+
+    if (AR_SLOT_SUBSCRIPTABLE(subscr)->get_item == nullptr) {
+        ErrorFormat(kTypeError[0], "'%s' does not support index operations", AR_TYPE_NAME(subscr));
+        return nullptr;
+    }
+
+    return AR_GET_TYPE(subscr)->subscriptable->get_item(subscr, index);
+}
+
 int Unpack(ArObject *iterable, ArObject **eval_stack, int len) {
     ArObject *iter;
     ArObject *item;
@@ -361,7 +384,7 @@ ArObject *argon::vm::Eval(Fiber *fiber) {
                 ArObject *stop = TOP();
                 ArObject *start = PEEK1();
 
-                cu_frame->eval_stack -= 2;
+                cu_frame->eval_stack--;
 
                 ret = (ArObject *) BoundsNew(start, stop, (ArObject *) Nil);
                 Release(stop);
@@ -650,14 +673,7 @@ ArObject *argon::vm::Eval(Fiber *fiber) {
                 BINARY_OP(sub, -);
             }
             TARGET_OP(SUBSCR) {
-                auto *subscr = PEEK1();
-
-                if (!AR_ISSUBSCRIPTABLE(subscr) || AR_GET_TYPE(subscr)->subscriptable->get_item == nullptr) {
-                    ErrorFormat(kTypeError[0], "'%s' not subscriptable", AR_TYPE_NAME(subscr));
-                    return nullptr;
-                }
-
-                if ((ret = AR_GET_TYPE(subscr)->subscriptable->get_item(subscr, TOP())) == nullptr)
+                if ((ret = Subscribe(PEEK1(), TOP())) == nullptr)
                     goto END_LOOP;
 
                 POP();
