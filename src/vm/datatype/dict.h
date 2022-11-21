@@ -5,6 +5,8 @@
 #ifndef ARGON_VM_DATATYPE_DICT_H_
 #define ARGON_VM_DATATYPE_DICT_H_
 
+#include <cstring>
+
 #include "arobject.h"
 #include "hashmap.h"
 
@@ -31,10 +33,23 @@ namespace argon::vm::datatype {
      *
      * @param dict Pointer to an instance of dict.
      * @param key Pointer to C-string to use as a key.
+     * @param length The length of the C-string.
      * @return A pointer to the object on success,
      * in case of error nullptr will be returned and the panic state will be set.
      */
-    ArObject *DictLookup(const Dict *dict, const char *key);
+    ArObject *DictLookup(const Dict *dict, const char *key, ArSize length);
+
+    /**
+     * @brief Look for the element \p key.
+     *
+     * @param dict Pointer to an instance of dict.
+     * @param key Pointer to C-string to use as a key.
+     * @return A pointer to the object on success,
+     * in case of error nullptr will be returned and the panic state will be set.
+     */
+    inline ArObject *DictLookup(const Dict *dict, const char *key) {
+        return DictLookup(dict, key, strlen(key));
+    }
 
     /**
      * @brief Insert an element into the dict.

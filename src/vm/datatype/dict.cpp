@@ -55,8 +55,8 @@ ArObject *argon::vm::datatype::DictLookup(const Dict *dict, ArObject *key) {
     return IncRef(entry->value);
 }
 
-ArObject *argon::vm::datatype::DictLookup(const Dict *dict, const char *key) {
-    auto *skey = StringNew(key);
+ArObject *argon::vm::datatype::DictLookup(const Dict *dict, const char *key, ArSize length) {
+    auto *skey = StringNew(key, length);
     if (skey == nullptr)
         return nullptr;
 
