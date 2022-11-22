@@ -303,13 +303,14 @@ ArObject *argon::vm::Eval(Fiber *fiber) {
                 if (key == nullptr) {
                     DiscardLastPanic();
 
-                    ErrorFormat(kRuntimeError[0], kRuntimeError[2], I32Arg(cu_frame->instr_ptr),
+                    ErrorFormat(kRuntimeError[0], kRuntimeError[3], I32Arg(cu_frame->instr_ptr),
                                 cu_code->statics->length);
 
                     goto END_LOOP;
                 }
 
                 ret = AttributeLoad(TOP(), key, false);
+
                 Release(key);
 
                 if (ret == nullptr)
@@ -348,6 +349,35 @@ ArObject *argon::vm::Eval(Fiber *fiber) {
             }
             TARGET_OP(LDLC) {
                 PUSH(IncRef(cu_frame->locals[I16Arg(cu_frame->instr_ptr)]));
+                DISPATCH();
+            }
+            TARGET_OP(LDMETH) {
+                auto *instance = TOP();
+                ArObject *key;
+
+                if ((key = TupleGet(cu_code->statics, (ArSSize) I32Arg(cu_frame->instr_ptr))) == nullptr) {
+                    DiscardLastPanic();
+
+                    ErrorFormat(kRuntimeError[0], kRuntimeError[3], I32Arg(cu_frame->instr_ptr),
+                                cu_code->statics->length);
+
+                    goto END_LOOP;
+                }
+
+                bool is_method;
+                ret = AttributeLoadMethod(instance, key, &is_method);
+
+                Release(key);
+
+                if (ret == nullptr)
+                    goto END_LOOP;
+
+                if (is_method) {
+                    *(cu_frame->eval_stack - 1) = ret;
+                    PUSH(instance);
+                } else
+                    TOP_REPLACE(ret);
+
                 DISPATCH();
             }
             TARGET_OP(LDSCOPE) {

@@ -2,6 +2,8 @@
 //
 // Licensed under the Apache License v2.0
 
+#include <vm/runtime.h>
+
 #include "arstring.h"
 #include "boolean.h"
 #include "error.h"
@@ -57,8 +59,9 @@ ArObject *type_get_attr(const ArObject *self, ArObject *key, bool static_attr) {
         return nullptr;
     }
 
-    // TODO if (argon::vm::GetRoutine()->frame != nullptr)
-    //        instance = argon::vm::GetRoutine()->frame->instance;
+    const auto *frame = argon::vm::GetFrame();
+    if (frame != nullptr)
+        instance = frame->instance;
 
     if (!static_attr && AR_SLOT_OBJECT(self)->namespace_offset >= 0)
         ret = NamespaceLookup(*ns, key, &aprop);
@@ -136,8 +139,9 @@ bool type_set_attr(ArObject *self, ArObject *key, ArObject *value, bool static_a
         return false;
     }
 
-    // TODO if (argon::vm::GetRoutine()->frame != nullptr)
-    //        instance = argon::vm::GetRoutine()->frame->instance;
+    const auto *frame = argon::vm::GetFrame();
+    if (frame != nullptr)
+        instance = frame->instance;
 
     if (AR_SLOT_OBJECT(self)->namespace_offset < 0) {
         ns = (Namespace **) &(AR_GET_TYPE(self)->tp_map);
@@ -277,6 +281,20 @@ ArObject *argon::vm::datatype::AttributeLoad(const ArObject *object, ArObject *k
         aload = AR_SLOT_OBJECT(object)->get_attr;
 
     return aload(object, key, static_attr);
+}
+
+ArObject *argon::vm::datatype::AttributeLoadMethod(const ArObject *object, ArObject *key, bool *is_method) {
+    ArObject *aload;
+
+    *is_method = false;
+
+    if ((aload = AttributeLoad(object, key, false)) == nullptr)
+        return nullptr;
+
+    if (AR_TYPEOF(aload, type_function_) && ((Function *) aload)->IsMethod())
+        *is_method = true;
+
+    return aload;
 }
 
 ArObject *argon::vm::datatype::Repr(const ArObject *object) {

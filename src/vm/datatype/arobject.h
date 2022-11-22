@@ -22,6 +22,8 @@ namespace argon::vm::datatype {
 
     ArObject *AttributeLoad(const ArObject *object, ArObject *key, bool static_attr);
 
+    ArObject *AttributeLoadMethod(const ArObject *object, ArObject *key, bool *is_method);
+
     ArObject *Repr(const ArObject *object);
 
     ArObject *Str(ArObject *object);
