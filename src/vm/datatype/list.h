@@ -42,11 +42,22 @@ namespace argon::vm::datatype {
 
     /**
      * @brief Append the contents of the iterator to the list.
+     *
      * @param list List object.
      * @param iterator Iterator to append.
      * @return True on success, in case of error false will be returned and the panic state will be set.
      */
     bool ListExtend(List *list, ArObject *iterator);
+
+    /**
+    * @brief Append the contents of the ArObject** to the list.
+    *
+    * @param list List object.
+    * @param object Array of objects to be append.
+    * @param count Number of elements in the object array.
+    * @return True on success, in case of error false will be returned and the panic state will be set.
+    */
+    bool ListExtend(List *list, ArObject **object, ArSize count);
 
     /**
      * @brief Insert element into the list.

@@ -88,6 +88,9 @@ bool argon::vm::datatype::ListAppend(List *list, ArObject *object) {
 }
 
 bool argon::vm::datatype::ListExtend(List *list, ArObject *iterator) {
+    if (iterator == nullptr)
+        return true;
+
     if (AR_TYPEOF(iterator, type_list_)) {
         // Fast-path
         const auto *right = (const List *) iterator;
@@ -104,6 +107,18 @@ bool argon::vm::datatype::ListExtend(List *list, ArObject *iterator) {
     }
 
     assert(false);
+}
+
+bool argon::vm::datatype::ListExtend(List *list, ArObject **object, ArSize count) {
+    if (!CheckSize(list, count))
+        return false;
+
+    for (ArSize i = 0; i < count; i++)
+        list->objects[list->length + i] = IncRef(object[i]);
+
+    list->length += count;
+
+    return true;
 }
 
 bool argon::vm::datatype::ListInsert(List *list, ArObject *object, ArSSize index) {
@@ -177,6 +192,9 @@ ArObject *listiterator_iter(ListIterator *self, bool reversed) {
 }
 
 ArObject *listiterator_iter_next(ListIterator *self) {
+    if (self->list == nullptr)
+        return nullptr;
+
     if (!self->reverse) {
         if (self->index < self->list->length) {
             auto *tmp = IncRef(self->list->objects[self->index]);
