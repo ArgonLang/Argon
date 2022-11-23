@@ -70,6 +70,23 @@ bool argon::vm::datatype::TupleInsert(Tuple *tuple, ArObject *object, ArSize ind
     return true;
 }
 
+Tuple *argon::vm::datatype::TupleConvertList(argon::vm::datatype::List **list) {
+    assert(AR_GET_RC(*list).GetStrongCount() == 1);
+
+    auto *tuple = MakeObject<Tuple>(type_tuple_);
+
+    if (tuple != nullptr) {
+        tuple->objects = (*list)->objects;
+        tuple->length = (*list)->length;
+
+        (*list)->objects = nullptr;
+
+        Release( list);
+    }
+
+    return tuple;
+}
+
 Tuple *argon::vm::datatype::TupleNew(ArObject *iterable) {
     auto *tuple = MakeObject<Tuple>(type_tuple_);
 
