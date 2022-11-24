@@ -109,7 +109,8 @@ namespace argon::vm::datatype {
 
     void Release(ArObject *object);
 
-    inline void Release(ArObject **object) {
+    template<typename T>
+    inline void Release(T **object) {
         Release(*object);
         *object = nullptr;
     }

@@ -7,11 +7,13 @@
 
 #include <vm/datatype/arobject.h>
 #include <vm/datatype/code.h>
+#include <vm/datatype/function.h>
 #include <vm/datatype/future.h>
 #include <vm/datatype/namespace.h>
 
-#include "panic.h"
 #include "frame.h"
+#include "opcode.h"
+#include "panic.h"
 
 namespace argon::vm {
     constexpr const unsigned short kFiberStackSize = 1024; // 1KB
@@ -55,6 +57,8 @@ namespace argon::vm {
     Fiber *FiberNew(unsigned int stack_space);
 
     Frame *FrameNew(Fiber *fiber, datatype::Code *code, datatype::Namespace *globals, bool floating);
+
+    Frame *FrameNew(Fiber *fiber, datatype::Function *func, datatype::ArObject **argv, datatype::ArSize argc, OpCodeCallMode mode);
 
     void FiberDel(Fiber *fiber);
 

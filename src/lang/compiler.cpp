@@ -533,6 +533,8 @@ void Compiler::CompileCall(const parser::Call *call) {
     else if (call->token_type == scanner::TokenType::KW_SPAWN)
         code = vm::OpCode::SPW;
 
+    this->unit_->DecrementStack(args);
+
     this->unit_->Emit(code, (unsigned char) mode, args, &call->loc);
 }
 
@@ -541,34 +543,34 @@ void Compiler::CompileCallKwArgs(vm::datatype::ArObject *args, int &args_count, 
     ARC param;
     ARC keys;
 
-    int index = 0;
+    int items = 0;
 
     iter = IteratorGet(args, false);
     if (!iter)
         throw DatatypeException();
 
-    keys = (ArObject *) ListNew();
-    if (!keys)
-        throw DatatypeException();
-
     while ((param = IteratorNext(iter.Get()))) {
         const auto *tmp = (const Unary *) param.Get();
 
-        if ((index & 1) == 0) {
-            if (!ListAppend((List *) keys.Get(), tmp->value))
-                throw DatatypeException();
-        } else {
+        if ((items & 1) == 0)
+            this->LoadStatic(tmp->value, false, true);
+        else
             this->Expression((const Node *) tmp);
-            args_count++;
-        }
 
-        index++;
+        items++;
     }
 
-    if (keys)
-        this->LoadStatic(keys.Get(), false, true);
+    this->unit_->DecrementStack(items);
+
+    this->unit_->Emit(vm::OpCode::MKDT, items, nullptr, nullptr);
 
     mode |= vm::OpCodeCallMode::KW_PARAMS;
+
+    if (ENUMBITMASK_ISTRUE(mode, vm::OpCodeCallMode::REST_PARAMS)){
+        this->unit_->Emit(vm::OpCode::PLT, nullptr);
+        return;
+    }
+
     args_count++;
 }
 
@@ -584,8 +586,11 @@ void Compiler::CompileCallPositional(vm::datatype::ArObject *args, int &args_cou
         const auto *tmp = (const Node *) param.Get();
 
         if (tmp->node_type == parser::NodeType::ELLIPSIS) {
-            if (ENUMBITMASK_ISFALSE(mode, vm::OpCodeCallMode::REST_PARAMS))
+            if (ENUMBITMASK_ISFALSE(mode, vm::OpCodeCallMode::REST_PARAMS)) {
+                this->unit_->DecrementStack(args_count);
+
                 this->unit_->Emit(vm::OpCode::MKLT, args_count, nullptr, nullptr);
+            }
 
             this->Expression((const Node *) ((const Unary *) tmp)->value);
 
@@ -937,7 +942,7 @@ void Compiler::CompileFunction(const parser::Function *func) {
 
         this->unit_->DecrementStack((int) fn_code->enclosed->length);
 
-        this->unit_->Emit(vm::OpCode::MKTP, (int) fn_code->enclosed->length, nullptr, nullptr);
+        this->unit_->Emit(vm::OpCode::MKLT, (int) fn_code->enclosed->length, nullptr, nullptr);
 
         this->unit_->DecrementStack(1);
 
@@ -997,11 +1002,9 @@ void Compiler::CompileFunctionParams(vm::datatype::List *params, unsigned short 
         if (p->node_type == parser::NodeType::REST) {
             flags |= FunctionFlags::VARIADIC;
             p_count--;
-            return;
         } else if (p->node_type == parser::NodeType::KWARG) {
             flags |= FunctionFlags::KWARGS;
             p_count--;
-            return;
         }
     }
 }

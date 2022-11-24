@@ -3,6 +3,7 @@
 // Licensed under the Apache License v2.0
 
 #include "fiber.h"
+#include "vm/datatype/nil.h"
 
 using namespace argon::vm;
 using namespace argon::vm::datatype;
@@ -78,6 +79,55 @@ Frame *argon::vm::FrameNew(Fiber *fiber, Code *code, Namespace *globals, bool fl
     slots -= code->stack_sz;
     while (slots-- > 0)
         frame->locals[slots] = nullptr;
+
+    return frame;
+}
+
+Frame *argon::vm::FrameNew(Fiber *fiber, Function *func, ArObject **argv, ArSize argc, OpCodeCallMode mode) {
+    ArObject *kwargs = nullptr;
+    List *rest = nullptr;
+    Frame *frame;
+
+    unsigned short index_locals = 0;
+    unsigned short index_argv = 0;
+    unsigned short remains;
+
+    if ((frame = FrameNew(fiber, func->code, func->gns, !func->IsGenerator())) == nullptr)
+        return nullptr;
+
+    // Push currying args
+    if (func->currying != nullptr) {
+        for (ArSize i = 0; i < func->currying->length; i++)
+            frame->locals[index_locals++] = IncRef(func->currying->objects[i]);
+    }
+
+    // Fill with stack args
+    remains = func->arity - index_locals;
+
+    if (ENUMBITMASK_ISTRUE(mode, OpCodeCallMode::KW_PARAMS)) {
+        // If mode == KW_PARAMS, the last element is the arguments dict
+        kwargs = IncRef(argv[argc - 1]);
+        argc--;
+    }
+
+    while (index_argv < remains && index_argv < argc)
+        frame->locals[index_locals++] = IncRef(argv[index_argv++]);
+
+    if (index_argv < argc) {
+        if ((rest = ListNew(argc - index_argv)) == nullptr) {
+            FrameDel(frame);
+            return nullptr;
+        }
+
+        while (index_argv < argc)
+            ListAppend(rest, argv[index_argv++]);
+    }
+
+    if (func->IsVariadic())
+        frame->locals[index_locals++] = NilOrValue((ArObject *) rest);
+
+    if (func->IsKWArgs())
+        frame->locals[index_locals++] = NilOrValue(kwargs);
 
     return frame;
 }

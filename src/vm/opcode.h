@@ -16,8 +16,9 @@ namespace argon::vm {
 
     inline unsigned int I32Arg(const unsigned char *instr) { return *((const Instr32 *) instr) >> (unsigned char) 8; }
 
-    inline unsigned char I32Flag(const unsigned char *instr) {
-        return (unsigned char) (I32Arg(instr) >> (unsigned char) 16);
+    template<typename T>
+    inline T I32Flag(const unsigned char *instr) {
+        return (T) (I32Arg(instr) >> (unsigned char) 16);
     }
 
     enum class OpCode : unsigned char {
@@ -129,13 +130,13 @@ namespace argon::vm {
             1,
             0,
             1,
-            0,
+            1,
             0,
             -1,
             1,
             -1,
             -1,
-            0,
+            1,
             -2,
             1,
             1,

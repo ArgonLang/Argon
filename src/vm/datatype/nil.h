@@ -16,6 +16,20 @@ namespace argon::vm::datatype {
     extern const TypeInfo *type_nil_;
 
     extern NilBase *Nil;
+
+    /**
+     * @brief Returns the object passed as an argument, or Nil if nullptr is passed.
+     * @warning The reference of the passed object is not incremented.
+     *
+     * @param object Object to return or nullptr.
+     * @return Object passed as an argument, or Nil if nullptr is passed.
+     */
+    inline ArObject *NilOrValue(ArObject *object) {
+        if (object == nullptr)
+            return (ArObject *) IncRef(Nil);
+
+        return object;
+    }
 } // namespace argon::vm::datatype
 
 #endif // !ARGON_VM_DATATYPE_NIL_H_

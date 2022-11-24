@@ -159,10 +159,6 @@ ArObject *argon::vm::Eval(Fiber *fiber) {
             TARGET_OP(ADD) {
                 BINARY_OP(add, +);
             }
-            TARGET_OP(CALL) {
-                auto args = I16Arg(cu_frame->instr_ptr);
-                assert(false);
-            }
             TARGET_OP(CMP) {
                 if ((ret = Compare(PEEK1(), TOP(), (CompareMode) I16Arg(cu_frame->instr_ptr))) == nullptr)
                     goto END_LOOP;
@@ -449,15 +445,15 @@ ArObject *argon::vm::Eval(Fiber *fiber) {
                 DISPATCH();
             }
             TARGET_OP(MKFN) {
-                auto flags = (FunctionFlags) I32Flag(cu_frame->instr_ptr);
+                auto flags = I32Flag<FunctionFlags>(cu_frame->instr_ptr);
                 auto *name = (String *) PEEK2();
                 auto *qname = (String *) PEEK1();
-                Tuple *enclosed = nullptr;
+                List *enclosed = nullptr;
 
                 ret = TOP();
 
                 if (ENUMBITMASK_ISTRUE(flags, FunctionFlags::CLOSURE)) {
-                    enclosed = (Tuple *) TOP();
+                    enclosed = (List *) TOP();
                     ret = PEEK1();
                     qname = (String *) PEEK2();
                     name = (String *) PEEK3();

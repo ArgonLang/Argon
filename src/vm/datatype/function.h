@@ -49,8 +49,8 @@ namespace argon::vm::datatype {
         /// Tuple that contains values for partial application.
         Tuple *currying;
 
-        /// Tuple that contains captured variables in a closure.
-        Tuple *enclosed;
+        /// List that contains captured variables in a closure.
+        List *enclosed;
 
         /// This pointer points to TypeInfo of the DataType in which this method was declared.
         TypeInfo *base;
@@ -65,13 +65,37 @@ namespace argon::vm::datatype {
         FunctionFlags flags;
 
         ArSize hash;
+
+        [[nodiscard]] bool IsGenerator() const {
+            return ENUMBITMASK_ISTRUE(this->flags, FunctionFlags::GENERATOR);
+        }
+
+        [[nodiscard]] bool IsKWArgs() const {
+            return ENUMBITMASK_ISTRUE(this->flags, FunctionFlags::KWARGS);
+        }
+
+        [[nodiscard]] bool IsMethod() const {
+            return ENUMBITMASK_ISTRUE(this->flags, FunctionFlags::METHOD);
+        }
+
+        [[nodiscard]] bool IsNative() const {
+            return ENUMBITMASK_ISTRUE(this->flags, FunctionFlags::NATIVE);
+        }
+
+        [[nodiscard]] bool IsVariadic() const {
+            return ENUMBITMASK_ISTRUE(this->flags, FunctionFlags::VARIADIC);
+        }
     };
     extern const TypeInfo *type_function_;
 
-    Function *FunctionNew(const FunctionDef *func, TypeInfo *base, Namespace *ns);
+    ArObject *FunctionInvokeNative(Function *func, ArObject **args, ArSize count, bool kwargs);
 
     Function *FunctionNew(Code *code, String *name, String *qname, Namespace *ns,
-                          Tuple *enclosed, unsigned short arity, FunctionFlags flags);
+                          List *enclosed, unsigned short arity, FunctionFlags flags);
+
+    Function *FunctionNew(const Function *func, ArObject **args, ArSize nargs);
+
+    Function *FunctionNew(const FunctionDef *func, TypeInfo *base, Namespace *ns);
 
 } // namespace argon::vm::datatype
 

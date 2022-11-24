@@ -69,7 +69,10 @@ namespace argon::vm::datatype {
     constexpr const char *kTypeError[] = {
             (const char *) "TypeError",
             (const char *) "a type is required, not an instance of %s",
-            (const char *) "expected '%s' got '%s'"
+            (const char *) "expected '%s' got '%s'",
+            (const char *)"%s() takes %d argument, but %d were given",
+            (const char *)"%s() does not accept keyword arguments",
+            (const char *)"method %s doesn't apply to '%s' type"
     };
 
     constexpr const char *kUnassignableError[] = {
