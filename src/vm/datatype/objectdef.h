@@ -126,7 +126,7 @@ ArObject *name##_fn(ArObject *_func, ArObject *_self, ArObject **args, ArObject 
 
 #define ARGON_METHOD(name, doc, arity, variadic, kw)                                                    \
 ArObject *name##_fn(ArObject *_func, ArObject *_self, ArObject **args, ArObject *kwargs, ArSize argc);  \
-FunctionDef name = {#name, doc, name##_fn, arity, variadic, kw, true};                                  \
+FunctionDef name = {#name, doc, name##_fn, (arity + 1), variadic, kw, true};                            \
 ArObject *name##_fn(ArObject *_func, ArObject *_self, ArObject **args, ArObject *kwargs, ArSize argc)
 
 #define ARGON_METHOD_SENTINEL {nullptr, nullptr, nullptr, 0, false, false, false}
