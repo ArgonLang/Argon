@@ -66,6 +66,10 @@ namespace argon::vm::datatype {
 
         ArSize hash;
 
+        [[nodiscard]] bool IsAsync() const {
+            return ENUMBITMASK_ISTRUE(this->flags, FunctionFlags::ASYNC);
+        }
+
         [[nodiscard]] bool IsGenerator() const {
             return ENUMBITMASK_ISTRUE(this->flags, FunctionFlags::GENERATOR);
         }

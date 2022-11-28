@@ -7,6 +7,7 @@
 
 #include <vm/datatype/arobject.h>
 #include <vm/datatype/code.h>
+#include <vm/datatype/function.h>
 #include <vm/datatype/namespace.h>
 
 #include "config.h"
@@ -20,6 +21,8 @@ namespace argon::vm {
     constexpr const unsigned short kVCoreQueueLengthMax = 256;
 
     argon::vm::datatype::ArObject *Eval(datatype::Code *code, datatype::Namespace *ns);
+
+    argon::vm::datatype::Future *EvalAsync(datatype::Function *func, datatype::ArObject **argv, datatype::ArSize argc, OpCodeCallMode mode);
 
     argon::vm::datatype::ArObject *EvalFile(const char *name, const char *path, datatype::Namespace *ns);
 

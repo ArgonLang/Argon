@@ -94,6 +94,101 @@ int Unpack(ArObject *iterable, ArObject **eval_stack, int len) {
     return count;
 }
 
+bool CallFunction(Fiber *fiber, Frame **cu_frame, const Code **cu_code) {
+    ArObject **eval_stack;
+    ArObject **args;
+    ArObject *ret;
+    Function *func;
+
+    ArSize stack_size;
+    ArSize total_args;
+    ArSize positional_args;
+    OpCodeCallMode mode;
+
+    bool ok = false;
+
+    stack_size = I16Arg((*cu_frame)->instr_ptr);
+    mode = I32Flag<OpCodeCallMode>((*cu_frame)->instr_ptr);
+
+    eval_stack = (*cu_frame)->eval_stack - stack_size;
+    args = eval_stack;
+
+    func = (Function *) *((*cu_frame)->eval_stack - (stack_size + 1));
+
+    total_args = stack_size;
+
+    if (ENUMBITMASK_ISTRUE(mode, OpCodeCallMode::REST_PARAMS)) {
+        args = ((List *) *eval_stack)->objects;
+        total_args = ((List *) *eval_stack)->length;
+    }
+
+    if (func->currying != nullptr)
+        total_args += func->currying->length;
+
+    positional_args = total_args;
+
+    if (ENUMBITMASK_ISTRUE(mode, OpCodeCallMode::KW_PARAMS)) {
+        if (!func->IsKWArgs()) {
+            ErrorFormat(kTypeError[0], kTypeError[4], ARGON_RAW_STRING(func->qname));
+            goto CLEANUP_ERROR;
+        }
+
+        positional_args--;
+    }
+
+    ret = nullptr;
+
+    (*cu_frame)->instr_ptr += OpCodeOffset[*(*cu_frame)->instr_ptr];
+
+    if (positional_args < func->arity) {
+        if (positional_args == 0) {
+            ErrorFormat(kTypeError[0], kTypeError[4], ARGON_RAW_STRING(func->qname));
+            goto CLEANUP_ERROR;
+        }
+
+        ret = (ArObject *) FunctionNew(func, args, positional_args);
+        goto CLEANUP;
+    }
+
+    if (positional_args > func->arity && !func->IsVariadic()) {
+        ErrorFormat(kTypeError[0], kTypeError[3], ARGON_RAW_STRING(func->qname), func->arity, total_args);
+        goto CLEANUP_ERROR;
+    }
+
+    if (func->IsNative()) {
+        ret = FunctionInvokeNative(func, args, total_args, ENUMBITMASK_ISTRUE(mode, OpCodeCallMode::KW_PARAMS));
+        goto CLEANUP;
+    }
+
+    if (!func->IsAsync()) {
+        auto *frame = FrameNew(fiber, func, args, total_args, mode);
+        if (frame == nullptr)
+            goto CLEANUP_ERROR;
+
+        *cu_frame = frame;
+        *cu_code = frame->code;
+
+        FiberPushFrame(fiber, frame);
+    } else {
+        if ((ret = (ArObject *) EvalAsync(func, args, total_args, mode)) == nullptr)
+            goto CLEANUP_ERROR;
+    }
+
+    CLEANUP:
+    ok = true;
+
+    CLEANUP_ERROR:
+    for (ArSize i = 0; i < stack_size; i++)
+        Release(eval_stack[i]);
+
+    (*cu_frame)->eval_stack -= stack_size;
+
+    if (ok && ret != nullptr)
+        *((*cu_frame)->eval_stack - 1) = ret;
+
+    return ok;
+}
+
 ArObject *argon::vm::Eval(Fiber *fiber) {
 #ifndef ARGON_FF_COMPUTED_GOTO
 #define TARGET_OP(op) case OpCode::op:
@@ -158,6 +253,12 @@ ArObject *argon::vm::Eval(Fiber *fiber) {
         switch (*((OpCode *) cu_frame->instr_ptr)) {
             TARGET_OP(ADD) {
                 BINARY_OP(add, +);
+            }
+            TARGET_OP(CALL) {
+                if (!CallFunction(fiber, &cu_frame, &cu_code))
+                    goto END_LOOP;
+
+                continue;
             }
             TARGET_OP(CMP) {
                 if ((ret = Compare(PEEK1(), TOP(), (CompareMode) I16Arg(cu_frame->instr_ptr))) == nullptr)

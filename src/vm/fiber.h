@@ -58,11 +58,17 @@ namespace argon::vm {
 
     Frame *FrameNew(Fiber *fiber, datatype::Code *code, datatype::Namespace *globals, bool floating);
 
-    Frame *FrameNew(Fiber *fiber, datatype::Function *func, datatype::ArObject **argv, datatype::ArSize argc, OpCodeCallMode mode);
+    Frame *FrameNew(Fiber *fiber, datatype::Function *func, datatype::ArObject **argv, datatype::ArSize argc,
+                    OpCodeCallMode mode);
 
     void FiberDel(Fiber *fiber);
 
     void FrameDel(Frame *frame);
+
+    inline void FiberPushFrame(Fiber *fiber, Frame *_new) {
+        _new->back = fiber->frame;
+        fiber->frame = _new;
+    }
 
 } // namespace argon::vm
 

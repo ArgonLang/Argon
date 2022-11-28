@@ -44,7 +44,6 @@ namespace argon::vm {
         /// At the end of each frame there is allocated space for(in this order): eval_stack + local_variables
         datatype::ArObject *extra[];
     };
-
 } // argon::vm
 
 #endif // !ARGON_VM_FRAME_H_

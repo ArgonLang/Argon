@@ -473,6 +473,7 @@ void Scheduler(OSThread *self) {
             continue;
         }
 
+        assert(self->fiber->frame == nullptr);
         PublishResult(self->fiber, result);
         Release(result);
     }
@@ -535,7 +536,7 @@ ArObject *argon::vm::Eval(Code *code, Namespace *ns) {
         return nullptr;
     }
 
-    fiber->future = future;
+    fiber->future = IncRef(future);
     fiber->frame = frame;
 
     fiber_global.Enqueue(fiber);
@@ -551,6 +552,35 @@ ArObject *argon::vm::Eval(Code *code, Namespace *ns) {
     Release(future);
 
     return result;
+}
+
+argon::vm::datatype::Future *argon::vm::EvalAsync(Function *func, ArObject **argv, ArSize argc, OpCodeCallMode mode) {
+    auto *fiber = AllocFiber();
+    if (fiber == nullptr)
+        return nullptr;
+
+    auto *frame = FrameNew(fiber, func, argv, argc, mode);
+    if (frame == nullptr) {
+        FreeFiber(fiber);
+        return nullptr;
+    }
+
+    // Set future
+    auto *future = FutureNew();
+    if (future == nullptr) {
+        FrameDel(frame);
+        FreeFiber(fiber);
+        return nullptr;
+    }
+
+    fiber->future = IncRef(future);
+    fiber->frame = frame;
+
+    fiber_global.Enqueue(fiber);
+
+    OSTWakeRun();
+
+    return future;
 }
 
 ArObject *argon::vm::EvalFile(const char *name, const char *path, Namespace *ns) {
