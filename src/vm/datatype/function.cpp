@@ -169,6 +169,13 @@ Function *argon::vm::datatype::FunctionNew(const Function *func, ArObject **args
 
     Release(list);
 
+    if(tuple == nullptr){
+        Release(fn);
+        return nullptr;
+    }
+
+    fn->currying = tuple;
+
     return fn;
 }
 

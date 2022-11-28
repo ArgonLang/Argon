@@ -38,7 +38,7 @@ void Fiber::FrameDel(Frame *frame) {
 }
 
 Fiber *argon::vm::FiberNew(unsigned int stack_space) {
-    auto *fiber = (Fiber *) memory::Alloc(sizeof(Fiber) + (sizeof(void *) + stack_space));
+    auto *fiber = (Fiber *) memory::Alloc(sizeof(Fiber) + stack_space);
 
     if (fiber != nullptr) {
         memory::MemoryZero(fiber, sizeof(Fiber));
@@ -47,7 +47,7 @@ Fiber *argon::vm::FiberNew(unsigned int stack_space) {
 
         fiber->stack_cur = fiber->stack_begin;
 
-        fiber->stack_end = fiber->stack_begin + (sizeof(void *) + stack_space);
+        fiber->stack_end = ((unsigned char*)fiber->stack_begin) + stack_space;
     }
 
     return fiber;
@@ -69,6 +69,8 @@ Frame *argon::vm::FrameNew(Fiber *fiber, Code *code, Namespace *globals, bool fl
 
     frame->globals = IncRef(globals);
     frame->code = IncRef(code);
+
+    frame->return_value = nullptr;
 
     frame->instr_ptr = (unsigned char *) code->instr;
 
@@ -92,7 +94,7 @@ Frame *argon::vm::FrameNew(Fiber *fiber, Function *func, ArObject **argv, ArSize
     unsigned short index_argv = 0;
     unsigned short remains;
 
-    if ((frame = FrameNew(fiber, func->code, func->gns, !func->IsGenerator())) == nullptr)
+    if ((frame = FrameNew(fiber, func->code, func->gns, func->IsGenerator())) == nullptr)
         return nullptr;
 
     // Push currying args
