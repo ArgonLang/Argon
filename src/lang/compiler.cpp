@@ -566,7 +566,7 @@ void Compiler::CompileCallKwArgs(vm::datatype::ArObject *args, int &args_count, 
 
     mode |= vm::OpCodeCallMode::KW_PARAMS;
 
-    if (ENUMBITMASK_ISTRUE(mode, vm::OpCodeCallMode::REST_PARAMS)){
+    if (ENUMBITMASK_ISTRUE(mode, vm::OpCodeCallMode::REST_PARAMS)) {
         this->unit_->Emit(vm::OpCode::PLT, nullptr);
         return;
     }
@@ -1847,6 +1847,26 @@ Code *Compiler::Compile(File *node) {
         // Cycle through program statements and call main compilation function
         while ((decl = IteratorNext(decl_iter.Get())))
             this->Compile((Node *) decl.Get());
+
+        /*
+         * If module is empty or last instruction is not a POP:
+         *      LSTATIC nil
+         *      RET
+         *
+         * If last instruction is POP:
+         *      replace POP with RET
+         *
+         * These changes allow to correctly manage the output in interactive mode!
+         */
+
+        auto *last = this->unit_->bb.cur->instr.tail;
+        if (last == nullptr || (vm::OpCode) last->opcode != vm::OpCode::POP) {
+            this->LoadStatic((ArObject *) Nil, true, true);
+            this->unit_->Emit(vm::OpCode::RET, nullptr);
+        } else
+            last->opcode = (unsigned char) vm::OpCode::RET;
+
+        // EOL
 
         code = this->unit_->Assemble();
 

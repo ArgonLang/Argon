@@ -61,6 +61,13 @@ namespace argon::vm {
     Frame *FrameNew(Fiber *fiber, datatype::Function *func, datatype::ArObject **argv, datatype::ArSize argc,
                     OpCodeCallMode mode);
 
+    inline Frame *FiberPopFrame(Fiber *fiber) {
+        auto *popped = fiber->frame;
+        fiber->frame = popped->back;
+
+        return popped;
+    }
+
     void FiberDel(Fiber *fiber);
 
     void FrameDel(Frame *frame);

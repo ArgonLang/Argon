@@ -151,7 +151,6 @@ void argon::vm::FrameDel(Frame *frame) {
     Release(code);
     Release(frame->globals);
     Release(frame->enclosed);
-    Release(frame->return_value);
 
     if (frame->fiber_id == 0) {
         memory::Free(frame);

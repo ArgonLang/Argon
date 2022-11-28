@@ -39,7 +39,7 @@ namespace argon::vm {
         datatype::List *enclosed;
 
         /// Value to be returned at the end of execution of this frame.
-        datatype::ArObject *return_value;
+        datatype::ArObject **return_value;
 
         /// At the end of each frame there is allocated space for(in this order): eval_stack + local_variables
         datatype::ArObject *extra[];

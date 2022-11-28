@@ -98,6 +98,7 @@ bool CallFunction(Fiber *fiber, Frame **cu_frame, const Code **cu_code) {
     ArObject **eval_stack;
     ArObject **args;
     ArObject *ret;
+    Frame *old_frame;
     Function *func;
 
     ArSize stack_size;
@@ -107,6 +108,7 @@ bool CallFunction(Fiber *fiber, Frame **cu_frame, const Code **cu_code) {
 
     bool ok = false;
 
+    old_frame = *cu_frame;
     stack_size = I16Arg((*cu_frame)->instr_ptr);
     mode = I32Flag<OpCodeCallMode>((*cu_frame)->instr_ptr);
 
@@ -168,6 +170,11 @@ bool CallFunction(Fiber *fiber, Frame **cu_frame, const Code **cu_code) {
         *cu_frame = frame;
         *cu_code = frame->code;
 
+        Release(*(eval_stack - 1));
+
+        *(eval_stack - 1) = (ArObject *) IncRef(Nil);
+        frame->return_value = (eval_stack - 1);
+
         FiberPushFrame(fiber, frame);
     } else {
         if ((ret = (ArObject *) EvalAsync(func, args, total_args, mode)) == nullptr)
@@ -181,10 +188,10 @@ bool CallFunction(Fiber *fiber, Frame **cu_frame, const Code **cu_code) {
     for (ArSize i = 0; i < stack_size; i++)
         Release(eval_stack[i]);
 
-    (*cu_frame)->eval_stack -= stack_size;
+    old_frame->eval_stack -= stack_size;
 
     if (ok && ret != nullptr)
-        *((*cu_frame)->eval_stack - 1) = ret;
+        *(old_frame->eval_stack - 1) = ret;
 
     return ok;
 }
@@ -249,7 +256,8 @@ ArObject *argon::vm::Eval(Fiber *fiber) {
 
     ArObject *ret = nullptr;
 
-    while (cu_frame->instr_ptr < cu_code->instr_end) {
+    // cu_frame != nullptr && cu_frame->instr_ptr < cu_code->instr_end
+    while (true) {
         switch (*((OpCode *) cu_frame->instr_ptr)) {
             TARGET_OP(ADD) {
                 BINARY_OP(add, +);
@@ -698,6 +706,17 @@ ArObject *argon::vm::Eval(Fiber *fiber) {
             TARGET_OP(POS) {
                 UNARY_OP(pos, +);
             }
+            TARGET_OP(RET) {
+                ret = TOP();
+
+                if (cu_frame->return_value != nullptr) {
+                    Release(*(cu_frame->return_value));
+                    *(cu_frame->return_value) = ret;
+                }
+
+                cu_frame->eval_stack--;
+                goto END_LOOP;
+            }
             TARGET_OP(SHL) {
                 BINARY_OP(shl, >>);
             }
@@ -835,9 +854,22 @@ ArObject *argon::vm::Eval(Fiber *fiber) {
                 ErrorFormat(kRuntimeError[0], "unknown opcode: 0x%X", *cu_frame->instr_ptr);
                 goto END_LOOP;
         }
+
+        END_LOOP:
+
+        STACK_REWIND(cu_frame->eval_stack - cu_frame->extra);
+
+        do {
+            // Defer!
+
+            FrameDel(FiberPopFrame(fiber));
+
+            if ((cu_frame = fiber->frame) == nullptr)
+                return ret;
+
+            cu_code = cu_frame->code;
+        } while (IsPanicking());
     }
 
-    END_LOOP:
-
-    return nullptr;
-}
+    assert(false); // Never get here!
+ }
