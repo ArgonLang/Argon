@@ -72,7 +72,9 @@ namespace argon::vm::datatype {
             (const char *) "expected '%s' got '%s'",
             (const char *)"%s() takes %d argument, but %d were given",
             (const char *)"%s() does not accept keyword arguments",
-            (const char *)"method %s doesn't apply to '%s' type"
+            (const char *)"method %s doesn't apply to '%s' type",
+            (const char *)"defer does not support %s (async function)",
+            (const char *)"defer does not support %s (generator function)"
     };
 
     constexpr const char *kUnassignableError[] = {

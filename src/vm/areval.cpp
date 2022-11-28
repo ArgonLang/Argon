@@ -94,7 +94,7 @@ int Unpack(ArObject *iterable, ArObject **eval_stack, int len) {
     return count;
 }
 
-bool CallFunction(Fiber *fiber, Frame **cu_frame, const Code **cu_code) {
+bool CallFunction(Fiber *fiber, Frame **cu_frame, const Code **cu_code, bool validate_only) {
     ArObject **eval_stack;
     ArObject **args;
     ArObject *ret;
@@ -140,10 +140,8 @@ bool CallFunction(Fiber *fiber, Frame **cu_frame, const Code **cu_code) {
 
     ret = nullptr;
 
-    (*cu_frame)->instr_ptr += OpCodeOffset[*(*cu_frame)->instr_ptr];
-
     if (positional_args < func->arity) {
-        if (positional_args == 0) {
+        if (positional_args == 0 || validate_only) {
             ErrorFormat(kTypeError[0], kTypeError[4], ARGON_RAW_STRING(func->qname));
             goto CLEANUP_ERROR;
         }
@@ -157,10 +155,15 @@ bool CallFunction(Fiber *fiber, Frame **cu_frame, const Code **cu_code) {
         goto CLEANUP_ERROR;
     }
 
+    if (validate_only)
+        return true;
+
     if (func->IsNative()) {
         ret = FunctionInvokeNative(func, args, total_args, ENUMBITMASK_ISTRUE(mode, OpCodeCallMode::KW_PARAMS));
         goto CLEANUP;
     }
+
+    (*cu_frame)->instr_ptr += OpCodeOffset[*(*cu_frame)->instr_ptr];
 
     if (!func->IsAsync()) {
         auto *frame = FrameNew(fiber, func, args, total_args, mode);
@@ -194,6 +197,39 @@ bool CallFunction(Fiber *fiber, Frame **cu_frame, const Code **cu_code) {
         *(old_frame->eval_stack - 1) = ret;
 
     return ok;
+}
+
+bool CallDefer(Fiber *fiber, Frame **cu_frame, const Code **cu_code) {
+    ArObject *ret;
+    Defer *defer;
+    Frame *frame;
+
+    defer = (*cu_frame)->defer;
+
+    while (defer != nullptr && defer->function->IsNative()) {
+        ret = FunctionInvokeNative(defer->function, nullptr, 0,
+                                   ENUMBITMASK_ISTRUE(defer->mode, OpCodeCallMode::KW_PARAMS));
+        Release(ret);
+
+        defer = DeferPop(&(*cu_frame)->defer);
+    }
+
+    if (defer == nullptr)
+        return false;
+
+    if ((frame = FrameNew(fiber, defer->function, defer->args, defer->count, defer->mode)) == nullptr)
+        return false;
+
+    DeferPop(&(*cu_frame)->defer);
+
+    *cu_frame = frame;
+    *cu_code = frame->code;
+
+    frame->return_value = frame->eval_stack; // short circuit
+
+    FiberPushFrame(fiber, frame);
+
+    return true;
 }
 
 ArObject *argon::vm::Eval(Fiber *fiber) {
@@ -255,15 +291,15 @@ ArObject *argon::vm::Eval(Fiber *fiber) {
     const Code *cu_code = cu_frame->code;
 
     ArObject *ret = nullptr;
+    ArObject *return_value = nullptr;
 
-    // cu_frame != nullptr && cu_frame->instr_ptr < cu_code->instr_end
-    while (true) {
+    while (cu_frame->instr_ptr < cu_code->instr_end) {
         switch (*((OpCode *) cu_frame->instr_ptr)) {
             TARGET_OP(ADD) {
                 BINARY_OP(add, +);
             }
             TARGET_OP(CALL) {
-                if (!CallFunction(fiber, &cu_frame, &cu_code))
+                if (!CallFunction(fiber, &cu_frame, &cu_code, false))
                     goto END_LOOP;
 
                 continue;
@@ -293,6 +329,30 @@ ArObject *argon::vm::Eval(Fiber *fiber) {
             }
             TARGET_OP(DEC) {
                 UNARY_OP(dec, --);
+            }
+            TARGET_OP(DFR) {
+                auto mode = I32Flag<OpCodeCallMode>(cu_frame->instr_ptr);
+                auto count = I16Arg(cu_frame->instr_ptr);
+                auto *func = (Function *) *(cu_frame->eval_stack - (count + 1));
+
+                if(func->IsAsync()) {
+                    ErrorFormat(kTypeError[0], kTypeError[6], ARGON_RAW_STRING(func->qname));
+                    goto END_LOOP;
+                }
+
+                if(func->IsGenerator()) {
+                    ErrorFormat(kTypeError[0], kTypeError[7], ARGON_RAW_STRING(func->qname));
+                    goto END_LOOP;
+                }
+
+                if (!CallFunction(fiber, &cu_frame, &cu_code, true))
+                    goto END_LOOP;
+
+                if (!DeferPush(&(cu_frame->defer), func, cu_frame->eval_stack - count, count, mode))
+                    goto END_LOOP;
+
+                STACK_REWIND(count + 1);
+                DISPATCH();
             }
             TARGET_OP(DIV) {
                 BINARY_OP(div, /);
@@ -707,14 +767,15 @@ ArObject *argon::vm::Eval(Fiber *fiber) {
                 UNARY_OP(pos, +);
             }
             TARGET_OP(RET) {
-                ret = TOP();
-
                 if (cu_frame->return_value != nullptr) {
                     Release(*(cu_frame->return_value));
-                    *(cu_frame->return_value) = ret;
-                }
+                    *(cu_frame->return_value) = TOP();
+                } else
+                    return_value = TOP();
 
                 cu_frame->eval_stack--;
+
+                cu_frame->instr_ptr += OpCodeOffset[*cu_frame->instr_ptr];
                 goto END_LOOP;
             }
             TARGET_OP(SHL) {
@@ -860,16 +921,21 @@ ArObject *argon::vm::Eval(Fiber *fiber) {
         STACK_REWIND(cu_frame->eval_stack - cu_frame->extra);
 
         do {
-            // Defer!
+            if (cu_frame->defer != nullptr &&
+                CallDefer(fiber, &cu_frame, &cu_code))
+                break;
 
             FrameDel(FiberPopFrame(fiber));
 
-            if ((cu_frame = fiber->frame) == nullptr)
-                return ret;
+            if ((cu_frame = fiber->frame) == nullptr) {
+                Release(return_value);
+                return nullptr;
+            }
 
             cu_code = cu_frame->code;
         } while (IsPanicking());
     }
 
-    assert(false); // Never get here!
- }
+    FrameDel(FiberPopFrame(fiber));
+    return return_value;
+}

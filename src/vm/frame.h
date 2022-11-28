@@ -10,12 +10,17 @@
 #include <vm/datatype/list.h>
 #include <vm/datatype/namespace.h>
 
+#include "defer.h"
+
 namespace argon::vm {
     struct Frame {
         datatype::ArSize fiber_id;
 
         /// Previous frame (caller).
         Frame *back;
+
+        /// Pointer to head of deferred stack.
+        Defer *defer;
 
         /// Pointer to global namespace.
         datatype::Namespace *globals;
