@@ -330,7 +330,7 @@ void OSTWakeRun() {
         return;
     }
 
-    if (ost_total > ost_max)
+    if ((ost_total + 1) > ost_max)
         return;
 
     if ((ost = AllocOST()) == nullptr) {
@@ -709,4 +709,12 @@ void argon::vm::Panic(datatype::ArObject *panic) {
 
     if ((panic_global = PanicNew(panic_global, panic)) == nullptr)
         PanicOOM(&panic_global, panic);
+}
+
+void argon::vm::Spawn(argon::vm::Fiber *fiber) {
+    fiber->status = FiberStatus::RUNNABLE;
+
+    fiber_global.Enqueue(fiber);
+
+    OSTWakeRun();
 }

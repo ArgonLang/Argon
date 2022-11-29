@@ -41,6 +41,8 @@ namespace argon::vm {
     void DiscardLastPanic();
 
     void Panic(datatype::ArObject *panic);
+
+    void Spawn(Fiber *fiber);
 } // namespace argon::vm
 
 #endif // !ARGON_VM_RUNTIME_H_
