@@ -21,6 +21,7 @@ namespace argon::lang::parser {
     enum class NodeType {
         ASSERT,
         ASSIGNMENT,
+        AWAIT,
         BINARY,
         BLOCK,
         CALL,

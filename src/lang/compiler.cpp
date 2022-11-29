@@ -1598,6 +1598,10 @@ void Compiler::CompileUpdate(const parser::Unary *update) {
 
 void Compiler::Expression(const Node *node) {
     switch (node->node_type) {
+        case NodeType::AWAIT:
+            this->Expression((const Node *) ((const Unary *) node)->value);
+            this->unit_->Emit(vm::OpCode::AWAIT, &node->loc);
+            break;
         case NodeType::CALL:
             this->CompileCall((const parser::Call *) node);
             break;

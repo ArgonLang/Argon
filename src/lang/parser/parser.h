@@ -78,6 +78,8 @@ namespace argon::lang::parser {
 
         Node *ParseArrowOrTuple();
 
+        Node *ParseAwait();
+
         Node *ParseBCFLabel();
 
         Node *ParseBlock(ParserScope scope);

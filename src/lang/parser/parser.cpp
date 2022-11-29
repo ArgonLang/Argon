@@ -139,6 +139,8 @@ Parser::NudMeth Parser::LookupNud(lang::scanner::TokenType token) const {
     switch (token) {
         case scanner::TokenType::KW_ASYNC:
             return &Parser::ParseAsync;
+        case scanner::TokenType::KW_AWAIT:
+            return &Parser::ParseAwait;
         case TokenType::IDENTIFIER:
         case TokenType::BLANK:
         case TokenType::SELF:
@@ -416,6 +418,27 @@ Node *Parser::ParseArrowOrTuple() {
 
     unary->loc.start = start;
     unary->loc.end = end;
+
+    return (Node *) unary;
+}
+
+Node *Parser::ParseAwait() {
+    Loc loc = this->tkcur_.loc;
+    Node *expr = nullptr;
+
+    this->Eat();
+    this->IgnoreNL();
+
+    expr = this->ParseExpression(40);
+
+    loc.end = expr->loc.end;
+
+    auto *unary = UnaryNew((ArObject *) expr, NodeType::AWAIT, loc);
+
+    Release(expr);
+
+    if (unary == nullptr)
+        throw DatatypeException();
 
     return (Node *) unary;
 }
@@ -1433,9 +1456,7 @@ Node *Parser::ParseOOBCall() {
     if (expr->node_type != NodeType::CALL) {
         Release(expr);
 
-        if (type == scanner::TokenType::KW_AWAIT)
-            throw ParserException("await expected call expression");
-        else if (type == scanner::TokenType::KW_DEFER)
+        if (type == scanner::TokenType::KW_DEFER)
             throw ParserException("defer expected call expression");
         else if (type == scanner::TokenType::KW_SPAWN)
             throw ParserException("spawn expected call expression");
@@ -1582,7 +1603,6 @@ Node *Parser::ParseStatement(ParserScope scope) {
             case TokenType::KW_ASSERT:
                 expr = (ArObject *) this->ParseAssertion();
                 break;
-            case TokenType::KW_AWAIT:
             case TokenType::KW_DEFER:
             case TokenType::KW_SPAWN:
             case TokenType::KW_TRAP:

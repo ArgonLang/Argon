@@ -175,7 +175,7 @@ namespace argon::vm {
 
     constexpr short OpCodeOffset[] = {
             1,
-            4,
+            1,
             4,
             2,
             1,
