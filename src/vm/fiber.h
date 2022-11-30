@@ -8,18 +8,23 @@
 #include <vm/datatype/arobject.h>
 #include <vm/datatype/code.h>
 #include <vm/datatype/function.h>
-#include <vm/datatype/future.h>
 #include <vm/datatype/namespace.h>
+
+#include <vm/sync/sync.h>
 
 #include "frame.h"
 #include "opcode.h"
 #include "panic.h"
 
+namespace argon::vm::datatype {
+    struct Future;
+}
+
 namespace argon::vm {
     constexpr const unsigned short kFiberStackSize = 1024; // 1KB
     constexpr const unsigned short kFiberPoolSize = 254; // Items
 
-    enum class FiberStatus : unsigned char {
+    enum class FiberStatus : unsigned long {
         BLOCKED,
         RUNNABLE,
         RUNNING,
@@ -27,6 +32,11 @@ namespace argon::vm {
     };
 
     struct Fiber {
+        /// Routine status.
+        FiberStatus status;
+
+        sync::NotifyQueueTicket ticket;
+
         struct {
             Fiber *next;
             Fiber *prev;
@@ -39,9 +49,6 @@ namespace argon::vm {
 
         /// Pointer to object that describe actual routine panic (if any...).
         struct Panic *panic;
-
-        /// Routine status.
-        FiberStatus status;
 
         void *stack_cur;
 

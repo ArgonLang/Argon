@@ -8,28 +8,40 @@
 #include <thread>
 #include <condition_variable>
 
-#include "atom.h"
+#include <vm/sync/ticket.h>
+
 #include "arobject.h"
 
 namespace argon::vm::datatype {
+    enum class FutureStatus {
+        FULFILLED,
+        PENDING,
+        REJECTED
+    };
+
     struct Future {
         AROBJ_HEAD;
 
-        ArObject *success;
-        ArObject *error;
-
-        Atom *status;
+        ArObject *value;
 
         struct {
             std::mutex lock;
             std::condition_variable cond;
+
+            sync::NotifyQueue queue;
         } wait;
+
+        FutureStatus status;
     };
     extern const TypeInfo *type_future_;
 
-    ArObject *FutureResult(Future *future, ArObject *success, ArObject *error);
+    ArObject *FutureResult(Future *future);
+
+    bool FutureAWait(Future *future);
 
     Future *FutureNew();
+
+    void FutureSetResult(Future *future, ArObject *success, ArObject *error);
 
     void FutureWait(Future *future);
 }

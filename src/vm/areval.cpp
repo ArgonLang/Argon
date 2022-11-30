@@ -6,6 +6,7 @@
 #include <vm/datatype/bounds.h>
 #include <vm/datatype/error.h>
 #include <vm/datatype/function.h>
+#include <vm/datatype/future.h>
 
 #include "opcode.h"
 #include "runtime.h"
@@ -173,11 +174,6 @@ bool CallFunction(Fiber *fiber, Frame **cu_frame, const Code **cu_code, bool val
         *cu_frame = frame;
         *cu_code = frame->code;
 
-        Release(*(eval_stack - 1));
-
-        *(eval_stack - 1) = (ArObject *) IncRef(Nil);
-        frame->return_value = (eval_stack - 1);
-
         FiberPushFrame(fiber, frame);
     } else {
         if ((ret = (ArObject *) EvalAsync(func, args, total_args, mode)) == nullptr)
@@ -191,10 +187,11 @@ bool CallFunction(Fiber *fiber, Frame **cu_frame, const Code **cu_code, bool val
     for (ArSize i = 0; i < stack_size; i++)
         Release(eval_stack[i]);
 
-    old_frame->eval_stack -= stack_size;
+    old_frame->eval_stack -= (stack_size + 1);
+    Release(old_frame->eval_stack); // Release function
 
     if (ok && ret != nullptr)
-        *(old_frame->eval_stack - 1) = ret;
+        *(old_frame->eval_stack++) = ret;
 
     return ok;
 }
@@ -224,8 +221,6 @@ bool CallDefer(Fiber *fiber, Frame **cu_frame, const Code **cu_code) {
 
     *cu_frame = frame;
     *cu_code = frame->code;
-
-    frame->return_value = frame->eval_stack; // short circuit
 
     FiberPushFrame(fiber, frame);
 
@@ -298,6 +293,23 @@ ArObject *argon::vm::Eval(Fiber *fiber) {
             TARGET_OP(ADD) {
                 BINARY_OP(add, +);
             }
+            TARGET_OP(AWAIT) {
+                auto *future = (Future *) TOP();
+
+                if (!AR_TYPEOF(future, type_future_)) {
+                    ErrorFormat(kTypeError[0], kTypeError[2], type_future_->name, AR_TYPE_NAME(TOP()));
+                    goto END_LOOP;
+                }
+
+                if (!FutureAWait(future))
+                    return nullptr;
+
+                if ((ret = FutureResult(future)) == nullptr)
+                    goto END_LOOP;
+
+                TOP_REPLACE(ret);
+                DISPATCH();
+            }
             TARGET_OP(CALL) {
                 if (!CallFunction(fiber, &cu_frame, &cu_code, false))
                     goto END_LOOP;
@@ -335,12 +347,12 @@ ArObject *argon::vm::Eval(Fiber *fiber) {
                 auto count = I16Arg(cu_frame->instr_ptr);
                 auto *func = (Function *) *(cu_frame->eval_stack - (count + 1));
 
-                if(func->IsAsync()) {
+                if (func->IsAsync()) {
                     ErrorFormat(kTypeError[0], kTypeError[6], ARGON_RAW_STRING(func->qname));
                     goto END_LOOP;
                 }
 
-                if(func->IsGenerator()) {
+                if (func->IsGenerator()) {
                     ErrorFormat(kTypeError[0], kTypeError[7], ARGON_RAW_STRING(func->qname));
                     goto END_LOOP;
                 }
@@ -767,16 +779,12 @@ ArObject *argon::vm::Eval(Fiber *fiber) {
                 UNARY_OP(pos, +);
             }
             TARGET_OP(RET) {
-                if (cu_frame->return_value != nullptr) {
-                    Release(*(cu_frame->return_value));
-                    *(cu_frame->return_value) = TOP();
-                } else
-                    return_value = TOP();
+                cu_frame->return_value = TOP();
 
                 cu_frame->eval_stack--;
 
                 cu_frame->instr_ptr += OpCodeOffset[*cu_frame->instr_ptr];
-                goto END_LOOP;
+                break;
             }
             TARGET_OP(SHL) {
                 BINARY_OP(shl, >>);
@@ -918,24 +926,41 @@ ArObject *argon::vm::Eval(Fiber *fiber) {
 
         END_LOOP:
 
-        STACK_REWIND(cu_frame->eval_stack - cu_frame->extra);
-
         do {
+            STACK_REWIND(cu_frame->eval_stack - cu_frame->extra);
+
+            cu_frame->eval_stack = nullptr;
+
             if (cu_frame->defer != nullptr &&
                 CallDefer(fiber, &cu_frame, &cu_code))
                 break;
 
+            ret = IncRef(cu_frame->return_value);
+
             FrameDel(FiberPopFrame(fiber));
 
-            if ((cu_frame = fiber->frame) == nullptr) {
-                Release(return_value);
-                return nullptr;
+            if (fiber->frame == nullptr)
+                goto END;
+
+            cu_frame = fiber->frame;
+            cu_code = cu_frame->code;
+
+            if (cu_frame->eval_stack == nullptr) {
+                // Deferred call
+                Release(ret);
+                continue;
             }
 
-            cu_code = cu_frame->code;
+            PUSH(ret);
         } while (IsPanicking());
     }
 
-    FrameDel(FiberPopFrame(fiber));
-    return return_value;
+    END:
+
+    if (IsPanicking()) {
+        Release(ret);
+        return nullptr;
+    }
+
+    return ret;
 }

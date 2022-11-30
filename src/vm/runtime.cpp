@@ -389,11 +389,11 @@ void PublishResult(Fiber *fiber, ArObject *result) {
         if (result == nullptr) {
             result = GetLastError();
 
-            FutureResult(fiber->future, nullptr, result);
+            FutureSetResult(fiber->future, nullptr, result);
             return;
         }
 
-        FutureResult(fiber->future, result, nullptr);
+        FutureSetResult(fiber->future, result, nullptr);
     } else {
         // TODO: else PrintStackTrace!
     }
@@ -545,9 +545,7 @@ ArObject *argon::vm::Eval(Code *code, Namespace *ns) {
 
     FutureWait(future);
 
-    auto *result = IncRef(future->success);
-    if (future->success == nullptr)
-        result = IncRef(future->error);
+    auto *result = IncRef(future->value);
 
     Release(future);
 
