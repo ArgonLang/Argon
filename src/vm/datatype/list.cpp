@@ -219,7 +219,7 @@ TypeInfo ListIteratorType = {
         "ListIterator",
         nullptr,
         nullptr,
-        sizeof(List),
+        sizeof(ListIterator),
         TypeInfoFlags::BASE,
         nullptr,
         nullptr,

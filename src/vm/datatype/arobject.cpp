@@ -513,6 +513,12 @@ void argon::vm::datatype::Release(ArObject *object) {
         if (AR_GET_TYPE(object)->dtor != nullptr)
             AR_GET_TYPE(object)->dtor(object);
 
+        if(AR_GET_RC(object).IsGcObject()){
+            // TODO FIX THIS!
+            argon::vm::memory::Free(memory::GCGetHead(object));
+            return;
+        }
+
         argon::vm::memory::Free(object);
     }
 }
