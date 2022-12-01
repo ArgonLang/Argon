@@ -39,10 +39,6 @@ TypeInfo FutureType = {
 };
 const TypeInfo *argon::vm::datatype::type_future_ = &FutureType;
 
-ArObject *argon::vm::datatype::FutureResult(Future *future) {
-    return IncRef(future->value);
-}
-
 bool argon::vm::datatype::FutureAWait(Future *future) {
     if (future->status != FutureStatus::PENDING)
         return true;
@@ -64,6 +60,10 @@ Future *argon::vm::datatype::FutureNew() {
     }
 
     return future;
+}
+
+Result *argon::vm::datatype::FutureResult(Future *future) {
+    return ResultNew(future->value, future->status == FutureStatus::FULFILLED);
 }
 
 void argon::vm::datatype::FutureSetResult(Future *future, ArObject *success, ArObject *error) {

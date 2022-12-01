@@ -304,7 +304,7 @@ ArObject *argon::vm::Eval(Fiber *fiber) {
                 if (!FutureAWait(future))
                     return nullptr;
 
-                if ((ret = FutureResult(future)) == nullptr)
+                if ((ret = (ArObject *) FutureResult(future)) == nullptr)
                     goto END_LOOP;
 
                 TOP_REPLACE(ret);
