@@ -227,6 +227,71 @@ bool CallDefer(Fiber *fiber, Frame **cu_frame, const Code **cu_code) {
     return true;
 }
 
+bool Spawn(Fiber *fiber, Frame **cu_frame, const Code **cu_code) {
+    ArObject **eval_stack;
+    ArObject **args;
+    Function *func;
+
+    ArSize stack_size;
+    ArSize total_args;
+    ArSize positional_args;
+    OpCodeCallMode mode;
+
+    stack_size = I16Arg((*cu_frame)->instr_ptr);
+    mode = I32Flag<OpCodeCallMode>((*cu_frame)->instr_ptr);
+
+    eval_stack = (*cu_frame)->eval_stack - stack_size;
+    args = eval_stack;
+
+    func = (Function *) *((*cu_frame)->eval_stack - (stack_size + 1));
+
+    total_args = stack_size;
+
+    if (ENUMBITMASK_ISTRUE(mode, OpCodeCallMode::REST_PARAMS)) {
+        args = ((List *) *eval_stack)->objects;
+        total_args = ((List *) *eval_stack)->length;
+    }
+
+    if (func->currying != nullptr)
+        total_args += func->currying->length;
+
+    positional_args = total_args;
+
+    if (ENUMBITMASK_ISTRUE(mode, OpCodeCallMode::KW_PARAMS)) {
+        if (!func->IsKWArgs()) {
+            ErrorFormat(kTypeError[0], kTypeError[4], ARGON_RAW_STRING(func->qname));
+            return false;
+        }
+
+        positional_args--;
+    }
+
+    if (positional_args < func->arity) {
+        // TODO: Error!
+        return false;
+    }
+
+    if (positional_args > func->arity && !func->IsVariadic()) {
+        ErrorFormat(kTypeError[0], kTypeError[3], ARGON_RAW_STRING(func->qname), func->arity, total_args);
+        return false;
+    }
+
+    if (func->IsAsync()) {
+        ErrorFormat(kTypeError[0], kTypeError[6], "spawn", ARGON_RAW_STRING(func->qname));
+        return false;
+    }
+
+    if (func->IsGenerator()) {
+        ErrorFormat(kTypeError[0], kTypeError[7], "spawn", ARGON_RAW_STRING(func->qname));
+        return false;
+    }
+
+    if(func->IsNative()){
+        // TODO: make native wrapper
+        // MAKE CODE HERE!
+    }
+}
+
 ArObject *argon::vm::Eval(Fiber *fiber) {
 #ifndef ARGON_FF_COMPUTED_GOTO
 #define TARGET_OP(op) case OpCode::op:
@@ -286,7 +351,6 @@ ArObject *argon::vm::Eval(Fiber *fiber) {
     const Code *cu_code = cu_frame->code;
 
     ArObject *ret = nullptr;
-    ArObject *return_value = nullptr;
 
     while (cu_frame->instr_ptr < cu_code->instr_end) {
         switch (*((OpCode *) cu_frame->instr_ptr)) {
@@ -348,12 +412,12 @@ ArObject *argon::vm::Eval(Fiber *fiber) {
                 auto *func = (Function *) *(cu_frame->eval_stack - (count + 1));
 
                 if (func->IsAsync()) {
-                    ErrorFormat(kTypeError[0], kTypeError[6], ARGON_RAW_STRING(func->qname));
+                    ErrorFormat(kTypeError[0], kTypeError[6], "defer", ARGON_RAW_STRING(func->qname));
                     goto END_LOOP;
                 }
 
                 if (func->IsGenerator()) {
-                    ErrorFormat(kTypeError[0], kTypeError[7], ARGON_RAW_STRING(func->qname));
+                    ErrorFormat(kTypeError[0], kTypeError[7], "defer", ARGON_RAW_STRING(func->qname));
                     goto END_LOOP;
                 }
 
@@ -791,6 +855,12 @@ ArObject *argon::vm::Eval(Fiber *fiber) {
             }
             TARGET_OP(SHR) {
                 BINARY_OP(shr, <<);
+            }
+            TARGET_OP(SPW) {
+                if (!::Spawn(fiber, &cu_frame, &cu_code))
+                    goto END_LOOP;
+
+                DISPATCH();
             }
             TARGET_OP(STATTR) {
                 auto *key = TupleGet(cu_code->statics, (ArSSize) I32Arg(cu_frame->instr_ptr));

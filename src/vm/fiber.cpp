@@ -8,21 +8,24 @@
 using namespace argon::vm;
 using namespace argon::vm::datatype;
 
-Frame *Fiber::FrameAlloc(bool *out_onstack, unsigned int size, bool floating) {
+Frame *Fiber::FrameAlloc(unsigned int size, bool floating) {
     auto *ret = (Frame *) this->stack_cur;
     auto requested = sizeof(Frame) + (size * sizeof(void *));
 
-    *out_onstack = false;
+    bool on_stack = false;
 
     if (!floating && ((((unsigned char *) this->stack_cur) + requested) < this->stack_end)) {
         this->stack_cur = (((unsigned char *) this->stack_cur) + requested);
 
-        *out_onstack = true;
+        on_stack = true;
     } else
         ret = (Frame *) memory::Alloc(requested);
 
     if (ret != nullptr)
         memory::MemoryZero(ret, sizeof(Frame));
+
+    if (on_stack)
+        ret->fiber_id = (ArSize) this;
 
     return ret;
 }
@@ -47,7 +50,7 @@ Fiber *argon::vm::FiberNew(unsigned int stack_space) {
 
         fiber->stack_cur = fiber->stack_begin;
 
-        fiber->stack_end = ((unsigned char*)fiber->stack_begin) + stack_space;
+        fiber->stack_end = ((unsigned char *) fiber->stack_begin) + stack_space;
     }
 
     return fiber;
@@ -55,17 +58,13 @@ Fiber *argon::vm::FiberNew(unsigned int stack_space) {
 
 Frame *argon::vm::FrameNew(Fiber *fiber, Code *code, Namespace *globals, bool floating) {
     auto slots = code->stack_sz;
-    bool on_stack;
 
     if (code->locals != nullptr)
         slots += code->locals->length;
 
-    auto *frame = fiber->FrameAlloc(&on_stack, slots, floating);
+    auto *frame = fiber->FrameAlloc(slots, floating);
     if (frame == nullptr)
         return nullptr;
-
-    if (on_stack)
-        frame->fiber_id = (ArSize) fiber;
 
     frame->globals = IncRef(globals);
     frame->code = IncRef(code);
@@ -85,6 +84,25 @@ Frame *argon::vm::FrameNew(Fiber *fiber, Code *code, Namespace *globals, bool fl
     return frame;
 }
 
+Frame *FrameWrapFnNew(Fiber *fiber, Function *func, ArObject **argv, ArSize argc, OpCodeCallMode mode) {
+    auto *code = CodeWrapFnCall(argc, mode);
+    if (code == nullptr)
+        return nullptr;
+
+    auto *frame = FrameNew(fiber, code, nullptr, false);
+    if (frame == nullptr) {
+        Release(code);
+        return nullptr;
+    }
+
+    *(frame->eval_stack++) = (ArObject *) IncRef(func);
+
+    for (int i = 0; i < argc; i++)
+        *(frame->eval_stack++) = IncRef(argv[i]);
+
+    return frame;
+}
+
 Frame *argon::vm::FrameNew(Fiber *fiber, Function *func, ArObject **argv, ArSize argc, OpCodeCallMode mode) {
     ArObject *kwargs = nullptr;
     List *rest = nullptr;
@@ -93,6 +111,9 @@ Frame *argon::vm::FrameNew(Fiber *fiber, Function *func, ArObject **argv, ArSize
     unsigned short index_locals = 0;
     unsigned short index_argv = 0;
     unsigned short remains;
+
+    if (func->IsNative())
+        return FrameWrapFnNew(fiber, func, argv, argc, mode);
 
     if ((frame = FrameNew(fiber, func->code, func->gns, func->IsGenerator())) == nullptr)
         return nullptr;

@@ -675,6 +675,26 @@ bool argon::vm::IsPanicking() {
     return panic_global != nullptr;
 }
 
+bool argon::vm::Spawn(Function *func, ArObject **argv, ArSize argc, OpCodeCallMode mode) {
+    auto *fiber = AllocFiber();
+    if (fiber == nullptr)
+        return false;
+
+    auto *frame = FrameNew(fiber, func, argv, argc, mode);
+    if (frame == nullptr) {
+        FreeFiber(fiber);
+        return false;
+    }
+
+    FiberPushFrame(fiber, frame);
+
+    fiber_global.Enqueue(fiber);
+
+    OSTWakeRun();
+
+    return true;
+}
+
 Fiber *argon::vm::GetFiber() {
     ON_ARGON_CONTEXT return ost_local->fiber;
 

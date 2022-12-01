@@ -45,14 +45,59 @@ Code *argon::vm::datatype::CodeNew(const unsigned char *instr, String *doc, List
 
         code->doc = IncRef(doc);
 
-        if ((code->statics = TupleNew((ArObject *) statics)) == nullptr)
+        if ((code->statics = TupleNew((ArObject *) statics)) == nullptr) {
             Release(code);
-        if ((code->names = TupleNew((ArObject *) names)) == nullptr)
+            return nullptr;
+        }
+
+        if ((code->names = TupleNew((ArObject *) names)) == nullptr) {
             Release(code);
-        if ((code->locals = TupleNew((ArObject *) locals)) == nullptr)
+            return nullptr;
+        }
+
+        if ((code->locals = TupleNew((ArObject *) locals)) == nullptr) {
             Release(code);
-        if ((code->enclosed = TupleNew((ArObject *) enclosed)) == nullptr)
+            return nullptr;
+        }
+
+        if ((code->enclosed = TupleNew((ArObject *) enclosed)) == nullptr) {
             Release(code);
+            return nullptr;
+        }
+    }
+
+    return code;
+}
+
+Code *argon::vm::datatype::CodeWrapFnCall(unsigned short argc, OpCodeCallMode mode) {
+    auto *code = MakeObject<Code>(&CodeType);
+    unsigned short instr_sz = vm::OpCodeOffset[(unsigned short) OpCode::CALL] +
+                              vm::OpCodeOffset[(unsigned short) OpCode::RET];
+
+    unsigned char *buf;
+
+    if (code != nullptr) {
+        if ((buf = (unsigned char *) memory::Alloc(instr_sz)) == nullptr) {
+            Release(code);
+            return nullptr;
+        }
+
+        code->instr = buf;
+
+        *((Instr32 *) buf) = ((((unsigned char) mode << 16u) | argc) << 8u) | (unsigned char) OpCode::CALL;
+        buf += 4;
+
+        *buf = (unsigned char) OpCode::RET;
+
+        code->instr_end = code->instr + instr_sz;
+        code->instr_sz = instr_sz;
+        code->stack_sz = argc + 1;
+
+        code->doc = nullptr;
+        code->statics = nullptr;
+        code->names = nullptr;
+        code->locals = nullptr;
+        code->enclosed = nullptr;
     }
 
     return code;

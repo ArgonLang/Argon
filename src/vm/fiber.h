@@ -56,7 +56,7 @@ namespace argon::vm {
 
         void *stack_begin[];
 
-        Frame *FrameAlloc(bool *out_onstack, unsigned int size, bool floating);
+        Frame *FrameAlloc(unsigned int size, bool floating);
 
         void FrameDel(Frame *frame);
     };

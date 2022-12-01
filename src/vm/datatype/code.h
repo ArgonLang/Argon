@@ -5,6 +5,8 @@
 #ifndef ARGON_VM_DATATYPE_CODE_H_
 #define ARGON_VM_DATATYPE_CODE_H_
 
+#include <vm/opcode.h>
+
 #include "arobject.h"
 #include "arstring.h"
 #include "list.h"
@@ -53,6 +55,8 @@ namespace argon::vm::datatype {
                   List *enclosed,
                   unsigned int instr_sz,
                   unsigned int stack_sz);
+
+    Code *CodeWrapFnCall(unsigned short argc, OpCodeCallMode mode);
 }
 
 #endif // !ARGON_VM_DATATYPE_CODE_H_
