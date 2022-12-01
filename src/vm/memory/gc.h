@@ -80,13 +80,17 @@ namespace argon::vm::memory {
 
     GCHead *GCGetHead(datatype::ArObject *object);
 
+    void GCFree(datatype::ArObject *object);
+
     void Sweep();
 
     void ThresholdCollect();
 
     void Track(datatype::ArObject *object);
 
-    void Untrack(datatype::ArObject *object);
+    void TrackIf(datatype::ArObject *track, datatype::ArObject *gc_object);
+
+    bool Untrack(datatype::ArObject *object);
 }
 
 #endif // !ARGON_MEMORY_GC_H_

@@ -60,7 +60,7 @@ Result *argon::vm::datatype::ResultNew(ArObject *value, bool success) {
         result->value = IncRef(value);
         result->success = success;
 
-        // TODO: track
+        memory::TrackIf((ArObject *) result, value);
     }
 
     return result;

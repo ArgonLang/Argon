@@ -244,6 +244,18 @@ GCHead *argon::vm::memory::GCGetHead(datatype::ArObject *object) {
     return (GCHead *) (((unsigned char *) object) - sizeof(GCHead));
 }
 
+void argon::vm::memory::GCFree(datatype::ArObject *object) {
+    auto *head = GCGetHead(object);
+
+    if (head == nullptr || !Untrack(object))
+        return;
+
+    if (AR_GET_TYPE(object)->dtor != nullptr)
+        AR_GET_TYPE(object)->dtor(object);
+
+    memory::Free(head);
+}
+
 void argon::vm::memory::Sweep() {
     GCHead *cursor;
 
@@ -306,16 +318,27 @@ void argon::vm::memory::Track(datatype::ArObject *object) {
     }
 }
 
-void argon::vm::memory::Untrack(datatype::ArObject *object) {
-    auto *head = GCGetHead(object);
+void argon::vm::memory::TrackIf(datatype::ArObject *track, datatype::ArObject *gc_object) {
+    auto *head = GCGetHead(gc_object);
 
+    if (head != nullptr)
+        Track(track);
+}
+
+bool argon::vm::memory::Untrack(datatype::ArObject *object) {
+    auto *head = GCGetHead(object);
     if (head == nullptr)
-        return;
+        return true;
 
     std::unique_lock lock(track_lock);
+    if(head->IsFinalized())
+        return false;
+
     if (head->IsTracked()) {
         GCHeadRemove(head);
         total_tracked--;
         deallocations++;
     }
+
+    return true;
 }

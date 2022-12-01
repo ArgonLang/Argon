@@ -505,21 +505,18 @@ void argon::vm::datatype::BufferRelease(ArBuffer *buffer) {
 }
 
 void argon::vm::datatype::Release(ArObject *object) {
-    // TODO: TMP IMPL!
     if (object == nullptr)
         return;
 
     if (AR_GET_RC(object).DecStrong()) {
-        if (AR_GET_TYPE(object)->dtor != nullptr)
-            AR_GET_TYPE(object)->dtor(object);
-
         if(AR_GET_RC(object).IsGcObject()){
-            // TODO FIX THIS!
-            argon::vm::memory::Free(memory::GCGetHead(object));
+            memory::GCFree(object);
             return;
         }
+
+        if (AR_GET_TYPE(object)->dtor != nullptr)
+            AR_GET_TYPE(object)->dtor(object);
 
         argon::vm::memory::Free(object);
     }
 }
-
