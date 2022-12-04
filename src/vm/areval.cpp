@@ -62,37 +62,58 @@ ArObject *Subscribe(ArObject *subscr, ArObject *index) {
     return AR_GET_TYPE(subscr)->subscriptable->get_item(subscr, index);
 }
 
-int Unpack(ArObject *iterable, ArObject **eval_stack, int len) {
-    ArObject *iter;
-    ArObject *item;
-
-    if (!AR_ISITERABLE(iterable)) {
-        ErrorFormat(kTypeError[0], "unpacking expression was expecting an iterable not a '%s'", AR_TYPE_NAME(iterable));
+bool STSubscribe(ArObject *subscr, ArObject *index, ArObject *value) {
+    if (!AR_ISSUBSCRIPTABLE(subscr)) {
+        ErrorFormat(kTypeError[0], "'%s' not subscriptable", AR_TYPE_NAME(subscr));
         return false;
     }
 
-    if ((iter = IteratorGet(iterable, false)) == nullptr)
-        return false;
+    if (AR_TYPEOF(index, type_bounds_)) {
+        if (AR_SLOT_SUBSCRIPTABLE(subscr)->set_slice == nullptr) {
+            ErrorFormat(kTypeError[0], "'%s' does not support slice operations", AR_TYPE_NAME(subscr));
+            return false;
+        }
 
-    eval_stack += len;
-
-    auto count = 0;
-    while ((item = IteratorNext(iter)) != nullptr && count < len)
-        *(eval_stack - ++count) = item;
-
-    Release(iter);
-
-    if (count != len) {
-        // Revert partial changes
-        for (auto i = 0; i < count; i++)
-            Release(*(eval_stack - i));
-
-        ErrorFormat(kTypeError[0], "incompatible number of value to unpack (expected '%d' got '%d')", len, count);
-
-        return -1;
+        return AR_SLOT_SUBSCRIPTABLE(subscr)->set_slice(subscr, index, value);
     }
 
-    return count;
+    if (AR_SLOT_SUBSCRIPTABLE(subscr)->set_item == nullptr) {
+        ErrorFormat(kTypeError[0], "'%s' does not support index operations", AR_TYPE_NAME(subscr));
+        return false;
+    }
+
+    return AR_SLOT_SUBSCRIPTABLE(subscr)->set_item(subscr, index, value);
+}
+
+bool CallDefer(Fiber *fiber, Frame **cu_frame, const Code **cu_code) {
+    ArObject *ret;
+    Defer *defer;
+    Frame *frame;
+
+    defer = (*cu_frame)->defer;
+
+    while (defer != nullptr && defer->function->IsNative()) {
+        ret = FunctionInvokeNative(defer->function, nullptr, 0,
+                                   ENUMBITMASK_ISTRUE(defer->mode, OpCodeCallMode::KW_PARAMS));
+        Release(ret);
+
+        defer = DeferPop(&(*cu_frame)->defer);
+    }
+
+    if (defer == nullptr)
+        return false;
+
+    if ((frame = FrameNew(fiber, defer->function, defer->args, defer->count, defer->mode)) == nullptr)
+        return false;
+
+    DeferPop(&(*cu_frame)->defer);
+
+    *cu_frame = frame;
+    *cu_code = frame->code;
+
+    FiberPushFrame(fiber, frame);
+
+    return true;
 }
 
 bool CallFunction(Fiber *fiber, Frame **cu_frame, const Code **cu_code, bool validate_only) {
@@ -190,37 +211,6 @@ bool CallFunction(Fiber *fiber, Frame **cu_frame, const Code **cu_code, bool val
     return true;
 }
 
-bool CallDefer(Fiber *fiber, Frame **cu_frame, const Code **cu_code) {
-    ArObject *ret;
-    Defer *defer;
-    Frame *frame;
-
-    defer = (*cu_frame)->defer;
-
-    while (defer != nullptr && defer->function->IsNative()) {
-        ret = FunctionInvokeNative(defer->function, nullptr, 0,
-                                   ENUMBITMASK_ISTRUE(defer->mode, OpCodeCallMode::KW_PARAMS));
-        Release(ret);
-
-        defer = DeferPop(&(*cu_frame)->defer);
-    }
-
-    if (defer == nullptr)
-        return false;
-
-    if ((frame = FrameNew(fiber, defer->function, defer->args, defer->count, defer->mode)) == nullptr)
-        return false;
-
-    DeferPop(&(*cu_frame)->defer);
-
-    *cu_frame = frame;
-    *cu_code = frame->code;
-
-    FiberPushFrame(fiber, frame);
-
-    return true;
-}
-
 bool Spawn(Frame *cu_frame) {
     ArObject **eval_stack;
     ArObject **args;
@@ -283,6 +273,39 @@ bool Spawn(Frame *cu_frame) {
     Release(cu_frame->eval_stack); // Release function
 
     return ok;
+}
+
+int Unpack(ArObject *iterable, ArObject **eval_stack, int len) {
+    ArObject *iter;
+    ArObject *item;
+
+    if (!AR_ISITERABLE(iterable)) {
+        ErrorFormat(kTypeError[0], "unpacking expression was expecting an iterable not a '%s'", AR_TYPE_NAME(iterable));
+        return false;
+    }
+
+    if ((iter = IteratorGet(iterable, false)) == nullptr)
+        return false;
+
+    eval_stack += len;
+
+    auto count = 0;
+    while ((item = IteratorNext(iter)) != nullptr && count < len)
+        *(eval_stack - ++count) = item;
+
+    Release(iter);
+
+    if (count != len) {
+        // Revert partial changes
+        for (auto i = 0; i < count; i++)
+            Release(*(eval_stack - i));
+
+        ErrorFormat(kTypeError[0], "incompatible number of value to unpack (expected '%d' got '%d')", len, count);
+
+        return -1;
+    }
+
+    return count;
 }
 
 ArObject *argon::vm::Eval(Fiber *fiber) {
@@ -934,14 +957,7 @@ ArObject *argon::vm::Eval(Fiber *fiber) {
                 DISPATCH();
             }
             TARGET_OP(STSUBSCR) {
-                auto *subscr = PEEK1();
-
-                if (!AR_ISSUBSCRIPTABLE(subscr) || AR_GET_TYPE(subscr)->subscriptable->set_item == nullptr) {
-                    ErrorFormat(kTypeError[0], "'%s' not subscriptable", AR_TYPE_NAME(subscr));
-                    return nullptr;
-                }
-
-                if (!AR_GET_TYPE(subscr)->subscriptable->set_item(subscr, TOP(), PEEK2()))
+                if (!STSubscribe(PEEK1(), TOP(), PEEK2()))
                     goto END_LOOP;
 
                 STACK_REWIND(3);
