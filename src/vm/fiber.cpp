@@ -133,7 +133,9 @@ Frame *argon::vm::FrameNew(Fiber *fiber, Function *func, ArObject **argv, ArSize
         argc--;
     }
 
-    while (index_argv < remains && index_argv < argc)
+    assert(argc>=remains); // argc cannot be less than remains
+
+    while (index_argv < remains)
         frame->locals[index_locals++] = IncRef(argv[index_argv++]);
 
     if (index_argv < argc) {
