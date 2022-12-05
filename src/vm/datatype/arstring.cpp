@@ -222,6 +222,18 @@ ArObject *string_compare(const String *self, const ArObject *other, CompareMode 
     ARGON_RICH_COMPARE_CASES(left, right, mode)
 }
 
+ArObject *string_iter(String *self, bool reverse) {
+    auto *si = MakeObject<StringIterator>(type_string_iterator_);
+
+    if (si != nullptr) {
+        si->iterable = IncRef(self);
+        si->index = 0;
+        si->reverse = reverse;
+    }
+
+    return (ArObject *) si;
+}
+
 ArObject *string_str(String *self) {
     return (ArObject *) IncRef(self);
 }
@@ -260,7 +272,7 @@ bool string_dtor(String *self) {
     return true;
 }
 
-bool string_istrue(String *self) {
+bool string_istrue(const String *self) {
     return STR_LEN(self) > 0;
 }
 
@@ -279,7 +291,7 @@ TypeInfo StringType = {
         (CompareOp) string_compare,
         (UnaryConstOp) string_repr,
         (UnaryOp) string_str,
-        nullptr,
+        (UnaryBoolOp) string_iter,
         nullptr,
         &string_buffer,
         nullptr,
@@ -466,3 +478,61 @@ String *argon::vm::datatype::StringNew(unsigned char *buffer, ArSize length, ArS
 
     return str;
 }
+
+// STRING ITERATOR
+
+ArObject *stringiterator_iter_next(StringIterator *self) {
+    const unsigned char *buf = STR_BUF(self->iterable) + self->index;
+    String *ret;
+    ArSize len = 1;
+
+    if (self->iterable == nullptr)
+        return nullptr;
+
+    if (!self->reverse)
+        len = StringSubstrLen(self->iterable, self->index, 1);
+    else {
+        buf--;
+
+        while (buf > STR_BUF(self->iterable) && (*buf >> 6 == 0x2)) {
+            buf--;
+            len++;
+        }
+    }
+
+    if ((ret = StringIntern((const char *) buf, len)) != nullptr) {
+        if (self->reverse)
+            self->index -= len;
+        else
+            self->index += len;
+    }
+
+    return (ArObject *) ret;
+}
+
+TypeInfo StringIteratorType = {
+        AROBJ_HEAD_INIT_TYPE,
+        "StringIterator",
+        nullptr,
+        nullptr,
+        sizeof(StringIterator),
+        TypeInfoFlags::BASE,
+        nullptr,
+        nullptr,
+        nullptr,
+        nullptr,
+        nullptr,
+        nullptr,
+        nullptr,
+        nullptr,
+        IteratorIter,
+        (UnaryOp) stringiterator_iter_next,
+        nullptr,
+        nullptr,
+        nullptr,
+        nullptr,
+        nullptr,
+        nullptr,
+        nullptr
+};
+const TypeInfo *argon::vm::datatype::type_string_iterator_ = &StringIteratorType;

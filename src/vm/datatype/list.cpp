@@ -31,7 +31,7 @@ ArObject *list_iter(List *self, bool reverse) {
     auto *li = MakeGCObject<ListIterator>(type_list_iterator_, false);
 
     if (li != nullptr) {
-        li->list = IncRef(self);
+        li->iterable = IncRef(self);
         li->index = 0;
         li->reverse = reverse;
     }
@@ -184,20 +184,13 @@ List *argon::vm::datatype::ListNew(ArObject *iterable) {
 
 // LIST ITERATOR
 
-ArObject *listiterator_iter(ListIterator *self, bool reversed) {
-    if (self->reverse == reversed)
-        return (ArObject *) IncRef(self);
-
-    return list_iter(self->list, reversed);
-}
-
 ArObject *listiterator_iter_next(ListIterator *self) {
-    if (self->list == nullptr)
+    if (self->iterable == nullptr)
         return nullptr;
 
     if (!self->reverse) {
-        if (self->index < self->list->length) {
-            auto *tmp = IncRef(self->list->objects[self->index]);
+        if (self->index < self->iterable->length) {
+            auto *tmp = IncRef(self->iterable->objects[self->index]);
 
             self->index++;
 
@@ -206,12 +199,12 @@ ArObject *listiterator_iter_next(ListIterator *self) {
         return nullptr;
     }
 
-    if (self->list->length - self->index == 0)
+    if (self->iterable->length - self->index == 0)
         return nullptr;
 
     self->index++;
 
-    return IncRef(self->list->objects[self->list->length - self->index]);
+    return IncRef(self->iterable->objects[self->iterable->length - self->index]);
 }
 
 TypeInfo ListIteratorType = {
@@ -229,7 +222,7 @@ TypeInfo ListIteratorType = {
         nullptr,
         nullptr,
         nullptr,
-        (UnaryBoolOp) listiterator_iter,
+        IteratorIter,
         (UnaryOp) listiterator_iter_next,
         nullptr,
         nullptr,

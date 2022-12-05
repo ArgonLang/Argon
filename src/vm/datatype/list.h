@@ -5,6 +5,7 @@
 #ifndef ARGON_VM_LIST_H_
 #define ARGON_VM_LIST_H_
 
+#include "iterator.h"
 #include "arobject.h"
 
 namespace argon::vm::datatype {
@@ -19,15 +20,7 @@ namespace argon::vm::datatype {
     };
     extern const TypeInfo *type_list_;
 
-    struct ListIterator {
-        AROBJ_HEAD;
-
-        List *list;
-
-        ArSize index;
-
-        bool reverse;
-    };
+    using ListIterator = Iterator<List>;
     extern const TypeInfo *type_list_iterator_;
 
     ArObject *ListGet(List *list, ArSSize index);

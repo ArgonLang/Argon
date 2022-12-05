@@ -10,6 +10,7 @@
 
 #include <vm/datatype/support/byteops.h>
 
+#include "iterator.h"
 #include "arobject.h"
 
 #define ARGON_RAW_STRING(string)        ((string)->buffer)
@@ -46,8 +47,12 @@ namespace argon::vm::datatype {
     };
     extern const TypeInfo *type_string_;
 
+    using StringIterator = Iterator<String>;
+    extern const TypeInfo *type_string_iterator_;
+
     /**
      * @bref Returns the length of a unicode substring.
+     *
      * This function is useful for taking substrings of length n from a unicode string,
      * indicating the number of graphemes instead of the length in bytes,
      * the function takes care of returning the correct length in bytes.
