@@ -119,14 +119,14 @@ namespace argon::vm::datatype {
         bool method;
     };
 
-#define ARGON_FUNCTION(name, doc, arity, variadic, kw)                                                  \
+#define ARGON_FUNCTION(name, exported_name, doc, arity, variadic, kw)                                   \
 ArObject *name##_fn(ArObject *_func, ArObject *_self, ArObject **args, ArObject *kwargs, ArSize argc);  \
-FunctionDef name = {#name, doc, name##_fn, arity, variadic, kw, false};                                 \
+FunctionDef name = {#exported_name, doc, name##_fn, arity, variadic, kw, false};                        \
 ArObject *name##_fn(ArObject *_func, ArObject *_self, ArObject **args, ArObject *kwargs, ArSize argc)
 
-#define ARGON_METHOD(name, doc, arity, variadic, kw)                                                    \
+#define ARGON_METHOD(name, exported_name, doc, arity, variadic, kw)                                     \
 ArObject *name##_fn(ArObject *_func, ArObject *_self, ArObject **args, ArObject *kwargs, ArSize argc);  \
-FunctionDef name = {#name, doc, name##_fn, (arity + 1), variadic, kw, true};                            \
+FunctionDef name = {#exported_name, doc, name##_fn, (arity + 1), variadic, kw, true};                   \
 ArObject *name##_fn(ArObject *_func, ArObject *_self, ArObject **args, ArObject *kwargs, ArSize argc)
 
 #define ARGON_METHOD_SENTINEL {nullptr, nullptr, nullptr, 0, false, false, false}
@@ -309,7 +309,7 @@ ArObject *name##_fn(ArObject *_func, ArObject *_self, ArObject **args, ArObject 
         /// Pointer to OpSlots structure that contains the common operations for an object.
         const OpSlots *ops;
 
-        ArObject *_t1;
+        ArObject *mro;
 
         ArObject *tp_map;
     };

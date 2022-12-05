@@ -17,10 +17,10 @@
 using namespace argon::vm::datatype;
 
 ArObject *MROSearch(const TypeInfo *type, ArObject *key, AttributeProperty *aprop) {
-    if (type->_t1 == nullptr)
+    if (type->mro == nullptr)
         return nullptr;
 
-    const auto *mro = (Tuple *) type->_t1;
+    const auto *mro = (Tuple *) type->mro;
     for (ArSize i = 0; i < mro->length; i++) {
         const auto *cursor = (const TypeInfo *) mro->objects[i];
 
@@ -70,7 +70,7 @@ ArObject *type_get_attr(const ArObject *self, ArObject *key, bool static_attr) {
         if (ancestor->tp_map != nullptr)
             ret = NamespaceLookup((Namespace *) ancestor->tp_map, key, &aprop);
 
-        if (ret == nullptr && ancestor->_t1 != nullptr)
+        if (ret == nullptr && ancestor->mro != nullptr)
             ret = MROSearch(ancestor, key, &aprop);
     }
 
@@ -119,7 +119,7 @@ bool type_dtor(TypeInfo *self) {
     argon::vm::memory::Free((void *) self->qname);
     argon::vm::memory::Free((void *) self->doc);
 
-    Release(self->_t1);
+    Release(self->mro);
     Release(self->tp_map);
 
     return true;
@@ -482,10 +482,10 @@ bool argon::vm::datatype::TraitIsImplemented(const ArObject *object, const TypeI
     if (obj_type == type)
         return true;
 
-    if (obj_type->_t1 == nullptr)
+    if (obj_type->mro == nullptr)
         return false;
 
-    const auto *mro = (Tuple *) obj_type->_t1;
+    const auto *mro = (Tuple *) obj_type->mro;
     for (ArSize i = 0; i < mro->length; i++) {
         if ((const TypeInfo *) mro->objects[i] == type)
             return true;
