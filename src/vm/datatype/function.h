@@ -10,6 +10,7 @@
 #include "code.h"
 #include "tuple.h"
 #include "namespace.h"
+#include "pcheck.h"
 
 namespace argon::vm::datatype {
     enum class FunctionFlags : unsigned char {
@@ -45,6 +46,9 @@ namespace argon::vm::datatype {
 
         /// Function docs.
         String *doc;
+
+        /// Params checker
+        PCheck *pcheck;
 
         /// Tuple that contains values for partial application.
         Tuple *currying;

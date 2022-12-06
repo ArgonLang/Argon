@@ -106,8 +106,8 @@ namespace argon::vm::datatype {
         /* Pointer to native code */
         FunctionPtr func;
 
-        /* Arity of the function, how many args accepts in input?! */
-        unsigned short arity;
+        /* C-String describing the parameters that the function accepts as input. */
+        const char *params;
 
         /* Is a variadic function? (func variadic(p1,p2,...p3)) */
         bool variadic;
@@ -119,14 +119,14 @@ namespace argon::vm::datatype {
         bool method;
     };
 
-#define ARGON_FUNCTION(name, exported_name, doc, arity, variadic, kw)                                   \
+#define ARGON_FUNCTION(name, exported_name, doc, params, variadic, kw)                                  \
 ArObject *name##_fn(ArObject *_func, ArObject *_self, ArObject **args, ArObject *kwargs, ArSize argc);  \
-FunctionDef name = {#exported_name, doc, name##_fn, arity, variadic, kw, false};                        \
+FunctionDef name = {#exported_name, doc, name##_fn, params, variadic, kw, false};                       \
 ArObject *name##_fn(ArObject *_func, ArObject *_self, ArObject **args, ArObject *kwargs, ArSize argc)
 
-#define ARGON_METHOD(name, exported_name, doc, arity, variadic, kw)                                     \
+#define ARGON_METHOD(name, exported_name, doc, params, variadic, kw)                                    \
 ArObject *name##_fn(ArObject *_func, ArObject *_self, ArObject **args, ArObject *kwargs, ArSize argc);  \
-FunctionDef name = {#exported_name, doc, name##_fn, (arity + 1), variadic, kw, true};                   \
+FunctionDef name = {#exported_name, doc, name##_fn, params, variadic, kw, true};                        \
 ArObject *name##_fn(ArObject *_func, ArObject *_self, ArObject **args, ArObject *kwargs, ArSize argc)
 
 #define ARGON_METHOD_SENTINEL {nullptr, nullptr, nullptr, 0, false, false, false}

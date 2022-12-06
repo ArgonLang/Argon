@@ -34,6 +34,38 @@ TypeInfo FunctionType = {
 };
 const TypeInfo *argon::vm::datatype::type_function_ = &FunctionType;
 
+bool FunctionCheckParams(const PCheck *pcheck, ArObject **args, ArSize count) {
+    if (pcheck == nullptr)
+        return true;
+
+    assert(pcheck->count == count);
+
+    for (int i = 0; i < count; i++) {
+        const auto *param = pcheck->params[i];
+        const auto *arg = args[i];
+        bool ok = false;
+
+        if (*param->types == nullptr)
+            continue;
+
+        for (auto cursor = param->types; *cursor != nullptr; cursor++) {
+            if (AR_TYPEOF(arg, *cursor)) {
+                ok = true;
+                break;
+            }
+        }
+
+        if (!ok) {
+            ErrorFormat(kTypeError[0],
+                        "unexpected '%s' type for '%s' parameter(%d)",
+                        AR_TYPE_NAME(arg), param->name, i);
+            return false;
+        }
+    }
+
+    return true;
+}
+
 Function *FunctionClone(const Function *func) {
     auto *fn = MakeGCObject<Function>(type_function_, false);
 
@@ -43,6 +75,7 @@ Function *FunctionClone(const Function *func) {
         fn->name = IncRef(func->name);
         fn->qname = IncRef(func->qname);
         fn->doc = IncRef(func->doc);
+        fn->pcheck = IncRef(func->pcheck);
         fn->currying = IncRef(func->currying);
         fn->enclosed = IncRef(func->enclosed);
         fn->base = IncRef(func->base);
@@ -61,6 +94,7 @@ Function *FunctionNew(String *name, String *doc, unsigned short arity, FunctionF
         fn->name = IncRef(name);
         fn->qname = nullptr;
         fn->doc = IncRef(doc);
+        fn->pcheck = nullptr;
         fn->currying = nullptr;
         fn->enclosed = nullptr;
         fn->base = nullptr;
@@ -122,7 +156,8 @@ ArObject *argon::vm::datatype::FunctionInvokeNative(Function *func, ArObject **a
         f_count--;
     }
 
-    ret = func->native((ArObject *) func, instance, f_args, f_kwargs, f_count);
+    if (FunctionCheckParams(func->pcheck, f_args, f_count))
+        ret = func->native((ArObject *) func, instance, f_args, f_kwargs, f_count);
 
     ERROR:
     if (free_args)
@@ -169,7 +204,7 @@ Function *argon::vm::datatype::FunctionNew(const Function *func, ArObject **args
 
     Release(list);
 
-    if(tuple == nullptr){
+    if (tuple == nullptr) {
         Release(fn);
         return nullptr;
     }
@@ -181,6 +216,8 @@ Function *argon::vm::datatype::FunctionNew(const Function *func, ArObject **args
 
 Function *argon::vm::datatype::FunctionNew(const FunctionDef *func, TypeInfo *base, Namespace *ns) {
     FunctionFlags flags = FunctionFlags::NATIVE;
+    unsigned short arity = 0;
+    PCheck *pcheck = nullptr;
     String *name;
     String *qname;
     String *doc;
@@ -199,8 +236,21 @@ Function *argon::vm::datatype::FunctionNew(const FunctionDef *func, TypeInfo *ba
         return nullptr;
     }
 
-    if (func->method)
+    if (func->params != nullptr && *func->params != '\0') {
+        pcheck = PCheckNew(func->params);
+        if (pcheck == nullptr) {
+            Release(name);
+            Release(qname);
+            return nullptr;
+        }
+
+        arity = pcheck->count;
+    }
+
+    if (func->method) {
         flags |= FunctionFlags::METHOD;
+        arity++;
+    }
 
     if (func->variadic)
         flags |= FunctionFlags::VARIADIC;
@@ -208,10 +258,10 @@ Function *argon::vm::datatype::FunctionNew(const FunctionDef *func, TypeInfo *ba
     if (func->kwarg)
         flags |= FunctionFlags::KWARGS;
 
-    auto *fn = ::FunctionNew(name, doc, func->arity, flags);
-
+    auto *fn = ::FunctionNew(name, doc, arity, flags);
     if (fn != nullptr) {
-        fn->qname = qname;
+        fn->qname = IncRef(qname);
+        fn->pcheck = IncRef(pcheck);
         fn->native = func->func;
         fn->base = IncRef(base);
         fn->gns = IncRef(ns);
@@ -220,6 +270,7 @@ Function *argon::vm::datatype::FunctionNew(const FunctionDef *func, TypeInfo *ba
     Release(name);
     Release(qname);
     Release(doc);
+    Release(pcheck);
 
     return fn;
 }
