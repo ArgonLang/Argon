@@ -60,7 +60,46 @@ const BufferSlots string_buffer = {
         nullptr
 };
 
+ARGON_METHOD(str_capitalize, capitalize,
+             "Returns a capitalized version of the string. \n"
+             "\n"
+             "- Returns: New capitalized string.",
+             nullptr, false, false) {
+    auto *self = (String *) _self;
+    String *ret;
+
+    if (self->length == 0 || toupper(*self->buffer) == *self->buffer)
+        return (ArObject *) IncRef(self);
+
+    if ((ret = StringNew((const char *) STR_BUF(self), STR_LEN(self))) == nullptr)
+        return nullptr;
+
+    *ret->buffer = (unsigned char) toupper(*self->buffer);
+
+    return (ArObject *) ret;
+}
+
+ARGON_FUNCTION(str_chr, chr,
+             "Returns the character that represents the specified unicode.\n"
+             "\n"
+             "- Parameter num: Int/UInt representing a valid Unicode code point.\n"
+             "- Returns: New string that contains the specified character.",
+             "iu: num", false, false) {
+    unsigned char buf[] = {0x00, 0x00, 0x00, 0x00};
+    auto cp = (unsigned int) ((Integer *) args[0])->uint;
+    ArSize len;
+
+    if ((len = StringIntToUTF8(cp, buf)) == 0) {
+        ErrorFormat(kUnicodeError[0], kUnicodeError[4], cp);
+        return nullptr;
+    }
+
+    return (ArObject *) StringNew((const char *) buf, len);
+}
+
 const FunctionDef string_methods[] = {
+        str_capitalize,
+        str_chr,
         ARGON_METHOD_SENTINEL
 };
 

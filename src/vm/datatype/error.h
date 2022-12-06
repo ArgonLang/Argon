@@ -97,7 +97,8 @@ namespace argon::vm::datatype {
             (const char *) "UnicodeError",
             (const char *) "can't decode byte 0x%x in unicode sequence",
             (const char *) "unable to index a unicode string",
-            (const char *) "unable to slice a unicode string"
+            (const char *) "unable to slice a unicode string",
+            (const char *) "0x%x invalid codepoint"
     };
 
     constexpr const char *kValueError[] = {
