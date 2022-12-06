@@ -50,6 +50,8 @@ namespace argon::vm::datatype {
     using StringIterator = Iterator<String>;
     extern const TypeInfo *type_string_iterator_;
 
+    ArObject *StringSplit(const String *string, const unsigned char *pattern, ArSize plen, ArSSize maxsplit);
+
     /**
      * @bref Returns the length of a unicode substring.
      *
@@ -71,9 +73,22 @@ namespace argon::vm::datatype {
      * @param pattern Argon string containing the pattern to search for.
      * @return Returns the index at which the pattern value was found, otherwise -1.
      */
-    inline ArSSize StringFind(const String *string, const String *pattern){
+    inline ArSSize StringFind(const String *string, const String *pattern) {
         return support::Find(string->buffer, string->length, pattern->buffer, pattern->length, false);
     }
+
+    /**
+     * @brief Searches the string for a specified value and returns the last position of where it was found.
+     *
+     * @param string Argon string.
+     * @param pattern Argon string containing the pattern to search for.
+     * @return Returns the index at which the pattern value was found, otherwise -1.
+     */
+    inline ArSSize StringRFind(const String *string, const String *pattern) {
+        return support::Find(string->buffer, string->length, pattern->buffer, pattern->length, true);
+    }
+
+    bool StringEndswith(const String *string, const String *pattern);
 
     /**
      * @brief Check if two strings are equal
@@ -83,7 +98,7 @@ namespace argon::vm::datatype {
      * @return Returns true if the strings are equal, false otherwise.
      */
     inline bool StringEqual(const String *string, const char *c_str) {
-        return strcmp((const char *) ARGON_RAW_STRING(string), c_str)==0;
+        return strcmp((const char *) ARGON_RAW_STRING(string), c_str) == 0;
     }
 
     /**
@@ -195,6 +210,8 @@ namespace argon::vm::datatype {
      * @return A pointer to an Argon string object, otherwise nullptr.
      */
     String *StringNew(unsigned char *buffer, ArSize length, ArSize cp_length, StringKind kind);
+
+    String *StringReplace(String *string, const String *old, const String *nval, ArSSize n);
 
 } // namespace argon::vm::datatype
 

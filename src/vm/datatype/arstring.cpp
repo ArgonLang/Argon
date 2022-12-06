@@ -63,7 +63,7 @@ const BufferSlots string_buffer = {
 ARGON_METHOD(str_capitalize, capitalize,
              "Returns a capitalized version of the string. \n"
              "\n"
-             "- Returns: New capitalized string.",
+             "- Returns: New capitalized string.\n",
              nullptr, false, false) {
     auto *self = (String *) _self;
     String *ret;
@@ -80,11 +80,11 @@ ARGON_METHOD(str_capitalize, capitalize,
 }
 
 ARGON_FUNCTION(str_chr, chr,
-             "Returns the character that represents the specified unicode.\n"
-             "\n"
-             "- Parameter num: Int/UInt representing a valid Unicode code point.\n"
-             "- Returns: New string that contains the specified character.",
-             "iu: num", false, false) {
+               "Returns the character that represents the specified unicode.\n"
+               "\n"
+               "- Parameter num: Int/UInt representing a valid Unicode code point.\n"
+               "- Returns: New string that contains the specified character.\n",
+               "iu: num", false, false) {
     unsigned char buf[] = {0x00, 0x00, 0x00, 0x00};
     auto cp = (unsigned int) ((Integer *) args[0])->uint;
     ArSize len;
@@ -97,9 +97,290 @@ ARGON_FUNCTION(str_chr, chr,
     return (ArObject *) StringNew((const char *) buf, len);
 }
 
+ARGON_METHOD(str_count, count,
+             "Returns the number of times a specified value occurs in a string.\n"
+             "\n"
+             "- Parameter pattern: The string to value to search for.\n"
+             "- Returns: Number of times a specified value appears in the string.\n",
+             "s: pattern", false, false) {
+    const auto *self = (String *) _self;
+    const auto *pattern = (String *) args[0];
+
+    return (ArObject *) IntNew(support::Count(STR_BUF(self), STR_LEN(self), STR_BUF(pattern),
+                                              STR_LEN(pattern), -1));
+}
+
+ARGON_METHOD(str_endswith, endswith,
+             "Returns true if the string ends with the specified value.\n"
+             "\n"
+             "- Parameter pattern: The value to check if the string ends with.\n"
+             "- Returns: True if the string ends with the specified value, false otherwise.\n"
+             "\n"
+             "# SEE\n"
+             "- startswith\n",
+             "s: pattern", false, false) {
+
+    return BoolToArBool(StringEndswith((String *) _self, (String *) args[0]));
+}
+
+ARGON_METHOD(str_find, find,
+             "Searches the string for a specified value and returns the position of where it was found.\n"
+             "\n"
+             "- Parameter str: The value to search for.\n"
+             "- Returns: Index of the first position, -1 otherwise.\n"
+             "\n"
+             "# SEE\n"
+             "- rfind\n",
+             "s: pattern", false, false) {
+    return (ArObject *) IntNew(StringFind((String *) _self, (String *) args[0]));
+}
+
+ARGON_METHOD(str_lower, lower,
+             "Return a copy of the string converted to lowercase.\n"
+             "\n"
+             "- Returns: New string with all characters converted to lowercase.\n",
+             nullptr, false, false) {
+    const auto *self = (String *) _self;
+    unsigned char *buf;
+    String *ret;
+
+    if ((buf = (unsigned char *) argon::vm::memory::Alloc(STR_LEN(self) + 1)) == nullptr)
+        return nullptr;
+
+    for (ArSize i = 0; i < STR_LEN(self); i++)
+        buf[i] = (unsigned char) tolower(self->buffer[i]);
+
+    buf[STR_LEN(self)] = '\0';
+
+    ret = StringNew(buf, STR_LEN(self), self->cp_length, self->kind);
+    if (ret == nullptr) {
+        argon::vm::memory::Free(buf);
+        return nullptr;
+    }
+
+    return (ArObject *) ret;
+}
+
+ARGON_METHOD(str_ord, ord,
+             "Return the unicode code point for a one-character string.\n"
+             "\n"
+             "- Returns: Unicode code point.\n",
+             nullptr, false, false) {
+    const auto *self = (String *) _self;
+
+    if (self->cp_length == 0) {
+        ErrorFormat(kTypeError[0], "%s expected a character, but string of length 0 found",
+                    ARGON_RAW_STRING(((Function *) _func)->qname));
+
+        return nullptr;
+    }
+
+    if (self->cp_length > 1) {
+        ErrorFormat(kTypeError[0], "%s expected a character, but string of length %d found",
+                    ARGON_RAW_STRING(((Function *) _func)->qname), self->cp_length);
+
+        return nullptr;
+    }
+
+    return (ArObject *) IntNew(StringUTF8ToInt(STR_BUF(self)));
+}
+
+ARGON_METHOD(str_replace, replace,
+             "Returns a string where a specified value is replaced with a specified value.\n"
+             "\n"
+             "- Parameters:\n"
+             " - old: String to search for.\n"
+             " - new: String to replace the old value with.\n"
+             " - count: Number specifying how many occurrences of the old value you want to replace.\n"
+             "          To replace all occurrence use -1.\n"
+             "- Returns: String where a specified value is replaced.\n",
+             "s: old, s: new, i: count", false, false) {
+    return (ArObject *) StringReplace((String *) _self, (String *) args[0],
+                                      (String *) args[1], ((Integer *) args[2])->sint);
+}
+
+ARGON_METHOD(str_rfind, rfind,
+             "Searches the string for a specified value and returns the last position of where it was found.\n"
+             "\n"
+             "- Parameter pattern: The value to search for.\n"
+             "- Returns: Index of the last position, -1 otherwise.\n"
+             "\n"
+             "# SEE\n"
+             "- find\n",
+             "s: pattern", false, false) {
+    return (ArObject *) IntNew(StringRFind((String *) _self, (String *) args[0]));
+}
+
+
+ARGON_METHOD(str_join, join,
+             "Joins the elements of an iterable to the end of the string.\n"
+             "\n"
+             "- Parameter iterable: Any iterable object where all the returned values are strings.\n"
+             "- Returns: New string where all items in an iterable are joined into one string.\n",
+             ": iterable", false, false) {
+    StringBuilder builder;
+    const auto *self = (String *) _self;
+    ArObject *iter;
+    String *tmp;
+
+    ArSize idx = 0;
+
+    if ((iter = IteratorGet(args[0], false)) == nullptr)
+        return nullptr;
+
+    while ((tmp = (String *) IteratorNext(iter)) != nullptr) {
+        if (!AR_TYPEOF(tmp, type_string_)) {
+            Release(tmp);
+            Release(iter);
+
+            ErrorFormat(kTypeError[0], "sequence item %i: expected string not '%s'", idx, AR_TYPE_NAME(tmp));
+
+            return nullptr;
+        }
+
+        if (idx > 0 && !builder.Write(self, STR_LEN(tmp))) {
+            Release(tmp);
+            Release(iter);
+
+            argon::vm::Panic((ArObject *) builder.GetError());
+            return nullptr;
+        }
+
+        if (!builder.Write(tmp, 0)) {
+            argon::vm::Panic((ArObject *) builder.GetError());
+            return nullptr;
+        }
+
+        Release(tmp);
+        idx++;
+    }
+
+    Release(iter);
+
+    if ((tmp = builder.BuildString()) == nullptr) {
+        argon::vm::Panic((ArObject *) builder.GetError());
+        return nullptr;
+    }
+
+    return (ArObject *) tmp;
+}
+
+ARGON_METHOD(str_split, split,
+             "Splits the string at the specified separator, and returns a list.\n"
+             "\n"
+             "- Parameters:\n"
+             " - pattern: Specifies the separator to use when splitting the string.\n"
+             " - maxsplit: Specifies how many splits to do.\n"
+             "- Returns: New list of string.\n",
+             "s: pattern, i: maxsplit", false, false) {
+    return StringSplit((String *) _self, STR_BUF((String *) args[0]),
+                       STR_LEN((String *) args[0]), ((Integer *) args[1])->sint);
+}
+
+ARGON_METHOD(str_startswith, startswith,
+             "Returns true if the string starts with the specified value.\n"
+             "\n"
+             "- Parameter str: The value to check if the string starts with.\n"
+             "- Returns: True if the string starts with the specified value, false otherwise.\n"
+             "\n"
+             "# SEE\n"
+             "- endswith\n",
+             "s: pattern", false, false) {
+    const auto *self = (String *) _self;
+    const auto *pattern = (String *) args[0];
+    ArSSize n;
+
+    n = (ArSSize) (STR_LEN(self) - STR_LEN(pattern));
+
+    return BoolToArBool(n >= 0 &&
+                        argon::vm::memory::MemoryCompare(STR_BUF(self), STR_BUF(pattern), STR_LEN(pattern)) == 0);
+}
+
+ARGON_METHOD(str_trim, trim,
+             "Returns a new string stripped of whitespace from both ends.\n"
+             "\n"
+             "- Returns: New string without whitespace.\n",
+             nullptr, false, false) {
+    const auto *self = (String *) _self;
+    ArSize start = 0;
+    ArSize end = STR_LEN(self);
+
+    while (STR_BUF(self)[start] == 0x09 || STR_BUF(self)[start] == 0x20)
+        start++;
+
+    while (STR_BUF(self)[end - 1] == 0x09 || STR_BUF(self)[end - 1] == 0x20)
+        end--;
+
+    return (ArObject *) StringNew((const char *) STR_BUF(self) + start, end - start);
+}
+
+ARGON_FUNCTION(str_unescape, unescape,
+               "Unescapes any literals found in the string.\n"
+               "\n"
+               "- Parameter str: The string to unescape.\n"
+               "- Returns: New unescaped string.\n",
+               ": str", false, false) {
+    StringBuilder builder;
+    ArBuffer buffer = {};
+    String *ret;
+
+    if (!BufferGet(args[0], &buffer, BufferFlags::READ))
+        return nullptr;
+
+    builder.ParseEscaped(buffer.buffer, buffer.length);
+
+    BufferRelease(&buffer);
+
+    if ((ret = builder.BuildString()) == nullptr) {
+        argon::vm::Panic((ArObject *) builder.GetError());
+        return nullptr;
+    }
+
+    return (ArObject *) ret;
+}
+
+ARGON_METHOD(str_upper, upper,
+             "Return a copy of the string converted to uppercase.\n"
+             "\n"
+             "- Returns: New string with all characters converted to uppercase.\n",
+             nullptr, false, false) {
+    const auto *self = (String *) _self;
+    unsigned char *buf;
+    String *ret;
+
+    if ((buf = (unsigned char *) argon::vm::memory::Alloc(STR_LEN(self) + 1)) == nullptr)
+        return nullptr;
+
+    for (ArSize i = 0; i < STR_LEN(self); i++)
+        buf[i] = (unsigned char) toupper(self->buffer[i]);
+
+    buf[STR_LEN(self)] = '\0';
+
+    ret = StringNew(buf, STR_LEN(self), self->cp_length, self->kind);
+    if (ret == nullptr) {
+        argon::vm::memory::Free(buf);
+        return nullptr;
+    }
+
+    return (ArObject *) ret;
+}
+
 const FunctionDef string_methods[] = {
         str_capitalize,
         str_chr,
+        str_count,
+        str_endswith,
+        str_find,
+        str_lower,
+        str_ord,
+        str_replace,
+        str_rfind,
+        str_join,
+        str_split,
+        str_startswith,
+        str_trim,
+        str_unescape,
+        str_upper,
         ARGON_METHOD_SENTINEL
 };
 
@@ -342,6 +623,12 @@ TypeInfo StringType = {
 };
 const TypeInfo *argon::vm::datatype::type_string_ = &StringType;
 
+ArObject *argon::vm::datatype::StringSplit(const String *string, const unsigned char *pattern,
+                                           ArSize plen, ArSSize maxsplit) {
+    assert(false);
+    return nullptr;
+}
+
 ArSize argon::vm::datatype::StringSubstrLen(const String *string, ArSize offset, ArSize graphemes) {
     const unsigned char *buf = STR_BUF(string) + offset;
     const unsigned char *end = STR_BUF(string) + string->length;
@@ -361,6 +648,12 @@ ArSize argon::vm::datatype::StringSubstrLen(const String *string, ArSize offset,
     }
 
     return buf - (STR_BUF(string) + offset);
+}
+
+bool argon::vm::datatype::StringEndswith(const String *string, const String *pattern) {
+    auto n = (ArSSize) (STR_LEN(string) - STR_LEN(pattern));
+
+    return n >= 0 && memory::MemoryCompare(STR_BUF(string) + n, STR_BUF(pattern), STR_LEN(pattern)) == 0;
 }
 
 int argon::vm::datatype::StringCompare(const String *left, const String *right) {
@@ -516,6 +809,52 @@ String *argon::vm::datatype::StringNew(unsigned char *buffer, ArSize length, ArS
     }
 
     return str;
+}
+
+String *argon::vm::datatype::StringReplace(String *string, const String *old, const String *nval, ArSSize n) {
+    StringBuilder builder;
+    ArSize idx = 0;
+    ArSize newsz;
+
+    String *ret;
+
+    if (Equal((const ArObject *) string, (const ArObject *) old) || n == 0)
+        return IncRef(string);
+
+    // Compute replacements
+    n = support::Count(STR_BUF(string), STR_LEN(string), STR_BUF(old), STR_LEN(old), n);
+
+    newsz = (STR_LEN(string) + n * (STR_LEN(nval) - STR_LEN(old)));
+
+    // Allocate string
+    if (!builder.BufferResize(newsz)) {
+        argon::vm::Panic((ArObject *) builder.GetError());
+        return nullptr;
+    }
+
+    long match;
+    while ((match = support::Find(STR_BUF(string) + idx, STR_LEN(string) - idx, STR_BUF(old), STR_LEN(old))) > -1) {
+        builder.Write(STR_BUF(string) + idx, match, 0);
+
+        idx += match + STR_LEN(old);
+
+        builder.Write(nval->buffer, STR_LEN(nval), 0);
+
+        if (n > -1) {
+            n--;
+            if (n == 0)
+                break;
+        }
+    }
+
+    builder.Write(STR_BUF(string) + idx, STR_LEN(string) - idx, 0);
+
+    if ((ret = builder.BuildString()) == nullptr) {
+        argon::vm::Panic((ArObject *) builder.GetError());
+        return nullptr;
+    }
+
+    return ret;
 }
 
 // STRING ITERATOR
