@@ -84,6 +84,29 @@ ArSSize argon::vm::datatype::support::Count(const unsigned char *buf, ArSize ble
     return counter;
 }
 
+ArSSize argon::vm::datatype::support::CountWhitespace(const unsigned char *buf, ArSize blen, long n) {
+    ArSSize counter = 0;
+    ArSSize idx = 0;
+    ArSSize lmatch;
+    ArSize end;
+
+    if (n == 0)
+        return 0;
+
+    while (counter < n || n < 0) {
+        end = blen - idx;
+
+        lmatch = FindWhitespace(buf + idx, &end);
+        if (lmatch < 0)
+            break;
+
+        counter++;
+        idx += (ArSSize) (lmatch + end);
+    }
+
+    return counter;
+}
+
 ArSSize argon::vm::datatype::support::Find(const unsigned char *buf, ArSize blen, const unsigned char *pattern,
                                            ArSize plen, bool reverse) {
     /*
@@ -158,7 +181,7 @@ long argon::vm::datatype::support::FindWhitespace(const unsigned char *buf, ArSi
     while (idx < *inout_len && std::isspace(buf[idx]))
         idx++;
 
-    *inout_len = idx;
+    *inout_len = idx - start;
 
     return start;
 }

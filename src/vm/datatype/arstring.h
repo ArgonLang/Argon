@@ -50,6 +50,15 @@ namespace argon::vm::datatype {
     using StringIterator = Iterator<String>;
     extern const TypeInfo *type_string_iterator_;
 
+    /**
+     * @brief Splits the string at the specified separator, and returns a list.
+     *
+     * @param string String to split.
+     * @param pattern Specifies the separator to use when splitting the string.
+     * @param plen Pattern length.
+     * @param maxsplit Specifies how many splits to do.
+     * @return New list of string.
+     */
     ArObject *StringSplit(const String *string, const unsigned char *pattern, ArSize plen, ArSSize maxsplit);
 
     /**
@@ -88,6 +97,13 @@ namespace argon::vm::datatype {
         return support::Find(string->buffer, string->length, pattern->buffer, pattern->length, true);
     }
 
+    /**
+     * @brief Returns true if the string ends with the specified value.
+     *
+     * @param string Argon string.
+     * @param pattern The value to check if the string ends with.
+     * @return True if the string ends with the specified value, false otherwise.
+     */
     bool StringEndswith(const String *string, const String *pattern);
 
     /**
@@ -191,6 +207,17 @@ namespace argon::vm::datatype {
     /**
      * @brief Create new string.
      *
+     * @param string The unsigned C-string to convert to Argon string.
+     * @param length The length of the unsigned C-string.
+     * @return A pointer to an Argon string object, otherwise nullptr.
+     */
+    inline String *StringNew(const unsigned char *string, ArSize length) {
+        return StringNew((const char *) string, length);
+    }
+
+    /**
+     * @brief Create new string.
+     *
      * @param string The C-string to convert to Argon string.
      * @return A pointer to an Argon string object, otherwise nullptr.
      */
@@ -211,6 +238,16 @@ namespace argon::vm::datatype {
      */
     String *StringNew(unsigned char *buffer, ArSize length, ArSize cp_length, StringKind kind);
 
+    /**
+     * @brief Returns a string where a specified value is replaced with a specified value.
+     *
+     * @param string Argon string.
+     * @param old String to search for.
+     * @param nval String to replace the old value with.
+     * @param n Number specifying how many occurrences of the old value you want to replace.
+     *          To replace all occurrence use -1.
+     * @return String where a specified value is replaced.
+     */
     String *StringReplace(String *string, const String *old, const String *nval, ArSSize n);
 
 } // namespace argon::vm::datatype

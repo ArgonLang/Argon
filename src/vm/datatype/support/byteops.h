@@ -15,6 +15,12 @@ namespace argon::vm::datatype::support {
         return Count(buf, blen, pattern, plen, -1);
     }
 
+    ArSSize CountWhitespace(const unsigned char *buf, ArSize blen, long n);
+
+    [[maybe_unused]]inline ArSSize CountWhitespace(const unsigned char *buf, ArSize blen) {
+        return CountWhitespace(buf, blen, -1);
+    }
+
     ArSSize FindNewLine(const unsigned char *buf, ArSize *inout_len, bool universal);
 
     [[maybe_unused]]
@@ -24,7 +30,7 @@ namespace argon::vm::datatype::support {
 #ifdef ARGON_FF_UNIVERSAL_NEWLINE
                 true
 #else
-        false
+                           false
 #endif
         );
     }

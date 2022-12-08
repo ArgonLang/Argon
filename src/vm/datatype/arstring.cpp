@@ -7,6 +7,8 @@
 #include <vm/memory/memory.h>
 #include <vm/runtime.h>
 
+#include <vm/datatype/support/common.h>
+
 #include "boolean.h"
 #include "bounds.h"
 #include "dict.h"
@@ -14,6 +16,7 @@
 #include "integer.h"
 #include "stringbuilder.h"
 #include "arstring.h"
+
 
 using namespace argon::vm::datatype;
 
@@ -211,7 +214,6 @@ ARGON_METHOD(str_rfind, rfind,
     return (ArObject *) IntNew(StringRFind((String *) _self, (String *) args[0]));
 }
 
-
 ARGON_METHOD(str_join, join,
              "Joins the elements of an iterable to the end of the string.\n"
              "\n"
@@ -272,9 +274,26 @@ ARGON_METHOD(str_split, split,
              " - pattern: Specifies the separator to use when splitting the string.\n"
              " - maxsplit: Specifies how many splits to do.\n"
              "- Returns: New list of string.\n",
-             "s: pattern, i: maxsplit", false, false) {
-    return StringSplit((String *) _self, STR_BUF((String *) args[0]),
-                       STR_LEN((String *) args[0]), ((Integer *) args[1])->sint);
+             "sn: pattern, i: maxsplit", false, false) {
+    const unsigned char *pattern = nullptr;
+    ArSize plen = 0;
+
+    if (!IsNull(args[0])) {
+        pattern = STR_BUF((String *) args[0]);
+        plen = STR_LEN((String *) args[0]);
+
+        if (plen == 0) {
+            ErrorFormat(kValueError[0], "empty separator");
+            return nullptr;
+        }
+    }
+
+    return support::Split(STR_BUF((String *) _self),
+                          pattern,
+                          (support::SplitChunkNewFn<String>) StringNew,
+                          STR_LEN((String *) _self),
+                          plen,
+                          ((Integer *) args[1])->sint);
 }
 
 ARGON_METHOD(str_startswith, startswith,
@@ -625,8 +644,8 @@ const TypeInfo *argon::vm::datatype::type_string_ = &StringType;
 
 ArObject *argon::vm::datatype::StringSplit(const String *string, const unsigned char *pattern,
                                            ArSize plen, ArSSize maxsplit) {
-    assert(false);
-    return nullptr;
+    return support::Split(STR_BUF(string), pattern, (support::SplitChunkNewFn<String>) StringNew,
+                          STR_LEN(string), plen, maxsplit);
 }
 
 ArSize argon::vm::datatype::StringSubstrLen(const String *string, ArSize offset, ArSize graphemes) {
