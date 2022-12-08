@@ -239,7 +239,7 @@ PCheck *argon::vm::datatype::PCheckNew(const char *description) {
 
     unsigned short index = 0;
     while (index < pc->count && *description != '\0') {
-        if (!InitParam(pc->params, &description)) {
+        if (!InitParam(pc->params + index, &description)) {
             Release(pc);
             return nullptr;
         }
