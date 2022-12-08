@@ -179,6 +179,9 @@ bool CallFunction(Fiber *fiber, Frame **cu_frame, const Code **cu_code, bool val
 
     if (func->IsNative()) {
         ret = FunctionInvokeNative(func, args, args_length, ENUMBITMASK_ISTRUE(mode, OpCodeCallMode::KW_PARAMS));
+        if(ret == nullptr)
+            return false;
+
         goto CLEANUP;
     }
 
