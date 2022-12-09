@@ -129,7 +129,7 @@ ARGON_METHOD(str_endswith, endswith,
 ARGON_METHOD(str_find, find,
              "Searches the string for a specified value and returns the position of where it was found.\n"
              "\n"
-             "- Parameter str: The value to search for.\n"
+             "- Parameter pattern: The value to search for.\n"
              "- Returns: Index of the first position, -1 otherwise.\n"
              "\n"
              "# SEE\n"
@@ -223,6 +223,7 @@ ARGON_METHOD(str_join, join,
     StringBuilder builder;
     const auto *self = (String *) _self;
     ArObject *iter;
+    Error *error;
     String *tmp;
 
     ArSize idx = 0;
@@ -244,12 +245,22 @@ ARGON_METHOD(str_join, join,
             Release(tmp);
             Release(iter);
 
-            argon::vm::Panic((ArObject *) builder.GetError());
+            error = builder.GetError();
+
+            argon::vm::Panic((ArObject *) error);
+
+            Release(error);
+
             return nullptr;
         }
 
         if (!builder.Write(tmp, 0)) {
-            argon::vm::Panic((ArObject *) builder.GetError());
+            error = builder.GetError();
+
+            argon::vm::Panic((ArObject *) error);
+
+            Release(error);
+
             return nullptr;
         }
 
@@ -260,8 +271,11 @@ ARGON_METHOD(str_join, join,
     Release(iter);
 
     if ((tmp = builder.BuildString()) == nullptr) {
-        argon::vm::Panic((ArObject *) builder.GetError());
-        return nullptr;
+        error = builder.GetError();
+
+        argon::vm::Panic((ArObject *) error);
+
+        Release(error);
     }
 
     return (ArObject *) tmp;
@@ -299,7 +313,7 @@ ARGON_METHOD(str_split, split,
 ARGON_METHOD(str_startswith, startswith,
              "Returns true if the string starts with the specified value.\n"
              "\n"
-             "- Parameter str: The value to check if the string starts with.\n"
+             "- Parameter pattern: The value to check if the string starts with.\n"
              "- Returns: True if the string starts with the specified value, false otherwise.\n"
              "\n"
              "# SEE\n"
@@ -341,7 +355,7 @@ ARGON_FUNCTION(str_unescape, unescape,
                ": str", false, false) {
     StringBuilder builder;
     ArBuffer buffer = {};
-    String *ret;
+    ArObject *ret;
 
     if (!BufferGet(args[0], &buffer, BufferFlags::READ))
         return nullptr;
@@ -350,12 +364,15 @@ ARGON_FUNCTION(str_unescape, unescape,
 
     BufferRelease(&buffer);
 
-    if ((ret = builder.BuildString()) == nullptr) {
-        argon::vm::Panic((ArObject *) builder.GetError());
-        return nullptr;
+    if ((ret = (ArObject *) builder.BuildString()) == nullptr) {
+        ret = (ArObject *) builder.GetError();
+
+        argon::vm::Panic(ret);
+
+        Release(&ret);
     }
 
-    return (ArObject *) ret;
+    return ret;
 }
 
 ARGON_METHOD(str_upper, upper,
@@ -598,9 +615,7 @@ ArObject *string_repr(const String *self) {
 
         argon::vm::Panic(ret);
 
-        Release(ret);
-
-        return nullptr;
+        Release(&ret);
     }
 
     return ret;
@@ -816,8 +831,11 @@ String *argon::vm::datatype::StringNew(const char *string, ArSize length) {
     builder.Write((const unsigned char *) string, length, 0);
 
     if ((str = builder.BuildString()) == nullptr) {
-        if ((error = builder.GetError()) != nullptr)
-            argon::vm::Panic((ArObject *) error);
+        error = builder.GetError();
+
+        argon::vm::Panic((ArObject *) error);
+
+        Release(error);
 
         return nullptr;
     }
@@ -840,6 +858,7 @@ String *argon::vm::datatype::StringNew(unsigned char *buffer, ArSize length, ArS
 
 String *argon::vm::datatype::StringReplace(String *string, const String *old, const String *nval, ArSSize n) {
     StringBuilder builder;
+    Error *error;
     ArSize idx = 0;
     ArSize newsz;
 
@@ -855,7 +874,12 @@ String *argon::vm::datatype::StringReplace(String *string, const String *old, co
 
     // Allocate string
     if (!builder.BufferResize(newsz)) {
-        argon::vm::Panic((ArObject *) builder.GetError());
+        error = builder.GetError();
+
+        argon::vm::Panic((ArObject *) error);
+
+        Release(error);
+
         return nullptr;
     }
 
@@ -877,7 +901,12 @@ String *argon::vm::datatype::StringReplace(String *string, const String *old, co
     builder.Write(STR_BUF(string) + idx, STR_LEN(string) - idx, 0);
 
     if ((ret = builder.BuildString()) == nullptr) {
-        argon::vm::Panic((ArObject *) builder.GetError());
+        error = builder.GetError();
+
+        argon::vm::Panic((ArObject *) error);
+
+        Release(error);
+
         return nullptr;
     }
 
