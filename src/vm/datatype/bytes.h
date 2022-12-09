@@ -22,11 +22,19 @@ namespace argon::vm::datatype {
     };
     extern const TypeInfo *type_bytes_;
 
+    Bytes *BytesFreeze(Bytes *bytes);
+
+    Bytes *BytesNew(ArObject *object);
+
     Bytes *BytesNew(ArSize cap, bool same_len, bool fill_zero, bool frozen);
 
     Bytes *BytesNew(const unsigned char *buffer, ArSize len, bool frozen);
 
     Bytes *BytesNew(Bytes *bytes, ArSize start, ArSize length);
+
+    inline Bytes *BytesNew(const unsigned char *buffer, ArSize length) {
+        return BytesNew(buffer, length, true);
+    }
 
     inline Bytes *BytesNew(const char *string, bool frozen) {
         return BytesNew((const unsigned char *) string, strlen(string), frozen);

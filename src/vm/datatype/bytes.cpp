@@ -10,6 +10,7 @@
 #include "stringbuilder.h"
 #include "vm/runtime.h"
 #include "bounds.h"
+#include "vm/datatype/support/common.h"
 
 #define BUFFER_GET(bs)              ((bs)->view.buffer)
 #define BUFFER_LEN(bs)              ((bs)->view.length)
@@ -29,6 +30,463 @@
     } while(0)
 
 using namespace argon::vm::datatype;
+
+ARGON_METHOD(bytes_capitalize, capitalize,
+             "Returns a capitalized version of the bytes string. \n"
+             "\n"
+             "- Returns: New capitalized bytes string.\n",
+             nullptr, false, false) {
+    auto *self = (Bytes *) _self;
+    Bytes *ret;
+
+    SHARED_LOCK(self);
+
+    if (BUFFER_LEN(self) == 0 || toupper(*BUFFER_GET(self)) == *BUFFER_GET(self)) {
+        SHARED_UNLOCK(self);
+
+        return (ArObject *) IncRef(self);
+    }
+
+    if ((ret = BytesNew(BUFFER_GET(self), BUFFER_LEN(self), self->frozen)) == nullptr)
+        return nullptr;
+
+    SHARED_UNLOCK(self);
+
+    BUFFER_GET(ret)[0] = (unsigned char) toupper(*BUFFER_GET(ret));
+
+    return (ArObject *) ret;
+}
+
+ARGON_METHOD(bytes_count, count,
+             "Returns the number of times a specified value occurs in bytes string.\n"
+             "\n"
+             "- Parameter pattern: The Bytes/String to value to search for.\n"
+             "- Returns: Number of times a specified value appears in the bytes string.\n",
+             ": pattern", false, false) {
+    ArBuffer buffer{};
+    auto *self = (Bytes *) _self;
+    ArSSize count;
+
+    if (_self == args[0])
+        return (ArObject *) IntNew(1);
+
+    if (!BufferGet(args[0], &buffer, BufferFlags::READ))
+        return nullptr;
+
+    SHARED_LOCK(self);
+
+    count = BUFFER_LEN(self) > buffer.length ? buffer.length : BUFFER_LEN(self);
+    count = stratum::util::MemoryCompare(BUFFER_GET(self) + (BUFFER_LEN(self) - count), buffer.buffer, count);
+
+    SHARED_UNLOCK(self);
+
+    BufferRelease(&buffer);
+
+    return (ArObject *) IntNew(count);
+}
+
+ARGON_METHOD(bytes_clone, clone,
+             "Make a clone of the bytes object.\n"
+             "\n"
+             "- Returns: A new bytes object identical to the current one.\n",
+             nullptr, false, false) {
+    return (ArObject *) BytesNew(_self);
+}
+
+ARGON_METHOD(bytes_endswith, endswith,
+             "Returns true if the bytes string ends with the specified value.\n"
+             "\n"
+             "- Parameter pattern: The value to check if the bytes string ends with.\n"
+             "- Returns: True if the bytes string ends with the specified value, false otherwise.\n"
+             "\n"
+             "# SEE\n"
+             "- startswith\n",
+             ": pattern", false, false) {
+    ArBuffer buffer{};
+    auto *self = (Bytes *) _self;
+    ArSSize res;
+
+    if (_self == args[0])
+        return BoolToArBool(true);
+
+    if (!BufferGet(args[0], &buffer, BufferFlags::READ))
+        return nullptr;
+
+    SHARED_LOCK(self);
+
+    res = BUFFER_LEN(self) > buffer.length ? buffer.length : BUFFER_LEN(self);
+    res = stratum::util::MemoryCompare(BUFFER_GET(self) + (BUFFER_LEN(self) - res), buffer.buffer, res);
+
+    SHARED_UNLOCK(self);
+
+    BufferRelease(&buffer);
+
+    return BoolToArBool(res == 0);
+}
+
+ARGON_METHOD(bytes_find, find,
+             "Searches the string for a specified value and returns the position of where it was found.\n"
+             "\n"
+             "- Parameter str: The value to search for.\n"
+             "- Returns: Index of the first position, -1 otherwise.\n"
+             "\n"
+             "# SEE\n"
+             "- rfind\n",
+             ": pattern", false, false) {
+    ArBuffer buffer{};
+    auto *self = (Bytes *) _self;
+    ArSSize index;
+
+    if (_self == args[0])
+        return BoolToArBool(true);
+
+    if (!BufferGet(args[0], &buffer, BufferFlags::READ))
+        return nullptr;
+
+    SHARED_LOCK(self);
+
+    index = support::Find(BUFFER_GET(self), BUFFER_LEN(self), buffer.buffer, buffer.length);
+
+    SHARED_UNLOCK(self);
+
+    BufferRelease(&buffer);
+
+    return BoolToArBool(index);
+}
+
+ARGON_METHOD(bytes_freeze, freeze,
+             "Freeze bytes object.\n"
+             "\n"
+             "If bytes is already frozen, the same object will be returned, "
+             "otherwise a new frozen bytes(view) will be returned.\n"
+             "\n"
+             "- Returns: Frozen bytes object.\n",
+             nullptr, false, false) {
+    return (ArObject *) BytesFreeze((Bytes *) _self);
+}
+
+ARGON_METHOD(bytes_isalnum, isalnum,
+             "Check if all characters in the bytes are alphanumeric (either alphabets or numbers).\n"
+             "\n"
+             "- Returns: True if all characters are alphanumeric, false otherwise.\n"
+             "\n"
+             "# SEE\n"
+             "- isalpha\n"
+             "- isascii\n"
+             "- isdigit\n"
+             "- isxdigit\n",
+             nullptr, false, false) {
+    auto *self = (Bytes *) _self;
+
+    SHARED_LOCK(self);
+
+    for (ArSize i = 0; i < BUFFER_LEN(self); i++) {
+        if (!std::isalnum(BUFFER_GET(self)[i])) {
+            SHARED_UNLOCK(self);
+
+            return BoolToArBool(false);
+        }
+    }
+
+    SHARED_UNLOCK(self);
+
+    return BoolToArBool(true);
+}
+
+ARGON_METHOD(bytes_isalpha, isalpha,
+             "Check if all characters in the bytes are alphabets.\n"
+             "\n"
+             "- Returns: True if all characters are alphabets, false otherwise.\n"
+             "\n"
+             "# SEE\n"
+             "- isalnum\n"
+             "- isascii\n"
+             "- isdigit\n"
+             "- isxdigit\n",
+             nullptr, false, false) {
+    auto *self = (Bytes *) _self;
+
+    SHARED_LOCK(self);
+
+    for (ArSize i = 0; i < BUFFER_LEN(self); i++) {
+        if (!std::isalpha(BUFFER_GET(self)[i])) {
+            SHARED_UNLOCK(self);
+
+            return BoolToArBool(false);
+        }
+    }
+
+    SHARED_UNLOCK(self);
+
+    return BoolToArBool(true);
+}
+
+ARGON_METHOD(bytes_isascii, isascii,
+             "Check if all characters in the bytes are ascii.\n"
+             "\n"
+             "- Returns: True if all characters are ascii, false otherwise.\n"
+             "\n"
+             "# SEE\n"
+             "- isalnum\n"
+             "- isalpha\n"
+             "- isdigit\n"
+             "- isxdigit\n",
+             nullptr, false, false) {
+    auto *self = (Bytes *) _self;
+
+    SHARED_LOCK(self);
+
+    for (ArSize i = 0; i < BUFFER_LEN(self); i++) {
+        if (BUFFER_GET(self)[i] > 0x7F) {
+            SHARED_UNLOCK(self);
+
+            return BoolToArBool(false);
+        }
+    }
+
+    SHARED_UNLOCK(self);
+
+    return BoolToArBool(true);
+}
+
+ARGON_METHOD(bytes_isdigit, isdigit,
+             "Check if all characters in the bytes are digits.\n"
+             "\n"
+             "- Returns: True if all characters are digits, false otherwise.\n"
+             "\n"
+             "# SEE\n"
+             "- isalnum\n"
+             "- isalpha\n"
+             "- isascii\n"
+             "- isxdigit\n",
+             nullptr, false, false) {
+    auto *self = (Bytes *) _self;
+
+    SHARED_LOCK(self);
+
+    for (ArSize i = 0; i < BUFFER_LEN(self); i++) {
+        if (!std::isdigit(BUFFER_GET(self)[i])) {
+            SHARED_UNLOCK(self);
+
+            return BoolToArBool(false);
+        }
+    }
+
+    SHARED_UNLOCK(self);
+
+    return BoolToArBool(true);
+}
+
+ARGON_METHOD(bytes_isxdigit, isxdigit,
+             "Check if all characters in the bytes are hex digits.\n"
+             "\n"
+             "- Returns: True if all characters are hex digits, false otherwise.\n"
+             "\n"
+             "# SEE\n"
+             "- isalnum\n"
+             "- isalpha\n"
+             "- isdigit\n"
+             "- isascii\n",
+             nullptr, false, false) {
+    auto *self = (Bytes *) _self;
+
+    SHARED_LOCK(self);
+
+    for (ArSize i = 0; i < BUFFER_LEN(self); i++) {
+        if (!std::isdigit(BUFFER_GET(self)[i])) {
+            SHARED_UNLOCK(self);
+
+            return BoolToArBool(false);
+        }
+    }
+
+    SHARED_UNLOCK(self);
+
+    return BoolToArBool(true);
+}
+
+ARGON_METHOD(bytes_isfrozen, isfrozen,
+             "Check if this bytes object is frozen.\n"
+             "\n"
+             "- Returns: True if it is frozen, false otherwise.\n",
+             nullptr, false, false) {
+    return BoolToArBool(((Bytes *) _self)->frozen);
+}
+
+ARGON_METHOD(bytes_split, split,
+             "Splits the bytes string at the specified separator, and returns a list.\n"
+             "\n"
+             "- Parameters:\n"
+             " - pattern: Specifies the separator to use when splitting the bytes string.\n"
+             " - maxsplit: Specifies how many splits to do.\n"
+             "- Returns: New list of bytes string.\n",
+             ": pattern, i: maxsplit", false, false) {
+    ArBuffer buffer{};
+    const unsigned char *pattern = nullptr;
+    ArObject *ret;
+
+    ArSize plen = 0;
+
+    if (_self == args[0]) {
+        ErrorFormat(kValueError[0], "cannot use the object to be split as a pattern");
+        return nullptr;
+    }
+
+    if (!BufferGet(args[0], &buffer, BufferFlags::READ))
+        return nullptr;
+
+    if (!IsNull(args[0])) {
+        pattern = buffer.buffer;
+        plen = buffer.length;
+
+        if (plen == 0) {
+            ErrorFormat(kValueError[0], "empty separator");
+            return nullptr;
+        }
+    }
+
+    SHARED_LOCK((Bytes *) _self);
+
+    ret = support::Split(BUFFER_GET((Bytes *) _self), pattern, (support::SplitChunkNewFn<Bytes>) BytesNew,
+                         BUFFER_LEN((Bytes *) _self), plen, ((Integer *) args[1])->sint);
+
+    SHARED_UNLOCK((Bytes *) _self);
+
+    BufferRelease(&buffer);
+
+    return ret;
+}
+
+
+ARGON_METHOD(bytes_startswith, startswith,
+             "Returns true if the bytes string starts with the specified value.\n"
+             "\n"
+             "- Parameter pattern: The value to check if the string starts with.\n"
+             "- Returns: True if the string starts with the specified value, false otherwise.\n"
+             "\n"
+             "# SEE\n"
+             "- endswith\n",
+             ": pattern", false, false) {
+    ArBuffer buffer{};
+    auto *self = (Bytes *) _self;
+    ArSSize res;
+
+    if (_self == args[0])
+        return BoolToArBool(true);
+
+    if (!BufferGet(args[0], &buffer, BufferFlags::READ))
+        return nullptr;
+
+    SHARED_LOCK(self);
+
+    res = BUFFER_LEN(self) > buffer.length ? buffer.length : BUFFER_LEN(self);
+    res = stratum::util::MemoryCompare(BUFFER_GET(self), buffer.buffer, res);
+
+    SHARED_UNLOCK(self);
+
+    BufferRelease(&buffer);
+
+    return BoolToArBool(res == 0);
+}
+
+ARGON_METHOD(bytes_tohex, tohex,
+             "Convert bytes to string of hexadecimal numbers.\n"
+             "\n"
+             "- Returns: New string object.\n",
+             nullptr, false, false) {
+    StringBuilder builder{};
+    auto *self = (Bytes *) _self;
+    ArObject *ret = nullptr;
+
+    SHARED_LOCK(self);
+
+    builder.WriteHex(BUFFER_GET(self), BUFFER_LEN(self));
+
+    SHARED_UNLOCK(self);
+
+    if ((ret = (ArObject *) builder.BuildString()) == nullptr) {
+        ret = (ArObject *) builder.GetError();
+
+        argon::vm::Panic(ret);
+
+        Release(&ret);
+    }
+
+    return ret;
+}
+
+ARGON_METHOD(bytes_tostr, tostr,
+             "Convert bytes to str object.\n"
+             "\n"
+             "- Returns: New str object.\n",
+             nullptr, false, false) {
+    StringBuilder builder{};
+    auto *self = (Bytes *) _self;
+    ArObject *ret;
+
+    SHARED_LOCK(self);
+
+    builder.Write(BUFFER_GET(self), BUFFER_LEN(self), 0);
+
+    SHARED_UNLOCK(self);
+
+    if ((ret = (ArObject *) builder.BuildString()) == nullptr) {
+        ret = (ArObject *) builder.GetError();
+
+        argon::vm::Panic(ret);
+
+        Release(&ret);
+    }
+
+    return ret;
+}
+
+ARGON_METHOD(bytes_upper, upper,
+             "Return a copy of the bytes string converted to uppercase.\n"
+             "\n"
+             "- Returns: New bytes string with all characters converted to uppercase.\n",
+             nullptr, false, false) {
+    Bytes *ret;
+
+    if ((ret = BytesNew(_self)) != nullptr) {
+        for (ArSize i = 0; i < BUFFER_LEN(ret); i++)
+            BUFFER_GET(ret)[i] = (unsigned char) toupper(BUFFER_GET(ret)[i]);
+
+        ret->frozen = ((Bytes *) _self)->frozen;
+    }
+
+    return (ArObject *) ret;
+}
+
+const FunctionDef bytes_method[] = {
+        bytes_capitalize,
+        bytes_count,
+        bytes_clone,
+        bytes_endswith,
+        bytes_find,
+        bytes_freeze,
+        bytes_isalnum,
+        bytes_isalpha,
+        bytes_isascii,
+        bytes_isdigit,
+        bytes_isxdigit,
+        bytes_isfrozen,
+        bytes_tohex,
+        bytes_tostr,
+        bytes_split,
+        bytes_startswith,
+        bytes_upper,
+        ARGON_METHOD_SENTINEL
+};
+
+const ObjectSlots bytes_objslot = {
+        bytes_method,
+        nullptr,
+        nullptr,
+        nullptr,
+        nullptr,
+        -1
+};
 
 ArObject *bytes_get_item(Bytes *self, ArObject *index) {
     ArObject *ret = nullptr;
@@ -257,7 +715,7 @@ ArObject *bytes_compare(Bytes *self, ArObject *other, CompareMode mode) {
 
 ArObject *bytes_repr(Bytes *self) {
     StringBuilder builder{};
-    String *ret;
+    ArObject *ret = nullptr;
 
     SHARED_LOCK(self);
 
@@ -267,12 +725,15 @@ ArObject *bytes_repr(Bytes *self) {
 
     SHARED_UNLOCK(self);
 
-    if ((ret = builder.BuildString()) == nullptr) {
-        argon::vm::Panic((ArObject *) builder.GetError());
-        return nullptr;
+    if ((ret = (ArObject *) builder.BuildString()) == nullptr) {
+        ret = (ArObject *) builder.GetError();
+
+        argon::vm::Panic(ret);
+
+        Release(&ret);
     }
 
-    return (ArObject *) ret;
+    return ret;
 }
 
 ArSize bytes_hash(Bytes *self) {
@@ -316,13 +777,44 @@ TypeInfo BytesType = {
         nullptr,
         &bytes_buffer,
         nullptr,
-        nullptr,
+        &bytes_objslot,
         &bytes_subscript,
         nullptr,
         nullptr,
         nullptr
 };
 const TypeInfo *argon::vm::datatype::type_bytes_ = &BytesType;
+
+Bytes *argon::vm::datatype::BytesFreeze(Bytes *bytes) {
+    Bytes *ret;
+
+    if (bytes->frozen)
+        return IncRef(bytes);
+
+    if ((ret = BytesNew(bytes, 0, BUFFER_LEN(bytes))) == nullptr)
+        return nullptr;
+
+    ret->frozen = true;
+
+    Hash((ArObject *) ret, &ret->hash);
+
+    return ret;
+}
+
+Bytes *argon::vm::datatype::BytesNew(ArObject *object) {
+    ArBuffer buffer = {};
+    Bytes *bs;
+
+    if (!BufferGet(object, &buffer, BufferFlags::READ))
+        return nullptr;
+
+    if ((bs = BytesNew(buffer.length, true, false, false)) != nullptr)
+        memory::MemoryCopy(BUFFER_GET(bs), buffer.buffer, buffer.length);
+
+    BufferRelease(&buffer);
+
+    return bs;
+}
 
 Bytes *argon::vm::datatype::BytesNew(ArSize cap, bool same_len, bool fill_zero, bool frozen) {
     auto *bs = MakeObject<Bytes>(&BytesType);
