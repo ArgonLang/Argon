@@ -412,10 +412,6 @@ const ObjectSlots string_objslot = {
         -1
 };
 
-ArSize string_length(const String *self) {
-    return STR_LEN(self);
-}
-
 ArObject *string_get_item(const String *self, ArObject *index) {
     ArSSize idx;
 
@@ -468,10 +464,22 @@ ArObject *string_get_slice(const String *self, ArObject *bounds) {
     return (ArObject *) ret;
 }
 
-ArObject *string_in(const String *self, const String *pattern) {
-    ArSSize index = StringFind(self, pattern);
+ArObject *string_in(const String *self, const ArObject *value) {
+    const auto *pattern = (const String *) value;
 
-    return BoolToArBool(index >= 0);
+    if (!AR_TYPEOF(value, type_string_)) {
+        ErrorFormat(kTypeError[0], kTypeError[2], type_string_->name, AR_TYPE_NAME(value));
+        return nullptr;
+    }
+
+    if (self == pattern)
+        return BoolToArBool(true);
+
+    return BoolToArBool(StringFind(self, pattern) >= 0);
+}
+
+ArSize string_length(const String *self) {
+    return STR_LEN(self);
 }
 
 const SubscriptSlots string_subscript = {
