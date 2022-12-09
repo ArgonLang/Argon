@@ -374,8 +374,12 @@ bool argon::vm::datatype::Hash(ArObject *object, ArSize *out_hash) {
     auto hash = AR_GET_TYPE(object)->hash;
 
     if (hash != nullptr) {
-        if (out_hash != nullptr)
+        if (out_hash != nullptr) {
             *out_hash = hash(object);
+
+            if (vm::IsPanicking())
+                return false;
+        }
 
         return true;
     }
@@ -509,7 +513,7 @@ void argon::vm::datatype::Release(ArObject *object) {
         return;
 
     if (AR_GET_RC(object).DecStrong()) {
-        if(AR_GET_RC(object).IsGcObject()){
+        if (AR_GET_RC(object).IsGcObject()) {
             memory::GCFree(object);
             return;
         }

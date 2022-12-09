@@ -6,19 +6,18 @@
 #define ARGON_VM_DATATYPE_BUFVIEW_H_
 
 #include <atomic>
+#include <shared_mutex>
 
 #include "objectdef.h"
 
 namespace argon::vm::datatype {
     struct SharedBuffer {
+        std::shared_mutex rwlock;
+
         std::atomic_long counter;
 
         unsigned char *buffer;
         ArSize capacity;
-
-        void Acquire() {
-            this->counter++;
-        }
 
         bool IsWritable() const {
             return this->counter == 1;
@@ -27,12 +26,34 @@ namespace argon::vm::datatype {
         bool Release() {
             return this->counter.fetch_sub(1) == 1;
         }
+
+        void Acquire() {
+            this->counter++;
+        }
     };
 
     struct BufferView {
         SharedBuffer *shared;
         unsigned char *buffer;
         ArSize length;
+
+        unsigned char *ReadableBufferLock() {
+            this->shared->rwlock.lock_shared();
+            return this->buffer;
+        }
+
+        unsigned char *WritableBufferLock() {
+            this->shared->rwlock.lock();
+            return this->buffer;
+        }
+
+        void ReadableRelease() {
+            this->shared->rwlock.unlock_shared();
+        }
+
+        void WritableRelease() {
+            this->shared->rwlock.unlock();
+        }
     };
 
     bool BufferViewEnlarge(BufferView *view, ArSize count);

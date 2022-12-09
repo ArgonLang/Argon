@@ -26,6 +26,8 @@ namespace argon::vm::datatype {
 
     Bytes *BytesNew(const unsigned char *buffer, ArSize len, bool frozen);
 
+    Bytes *BytesNew(Bytes *bytes, ArSize start, ArSize length);
+
     inline Bytes *BytesNew(const char *string, bool frozen) {
         return BytesNew((const unsigned char *) string, strlen(string), frozen);
     }

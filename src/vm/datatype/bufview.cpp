@@ -26,6 +26,8 @@ SharedBuffer *SharedBufferNew(ArSize cap) {
             Free(shared);
             return nullptr;
         }
+
+        new(&shared->rwlock)std::shared_mutex();
     }
 
     return shared;
