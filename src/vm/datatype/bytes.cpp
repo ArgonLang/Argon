@@ -127,7 +127,7 @@ ARGON_METHOD(bytes_endswith, endswith,
 ARGON_METHOD(bytes_find, find,
              "Searches the string for a specified value and returns the position of where it was found.\n"
              "\n"
-             "- Parameter str: The value to search for.\n"
+             "- Parameter pattern: The value to search for.\n"
              "- Returns: Index of the first position, -1 otherwise.\n"
              "\n"
              "# SEE\n"
@@ -313,6 +313,136 @@ ARGON_METHOD(bytes_isfrozen, isfrozen,
     return BoolToArBool(((Bytes *) _self)->frozen);
 }
 
+ARGON_METHOD(bytes_lower, lower,
+             "Return a copy of the bytes string converted to lowercase.\n"
+             "\n"
+             "- Returns: New bytes string with all characters converted to lowercase.\n",
+             nullptr, false, false) {
+    Bytes *ret;
+
+    if ((ret = BytesNew(_self)) != nullptr) {
+        for (ArSize i = 0; i < BUFFER_LEN(ret); i++)
+            BUFFER_GET(ret)[i] = (unsigned char) tolower(BUFFER_GET(ret)[i]);
+
+        ret->frozen = ((Bytes *) _self)->frozen;
+    }
+
+    return (ArObject *) ret;
+}
+
+
+ARGON_METHOD(bytes_rfind, rfind,
+             "Searches the string for a specified value and returns the last position of where it was found.\n"
+             "\n"
+             "- Parameter pattern: The value to search for.\n"
+             "- Returns: Index of the last position, -1 otherwise.\n"
+             "\n"
+             "# SEE\n"
+             "- find\n",
+             ": pattern", false, false) {
+    ArBuffer buffer{};
+    auto *self = (Bytes *) _self;
+    ArSSize index;
+
+    if (_self == args[0])
+        return BoolToArBool(true);
+
+    if (!BufferGet(args[0], &buffer, BufferFlags::READ))
+        return nullptr;
+
+    SHARED_LOCK(self);
+
+    index = support::Find(BUFFER_GET(self), BUFFER_LEN(self), buffer.buffer, buffer.length, true);
+
+    SHARED_UNLOCK(self);
+
+    BufferRelease(&buffer);
+
+    return BoolToArBool(index);
+}
+
+ARGON_METHOD(bytes_rmpostfix, rmpostfix,
+             "Returns new bytes without postfix(if present), otherwise return this object.\n"
+             "\n"
+             "- Parameter postfix: Postfix to looking for.\n"
+             "- Returns: New bytes without indicated postfix.\n"
+             "\n"
+             "# SEE\n"
+             "- rmprefix\n",
+             ": postfix", false, false) {
+    ArBuffer buffer{};
+    auto *self = (Bytes *) _self;
+    ArSize len;
+    int compare;
+
+    if (_self == args[0])
+        return (ArObject *) BytesNew(nullptr, 0, true);
+
+    if (!BufferGet(args[0], &buffer, BufferFlags::READ))
+        return nullptr;
+
+    SHARED_LOCK(self);
+
+    len = BUFFER_LEN(self) > buffer.length ? buffer.length : BUFFER_LEN(self);
+
+    compare = argon::vm::memory::MemoryCompare(BUFFER_GET(self) + (BUFFER_LEN(self) - len), buffer.buffer, len);
+
+    BufferRelease(&buffer);
+
+    if (compare == 0) {
+        auto *ret = BytesNew(BUFFER_GET(self), BUFFER_LEN(self) - len, self->frozen);
+
+        SHARED_UNLOCK(self);
+
+        return (ArObject *) ret;
+    }
+
+    SHARED_UNLOCK(self);
+
+    return (ArObject *) IncRef(self);
+}
+
+ARGON_METHOD(bytes_rmprefix, rmprefix,
+             "Returns new bytes without prefix(if present), otherwise return this object.\n"
+             "\n"
+             "- Parameter prefix: Prefix to looking for.\n"
+             "- Returns: New bytes without indicated prefix.\n"
+             "\n"
+             "# SEE\n"
+             "- rmpostfix\n",
+             ": prefix", false, false) {
+    ArBuffer buffer{};
+    auto *self = (Bytes *) _self;
+    ArSize len;
+    int compare;
+
+    if (_self == args[0])
+        return (ArObject *) BytesNew(nullptr, 0, true);
+
+    if (!BufferGet(args[0], &buffer, BufferFlags::READ))
+        return nullptr;
+
+    SHARED_LOCK(self);
+
+    len = BUFFER_LEN(self) > buffer.length ? buffer.length : BUFFER_LEN(self);
+
+    compare = argon::vm::memory::MemoryCompare(BUFFER_GET(self), buffer.buffer, len);
+
+    BufferRelease(&buffer);
+
+    if (compare == 0) {
+        auto *ret = BytesNew(BUFFER_GET(self) + len, BUFFER_LEN(self) - len, self->frozen);
+
+        SHARED_UNLOCK(self);
+
+        return (ArObject *) ret;
+    }
+
+    SHARED_UNLOCK(self);
+
+    return (ArObject *) IncRef(self);
+}
+
 ARGON_METHOD(bytes_split, split,
              "Splits the bytes string at the specified separator, and returns a list.\n"
              "\n"
@@ -356,7 +486,6 @@ ARGON_METHOD(bytes_split, split,
 
     return ret;
 }
-
 
 ARGON_METHOD(bytes_startswith, startswith,
              "Returns true if the bytes string starts with the specified value.\n"
@@ -471,8 +600,12 @@ const FunctionDef bytes_method[] = {
         bytes_isdigit,
         bytes_isxdigit,
         bytes_isfrozen,
+        bytes_lower,
         bytes_tohex,
         bytes_tostr,
+        bytes_rfind,
+        bytes_rmpostfix,
+        bytes_rmprefix,
         bytes_split,
         bytes_startswith,
         bytes_upper,
