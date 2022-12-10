@@ -9,6 +9,7 @@
 
 #include "arobject.h"
 #include "bufview.h"
+#include "iterator.h"
 
 namespace argon::vm::datatype {
     struct Bytes {
@@ -21,6 +22,9 @@ namespace argon::vm::datatype {
         bool frozen;
     };
     extern const TypeInfo *type_bytes_;
+
+    using BytesIterator = Iterator<Bytes>;
+    extern const TypeInfo *type_bytes_iterator_;
 
     Bytes *BytesFreeze(Bytes *bytes);
 

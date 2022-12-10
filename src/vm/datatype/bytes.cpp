@@ -923,6 +923,18 @@ ArObject *bytes_compare(Bytes *self, ArObject *other, CompareMode mode) {
     ARGON_RICH_COMPARE_CASES(left, right, mode)
 }
 
+ArObject *bytes_iter(Bytes *self, bool reverse) {
+    auto *bi = MakeObject<BytesIterator>(type_bytes_iterator_);
+
+    if (bi != nullptr) {
+        bi->iterable = IncRef(self);
+        bi->index = 0;
+        bi->reverse = reverse;
+    }
+
+    return (ArObject *) bi;
+}
+
 ArObject *bytes_repr(Bytes *self) {
     StringBuilder builder{};
     ArObject *ret = nullptr;
@@ -983,7 +995,7 @@ TypeInfo BytesType = {
         (CompareOp) bytes_compare,
         (UnaryConstOp) bytes_repr,
         nullptr,
-        nullptr,
+        (UnaryBoolOp) bytes_iter,
         nullptr,
         &bytes_buffer,
         nullptr,
@@ -1069,3 +1081,68 @@ Bytes *argon::vm::datatype::BytesNew(Bytes *bytes, ArSize start, ArSize length) 
 
     return bs;
 }
+
+// BYTES ITERATOR
+
+ArObject *bytesiterator_iter_next(BytesIterator *self) {
+    unsigned char byte;
+
+    SHARED_LOCK(self->iterable);
+
+    if (!self->reverse) {
+        if (self->index < BUFFER_LEN(self->iterable)) {
+            byte = *(BUFFER_GET(self->iterable) + self->index);
+
+            SHARED_UNLOCK(self->iterable);
+
+            self->index++;
+
+            return (ArObject *) UIntNew(byte);
+        }
+
+        SHARED_UNLOCK(self->iterable);
+
+        return nullptr;
+    }
+
+    if (BUFFER_LEN(self->iterable) - self->index == 0) {
+        SHARED_UNLOCK(self->iterable);
+
+        return nullptr;
+    }
+
+    byte = *(BUFFER_GET(self->iterable) + (BUFFER_LEN(self->iterable) - self->index));
+
+    SHARED_UNLOCK(self->iterable);
+
+    self->index++;
+
+    return (ArObject *) UIntNew(byte);
+}
+
+TypeInfo BytesIteratorType = {
+        AROBJ_HEAD_INIT_TYPE,
+        "BytesIterator",
+        nullptr,
+        nullptr,
+        sizeof(BytesIterator),
+        TypeInfoFlags::BASE,
+        nullptr,
+        nullptr,
+        nullptr,
+        nullptr,
+        nullptr,
+        nullptr,
+        nullptr,
+        nullptr,
+        IteratorIter,
+        (UnaryOp) bytesiterator_iter_next,
+        nullptr,
+        nullptr,
+        nullptr,
+        nullptr,
+        nullptr,
+        nullptr,
+        nullptr
+};
+const TypeInfo *argon::vm::datatype::type_bytes_iterator_ = &BytesIteratorType;
