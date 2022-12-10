@@ -282,7 +282,7 @@ ARGON_METHOD(str_join, join,
 }
 
 ARGON_METHOD(str_split, split,
-             "Splits the string at the specified separator, and returns a list.\n"
+             "Splits the string at the specified separator and returns a list.\n"
              "\n"
              "- Parameters:\n"
              " - pattern: Specifies the separator to use when splitting the string.\n"
