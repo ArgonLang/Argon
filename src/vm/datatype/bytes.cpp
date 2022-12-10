@@ -313,6 +313,82 @@ ARGON_METHOD(bytes_isfrozen, isfrozen,
     return BoolToArBool(((Bytes *) _self)->frozen);
 }
 
+ARGON_METHOD(bytes_join, join,
+             "Joins the elements of an iterable to the end of the bytes string.\n"
+             "\n"
+             "- Parameter iterable: Any iterable object where all the returned values are bufferable.\n"
+             "- Returns: New bytes string where all items in an iterable are joined into one bytes string.\n",
+             ": iterable", false, false) {
+    ArBuffer buffer{};
+    auto *self = (Bytes *) _self;
+    ArObject *item;
+    ArObject *iter;
+    Bytes *ret;
+
+    ArSize idx = 0;
+    ArSize len;
+
+    if ((iter = IteratorGet(args[0], false)) == nullptr)
+        return nullptr;
+
+    if ((ret = BytesNew(0, true, false, false)) == nullptr) {
+        Release(iter);
+        return nullptr;
+    }
+
+    SHARED_LOCK(self);
+
+    while ((item = IteratorNext(iter)) != nullptr) {
+        const unsigned char *item_buf = BUFFER_GET(self);
+        len = BUFFER_LEN(self);
+
+        if (item != _self) {
+            if (!BufferGet(item, &buffer, BufferFlags::READ))
+                goto ERROR;
+
+            item_buf = buffer.buffer;
+            len = buffer.length;
+        }
+
+        if (idx > 0)
+            len += BUFFER_LEN(self);
+
+        if (!BufferViewEnlarge(&ret->view, len)) {
+            BufferRelease(&buffer);
+            goto ERROR;
+        }
+
+        if (idx > 0) {
+            argon::vm::memory::MemoryCopy(BUFFER_GET(ret) + BUFFER_LEN(ret), BUFFER_GET(self), BUFFER_LEN(self));
+            BUFFER_LEN(ret) += BUFFER_LEN(self);
+        }
+
+        argon::vm::memory::MemoryCopy(BUFFER_GET(ret) + BUFFER_LEN(ret), item_buf, len);
+        BUFFER_LEN(ret) += len;
+
+        if (item != _self)
+            BufferRelease(&buffer);
+
+        Release(item);
+
+        idx++;
+    }
+
+    SHARED_UNLOCK(self);
+
+    Release(iter);
+
+    return (ArObject *) ret;
+
+    ERROR:
+    SHARED_UNLOCK(self);
+
+    Release(item);
+    Release(iter);
+    Release(ret);
+    return nullptr;
+}
+
 ARGON_METHOD(bytes_lower, lower,
              "Return a copy of the bytes string converted to lowercase.\n"
              "\n"
@@ -444,7 +520,7 @@ ARGON_METHOD(bytes_rmprefix, rmprefix,
 }
 
 ARGON_METHOD(bytes_split, split,
-             "Splits the bytes string at the specified separator, and returns a list.\n"
+             "Splits the bytes string at the specified separator and returns a list.\n"
              "\n"
              "- Parameters:\n"
              " - pattern: Specifies the separator to use when splitting the bytes string.\n"
@@ -600,6 +676,7 @@ const FunctionDef bytes_method[] = {
         bytes_isdigit,
         bytes_isxdigit,
         bytes_isfrozen,
+        bytes_join,
         bytes_lower,
         bytes_tohex,
         bytes_tostr,
