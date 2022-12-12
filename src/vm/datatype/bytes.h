@@ -97,6 +97,7 @@ namespace argon::vm::datatype {
     inline Bytes *BytesNew(const char *string, bool frozen) {
         return BytesNew((const unsigned char *) string, strlen(string), frozen);
     }
-}
+
+} // namespace argon::vm::datatype
 
 #endif // !ARGON_VM_DATATYPE_BYTES_H_

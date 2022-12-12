@@ -41,6 +41,6 @@ namespace argon::vm::datatype{
      */
     Bounds *BoundsNew(ArObject *start, ArObject *stop, ArObject *step);
 
-} // argon::vm::datatype
+} // namespace argon::vm::datatype
 
 #endif // !ARGON_VM_BOUNDS_H_

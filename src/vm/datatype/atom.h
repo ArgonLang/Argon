@@ -22,6 +22,7 @@ namespace argon::vm::datatype {
      * @return A pointer to an Atom object, otherwise nullptr.
      */
     Atom *AtomNew(const char *value);
-}
+
+} // namespace argon::vm::datatype
 
 #endif // !ARGON_VM_DATATYPE_ATOM_H_
