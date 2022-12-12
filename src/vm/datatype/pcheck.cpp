@@ -21,6 +21,13 @@
 
 using namespace argon::vm::datatype;
 
+ArObject *pcheck_compare(const ArObject *self, const ArObject *other, CompareMode mode) {
+    if (mode == CompareMode::EQ)
+        return BoolToArBool(self == other);
+
+    return nullptr;
+}
+
 bool pcheck_dtor(PCheck *self) {
     for (int i = 0; i < self->count; i++) {
         auto *param = self->params[i];
@@ -46,7 +53,7 @@ TypeInfo PCheckType = {
         nullptr,
         nullptr,
         nullptr,
-        nullptr,
+        pcheck_compare,
         nullptr,
         nullptr,
         nullptr,

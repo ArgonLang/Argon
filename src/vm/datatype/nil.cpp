@@ -2,9 +2,23 @@
 //
 // Licensed under the Apache License v2.0
 
+#include "arstring.h"
+#include "boolean.h"
+
 #include "nil.h"
 
 using namespace argon::vm::datatype;
+
+ArObject *nil_compare(const ArObject *self, const ArObject *other, CompareMode mode) {
+    if (!AR_TYPEOF(self, type_nil_) || mode != CompareMode::EQ)
+        return nullptr;
+
+    return BoolToArBool(self == other);
+}
+
+ArObject *nil_str(const ArObject *) {
+    return (ArObject *) StringNew("nil");
+}
 
 bool nil_is_true(const ArObject *) {
     return false;
@@ -26,9 +40,9 @@ TypeInfo NilType = {
         nullptr,
         nil_hash,
         nil_is_true,
+        nil_compare,
         nullptr,
-        nullptr,
-        nullptr,
+        (UnaryOp) nil_str,
         nullptr,
         nullptr,
         nullptr,

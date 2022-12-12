@@ -3,13 +3,30 @@
 // Licensed under the Apache License v2.0
 
 #include "arstring.h"
+#include "boolean.h"
+
 #include "result.h"
 
 using namespace argon::vm::datatype;
 
+ArObject *result_compare(const Result *self, const ArObject *other, CompareMode mode) {
+    const auto *o = (const Result *) other;
+
+    if (!AR_SAME_TYPE(self, other) || mode != CompareMode::EQ)
+        return nullptr;
+
+    if (self == o)
+        return BoolToArBool(true);
+
+    if (self->success == o->success)
+        return AR_GET_TYPE(self)->compare(self->value, o->value, mode);
+
+    return BoolToArBool(false);
+}
+
 ArObject *result_repr(const Result *self) {
-    return (ArObject *) StringFormat("%s<%s, %s>", type_result_->name,
-                                     AR_TYPE_NAME(self->value), self->success ? "Ok" : "Err");
+    return (ArObject *) StringFormat("<%s -- success: %s, value: %s>", type_result_->name,
+                                     self->success ? "Ok" : "Err", AR_TYPE_NAME(self->value));
 }
 
 bool result_dtor(Result *self) {
@@ -38,7 +55,7 @@ TypeInfo ResultType = {
         (TraceOp) result_trace,
         nullptr,
         (Bool_UnaryOp) result_is_true,
-        nullptr,
+        (CompareOp) result_compare,
         (UnaryConstOp) result_repr,
         nullptr,
         nullptr,

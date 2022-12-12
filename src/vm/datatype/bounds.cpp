@@ -2,8 +2,10 @@
 //
 // Licensed under the Apache License v2.0
 
+#include "arstring.h"
 #include "boolean.h"
 #include "error.h"
+
 #include "bounds.h"
 
 using namespace argon::vm::datatype;
@@ -41,9 +43,8 @@ ArObject *bounds_compare(const Bounds *self, const Bounds *other, CompareMode mo
     return BoolToArBool(val);
 }
 
-ArObject *bounds_str(Bounds *self) {
-    // return StringFormat("bounds(%i, %i, %i)", self->start, self->stop, self->step);
-    return nullptr;
+ArObject *bounds_str(const Bounds *self) {
+    return (ArObject *) StringFormat("bounds(%i, %i, %i)", self->start, self->stop, self->step);
 }
 
 bool bounds_dtor(Bounds *self) {

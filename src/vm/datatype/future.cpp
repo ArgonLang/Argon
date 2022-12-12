@@ -2,14 +2,38 @@
 //
 // Licensed under the Apache License v2.0
 
+#include "boolean.h"
+
 #include "future.h"
 
 using namespace argon::vm::datatype;
+
+ArObject *future_compare(const ArObject *self, const ArObject *other, CompareMode mode) {
+    if (mode == CompareMode::EQ)
+        return BoolToArBool(self == other);
+
+    return nullptr;
+}
+
+ArObject *future_repr(const Future *self) {
+    auto status = self->status;
+
+    if (status == FutureStatus::FULFILLED)
+        return (ArObject *) StringFormat("<%s -- status: %s, value: %s>", type_future_->name,
+                                         "Fulfilled", AR_TYPE_NAME(self->value));
+
+    return (ArObject *) StringFormat("<%s -- status: %s>", type_future_->name,
+                                     status == FutureStatus::PENDING ? "Pending" : "Rejected");
+}
 
 bool future_dtor(Future *self) {
     Release(self->value);
 
     return true;
+}
+
+void future_trace(Future *self, Void_UnaryOp trace) {
+    trace(self->value);
 }
 
 TypeInfo FutureType = {
@@ -21,11 +45,11 @@ TypeInfo FutureType = {
         TypeInfoFlags::BASE,
         nullptr,
         (Bool_UnaryOp) future_dtor,
+        (TraceOp) future_trace,
         nullptr,
         nullptr,
-        nullptr,
-        nullptr,
-        nullptr,
+        future_compare,
+        (UnaryConstOp) future_repr,
         nullptr,
         nullptr,
         nullptr,
@@ -47,7 +71,7 @@ bool argon::vm::datatype::FutureAWait(Future *future) {
 }
 
 Future *argon::vm::datatype::FutureNew() {
-    auto *future = MakeObject<Future>(type_future_);
+    auto *future = MakeGCObject<Future>(type_future_, false);
 
     if (future != nullptr) {
         future->value = nullptr;
@@ -74,6 +98,8 @@ void argon::vm::datatype::FutureSetResult(Future *future, ArObject *success, ArO
         future->value = IncRef(error);
         future->status = FutureStatus::REJECTED;
     }
+
+    memory::TrackIf((ArObject *) future, future->value);
 
     future->wait.queue.NotifyAll();
     future->wait.cond.notify_one();

@@ -4,6 +4,7 @@
 
 #include "boolean.h"
 #include "dict.h"
+
 #include "atom.h"
 
 using namespace argon::vm::datatype;
@@ -16,6 +17,10 @@ ArObject *atom_compare(const ArObject *self, const ArObject *other, CompareMode 
         return nullptr;
 
     return BoolToArBool(self == other);
+}
+
+ArObject *atom_str(Atom *self) {
+    return (ArObject *) StringFormat("@%s", ARGON_RAW_STRING(self->value));
 }
 
 ArSize atom_hash(Atom *self) {
@@ -41,7 +46,7 @@ TypeInfo AtomType = {
         nullptr,
         atom_compare,
         nullptr,
-        nullptr,
+        (UnaryOp) atom_str,
         nullptr,
         nullptr,
         nullptr,
