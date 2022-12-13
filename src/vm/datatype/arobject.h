@@ -54,7 +54,7 @@ namespace argon::vm::datatype {
 
     bool TraitIsImplemented(const ArObject *object, const TypeInfo *type);
 
-    void BufferRelease(ArBuffer *buffer);
+    int RecursionTrack(ArObject *object);
 
     template<typename T>
     T *IncRef(T *t) {
@@ -107,6 +107,8 @@ namespace argon::vm::datatype {
         return ret;
     }
 
+    void BufferRelease(ArBuffer *buffer);
+
     void Release(ArObject *object);
 
     template<typename T>
@@ -119,6 +121,8 @@ namespace argon::vm::datatype {
     inline void Release(T *t) {
         Release((ArObject *) t);
     }
+
+    void RecursionUntrack(ArObject *object);
 
     class ARC {
         ArObject *object_ = nullptr;

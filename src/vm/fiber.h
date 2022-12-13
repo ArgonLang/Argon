@@ -42,10 +42,13 @@ namespace argon::vm {
             Fiber *prev;
         } rq;
 
-        datatype::Future *future;
-
         /// Current execution frame.
         Frame *frame;
+
+        datatype::Future *future;
+
+        /// Stores object references of a function that may become recursive (e.g. list_repr, dict_repr...)
+        datatype::List *references;
 
         /// Pointer to object that describe actual routine panic (if any...).
         struct Panic *panic;

@@ -16,6 +16,8 @@
 
 using namespace argon::vm::datatype;
 
+static List *static_references = nullptr;
+
 ArObject *MROSearch(const TypeInfo *type, ArObject *key, AttributeProperty *aprop) {
     if (type->mro == nullptr)
         return nullptr;
@@ -498,6 +500,33 @@ bool argon::vm::datatype::TraitIsImplemented(const ArObject *object, const TypeI
     return false;
 }
 
+int argon::vm::datatype::RecursionTrack(ArObject *object) {
+    auto *fiber = argon::vm::GetFiber();
+    List **ref = &static_references;
+
+    if (fiber != nullptr)
+        ref = &fiber->references;
+
+    if (*ref == nullptr) {
+        *ref = ListNew();
+        if (*ref == nullptr)
+            return -1;
+    }
+
+    // search ref on list
+    if ((*ref)->length > 0) {
+        for (ArSize i = (*ref)->length; i > 0; i--)
+            if ((*ref)->objects[i - 1] == object)
+                return 1;
+    }
+
+    // not found, push it!
+    if (!ListAppend(*ref, object))
+        return -1;
+
+    return 0;
+}
+
 void argon::vm::datatype::BufferRelease(ArBuffer *buffer) {
     if (buffer->object == nullptr)
         return;
@@ -523,4 +552,16 @@ void argon::vm::datatype::Release(ArObject *object) {
 
         argon::vm::memory::Free(object);
     }
+}
+
+void argon::vm::datatype::RecursionUntrack(ArObject *object) {
+    auto *fiber = argon::vm::GetFiber();
+    List **ref = &static_references;
+
+    if (fiber != nullptr)
+        ref = &fiber->references;
+
+    assert((*ref) != nullptr && (*ref)->objects[(*ref)->length - 1] == object);
+
+    ListRemove(*ref, ((ArSSize) (*ref)->length) - 1);
 }

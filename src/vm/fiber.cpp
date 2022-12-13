@@ -161,6 +161,7 @@ void argon::vm::FiberDel(Fiber *fiber) {
     assert(fiber->frame == nullptr);
 
     Release(fiber->future);
+    Release(fiber->references);
 
     memory::Free(fiber);
 }
