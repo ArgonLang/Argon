@@ -115,6 +115,10 @@ Error *argon::vm::datatype::ErrorNewFormat(const char *id, const char *format, .
     return err;
 }
 
+Error *argon::vm::datatype::ErrorNewFormat(const char *id, const char *format, ArObject *args) {
+    assert(false);
+}
+
 Error *argon::vm::datatype::ErrorNew(ArObject *id, String *reason) {
     auto *err = MakeObject<Error>(type_error_);
 
@@ -173,4 +177,13 @@ void argon::vm::datatype::ErrorFormat(const char *id, const char *format, ...) {
         argon::vm::Panic((ArObject *) err);
 
     Release(err);
+}
+
+void argon::vm::datatype::ErrorFormat(const char *id, const char *format, ArObject *args) {
+    auto *error = ErrorNewFormat(id, format, args);
+
+    if (error != nullptr)
+        argon::vm::Panic((ArObject *) error);
+
+    Release(error);
 }

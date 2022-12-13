@@ -182,6 +182,47 @@ const ObjectSlots dict_objslot = {
         -1
 };
 
+ArObject *dict_get_item(Dict *self, ArObject *key) {
+    std::shared_lock _(self->rwlock);
+
+    auto *entry = self->hmap.Lookup(key);
+    if (entry == nullptr) {
+        _.unlock();
+
+        ErrorFormat(kKeyError[0], kKeyError[1], key);
+
+        return nullptr;
+    }
+
+    return IncRef(entry->value);
+}
+
+ArObject *dict_item_in(Dict *self, ArObject *key) {
+    std::shared_lock _(self->rwlock);
+
+    const auto *entry = self->hmap.Lookup(key);
+
+    _.unlock();
+
+    return BoolToArBool(entry != nullptr);
+}
+
+ArSize dict_length(const Dict *self) {
+    return self->hmap.length;
+}
+
+const auto dict_set_item = (bool (*)(argon::vm::datatype::Dict *, argon::vm::datatype::ArObject *,
+                                     argon::vm::datatype::ArObject *)) DictInsert;
+
+const SubscriptSlots dict_subscript = {
+        (ArSize_UnaryOp) dict_length,
+        (BinaryOp) dict_get_item,
+        (Bool_TernaryOp) dict_set_item,
+        nullptr,
+        nullptr,
+        (BinaryOp) dict_item_in
+};
+
 ArObject *dict_compare(Dict *self, ArObject *other, CompareMode mode) {
     auto *o = (Dict *) other;
 
@@ -310,7 +351,7 @@ TypeInfo DictType = {
         nullptr,
         nullptr,
         &dict_objslot,
-        nullptr,
+        &dict_subscript,
         nullptr,
         nullptr,
         nullptr

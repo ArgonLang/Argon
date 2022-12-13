@@ -42,6 +42,11 @@ namespace argon::vm::datatype {
             (const char *) "an error occurred while creating an error"
     };
 
+    constexpr const char *kKeyError[] = {
+            (const char *) "KeyError",
+            (const char *) "invalid key '%s'",
+    };
+
     constexpr const char *kNotImplementedError[] = {
             (const char *) "NotImplementedError",
             (const char *) "you must implement method %s",
@@ -70,11 +75,11 @@ namespace argon::vm::datatype {
             (const char *) "TypeError",
             (const char *) "a type is required, not an instance of %s",
             (const char *) "expected '%s' got '%s'",
-            (const char *)"%s() takes %d argument, but %d were given",
-            (const char *)"%s() does not accept keyword arguments",
-            (const char *)"method %s doesn't apply to '%s' type",
-            (const char *)"%s does not support %s (async function)",
-            (const char *)"%s does not support %s (generator function)"
+            (const char *) "%s() takes %d argument, but %d were given",
+            (const char *) "%s() does not accept keyword arguments",
+            (const char *) "method %s doesn't apply to '%s' type",
+            (const char *) "%s does not support %s (async function)",
+            (const char *) "%s does not support %s (generator function)"
     };
 
     constexpr const char *kUnassignableError[] = {
@@ -125,6 +130,8 @@ namespace argon::vm::datatype {
 
     Error *ErrorNewFormat(const char *id, const char *format, ...);
 
+    Error *ErrorNewFormat(const char *id, const char *format, ArObject *args);
+
     Error *ErrorNew(ArObject *id, String *reason);
 
     Error *ErrorNew(const char *id, String *reason);
@@ -132,6 +139,8 @@ namespace argon::vm::datatype {
     Error *ErrorNew(const char *id, const char *reason);
 
     void ErrorFormat(const char *id, const char *format, ...);
+
+    void ErrorFormat(const char *id, const char *format, ArObject *args);
 
 } // namespace argon::vm::datatype
 
