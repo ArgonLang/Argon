@@ -7,6 +7,7 @@
 #include "arstring.h"
 #include "boolean.h"
 #include "error.h"
+#include "result.h"
 #include "stringbuilder.h"
 
 #include "dict.h"
@@ -20,6 +21,166 @@ using namespace argon::vm::datatype;
             return retval;                                                              \
         }                                                                               \
     } while(0)
+
+ARGON_METHOD(dict_clear, clear,
+             "Removes all the elements from the dict.\n"
+             "\n"
+             "- Returns: This object.\n",
+             nullptr, false, false) {
+    DictClear((Dict *) _self);
+    return IncRef(_self);
+}
+
+ARGON_METHOD(dict_contains, contains,
+             "Check if the elements is present in the dict.\n"
+             "\n"
+             "- Parameter key: Key to look up in the dict.\n"
+             "- Returns: True if element exists, false otherwise.\n",
+             ": key", false, false) {
+
+    auto *itm = DictLookup((Dict *) _self, args[0]);
+
+    Release(itm);
+
+    return BoolToArBool(itm != nullptr);
+}
+
+ARGON_METHOD(dict_get, get,
+             "Returns the value of the specified key.\n"
+             "\n"
+             "- Parameter key: Key to look up in the dict.\n"
+             "- Returns: Result<?>.\n",
+             ": key", false, false) {
+    auto *itm = DictLookup((Dict *) _self, args[0]);
+
+    if (itm == nullptr)
+        return (ArObject *) ResultNew(nullptr, false);
+
+    auto *result = ResultNew(itm, false);
+
+    Release(itm);
+
+    return (ArObject *) result;
+}
+
+ARGON_METHOD(dict_items, items,
+             "Returns a list containing a tuple for each key value pair.\n"
+             "\n"
+             "- Returns: List containing a tuple for each key value pair.\n",
+             nullptr, false, false) {
+    auto *self = (Dict *) _self;
+    List *ret;
+    Tuple *item;
+
+    std::shared_lock _(self->rwlock);
+
+    if ((ret = ListNew(self->hmap.length)) == nullptr)
+        return nullptr;
+
+    for (auto *cursor = self->hmap.iter_begin; cursor != nullptr; cursor = cursor->iter_next) {
+        if ((item = TupleNew(2)) == nullptr) {
+            Release(ret);
+            return nullptr;
+        }
+
+        TupleInsert(item, cursor->key, 0);
+        TupleInsert(item, cursor->value, 1);
+
+        ListAppend(ret, (ArObject *) item);
+
+        Release(item);
+    }
+
+    return (ArObject *) ret;
+}
+
+ARGON_METHOD(dict_keys, keys,
+             "Returns a list containing the dict keys.\n"
+             "\n"
+             "- Returns: List containing the dict keys.\n",
+             nullptr, false, false) {
+    auto *self = (Dict *) _self;
+    List *ret;
+
+    std::shared_lock _(self->rwlock);
+
+    if ((ret = ListNew(self->hmap.length)) == nullptr)
+        return nullptr;
+
+    for (auto *cursor = self->hmap.iter_begin; cursor != nullptr; cursor = cursor->iter_next)
+        ListAppend(ret, cursor->key);
+
+    return (ArObject *) ret;
+}
+
+ARGON_METHOD(dict_pop, pop,
+             "Removes the element with the specified key.\n"
+             "\n"
+             "- Parameter key: Key to look up in the dict.\n"
+             "- Returns: Result<?>.\n",
+             ": key", false, false) {
+    auto *self = (Dict *) _self;
+
+    std::shared_lock _(self->rwlock);
+
+    auto *item = self->hmap.Remove(args[0]);
+
+    if (item == nullptr)
+        return (ArObject *) ResultNew(nullptr, false);
+
+    auto *value = item->value;
+
+    Release(item->value);
+
+    self->hmap.FreeHEntry(item);
+
+    _.unlock();
+
+    auto *ret = ResultNew(value, true);
+
+    Release(value);
+
+    return (ArObject *) ret;
+}
+
+ARGON_METHOD(dict_values, values,
+             "Returns a list of all the values in the dict.\n"
+             "\n"
+             "- Returns: List of all the values in the dict.\n",
+             nullptr, false, false) {
+    auto *self = (Dict *) _self;
+    List *ret;
+
+    std::shared_lock _(self->rwlock);
+
+    if ((ret = ListNew(self->hmap.length)) == nullptr)
+        return nullptr;
+
+    for (auto *cursor = self->hmap.iter_begin; cursor != nullptr; cursor = cursor->iter_next)
+        ListAppend(ret, cursor->value);
+
+    return (ArObject *) ret;
+}
+
+const FunctionDef dict_methods[] = {
+        dict_clear,
+        dict_contains,
+        dict_get,
+        dict_items,
+        dict_keys,
+        dict_pop,
+        dict_values,
+        ARGON_METHOD_SENTINEL
+};
+
+const ObjectSlots dict_objslot = {
+        dict_methods,
+        nullptr,
+        nullptr,
+        nullptr,
+        nullptr,
+        -1
+};
 
 ArObject *dict_compare(Dict *self, ArObject *other, CompareMode mode) {
     auto *o = (Dict *) other;
@@ -148,7 +309,7 @@ TypeInfo DictType = {
         nullptr,
         nullptr,
         nullptr,
-        nullptr,
+        &dict_objslot,
         nullptr,
         nullptr,
         nullptr,
