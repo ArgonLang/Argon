@@ -7,12 +7,16 @@
 
 #include <cstring>
 
+#include <vm/sync/rsm.h>
+
 #include "arobject.h"
 #include "hashmap.h"
 
 namespace argon::vm::datatype {
     struct Dict {
         AROBJ_HEAD;
+
+        sync::RecursiveSharedMutex rwlock;
 
         HashMap<ArObject, ArObject *> hmap;
     };
@@ -26,7 +30,7 @@ namespace argon::vm::datatype {
      * @return A pointer to the object on success,
      * in case of error nullptr will be returned and the panic state will be set.
      */
-    ArObject *DictLookup(const Dict *dict, ArObject *key);
+    ArObject *DictLookup(Dict *dict, ArObject *key);
 
     /**
      * @brief Look for the element \p key.
@@ -37,7 +41,7 @@ namespace argon::vm::datatype {
      * @return A pointer to the object on success,
      * in case of error nullptr will be returned and the panic state will be set.
      */
-    ArObject *DictLookup(const Dict *dict, const char *key, ArSize length);
+    ArObject *DictLookup(Dict *dict, const char *key, ArSize length);
 
     /**
      * @brief Look for the element \p key.
@@ -47,7 +51,7 @@ namespace argon::vm::datatype {
      * @return A pointer to the object on success,
      * in case of error nullptr will be returned and the panic state will be set.
      */
-    inline ArObject *DictLookup(const Dict *dict, const char *key) {
+    inline ArObject *DictLookup(Dict *dict, const char *key) {
         return DictLookup(dict, key, strlen(key));
     }
 
@@ -104,6 +108,7 @@ namespace argon::vm::datatype {
      * @param dict Pointer to an instance of dict.
      */
     void DictClear(Dict *dict);
-}
+
+} // namespace argon::vm::datatype
 
 #endif // !ARGON_VM_DATATYPE_DICT_H_

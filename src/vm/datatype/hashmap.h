@@ -221,7 +221,6 @@ namespace argon::vm::datatype {
 
             for (HEntry<K, V> *cur = this->iter_begin; cur != nullptr; cur = tmp) {
                 tmp = cur->iter_next;
-                Release(cur->key);
 
                 if (clear_fn != nullptr)
                     clear_fn(cur);
