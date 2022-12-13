@@ -83,6 +83,8 @@ namespace argon::vm::datatype {
      * in case of error nullptr will be returned and the panic state will be set.
      */
     inline List *ListNew() { return ListNew(kListInitialCapacity); }
+
+    void ListRemove(List *list, ArSSize index);
 }
 
 #endif // !ARGON_VM_LIST_H_

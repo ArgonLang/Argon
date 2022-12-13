@@ -182,6 +182,22 @@ List *argon::vm::datatype::ListNew(ArObject *iterable) {
     return nullptr;
 }
 
+void argon::vm::datatype::ListRemove(List *list, ArSSize index) {
+    if (index < 0)
+        index = ((ArSSize) list->length) + index;
+
+    if (index >= list->length)
+        return;
+
+    Release(list->objects[index]);
+
+    // Move items back
+    for (ArSize i = index + 1; i < list->length; i++)
+        list->objects[i - 1] = list->objects[i];
+
+    list->length--;
+}
+
 // LIST ITERATOR
 
 ArObject *listiterator_iter_next(ListIterator *self) {
