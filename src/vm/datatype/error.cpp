@@ -116,7 +116,16 @@ Error *argon::vm::datatype::ErrorNewFormat(const char *id, const char *format, .
 }
 
 Error *argon::vm::datatype::ErrorNewFormat(const char *id, const char *format, ArObject *args) {
-    assert(false);
+    String *msg = StringFormat(format, args);
+
+    if (msg == nullptr)
+        return nullptr;
+
+    auto *error = ErrorNew(id, msg);
+
+    Release(msg);
+
+    return error;
 }
 
 Error *argon::vm::datatype::ErrorNew(ArObject *id, String *reason) {

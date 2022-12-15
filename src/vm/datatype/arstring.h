@@ -177,6 +177,15 @@ namespace argon::vm::datatype {
     String *StringFormat(const char *format, va_list args);
 
     /**
+     * @brief Create a new string using a template.
+     *
+     * @param format Printf style format string.
+     * @param args Argon object.
+     * @return A pointer to an Argon string object, otherwise nullptr.
+     */
+    String *StringFormat(const char *format, ArObject *args);
+
+    /**
      * @brief Creates an exact copy of a String object in the String pool and return it.
      *
      * @param string The C-string to convert to Argon string.

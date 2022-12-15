@@ -15,8 +15,9 @@
 #include "hash_magic.h"
 #include "integer.h"
 #include "stringbuilder.h"
-#include "arstring.h"
+#include "stringformatter.h"
 
+#include "arstring.h"
 
 using namespace argon::vm::datatype;
 
@@ -25,6 +26,34 @@ using namespace argon::vm::datatype;
 
 static Dict *intern = nullptr;
 static String *empty_string = nullptr;
+
+bool StringInitKind(String *string) {
+    Error *error;
+
+    StringKind kind = StringKind::ASCII;
+    ArSize index = 0;
+    ArSize cp_length = 0;
+
+    string->cp_length = 0;
+
+    while (index < string->length) {
+        if (!CheckUnicodeCharSequence(&kind, &cp_length, &error, string->buffer[index], index)) {
+            argon::vm::Panic((ArObject *) error);
+
+            Release(error);
+
+            return false;
+        }
+
+        if (kind > string->kind)
+            string->kind = kind;
+
+        if (++index == cp_length)
+            string->cp_length++;
+    }
+
+    return true;
+}
 
 String *StringInit(ArSize len, bool mkbuf) {
     auto str = MakeObject<String>(type_string_);
@@ -515,6 +544,10 @@ ArObject *string_add(const String *left, const String *right) {
     return nullptr;
 }
 
+ArObject *string_mod(const String *left, ArObject *fmt) {
+    return (ArObject *) StringFormat((const char *) STR_BUF(left), fmt);
+}
+
 ArObject *string_mul(const String *left, const ArObject *right) {
     const auto *l = left;
     String *ret = nullptr;
@@ -547,7 +580,7 @@ const OpSlots string_ops = {
         (BinaryOp) string_mul,
         nullptr,
         nullptr,
-        nullptr,
+        (BinaryOp) string_mod,
         nullptr,
         nullptr,
         nullptr,
@@ -775,6 +808,35 @@ String *argon::vm::datatype::StringFormat(const char *format, va_list args) {
     va_end(vargs2);
 
     return str;
+}
+
+String *argon::vm::datatype::StringFormat(const char *format, ArObject *args) {
+    StringFormatter fmt(format, args, false);
+    String *ret;
+
+    unsigned char *buffer;
+    ArSize out_length;
+    ArSize out_cap;
+
+    if ((buffer = fmt.Format(&out_length, &out_cap)) == nullptr) {
+        auto *err = fmt.GetError();
+
+        argon::vm::Panic((ArObject *) err);
+
+        Release(err);
+
+        return nullptr;
+    }
+
+    if ((ret = StringNew(buffer, out_length, out_length, StringKind::ASCII)) == nullptr)
+        return nullptr;
+
+    fmt.ReleaseOwnership();
+
+    if (!StringInitKind(ret))
+        Release((ArObject **) &ret);
+
+    return ret;
 }
 
 String *argon::vm::datatype::StringIntern(const char *string, ArSize length) {
