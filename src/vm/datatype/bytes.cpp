@@ -2,15 +2,19 @@
 //
 // Licensed under the Apache License v2.0
 
-#include "bytes.h"
+#include <vm/runtime.h>
+
+#include <vm/datatype/support/common.h>
+
+#include "boolean.h"
+#include "bounds.h"
 #include "error.h"
 #include "hash_magic.h"
-#include "boolean.h"
 #include "integer.h"
 #include "stringbuilder.h"
-#include "vm/runtime.h"
-#include "bounds.h"
-#include "vm/datatype/support/common.h"
+#include "stringformatter.h"
+
+#include "bytes.h"
 
 #define BUFFER_GET(bs)              ((bs)->view.buffer)
 #define BUFFER_LEN(bs)              ((bs)->view.length)
@@ -856,21 +860,19 @@ const SubscriptSlots bytes_subscript = {
 };
 
 bool bytes_get_buffer(Bytes *self, ArBuffer *buffer, BufferFlags flags) {
+    /*
+     * Write lock is needed to allow recursive use by the same thread!
+     * See bytes_mod for more information.
+     */
+
     bool ok;
 
-    if (flags == BufferFlags::READ)
-        VIEW_GET(self).ReadableBufferLock();
-    else
-        VIEW_GET(self).WritableBufferLock();
+    VIEW_GET(self).WritableBufferLock();
 
     ok = BufferSimpleFill((ArObject *) self, buffer, flags, BUFFER_GET(self), 1, BUFFER_LEN(self), !self->frozen);
 
-    if (!ok) {
-        if (flags == BufferFlags::READ)
-            VIEW_GET(self).ReadableRelease();
-        else
-            VIEW_GET(self).WritableRelease();
-    }
+    if (!ok)
+        VIEW_GET(self).WritableRelease();
 
     return ok;
 }
@@ -878,15 +880,112 @@ bool bytes_get_buffer(Bytes *self, ArBuffer *buffer, BufferFlags flags) {
 void bytes_rel_buffer(ArBuffer *buffer) {
     auto *self = (Bytes *) buffer->object;
 
-    if (buffer->flags == BufferFlags::READ)
-        VIEW_GET(self).ReadableRelease();
-    else
-        VIEW_GET(self).WritableRelease();
+    VIEW_GET(self).WritableRelease();
 }
 
 const BufferSlots bytes_buffer = {
         (BufferGetFn) bytes_get_buffer,
         bytes_rel_buffer
+};
+
+ArObject *bytes_add(Bytes *left, Bytes *right) {
+    if (AR_TYPEOF(left, type_bytes_) && AR_SAME_TYPE(left, right))
+        return (ArObject *) BytesConcat(left, right);
+
+    return nullptr;
+}
+
+ArObject *bytes_mod(Bytes *left, ArObject *args) {
+    /*
+     * To avoid the following scenario:
+     *
+     *      var b = "hello %s"
+     *      var result = b % b
+     *
+     * The mutex in write mode is used since it is the only mode that supports recursive blocking by the same thread!
+     */
+    unsigned char *buffer;
+    Bytes *ret;
+
+    ArSize out_length;
+    ArSize out_cap;
+
+    VIEW_GET(left).WritableBufferLock();
+
+    StringFormatter fmt((const char *) BUFFER_GET(left), BUFFER_LEN(left), args, true);
+
+    if ((buffer = fmt.Format(&out_length, &out_cap)) == nullptr) {
+        auto *err = fmt.GetError();
+
+        argon::vm::Panic((ArObject *) err);
+
+        Release(err);
+
+        VIEW_GET(left).WritableRelease();
+
+        return nullptr;
+    }
+
+    VIEW_GET(left).WritableRelease();
+
+    if ((ret = BytesNew(0, false, false, false)) != nullptr) {
+        BUFFER_GET(ret) = buffer;
+
+        ret->view.length = out_length;
+        ret->view.shared->capacity = out_cap;
+
+        fmt.ReleaseOwnership();
+    }
+
+    return (ArObject *) ret;
+}
+
+ArObject *bytes_mul(Bytes *left, const ArObject *right) {
+    auto *l = left;
+    Bytes *ret = nullptr;
+    UIntegerUnderlying times;
+
+    // int * bytes -> bytes * int
+    if (!AR_TYPEOF(left, type_bytes_)) {
+        l = (Bytes *) right;
+        right = (const ArObject *) left;
+    }
+
+    if (AR_TYPEOF(right, type_uint_)) {
+        SHARED_LOCK(l);
+
+        times = ((const Integer *) right)->uint;
+        if ((ret = BytesNew(BUFFER_LEN(l) * times, true, false, false)) != nullptr) {
+            while (times--)
+                argon::vm::memory::MemoryCopy(BUFFER_GET(ret) + (BUFFER_LEN(l) * times), BUFFER_GET(l), BUFFER_LEN(l));
+        }
+
+        SHARED_UNLOCK(l);
+    }
+
+    return (ArObject *) ret;
+}
+
+
+const OpSlots bytes_ops = {
+        (BinaryOp) bytes_add,
+        nullptr,
+        (BinaryOp) bytes_mul,
+        nullptr,
+        nullptr,
+        (BinaryOp) bytes_mod,
+        nullptr,
+        nullptr,
+        nullptr,
+        nullptr,
+        nullptr,
+        nullptr,
+        nullptr,
+        nullptr,
+        (BinaryOp) bytes_add,
+        nullptr,
+        nullptr,
+        nullptr
 };
 
 ArObject *bytes_compare(Bytes *self, ArObject *other, CompareMode mode) {
@@ -1001,11 +1100,32 @@ TypeInfo BytesType = {
         nullptr,
         &bytes_objslot,
         &bytes_subscript,
-        nullptr,
+        &bytes_ops,
         nullptr,
         nullptr
 };
 const TypeInfo *argon::vm::datatype::type_bytes_ = &BytesType;
+
+Bytes *argon::vm::datatype::BytesConcat(Bytes *left, Bytes *right) {
+    Bytes *ret;
+
+    SHARED_LOCK(left);
+
+    if (left != right)
+        SHARED_LOCK(right);
+
+    if ((ret = BytesNew(BUFFER_LEN(left) + BUFFER_LEN(right), true, false, false)) != nullptr) {
+        memory::MemoryCopy(BUFFER_GET(ret), BUFFER_GET(left), BUFFER_LEN(left));
+        memory::MemoryCopy(BUFFER_GET(ret) + BUFFER_LEN(left), BUFFER_GET(right), BUFFER_LEN(right));
+    }
+
+    SHARED_UNLOCK(left);
+
+    if (left != right)
+        SHARED_UNLOCK(right);
+
+    return ret;
+}
 
 Bytes *argon::vm::datatype::BytesFreeze(Bytes *bytes) {
     Bytes *ret;

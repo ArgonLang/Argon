@@ -27,6 +27,15 @@ namespace argon::vm::datatype {
     extern const TypeInfo *type_bytes_iterator_;
 
     /**
+     * @brief Concatenate two bytes string.
+     *
+     * @param left Left bytes string.
+     * @param right Right bytes string.
+     * @return A pointer to an Argon bytes object, otherwise nullptr.
+     */
+    Bytes *BytesConcat(Bytes *left, Bytes *right);
+
+    /**
      * @brief Return a frozen bytes object.
      *
      * @param bytes Bytes object to freeze.

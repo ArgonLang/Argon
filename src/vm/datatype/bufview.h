@@ -6,13 +6,14 @@
 #define ARGON_VM_DATATYPE_BUFVIEW_H_
 
 #include <atomic>
-#include <shared_mutex>
+
+#include <vm/sync/rsm.h>
 
 #include "objectdef.h"
 
 namespace argon::vm::datatype {
     struct SharedBuffer {
-        std::shared_mutex rwlock;
+        sync::RecursiveSharedMutex rwlock;
 
         std::atomic_long counter;
 
