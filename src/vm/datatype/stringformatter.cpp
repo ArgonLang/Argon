@@ -121,7 +121,7 @@ unsigned char *StringFormatter::Format(ArSize *out_len, ArSize *out_cap) {
             return nullptr;
     }
 
-    *out_len = this->output_.cursor - this->output_.buffer;
+    *out_len = (this->output_.cursor - 1) - this->output_.buffer;
     *out_cap = this->output_.end - this->output_.buffer;
 
     *this->output_.cursor = '\0';
@@ -131,13 +131,15 @@ unsigned char *StringFormatter::Format(ArSize *out_len, ArSize *out_cap) {
 
 bool StringFormatter::BufferResize(ArSize length) {
     ArSize cap = this->output_.end - this->output_.buffer;
-    ArSize len = this->output_.end - this->output_.cursor;
+    ArSize len = this->output_.cursor - this->output_.buffer;
+    ArSize cap_reserved = cap;
+
     unsigned char *tmp;
 
     if (cap > 0)
-        cap--; // space for '\0'
+        cap_reserved--; // space for '\0'
 
-    if (length == 0 || len + length < cap)
+    if (length == 0 || len + length < cap_reserved)
         return true;
 
     if (this->output_.buffer == nullptr)
@@ -149,8 +151,8 @@ bool StringFormatter::BufferResize(ArSize length) {
     }
 
     this->output_.buffer = tmp;
-    this->output_.cursor = this->output_.buffer + (cap - len);
-    this->output_.end = this->output_.buffer + (cap + length);
+    this->output_.cursor = tmp + len;
+    this->output_.end = tmp + (cap + length);
 
     return true;
 }
@@ -494,11 +496,12 @@ int StringFormatter::FormatNumber(unsigned char *buf, int index, int base, int w
 }
 
 StringFormatter::~StringFormatter() {
+    Release(this->error_);
     vm::memory::Free(this->output_.buffer);
 }
 
 ArObject *StringFormatter::GetError() {
-    return this->error_;
+    return IncRef(this->error_);
 }
 
 void StringFormatter::ReleaseOwnership() {
