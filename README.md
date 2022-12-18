@@ -4,6 +4,9 @@
 [![Bugs](https://sonarcloud.io/api/project_badges/measure?project=ArgonLang_Argon&metric=bugs)](https://sonarcloud.io/summary/new_code?id=ArgonLang_Argon)
 [![Lines of Code](https://sonarcloud.io/api/project_badges/measure?project=ArgonLang_Argon&metric=ncloc)](https://sonarcloud.io/summary/new_code?id=ArgonLang_Argon)
 
+# ⚠️ WARNING ⚠️
+Hi all, this version is no longer maintained, a new version of the language, libraries and runtime is under development and you can find it in the plasma_* branches!
+
 # The Argon Programming Language
 This is the main repository for Argon language. It contains interpreter and builtins libraries.
 
