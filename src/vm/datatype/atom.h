@@ -23,6 +23,17 @@ namespace argon::vm::datatype {
      */
     Atom *AtomNew(const char *value);
 
+    /**
+     * @brief Compare atom and C-String.
+     *
+     * @param atom Atom object to compare.
+     * @param id C-String.
+     * @return Returns true if atom id are equal to C-String, false otherwise.
+     */
+    inline bool AtomCompareID(const Atom *atom, const char *id) {
+        return StringEqual(atom->value, id);
+    }
+
 } // namespace argon::vm::datatype
 
 #endif // !ARGON_VM_DATATYPE_ATOM_H_

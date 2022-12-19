@@ -7,6 +7,7 @@
 
 #include "arobject.h"
 #include "arstring.h"
+#include "atom.h"
 #include "hashmap.h"
 
 namespace argon::vm::datatype {
@@ -113,10 +114,10 @@ namespace argon::vm::datatype {
     struct Error {
         AROBJ_HEAD;
 
+        Atom *id;
         ArObject *reason;
-        ArObject *id;
 
-        HashMap<ArObject *, ArObject> detail;
+        HashMap<ArObject , ArObject*> detail;
     };
     extern const TypeInfo *type_error_;
 
@@ -132,7 +133,7 @@ namespace argon::vm::datatype {
 
     Error *ErrorNewFormat(const char *id, const char *format, ArObject *args);
 
-    Error *ErrorNew(ArObject *id, String *reason);
+    Error *ErrorNew(Atom *id, String *reason);
 
     Error *ErrorNew(const char *id, String *reason);
 

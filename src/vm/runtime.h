@@ -30,6 +30,8 @@ namespace argon::vm {
 
     argon::vm::datatype::ArObject *GetLastError();
 
+    bool CheckLastPanic(const char *id);
+
     bool Initialize(const Config *config);
 
     bool IsPanicking();

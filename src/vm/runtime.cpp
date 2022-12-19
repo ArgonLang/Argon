@@ -8,6 +8,8 @@
 
 #include <lang/compiler_wrapper.h>
 
+#include <vm/datatype/atom.h>
+#include <vm/datatype/error.h>
 #include <vm/datatype/future.h>
 #include <vm/datatype/setup.h>
 
@@ -638,6 +640,17 @@ ArObject *argon::vm::GetLastError() {
     PanicCleanup(&panic_global);
 
     return error;
+}
+
+bool argon::vm::CheckLastPanic(const char *id) {
+    auto **last = &panic_global;
+
+    ON_ARGON_CONTEXT last = &ost_local->fiber->panic;
+
+    if (last == nullptr || !AR_TYPEOF((*last)->object, type_error_))
+        return false;
+
+    return datatype::AtomCompareID(((Error *) (*last)->object)->id, id);
 }
 
 bool argon::vm::Initialize(const Config *config) {

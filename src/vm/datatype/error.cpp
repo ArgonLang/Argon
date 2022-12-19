@@ -2,12 +2,12 @@
 //
 // Licensed under the Apache License v2.0
 
-#include <cassert>
-
 #include <vm/runtime.h>
 
 #include "atom.h"
+#include "boolean.h"
 #include "error.h"
+#include "stringbuilder.h"
 
 using namespace argon::vm::datatype;
 
@@ -15,6 +15,126 @@ Error *argon::vm::datatype::error_div_by_zero = nullptr;
 Error *argon::vm::datatype::error_oom = nullptr;
 Error *argon::vm::datatype::error_err_oom = nullptr;
 Error *argon::vm::datatype::error_while_error = nullptr;
+
+// Prototypes
+
+Error *ErrorNewFormatVA(const char *id, const char *format, va_list args);
+
+String *ReprDetails(const Error *self, const String *header);
+
+void SetErrorOOM();
+
+// ***
+
+const FunctionDef error_methods[] = {
+        ARGON_METHOD_SENTINEL
+};
+
+const ObjectSlots error_objslot = {
+        error_methods,
+        nullptr,
+        nullptr,
+        nullptr,
+        nullptr,
+        -1
+};
+
+ArObject *error_get_item(const Error *self, ArObject *key) {
+    auto *entry = self->detail.Lookup(key);
+    if (entry == nullptr) {
+        ErrorFormat(kKeyError[0], kKeyError[1], key);
+
+        return nullptr;
+    }
+
+    return IncRef(entry->value);
+}
+
+ArObject *error_item_in(const Error *self, ArObject *key) {
+    return BoolToArBool(self->detail.Lookup(key) != nullptr);
+}
+
+ArSize error_length(const Error *self) {
+    return self->detail.length;
+}
+
+const SubscriptSlots error_subscript = {
+        (ArSize_UnaryOp) error_length,
+        (BinaryOp) error_get_item,
+        nullptr,
+        nullptr,
+        nullptr,
+        (BinaryOp) error_item_in
+};
+
+ArObject *error_compare(Error *self, ArObject *other, CompareMode mode) {
+    const auto *o = (Error *) other;
+
+    if (!AR_SAME_TYPE(self, other) || mode != CompareMode::EQ)
+        return nullptr;
+
+    if (self == o)
+        return BoolToArBool(true);
+
+    if (self->detail.length != o->detail.length)
+        return BoolToArBool(false);
+
+    for (auto *cursor = self->detail.iter_begin; cursor != nullptr; cursor = cursor->iter_next) {
+        const auto *other_entry = o->detail.Lookup(cursor->key);
+
+        if (other_entry == nullptr)
+            return BoolToArBool(false);
+
+        if (!Equal(cursor->value, other_entry->value))
+            return BoolToArBool(false);
+    }
+
+    return BoolToArBool(true);
+}
+
+ArObject *error_repr(const Error *self) {
+    String *header;
+    String *id;
+    String *reason;
+
+    if ((id = (String *) Repr((ArObject *) self->id)) == nullptr)
+        return nullptr;
+
+    if ((reason = (String *) Repr(self->reason)) == nullptr) {
+        Release(self->reason);
+        return nullptr;
+    }
+
+    header = StringFormat("%s(%s,%s)", type_error_->name, ARGON_RAW_STRING(id), ARGON_RAW_STRING(reason));
+
+    Release(id);
+    Release(reason);
+
+    if (header == nullptr)
+        return nullptr;
+
+    if (self->detail.length > 0) {
+        id = ReprDetails(self, header);
+
+        Release(header);
+
+        return (ArObject *) id;
+    }
+
+    return (ArObject *) header;
+}
+
+bool error_dtor(Error *self) {
+    Release(self->id);
+    Release(self->reason);
+
+    self->detail.Finalize([](HEntry<ArObject, ArObject *> *entry) {
+        Release(entry->key);
+        Release(entry->value);
+    });
+
+    return true;
+}
 
 TypeInfo ErrorType = {
         AROBJ_HEAD_INIT_TYPE,
@@ -24,19 +144,19 @@ TypeInfo ErrorType = {
         sizeof(Error),
         TypeInfoFlags::BASE,
         nullptr,
+        (Bool_UnaryOp) error_dtor,
+        nullptr,
+        nullptr,
+        nullptr,
+        (CompareOp) error_compare,
+        (UnaryConstOp) error_repr,
         nullptr,
         nullptr,
         nullptr,
         nullptr,
         nullptr,
-        nullptr,
-        nullptr,
-        nullptr,
-        nullptr,
-        nullptr,
-        nullptr,
-        nullptr,
-        nullptr,
+        &error_objslot,
+        &error_subscript,
         nullptr,
         nullptr,
         nullptr
@@ -72,34 +192,58 @@ bool argon::vm::datatype::ErrorInit() {
     return true;
 }
 
-Error *ErrorNewFormatVA(const char *id, const char *format, va_list args) {
-    Error *err = nullptr;
-    String *msg;
-
-    msg = StringFormat(format, args);
-
-    if (msg != nullptr)
-        err = ErrorNew(id, msg);
-
-    Release(msg);
-
-    if (msg == nullptr || err == nullptr) {
-        Release(err);
-
-        err = (Error *) argon::vm::GetLastError();
-        if (err == error_oom) {
-            Release(err);
-            argon::vm::Panic((ArObject *) error_err_oom);
-            return nullptr;
-        }
-
-        // re-throw error!
-        argon::vm::Panic((ArObject *) err);
-        Release(err);
-
-        argon::vm::Panic((ArObject *) error_while_error);
+Error *argon::vm::datatype::ErrorNew(Atom *id, String *reason) {
+    auto *err = MakeObject<Error>(type_error_);
+    if (err == nullptr) {
+        SetErrorOOM();
         return nullptr;
     }
+
+    memory::MemoryZero(&err->detail, sizeof(HashMap<ArObject *, ArObject>));
+
+    err->reason = (ArObject *) IncRef(reason);
+    err->id = IncRef(id);
+
+    return err;
+}
+
+Error *argon::vm::datatype::ErrorNew(const char *id, String *reason) {
+    Atom *aid;
+    Error *err;
+
+    if ((aid = AtomNew(id)) == nullptr) {
+        SetErrorOOM();
+        return nullptr;
+    }
+
+    err = ErrorNew(aid, reason);
+
+    Release(aid);
+
+    return err;
+}
+
+Error *argon::vm::datatype::ErrorNew(const char *id, const char *reason) {
+    Atom *aid;
+    Error *err;
+    String *sreason;
+
+    if ((aid = AtomNew(id)) == nullptr) {
+        SetErrorOOM();
+        return nullptr;
+    }
+
+    if ((sreason = StringNew(reason)) == nullptr) {
+        Release(aid);
+
+        SetErrorOOM();
+        return nullptr;
+    }
+
+    err = ErrorNew(aid, sreason);
+
+    Release(aid);
+    Release(sreason);
 
     return err;
 }
@@ -118,8 +262,16 @@ Error *argon::vm::datatype::ErrorNewFormat(const char *id, const char *format, .
 Error *argon::vm::datatype::ErrorNewFormat(const char *id, const char *format, ArObject *args) {
     String *msg = StringFormat(format, args);
 
-    if (msg == nullptr)
+    if (msg == nullptr) {
+        if (argon::vm::CheckLastPanic(kOOMError[0])) {
+            SetErrorOOM();
+            return nullptr;
+        }
+
+        argon::vm::Panic((ArObject *) error_while_error);
+
         return nullptr;
+    }
 
     auto *error = ErrorNew(id, msg);
 
@@ -128,50 +280,76 @@ Error *argon::vm::datatype::ErrorNewFormat(const char *id, const char *format, A
     return error;
 }
 
-Error *argon::vm::datatype::ErrorNew(ArObject *id, String *reason) {
-    auto *err = MakeObject<Error>(type_error_);
+Error *ErrorNewFormatVA(const char *id, const char *format, va_list args) {
+    Error *err;
+    String *msg;
 
-    if (err != nullptr) {
-        memory::MemoryZero(&err->detail, sizeof(HashMap<ArObject *, ArObject>));
+    if ((msg = StringFormat(format, args)) == nullptr) {
+        if (argon::vm::CheckLastPanic(kOOMError[0])) {
+            SetErrorOOM();
+            return nullptr;
+        }
 
-        err->reason = (ArObject *) IncRef(reason);
-        err->id = IncRef(id);
+        argon::vm::Panic((ArObject *) error_while_error);
+
+        return nullptr;
     }
+
+    err = ErrorNew(id, msg);
+
+    Release(msg);
 
     return err;
 }
 
-Error *argon::vm::datatype::ErrorNew(const char *id, String *reason) {
-    Atom *aid;
-    Error *err;
+String *ReprDetails(const Error *self, const String *header) {
+    StringBuilder builder{};
+    String *ret;
 
-    if ((aid = AtomNew(id)) == nullptr)
-        return nullptr;
+    builder.Write(header, 2 + 256);
 
-    err = ErrorNew((ArObject *) aid, reason);
+    builder.Write((const unsigned char *) " {", 2, 0);
 
-    Release(aid);
-    return err;
-}
+    for (auto *cursor = self->detail.iter_begin; cursor != nullptr; cursor = cursor->iter_next) {
+        auto *key = (String *) Repr(cursor->key);
+        auto *value = (String *) Repr(cursor->value);
 
-Error *argon::vm::datatype::ErrorNew(const char *id, const char *reason) {
-    Atom *aid;
-    Error *err;
-    String *sreason;
+        if (key == nullptr || value == nullptr) {
+            Release(key);
+            Release(value);
 
-    if ((aid = AtomNew(id)) == nullptr)
-        return nullptr;
+            return nullptr;
+        }
 
-    if ((sreason = StringNew(reason)) == nullptr) {
-        Release(aid);
-        return nullptr;
+        if (!builder.Write(key, ARGON_RAW_STRING_LENGTH(value) + (cursor->iter_next == nullptr ? 3 : 4))) {
+            Release(key);
+            Release(value);
+
+            return nullptr;
+        }
+
+        builder.Write((const unsigned char *) ": ", 2, 0);
+
+        builder.Write(value, 0);
+
+        if (cursor->iter_next != nullptr)
+            builder.Write((const unsigned char *) ", ", 2, 0);
+
+        Release(key);
+        Release(value);
     }
 
-    err = ErrorNew((ArObject *) aid, sreason);
+    builder.Write((const unsigned char *) "}", 1, 0);
 
-    Release(aid);
-    Release(sreason);
-    return err;
+    if ((ret = builder.BuildString()) == nullptr) {
+        auto *err = builder.GetError();
+
+        argon::vm::Panic((ArObject *) err);
+
+        Release((ArObject **) &err);
+    }
+
+    return ret;
 }
 
 void argon::vm::datatype::ErrorFormat(const char *id, const char *format, ...) {
@@ -195,4 +373,13 @@ void argon::vm::datatype::ErrorFormat(const char *id, const char *format, ArObje
         argon::vm::Panic((ArObject *) error);
 
     Release(error);
+}
+
+void SetErrorOOM() {
+    const auto *fiber = argon::vm::GetFiber();
+    auto *panic = fiber->panic;
+
+    Release(panic->object);
+
+    panic->object = (ArObject *) IncRef(error_err_oom);
 }
