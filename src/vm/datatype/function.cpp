@@ -2,10 +2,87 @@
 //
 // Licensed under the Apache License v2.0
 
+#include "arstring.h"
+#include "boolean.h"
 #include "error.h"
 #include "function.h"
 
 using namespace argon::vm::datatype;
+
+const MemberDef function_members[] = {
+        ARGON_MEMBER("arity", MemberType::SHORT, offsetof(Function, arity), true),
+        ARGON_MEMBER("base", MemberType::OBJECT, offsetof(Function, base), true),
+        ARGON_MEMBER("doc", MemberType::OBJECT, offsetof(Function, doc), true),
+        ARGON_MEMBER("name", MemberType::OBJECT, offsetof(Function, name), true),
+        ARGON_MEMBER("qname", MemberType::OBJECT, offsetof(Function, qname), true),
+        ARGON_MEMBER_SENTINEL
+};
+
+const ObjectSlots function_objslot = {
+        nullptr,
+        function_members,
+        nullptr,
+        nullptr,
+        nullptr,
+        -1
+};
+
+ArObject *function_compare(const Function *self, const ArObject *other, CompareMode mode) {
+    auto *o = (const Function *) other;
+    bool equal = true;
+
+    if (self == o && mode == CompareMode::EQ)
+        return BoolToArBool(true);
+
+    if (!AR_TYPEOF(other, type_function_) || mode != CompareMode::EQ)
+        return nullptr;
+
+    if (self->native == o->native) {
+        equal = !self->IsNative() && Equal((ArObject *) self->code, (ArObject *) o->code);
+
+        if (equal)
+            equal = self->flags == o->flags
+                    && Equal((ArObject *) self->currying, (ArObject *) o->currying)
+                    && Equal((ArObject *) self->enclosed, (ArObject *) o->enclosed);
+    }
+
+    return BoolToArBool(equal);
+}
+
+ArObject *function_repr(const Function *self) {
+    if (self->IsGenerator()) {
+        return (ArObject *) StringFormat("<generator function %s at %p>", AR_TYPE_QNAME(self), self);
+    }
+
+    if (self->IsNative())
+        return (ArObject *) StringFormat("<native function %s at %p>", AR_TYPE_QNAME(self), self);
+
+    return (ArObject *) StringFormat("<function %s at %p>", AR_TYPE_QNAME(self), self);
+}
+
+ArSize function_hash(const ArObject *self) {
+    return (ArSize) self;
+}
+
+bool function_dtor(Function *self) {
+    if (!self->IsNative())
+        Release(self->code);
+
+    Release(self->name);
+    Release(self->qname);
+    Release(self->doc);
+    Release(self->pcheck);
+    Release(self->currying);
+    Release(self->enclosed);
+    Release(self->base);
+    Release(self->gns);
+
+    return true;
+}
+
+void function_trace(Function *self, Void_UnaryOp trace) {
+    trace((ArObject *) self->gns);
+}
 
 TypeInfo FunctionType = {
         AROBJ_HEAD_INIT_TYPE,
@@ -15,18 +92,18 @@ TypeInfo FunctionType = {
         sizeof(Function),
         TypeInfoFlags::BASE,
         nullptr,
+        (Bool_UnaryOp) function_dtor,
+        (TraceOp) function_trace,
+        function_hash,
+        nullptr,
+        (CompareOp) function_compare,
+        (UnaryConstOp) function_repr,
         nullptr,
         nullptr,
         nullptr,
         nullptr,
         nullptr,
-        nullptr,
-        nullptr,
-        nullptr,
-        nullptr,
-        nullptr,
-        nullptr,
-        nullptr,
+        &function_objslot,
         nullptr,
         nullptr,
         nullptr,

@@ -160,6 +160,9 @@ ArObject *name##_fn(ArObject *_func, ArObject *_self, ArObject **args, ArObject 
         bool readonly;
     };
 
+#define ARGON_MEMBER(name, type, offset, readonly) {name, nullptr, nullptr, type, offset, readonly}
+#define ARGON_MEMBER_SENTINEL {nullptr, nullptr, nullptr, MemberType::ULONG, 0, false}
+
 #define AROBJ_HEAD                                                      \
     struct {                                                            \
         argon::vm::memory::RefCount ref_count_;                         \

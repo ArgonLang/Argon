@@ -68,8 +68,6 @@ namespace argon::vm::datatype {
         /// Flags, see: FunctionInfo.
         FunctionFlags flags;
 
-        ArSize hash;
-
         [[nodiscard]] bool IsAsync() const {
             return ENUMBITMASK_ISTRUE(this->flags, FunctionFlags::ASYNC);
         }
