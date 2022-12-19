@@ -35,6 +35,8 @@ SharedBuffer *SharedBufferNew(ArSize cap) {
 
 void SharedBufferRelease(SharedBuffer *shared) {
     if (shared->Release()) {
+        shared->rwlock.~RecursiveSharedMutex();
+
         Free(shared->buffer);
         Free(shared);
     }
