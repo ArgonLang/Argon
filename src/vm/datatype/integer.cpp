@@ -25,6 +25,57 @@ using namespace argon::vm::datatype;
         return (ArObject *) IntNew(left->sint op right->sint);              \
     } while(0)
 
+ARGON_METHOD(number_bits, bits,
+             "Return number of bits necessary to represent an integer in binary.\n"
+             "\n"
+             "- Returns: Number of bits.\n",
+             nullptr, false, false) {
+    if (AR_TYPEOF(_self, type_int_))
+        return (ArObject *) IntNew(IntegerCountBits(((Integer *) _self)->sint));
+
+    return (ArObject *) UIntNew(IntegerCountBits(((Integer *) _self)->uint));
+}
+
+ARGON_METHOD(number_digits, digits,
+             "Return number of digits necessary to represent an integer in the given numeric base.\n"
+             "\n"
+             "- Parameter base: Numeric base (2, 8, 10, 16).\n"
+             "- Returns: Number of digits.\n",
+             "iu: base", false, false) {
+    const auto *r_base = (Integer *) args[0];
+    int base;
+
+    if (AR_TYPEOF(r_base, type_int_) && r_base->sint < 0) {
+        ErrorFormat(kValueError[0], "numeric base cannot be negative");
+        return nullptr;
+    } else if (r_base->uint > 26) {
+        ErrorFormat(kValueError[0], "numeric base cannot be greater than 26");
+        return nullptr;
+    }
+
+    base = (int) r_base->uint;
+
+    if (AR_TYPEOF(_self, type_int_))
+        return (ArObject *) IntNew(IntegerCountDigits(((Integer *) _self)->sint, base));
+
+    return (ArObject *) UIntNew(IntegerCountDigits(((Integer *) _self)->uint, base));
+}
+
+const FunctionDef number_methods[] = {
+        number_bits,
+        number_digits,
+        ARGON_METHOD_SENTINEL
+};
+
+const ObjectSlots number_objslot = {
+        number_methods,
+        nullptr,
+        nullptr,
+        nullptr,
+        nullptr,
+        -1
+};
+
 ArObject *number_compare(const Integer *self, const Integer *other, CompareMode mode) {
     if (!AR_SAME_TYPE(self, other))
         return nullptr;
@@ -167,6 +218,14 @@ const OpSlots integer_ops = {
         (UnaryOp) integer_dec
 };
 
+ArObject *integer_repr(const Integer *self) {
+    return (ArObject *) StringFormat("%i", self->sint);
+}
+
+bool integer_is_true(const Integer *self) {
+    return self->sint > 0;
+}
+
 TypeInfo IntegerType = {
         AROBJ_HEAD_INIT_TYPE,
         "Int",
@@ -178,21 +237,29 @@ TypeInfo IntegerType = {
         nullptr,
         nullptr,
         (ArSize_UnaryOp) number_hash,
-        nullptr,
+        (Bool_UnaryOp) integer_is_true,
         (CompareOp) number_compare,
+        (UnaryConstOp) integer_repr,
         nullptr,
         nullptr,
         nullptr,
         nullptr,
         nullptr,
-        nullptr,
-        nullptr,
+        &number_objslot,
         nullptr,
         &integer_ops,
         nullptr,
         nullptr
 };
 const TypeInfo *argon::vm::datatype::type_int_ = &IntegerType;
+
+ArObject *uinteger_repr(const Integer *self) {
+    return (ArObject *) StringFormat("%u", self->uint);
+}
+
+bool uinteger_is_true(const Integer *self) {
+    return self->uint > 0;
+}
 
 TypeInfo UIntegerType = {
         AROBJ_HEAD_INIT_TYPE,
@@ -205,15 +272,15 @@ TypeInfo UIntegerType = {
         nullptr,
         nullptr,
         (ArSize_UnaryOp) number_hash,
-        nullptr,
+        (Bool_UnaryOp) uinteger_is_true,
         (CompareOp) number_compare,
+        (UnaryConstOp) uinteger_repr,
         nullptr,
         nullptr,
         nullptr,
         nullptr,
         nullptr,
-        nullptr,
-        nullptr,
+        &number_objslot,
         nullptr,
         &integer_ops,
         nullptr,
