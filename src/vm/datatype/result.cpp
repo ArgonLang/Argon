@@ -4,10 +4,56 @@
 
 #include "arstring.h"
 #include "boolean.h"
+#include "error.h"
 
 #include "result.h"
 
 using namespace argon::vm::datatype;
+
+ARGON_METHOD(result_err, err,
+             "Returns the contained value if it is Err, otherwise it panics.\n"
+             "\n"
+             "- Returns: Contained object.\n",
+             nullptr, false, false) {
+    auto *self = (Result *) _self;
+
+    if (self->success) {
+        ErrorFormat(kValueError[0], "%s::err() on Ok value", AR_TYPE_NAME(self));
+        return nullptr;
+    }
+
+    return IncRef(self->value);
+}
+
+ARGON_METHOD(result_ok, ok,
+             "Returns the contained value if it is Ok, otherwise it panics.\n"
+             "\n"
+             "- Returns: Contained object.\n",
+             nullptr, false, false) {
+    auto *self = (Result *) _self;
+
+    if (!self->success) {
+        ErrorFormat(kValueError[0], "%s::ok() on a Err value", AR_TYPE_NAME(self));
+        return nullptr;
+    }
+
+    return IncRef(self->value);
+}
+
+const FunctionDef result_methods[] = {
+        result_err,
+        result_ok,
+        ARGON_METHOD_SENTINEL
+};
+
+const ObjectSlots result_objslot = {
+        result_methods,
+        nullptr,
+        nullptr,
+        nullptr,
+        nullptr,
+        -1
+};
 
 ArObject *result_compare(const Result *self, const ArObject *other, CompareMode mode) {
     const auto *o = (const Result *) other;
@@ -62,7 +108,7 @@ TypeInfo ResultType = {
         nullptr,
         nullptr,
         nullptr,
-        nullptr,
+        &result_objslot,
         nullptr,
         nullptr,
         nullptr,

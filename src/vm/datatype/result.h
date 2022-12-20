@@ -8,7 +8,7 @@
 #include "arobject.h"
 
 namespace argon::vm::datatype {
-    struct Result{
+    struct Result {
         AROBJ_HEAD;
 
         ArObject *value;
