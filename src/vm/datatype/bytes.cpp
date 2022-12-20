@@ -1026,6 +1026,8 @@ ArObject *bytes_iter(Bytes *self, bool reverse) {
     auto *bi = MakeObject<BytesIterator>(type_bytes_iterator_);
 
     if (bi != nullptr) {
+        new(&bi->lock)std::mutex;
+
         bi->iterable = IncRef(self);
         bi->index = 0;
         bi->reverse = reverse;
@@ -1207,6 +1209,8 @@ Bytes *argon::vm::datatype::BytesNew(Bytes *bytes, ArSize start, ArSize length) 
 ArObject *bytesiterator_iter_next(BytesIterator *self) {
     unsigned char byte;
 
+    std::unique_lock iter_lock(self->lock);
+
     SHARED_LOCK(self->iterable);
 
     if (!self->reverse) {
@@ -1248,7 +1252,7 @@ TypeInfo BytesIteratorType = {
         sizeof(BytesIterator),
         TypeInfoFlags::BASE,
         nullptr,
-        nullptr,
+        (Bool_UnaryOp) IteratorDtor,
         nullptr,
         nullptr,
         nullptr,

@@ -623,6 +623,8 @@ ArObject *string_iter(String *self, bool reverse) {
     auto *si = MakeObject<StringIterator>(type_string_iterator_);
 
     if (si != nullptr) {
+        new(&si->lock)std::mutex;
+
         si->iterable = IncRef(self);
         si->index = 0;
         si->reverse = reverse;
@@ -978,12 +980,13 @@ String *argon::vm::datatype::StringReplace(String *string, const String *old, co
 // STRING ITERATOR
 
 ArObject *stringiterator_iter_next(StringIterator *self) {
-    const unsigned char *buf = STR_BUF(self->iterable) + self->index;
+    const unsigned char *buf;
     String *ret;
     ArSize len = 1;
 
-    if (self->iterable == nullptr)
-        return nullptr;
+    std::unique_lock iter_lock(self->lock);
+
+    buf = STR_BUF(self->iterable) + self->index;
 
     if (!self->reverse)
         len = StringSubstrLen(self->iterable, self->index, 1);
@@ -1014,7 +1017,7 @@ TypeInfo StringIteratorType = {
         sizeof(StringIterator),
         TypeInfoFlags::BASE,
         nullptr,
-        nullptr,
+        (Bool_UnaryOp) IteratorDtor,
         nullptr,
         nullptr,
         nullptr,
