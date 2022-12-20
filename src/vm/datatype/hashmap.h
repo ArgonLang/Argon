@@ -5,6 +5,7 @@
 #ifndef ARGON_VM_DATATYPE_HASHMAP_H_
 #define ARGON_VM_DATATYPE_HASHMAP_H_
 
+#include <atomic>
 #include <functional>
 
 #include "objectdef.h"
@@ -17,6 +18,8 @@ namespace argon::vm::datatype {
 
     template<typename K, typename V>
     struct HEntry {
+        std::atomic_int ref;
+
         HEntry *next;
 
         HEntry *iter_next;
@@ -128,10 +131,15 @@ namespace argon::vm::datatype {
                 ret = this->free_node;
                 this->free_node = ret->next;
                 this->free_count--;
-                return ret;
+            } else {
+                ret = (HEntry<K, V> *) memory::Calloc(sizeof(HEntry<K, V>));
+                if (ret == nullptr)
+                    return nullptr;
             }
 
-            return (HEntry<K, V> *) memory::Calloc(sizeof(HEntry<K, V>));
+            ret->ref = 1;
+
+            return ret;
         }
 
         HEntry<K, V> *Lookup(K *key) const {
@@ -238,6 +246,9 @@ namespace argon::vm::datatype {
 
         void FreeHEntry(HEntry<K, V> *entry) {
             entry->key = nullptr;
+
+            if(entry->ref.fetch_sub(1) != 1)
+                return;
 
             if (this->free_count + 1 > this->free_max) {
                 argon::vm::memory::Free(entry);

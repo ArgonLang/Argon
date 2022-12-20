@@ -130,6 +130,7 @@ ARGON_METHOD(dict_pop, pop,
 
     auto *value = item->value;
 
+    Release(item->key);
     Release(item->value);
 
     self->hmap.FreeHEntry(item);
@@ -253,6 +254,26 @@ ArObject *dict_compare(Dict *self, ArObject *other, CompareMode mode) {
     return BoolToArBool(true);
 }
 
+ArObject *dict_iter(Dict *self, bool reverse) {
+    auto *li = MakeGCObject<DictIterator>(type_dict_iterator_, true);
+
+    if (li != nullptr) {
+        std::shared_lock _(self->rwlock);
+
+        new(&li->lock)std::mutex;
+
+        li->iterable = IncRef(self);
+
+        li->cursor = self->hmap.iter_begin;
+        if (li->cursor != nullptr)
+            li->cursor->ref++;
+
+        li->reverse = reverse;
+    }
+
+    return (ArObject *) li;
+}
+
 ArObject *dict_repr(Dict *self) {
     StringBuilder builder{};
     ArObject *ret;
@@ -346,7 +367,7 @@ TypeInfo DictType = {
         (CompareOp) dict_compare,
         (UnaryConstOp) dict_repr,
         nullptr,
-        nullptr,
+        (UnaryBoolOp) dict_iter,
         nullptr,
         nullptr,
         nullptr,
@@ -478,3 +499,78 @@ void argon::vm::datatype::DictClear(Dict *dict) {
         Release(entry->value);
     });
 }
+
+// DICT ITERATOR
+
+ArObject *dictiterator_iter_next(DictIterator *self) {
+    auto *current = self->cursor;
+    Tuple *ret;
+
+    std::unique_lock iter_lock(self->lock);
+
+    std::shared_lock _(self->iterable->rwlock);
+
+    if (self->cursor == nullptr || self->cursor->key == nullptr)
+        return nullptr;
+
+    if ((ret = TupleNew(2)) != nullptr) {
+        TupleInsert(ret, self->cursor->key, 0);
+        TupleInsert(ret, self->cursor->value, 1);
+
+        self->cursor = self->reverse ? self->cursor->iter_prev : self->cursor->iter_next;
+
+        self->iterable->hmap.FreeHEntry(current);
+
+        if (self->cursor != nullptr)
+            self->cursor->ref++;
+    }
+
+    return (ArObject *) ret;
+}
+
+bool dictiterator_dtor(DictIterator *self) {
+    if (self->cursor != nullptr)
+        self->iterable->hmap.FreeHEntry(self->cursor);
+
+    Release(self->iterable);
+
+    return true;
+}
+
+bool dictiterator_is_true(DictIterator *self) {
+    std::unique_lock iter_lock(self->lock);
+    std::shared_lock _(self->iterable->rwlock);
+
+    return self->cursor != nullptr || self->cursor->key != nullptr;
+}
+
+void dictiterator_trace(DictIterator *self, Void_UnaryOp trace) {
+    trace((ArObject *) self->iterable);
+}
+
+TypeInfo DictIteratorType = {
+        AROBJ_HEAD_INIT_TYPE,
+        "DictIterator",
+        nullptr,
+        nullptr,
+        sizeof(DictIterator),
+        TypeInfoFlags::BASE,
+        nullptr,
+        (Bool_UnaryOp) dictiterator_dtor,
+        (TraceOp) dictiterator_trace,
+        nullptr,
+        (Bool_UnaryOp) dictiterator_is_true,
+        nullptr,
+        nullptr,
+        nullptr,
+        CursorIteratorIter,
+        (UnaryOp) dictiterator_iter_next,
+        nullptr,
+        nullptr,
+        nullptr,
+        nullptr,
+        nullptr,
+        nullptr,
+        nullptr
+};
+const TypeInfo *argon::vm::datatype::type_dict_iterator_ = &DictIteratorType;

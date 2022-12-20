@@ -16,7 +16,7 @@ ArObject *nil_compare(const ArObject *self, const ArObject *other, CompareMode m
     return BoolToArBool(self == other);
 }
 
-ArObject *nil_str(const ArObject *) {
+ArObject *nil_repr(const ArObject *) {
     return (ArObject *) StringNew("nil");
 }
 
@@ -41,8 +41,8 @@ TypeInfo NilType = {
         nil_hash,
         nil_is_true,
         nil_compare,
+        (UnaryConstOp) nil_repr,
         nullptr,
-        (UnaryOp) nil_str,
         nullptr,
         nullptr,
         nullptr,

@@ -10,6 +10,7 @@
 #include <vm/sync/rsm.h>
 
 #include "arobject.h"
+#include "iterator.h"
 #include "hashmap.h"
 
 namespace argon::vm::datatype {
@@ -21,6 +22,9 @@ namespace argon::vm::datatype {
         HashMap<ArObject, ArObject *> hmap;
     };
     extern const TypeInfo *type_dict_;
+
+    using DictIterator = CursorIterator<Dict, HEntry<ArObject, ArObject *>>;
+    extern const TypeInfo *type_dict_iterator_;
 
     /**
      * @brief Look for the element \p key.
