@@ -61,7 +61,8 @@ namespace argon::vm::datatype {
     };
 
     constexpr const char *kOverflowError[] = {
-            (const char *) "OverflowError"
+            (const char *) "OverflowError",
+            (const char *) "%s index out of range (length: %d, index: %d)"
     };
 
     constexpr const char *kRuntimeError[] = {
@@ -80,7 +81,8 @@ namespace argon::vm::datatype {
             (const char *) "%s() does not accept keyword arguments",
             (const char *) "method %s doesn't apply to '%s' type",
             (const char *) "%s does not support %s (async function)",
-            (const char *) "%s does not support %s (generator function)"
+            (const char *) "%s does not support %s (generator function)",
+            (const char *) "no viable conversion from '%s' to %s"
     };
 
     constexpr const char *kUnassignableError[] = {
@@ -117,7 +119,7 @@ namespace argon::vm::datatype {
         Atom *id;
         ArObject *reason;
 
-        HashMap<ArObject , ArObject*> detail;
+        HashMap<ArObject, ArObject *> detail;
     };
     extern const TypeInfo *type_error_;
 

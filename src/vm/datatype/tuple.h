@@ -2,34 +2,36 @@
 //
 // Licensed under the Apache License v2.0
 
-#ifndef ARGON_VM_TUPLE_H_
-#define ARGON_VM_TUPLE_H_
-
-#include "list.h"
+#ifndef ARGON_VM_DATATYPE_TUPLE_H_
+#define ARGON_VM_DATATYPE_TUPLE_H_
 
 #include "arobject.h"
+#include "iterator.h"
+#include "list.h"
 
 namespace argon::vm::datatype {
     struct Tuple {
         AROBJ_HEAD;
 
         ArObject **objects;
+
         ArSize length;
+
         ArSize hash;
     };
     extern const TypeInfo *type_tuple_;
 
-    struct TupleIterator {
-        AROBJ_HEAD;
-
-        Tuple *tuple;
-
-        ArSize index;
-
-        bool reverse;
-    };
+    using TupleIterator = Iterator<Tuple>;
     extern const TypeInfo *type_tuple_iterator_;
 
+    /**
+     * @brief Retrieve the object at the 'index´ position.
+     *
+     * @param tuple Tuple object.
+     * @param index Index of the object to retrieve.
+     * @return Returns the object at the 'index' position, otherwise
+     * nullptr will be returned and the panic state will be set.
+     */
     ArObject *TupleGet(const Tuple *tuple, ArSSize index);
 
     /**
@@ -51,7 +53,7 @@ namespace argon::vm::datatype {
      *
      * If the function is successful the List object is automatically released!
      *
-     * @warning This is a convenience function, using this function incorrectly causes an immediate crash.
+     * @warning This is a convenience function, using this function incorrectly causes an IMMEDIATE CRASH.
      *
      * @param list List to be converted.
      * @return A pointer to the newly created tuple object is returned,
@@ -83,6 +85,7 @@ namespace argon::vm::datatype {
      * in case of error nullptr will be returned and the panic state will be set.
      */
     Tuple *TupleNew(ArObject **objects, ArSize count);
-}
 
-#endif // !ARGON_VM_TUPLE_H_
+} // namespace argon::vm::datatype
+
+#endif // !ARGON_VM_DATATYPE_TUPLE_H_
