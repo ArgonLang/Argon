@@ -6,9 +6,11 @@
 
 #include "boolean.h"
 #include "bounds.h"
+#include "result.h"
 #include "stringbuilder.h"
 
 #include "list.h"
+
 
 using namespace argon::vm::datatype;
 
@@ -16,7 +18,162 @@ using namespace argon::vm::datatype;
 
 List *ListFromIterable(List **dest, ArObject *iterable);
 
+ARGON_METHOD(list_append, append,
+             "Add an item to the end of the list.\n"
+             "\n"
+             "- Parameter object: Object to insert.\n"
+             "- Returns: List itself.\n",
+             ": object", false, false) {
+    if (!ListAppend((List *) _self, *args))
+        return nullptr;
+
+    return IncRef(_self);
+}
+
+ARGON_METHOD(list_clear, clear,
+             "Remove all items from the list.\n"
+             "\n"
+             "- Returns: list itself.\n",
+             nullptr, false, false) {
+    ListClear((List *) _self);
+    return IncRef(_self);
+}
+
+ARGON_METHOD(list_extend, extend,
+             "Extend the list by appending all the items from the iterable.\n"
+             "\n"
+             "- Parameter iterable: An iterable object.\n"
+             "- Returns: List itself.\n",
+             ": iterable", false, false) {
+
+    if (!ListExtend((List *) _self, *args))
+        return nullptr;
+
+    return IncRef(_self);
+}
+
+ARGON_METHOD(list_find, find,
+             "Find an item into the list and returns its position.\n"
+             "\n"
+             "- Parameter object: Object to search.\n"
+             "- Returns: Index if the object was found into the list, -1 otherwise.\n",
+             ": object", false, false) {
+    auto *self = (List *) _self;
+
+    // *** WARNING ***
+    // Why std::unique_lock? See vm/sync/rsm.h
+    std::unique_lock _(self->rwlock);
+
+    for (ArSize i = 0; i < self->length; i++) {
+        if (Equal(self->objects[i], *args))
+            return (ArObject *) IntNew((IntegerUnderlying) i);
+    }
+
+    return (ArObject *) IntNew(-1);
+}
+
+ARGON_METHOD(list_insert, insert,
+             "Insert an item at a given position.\n"
+             "\n"
+             "- Parameters:\n"
+             "  - index: Index of the element before which to insert.\n"
+             "  - object: Object to insert.\n"
+             "- Returns: List itself.\n",
+             "iu: index, : object", false, false) {
+    auto *self = (List *) _self;
+    bool ok = false;
+
+    if (AR_TYPEOF(*args, type_int_))
+        ok = ListInsert(self, args[0], ((Integer *) args[1])->sint);
+    else if (AR_TYPEOF(*args, type_uint_))
+        ok = ListInsert(self, args[0], (ArSSize) ((Integer *) args[1])->uint);
+    else
+        ErrorFormat(kTypeError[0], "expected %s/%s, got '%s'", type_int_->name,
+                    type_uint_->name, AR_TYPE_NAME(args[0]));
+
+    return ok ? (ArObject *) IncRef(self) : nullptr;
+}
+
+ARGON_METHOD(list_pop, pop,
+             "Remove and returns the item at the end of the list.\n"
+             "\n"
+             "- Returns: Result.\n",
+             nullptr, false, false) {
+    auto *self = (List *) _self;
+    ArObject *obj;
+
+    std::unique_lock _(self->rwlock);
+
+    if (self->length > 0) {
+        obj = (ArObject *) ResultNew(self->objects[self->length - 1], true);
+
+        Release(self->objects[--self->length]);
+
+        return obj;
+    }
+
+    return (ArObject *) ResultNew(nullptr, false);
+}
+
+ARGON_METHOD(list_remove, remove,
+             "Remove the first item from the list whose value is equal to object.\n"
+             "\n"
+             "- Parameter object: Object to delete.\n"
+             "- Returns: True if obj was found and deleted, false otherwise.\n",
+             ": object", false, false) {
+    auto *self = (List *) _self;
+
+    std::unique_lock _(self->rwlock);
+
+    for (ArSize i = 0; i < self->length; i++) {
+        if (Equal(self->objects[i], args[0])) {
+            Release(self->objects[i]);
+
+            // Move items back
+            for (ArSize j = i + 1; j < self->length; j++)
+                self->objects[j - 1] = self->objects[j];
+
+            return BoolToArBool(true);
+        }
+    }
+
+    return BoolToArBool(false);
+}
+
+ARGON_METHOD(list_reverse, reverse,
+             "Reverse the elements of the list in place.\n"
+             "\n"
+             "- Returns: List itself.\n",
+             nullptr, false, false) {
+    auto *self = (List *) _self;
+
+    std::unique_lock _(self->rwlock);
+
+    ArObject *tmp;
+
+    ArSize si = self->length - 1;
+    ArSize li = 0;
+
+    if (self->length > 1) {
+        while (li < si) {
+            tmp = self->objects[li];
+            self->objects[li++] = self->objects[si];
+            self->objects[si--] = tmp;
+        }
+    }
+
+    return IncRef(_self);
+}
+
 const FunctionDef list_methods[] = {
+        list_append,
+        list_clear,
+        list_extend,
+        list_find,
+        list_insert,
+        list_pop,
+        list_remove,
+        list_reverse,
         ARGON_METHOD_SENTINEL
 };
 
@@ -483,6 +640,15 @@ List *argon::vm::datatype::ListNew(ArObject *iterable) {
 
     ErrorFormat(kTypeError[0], kTypeError[8], AR_TYPE_NAME(iterable), type_list_->name);
     return nullptr;
+}
+
+void argon::vm::datatype::ListClear(List *list) {
+    std::unique_lock _(list->rwlock);
+
+    for (ArSize i = 0; i < list->length; i++)
+        Release(list->objects[i]);
+
+    list->length = 0;
 }
 
 void argon::vm::datatype::ListRemove(List *list, ArSSize index) {

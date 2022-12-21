@@ -7,6 +7,7 @@
 #include "error.h"
 
 #include "result.h"
+#include "nil.h"
 
 using namespace argon::vm::datatype;
 
@@ -120,7 +121,7 @@ Result *argon::vm::datatype::ResultNew(ArObject *value, bool success) {
     auto *result = MakeGCObject<Result>(&ResultType, false);
 
     if (result != nullptr) {
-        result->value = IncRef(value);
+        result->value = IncRef(value == nullptr ? (ArObject *) Nil : value);
         result->success = success;
 
         memory::TrackIf((ArObject *) result, value);

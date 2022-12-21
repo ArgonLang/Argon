@@ -91,6 +91,8 @@ namespace argon::vm::datatype {
      */
     inline List *ListNew() { return ListNew(kListInitialCapacity); }
 
+    void ListClear(List *list);
+
     void ListRemove(List *list, ArSSize index);
 
 } // namespace argon::vm::datatype
