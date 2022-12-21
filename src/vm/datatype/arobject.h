@@ -200,6 +200,10 @@ namespace argon::vm::datatype {
             return (ArObject *) this->w_value.GetObject();
         }
 
+        ArObject *GetRawReference() {
+            return this->weak_ ? nullptr : this->s_value;
+        }
+
         void Store(ArObject *object, bool weak) {
             if (!weak
                 || object->head_.ref_count_.IsStatic()

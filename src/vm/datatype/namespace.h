@@ -5,6 +5,8 @@
 #ifndef ARGON_VM_DATATYPE_NAMESPACE_H_
 #define ARGON_VM_DATATYPE_NAMESPACE_H_
 
+#include <vm/sync/rsm.h>
+
 #include <util/macros.h>
 
 #include "arobject.h"
@@ -50,6 +52,8 @@ namespace argon::vm::datatype {
 
     struct Namespace {
         AROBJ_HEAD;
+
+        sync::RecursiveSharedMutex rwlock;
 
         HashMap<ArObject, PropertyStore> ns;
     };

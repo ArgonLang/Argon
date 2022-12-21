@@ -481,6 +481,8 @@ bool list_dtor(List *self) {
 
     argon::vm::memory::Free(self->objects);
 
+    self->rwlock.~RecursiveSharedMutex();
+
     return true;
 }
 

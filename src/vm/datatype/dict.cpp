@@ -340,7 +340,15 @@ bool dict_dtor(Dict *self) {
         Release(entry->value);
     });
 
+    self->rwlock.~RecursiveSharedMutex();
+
     return true;
+}
+
+bool dict_is_true(Dict *self) {
+    std::shared_lock _(self->rwlock);
+
+    return self->hmap.length > 0;
 }
 
 void dict_trace(Dict *self, Void_UnaryOp trace) {
@@ -363,7 +371,7 @@ TypeInfo DictType = {
         (Bool_UnaryOp) dict_dtor,
         (TraceOp) dict_trace,
         nullptr,
-        nullptr,
+        (Bool_UnaryOp) dict_is_true,
         (CompareOp) dict_compare,
         (UnaryConstOp) dict_repr,
         nullptr,
