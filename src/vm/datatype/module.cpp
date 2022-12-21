@@ -9,18 +9,9 @@
 
 using namespace argon::vm::datatype;
 
-String *ModuleGetQname(const Module *self) {
-    String *qname;
+// Prototypes
 
-    qname = (String *) ModuleLookup(self, "__qname", nullptr);
-    if (qname == nullptr) {
-        qname = (String *) ModuleLookup(self, "__name", nullptr);
-        if (qname == nullptr)
-            assert(false);
-    }
-
-    return qname;
-}
+String *ModuleGetQname(const Module *);
 
 ArObject *module_get_attr(const Module *self, ArObject *key, bool static_attr) {
     String *qname;
@@ -28,7 +19,7 @@ ArObject *module_get_attr(const Module *self, ArObject *key, bool static_attr) {
 
     AttributeProperty aprop{};
 
-    if(static_attr){
+    if (static_attr) {
         ErrorFormat(kAttributeError[0], kAttributeError[2], AR_TYPE_NAME(self));
         return nullptr;
     }
@@ -61,7 +52,7 @@ bool module_set_attr(Module *self, struct ArObject *key, struct ArObject *value,
 
     AttributeProperty aprop{};
 
-    if(static_attr){
+    if (static_attr) {
         ErrorFormat(kAttributeError[0], kAttributeError[2], AR_TYPE_NAME(self));
         return false;
     }
@@ -135,6 +126,10 @@ bool module_dtor(Module *self) {
     return true;
 }
 
+void module_trace(Module *self, Void_UnaryOp trace) {
+    trace((ArObject *) self->ns);
+}
+
 TypeInfo ModuleType = {
         AROBJ_HEAD_INIT_TYPE,
         "Module",
@@ -144,7 +139,7 @@ TypeInfo ModuleType = {
         TypeInfoFlags::BASE,
         nullptr,
         (Bool_UnaryOp) module_dtor,
-        nullptr,
+        (TraceOp) module_trace,
         nullptr,
         nullptr,
         (CompareOp) module_compare,
@@ -274,4 +269,17 @@ Module *argon::vm::datatype::ModuleNew(const char *name, const char *doc) {
     Release(sdoc);
 
     return mod;
+}
+
+String *ModuleGetQname(const Module *self) {
+    String *qname;
+
+    qname = (String *) ModuleLookup(self, "__qname", nullptr);
+    if (qname == nullptr) {
+        qname = (String *) ModuleLookup(self, "__name", nullptr);
+        if (qname == nullptr)
+            assert(false);
+    }
+
+    return qname;
 }
