@@ -291,6 +291,7 @@ Tuple *TupleFromIterable(ArObject *iterable) {
         if (!ListAppend(ret, tmp)) {
             Release(tmp);
             Release(iter);
+            Release(ret);
 
             return nullptr;
         }

@@ -2,8 +2,10 @@
 //
 // Licensed under the Apache License v2.0
 
-#ifndef ARGON_VM_LIST_H_
-#define ARGON_VM_LIST_H_
+#ifndef ARGON_VM_DATATYPE_LIST_H_
+#define ARGON_VM_DATATYPE_LIST_H_
+
+#include <vm/sync/rsm.h>
 
 #include "iterator.h"
 #include "arobject.h"
@@ -14,8 +16,12 @@ namespace argon::vm::datatype {
     struct List {
         AROBJ_HEAD;
 
+        sync::RecursiveSharedMutex rwlock;
+
         ArObject **objects;
+
         ArSize capacity;
+
         ArSize length;
     };
     extern const TypeInfo *type_list_;
@@ -54,6 +60,7 @@ namespace argon::vm::datatype {
 
     /**
      * @brief Insert element into the list.
+     *
      * @param list List object.
      * @param object Object to insert.
      * @param index Location to insert the object.
@@ -85,6 +92,7 @@ namespace argon::vm::datatype {
     inline List *ListNew() { return ListNew(kListInitialCapacity); }
 
     void ListRemove(List *list, ArSSize index);
-}
 
-#endif // !ARGON_VM_LIST_H_
+} // namespace argon::vm::datatype
+
+#endif // !ARGON_VM_DATATYPE_LIST_H_
