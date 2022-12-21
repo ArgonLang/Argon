@@ -11,12 +11,15 @@
 
 #include "list.h"
 
-
 using namespace argon::vm::datatype;
 
 // Prototypes
 
-List *ListFromIterable(List **dest, ArObject *iterable);
+List *ListFromIterable(List **, ArObject *);
+
+List *ListShift(List *, ArSSize);
+
+bool CheckSize(List *, ArSize);
 
 ARGON_METHOD(list_append, append,
              "Add an item to the end of the list.\n"
@@ -260,6 +263,109 @@ const SubscriptSlots list_subscript = {
         (BinaryOp) list_item_in
 };
 
+ArObject *list_add(ArObject *left, ArObject *right) {
+    auto *l = (List *) left;
+    auto *r = (List *) right;
+    List *list = nullptr;
+
+    ArSize size_new;
+
+    if (AR_SAME_TYPE(l, r)) {
+        std::shared_lock left_lock(l->rwlock);
+
+        if (l != r)
+            r->rwlock.lock_shared();
+
+        size_new = l->length + r->length;
+
+        if ((list = ListNew(size_new)) != nullptr) {
+            ArSize i = 0;
+
+            // copy from left (self)
+            for (; i < l->length; i++)
+                list->objects[i] = IncRef(l->objects[i]);
+
+            // copy from right (other)
+            for (; i < size_new; i++)
+                list->objects[i] = IncRef(r->objects[i - l->length]);
+
+            list->length = size_new;
+        }
+    }
+
+    if (l != r)
+        r->rwlock.unlock_shared();
+
+    return (ArObject *) list;
+}
+
+ArObject *list_inp_add(ArObject *left, ArObject *right) {
+    if (AR_SAME_TYPE(left, right) && ListExtend((List *) left, right))
+        return IncRef(left);
+
+    return nullptr;
+}
+
+ArObject *list_mul(ArObject *left, ArObject *right) {
+    auto *list = (List *) left;
+    const auto *num = (Integer *) right;
+    List *ret = nullptr;
+
+    // int * list -> list * int
+    if (!AR_TYPEOF(list, type_list_)) {
+        list = (List *) right;
+        num = (Integer *) left;
+    }
+
+    if (AR_TYPEOF(num, type_uint_)) {
+        std::shared_lock _(list->rwlock);
+
+        if ((ret = ListNew(list->length * num->uint)) != nullptr) {
+            for (ArSize i = 0; i < ret->capacity; i++)
+                ret->objects[i] = IncRef(list->objects[i % list->length]);
+
+            ret->length = ret->capacity;
+        }
+    }
+
+    return (ArObject *) ret;
+}
+
+ArObject *list_shl(ArObject *left, const ArObject *right) {
+    if (AR_TYPEOF(left, type_list_) && AR_TYPEOF(right, type_int_))
+        return (ArObject *) ListShift((List *) left, -((const Integer *) right)->sint);
+
+    return nullptr;
+}
+
+ArObject *list_shr(ArObject *left, const ArObject *right) {
+    if (AR_TYPEOF(left, type_list_) && AR_TYPEOF(right, type_int_))
+        return (ArObject *) ListShift((List *) left, ((const Integer *) right)->sint);
+
+    return nullptr;
+}
+
+const OpSlots list_ops{
+        (BinaryOp) list_add,
+        nullptr,
+        list_mul,
+        nullptr,
+        nullptr,
+        nullptr,
+        nullptr,
+        nullptr,
+        nullptr,
+        nullptr,
+        nullptr,
+        (BinaryOp) list_shl,
+        (BinaryOp) list_shr,
+        nullptr,
+        list_inp_add,
+        nullptr,
+        nullptr,
+        nullptr
+};
+
 bool CheckSize(List *list, ArSize count) {
     ArSize len = list->capacity + count;
     ArObject **tmp;
@@ -412,7 +518,7 @@ TypeInfo ListType = {
         nullptr,
         &list_objslot,
         &list_subscript,
-        nullptr,
+        &list_ops,
         nullptr,
         nullptr
 };
@@ -640,6 +746,20 @@ List *argon::vm::datatype::ListNew(ArObject *iterable) {
 
     ErrorFormat(kTypeError[0], kTypeError[8], AR_TYPE_NAME(iterable), type_list_->name);
     return nullptr;
+}
+
+List *ListShift(List *list, ArSSize pos) {
+    std::shared_lock lock(list->rwlock);
+
+    auto ret = ListNew(list->length);
+    if (ret != nullptr) {
+        for (ArSize i = 0; i < list->length; i++)
+            ret->objects[((list->length + pos) + i) % list->length] = IncRef(list->objects[i]);
+
+        ret->length = list->length;
+    }
+
+    return ret;
 }
 
 void argon::vm::datatype::ListClear(List *list) {

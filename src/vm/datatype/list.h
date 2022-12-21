@@ -29,10 +29,18 @@ namespace argon::vm::datatype {
     using ListIterator = Iterator<List>;
     extern const TypeInfo *type_list_iterator_;
 
+    /**
+     * @brief Retrieves the item from the list at a given index.
+     *
+     * @param list Pointer to an instance of list.
+     * @param index Index of the element to delete.
+     * @return Pointer to element if successful, otherwise return nullptr and panic state will be set.
+     */
     ArObject *ListGet(List *list, ArSSize index);
 
     /**
      * @brief Append object to the list.
+     *
      * @param list List object.
      * @param object Object to append.
      * @return True on success, in case of error false will be returned and the panic state will be set.
@@ -70,6 +78,7 @@ namespace argon::vm::datatype {
 
     /**
      * @brief Create a new list.
+     *
      * @param capacity Set initial capacity.
      * @return A pointer to the newly created list object is returned,
      * in case of error nullptr will be returned and the panic state will be set.
@@ -78,6 +87,7 @@ namespace argon::vm::datatype {
 
     /**
      * @brief Create a new list from iterable.
+     *
      * @param iterable Pointer to an iterable object.
      * @return A pointer to the newly created list object is returned,
      * in case of error nullptr will be returned and the panic state will be set.
@@ -86,13 +96,25 @@ namespace argon::vm::datatype {
 
     /**
      * @brief Create a new list.
+     *
      * @return A pointer to the newly created list object is returned,
      * in case of error nullptr will be returned and the panic state will be set.
      */
     inline List *ListNew() { return ListNew(kListInitialCapacity); }
 
+    /**
+     * @brief Delete the contents of the entire list.
+     *
+     * @param list Pointer to an instance of list.
+     */
     void ListClear(List *list);
 
+    /**
+     * @brief Remove an element from the list.
+     *
+     * @param list Pointer to an instance of list.
+     * @param index Index of the element to delete.
+     */
     void ListRemove(List *list, ArSSize index);
 
 } // namespace argon::vm::datatype
