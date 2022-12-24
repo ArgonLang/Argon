@@ -981,30 +981,40 @@ String *argon::vm::datatype::StringReplace(String *string, const String *old, co
 
 ArObject *stringiterator_iter_next(StringIterator *self) {
     const unsigned char *buf;
-    String *ret;
+    String *ret = nullptr;
     ArSize len = 1;
 
     std::unique_lock iter_lock(self->lock);
 
     buf = STR_BUF(self->iterable) + self->index;
 
-    if (!self->reverse)
-        len = StringSubstrLen(self->iterable, self->index, 1);
-    else {
-        buf--;
+    if (!self->reverse) {
+        if (self->index < STR_LEN(self->iterable)) {
+            len = StringSubstrLen(self->iterable, self->index, 1);
 
-        while (buf > STR_BUF(self->iterable) && (*buf >> 6 == 0x2)) {
-            buf--;
-            len++;
-        }
-    }
+            if ((ret = StringIntern((const char *) buf, len)) != nullptr)
+                return nullptr;
 
-    if ((ret = StringIntern((const char *) buf, len)) != nullptr) {
-        if (self->reverse)
-            self->index -= len;
-        else
             self->index += len;
+        }
+
+        return (ArObject *) ret;
     }
+
+    if (STR_LEN(self->iterable) - self->index == 0)
+        return nullptr;
+
+    buf--;
+
+    while (buf > STR_BUF(self->iterable) && (*buf >> 6 == 0x2)) {
+        buf--;
+        len++;
+    }
+
+    if ((ret = StringIntern((const char *) buf, len)) != nullptr)
+        return nullptr;
+
+    self->index-=len;
 
     return (ArObject *) ret;
 }
