@@ -179,7 +179,7 @@ bool CallFunction(Fiber *fiber, Frame **cu_frame, const Code **cu_code, bool val
 
     if (func->IsNative()) {
         ret = FunctionInvokeNative(func, args, args_length, ENUMBITMASK_ISTRUE(mode, OpCodeCallMode::KW_PARAMS));
-        if(ret == nullptr)
+        if (ret == nullptr)
             return false;
 
         goto CLEANUP;
@@ -351,7 +351,7 @@ ArObject *argon::vm::Eval(Fiber *fiber) {
         if (!IsPanicking()) {                                                                                       \
             ErrorFormat(kRuntimeError[0], kRuntimeError[2], #opchar, AR_TYPE_NAME(PEEK1()), AR_TYPE_NAME(TOP()));   \
         }                                                                                                           \
-        goto END_LOOP; }                                                                                            \
+        break; }                                                                                            \
     POP();                                                                                                          \
     TOP_REPLACE(ret);                                                                                               \
     DISPATCH()
@@ -360,9 +360,9 @@ ArObject *argon::vm::Eval(Fiber *fiber) {
     ret = TOP();                                                                                                \
     if(AR_GET_TYPE(ret)->ops == nullptr || AR_GET_TYPE(ret)->ops->op == nullptr) {                              \
         ErrorFormat(kRuntimeError[0], kRuntimeError[1], #opchar, AR_TYPE_NAME(ret));                            \
-        goto END_LOOP; }                                                                                        \
+        break; }                                                                                        \
     if((ret = AR_GET_TYPE(ret)->ops->op(ret)) == nullptr)                                                       \
-        goto END_LOOP;                                                                                          \
+        break;                                                                                          \
     TOP_REPLACE(ret);                                                                                           \
     DISPATCH()
 
@@ -381,27 +381,27 @@ ArObject *argon::vm::Eval(Fiber *fiber) {
 
                 if (!AR_TYPEOF(future, type_future_)) {
                     ErrorFormat(kTypeError[0], kTypeError[2], type_future_->name, AR_TYPE_NAME(TOP()));
-                    goto END_LOOP;
+                    break;
                 }
 
                 if (!FutureAWait(future))
                     return nullptr;
 
                 if ((ret = (ArObject *) FutureResult(future)) == nullptr)
-                    goto END_LOOP;
+                    break;
 
                 TOP_REPLACE(ret);
                 DISPATCH();
             }
             TARGET_OP(CALL) {
                 if (!CallFunction(fiber, &cu_frame, &cu_code, false))
-                    goto END_LOOP;
+                    break;
 
                 continue;
             }
             TARGET_OP(CMP) {
                 if ((ret = Compare(PEEK1(), TOP(), (CompareMode) I16Arg(cu_frame->instr_ptr))) == nullptr)
-                    goto END_LOOP;
+                    break;
 
                 POP();
                 TOP_REPLACE(ret);
@@ -412,11 +412,11 @@ ArObject *argon::vm::Eval(Fiber *fiber) {
 
                 if (!AR_ISSUBSCRIPTABLE(ret) || AR_GET_TYPE(ret)->subscriptable->item_in == nullptr) {
                     ErrorFormat(kRuntimeError[0], kRuntimeError[1], "in", AR_TYPE_NAME(ret));
-                    goto END_LOOP;
+                    break;
                 }
 
                 if ((ret = AR_GET_TYPE(ret)->subscriptable->item_in(TOP(), PEEK1())) == nullptr)
-                    goto END_LOOP;
+                    break;
 
                 POP();
                 TOP_REPLACE(ret);
@@ -432,19 +432,19 @@ ArObject *argon::vm::Eval(Fiber *fiber) {
 
                 if (func->IsAsync()) {
                     ErrorFormat(kTypeError[0], kTypeError[6], "defer", ARGON_RAW_STRING(func->qname));
-                    goto END_LOOP;
+                    break;
                 }
 
                 if (func->IsGenerator()) {
                     ErrorFormat(kTypeError[0], kTypeError[7], "defer", ARGON_RAW_STRING(func->qname));
-                    goto END_LOOP;
+                    break;
                 }
 
                 if (!CallFunction(fiber, &cu_frame, &cu_code, true))
-                    goto END_LOOP;
+                    break;
 
                 if (!DeferPush(&(cu_frame->defer), func, cu_frame->eval_stack - count, count, mode))
-                    goto END_LOOP;
+                    break;
 
                 STACK_REWIND(count + 1);
                 DISPATCH();
@@ -473,7 +473,7 @@ ArObject *argon::vm::Eval(Fiber *fiber) {
                 }
 
                 if ((ret = Compare(PEEK1(), TOP(), (CompareMode) I16Arg(cu_frame->instr_ptr))) == nullptr)
-                    goto END_LOOP;
+                    break;
 
                 POP();
                 TOP_REPLACE(ret);
@@ -482,11 +482,11 @@ ArObject *argon::vm::Eval(Fiber *fiber) {
             TARGET_OP(EXTD) {
                 if (!AR_TYPEOF(PEEK1(), type_list_)) {
                     ErrorFormat(kRuntimeError[0], "unexpected type in evaluation stack during EXTD execution");
-                    goto END_LOOP;
+                    break;
                 }
 
                 if (!ListExtend((List *) PEEK1(), TOP()))
-                    goto END_LOOP;
+                    break;
 
                 POP();
                 DISPATCH();
@@ -566,7 +566,7 @@ ArObject *argon::vm::Eval(Fiber *fiber) {
                     ErrorFormat(kRuntimeError[0], kRuntimeError[3], I32Arg(cu_frame->instr_ptr),
                                 cu_code->statics->length);
 
-                    goto END_LOOP;
+                    break;
                 }
 
                 ret = AttributeLoad(TOP(), key, false);
@@ -574,7 +574,7 @@ ArObject *argon::vm::Eval(Fiber *fiber) {
                 Release(key);
 
                 if (ret == nullptr)
-                    goto END_LOOP;
+                    break;
 
                 TOP_REPLACE(ret);
                 DISPATCH();
@@ -595,14 +595,14 @@ ArObject *argon::vm::Eval(Fiber *fiber) {
                 // TODO: check builtins
                 //ErrorFormat(kUndeclaredeError[0], kUndeclaredeError[1], ARGON_RAW_STRING((String *) ret));
                 Release(key);
-                goto END_LOOP;
+                break;
 
                 PUSH(ret);
                 DISPATCH();
             }
             TARGET_OP(LDITER) {
                 if ((ret = IteratorGet(TOP(), false)) == nullptr)
-                    goto END_LOOP;
+                    break;
 
                 TOP_REPLACE(ret);
                 DISPATCH();
@@ -621,7 +621,7 @@ ArObject *argon::vm::Eval(Fiber *fiber) {
                     ErrorFormat(kRuntimeError[0], kRuntimeError[3], I32Arg(cu_frame->instr_ptr),
                                 cu_code->statics->length);
 
-                    goto END_LOOP;
+                    break;
                 }
 
                 bool is_method;
@@ -630,7 +630,7 @@ ArObject *argon::vm::Eval(Fiber *fiber) {
                 Release(key);
 
                 if (ret == nullptr)
-                    goto END_LOOP;
+                    break;
 
                 if (is_method) {
                     *(cu_frame->eval_stack - 1) = ret;
@@ -648,14 +648,14 @@ ArObject *argon::vm::Eval(Fiber *fiber) {
                     ErrorFormat(kRuntimeError[0], kRuntimeError[2], I32Arg(cu_frame->instr_ptr),
                                 cu_code->statics->length);
 
-                    goto END_LOOP;
+                    break;
                 }
 
                 ret = AttributeLoad(TOP(), key, true);
                 Release(key);
 
                 if (ret == nullptr)
-                    goto END_LOOP;
+                    break;
 
                 TOP_REPLACE(ret);
                 DISPATCH();
@@ -681,7 +681,7 @@ ArObject *argon::vm::Eval(Fiber *fiber) {
                 Release(start);
 
                 if (ret == nullptr)
-                    goto END_LOOP;
+                    break;
 
                 TOP_REPLACE(ret);
                 DISPATCH();
@@ -689,19 +689,25 @@ ArObject *argon::vm::Eval(Fiber *fiber) {
             TARGET_OP(MKDT) {
                 auto args = I32Arg(cu_frame->instr_ptr);
                 auto dict = DictNew();
+                bool ok = true;
 
                 if (dict == nullptr)
-                    goto END_LOOP;
+                    break;
 
                 // Fill dict
                 for (ArObject **cursor = cu_frame->eval_stack - args; cursor != cu_frame->eval_stack; cursor += 2) {
                     if (!DictInsert(dict, *cursor, *(cursor + 1))) {
-                        Release(dict);
-                        goto END_LOOP;
+                        ok = false;
+                        break;
                     }
 
                     Release(*cursor);
                     Release(*(cursor + 1));
+                }
+
+                if (!ok) {
+                    Release(dict);
+                    break;
                 }
 
                 cu_frame->eval_stack -= args;
@@ -726,7 +732,7 @@ ArObject *argon::vm::Eval(Fiber *fiber) {
                 ret = (ArObject *) FunctionNew((Code *) ret, name, qname, cu_frame->globals,
                                                enclosed, I16Arg(cu_frame->instr_ptr), flags);
                 if (ret == nullptr)
-                    goto END_LOOP;
+                    break;
 
                 if (ENUMBITMASK_ISTRUE(flags, FunctionFlags::CLOSURE))
                     POP();
@@ -741,7 +747,7 @@ ArObject *argon::vm::Eval(Fiber *fiber) {
                 auto list = ListNew(args);
 
                 if (list == nullptr)
-                    goto END_LOOP;
+                    break;
 
                 for (ArObject **cursor = cu_frame->eval_stack - args; cursor != cu_frame->eval_stack; cursor++) {
                     ListAppend(list, *cursor);
@@ -754,7 +760,7 @@ ArObject *argon::vm::Eval(Fiber *fiber) {
             }
             TARGET_OP(MKNS) {
                 if ((ret = (ArObject *) NamespaceNew()) == nullptr)
-                    goto END_LOOP;
+                    break;
 
                 PUSH(ret);
                 DISPATCH();
@@ -764,7 +770,7 @@ ArObject *argon::vm::Eval(Fiber *fiber) {
                 auto tuple = TupleNew(args);
 
                 if (tuple == nullptr)
-                    goto END_LOOP;
+                    break;
 
                 for (ArObject **cursor = cu_frame->eval_stack - args; cursor != cu_frame->eval_stack; cursor++) {
                     TupleInsert(tuple, *cursor, args - (cu_frame->eval_stack - cursor));
@@ -789,7 +795,7 @@ ArObject *argon::vm::Eval(Fiber *fiber) {
 
                 if (!NamespaceNewSymbol(cu_frame->globals, ret, TOP(),
                                         (AttributeFlag) (I32Arg(cu_frame->instr_ptr) >> 16u)))
-                    goto END_LOOP;
+                    break;
 
                 Release(ret);
                 POP();
@@ -802,7 +808,7 @@ ArObject *argon::vm::Eval(Fiber *fiber) {
                 }
 
                 if (IsPanicking())
-                    goto END_LOOP;
+                    break;
 
                 POP();
                 JUMPTO(I32Arg(cu_frame->instr_ptr));
@@ -814,12 +820,12 @@ ArObject *argon::vm::Eval(Fiber *fiber) {
             TARGET_OP(NSTORE) {
                 if (!AR_TYPEOF(PEEK1(), type_namespace_)) {
                     ErrorFormat(kRuntimeError[0], "unexpected type in evaluation stack during NSTORE execution");
-                    goto END_LOOP;
+                    break;
                 }
 
                 if (!NamespaceNewSymbol((Namespace *) PEEK2(), PEEK1(), TOP(),
                                         (AttributeFlag) I16Arg(cu_frame->instr_ptr)))
-                    goto END_LOOP;
+                    break;
 
                 STACK_REWIND(3);
                 DISPATCH();
@@ -828,7 +834,7 @@ ArObject *argon::vm::Eval(Fiber *fiber) {
                 Panic(TOP());
                 POP();
 
-                goto END_LOOP;
+                break;
             }
             TARGET_OP(PBHEAD) {
                 auto len = I16Arg(cu_frame->instr_ptr);
@@ -845,11 +851,11 @@ ArObject *argon::vm::Eval(Fiber *fiber) {
             TARGET_OP(PLT) {
                 if (!AR_TYPEOF(PEEK1(), type_list_)) {
                     ErrorFormat(kRuntimeError[0], "unexpected type in evaluation stack during PLT execution");
-                    goto END_LOOP;
+                    break;
                 }
 
                 if (!ListAppend((List *) PEEK1(), TOP()))
-                    goto END_LOOP;
+                    break;
 
                 POP();
                 DISPATCH();
@@ -877,7 +883,7 @@ ArObject *argon::vm::Eval(Fiber *fiber) {
             }
             TARGET_OP(SPW) {
                 if (!::Spawn(cu_frame))
-                    goto END_LOOP;
+                    break;
 
                 DISPATCH();
             }
@@ -889,12 +895,12 @@ ArObject *argon::vm::Eval(Fiber *fiber) {
                     ErrorFormat(kRuntimeError[0], kRuntimeError[2], I32Arg(cu_frame->instr_ptr),
                                 cu_code->statics->length);
 
-                    goto END_LOOP;
+                    break;
                 }
 
                 if (!AttributeSet(TOP(), key, PEEK1(), false)) {
                     Release(key);
-                    goto END_LOOP;
+                    break;
                 }
 
                 Release(key);
@@ -915,12 +921,12 @@ ArObject *argon::vm::Eval(Fiber *fiber) {
                 if (!NamespaceContains(cu_frame->globals, ret, &aprop)) {
                     Release(ret);
                     ErrorFormat(kUndeclaredeError[0], kUndeclaredeError[1], ARGON_RAW_STRING((String *) ret));
-                    goto END_LOOP;
+                    break;
                 }
 
                 if (aprop.IsConstant()) {
                     ErrorFormat(kUnassignableError[0], kUnassignableError[1], ARGON_RAW_STRING((String *) ret));
-                    goto END_LOOP;
+                    break;
                 }
 
                 NamespaceSet(cu_frame->globals, ret, TOP());
@@ -945,12 +951,12 @@ ArObject *argon::vm::Eval(Fiber *fiber) {
                     ErrorFormat(kRuntimeError[0], kRuntimeError[2], I32Arg(cu_frame->instr_ptr),
                                 cu_code->statics->length);
 
-                    goto END_LOOP;
+                    break;
                 }
 
                 if (!AttributeSet(TOP(), key, PEEK1(), true)) {
                     Release(key);
-                    goto END_LOOP;
+                    break;
                 }
 
                 Release(key);
@@ -961,7 +967,7 @@ ArObject *argon::vm::Eval(Fiber *fiber) {
             }
             TARGET_OP(STSUBSCR) {
                 if (!STSubscribe(PEEK1(), TOP(), PEEK2()))
-                    goto END_LOOP;
+                    break;
 
                 STACK_REWIND(3);
                 DISPATCH();
@@ -971,7 +977,7 @@ ArObject *argon::vm::Eval(Fiber *fiber) {
             }
             TARGET_OP(SUBSCR) {
                 if ((ret = Subscribe(PEEK1(), TOP())) == nullptr)
-                    goto END_LOOP;
+                    break;
 
                 POP();
                 TOP_REPLACE(ret);
@@ -993,7 +999,7 @@ ArObject *argon::vm::Eval(Fiber *fiber) {
                 auto inc = Unpack(ret, cu_frame->eval_stack - 1, I16Arg(cu_frame->instr_ptr));
                 if (inc < 0) {
                     Release(ret);
-                    goto END_LOOP;
+                    break;
                 }
 
                 cu_frame->eval_stack += inc - 1;
@@ -1003,10 +1009,7 @@ ArObject *argon::vm::Eval(Fiber *fiber) {
             }
             default:
                 ErrorFormat(kRuntimeError[0], "unknown opcode: 0x%X", *cu_frame->instr_ptr);
-                goto END_LOOP;
         }
-
-        END_LOOP:
 
         do {
             STACK_REWIND(cu_frame->eval_stack - cu_frame->extra);
