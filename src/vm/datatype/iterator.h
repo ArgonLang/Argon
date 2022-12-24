@@ -54,6 +54,8 @@ namespace argon::vm::datatype {
     inline bool IteratorDtor(IteratorGeneric *iterator){
         Release(iterator->iterable);
 
+        iterator->lock.~mutex();
+
         return true;
     }
 

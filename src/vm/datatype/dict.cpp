@@ -542,6 +542,8 @@ bool dictiterator_dtor(DictIterator *self) {
 
     Release(self->iterable);
 
+    self->lock.~mutex();
+
     return true;
 }
 
