@@ -709,6 +709,8 @@ List *argon::vm::datatype::ListNew(ArSize capacity) {
 
         list->capacity = capacity;
         list->length = 0;
+
+        new(&list->rwlock)sync::RecursiveSharedMutex();
     }
 
     return list;
