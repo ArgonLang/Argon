@@ -343,6 +343,8 @@ ArObject *prefix##name##_fn(ArObject *func, ArObject *self, ArObject **argv, ArS
 
     ArObject *IteratorNext(ArObject *iterator);
 
+    ArObject *IteratorPeek(ArObject *iterator);
+
     ArObject *PropertyGet(const ArObject *obj, const ArObject *key, bool instance);
 
     ArObject *RichCompare(const ArObject *obj, const ArObject *other, CompareMode mode);

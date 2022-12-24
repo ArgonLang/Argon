@@ -22,6 +22,56 @@
 using namespace argon::memory;
 using namespace argon::object;
 
+// BYTES ITERATOR
+
+ArObject *bytes_iter_next(Iterator *self) {
+    UniqueLock lock(self->lock);
+    auto *bytes = (Bytes *) self->obj;
+    ArObject *ret;
+
+    RWLockRead block(bytes->view.shared->lock);
+
+    if (!self->reversed) {
+        if (self->index < BUFFER_LEN(bytes)) {
+            ret = IntegerNew(BUFFER_GET(bytes)[self->index]);
+            self->index++;
+            return ret;
+        }
+
+        return nullptr;
+    }
+
+    if (BUFFER_LEN(bytes) - self->index == 0)
+        return nullptr;
+
+    self->index++;
+
+    return IntegerNew(BUFFER_GET(bytes)[BUFFER_LEN(bytes) - self->index]);
+}
+
+ArObject *bytes_iter_peek(Iterator *self) {
+    UniqueLock lock(self->lock);
+    auto *bytes = (Bytes *) self->obj;
+
+    RWLockRead block(bytes->view.shared->lock);
+
+    if (!self->reversed) {
+        if (self->index < BUFFER_LEN(bytes))
+            return IntegerNew(BUFFER_GET(bytes)[self->index]);
+
+        return nullptr;
+    }
+
+    if (BUFFER_LEN(bytes) - self->index == 0)
+        return nullptr;
+
+    return IntegerNew(BUFFER_GET(bytes)[BUFFER_LEN(bytes) - (self->index + 1)]);
+}
+
+ITERATOR_NEW(bytes_iterator, bytes_iter_next, bytes_iter_peek);
+
+// BYTES
+
 bool bytes_get_buffer(Bytes *self, ArBuffer *buffer, ArBufferFlags flags) {
     bool ok;
 
@@ -63,7 +113,7 @@ ArObject *bytes_get_item(Bytes *self, ArSSize index) {
     if (index < 0)
         index = BUFFER_LEN(self) + index;
 
-    if (index < BUFFER_LEN(self))
+    if (index >= 0 && index < BUFFER_LEN(self))
         return IntegerNew(BUFFER_GET(self)[index]);
 
     return ErrorFormat(type_overflow_error_, "bytes index out of range (len: %d, idx: %d)",
@@ -146,12 +196,12 @@ const SequenceSlots bytes_sequence = {
         nullptr
 };
 
-ARGON_FUNCTION5(bytes_, new, "Creates bytes object."
-                             ""
+ARGON_FUNCTION5(bytes_, new, "Creates bytes object.\n"
+                             "\n"
                              "The src parameter is optional, in case of call without src parameter an empty zero-length"
-                             "bytes object will be constructed."
-                             ""
-                             "- Parameter [src]: integer or bytes-like object."
+                             "bytes object will be constructed.\n"
+                             "\n"
+                             "- Parameter [src]: integer or bytes-like object.\n"
                              "- Returns: construct a new bytes object.", 0, true) {
     IntegerUnderlying size = 0;
 
@@ -169,8 +219,8 @@ ARGON_FUNCTION5(bytes_, new, "Creates bytes object."
 }
 
 ARGON_METHOD5(bytes_, capitalize,
-              "Return a capitalized version of the bytes string."
-              ""
+              "Return a capitalized version of the bytes string.\n"
+              "\n"
               "- Returns: new capitalized bytes string.", 0, false) {
     auto *base = (Bytes *) self;
     Bytes *ret;
@@ -189,9 +239,9 @@ ARGON_METHOD5(bytes_, capitalize,
 }
 
 ARGON_METHOD5(bytes_, count,
-              "Returns the number of times a specified value occurs in bytes."
-              ""
-              "- Parameter sub: subsequence to search."
+              "Returns the number of times a specified value occurs in bytes.\n"
+              "\n"
+              "- Parameter sub: subsequence to search.\n"
               "- Returns: number of times a specified value appears in bytes.", 1, false) {
     ArBuffer buffer{};
     Bytes *bytes;
@@ -212,19 +262,19 @@ ARGON_METHOD5(bytes_, count,
 }
 
 ARGON_METHOD5(bytes_, clone,
-              "Returns the number of times a specified value occurs in bytes."
-              ""
-              "- Parameter sub: subsequence to search."
+              "Returns the number of times a specified value occurs in bytes.\n"
+              "\n"
+              "- Parameter sub: subsequence to search.\n"
               "- Returns: number of times a specified value appears in the string.", 0, false) {
     return BytesNew(self);
 }
 
 ARGON_METHOD5(bytes_, endswith,
-              "Returns true if bytes ends with the specified value."
-              ""
-              "- Parameter suffix: the value to check if the bytes ends with."
-              "- Returns: true if bytes ends with the specified value, false otherwise."
-              ""
+              "Returns true if bytes ends with the specified value.\n"
+              "\n"
+              "- Parameter suffix: the value to check if the bytes ends with.\n"
+              "- Returns: true if bytes ends with the specified value, false otherwise.\n"
+              "\n"
               "# SEE"
               "- startswith: Returns true if bytes starts with the specified value.", 1, false) {
     ArBuffer buffer{};
@@ -247,11 +297,11 @@ ARGON_METHOD5(bytes_, endswith,
 }
 
 ARGON_METHOD5(bytes_, find,
-              "Searches bytes for a specified value and returns the position of where it was found."
-              ""
-              "- Parameter sub: the value to search for."
-              "- Returns: index of the first position, -1 otherwise."
-              ""
+              "Searches bytes for a specified value and returns the position of where it was found.\n"
+              "\n"
+              "- Parameter sub: the value to search for.\n"
+              "- Returns: index of the first position, -1 otherwise.\n"
+              "\n"
               "# SEE"
               "- rfind: Same as find, but returns the index of the last position.", 1, false) {
     ArBuffer buffer{};
@@ -271,17 +321,17 @@ ARGON_METHOD5(bytes_, find,
 }
 
 ARGON_METHOD5(bytes_, freeze,
-              "Freeze bytes object."
-              ""
-              "If bytes is already frozen, the same object will be returned, otherwise a new frozen bytes(view) will be returned."
+              "Freeze bytes object.\n"
+              "\n"
+              "If bytes is already frozen, the same object will be returned, otherwise a new frozen bytes(view) will be returned.\n"
               "- Returns: frozen bytes object.", 0, false) {
     auto *bytes = (Bytes *) self;
 
     return BytesFreeze(bytes);
 }
 
-ARGON_METHOD5(bytes_, hex, "Convert bytes to str of hexadecimal numbers."
-                           ""
+ARGON_METHOD5(bytes_, hex, "Convert bytes to str of hexadecimal numbers.\n"
+                           "\n"
                            "- Returns: new str object.", 0, false) {
     const auto *bytes = (Bytes *) self;
     StringBuilder builder;
@@ -294,14 +344,14 @@ ARGON_METHOD5(bytes_, hex, "Convert bytes to str of hexadecimal numbers."
 }
 
 ARGON_METHOD5(bytes_, isalnum,
-              "Check if all characters in the bytes are alphanumeric (either alphabets or numbers)."
-              ""
-              "- Returns: true if all characters are alphanumeric, false otherwise."
-              ""
+              "Check if all characters in the bytes are alphanumeric (either alphabets or numbers).\n"
+              "\n"
+              "- Returns: true if all characters are alphanumeric, false otherwise.\n"
+              "\n"
               "# SEE"
-              "- isalpha: Check if all characters in the bytes are alphabets."
-              "- isascii: Check if all characters in the bytes are ascii."
-              "- isdigit: Check if all characters in the bytes are digits."
+              "- isalpha: Check if all characters in the bytes are alphabets.\n"
+              "- isascii: Check if all characters in the bytes are ascii.\n"
+              "- isdigit: Check if all characters in the bytes are digits.\n"
               "- isxdigit: Check if all characters in the bytes are hex digits.", 0, false) {
     auto *bytes = (Bytes *) self;
     int chr;
@@ -318,14 +368,14 @@ ARGON_METHOD5(bytes_, isalnum,
 }
 
 ARGON_METHOD5(bytes_, isalpha,
-              "Check if all characters in the bytes are alphabets."
-              ""
-              "- Returns: true if all characters are alphabets, false otherwise."
-              ""
+              "Check if all characters in the bytes are alphabets.\n"
+              "\n"
+              "- Returns: true if all characters are alphabets, false otherwise.\n"
+              "\n"
               "# SEE"
-              "- isalnum: Check if all characters in the bytes are alphanumeric (either alphabets or numbers)."
-              "- isascii: Check if all characters in the bytes are ascii."
-              "- isdigit: Check if all characters in the bytes are digits."
+              "- isalnum: Check if all characters in the bytes are alphanumeric (either alphabets or numbers).\n"
+              "- isascii: Check if all characters in the bytes are ascii.\n"
+              "- isdigit: Check if all characters in the bytes are digits.\n"
               "- isxdigit: Check if all characters in the bytes are hex digits.", 0, false) {
     auto *bytes = (Bytes *) self;
     int chr;
@@ -342,14 +392,14 @@ ARGON_METHOD5(bytes_, isalpha,
 }
 
 ARGON_METHOD5(bytes_, isascii,
-              "Check if all characters in the bytes are ascii."
-              ""
-              "- Returns: true if all characters are ascii, false otherwise."
-              ""
+              "Check if all characters in the bytes are ascii.\n"
+              "\n"
+              "- Returns: true if all characters are ascii, false otherwise.\n"
+              "\n"
               "# SEE"
-              "- isalnum: Check if all characters in the bytes are alphanumeric (either alphabets or numbers)."
-              "- isalpha: Check if all characters in the bytes are alphabets."
-              "- isdigit: Check if all characters in the bytes are digits."
+              "- isalnum: Check if all characters in the bytes are alphanumeric (either alphabets or numbers).\n"
+              "- isalpha: Check if all characters in the bytes are alphabets.\n"
+              "- isdigit: Check if all characters in the bytes are digits.\n"
               "- isxdigit: Check if all characters in the bytes are hex digits.", 0, false) {
     auto *bytes = (Bytes *) self;
     int chr;
@@ -366,14 +416,14 @@ ARGON_METHOD5(bytes_, isascii,
 }
 
 ARGON_METHOD5(bytes_, isdigit,
-              "Check if all characters in the bytes are digits."
-              ""
-              "- Returns: true if all characters are digits, false otherwise."
-              ""
+              "Check if all characters in the bytes are digits.\n"
+              "\n"
+              "- Returns: true if all characters are digits, false otherwise.\n"
+              "\n"
               "# SEE"
-              "- isalnum: Check if all characters in the bytes are alphanumeric (either alphabets or numbers)."
-              "- isalpha: Check if all characters in the bytes are alphabets."
-              "- isascii: Check if all characters in the bytes are ascii."
+              "- isalnum: Check if all characters in the bytes are alphanumeric (either alphabets or numbers).\n"
+              "- isalpha: Check if all characters in the bytes are alphabets.\n"
+              "- isascii: Check if all characters in the bytes are ascii.\n"
               "- isxdigit: Check if all characters in the bytes are hex digits.", 0, false) {
     auto *bytes = (Bytes *) self;
     int chr;
@@ -390,14 +440,14 @@ ARGON_METHOD5(bytes_, isdigit,
 }
 
 ARGON_METHOD5(bytes_, isxdigit,
-              "Check if all characters in the bytes are hex digits."
-              ""
-              "- Returns: true if all characters are hex digits, false otherwise."
-              ""
+              "Check if all characters in the bytes are hex digits.\n"
+              "\n"
+              "- Returns: true if all characters are hex digits, false otherwise.\n"
+              "\n"
               "# SEE"
-              "- isalnum: Check if all characters in the bytes are alphanumeric (either alphabets or numbers)."
-              "- isalpha: Check if all characters in the bytes are alphabets."
-              "- isdigit: Check if all characters in the bytes are digits."
+              "- isalnum: Check if all characters in the bytes are alphanumeric (either alphabets or numbers).\n"
+              "- isalpha: Check if all characters in the bytes are alphabets.\n"
+              "- isdigit: Check if all characters in the bytes are digits.\n"
               "- isascii: Check if all characters in the bytes are ascii.", 0, false) {
     auto *bytes = (Bytes *) self;
     int chr;
@@ -412,16 +462,16 @@ ARGON_METHOD5(bytes_, isxdigit,
 }
 
 ARGON_METHOD5(bytes_, isfrozen,
-              "Check if this bytes object is frozen."
-              ""
+              "Check if this bytes object is frozen.\n"
+              "\n"
               "- Returns: true if it is frozen, false otherwise.", 0, false) {
     return BoolToArBool(((Bytes *) self)->frozen);
 }
 
 ARGON_METHOD5(bytes_, join,
-              "Joins the elements of an iterable to the end of the bytes."
-              ""
-              "- Parameter iterable: any iterable object where all the returned values are bytes-like object."
+              "Joins the elements of an iterable to the end of the bytes.\n"
+              "\n"
+              "- Parameter iterable: any iterable object where all the returned values are bytes-like object.\n"
               "- Returns: new bytes where all items in an iterable are joined into one bytes.", 1, false) {
     ArBuffer buffer{};
     ArObject *item = nullptr;
@@ -483,8 +533,8 @@ ARGON_METHOD5(bytes_, join,
 }
 
 ARGON_METHOD5(bytes_, lower,
-              "Return a copy of the bytes string converted to lowercase."
-              ""
+              "Return a copy of the bytes string converted to lowercase.\n"
+              "\n"
               "- Returns: new bytes string with all characters converted to lowercase.", 0, false) {
     auto *base = (Bytes *) self;
     Bytes *ret;
@@ -501,11 +551,11 @@ ARGON_METHOD5(bytes_, lower,
 }
 
 ARGON_METHOD5(bytes_, rfind,
-              "Searches bytes for a specified value and returns the position of where it was found."
-              ""
-              "- Parameter sub: the value to search for."
-              "- Returns: index of the first position, -1 otherwise."
-              ""
+              "Searches bytes for a specified value and returns the position of where it was found.\n"
+              "\n"
+              "- Parameter sub: the value to search for.\n"
+              "- Returns: index of the first position, -1 otherwise.\n"
+              "\n"
               "# SEE"
               "- find: Same as find, but returns the index of the last position.", 1, false) {
     ArBuffer buffer{};
@@ -525,11 +575,11 @@ ARGON_METHOD5(bytes_, rfind,
 }
 
 ARGON_METHOD5(bytes_, rmpostfix,
-              "Returns new bytes without postfix(if present), otherwise return this object."
-              ""
-              "- Parameter postfix: postfix to looking for."
-              "- Returns: new bytes without indicated postfix."
-              ""
+              "Returns new bytes without postfix(if present), otherwise return this object.\n"
+              "\n"
+              "- Parameter postfix: postfix to looking for.\n"
+              "- Returns: new bytes without indicated postfix.\n"
+              "\n"
               "# SEE"
               "- rmprefix: Returns new bytes without prefix(if present), otherwise return this object.",
               1, false) {
@@ -556,11 +606,11 @@ ARGON_METHOD5(bytes_, rmpostfix,
 
 
 ARGON_METHOD5(bytes_, rmprefix,
-              "Returns new bytes without prefix(if present), otherwise return this object."
-              ""
-              "- Parameter prefix: prefix to looking for."
-              "- Returns: new bytes without indicated prefix."
-              ""
+              "Returns new bytes without prefix(if present), otherwise return this object.\n"
+              "\n"
+              "- Parameter prefix: prefix to looking for.\n"
+              "- Returns: new bytes without indicated prefix.\n"
+              "\n"
               "# SEE"
               "- rmpostfix: Returns new bytes without postfix(if present), otherwise return this object.", 1,
               false) {
@@ -586,11 +636,11 @@ ARGON_METHOD5(bytes_, rmprefix,
 }
 
 ARGON_METHOD5(bytes_, split,
-              "Splits bytes at the specified separator, and returns a list."
-              ""
+              "Splits bytes at the specified separator, and returns a list.\n"
+              "\n"
               "- Parameters:"
-              " - separator: specifies the separator to use when splitting bytes."
-              " - maxsplit: specifies how many splits to do."
+              " - separator: specifies the separator to use when splitting bytes.\n"
+              " - maxsplit: specifies how many splits to do.\n"
               "- Returns: new list of bytes.", 2, false) {
     ArBuffer buffer{};
     Bytes *bytes;
@@ -615,11 +665,11 @@ ARGON_METHOD5(bytes_, split,
 }
 
 ARGON_METHOD5(bytes_, startswith,
-              "Returns true if bytes starts with the specified value."
-              ""
-              "- Parameter prefix: the value to check if the bytes starts with."
-              "- Returns: true if bytes starts with the specified value, false otherwise."
-              ""
+              "Returns true if bytes starts with the specified value.\n"
+              "\n"
+              "- Parameter prefix: the value to check if the bytes starts with.\n"
+              "- Returns: true if bytes starts with the specified value, false otherwise.\n"
+              "\n"
               "# SEE"
               "- endswith: Returns true if bytes ends with the specified value.", 1, false) {
     ArBuffer buffer{};
@@ -641,8 +691,8 @@ ARGON_METHOD5(bytes_, startswith,
     return BoolToArBool(res == 0);
 }
 
-ARGON_METHOD5(bytes_, str, "Convert bytes to str object."
-                           ""
+ARGON_METHOD5(bytes_, str, "Convert bytes to str object.\n"
+                           "\n"
                            "- Returns: new str object.", 0, false) {
     StringBuilder builder;
     auto *bytes = (Bytes *) self;
@@ -654,8 +704,8 @@ ARGON_METHOD5(bytes_, str, "Convert bytes to str object."
 }
 
 ARGON_METHOD5(bytes_, upper,
-              "Return a copy of the bytes string converted to uppercase."
-              ""
+              "Return a copy of the bytes string converted to uppercase.\n"
+              "\n"
               "- Returns: new bytes string with all characters converted to uppercase.", 0, false) {
     auto *base = (Bytes *) self;
     Bytes *ret;
@@ -905,11 +955,11 @@ ArObject *bytes_str(Bytes *self) {
 }
 
 ArObject *bytes_iter_get(Bytes *self) {
-    return IteratorNew(self, false);
+    return IteratorNew(&type_bytes_iterator_, self, false);
 }
 
 ArObject *bytes_iter_rget(Bytes *self) {
-    return IteratorNew(self, true);
+    return IteratorNew(&type_bytes_iterator_, self, false);
 }
 
 ArObject *bytes_compare(Bytes *self, ArObject *other, CompareMode mode) {

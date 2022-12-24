@@ -563,6 +563,13 @@ ArObject *argon::object::IteratorNext(ArObject *iterator) {
     return AR_ITERATOR_SLOT(iterator)->next(iterator);
 }
 
+ArObject *argon::object::IteratorPeek(ArObject *iterator) {
+    if (!IsIterator(iterator))
+        return ErrorFormat(type_type_error_, "expected an iterator not '%s'", AR_TYPE_NAME(iterator));
+
+    return AR_ITERATOR_SLOT(iterator)->peek(iterator);
+}
+
 ArObject *argon::object::PropertyGet(const ArObject *obj, const ArObject *key, bool instance) {
     BinaryOp get_attr = type_type_->obj_actions->get_attr;
     BinaryOp get_sattr = type_type_->obj_actions->get_static_attr;

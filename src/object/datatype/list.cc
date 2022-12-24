@@ -17,7 +17,59 @@
 using namespace argon::object;
 using namespace argon::memory;
 
+// LIST ITERATOR
+
+ArObject *list_iter_next(Iterator *self) {
+    UniqueLock lock(self->lock);
+    auto *list = (List *) self->obj;
+    ArObject *ret;
+
+    RWLockRead llock(list->lock);
+
+    if (!self->reversed) {
+        if (self->index < list->len) {
+            ret = IncRef(list->objects[self->index]);
+            self->index++;
+            return ret;
+        }
+
+        return nullptr;
+    }
+
+    if (list->len - self->index == 0)
+        return nullptr;
+
+    self->index++;
+
+    return IncRef(list->objects[list->len - self->index]);
+}
+
+ArObject *list_iter_peek(Iterator *self) {
+    UniqueLock lock(self->lock);
+    auto *list = (List *) self->obj;
+
+    RWLockRead llock(list->lock);
+
+    if (!self->reversed) {
+        if (self->index < list->len)
+            return IncRef(list->objects[self->index]);
+
+        return nullptr;
+    }
+
+    if (list->len - self->index == 0)
+        return nullptr;
+
+    return IncRef(list->objects[list->len - (self->index + 1)]);
+}
+
+ITERATOR_NEW(list_iterator, list_iter_next, list_iter_peek);
+
+// LIST
+
 ArSize list_len(ArObject *obj) {
+    RWLockRead lock(((List *) obj)->lock);
+
     return ((List *) obj)->len;
 }
 
@@ -25,9 +77,9 @@ ArObject *argon::object::ListGetItem(List *self, ArSSize index) {
     RWLockRead lock(self->lock);
 
     if (index < 0)
-        index = self->len + index;
+        index = (ArSSize) self->len + index;
 
-    if (index < self->len)
+    if (index >= 0 && index < self->len)
         return IncRef(self->objects[index]);
 
     return ErrorFormat(type_overflow_error_, "list index out of range (len: %d, idx: %d)", self->len, index);
@@ -37,9 +89,9 @@ bool argon::object::ListSetItem(List *self, ArObject *obj, ArSSize index) {
     RWLockWrite lock(self->lock);
 
     if (index < 0)
-        index = self->len + index;
+        index = (ArSSize) self->len + index;
 
-    if (index < self->len) {
+    if (index >= 0 && index < self->len) {
         Release(self->objects[index]);
         self->objects[index] = IncRef(obj);
         TrackIf(self, obj);
@@ -51,37 +103,40 @@ bool argon::object::ListSetItem(List *self, ArObject *obj, ArSSize index) {
 }
 
 ArObject *list_get_slice(List *self, Bounds *bounds) {
-    RWLockRead lock(self->lock);
-    ArObject *tmp;
-    List *ret;
-
     ArSSize slice_len;
     ArSSize start;
     ArSSize stop;
     ArSSize step;
+
+    ArObject *tmp;
+    List *ret;
+
+    RWLockRead lock(self->lock);
 
     slice_len = BoundsIndex(bounds, self->len, &start, &stop, &step);
 
     if ((ret = ListNew(slice_len)) == nullptr)
         return nullptr;
 
-    if (step >= 0) {
-        for (ArSize i = 0; start < stop; start += step) {
-            tmp = self->objects[start];
-            IncRef(tmp);
-            ret->objects[i++] = tmp;
-            TrackIf(ret, tmp);
+    ret->len = slice_len;
+
+    if (slice_len > 0) {
+        if (step >= 0) {
+            for (ArSize i = 0; start < stop; start += step) {
+                tmp = self->objects[start];
+                ret->objects[i++] = IncRef(tmp);
+                TrackIf(ret, tmp);
+            }
+
+            return ret;
         }
-    } else {
+
         for (ArSize i = 0; stop < start; start += step) {
             tmp = self->objects[start];
-            IncRef(tmp);
-            ret->objects[i++] = tmp;
+            ret->objects[i++] = IncRef(tmp);
             TrackIf(ret, tmp);
         }
     }
-
-    ret->len = slice_len;
 
     return ret;
 }
@@ -263,9 +318,9 @@ OpSlots list_ops{
         nullptr
 };
 
-ARGON_FUNCTION5(list_, new, "Creates an empty list or construct it from an iterable object."
-                            ""
-                            "- Parameter [iter]: iterable object."
+ARGON_FUNCTION5(list_, new, "Creates an empty list or construct it from an iterable object.\n"
+                            "\n"
+                            "- Parameter [iter]: iterable object.\n"
                             "- Returns: new list.", 0, true) {
     if (!VariadicCheckPositional("list::new", count, 0, 1))
         return nullptr;
@@ -277,9 +332,9 @@ ARGON_FUNCTION5(list_, new, "Creates an empty list or construct it from an itera
 }
 
 ARGON_METHOD5(list_, append,
-              "Add an item to the end of the list."
-              ""
-              "- Parameter obj: object to insert."
+              "Add an item to the end of the list.\n"
+              "\n"
+              "- Parameter obj: object to insert.\n"
               "- Returns: list itself.", 1, false) {
     if (!ListAppend((List *) self, *argv))
         return nullptr;
@@ -288,18 +343,18 @@ ARGON_METHOD5(list_, append,
 }
 
 ARGON_METHOD5(list_, clear,
-              "Remove all items from the list."
-              ""
+              "Remove all items from the list.\n"
+              "\n"
               "- Returns: list itself.", 0, false) {
     ListClear((List *) self);
     return IncRef(self);
 }
 
 ARGON_METHOD5(list_, extend,
-              "Extend the list by appending all the items from the iterable."
-              ""
-              "- Parameter iterable: an iterable object."
-              "- Returns: list itself."
+              "Extend the list by appending all the items from the iterable.\n"
+              "\n"
+              "- Parameter iterable: an iterable object.\n"
+              "- Returns: list itself.\n"
               "- Panic TypeError: object is not iterable.", 1, false) {
 
     if (!ListConcat((List *) self, *argv))
@@ -309,28 +364,28 @@ ARGON_METHOD5(list_, extend,
 }
 
 ARGON_METHOD5(list_, find,
-              "Find an item into the list and returns its position."
-              ""
-              "- Parameter obj: object to search."
+              "Find an item into the list and returns its position.\n"
+              "\n"
+              "- Parameter obj: object to search.\n"
               "- Returns: index if the object was found into the list, -1 otherwise.", 1, false) {
     RWLockRead lock(((List *) self)->lock);
     auto *list = (List *) self;
 
     for (ArSize i = 0; i < list->len; i++) {
         if (Equal(list->objects[i], *argv))
-            return IntegerNew(i);
+            return IntegerNew((IntegerUnderlying) i);
     }
 
     return IntegerNew(-1);
 }
 
 ARGON_METHOD5(list_, insert,
-              "Insert an item at a given position."
-              ""
+              "Insert an item at a given position.\n"
+              "\n"
               "- Parameters:"
-              "  - index: index of the element before which to insert."
-              "  - obj: object to insert."
-              "- Returns: list itself."
+              "  - index: index of the element before which to insert.\n"
+              "  - obj: object to insert.\n"
+              "- Returns: list itself.\n"
               "- Panic TypeError: 'index' cannot be interpreted as an integer.", 2, false) {
     auto *list = (List *) self;
     ArSize idx;
@@ -340,16 +395,16 @@ ARGON_METHOD5(list_, insert,
 
     idx = idx = AR_NUMBER_SLOT(argv[0])->as_index(argv[0]);
 
-    if (!ListInsert(list, argv[1], idx))
+    if (!ListInsert(list, argv[1], (ArSSize) idx))
         return nullptr;
 
     return IncRef(list);
 }
 
 ARGON_METHOD5(list_, pop,
-              "Remove and returns the item at the end of the list."
-              ""
-              "- Returns: Option<?>", 0, false) {
+              "Remove and returns the item at the end of the list.\n"
+              "\n"
+              "- Returns: Option<?>.", 0, false) {
     auto *list = (List *) self;
     ArObject *obj;
 
@@ -365,9 +420,9 @@ ARGON_METHOD5(list_, pop,
 }
 
 ARGON_METHOD5(list_, remove,
-              "Remove the first item from the list whose value is equal to obj."
-              ""
-              "- Parameter obj: object to delete."
+              "Remove the first item from the list whose value is equal to obj.\n"
+              "\n"
+              "- Parameter obj: object to delete.\n"
               "- Returns: true if obj was found and deleted, false otherwise.", 1, false) {
     auto *list = (List *) self;
     ArObject *ret = False;
@@ -392,8 +447,8 @@ ARGON_METHOD5(list_, remove,
 }
 
 ARGON_METHOD5(list_, reverse,
-              "Reverse the elements of the list in place."
-              ""
+              "Reverse the elements of the list in place.\n"
+              "\n"
               "- Returns: list itself.", 0, false) {
     RWLockWrite lock(((List *) self)->lock);
     auto *list = (List *) self;
@@ -499,11 +554,11 @@ ArObject *list_str(List *self) {
 }
 
 ArObject *list_iter_get(List *self) {
-    return IteratorNew(self, false);
+    return IteratorNew(&type_list_iterator_, self, false);
 }
 
 ArObject *list_iter_rget(List *self) {
-    return IteratorNew(self, true);
+    return IteratorNew(&type_list_iterator_, self, true);
 }
 
 void list_trace(List *self, VoidUnaryOp trace) {
@@ -701,7 +756,7 @@ bool argon::object::ListInsert(List *list, ArObject *object, ArSSize index) {
     RWLockWrite lock(list->lock);
 
     if (index < 0)
-        index = list->len + index;
+        index = (ArSSize) list->len + index;
 
     if (index > list->len) {
         if (!CheckSize(list, 1))

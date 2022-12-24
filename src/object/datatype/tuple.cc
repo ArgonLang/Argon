@@ -20,51 +20,89 @@
 
 using namespace argon::object;
 
+// TUPLE ITERATOR
+
+ArObject *tuple_iter_next(Iterator *self) {
+    UniqueLock lock(self->lock);
+    const auto *tuple = (Tuple *) self->obj;
+    ArObject *ret;
+
+    if (!self->reversed) {
+        if (self->index < tuple->len) {
+            ret = IncRef(tuple->objects[self->index]);
+            self->index++;
+            return ret;
+        }
+
+        return nullptr;
+    }
+
+    if (tuple->len - self->index == 0)
+        return nullptr;
+
+    self->index++;
+
+    return IncRef(tuple->objects[tuple->len - self->index]);
+}
+
+ArObject *tuple_iter_peek(Iterator *self) {
+    UniqueLock lock(self->lock);
+    const auto *tuple = (Tuple *) self->obj;
+
+    if (!self->reversed) {
+        if (self->index < tuple->len)
+            return IncRef(tuple->objects[self->index]);
+
+        return nullptr;
+    }
+
+    if (tuple->len - self->index == 0)
+        return nullptr;
+
+    return IncRef(tuple->objects[tuple->len - (self->index + 1)]);
+}
+
+ITERATOR_NEW(tuple_iterator, tuple_iter_next, tuple_iter_peek);
+
+// TUPLE
+
 ArSize tuple_len(Tuple *self) {
     return self->len;
 }
 
 ArObject *argon::object::TupleGetItem(Tuple *self, ArSSize index) {
-    ArObject *obj;
-
     if (index < 0)
-        index = self->len + index;
+        index = (ArSSize) self->len + index;
 
-    if (index < self->len) {
-        obj = self->objects[index];
-        IncRef(obj);
-        return obj;
-    }
+    if (index >= 0 && index < self->len)
+        return IncRef(self->objects[index]);
 
     return ErrorFormat(type_overflow_error_, "tuple index out of range (len: %d, idx: %d)", self->len, index);
 }
 
 ArObject *tuple_get_slice(Tuple *self, Bounds *bounds) {
-    ArObject *tmp;
-    Tuple *ret;
-
     ArSSize slice_len;
     ArSSize start;
     ArSSize stop;
     ArSSize step;
+
+    Tuple *ret;
 
     slice_len = BoundsIndex(bounds, self->len, &start, &stop, &step);
 
     if ((ret = TupleNew(slice_len)) == nullptr)
         return nullptr;
 
-    if (step >= 0) {
-        for (ArSize i = 0; start < stop; start += step) {
-            tmp = self->objects[start];
-            IncRef(tmp);
-            ret->objects[i++] = tmp;
+    if (slice_len > 0) {
+        if (step >= 0) {
+            for (ArSize i = 0; start < stop; start += step)
+                ret->objects[i++] = IncRef(self->objects[start]);
+
+            return ret;
         }
-    } else {
-        for (ArSize i = 0; stop < start; start += step) {
-            tmp = self->objects[start];
-            IncRef(tmp);
-            ret->objects[i++] = tmp;
-        }
+
+        for (ArSize i = 0; stop < start; start += step)
+            ret->objects[i++] = IncRef(self->objects[start]);
     }
 
     return ret;
@@ -78,9 +116,9 @@ const SequenceSlots tuple_sequence{
         nullptr
 };
 
-ARGON_FUNCTION5(tuple_, new, "Creates an empty tuple or construct it from an iterable object."
-                             ""
-                             "- Parameter [iter]: iterable object."
+ARGON_FUNCTION5(tuple_, new, "Creates an empty tuple or construct it from an iterable object.\n"
+                             "\n"
+                             "- Parameter [iter]: iterable object.\n"
                              "- Returns: new tuple.", 0, true) {
     if (!VariadicCheckPositional("tuple::new", count, 0, 1))
         return nullptr;
@@ -92,15 +130,15 @@ ARGON_FUNCTION5(tuple_, new, "Creates an empty tuple or construct it from an ite
 }
 
 ARGON_METHOD5(tuple_, find,
-              "Find an item into the tuple and returns its position."
-              ""
-              "- Parameter obj: object to search."
+              "Find an item into the tuple and returns its position.\n"
+              "\n"
+              "- Parameter obj: object to search.\n"
               "- Returns: index if the object was found into the tuple, -1 otherwise.", 1, false) {
     auto *tuple = (Tuple *) self;
 
     for (ArSize i = 0; i < tuple->len; i++) {
         if (Equal(tuple->objects[i], *argv))
-            return IntegerNew(i);
+            return IntegerNew((IntegerUnderlying) i);
     }
 
     return IntegerNew(-1);
@@ -148,8 +186,9 @@ ArObject *tuple_compare(Tuple *self, ArObject *other, CompareMode mode) {
 
 ArSize tuple_hash(Tuple *self) {
     unsigned long result = 1;
-    ArObject *obj;
     ArSize hash;
+
+    ArObject *obj;
 
     if (self->len == 0)
         return 0;
@@ -193,11 +232,11 @@ ArObject *tuple_str(const Tuple *self) {
 }
 
 ArObject *tuple_iter_get(List *self) {
-    return IteratorNew(self, false);
+    return IteratorNew(&type_tuple_iterator_, self, false);
 }
 
 ArObject *tuple_iter_rget(List *self) {
-    return IteratorNew(self, true);
+    return IteratorNew(&type_tuple_iterator_, self, true);
 }
 
 void tuple_cleanup(Tuple *self) {
@@ -369,7 +408,7 @@ Tuple *argon::object::TupleNew(const char *fmt, ...) {
                 obj = IntegerNew((int) va_arg(args, ArSSize));
                 break;
             case 'I':
-                obj = IntegerNew((unsigned int) va_arg(args, ArSSize));
+                obj = IntegerNew((IntegerUnderlying) ((unsigned int) va_arg(args, ArSSize)));
                 break;
             case 'l':
                 obj = IntegerNew((long) va_arg(args, ArSSize));

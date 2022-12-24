@@ -32,18 +32,18 @@ using namespace argon::object;
 using namespace argon::module;
 
 ARGON_FUNCTION(bind,
-               "Return a partial-applied function(currying)."
-               ""
-               "Calling bind(func, args...) is equivalent to the following expression:"
+               "Return a partial-applied function(currying).\n"
+               "\n"
+               "Calling bind(func, args...) is equivalent to the following expression:\n"
                "func(args...) "
                "IF AND ONLY IF the number of arguments is less than the arity of the function,"
-               "otherwise the expression invokes the function call. "
+               "otherwise the expression invokes the function call. \n"
                "This does not happen with the use of bind which allows to bind a number of arguments"
-               "equal to the arity of the function."
-               ""
-               "- Parameters:"
-               "    - func: callable object(function)."
-               "    - ...obj: list of arguments to bind."
+               "equal to the arity of the function.\n"
+               "\n"
+               "- Parameters:\n"
+               "    - func: callable object(function).\n"
+               "    - ...obj: list of arguments to bind.\n"
                "- Returns: partial-applied function.",
                1, true) {
     auto *base = (Function *) argv[0];
@@ -70,9 +70,9 @@ ARGON_FUNCTION(bind,
 }
 
 ARGON_FUNCTION(callable,
-               "Return true if argument appears callable, false otherwise."
-               ""
-               "- Parameter obj: object to check."
+               "Return true if argument appears callable, false otherwise.\n"
+               "\n"
+               "- Parameter obj: object to check.\n"
                "- Returns: true if object is callable, false otherwise.",
                1, false) {
     // This definition may be change in future
@@ -82,12 +82,12 @@ ARGON_FUNCTION(callable,
 }
 
 ARGON_FUNCTION(dir,
-               "Returns a list of names in the local scope or the attributes of the instance."
-               ""
+               "Returns a list of names in the local scope or the attributes of the instance.\n"
+               "\n"
                "Without arguments, returns a list with names in the current scope, with one argument, returns a list "
-               "with the instance attributes of the argument."
-               ""
-               "- Parameter ...obj: object whose instance attributes you want to know."
+               "with the instance attributes of the argument.\n"
+               "\n"
+               "- Parameter ...obj: object whose instance attributes you want to know.\n"
                "- Returns: list with attributes if any, otherwise an empty list.",
                0, true) {
     ArObject *ret;
@@ -125,10 +125,10 @@ ARGON_FUNCTION(dir,
 }
 
 ARGON_FUNCTION(exit,
-               "Close STDIN and starts panicking state with RuntimeExit error."
-               ""
-               "This is a convenient function to terminate your interactive session."
-               ""
+               "Close STDIN and starts panicking state with RuntimeExit error.\n"
+               "\n"
+               "This is a convenient function to terminate your interactive session.\n"
+               "\n"
                "- Returns: this function does not return to the caller.",
                0, false) {
     auto *in = (io::File *) argon::vm::ContextRuntimeGetProperty("stdin", io::type_file_);
@@ -146,18 +146,18 @@ ARGON_FUNCTION(exit,
 }
 
 ARGON_FUNCTION(hasnext,
-               "Return true if the iterator has more elements."
-               ""
-               "- Parameter iterator: iterator object."
+               "Return true if the iterator has more elements.\n"
+               "\n"
+               "- Parameter iterator: iterator object.\n"
                "- Returns: true if the iterator has more elements, false otherwise.",
                1, false) {
     return BoolToArBool(AR_ITERATOR_SLOT(*argv)->has_next(*argv));
 }
 
 ARGON_FUNCTION(input,
-               "Allowing user input."
-               ""
-               "- Parameter prompt: string representing a default message before the input."
+               "Allowing user input.\n"
+               "\n"
+               "- Parameter prompt: string representing a default message before the input.\n"
                "- Returns: string containing user input.", 1, false) {
     StringBuilder builder;
     auto in = (io::File *) argon::vm::ContextRuntimeGetProperty("stdin", io::type_file_);
@@ -192,20 +192,20 @@ ARGON_FUNCTION(input,
 }
 
 ARGON_FUNCTION(isbufferable,
-               "Check if object is bufferable."
-               ""
-               "- Parameters:"
-               "    - obj: object to check."
+               "Check if object is bufferable.\n"
+               "\n"
+               "- Parameters:\n"
+               "    - obj: object to check.\n"
                "- Returns: true if the object is bufferable, false otherwise.", 1, false) {
     return BoolToArBool(IsBufferable(*argv));
 }
 
 ARGON_FUNCTION(isimpl,
-               "Check if object implements all the indicated traits."
-               ""
-               "- Parameters:"
-               "    - obj: object to check."
-               "    - ...traits: traits list."
+               "Check if object implements all the indicated traits.\n"
+               "\n"
+               "- Parameters:\n"
+               "    - obj: object to check.\n"
+               "    - ...traits: traits list.\n"
                "- Returns: true if the object implements ALL indicated traits, false otherwise.", 2, true) {
     for (ArSize i = 1; i < count; i++) {
         if (!TraitIsImplemented(argv[0], (TypeInfo *) argv[i]))
@@ -216,10 +216,10 @@ ARGON_FUNCTION(isimpl,
 }
 
 ARGON_FUNCTION(isinstance,
-               "Check if object is an instance of indicated type."
-               ""
-               "    - obj: object to check."
-               "    - ...types: types list."
+               "Check if object is an instance of indicated type.\n"
+               "\n"
+               "    - obj: object to check.\n"
+               "    - ...types: types list.\n"
                "- Returns: true if the object is an instance of one of the indicated type, false otherwise.", 2, true) {
     for (ArSize i = 1; i < count; i++) {
         if (argv[0]->type == argv[i])
@@ -230,34 +230,34 @@ ARGON_FUNCTION(isinstance,
 }
 
 ARGON_FUNCTION(isiterable,
-               "Check if object is iterable."
-               ""
-               "- Parameters:"
-               "    - obj: object to check."
+               "Check if object is iterable.\n"
+               "\n"
+               "- Parameters:\n"
+               "    - obj: object to check.\n"
                "- Returns: true if the object is iterable, false otherwise.", 1, false) {
     return BoolToArBool(IsIterable(*argv));
 }
 
 ARGON_FUNCTION(iter,
-               "Return an iterator object."
-               ""
-               "- Parameter obj: iterable object."
-               "- Returns: new iterator."
-               "- Panic TypeError: object is not iterable."
-               ""
-               "# SEE"
+               "Return an iterator object.\n"
+               "\n"
+               "- Parameter obj: iterable object.\n"
+               "- Returns: new iterator.\n"
+               "- Panic TypeError: object is not iterable.\n"
+               "\n"
+               "# SEE\n"
                "- riter: to obtain a reverse iterator.",
                1, false) {
     return IteratorGet(*argv);
 }
 
 ARGON_FUNCTION(len,
-               "Returns the length of an object."
-               ""
-               "- Parameter obj: object to check."
-               "- Returns: the length of the object."
-               "- Panics:"
-               "  - TypeError: object has no len."
+               "Returns the length of an object.\n"
+               "\n"
+               "- Parameter obj: object to check.\n"
+               "- Returns: the length of the object.\n"
+               "- Panics:\n"
+               "  - TypeError: object has no len.\n"
                "  - OverflowError: object is too long.",
                1, false) {
     ArSize length;
@@ -273,9 +273,9 @@ ARGON_FUNCTION(len,
 }
 
 ARGON_FUNCTION(lsattr,
-               "Returns the list of attributes of an object/datatype."
-               ""
-               "- Parameter obj: object/datatype whose attributes you want to know."
+               "Returns the list of attributes of an object/datatype.\n"
+               "\n"
+               "- Parameter obj: object/datatype whose attributes you want to know.\n"
                "- Returns: list with attributes if any, otherwise an empty list.",
                1, false) {
     const auto target = AR_GET_TYPEOBJ(argv[0]);
@@ -295,12 +295,12 @@ ARGON_FUNCTION(lsattr,
 }
 
 ARGON_FUNCTION(next,
-               "Retrieve the next item from the iterator."
-               ""
-               "- Parameter iterator: iterator object."
-               "- Returns: object."
-               "- Panics:"
-               "     - TypeError: invalid iterator."
+               "Retrieve the next item from the iterator.\n"
+               "\n"
+               "- Parameter iterator: iterator object.\n"
+               "- Returns: object.\n"
+               "- Panics:\n"
+               "     - TypeError: invalid iterator.\n"
                "     - ExhaustedIteratorError: reached the end of the collection.",
                1, false) {
     ArObject *ret = IteratorNext(*argv);
@@ -312,33 +312,33 @@ ARGON_FUNCTION(next,
 }
 
 ARGON_FUNCTION(recover,
-               "Allows a program to manage behavior of panicking ArRoutine."
-               ""
-               "Executing a call to recover inside a deferred function stops"
-               "the panicking sequence by restoring normal execution flow."
-               "After that the function retrieve and returns the error value passed"
-               "to the call of function panic."
-               ""
-               "# WARNING"
-               "Calling this function outside of deferred function has no effect."
-               ""
+               "Allows a program to manage behavior of panicking ArRoutine.\n"
+               "\n"
+               "Executing a call to recover inside a deferred function stops "
+               "the panicking sequence by restoring normal execution flow.\n"
+               "After that the function retrieve and returns the error value passed "
+               "to the call of function panic.\n"
+               "\n"
+               "# WARNING\n"
+               "Calling this function outside of deferred function has no effect.\n"
+               "\n"
                "- Returns: argument supplied to panic call, or nil if ArRoutine is not panicking.",
                0, false) {
     return ReturnNil(argon::vm::GetLastError());
 }
 
 ARGON_FUNCTION(returns,
-               "Set and/or get the return value of the function that invoked a defer."
-               ""
-               "If returns is called with:"
-               "    * 0 argument: no value is set as a return value."
-               "    * 1 argument: argument is set as a return value."
-               "    * n arguments: the return value is a tuple containing all the passed values."
-               ""
-               "In any case, the current return value is returned."
-               ""
-               "- Parameters:"
-               "    - ...objs: return value."
+               "Set and/or get the return value of the function that invoked a defer.\n"
+               "\n"
+               "If returns is called with:\n"
+               "    * 0 argument: no value is set as a return value.\n"
+               "    * 1 argument: argument is set as a return value.\n"
+               "    * n arguments: the return value is a tuple containing all the passed values.\n"
+               "\n"
+               "In any case, the current return value is returned.\n"
+               "\n"
+               "- Parameters:\n"
+               "    - ...objs: return value.\n"
                "- Returns: current return value.", 0, true) {
     ArObject *ret;
     ArObject *current;
@@ -363,22 +363,39 @@ ARGON_FUNCTION(returns,
 }
 
 ARGON_FUNCTION(riter,
-               "Return an reverse iterator object."
-               ""
-               "- Parameter obj: iterable object."
-               "- Returns: new reverse iterator."
-               "- Panic TypeError: object is not iterable."
-               ""
-               "# SEE"
+               "Return an reverse iterator object.\n"
+               "\n"
+               "- Parameter obj: iterable object.\n"
+               "- Returns: new reverse iterator.\n"
+               "- Panic TypeError: object is not iterable.\n"
+               "\n"
+               "# SEE\n"
                "- iter: to obtain an iterator.",
                1, false) {
     return IteratorGetReversed(*argv);
 }
 
+ARGON_FUNCTION(peek,
+               "Peek item from the iterator.\n"
+               "\n"
+               "- Parameter iterator: iterator object.\n"
+               "- Returns: object.\n"
+               "- Panics:\n"
+               "     - TypeError: invalid iterator.\n"
+               "     - ExhaustedIteratorError: reached the end of the collection.",
+               1, false) {
+    ArObject *ret = IteratorPeek(*argv);
+
+    if (ret == nullptr)
+        return ErrorFormat(type_exhausted_iterator_, "reached the end of the collection");
+
+    return ret;
+}
+
 ARGON_FUNCTION(type,
-               "Returns type of the object passed as parameter."
-               ""
-               "- Parameter obj: object to get the type from."
+               "Returns type of the object passed as parameter.\n"
+               "\n"
+               "- Parameter obj: object to get the type from.\n"
                "- Returns: obj type.",
                1, false) {
     IncRef((ArObject *) argv[0]->type);
@@ -386,10 +403,10 @@ ARGON_FUNCTION(type,
 }
 
 ARGON_FUNCTION(print,
-               "Print objects to the stdout, separated by space."
-               ""
-               "- Parameters:"
-               "     - ...obj: objects to print."
+               "Print objects to the stdout, separated by space.\n"
+               "\n"
+               "- Parameters:\n"
+               "     - ...obj: objects to print.\n"
                "- Returns: nil",
                0, true) {
     auto out = (io::File *) argon::vm::ContextRuntimeGetProperty("stdout", io::type_file_);
@@ -420,13 +437,13 @@ ARGON_FUNCTION(print,
 }
 
 ARGON_FUNCTION(println,
-               "Same as print, but add new-line at the end."
-               ""
-               "- Parameters:"
-               "     - ...obj: objects to print."
-               "- Returns: nil"
-               ""
-               "# SEE"
+               "Same as print, but add new-line at the end.\n"
+               "\n"
+               "- Parameters:\n"
+               "     - ...obj: objects to print.\n"
+               "- Returns: nil\n"
+               "\n"
+               "# SEE\n"
                "- print.",
                0, true) {
     ArObject *success = ARGON_CALL_FUNC(print, func, self, argv, count);
@@ -480,6 +497,7 @@ const PropertyBulk builtins_bulk[] = {
         MODULE_EXPORT_FUNCTION(len_),
         MODULE_EXPORT_FUNCTION(lsattr_),
         MODULE_EXPORT_FUNCTION(next_),
+        MODULE_EXPORT_FUNCTION(peek_),
         MODULE_EXPORT_FUNCTION(print_),
         MODULE_EXPORT_FUNCTION(println_),
         MODULE_EXPORT_FUNCTION(recover_),
