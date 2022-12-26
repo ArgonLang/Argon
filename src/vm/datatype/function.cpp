@@ -302,7 +302,7 @@ Function *argon::vm::datatype::FunctionNew(const FunctionDef *func, TypeInfo *ba
     if ((name = StringNew(func->name)) == nullptr)
         return nullptr;
 
-    if ((qname = StringFormat("%s::%s", base->qname, func->name)) == nullptr) {
+    if ((qname = StringFormat("%s::%s", base != nullptr ? base->qname : "", func->name)) == nullptr) {
         Release(name);
         return nullptr;
     }
