@@ -15,7 +15,7 @@ String *ModuleGetQname(const Module *);
 
 ArObject *module_get_attr(const Module *self, ArObject *key, bool static_attr) {
     String *qname;
-    ArObject *value;
+    ArObject * value;
 
     AttributeProperty aprop{};
 
@@ -162,7 +162,7 @@ bool AddObject(Module *mod, const ModuleEntry *entry) {
 
     for (const ModuleEntry *cursor = entry; cursor->prop.object != nullptr && ok; cursor++) {
         const auto *name = cursor->name;
-        ArObject *value = cursor->prop.object;
+        ArObject * value = cursor->prop.object;
 
         if (cursor->func) {
             value = (ArObject *) FunctionNew(cursor->prop.func, nullptr, mod->ns);
@@ -208,7 +208,19 @@ ArObject *argon::vm::datatype::ModuleLookup(const Module *mod, const char *key, 
     return ret;
 }
 
-Module *argon::vm::datatype::ModuleNew(ModuleInit *init) {
+bool argon::vm::datatype::ModuleAddObject(Module *mod, const char *key, ArObject *object, AttributeFlag flags) {
+    auto *skey = StringIntern(key);
+    if (skey == nullptr)
+        return false;
+
+    auto ok = NamespaceNewSymbol(mod->ns, (ArObject *) skey, object, flags);
+
+    Release(skey);
+
+    return ok;
+}
+
+Module *argon::vm::datatype::ModuleNew(const ModuleInit *init) {
     auto *mod = ModuleNew(init->name, init->doc);
 
     if (mod != nullptr) {

@@ -37,6 +37,8 @@ namespace argon::vm::datatype {
         AttributeFlag flags;
     };
 
+#define ARGON_MODULE_SENTINEL {nullptr, nullptr, false, (argon::vm::datatype::AttributeFlag)0}
+
     struct ModuleInit {
         const char *name;
         const char *doc;
@@ -49,7 +51,9 @@ namespace argon::vm::datatype {
 
     ArObject *ModuleLookup(const Module *mod, const char *key, AttributeProperty *out_prop);
 
-    Module *ModuleNew(ModuleInit *init);
+    bool ModuleAddObject(Module *mod, const char *key, ArObject *object, AttributeFlag flags);
+
+    Module *ModuleNew(const ModuleInit *init);
 
     Module *ModuleNew(String *name, String *doc);
 
