@@ -121,12 +121,12 @@ namespace argon::vm::datatype {
 
 #define ARGON_FUNCTION(name, exported_name, doc, params, variadic, kw)                                  \
 ArObject *name##_fn(ArObject *_func, ArObject *_self, ArObject **args, ArObject *kwargs, ArSize argc);  \
-FunctionDef name = {#exported_name, doc, name##_fn, params, variadic, kw, false};                       \
+const FunctionDef name = {#exported_name, doc, name##_fn, params, variadic, kw, false};                 \
 ArObject *name##_fn(ArObject *_func, ArObject *_self, ArObject **args, ArObject *kwargs, ArSize argc)
 
 #define ARGON_METHOD(name, exported_name, doc, params, variadic, kw)                                    \
 ArObject *name##_fn(ArObject *_func, ArObject *_self, ArObject **args, ArObject *kwargs, ArSize argc);  \
-FunctionDef name = {#exported_name, doc, name##_fn, params, variadic, kw, true};                        \
+const FunctionDef name = {#exported_name, doc, name##_fn, params, variadic, kw, true};                  \
 ArObject *name##_fn(ArObject *_func, ArObject *_self, ArObject **args, ArObject *kwargs, ArSize argc)
 
 #define ARGON_METHOD_SENTINEL {nullptr, nullptr, nullptr, 0, false, false, false}
