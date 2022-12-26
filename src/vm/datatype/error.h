@@ -48,6 +48,11 @@ namespace argon::vm::datatype {
             (const char *) "invalid key '%s'",
     };
 
+    constexpr const char *kModuleImportError[] = {
+            (const char *) "ModuleImportError",
+            (const char *) "no module named '%s'"
+    };
+
     constexpr const char *kNotImplementedError[] = {
             (const char *) "NotImplementedError",
             (const char *) "you must implement method %s",
