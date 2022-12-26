@@ -68,7 +68,7 @@ namespace argon::vm::datatype {
             if (!this->Resize())
                 return false;
 
-            Hash(entry->key, &index);
+            Hash((ArObject *) entry->key, &index);
 
             index %= this->capacity;
 
@@ -99,7 +99,7 @@ namespace argon::vm::datatype {
 
             for (ArSize i = 0; i < this->capacity; i++) {
                 for (HEntry<K, V> *prev = nullptr, *cur = new_map[i], *next; cur != nullptr; cur = next) {
-                    Hash(cur->key, &hash);
+                    Hash((ArObject *) cur->key, &hash);
 
                     hash %= new_cap;
                     next = cur->next;
@@ -145,12 +145,12 @@ namespace argon::vm::datatype {
         HEntry<K, V> *Lookup(K *key) const {
             ArSize index;
 
-            Hash(key, &index);
+            Hash((ArObject *) key, &index);
 
             index %= this->capacity;
 
             for (HEntry<K, V> *cur = this->map[index]; cur != nullptr; cur = cur->next)
-                if (EqualStrict(key, cur->key))
+                if (EqualStrict((const ArObject *) key, (const ArObject *) cur->key))
                     return cur;
 
             return nullptr;
@@ -159,12 +159,12 @@ namespace argon::vm::datatype {
         HEntry<K, V> *Remove(K *key) {
             ArSize index;
 
-            Hash(key, &index);
+            Hash((ArObject *) key, &index);
 
             index %= this->capacity;
 
             for (HEntry<K, V> *cur = this->map[index]; cur != nullptr; cur = cur->next) {
-                if (EqualStrict(key, cur->key)) {
+                if (EqualStrict((ArObject *) key, (ArObject *) cur->key)) {
                     this->map[index] = cur->next;
                     this->length--;
 
@@ -247,7 +247,7 @@ namespace argon::vm::datatype {
         void FreeHEntry(HEntry<K, V> *entry) {
             entry->key = nullptr;
 
-            if(entry->ref.fetch_sub(1) != 1)
+            if (entry->ref.fetch_sub(1) != 1)
                 return;
 
             if (this->free_count + 1 > this->free_max) {
