@@ -519,42 +519,31 @@ void VCoreRelease(OSThread *ost) {
 
 // Public
 
-ArObject *argon::vm::Eval(Code *code, Namespace *ns) {
-    auto *fiber = AllocFiber();
-    if (fiber == nullptr)
-        return nullptr;
+ArObject *argon::vm::GetLastError() {
+    ArObject *error;
 
-    auto *frame = FrameNew(fiber, code, ns, false);
-    if (frame == nullptr) {
-        FreeFiber(fiber);
-        return nullptr;
+    ON_ARGON_CONTEXT {
+        if (ost_local->fiber->panic == nullptr)
+            return nullptr;
+
+        error = IncRef(ost_local->fiber->panic->object);
+
+        PanicCleanup(&ost_local->fiber->panic);
+
+        return error;
     }
 
-    // Set future
-    auto *future = FutureNew();
-    if (future == nullptr) {
-        FrameDel(frame);
-        FreeFiber(fiber);
+    if (panic_global == nullptr)
         return nullptr;
-    }
 
-    fiber->future = IncRef(future);
-    fiber->frame = frame;
+    error = IncRef(panic_global->object);
 
-    fiber_global.Enqueue(fiber);
+    PanicCleanup(&panic_global);
 
-    OSTWakeRun();
-
-    FutureWait(future);
-
-    auto *result = IncRef(future->value);
-
-    Release(future);
-
-    return result;
+    return error;
 }
 
-argon::vm::datatype::Future *argon::vm::EvalAsync(Function *func, ArObject **argv, ArSize argc, OpCodeCallMode mode) {
+Future *argon::vm::EvalAsync(Function *func, ArObject **argv, ArSize argc, OpCodeCallMode mode) {
     auto *fiber = AllocFiber();
     if (fiber == nullptr)
         return nullptr;
@@ -583,7 +572,42 @@ argon::vm::datatype::Future *argon::vm::EvalAsync(Function *func, ArObject **arg
     return future;
 }
 
-ArObject *argon::vm::EvalFile(const char *name, const char *path, Namespace *ns) {
+Result *argon::vm::Eval(Code *code, Namespace *ns) {
+    auto *fiber = AllocFiber();
+    if (fiber == nullptr)
+        return nullptr;
+
+    auto *frame = FrameNew(fiber, code, ns, false);
+    if (frame == nullptr) {
+        FreeFiber(fiber);
+        return nullptr;
+    }
+
+    // Set future
+    auto *future = FutureNew();
+    if (future == nullptr) {
+        FrameDel(frame);
+        FreeFiber(fiber);
+        return nullptr;
+    }
+
+    fiber->future = IncRef(future);
+    fiber->frame = frame;
+
+    fiber_global.Enqueue(fiber);
+
+    OSTWakeRun();
+
+    FutureWait(future);
+
+    auto *result = FutureResult(future);
+
+    Release(future);
+
+    return result;
+}
+
+Result *argon::vm::EvalFile(const char *name, const char *path, Namespace *ns) {
     lang::CompilerWrapper c_wrapper;
     FILE *f;
 
@@ -604,7 +628,7 @@ ArObject *argon::vm::EvalFile(const char *name, const char *path, Namespace *ns)
     return result;
 }
 
-ArObject *argon::vm::EvalString(const char *name, const char *source, Namespace *ns) {
+Result *argon::vm::EvalString(const char *name, const char *source, Namespace *ns) {
     lang::CompilerWrapper c_wrapper;
 
     auto *code = c_wrapper.Compile(name, source);
@@ -616,30 +640,6 @@ ArObject *argon::vm::EvalString(const char *name, const char *source, Namespace 
     Release(code);
 
     return result;
-}
-
-ArObject *argon::vm::GetLastError() {
-    ArObject *error;
-
-    ON_ARGON_CONTEXT {
-        if (ost_local->fiber->panic == nullptr)
-            return nullptr;
-
-        error = IncRef(ost_local->fiber->panic->object);
-
-        PanicCleanup(&ost_local->fiber->panic);
-
-        return error;
-    }
-
-    if (panic_global == nullptr)
-        return nullptr;
-
-    error = IncRef(panic_global->object);
-
-    PanicCleanup(&panic_global);
-
-    return error;
 }
 
 bool argon::vm::CheckLastPanic(const char *id) {

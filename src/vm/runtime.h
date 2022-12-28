@@ -9,6 +9,7 @@
 #include <vm/datatype/code.h>
 #include <vm/datatype/function.h>
 #include <vm/datatype/namespace.h>
+#include <vm/datatype/result.h>
 
 #include "config.h"
 #include "fiber.h"
@@ -20,15 +21,15 @@ namespace argon::vm {
     constexpr const unsigned short kVCoreDefault = 4;
     constexpr const unsigned short kVCoreQueueLengthMax = 256;
 
-    argon::vm::datatype::ArObject *Eval(datatype::Code *code, datatype::Namespace *ns);
+    argon::vm::datatype::ArObject *GetLastError();
 
     argon::vm::datatype::Future *EvalAsync(datatype::Function *func, datatype::ArObject **argv, datatype::ArSize argc, OpCodeCallMode mode);
 
-    argon::vm::datatype::ArObject *EvalFile(const char *name, const char *path, datatype::Namespace *ns);
+    argon::vm::datatype::Result *Eval(datatype::Code *code, datatype::Namespace *ns);
 
-    argon::vm::datatype::ArObject *EvalString(const char *name, const char *source, datatype::Namespace *ns);
+    argon::vm::datatype::Result *EvalFile(const char *name, const char *path, datatype::Namespace *ns);
 
-    argon::vm::datatype::ArObject *GetLastError();
+    argon::vm::datatype::Result *EvalString(const char *name, const char *source, datatype::Namespace *ns);
 
     bool CheckLastPanic(const char *id);
 
