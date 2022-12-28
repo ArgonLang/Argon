@@ -12,6 +12,7 @@
 
 #include <vm/sync/sync.h>
 
+#include "context.h"
 #include "frame.h"
 #include "opcode.h"
 #include "panic.h"
@@ -42,6 +43,8 @@ namespace argon::vm {
             Fiber *prev;
         } rq;
 
+        Context *context;
+
         /// Current execution frame.
         Frame *frame;
 
@@ -64,7 +67,7 @@ namespace argon::vm {
         void FrameDel(Frame *frame);
     };
 
-    Fiber *FiberNew(unsigned int stack_space);
+    Fiber *FiberNew(Context *context, unsigned int stack_space);
 
     Frame *FrameNew(Fiber *fiber, datatype::Code *code, datatype::Namespace *globals, bool floating);
 

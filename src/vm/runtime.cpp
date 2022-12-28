@@ -164,12 +164,16 @@ bool WireVCore(OSThread *ost, VCore *vcore) {
     return true;
 }
 
-Fiber *AllocFiber() {
+Fiber *AllocFiber(Context *context) {
     auto *fiber = fiber_pool.Dequeue();
-    if (fiber != nullptr)
-        return fiber;
 
-    return FiberNew(fiber_stack_size);
+    if (fiber != nullptr) {
+        fiber->context = context;
+
+        return fiber;
+    }
+
+    return FiberNew(context, fiber_stack_size);
 }
 
 Fiber *FindExecutable(bool ignore_local) {
@@ -544,7 +548,11 @@ ArObject *argon::vm::GetLastError() {
 }
 
 Future *argon::vm::EvalAsync(Function *func, ArObject **argv, ArSize argc, OpCodeCallMode mode) {
-    auto *fiber = AllocFiber();
+    Fiber *fiber;
+
+    assert(ost_local != nullptr);
+
+    fiber = AllocFiber(GetFiber()->context);
     if (fiber == nullptr)
         return nullptr;
 
@@ -572,8 +580,8 @@ Future *argon::vm::EvalAsync(Function *func, ArObject **argv, ArSize argc, OpCod
     return future;
 }
 
-Result *argon::vm::Eval(Code *code, Namespace *ns) {
-    auto *fiber = AllocFiber();
+Result *argon::vm::Eval(Context *context, Code *code, Namespace *ns) {
+    auto *fiber = AllocFiber(context);
     if (fiber == nullptr)
         return nullptr;
 
@@ -607,7 +615,7 @@ Result *argon::vm::Eval(Code *code, Namespace *ns) {
     return result;
 }
 
-Result *argon::vm::EvalFile(const char *name, const char *path, Namespace *ns) {
+Result *argon::vm::EvalFile(Context *context, const char *name, const char *path, Namespace *ns) {
     lang::CompilerWrapper c_wrapper;
     FILE *f;
 
@@ -621,21 +629,21 @@ Result *argon::vm::EvalFile(const char *name, const char *path, Namespace *ns) {
     if (code == nullptr)
         return nullptr;
 
-    auto *result = Eval(code, ns);
+    auto *result = Eval(context, code, ns);
 
     Release(code);
 
     return result;
 }
 
-Result *argon::vm::EvalString(const char *name, const char *source, Namespace *ns) {
+Result *argon::vm::EvalString(Context *context, const char *name, const char *source, Namespace *ns) {
     lang::CompilerWrapper c_wrapper;
 
     auto *code = c_wrapper.Compile(name, source);
     if (code == nullptr)
         return nullptr;
 
-    auto *result = Eval(code, ns);
+    auto *result = Eval(context, code, ns);
 
     Release(code);
 
@@ -689,7 +697,11 @@ bool argon::vm::IsPanicking() {
 }
 
 bool argon::vm::Spawn(Function *func, ArObject **argv, ArSize argc, OpCodeCallMode mode) {
-    auto *fiber = AllocFiber();
+    Fiber *fiber;
+
+    assert(ost_local != nullptr);
+
+    fiber = AllocFiber(GetFiber()->context);
     if (fiber == nullptr)
         return false;
 

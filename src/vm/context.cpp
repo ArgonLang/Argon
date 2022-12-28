@@ -11,7 +11,7 @@ Context *argon::vm::ContextNew() {
     auto *context = (Context *) memory::Calloc(sizeof(Context));
 
     if (context != nullptr) {
-        if ((context->imp = importer::ImportNew()) == nullptr)
+        if ((context->imp = importer::ImportNew(context)) == nullptr)
             goto ERROR;
 
         context->builtins = LoadModule(context->imp, mod::module_builtins_->name, nullptr);

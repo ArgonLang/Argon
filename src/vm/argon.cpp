@@ -12,6 +12,7 @@ using namespace argon::vm::datatype;
 
 int argon::vm::ArgonMain(int argc, char **argv) {
     Config config{};
+    Context *context;
 
     memory::MemoryCopy(&config, kConfigDefault, sizeof(Config));
 
@@ -21,17 +22,20 @@ int argon::vm::ArgonMain(int argc, char **argv) {
     if (!Initialize(&config))
         return EXIT_FAILURE;
 
+    if ((context = ContextNew()) == nullptr)
+        return EXIT_FAILURE;
+
     auto *ns = NamespaceNew();
     assert(ns != nullptr);
 
     if (config.file > -1) {
-        Release(EvalFile("main", argv[config.file], ns));
+        Release(EvalFile(context, "main", argv[config.file], ns));
 
         return 0;
     }
 
     if (config.cmd > -1) {
-        Release(EvalString("main", argv[config.cmd], ns));
+        Release(EvalString(context, "main", argv[config.cmd], ns));
 
         return 0;
     }

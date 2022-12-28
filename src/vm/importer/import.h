@@ -16,6 +16,19 @@
 
 #include "ispec.h"
 
+namespace argon::vm {
+    /*
+     * Why this?
+     *
+     * Context contains the current importer, importer in turn uses a call to Eval to initialize the
+     * module just imported, to call Eval you need a context that can be retrieved from the current fiber
+     * if you are in an Argon thread! But what if you are asked to import a module in a non-Argon thread?
+     * In this case Fiber is nullptr and as a result it is not possible to get the current context.
+     * Adding a cyclic reference is ugly, but it solves the problem!
+     */
+    struct Context;
+}
+
 namespace argon::vm::importer {
     using ImportModuleCacheEntry = datatype::HEntry<datatype::String, datatype::ArObject *>;
 
@@ -29,6 +42,8 @@ namespace argon::vm::importer {
         std::mutex lock;
 
         ImportModuleCache module_cache;
+
+        Context *context;
 
         datatype::List *loaders;
 
@@ -45,7 +60,7 @@ namespace argon::vm::importer {
 
     bool ImportAddPath(Import *imp, datatype::String *path);
 
-    Import *ImportNew();
+    Import *ImportNew(Context *context);
 
     datatype::Module *LoadModule(Import *imp, const char *name, ImportSpec *hint);
 

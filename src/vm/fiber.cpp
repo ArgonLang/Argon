@@ -21,11 +21,12 @@ Frame *Fiber::FrameAlloc(unsigned int size, bool floating) {
     } else
         ret = (Frame *) memory::Alloc(requested);
 
-    if (ret != nullptr)
+    if (ret != nullptr) {
         memory::MemoryZero(ret, sizeof(Frame));
 
-    if (on_stack)
-        ret->fiber_id = (ArSize) this;
+        if (on_stack)
+            ret->fiber_id = (ArSize) this;
+    }
 
     return ret;
 }
@@ -40,13 +41,15 @@ void Fiber::FrameDel(Frame *frame) {
     this->stack_cur = ((unsigned char *) this->stack_cur) - subtract;
 }
 
-Fiber *argon::vm::FiberNew(unsigned int stack_space) {
+Fiber *argon::vm::FiberNew(Context *context, unsigned int stack_space) {
     auto *fiber = (Fiber *) memory::Alloc(sizeof(Fiber) + stack_space);
 
     if (fiber != nullptr) {
         memory::MemoryZero(fiber, sizeof(Fiber));
 
         fiber->status = FiberStatus::RUNNABLE;
+
+        fiber->context = context;
 
         fiber->stack_cur = fiber->stack_begin;
 
@@ -133,7 +136,7 @@ Frame *argon::vm::FrameNew(Fiber *fiber, Function *func, ArObject **argv, ArSize
         argc--;
     }
 
-    assert(argc>=remains); // argc cannot be less than remains
+    assert(argc >= remains); // argc cannot be less than remains
 
     while (index_argv < remains)
         frame->locals[index_locals++] = IncRef(argv[index_argv++]);

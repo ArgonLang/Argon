@@ -105,7 +105,7 @@ ARGON_FUNCTION(import_source_loader, source_loader,
                "- Returns: New module.\n",
                ": import, : spec", false, false) {
     argon::lang::CompilerWrapper compiler;
-
+    auto *imp = (Import *) args[0];
     auto *spec = (ImportSpec *) args[1];
     Code *code;
     FILE *infile;
@@ -126,7 +126,7 @@ ARGON_FUNCTION(import_source_loader, source_loader,
         return nullptr;
     }
 
-    auto *result = argon::vm::Eval(code, mod->ns);
+    auto *result = argon::vm::Eval(imp->context, code, mod->ns);
 
     Release(code);
 
@@ -163,7 +163,7 @@ ARGON_FUNCTION(import_builtins_locator, builtins_locator,
 
     for (auto &builtin: builtins) {
         if (StringEqual((String *) args[1], builtin->name)) {
-            auto *loader = FindNativeFnInstance(((Import *) *args)->locators, &import_builtins_loader);
+            auto *loader = FindNativeFnInstance(((Import *) *args)->loaders, &import_builtins_loader);
 
             assert(loader != nullptr);
 
@@ -325,7 +325,7 @@ Function *FindNativeFnInstance(List *search_list, const FunctionDef *def) {
     return nullptr;
 }
 
-Import *argon::vm::importer::ImportNew() {
+Import *argon::vm::importer::ImportNew(Context *context) {
 #define ADD_FUNC(dest, fdef)                    \
     do {                                        \
         if(!AddNativeFunction(dest, &(fdef)))   \
@@ -338,6 +338,8 @@ Import *argon::vm::importer::ImportNew() {
         return nullptr;
 
     memory::MemoryZero(&imp->module_cache, sizeof(ImportModuleCache));
+
+    imp->context = context;
 
     imp->locators = nullptr;
     imp->paths = nullptr;
@@ -402,6 +404,9 @@ ImportSpec *Locate(Import *imp, String *name, ImportSpec *hint) {
             Release(iter);
             return nullptr;
         }
+
+        if (spec != nullptr)
+            break;
     }
 
     Release(iter);

@@ -12,6 +12,7 @@
 #include <vm/datatype/result.h>
 
 #include "config.h"
+#include "context.h"
 #include "fiber.h"
 
 namespace argon::vm {
@@ -23,13 +24,16 @@ namespace argon::vm {
 
     argon::vm::datatype::ArObject *GetLastError();
 
-    argon::vm::datatype::Future *EvalAsync(datatype::Function *func, datatype::ArObject **argv, datatype::ArSize argc, OpCodeCallMode mode);
+    argon::vm::datatype::Future *EvalAsync(datatype::Function *func, datatype::ArObject **argv, datatype::ArSize argc,
+                                           OpCodeCallMode mode);
 
-    argon::vm::datatype::Result *Eval(datatype::Code *code, datatype::Namespace *ns);
+    argon::vm::datatype::Result *Eval(Context *context, datatype::Code *code, datatype::Namespace *ns);
 
-    argon::vm::datatype::Result *EvalFile(const char *name, const char *path, datatype::Namespace *ns);
+    argon::vm::datatype::Result *EvalFile(Context *context, const char *name,
+                                          const char *path, datatype::Namespace *ns);
 
-    argon::vm::datatype::Result *EvalString(const char *name, const char *source, datatype::Namespace *ns);
+    argon::vm::datatype::Result *EvalString(Context *context, const char *name,
+                                            const char *source, datatype::Namespace *ns);
 
     bool CheckLastPanic(const char *id);
 
