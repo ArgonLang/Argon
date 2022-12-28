@@ -21,6 +21,8 @@ namespace argon::vm::importer {
 
     using ImportModuleCache = datatype::HashMap<datatype::String, datatype::ArObject *>;
 
+    constexpr const char *kExtension[] = {".ar"};
+
     struct Import {
         AROBJ_HEAD;
 
