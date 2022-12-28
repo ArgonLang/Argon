@@ -977,6 +977,40 @@ String *argon::vm::datatype::StringReplace(String *string, const String *old, co
     return ret;
 }
 
+String *argon::vm::datatype::StringSubs(const String *string, ArSize start, ArSize end) {
+    StringBuilder builder;
+    String *ret;
+    ArSize len;
+
+    if (start >= STR_LEN(string))
+        return nullptr;
+
+    if (end == 0 || end > STR_LEN(string))
+        end = STR_LEN(string);
+
+    if (start >= end)
+        return nullptr;
+
+    len = end - start;
+
+    if (string->kind != StringKind::ASCII)
+        len = StringSubstrLen(string, start, end - start);
+
+    builder.Write(string->buffer + start, len, 0);
+
+    if ((ret = builder.BuildString()) == nullptr) {
+        auto *error = builder.GetError();
+
+        argon::vm::Panic((ArObject *) error);
+
+        Release(error);
+
+        return nullptr;
+    }
+
+    return ret;
+}
+
 // STRING ITERATOR
 
 ArObject *stringiterator_iter_next(StringIterator *self) {
@@ -1014,7 +1048,7 @@ ArObject *stringiterator_iter_next(StringIterator *self) {
     if ((ret = StringIntern((const char *) buf, len)) != nullptr)
         return nullptr;
 
-    self->index-=len;
+    self->index -= len;
 
     return (ArObject *) ret;
 }

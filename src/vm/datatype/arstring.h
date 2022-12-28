@@ -259,6 +259,16 @@ namespace argon::vm::datatype {
      */
     String *StringReplace(String *string, const String *old, const String *nval, ArSSize n);
 
+    /**
+     * @brief Extracts characters from a string between two indices (positions) and returns them as a substring.
+     *
+     * @param string Argon string.
+     * @param start Start position.
+     * @param end End position.
+     * @return A string containing the extracted characters, otherwise nullptr.
+     */
+    String *StringSubs(const String *string, ArSize start, ArSize end);
+
 } // namespace argon::vm::datatype
 
 #endif // !ARGON_VM_DATATYPE_ARSTRING_H_
