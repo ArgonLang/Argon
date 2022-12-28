@@ -436,7 +436,21 @@ Module *Load(Import *imp, ImportSpec *spec) {
     return mod;
 }
 
-Module *argon::vm::importer::ImportLoadCode(Import *imp, String *name, ImportSpec *hint) {
+Module *argon::vm::importer::LoadModule(Import *imp, const char *name, ImportSpec *hint) {
+    String *ar_name;
+    Module *mod;
+
+    if ((ar_name = StringNew(name)) == nullptr)
+        return nullptr;
+
+    mod = LoadModule(imp, ar_name, hint);
+
+    Release(ar_name);
+
+    return mod;
+}
+
+Module *argon::vm::importer::LoadModule(Import *imp, String *name, ImportSpec *hint) {
     ImportModuleCacheEntry *entry;
 
     std::unique_lock lock(imp->lock);

@@ -47,7 +47,9 @@ namespace argon::vm::importer {
 
     Import *ImportNew();
 
-    datatype::Module *ImportLoadCode(Import *imp, datatype::String *name, ImportSpec *hint);
+    datatype::Module *LoadModule(Import *imp, const char *name, ImportSpec *hint);
+
+    datatype::Module *LoadModule(Import *imp, datatype::String *name, ImportSpec *hint);
 
 } // namespace argon::vm::importer
 
