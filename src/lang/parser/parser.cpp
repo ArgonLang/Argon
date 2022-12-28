@@ -528,10 +528,13 @@ Node *Parser::ParseDecls(ParserScope scope) {
 
     switch (TKCUR_TYPE) {
         case TokenType::KW_IMPORT:
+            if (scope != ParserScope::MODULE)
+                throw ParserException("import not supported in this context");
+
             stmt = (ArObject *) this->ParseImport(pub);
             break;
         case TokenType::KW_FROM:
-            if (scope == ParserScope::BLOCK)
+            if (scope != ParserScope::MODULE)
                 throw ParserException("from-import not supported in this context");
 
             stmt = (ArObject *) this->ParseFromImport(pub);
