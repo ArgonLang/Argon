@@ -10,13 +10,13 @@
 
 #include <vm/runtime.h>
 
+#include <vm/datatype/boolean.h>
 #include <vm/datatype/error.h>
 #include <vm/datatype/nil.h>
 
 #include <vm/mod/modules.h>
 
 #include "import.h"
-
 
 using namespace argon::vm::datatype;
 using namespace argon::vm::importer;
@@ -39,6 +39,37 @@ void DelModuleFromCache(Import *imp, String *name);
 
 // EOF
 
+ArObject *import_compare(const ArObject *self, const ArObject *other, CompareMode mode) {
+    if (mode != CompareMode::EQ)
+        return nullptr;
+
+    return BoolToArBool(self == other);
+}
+
+bool import_dtor(Import *self) {
+    Release(self->loaders);
+    Release(self->locators);
+    Release(self->paths);
+    Release(self->path_sep);
+
+    self->module_cache.Finalize([](ImportModuleCacheEntry *entry) {
+        Release(entry->key);
+        Release(entry->value);
+    });
+
+    self->lock.~mutex();
+
+    return true;
+}
+
+void import_trace(Import *self, Void_UnaryOp trace) {
+    std::unique_lock _(self->lock);
+
+    for (auto *cursor = self->module_cache.iter_begin; cursor != nullptr; cursor = cursor->iter_next) {
+        trace(cursor->value);
+    }
+}
+
 TypeInfo ImportType = {
         AROBJ_HEAD_INIT_TYPE,
         "Import",
@@ -47,11 +78,11 @@ TypeInfo ImportType = {
         sizeof(Import),
         TypeInfoFlags::BASE,
         nullptr,
+        (Bool_UnaryOp) import_dtor,
+        (TraceOp) import_trace,
         nullptr,
         nullptr,
-        nullptr,
-        nullptr,
-        nullptr,
+        (CompareOp) import_compare,
         nullptr,
         nullptr,
         nullptr,

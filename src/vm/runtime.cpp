@@ -11,7 +11,7 @@
 #include <vm/datatype/atom.h>
 #include <vm/datatype/error.h>
 #include <vm/datatype/future.h>
-#include <vm/datatype/setup.h>
+#include <vm/setup.h>
 
 #include "areval.h"
 #include "fiber.h"
