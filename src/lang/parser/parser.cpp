@@ -1966,7 +1966,7 @@ Node *Parser::ParseVarDecl(bool visibility, bool constant, bool weak) {
         if (id == nullptr)
             throw DatatypeException();
 
-        assign = (ArObject *) AssignmentNew((ArObject *) id, visibility, constant, weak);
+        assign = (ArObject *) AssignmentNew((ArObject *) id, constant, visibility, weak);
         Release(id);
 
         if (!assign)
