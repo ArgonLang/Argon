@@ -35,6 +35,8 @@ namespace argon::vm {
     argon::vm::datatype::Result *EvalString(Context *context, const char *name,
                                             const char *source, datatype::Namespace *ns);
 
+    argon::vm::datatype::String *GetExecutablePath();
+
     bool CheckLastPanic(const char *id);
 
     bool Initialize(const Config *config);
@@ -52,6 +54,8 @@ namespace argon::vm {
     void Panic(datatype::ArObject *panic);
 
     void Spawn(Fiber *fiber);
+
+    void Yield();
 } // namespace argon::vm
 
 #endif // !ARGON_VM_RUNTIME_H_

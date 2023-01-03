@@ -2,6 +2,18 @@
 //
 // Licensed under the Apache License v2.0
 
+#include <util/macros.h>
+
+#if defined (_ARGON_PLATFORM_DARWIN)
+
+#include <mach-o/dyld.h>
+
+#elif defined(_ARGON_PLATFORM_LINUX)
+
+#include <unistd.h>
+
+#endif
+
 #include <atomic>
 #include <cassert>
 #include <random>
@@ -151,13 +163,16 @@ bool WireVCore(OSThread *ost, VCore *vcore) {
 
     if (vcore->prev != nullptr) {
         *(vcore->prev) = vcore->next;
-        vcore->next->prev = vcore->prev;
+
+        if (vcore->next != nullptr)
+            vcore->next->prev = vcore->prev;
 
         vcore->next = nullptr;
         vcore->prev = nullptr;
     }
 
     ost->current = vcore;
+    ost->old = nullptr;
 
     vc_idle_count--;
 
@@ -250,10 +265,22 @@ OSThread *AllocOST() {
 }
 
 void AcquireOrSuspend(OSThread *ost, Fiber **last) {
-    if (*last != nullptr) {
-        assert(ost->old != nullptr);
+    if (ost->current == nullptr && *last != nullptr) {
+        auto *old = ost->old;
 
-        PUSH_LCQUEUE(ost->old, *last);
+        PUSH_LCQUEUE(old, *last);
+
+        std::unique_lock _(vc_lock);
+
+        if (!old->queue.IsEmpty() && !ost->old->wired && ost->old->prev == nullptr) {
+            auto *next = &vcores_active;
+
+            while (*next != nullptr)
+                next = &((*next)->next);
+
+            *next = old;
+            old->prev = next;
+        }
 
         *last = nullptr;
     }
@@ -505,7 +532,7 @@ void VCoreRelease(OSThread *ost) {
     ost->old = ost->current;
     ost->current = nullptr;
 
-    if (current->queue.IsEmpty()) {
+    if (!current->queue.IsEmpty()) {
         std::unique_lock lock(vc_lock);
 
         auto *next = &vcores_active;
@@ -604,6 +631,8 @@ Result *argon::vm::Eval(Context *context, Code *code, Namespace *ns) {
 
     fiber_global.Enqueue(fiber);
 
+    ON_ARGON_CONTEXT Yield();
+
     OSTWakeRun();
 
     FutureWait(future);
@@ -648,6 +677,40 @@ Result *argon::vm::EvalString(Context *context, const char *name, const char *so
     Release(code);
 
     return result;
+}
+
+argon::vm::datatype::String *argon::vm::GetExecutablePath() {
+    unsigned long size = 1024;
+    char *path_buf;
+
+    String *path;
+
+    if ((path_buf = (char *) memory::Alloc(size)) == nullptr)
+        return nullptr;
+
+#if defined(_ARGON_PLATFORM_WINDOWS)
+
+    // TODO: size = nt::GetExecutablePath(path_buf, (int) size);
+    assert(false);
+
+#elif defined(_ARGON_PLATFORM_LINUX)
+
+    size = readlink("/proc/self/exe", path_buf, size);
+
+#elif defined(_ARGON_PLATFORM_DARWIN)
+
+    size = _NSGetExecutablePath(path_buf, (unsigned int *) &size);
+
+#endif
+
+    if (size != -1)
+        path = StringNew(path_buf);
+    else
+        path = StringIntern("");
+
+    memory::Free(path_buf);
+
+    return path;
 }
 
 bool argon::vm::CheckLastPanic(const char *id) {
@@ -760,4 +823,13 @@ void argon::vm::Spawn(argon::vm::Fiber *fiber) {
     fiber_global.Enqueue(fiber);
 
     OSTWakeRun();
+}
+
+void argon::vm::Yield() {
+    if (ost_local == nullptr || ost_local->current == nullptr)
+        return;
+
+    VCoreRelease(ost_local);
+
+    ost_local->fiber->status = FiberStatus::SUSPENDED;
 }
