@@ -10,9 +10,48 @@
 using namespace argon::vm;
 using namespace argon::vm::datatype;
 
+bool SetupImportPaths(importer::Import *imp) {
+    const char *arpaths = std::getenv(ARGON_EVAR_PATH);
+    List *paths;
+    String *tmp;
+
+    if ((tmp = GetExecutablePath()) == nullptr)
+        return false;
+
+    if (!importer::ImportAddPath(imp, tmp)) {
+        Release(tmp);
+        return false;
+    }
+
+    Release(tmp);
+
+    if (arpaths == nullptr)
+        return true;
+
+    if ((tmp = StringNew(arpaths)) == nullptr)
+        return false;
+
+    paths = (List *) StringSplit(tmp, ARGON_RAW_STRING(imp->path_sep), ARGON_RAW_STRING_LENGTH(imp->path_sep), -1);
+
+    Release(tmp);
+
+    if (paths == nullptr)
+        return false;
+
+    if (!importer::ImportAddPaths(imp, paths)) {
+        Release(paths);
+        return false;
+    }
+
+    Release(paths);
+
+    return true;
+}
+
 int argon::vm::ArgonMain(int argc, char **argv) {
     Config config{};
     Context *context;
+    Module *main;
 
     memory::MemoryCopy(&config, kConfigDefault, sizeof(Config));
 
@@ -25,17 +64,20 @@ int argon::vm::ArgonMain(int argc, char **argv) {
     if ((context = ContextNew()) == nullptr)
         return EXIT_FAILURE;
 
-    auto *ns = NamespaceNew();
-    assert(ns != nullptr);
+    if (!SetupImportPaths(context->imp))
+        return EXIT_FAILURE;
+
+    if ((main = importer::ImportAdd(context->imp, "main")) == nullptr)
+        return EXIT_FAILURE;
 
     if (config.file > -1) {
-        Release(EvalFile(context, "main", argv[config.file], ns));
+        Release(EvalFile(context, "main", argv[config.file], main->ns));
 
         return 0;
     }
 
     if (config.cmd > -1) {
-        Release(EvalString(context, "main", argv[config.cmd], ns));
+        Release(EvalString(context, "main", argv[config.cmd], main->ns));
 
         return 0;
     }
