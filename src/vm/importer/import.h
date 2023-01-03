@@ -60,7 +60,11 @@ namespace argon::vm::importer {
 
     bool ImportAddPath(Import *imp, datatype::String *path);
 
+    bool ImportAddPaths(Import *imp, datatype::List *paths);
+
     Import *ImportNew(Context *context);
+
+    datatype::Module *ImportAdd(Import *imp, const char *name);
 
     datatype::Module *LoadModule(Import *imp, const char *name, ImportSpec *hint);
 

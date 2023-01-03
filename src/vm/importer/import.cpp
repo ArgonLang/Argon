@@ -157,6 +157,11 @@ ARGON_FUNCTION(import_source_loader, source_loader,
         return nullptr;
     }
 
+    if (!ModuleAddObject(mod, "__spec", (ArObject *) spec, MODULE_ATTRIBUTE_DEFAULT)) {
+        Release(mod);
+        return nullptr;
+    }
+
     auto *result = argon::vm::Eval(imp->context, code, mod->ns);
 
     Release(code);
@@ -164,16 +169,12 @@ ARGON_FUNCTION(import_source_loader, source_loader,
     if (!result->success) {
         argon::vm::Panic(result->value);
 
+        Release(result);
         Release(mod);
         return nullptr;
     }
 
     Release(result);
-
-    if (!ModuleAddObject(mod, "__spec", (ArObject *) spec, MODULE_ATTRIBUTE_DEFAULT)) {
-        Release(mod);
-        return nullptr;
-    }
 
     return (ArObject *) mod;
 }
@@ -336,6 +337,34 @@ bool argon::vm::importer::ImportAddPath(Import *imp, String *path) {
     return ListAppend(imp->paths, (ArObject *) path);
 }
 
+bool argon::vm::importer::ImportAddPaths(Import *imp, datatype::List *paths) {
+    ArObject *iter;
+    ArObject *tmp;
+
+    if ((iter = IteratorGet((ArObject *) paths, false)) == nullptr)
+        return false;
+
+    while ((tmp = IteratorNext(iter)) != nullptr) {
+        if (!AR_TYPEOF(tmp, type_string_)) {
+            Release(tmp);
+            continue;
+        }
+
+        if (!ImportAddPath(imp, (String *) tmp)) {
+            Release(tmp);
+            Release(iter);
+
+            return false;
+        }
+
+        Release(tmp);
+    }
+
+    Release(iter);
+
+    return true;
+}
+
 Function *FindNativeFnInstance(List *search_list, const FunctionDef *def) {
     ArObject *iter;
     Function *tmp;
@@ -436,8 +465,16 @@ ImportSpec *Locate(Import *imp, String *name, ImportSpec *hint) {
             return nullptr;
         }
 
-        if (spec != nullptr)
+        if (spec != nullptr) {
+            if (!AR_TYPEOF(spec, type_import_spec_)) {
+                ErrorFormat(kTypeError[0], "invalid return value from import locator '%s' expected %s, got '%s'",
+                            ARGON_RAW_STRING(fn->name), type_import_spec_->name, AR_TYPE_NAME(spec));
+
+                Release((ArObject **) &spec);
+            }
+
             break;
+        }
     }
 
     Release(iter);
@@ -472,6 +509,36 @@ Module *Load(Import *imp, ImportSpec *spec) {
     return mod;
 }
 
+Module *argon::vm::importer::ImportAdd(Import *imp, const char *name) {
+    ImportModuleCacheEntry *entry;
+    String *ar_name;
+
+    if ((ar_name = StringNew(name)) == nullptr)
+        return nullptr;
+
+    std::unique_lock _(imp->lock);
+
+    if ((entry = imp->module_cache.Lookup(ar_name)) != nullptr) {
+        assert(entry->value != nullptr);
+
+        Release(ar_name);
+
+        return (Module *) IncRef(entry->value);
+    }
+
+    auto *mod = ModuleNew(ar_name, nullptr);
+
+    if (!AddModule2Cache(imp, ar_name, mod)) {
+        Release(ar_name);
+        Release(mod);
+        return nullptr;
+    }
+
+    Release(ar_name);
+
+    return mod;
+}
+
 Module *argon::vm::importer::LoadModule(Import *imp, const char *name, ImportSpec *hint) {
     String *ar_name;
     Module *mod;
@@ -493,7 +560,7 @@ Module *argon::vm::importer::LoadModule(Import *imp, String *name, ImportSpec *h
 
     if ((entry = imp->module_cache.Lookup(name)) != nullptr) {
         if (!AR_TYPEOF(entry->value, type_module_)) {
-            // todo error: circular reference!
+            ErrorFormat(kModuleImportError[0], kModuleImportError[2], ARGON_RAW_STRING(name));
             return nullptr;
         }
 

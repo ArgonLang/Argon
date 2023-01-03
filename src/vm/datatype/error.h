@@ -50,7 +50,8 @@ namespace argon::vm::datatype {
 
     constexpr const char *kModuleImportError[] = {
             (const char *) "ModuleImportError",
-            (const char *) "no module named '%s'"
+            (const char *) "no module named '%s'",
+            (const char *) "circular reference encountered while trying to import module '%s'"
     };
 
     constexpr const char *kNotImplementedError[] = {
