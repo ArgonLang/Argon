@@ -733,6 +733,14 @@ bool argon::vm::datatype::StringEndswith(const String *string, const String *pat
     return n >= 0 && memory::MemoryCompare(STR_BUF(string) + n, STR_BUF(pattern), STR_LEN(pattern)) == 0;
 }
 
+bool argon::vm::datatype::StringEndswith(const String *string, const char *pattern) {
+    auto plen = strlen(pattern);
+
+    auto n = (ArSSize) (STR_LEN(string) - plen);
+
+    return n >= 0 && memory::MemoryCompare(STR_BUF(string) + n, pattern, plen) == 0;
+}
+
 int argon::vm::datatype::StringCompare(const String *left, const String *right) {
     ArSize idx1 = 0;
     ArSize idx2 = 0;
