@@ -679,7 +679,7 @@ Result *argon::vm::EvalString(Context *context, const char *name, const char *so
     return result;
 }
 
-argon::vm::datatype::String *argon::vm::GetExecutablePath() {
+argon::vm::datatype::String *argon::vm::GetExecutableName() {
     unsigned long size = 1024;
     char *path_buf;
 
@@ -711,6 +711,28 @@ argon::vm::datatype::String *argon::vm::GetExecutablePath() {
     memory::Free(path_buf);
 
     return path;
+}
+
+argon::vm::datatype::String *argon::vm::GetExecutablePath() {
+    auto *name = GetExecutableName();
+    String *ret;
+
+    ArSSize idx;
+
+    if (name == nullptr)
+        return nullptr;
+
+    idx = StringRFind(name, _ARGON_PLATFORM_PATHSEP);
+
+    if (idx >= 0) {
+        ret = StringSubs(name, 0, idx);
+
+        Release(name);
+
+        return ret;
+    }
+
+    return name;
 }
 
 bool argon::vm::CheckLastPanic(const char *id) {

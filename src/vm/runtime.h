@@ -35,6 +35,8 @@ namespace argon::vm {
     argon::vm::datatype::Result *EvalString(Context *context, const char *name,
                                             const char *source, datatype::Namespace *ns);
 
+    argon::vm::datatype::String *GetExecutableName();
+
     argon::vm::datatype::String *GetExecutablePath();
 
     bool CheckLastPanic(const char *id);
