@@ -4,15 +4,18 @@
 
 #include <vm/datatype/boolean.h>
 #include <vm/datatype/bounds.h>
+#include <vm/datatype/dict.h>
 #include <vm/datatype/error.h>
 #include <vm/datatype/function.h>
 #include <vm/datatype/future.h>
+#include <vm/datatype/nil.h>
+#include <vm/datatype/module.h>
+
+#include <vm/importer/import.h>
 
 #include "opcode.h"
 #include "runtime.h"
 #include "areval.h"
-#include "vm/datatype/dict.h"
-#include "vm/datatype/nil.h"
 
 using namespace argon::vm;
 using namespace argon::vm::datatype;
@@ -138,6 +141,11 @@ bool CallFunction(Fiber *fiber, Frame **cu_frame, const Code **cu_code, bool val
     args = eval_stack;
     args_length = stack_size;
 
+    if (*args == nullptr) {
+        args++;
+        args_length--;
+    }
+
     if (ENUMBITMASK_ISTRUE(mode, OpCodeCallMode::REST_PARAMS)) {
         args = ((List *) *eval_stack)->objects;
         args_length = ((List *) *eval_stack)->length;
@@ -214,6 +222,47 @@ bool CallFunction(Fiber *fiber, Frame **cu_frame, const Code **cu_code, bool val
     return true;
 }
 
+bool PopExecutedFrame(Fiber *fiber, const Code **out_code, Frame **out_frame, ArObject **ret) {
+    auto *cu_frame = *out_frame;
+
+    do {
+        for (ArSize i = cu_frame->eval_stack - cu_frame->extra; i > 0; i--)
+            Release(*(--cu_frame->eval_stack));
+
+        cu_frame->eval_stack = nullptr;
+
+        if (cu_frame->defer != nullptr && CallDefer(fiber, out_frame, out_code))
+            return true; // Continue execution on new frame
+
+        *ret = IncRef(cu_frame->return_value);
+
+        FrameDel(FiberPopFrame(fiber));
+
+        if (fiber->frame == nullptr) {
+            if (IsPanicking())
+                Release(ret);
+
+            return false;
+        }
+
+        *out_frame = fiber->frame;
+        *out_code = (*out_frame)->code;
+
+        cu_frame = *out_frame;
+
+        if (cu_frame->eval_stack == nullptr) {
+            // Deferred call
+            Release(ret);
+            continue;
+        }
+
+        *cu_frame->eval_stack = *ret;
+        cu_frame->eval_stack++;
+    } while (IsPanicking());
+
+    return true;
+}
+
 bool Spawn(Frame *cu_frame) {
     ArObject **eval_stack;
     ArObject **args;
@@ -232,6 +281,11 @@ bool Spawn(Frame *cu_frame) {
 
     args = eval_stack;
     args_length = stack_size;
+
+    if (*args == nullptr) {
+        args++;
+        args_length--;
+    }
 
     if (ENUMBITMASK_ISTRUE(mode, OpCodeCallMode::REST_PARAMS)) {
         args = ((List *) *eval_stack)->objects;
@@ -323,6 +377,11 @@ ArObject *argon::vm::Eval(Fiber *fiber) {
     cu_frame->instr_ptr += OpCodeOffset[*cu_frame->instr_ptr];  \
     CGOTO
 
+#define DISPATCH_YIELD()                                        \
+    cu_frame->instr_ptr += OpCodeOffset[*cu_frame->instr_ptr];  \
+    if(fiber->status != FiberStatus::RUNNING) return nullptr;   \
+    CGOTO
+
 #define JUMPTO(offset)                                                  \
     cu_frame->instr_ptr = (unsigned char *)cu_code->instr + (offset);   \
     continue
@@ -370,6 +429,9 @@ ArObject *argon::vm::Eval(Fiber *fiber) {
     const Code *cu_code = cu_frame->code;
 
     ArObject *ret = nullptr;
+
+    if (IsPanicking() && !PopExecutedFrame(fiber, &cu_code, &cu_frame, &ret))
+        return ret;
 
     while (cu_frame->instr_ptr < cu_code->instr_end) {
         switch (*((OpCode *) cu_frame->instr_ptr)) {
@@ -494,6 +556,36 @@ ArObject *argon::vm::Eval(Fiber *fiber) {
             TARGET_OP(IDIV) {
                 BINARY_OP(idiv, '//');
             }
+            TARGET_OP(IMPFRM) {
+                auto attribute = TupleGet(cu_code->statics, I32Arg(cu_frame->instr_ptr));
+
+                ret = AttributeLoad(TOP(), attribute, false);
+
+                Release(attribute);
+
+                if (ret == nullptr)
+                    break;
+
+                PUSH(ret);
+                DISPATCH();
+            }
+            TARGET_OP(IMPMOD) {
+                auto *mod_name = TupleGet(cu_code->statics, (ArSSize) I32Arg(cu_frame->instr_ptr));
+
+                ret = (ArObject *) importer::LoadModule(fiber->context->imp, (String *) mod_name, nullptr);
+
+                Release(mod_name);
+
+                if (ret == nullptr) {
+                    if (fiber->status != FiberStatus::RUNNING)
+                        return nullptr;
+
+                    break;
+                }
+
+                PUSH(ret);
+                DISPATCH_YIELD();
+            }
             TARGET_OP(INC) {
                 UNARY_OP(inc, ++);
             }
@@ -588,17 +680,22 @@ ArObject *argon::vm::Eval(Fiber *fiber) {
 
                 if ((ret = NamespaceLookup(cu_frame->globals, key, nullptr)) != nullptr) {
                     Release(key);
+
                     PUSH(ret);
                     DISPATCH();
                 }
 
-                // TODO: check builtins
-                //ErrorFormat(kUndeclaredeError[0], kUndeclaredeError[1], ARGON_RAW_STRING((String *) ret));
-                Release(key);
-                break;
+                if ((ret = NamespaceLookup(fiber->context->builtins->ns, key, nullptr)) != nullptr) {
+                    Release(key);
 
-                PUSH(ret);
-                DISPATCH();
+                    PUSH(ret);
+                    DISPATCH();
+                }
+
+                ErrorFormat(kUndeclaredeError[0], kUndeclaredeError[1], ARGON_RAW_STRING((String *) key));
+                Release(key);
+
+                break;
             }
             TARGET_OP(LDITER) {
                 if ((ret = IteratorGet(TOP(), false)) == nullptr)
@@ -635,8 +732,10 @@ ArObject *argon::vm::Eval(Fiber *fiber) {
                 if (is_method) {
                     *(cu_frame->eval_stack - 1) = ret;
                     PUSH(instance);
-                } else
+                } else {
                     TOP_REPLACE(ret);
+                    PUSH(nullptr);
+                }
 
                 DISPATCH();
             }
@@ -1011,40 +1110,8 @@ ArObject *argon::vm::Eval(Fiber *fiber) {
                 ErrorFormat(kRuntimeError[0], "unknown opcode: 0x%X", *cu_frame->instr_ptr);
         }
 
-        do {
-            STACK_REWIND(cu_frame->eval_stack - cu_frame->extra);
-
-            cu_frame->eval_stack = nullptr;
-
-            if (cu_frame->defer != nullptr &&
-                CallDefer(fiber, &cu_frame, &cu_code))
-                break;
-
-            ret = IncRef(cu_frame->return_value);
-
-            FrameDel(FiberPopFrame(fiber));
-
-            if (fiber->frame == nullptr)
-                goto END;
-
-            cu_frame = fiber->frame;
-            cu_code = cu_frame->code;
-
-            if (cu_frame->eval_stack == nullptr) {
-                // Deferred call
-                Release(ret);
-                continue;
-            }
-
-            PUSH(ret);
-        } while (IsPanicking());
-    }
-
-    END:
-
-    if (IsPanicking()) {
-        Release(ret);
-        return nullptr;
+        if (!PopExecutedFrame(fiber, &cu_code, &cu_frame, &ret))
+            break;
     }
 
     return ret;
