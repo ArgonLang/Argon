@@ -34,7 +34,19 @@ namespace argon::vm::importer {
 
     using ImportModuleCache = datatype::HashMap<datatype::String, datatype::ArObject *>;
 
-    constexpr const char *kExtension[] = {".ar"};
+    constexpr const char *kExtension[] = {
+            ".ar",
+
+            // The last extension MUST BE the one that indicates a
+            // dynamic library in the operating system in use.
+#if defined(_ARGON_PLATFORM_DARWIN)
+            ".dylib"
+#elif defined(_ARGON_PLATFORM_WINDOWS)
+            ".dll"
+#else
+            ".so"
+#endif
+    };
 
     struct Import {
         AROBJ_HEAD;

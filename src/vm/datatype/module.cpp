@@ -15,7 +15,7 @@ String *ModuleGetQname(const Module *);
 
 ArObject *module_get_attr(const Module *self, ArObject *key, bool static_attr) {
     String *qname;
-    ArObject * value;
+    ArObject *value;
 
     AttributeProperty aprop{};
 
@@ -121,6 +121,9 @@ bool module_dtor(Module *self) {
     if (self->fini != nullptr)
         self->fini(self);
 
+    if (self->_nfini != nullptr)
+        self->_nfini(self);
+
     Release(self->ns);
 
     return true;
@@ -162,7 +165,7 @@ bool AddObject(Module *mod, const ModuleEntry *entry) {
 
     for (const ModuleEntry *cursor = entry; cursor->prop.object != nullptr && ok; cursor++) {
         const auto *name = cursor->name;
-        ArObject * value = cursor->prop.object;
+        ArObject *value = cursor->prop.object;
 
         if (cursor->func) {
             value = (ArObject *) FunctionNew(cursor->prop.func, nullptr, mod->ns);
@@ -230,8 +233,9 @@ Module *argon::vm::datatype::ModuleNew(const ModuleInit *init) {
             return nullptr;
         }
 
-        if (!AddObject(mod, init->bulk)) {
+        if (init->bulk != nullptr && !AddObject(mod, init->bulk)) {
             Release(mod);
+
             return nullptr;
         }
 
@@ -245,6 +249,10 @@ Module *argon::vm::datatype::ModuleNew(String *name, String *doc) {
     auto *mod = MakeGCObject<Module>(type_module_, true);
 
     if (mod != nullptr) {
+        mod->fini = nullptr;
+        mod->_nfini = nullptr;
+        mod->_dlhandle = 0;
+
         if ((mod->ns = NamespaceNew()) == nullptr) {
             Release(mod);
             return nullptr;

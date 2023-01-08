@@ -51,7 +51,10 @@ namespace argon::vm::datatype {
     constexpr const char *kModuleImportError[] = {
             (const char *) "ModuleImportError",
             (const char *) "no module named '%s'",
-            (const char *) "circular reference encountered while trying to import module '%s'"
+            (const char *) "circular reference encountered while trying to import module '%s'",
+            (const char *) "no loader was found that can load a module from source code",
+            (const char *) "no loader was found that can load a module from native library",
+            (const char *) "module could not be loaded, the startup symbol %s was not found"
     };
 
     constexpr const char *kNotImplementedError[] = {

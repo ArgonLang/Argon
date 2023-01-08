@@ -16,6 +16,7 @@
 
 #include <vm/mod/modules.h>
 
+#include "dlwrap.h"
 #include "import.h"
 
 using namespace argon::vm::datatype;
@@ -24,6 +25,8 @@ using namespace argon::vm::importer;
 // PROTOTYPES
 
 bool AddModule2Cache(Import *imp, String *name, Module *mod);
+
+bool ModuleDLHandleUnload(Module *self);
 
 Function *FindNativeFnInstance(List *, const FunctionDef *);
 
@@ -120,6 +123,56 @@ ARGON_FUNCTION(import_builtins_loader, builtins_loader,
     }
 
     if (!AddModule2Cache(imp, spec->name, mod)) {
+        Release(mod);
+        return nullptr;
+    }
+
+    return (ArObject *) mod;
+}
+
+ARGON_FUNCTION(import_native_loader, native_loader,
+               "Load external modules from native library.\n"
+               "\n"
+               "- Parameters:\n"
+               "   - import: Import instance.\n"
+               "   - spec: ImportSpec describing what to load.\n"
+               "- Returns: New module.\n",
+               ": import, : spec", false, false) {
+    auto *spec = (ImportSpec *) args[1];
+    Error *error;
+    Module *mod;
+
+    DLHandle handle;
+    ModuleNativeInitFn symbol;
+
+    if ((handle = OpenLibrary((const char *) ARGON_RAW_STRING(spec->origin), &error)) == DLHandleError) {
+        argon::vm::Panic((ArObject *) error);
+        Release(error);
+        return nullptr;
+    }
+
+    if ((symbol = (ModuleNativeInitFn) LoadSymbol(handle, kModuleInitFnName)) == DLHandleError) {
+        if (!CloseLibrary(handle, &error)) {
+            argon::vm::Panic((ArObject *) error);
+            Release(error);
+        } else
+            ErrorFormat(kModuleImportError[0], kModuleImportError[5], kModuleInitFnName);
+
+        return nullptr;
+    }
+
+    if ((mod = ModuleNew(symbol())) == nullptr) {
+        if (!CloseLibrary(handle, &error)) {
+            argon::vm::Panic((ArObject *) error);
+            Release(error);
+        }
+
+        return nullptr;
+    }
+
+    ModuleSetDLHandle(mod, ModuleDLHandleUnload, (uintptr_t) handle);
+
+    if (!ModuleAddObject(mod, "__spec", (ArObject *) spec, MODULE_ATTRIBUTE_DEFAULT)) {
         Release(mod);
         return nullptr;
     }
@@ -232,8 +285,10 @@ ARGON_FUNCTION(import_source_locator, source_locator,
     String *mod_name;
 
     loader = FindNativeFnInstance(imp->loaders, &import_source_loader);
-
-    assert(loader != nullptr);
+    if (loader == nullptr) {
+        ErrorFormat(kModuleImportError[0], kModuleImportError[3]);
+        return nullptr;
+    }
 
     mod_name = GetModuleName((String *) args[1], imp->path_sep);
 
@@ -250,6 +305,21 @@ ARGON_FUNCTION(import_source_locator, source_locator,
             mod_package = StringSubs(file, 0, last_sep + 1);
         else
             mod_package = StringIntern("");
+
+        if (StringEndswith(file, kExtension[(sizeof(kExtension) / sizeof(void *)) - 1])) {
+            Release(loader);
+
+            loader = FindNativeFnInstance(imp->loaders, &import_native_loader);
+            if (loader == nullptr) {
+                Release(mod_name);
+                Release(mod_package);
+                Release(loader);
+
+                ErrorFormat(kModuleImportError[0], kModuleImportError[4]);
+
+                return nullptr;
+            }
+        }
 
         if (mod_package != nullptr)
             ret = ISpecNew(mod_name, mod_package, file, loader);
@@ -318,6 +388,16 @@ bool AddNativeFunction(List *dest, const FunctionDef *func) {
     Release(fn);
 
     return ok;
+}
+
+bool ModuleDLHandleUnload(Module *self) {
+    Error *error;
+
+    if (CloseLibrary((DLHandle) self->_dlhandle, &error) != 0)
+        return true;
+
+    Release(error); // Ignore error
+    return false;
 }
 
 bool argon::vm::importer::ImportAddPath(Import *imp, const char *path) {
@@ -414,13 +494,7 @@ Import *argon::vm::importer::ImportNew(Context *context) {
     if ((imp->paths = ListNew()) == nullptr)
         goto ERROR;
 
-#ifdef _ARGON_PLATFORM_WINDOWS
-    imp->path_sep = StringIntern("\\");
-#else
-    imp->path_sep = StringIntern("/");
-#endif
-
-    if (imp->path_sep == nullptr)
+    if ((imp->path_sep = StringIntern(_ARGON_PLATFORM_PATHSEP)) == nullptr)
         goto ERROR;
 
     if (!imp->module_cache.Initialize())
@@ -428,6 +502,7 @@ Import *argon::vm::importer::ImportNew(Context *context) {
 
     ADD_FUNC(imp->loaders, import_builtins_loader);
     ADD_FUNC(imp->loaders, import_source_loader);
+    ADD_FUNC(imp->loaders, import_native_loader);
 
     ADD_FUNC(imp->locators, import_builtins_locator);
     ADD_FUNC(imp->locators, import_source_locator);
@@ -482,33 +557,6 @@ ImportSpec *Locate(Import *imp, String *name, ImportSpec *hint) {
     return spec;
 }
 
-Module *Load(Import *imp, ImportSpec *spec) {
-    ArObject *args[] = {(ArObject *) imp, (ArObject *) spec};
-    Function *fn = spec->loader;
-    Module *mod;
-
-    if (fn->IsNative())
-        mod = (Module *) fn->native((ArObject *) fn, nullptr, args, nullptr, 2);
-    else
-        assert(false);
-
-    if (IsNull((ArObject *) mod)) {
-        Release(mod); // release nil object
-
-        return nullptr;
-    }
-
-    if (!AR_TYPEOF(mod, type_module_)) {
-        ErrorFormat(kTypeError[0], "invalid return value from import loader '%s' expected %s, got '%s'",
-                    ARGON_RAW_STRING(fn->name), type_module_->name, AR_TYPE_NAME(mod));
-
-        Release(mod);
-        return nullptr;
-    }
-
-    return mod;
-}
-
 Module *argon::vm::importer::ImportAdd(Import *imp, const char *name) {
     ImportModuleCacheEntry *entry;
     String *ar_name;
@@ -535,6 +583,33 @@ Module *argon::vm::importer::ImportAdd(Import *imp, const char *name) {
     }
 
     Release(ar_name);
+
+    return mod;
+}
+
+Module *Load(Import *imp, ImportSpec *spec) {
+    ArObject *args[] = {(ArObject *) imp, (ArObject *) spec};
+    Function *fn = spec->loader;
+    Module *mod;
+
+    if (fn->IsNative())
+        mod = (Module *) fn->native((ArObject *) fn, nullptr, args, nullptr, 2);
+    else
+        assert(false);
+
+    if (IsNull((ArObject *) mod)) {
+        Release(mod); // release nil object
+
+        return nullptr;
+    }
+
+    if (!AR_TYPEOF(mod, type_module_)) {
+        ErrorFormat(kTypeError[0], "invalid return value from import loader '%s' expected %s, got '%s'",
+                    ARGON_RAW_STRING(fn->name), type_module_->name, AR_TYPE_NAME(mod));
+
+        Release(mod);
+        return nullptr;
+    }
 
     return mod;
 }
