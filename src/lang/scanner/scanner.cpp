@@ -350,20 +350,8 @@ bool Scanner::TokenizeComment(Token *out_token, bool inline_comment) {
     while (peek > 0 && (peek != '\n' || !inline_comment)) {
         peek = this->Next();
 
-        if (this->Peek() == '*') {
-            this->Next();
-
-            if (this->Peek() == '/')
-                break;
-
-            if (!this->sbuf_.PutChar('*')) {
-                this->status_ = ScannerStatus::NOMEM;
-                return false;
-            }
-
-            peek = this->Peek();
-            continue;
-        }
+        if (!inline_comment && peek == '*' && this->Peek() == '/')
+            break;
 
         if (!this->sbuf_.PutChar((unsigned char) peek)) {
             this->status_ = ScannerStatus::NOMEM;
