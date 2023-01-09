@@ -537,7 +537,7 @@ const SubscriptSlots string_subscript = {
         (BinaryOp) string_in
 };
 
-ArObject *string_add(const String *left, const String *right) {
+ArObject *string_add(String *left, String *right) {
     if (AR_TYPEOF(left, type_string_) && AR_SAME_TYPE(left, right))
         return (ArObject *) StringConcat(left, right);
 
@@ -750,10 +750,17 @@ int argon::vm::datatype::StringCompare(const String *left, const String *right) 
     return c1 - c2;
 }
 
-String *argon::vm::datatype::StringConcat(const String *left, const String *right) {
-    String *ret = StringInit(STR_LEN(left) + STR_LEN(right), true);
+String *argon::vm::datatype::StringConcat(String *left, String *right) {
+    String *ret;
 
-    if (ret != nullptr) {
+    if (left == nullptr && right == nullptr)
+        return StringIntern("");
+    else if (left == nullptr)
+        return IncRef(right);
+    else if (right == nullptr)
+        return IncRef(left);
+
+    if ((ret = StringInit(STR_LEN(left) + STR_LEN(right), true)) != nullptr) {
         memory::MemoryCopy(ret->buffer, STR_BUF(left), STR_LEN(left));
         memory::MemoryCopy(ret->buffer + STR_LEN(left), STR_BUF(right), STR_LEN(right));
 
@@ -768,7 +775,7 @@ String *argon::vm::datatype::StringConcat(const String *left, const String *righ
     return ret;
 }
 
-String *argon::vm::datatype::StringConcat(const String *left, const char *string, ArSize length) {
+String *argon::vm::datatype::StringConcat(String *left, const char *string, ArSize length) {
     auto *astr = StringNew(string, length);
     if (astr == nullptr)
         return nullptr;
@@ -1014,7 +1021,7 @@ ArObject *stringiterator_iter_next(StringIterator *self) {
     if ((ret = StringIntern((const char *) buf, len)) != nullptr)
         return nullptr;
 
-    self->index-=len;
+    self->index -= len;
 
     return (ArObject *) ret;
 }
