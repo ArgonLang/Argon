@@ -65,7 +65,7 @@ namespace argon::lang {
 
         bool IsFreeVar(vm::datatype::String *id);
 
-        [[nodiscard]] vm::datatype::Code *Assemble() const;
+        [[nodiscard]] vm::datatype::Code *Assemble(vm::datatype::String *docstring) const;
 
         JBlock *JBNew(vm::datatype::String *label);
 

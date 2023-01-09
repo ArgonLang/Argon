@@ -30,9 +30,9 @@ namespace argon::lang::parser {
 
         lang::scanner::Scanner &scanner_;
 
-        const char *filename_;
+        const char *filename_ = nullptr;
 
-        DocString *doc_string_;
+        DocString *doc_string_ = nullptr;
 
         lang::scanner::Token tkcur_;
 
@@ -176,8 +176,7 @@ namespace argon::lang::parser {
          * @param scanner Reference to Scanner.
          */
         Parser(const char *filename, lang::scanner::Scanner &scanner) noexcept: scanner_(scanner),
-                                                                                filename_(filename),
-                                                                                doc_string_(nullptr) {}
+                                                                                filename_(filename) {}
 
         ~Parser() {
             while (this->doc_string_ != nullptr)

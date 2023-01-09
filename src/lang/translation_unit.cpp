@@ -63,7 +63,7 @@ bool TranslationUnit::IsFreeVar(String *id) {
     return false;
 }
 
-Code *TranslationUnit::Assemble() const {
+Code *TranslationUnit::Assemble(String *docstring) const {
     Code *code;
 
     unsigned char *instr_buf;
@@ -113,7 +113,7 @@ Code *TranslationUnit::Assemble() const {
         }
     }
 
-    code = CodeNew(instr_buf, nullptr, this->statics, this->names, this->locals,
+    code = CodeNew(instr_buf, docstring, this->statics, this->names, this->locals,
                    this->enclosed, instr_sz, this->stack.required);
     if (code == nullptr) {
         vm::memory::Free(instr_buf);

@@ -871,7 +871,6 @@ void Compiler::CompileFunction(const parser::Function *func) {
     ARC code;
     ARC fname;
     ARC qname;
-    ARC fdoc;
 
     FunctionFlags flags{};
 
@@ -882,10 +881,6 @@ void Compiler::CompileFunction(const parser::Function *func) {
         fname = (ArObject *) this->MakeFname();
 
     qname = (ArObject *) this->MakeQname((String *) fname.Get());
-
-    fdoc = (ArObject *) func->doc;
-    if (func->doc == nullptr)
-        fdoc = (ArObject *) StringIntern("");
 
     this->TUScopeEnter((String *) fname.Get(), SymbolType::FUNC);
 
@@ -923,7 +918,7 @@ void Compiler::CompileFunction(const parser::Function *func) {
     if (this->unit_->symt->type == SymbolType::GENERATOR)
         flags |= FunctionFlags::GENERATOR;
 
-    code = (ArObject *) this->unit_->Assemble();
+    code = (ArObject *) this->unit_->Assemble(func->doc);
 
     this->TUScopeExit();
 
@@ -1872,7 +1867,7 @@ Code *Compiler::Compile(File *node) {
 
         // EOL
 
-        code = this->unit_->Assemble();
+        code = this->unit_->Assemble(node->doc);
 
         this->TUScopeExit();
     } catch (std::exception) {

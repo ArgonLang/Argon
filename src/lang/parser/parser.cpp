@@ -2061,14 +2061,13 @@ void Parser::Eat() {
     do {
         if (!this->scanner_.NextToken(&this->tkcur_))
             throw ScannerException();
-
         if (this->doc_string_->uninterrupted &&
             this->TokenInRange(TokenType::COMMENT_BEGIN, TokenType::COMMENT_END)) {
             this->doc_string_->AddString(this->tkcur_);
-        }
-    } while (this->TokenInRange(scanner::TokenType::COMMENT_BEGIN, scanner::TokenType::COMMENT_END));
+        } else if (!this->Match(scanner::TokenType::END_OF_LINE))
+            this->doc_string_->uninterrupted = false;
 
-    this->doc_string_->uninterrupted = false;
+    } while (this->TokenInRange(scanner::TokenType::COMMENT_BEGIN, scanner::TokenType::COMMENT_END));
 }
 
 void Parser::EnterDocContext() {
