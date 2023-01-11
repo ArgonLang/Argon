@@ -5,6 +5,8 @@
 #ifndef ARGON_VM_DATATYPE_ERROR_H_
 #define ARGON_VM_DATATYPE_ERROR_H_
 
+#include <util/macros.h>
+
 #include "arobject.h"
 #include "arstring.h"
 #include "atom.h"
@@ -67,6 +69,10 @@ namespace argon::vm::datatype {
             (const char *) "OutOfMemory",
             (const char *) "out of memory",
             (const char *) "out of memory while creating an error"
+    };
+
+    constexpr const char *kOSError[] = {
+            (const char *) "OSError"
     };
 
     constexpr const char *kOverflowError[] = {
@@ -149,6 +155,14 @@ namespace argon::vm::datatype {
     Error *ErrorNew(const char *id, String *reason);
 
     Error *ErrorNew(const char *id, const char *reason);
+
+#ifdef _ARGON_PLATFORM_WINDOWS
+    Error *ErrorNewFromWinErr();
+
+    String *ErrorGetMsgFromWinErr();
+
+    void ErrorFromWinErr();
+#endif
 
     void ErrorFormat(const char *id, const char *format, ...);
 
