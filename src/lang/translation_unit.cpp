@@ -227,7 +227,7 @@ void TranslationUnit::JBPop(const JBlock *block) {
 }
 
 TranslationUnit *argon::lang::TranslationUnitNew(TranslationUnit *prev, String *name, SymbolT *symt) {
-    auto *tu = (TranslationUnit *) argon::vm::memory::Alloc(sizeof(TranslationUnit));
+    auto *tu = (TranslationUnit *) argon::vm::memory::Calloc(sizeof(TranslationUnit));
 
     if (tu != nullptr) {
         if (symt->type == SymbolType::STRUCT || symt->type == SymbolType::TRAIT)

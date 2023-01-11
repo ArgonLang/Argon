@@ -121,6 +121,9 @@ bool module_dtor(Module *self) {
     if (self->fini != nullptr)
         self->fini(self);
 
+    if (self->_nfini != nullptr)
+        self->_nfini(self);
+
     Release(self->ns);
 
     return true;
@@ -208,7 +211,19 @@ ArObject *argon::vm::datatype::ModuleLookup(const Module *mod, const char *key, 
     return ret;
 }
 
-Module *argon::vm::datatype::ModuleNew(ModuleInit *init) {
+bool argon::vm::datatype::ModuleAddObject(Module *mod, const char *key, ArObject *object, AttributeFlag flags) {
+    auto *skey = StringIntern(key);
+    if (skey == nullptr)
+        return false;
+
+    auto ok = NamespaceNewSymbol(mod->ns, (ArObject *) skey, object, flags);
+
+    Release(skey);
+
+    return ok;
+}
+
+Module *argon::vm::datatype::ModuleNew(const ModuleInit *init) {
     auto *mod = ModuleNew(init->name, init->doc);
 
     if (mod != nullptr) {
@@ -218,8 +233,9 @@ Module *argon::vm::datatype::ModuleNew(ModuleInit *init) {
             return nullptr;
         }
 
-        if (!AddObject(mod, init->bulk)) {
+        if (init->bulk != nullptr && !AddObject(mod, init->bulk)) {
             Release(mod);
+
             return nullptr;
         }
 
@@ -233,6 +249,10 @@ Module *argon::vm::datatype::ModuleNew(String *name, String *doc) {
     auto *mod = MakeGCObject<Module>(type_module_, true);
 
     if (mod != nullptr) {
+        mod->fini = nullptr;
+        mod->_nfini = nullptr;
+        mod->_dlhandle = 0;
+
         if ((mod->ns = NamespaceNew()) == nullptr) {
             Release(mod);
             return nullptr;

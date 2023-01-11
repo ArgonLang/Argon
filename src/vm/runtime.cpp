@@ -2,6 +2,22 @@
 //
 // Licensed under the Apache License v2.0
 
+#include <util/macros.h>
+
+#if defined (_ARGON_PLATFORM_DARWIN)
+
+#include <mach-o/dyld.h>
+
+#elif defined(_ARGON_PLATFORM_LINUX)
+
+#include <unistd.h>
+
+#elif defined(_ARGON_PLATFORM_WINDOWS)
+
+#include <vm/support/nt/nt.h>
+
+#endif
+
 #include <atomic>
 #include <cassert>
 #include <random>
@@ -11,7 +27,7 @@
 #include <vm/datatype/atom.h>
 #include <vm/datatype/error.h>
 #include <vm/datatype/future.h>
-#include <vm/datatype/setup.h>
+#include <vm/setup.h>
 
 #include "areval.h"
 #include "fiber.h"
@@ -151,25 +167,32 @@ bool WireVCore(OSThread *ost, VCore *vcore) {
 
     if (vcore->prev != nullptr) {
         *(vcore->prev) = vcore->next;
-        vcore->next->prev = vcore->prev;
+
+        if (vcore->next != nullptr)
+            vcore->next->prev = vcore->prev;
 
         vcore->next = nullptr;
         vcore->prev = nullptr;
     }
 
     ost->current = vcore;
+    ost->old = nullptr;
 
     vc_idle_count--;
 
     return true;
 }
 
-Fiber *AllocFiber() {
+Fiber *AllocFiber(Context *context) {
     auto *fiber = fiber_pool.Dequeue();
-    if (fiber != nullptr)
-        return fiber;
 
-    return FiberNew(fiber_stack_size);
+    if (fiber != nullptr) {
+        fiber->context = context;
+
+        return fiber;
+    }
+
+    return FiberNew(context, fiber_stack_size);
 }
 
 Fiber *FindExecutable(bool ignore_local) {
@@ -246,10 +269,22 @@ OSThread *AllocOST() {
 }
 
 void AcquireOrSuspend(OSThread *ost, Fiber **last) {
-    if (*last != nullptr) {
-        assert(ost->old != nullptr);
+    if (ost->current == nullptr && *last != nullptr) {
+        auto *old = ost->old;
 
-        PUSH_LCQUEUE(ost->old, *last);
+        PUSH_LCQUEUE(old, *last);
+
+        std::unique_lock _(vc_lock);
+
+        if (!old->queue.IsEmpty() && !ost->old->wired && ost->old->prev == nullptr) {
+            auto *next = &vcores_active;
+
+            while (*next != nullptr)
+                next = &((*next)->next);
+
+            *next = old;
+            old->prev = next;
+        }
 
         *last = nullptr;
     }
@@ -501,7 +536,7 @@ void VCoreRelease(OSThread *ost) {
     ost->old = ost->current;
     ost->current = nullptr;
 
-    if (current->queue.IsEmpty()) {
+    if (!current->queue.IsEmpty()) {
         std::unique_lock lock(vc_lock);
 
         auto *next = &vcores_active;
@@ -519,43 +554,36 @@ void VCoreRelease(OSThread *ost) {
 
 // Public
 
-ArObject *argon::vm::Eval(Code *code, Namespace *ns) {
-    auto *fiber = AllocFiber();
-    if (fiber == nullptr)
-        return nullptr;
+ArObject *argon::vm::GetLastError() {
+    ArObject *error;
 
-    auto *frame = FrameNew(fiber, code, ns, false);
-    if (frame == nullptr) {
-        FreeFiber(fiber);
-        return nullptr;
+    ON_ARGON_CONTEXT {
+        if (ost_local->fiber->panic == nullptr)
+            return nullptr;
+
+        error = IncRef(ost_local->fiber->panic->object);
+
+        PanicCleanup(&ost_local->fiber->panic);
+
+        return error;
     }
 
-    // Set future
-    auto *future = FutureNew();
-    if (future == nullptr) {
-        FrameDel(frame);
-        FreeFiber(fiber);
+    if (panic_global == nullptr)
         return nullptr;
-    }
 
-    fiber->future = IncRef(future);
-    fiber->frame = frame;
+    error = IncRef(panic_global->object);
 
-    fiber_global.Enqueue(fiber);
+    PanicCleanup(&panic_global);
 
-    OSTWakeRun();
-
-    FutureWait(future);
-
-    auto *result = IncRef(future->value);
-
-    Release(future);
-
-    return result;
+    return error;
 }
 
-argon::vm::datatype::Future *argon::vm::EvalAsync(Function *func, ArObject **argv, ArSize argc, OpCodeCallMode mode) {
-    auto *fiber = AllocFiber();
+Future *argon::vm::EvalAsync(Function *func, ArObject **argv, ArSize argc, OpCodeCallMode mode) {
+    Fiber *fiber;
+
+    assert(ost_local != nullptr);
+
+    fiber = AllocFiber(GetFiber()->context);
     if (fiber == nullptr)
         return nullptr;
 
@@ -583,7 +611,44 @@ argon::vm::datatype::Future *argon::vm::EvalAsync(Function *func, ArObject **arg
     return future;
 }
 
-ArObject *argon::vm::EvalFile(const char *name, const char *path, Namespace *ns) {
+Result *argon::vm::Eval(Context *context, Code *code, Namespace *ns) {
+    auto *fiber = AllocFiber(context);
+    if (fiber == nullptr)
+        return nullptr;
+
+    auto *frame = FrameNew(fiber, code, ns, false);
+    if (frame == nullptr) {
+        FreeFiber(fiber);
+        return nullptr;
+    }
+
+    // Set future
+    auto *future = FutureNew();
+    if (future == nullptr) {
+        FrameDel(frame);
+        FreeFiber(fiber);
+        return nullptr;
+    }
+
+    fiber->future = IncRef(future);
+    fiber->frame = frame;
+
+    fiber_global.Enqueue(fiber);
+
+    ON_ARGON_CONTEXT Yield();
+
+    OSTWakeRun();
+
+    FutureWait(future);
+
+    auto *result = FutureResult(future);
+
+    Release(future);
+
+    return result;
+}
+
+Result *argon::vm::EvalFile(Context *context, const char *name, const char *path, Namespace *ns) {
     lang::CompilerWrapper c_wrapper;
     FILE *f;
 
@@ -597,49 +662,80 @@ ArObject *argon::vm::EvalFile(const char *name, const char *path, Namespace *ns)
     if (code == nullptr)
         return nullptr;
 
-    auto *result = Eval(code, ns);
+    auto *result = Eval(context, code, ns);
 
     Release(code);
 
     return result;
 }
 
-ArObject *argon::vm::EvalString(const char *name, const char *source, Namespace *ns) {
+Result *argon::vm::EvalString(Context *context, const char *name, const char *source, Namespace *ns) {
     lang::CompilerWrapper c_wrapper;
 
     auto *code = c_wrapper.Compile(name, source);
     if (code == nullptr)
         return nullptr;
 
-    auto *result = Eval(code, ns);
+    auto *result = Eval(context, code, ns);
 
     Release(code);
 
     return result;
 }
 
-ArObject *argon::vm::GetLastError() {
-    ArObject *error;
+argon::vm::datatype::String *argon::vm::GetExecutableName() {
+    unsigned long size = 1024;
+    char *path_buf;
 
-    ON_ARGON_CONTEXT {
-        if (ost_local->fiber->panic == nullptr)
-            return nullptr;
+    String *path;
 
-        error = IncRef(ost_local->fiber->panic->object);
-
-        PanicCleanup(&ost_local->fiber->panic);
-
-        return error;
-    }
-
-    if (panic_global == nullptr)
+    if ((path_buf = (char *) memory::Alloc(size)) == nullptr)
         return nullptr;
 
-    error = IncRef(panic_global->object);
+#if defined(_ARGON_PLATFORM_WINDOWS)
 
-    PanicCleanup(&panic_global);
+    size = support::nt::GetExecutablePath(path_buf, (int) size);
 
-    return error;
+#elif defined(_ARGON_PLATFORM_LINUX)
+
+    size = readlink("/proc/self/exe", path_buf, size);
+
+#elif defined(_ARGON_PLATFORM_DARWIN)
+
+    size = _NSGetExecutablePath(path_buf, (unsigned int *) &size);
+
+#endif
+
+    if (size != -1)
+        path = StringNew(path_buf);
+    else
+        path = StringIntern("");
+
+    memory::Free(path_buf);
+
+    return path;
+}
+
+argon::vm::datatype::String *argon::vm::GetExecutablePath() {
+    auto *name = GetExecutableName();
+    String *ret;
+
+    ArSSize idx;
+
+    if (name == nullptr)
+        return nullptr;
+
+    idx = StringRFind(name, _ARGON_PLATFORM_PATHSEP);
+
+    if (idx >= 0) {
+        ret = StringSubs(name, 0, idx);
+
+        Release(name);
+
+        return ret;
+    }
+
+    return name;
 }
 
 bool argon::vm::CheckLastPanic(const char *id) {
@@ -689,7 +785,11 @@ bool argon::vm::IsPanicking() {
 }
 
 bool argon::vm::Spawn(Function *func, ArObject **argv, ArSize argc, OpCodeCallMode mode) {
-    auto *fiber = AllocFiber();
+    Fiber *fiber;
+
+    assert(ost_local != nullptr);
+
+    fiber = AllocFiber(GetFiber()->context);
     if (fiber == nullptr)
         return false;
 
@@ -748,4 +848,13 @@ void argon::vm::Spawn(argon::vm::Fiber *fiber) {
     fiber_global.Enqueue(fiber);
 
     OSTWakeRun();
+}
+
+void argon::vm::Yield() {
+    if (ost_local == nullptr || ost_local->current == nullptr)
+        return;
+
+    VCoreRelease(ost_local);
+
+    ost_local->fiber->status = FiberStatus::SUSPENDED;
 }

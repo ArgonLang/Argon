@@ -433,7 +433,7 @@ TypeInfo TupleIteratorType = {
         "TupleIterator",
         nullptr,
         nullptr,
-        sizeof(List),
+        sizeof(TupleIterator),
         TypeInfoFlags::BASE,
         nullptr,
         (Bool_UnaryOp) IteratorDtor,

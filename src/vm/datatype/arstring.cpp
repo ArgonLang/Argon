@@ -733,6 +733,14 @@ bool argon::vm::datatype::StringEndswith(const String *string, const String *pat
     return n >= 0 && memory::MemoryCompare(STR_BUF(string) + n, STR_BUF(pattern), STR_LEN(pattern)) == 0;
 }
 
+bool argon::vm::datatype::StringEndswith(const String *string, const char *pattern) {
+    auto plen = strlen(pattern);
+
+    auto n = (ArSSize) (STR_LEN(string) - plen);
+
+    return n >= 0 && memory::MemoryCompare(STR_BUF(string) + n, pattern, plen) == 0;
+}
+
 int argon::vm::datatype::StringCompare(const String *left, const String *right) {
     ArSize idx1 = 0;
     ArSize idx2 = 0;
@@ -973,6 +981,40 @@ String *argon::vm::datatype::StringReplace(String *string, const String *old, co
 
     if ((ret = builder.BuildString()) == nullptr) {
         error = builder.GetError();
+
+        argon::vm::Panic((ArObject *) error);
+
+        Release(error);
+
+        return nullptr;
+    }
+
+    return ret;
+}
+
+String *argon::vm::datatype::StringSubs(const String *string, ArSize start, ArSize end) {
+    StringBuilder builder;
+    String *ret;
+    ArSize len;
+
+    if (start >= STR_LEN(string))
+        return nullptr;
+
+    if (end == 0 || end > STR_LEN(string))
+        end = STR_LEN(string);
+
+    if (start >= end)
+        return nullptr;
+
+    len = end - start;
+
+    if (string->kind != StringKind::ASCII)
+        len = StringSubstrLen(string, start, end - start);
+
+    builder.Write(string->buffer + start, len, 0);
+
+    if ((ret = builder.BuildString()) == nullptr) {
+        auto *error = builder.GetError();
 
         argon::vm::Panic((ArObject *) error);
 

@@ -87,6 +87,17 @@ namespace argon::vm::datatype {
     }
 
     /**
+     * @brief Search for a C-string within a string.
+     *
+     * @param string Argon string.
+     * @param pattern C-string containing the pattern to search for.
+     * @return Returns the index at which the pattern value was found, otherwise -1.
+     */
+    inline ArSSize StringFind(const String *string, const char *pattern) {
+        return support::Find(string->buffer, string->length, (const unsigned char *) pattern, strlen(pattern), false);
+    }
+
+    /**
      * @brief Searches the string for a specified value and returns the last position of where it was found.
      *
      * @param string Argon string.
@@ -98,6 +109,17 @@ namespace argon::vm::datatype {
     }
 
     /**
+     * @brief Searches the string for a specified value and returns the last position of where it was found.
+     *
+     * @param string Argon string.
+     * @param pattern C-string containing the pattern to search for.
+     * @return Returns the index at which the pattern value was found, otherwise -1.
+     */
+    inline ArSSize StringRFind(const String *string, const char *pattern) {
+        return support::Find(string->buffer, string->length, (const unsigned char *) pattern, strlen(pattern), true);
+    }
+
+    /**
      * @brief Returns true if the string ends with the specified value.
      *
      * @param string Argon string.
@@ -105,6 +127,15 @@ namespace argon::vm::datatype {
      * @return True if the string ends with the specified value, false otherwise.
      */
     bool StringEndswith(const String *string, const String *pattern);
+
+    /**
+     * @brief Returns true if the string ends with the specified value.
+     *
+     * @param string Argon string.
+     * @param pattern The value to check if the string ends with.
+     * @return True if the string ends with the specified value, false otherwise.
+     */
+    bool StringEndswith(const String *string, const char *pattern);
 
     /**
      * @brief Check if two strings are equal
@@ -258,6 +289,16 @@ namespace argon::vm::datatype {
      * @return String where a specified value is replaced.
      */
     String *StringReplace(String *string, const String *old, const String *nval, ArSSize n);
+
+    /**
+     * @brief Extracts characters from a string between two indices (positions) and returns them as a substring.
+     *
+     * @param string Argon string.
+     * @param start Start position.
+     * @param end End position.
+     * @return A string containing the extracted characters, otherwise nullptr.
+     */
+    String *StringSubs(const String *string, ArSize start, ArSize end);
 
 } // namespace argon::vm::datatype
 
