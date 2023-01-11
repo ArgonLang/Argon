@@ -12,6 +12,10 @@
 
 #include <unistd.h>
 
+#elif defined(_ARGON_PLATFORM_WINDOWS)
+
+#include <vm/support/nt/nt.h>
+
 #endif
 
 #include <atomic>
@@ -690,8 +694,7 @@ argon::vm::datatype::String *argon::vm::GetExecutableName() {
 
 #if defined(_ARGON_PLATFORM_WINDOWS)
 
-    // TODO: size = nt::GetExecutablePath(path_buf, (int) size);
-    assert(false);
+    size = support::nt::GetExecutablePath(path_buf, (int) size);
 
 #elif defined(_ARGON_PLATFORM_LINUX)
 
