@@ -30,11 +30,11 @@ bool ModuleDLHandleUnload(Module *self);
 
 Function *FindNativeFnInstance(List *, const FunctionDef *);
 
-String *FindSource(const Import *imp, String *package_path, const String *mod_path, const String *mod_name);
+String *FindSource(const Import *imp, String *package_path, String *mod_path, String *mod_name);
 
-String *FindSourceInit(const Import *imp, const String *path, const String *mod_name);
+String *FindSourceInit(const Import *imp, String *path, String *mod_name);
 
-String *FindSourceInPaths(const Import *imp, const String *mod_path, const String *mod_name);
+String *FindSourceInPaths(const Import *imp, String *mod_path, String *mod_name);
 
 String *GetModuleName(String *path, const String *sep);
 
@@ -275,7 +275,7 @@ ARGON_FUNCTION(import_source_locator, source_locator,
                "- Returns: ImportSpec instance if module was found, otherwise nil.\n",
                ": import, s: name, : hint", false, false) {
     auto *imp = (Import *) args[0];
-    const auto *mod_path = (const String *) args[1];
+    auto *mod_path = (String *) args[1];
     const auto *hint = (const ImportSpec *) args[2];
 
     Function *loader;
@@ -670,7 +670,7 @@ Module *argon::vm::importer::LoadModule(Import *imp, String *name, ImportSpec *h
     return mod;
 }
 
-String *FindSource(const Import *imp, String *package_path, const String *mod_path, const String *mod_name) {
+String *FindSource(const Import *imp, String *package_path, String *mod_path, String *mod_name) {
     String *ret;
     String *path;
 
@@ -718,7 +718,7 @@ String *FindSource(const Import *imp, String *package_path, const String *mod_pa
     return ret;
 }
 
-String *FindSourceInit(const Import *imp, const String *path, const String *mod_name) {
+String *FindSourceInit(const Import *imp, String *path, String *mod_name) {
     String *file;
     String *tmp;
 
@@ -761,7 +761,7 @@ String *FindSourceInit(const Import *imp, const String *path, const String *mod_
     return nullptr;
 }
 
-String *FindSourceInPaths(const Import *imp, const String *mod_path, const String *mod_name) {
+String *FindSourceInPaths(const Import *imp, String *mod_path, String *mod_name) {
     String *file = nullptr;
     String *path;
 
