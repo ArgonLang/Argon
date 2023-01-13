@@ -10,6 +10,7 @@
 #include <vm/datatype/future.h>
 #include <vm/datatype/nil.h>
 #include <vm/datatype/module.h>
+#include <vm/datatype/set.h>
 
 #include <vm/importer/import.h>
 
@@ -789,6 +790,7 @@ ArObject *argon::vm::Eval(Fiber *fiber) {
                 auto args = I32Arg(cu_frame->instr_ptr);
                 auto dict = DictNew();
                 bool ok = true;
+                int idx = 0;
 
                 if (dict == nullptr)
                     break;
@@ -802,10 +804,16 @@ ArObject *argon::vm::Eval(Fiber *fiber) {
 
                     Release(*cursor);
                     Release(*(cursor + 1));
+
+                    idx++;
                 }
 
                 if (!ok) {
+                    STACK_REWIND(args - idx);
+                    cu_frame->eval_stack -= args;
+
                     Release(dict);
+
                     break;
                 }
 
@@ -864,6 +872,37 @@ ArObject *argon::vm::Eval(Fiber *fiber) {
                 PUSH(ret);
                 DISPATCH();
             }
+            TARGET_OP(MKST) {
+                auto args = I32Arg(cu_frame->instr_ptr);
+                bool ok = true;
+                int idx = 0;
+
+                if ((ret = (ArObject *) SetNew()) == nullptr)
+                    break;
+
+                for (ArObject **cursor = cu_frame->eval_stack - args; cursor != cu_frame->eval_stack; cursor++) {
+                    if (!SetAdd((Set *) ret, *cursor)) {
+                        ok = false;
+                        break;
+                    }
+
+                    Release(*cursor);
+
+                    idx++;
+                }
+
+                if (!ok) {
+                    STACK_REWIND(args - idx);
+                    cu_frame->eval_stack -= args;
+
+                    Release(ret);
+                    break;
+                }
+
+                cu_frame->eval_stack -= args;
+                PUSH(ret);
+                DISPATCH();
+            }
             TARGET_OP(MKTP) {
                 auto args = I32Arg(cu_frame->instr_ptr);
                 auto tuple = TupleNew(args);
@@ -917,16 +956,16 @@ ArObject *argon::vm::Eval(Fiber *fiber) {
                 DISPATCH();
             }
             TARGET_OP(NSTORE) {
-                if (!AR_TYPEOF(PEEK1(), type_namespace_)) {
+                if (!AR_TYPEOF(PEEK2(), type_namespace_)) {
                     ErrorFormat(kRuntimeError[0], "unexpected type in evaluation stack during NSTORE execution");
                     break;
                 }
 
-                if (!NamespaceNewSymbol((Namespace *) PEEK2(), PEEK1(), TOP(),
+                if (!NamespaceNewSymbol((Namespace *) PEEK2(), TOP(), PEEK1(),
                                         (AttributeFlag) I16Arg(cu_frame->instr_ptr)))
                     break;
 
-                STACK_REWIND(3);
+                STACK_REWIND(2);
                 DISPATCH();
             }
             TARGET_OP(PANIC) {
