@@ -175,6 +175,24 @@ bool argon::vm::datatype::NamespaceSet(Namespace *ns, ArObject *key, ArObject *v
     return false;
 }
 
+bool argon::vm::datatype::NamespaceSetPositional(Namespace *ns, ArObject **values, ArSize count) {
+    ArSize idx = 0;
+
+    std::unique_lock _(ns->rwlock);
+
+    for (auto *cursor = ns->ns.iter_begin; cursor != nullptr; cursor = cursor->iter_next) {
+        if (idx >= count)
+            return false;
+
+        if (cursor->value.properties.IsConstant())
+            continue;
+
+        cursor->value.value.Store(values[idx++]);
+    }
+
+    return true;
+}
+
 bool NewEntry(Namespace *ns, ArObject *key, ArObject *value, AttributeFlag aa) {
     NSEntry *entry = ns->ns.Lookup(key);
 
@@ -217,6 +235,30 @@ Namespace *argon::vm::datatype::NamespaceNew() {
     }
 
     return ns;
+}
+
+Namespace *argon::vm::datatype::NamespaceNew(Namespace *ns, AttributeFlag ignore) {
+    Namespace *ret;
+
+    if ((ret = NamespaceNew()) == nullptr)
+        return nullptr;
+
+    for (auto *cursor = ns->ns.iter_begin; cursor != nullptr; cursor = cursor->iter_next) {
+        if ((int) ignore == 0 || (int) (cursor->value.properties.flags & ignore) == 0) {
+            auto *value = cursor->value.value.Get();
+
+            if(!NamespaceNewSymbol(ret, cursor->key,value,cursor->value.properties.flags)){
+                Release(value);
+                Release(ret);
+
+                return nullptr;
+            }
+
+            Release(value);
+        }
+    }
+
+    return ret;
 }
 
 void argon::vm::datatype::NamespaceClear(Namespace *ns) {

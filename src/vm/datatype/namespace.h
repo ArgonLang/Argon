@@ -104,11 +104,30 @@ namespace argon::vm::datatype {
     bool NamespaceSet(Namespace *ns, ArObject *key, ArObject *value);
 
     /**
+     * @brief Replaces the value at a given position.
+     *
+     * @param ns Pointer to namespace.
+     * @param values Array containing the values to replace.
+     * @param count Number of elements in the values array.
+     * @return True if the value has been replaced, false otherwise (The key does not exist).
+     */
+    bool NamespaceSetPositional(Namespace *ns, ArObject **values, ArSize count);
+
+    /**
      * @brief Create new namespace.
      *
      * @return A pointer to new namespace, otherwise nullptr.
      */
     Namespace *NamespaceNew();
+
+    /**
+     * @brief Clone an existing namespace.
+     *
+     * @param ns Pointer to namespace.
+     * @param ignore Filter that specifies which items to ignore when copying.
+     * @return A pointer to new namespace, otherwise nullptr.
+     */
+    Namespace *NamespaceNew(Namespace *ns, AttributeFlag ignore);
 
     /**
      * @brief Cleans the namespace.
