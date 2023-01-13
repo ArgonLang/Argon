@@ -14,15 +14,15 @@
 namespace argon::vm::datatype {
     extern const TypeInfo *type_type_;
 
+    ArObject *AttributeLoad(const ArObject *object, ArObject *key, bool static_attr);
+
+    ArObject *AttributeLoadMethod(const ArObject *object, ArObject *key, bool *is_method);
+
     ArObject *Compare(const ArObject *self, const ArObject *other, CompareMode mode);
 
     ArObject *IteratorGet(ArObject *object, bool reversed);
 
     ArObject *IteratorNext(ArObject *iterator);
-
-    ArObject *AttributeLoad(const ArObject *object, ArObject *key, bool static_attr);
-
-    ArObject *AttributeLoadMethod(const ArObject *object, ArObject *key, bool *is_method);
 
     ArObject *Repr(const ArObject *object);
 

@@ -219,6 +219,29 @@ TypeInfo TypeType = {
 };
 const TypeInfo *argon::vm::datatype::type_type_ = &TypeType;
 
+ArObject *argon::vm::datatype::AttributeLoad(const ArObject *object, ArObject *key, bool static_attr) {
+    AttributeGetter aload = type_type_->object->get_attr;
+
+    if (AR_HAVE_OBJECT_BEHAVIOUR(object) && AR_SLOT_OBJECT(object)->get_attr != nullptr)
+        aload = AR_SLOT_OBJECT(object)->get_attr;
+
+    return aload(object, key, static_attr);
+}
+
+ArObject *argon::vm::datatype::AttributeLoadMethod(const ArObject *object, ArObject *key, bool *is_method) {
+    ArObject *aload;
+
+    *is_method = false;
+
+    if ((aload = AttributeLoad(object, key, false)) == nullptr)
+        return nullptr;
+
+    if (AR_TYPEOF(aload, type_function_) && ((Function *) aload)->IsMethod())
+        *is_method = true;
+
+    return aload;
+}
+
 ArObject *argon::vm::datatype::Compare(const ArObject *self, const ArObject *other, CompareMode mode) {
     static const CompareMode reverse[] = {CompareMode::EQ, CompareMode::NE, CompareMode::LE,
                                           CompareMode::LEQ, CompareMode::GR, CompareMode::GRQ};
@@ -274,29 +297,6 @@ ArObject *argon::vm::datatype::IteratorNext(ArObject *iterator) {
     }
 
     return AR_GET_TYPE(iterator)->iter_next(iterator);
-}
-
-ArObject *argon::vm::datatype::AttributeLoad(const ArObject *object, ArObject *key, bool static_attr) {
-    AttributeGetter aload = type_type_->object->get_attr;
-
-    if (AR_HAVE_OBJECT_BEHAVIOUR(object) && AR_SLOT_OBJECT(object)->get_attr != nullptr)
-        aload = AR_SLOT_OBJECT(object)->get_attr;
-
-    return aload(object, key, static_attr);
-}
-
-ArObject *argon::vm::datatype::AttributeLoadMethod(const ArObject *object, ArObject *key, bool *is_method) {
-    ArObject *aload;
-
-    *is_method = false;
-
-    if ((aload = AttributeLoad(object, key, false)) == nullptr)
-        return nullptr;
-
-    if (AR_TYPEOF(aload, type_function_) && ((Function *) aload)->IsMethod())
-        *is_method = true;
-
-    return aload;
 }
 
 ArObject *argon::vm::datatype::Repr(const ArObject *object) {
