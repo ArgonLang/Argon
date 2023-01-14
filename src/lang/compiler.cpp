@@ -627,7 +627,7 @@ void Compiler::CompileConstruct(const parser::Construct *construct) {
 
     qname = (ArObject *) this->MakeQname(construct->name);
 
-    doc = (ArObject *) construct->doc;
+    doc = (ArObject *) IncRef(construct->doc);
     if (!doc)
         doc = (ArObject *) StringIntern("");
 
@@ -884,17 +884,6 @@ void Compiler::CompileFunction(const parser::Function *func) {
 
     this->TUScopeEnter((String *) fname.Get(), SymbolType::FUNC);
 
-    // Push self as first param in method definition
-    if (func->name != nullptr && this->unit_->prev != nullptr) {
-        auto pscope = this->unit_->prev->symt->type;
-
-        if (pscope == SymbolType::STRUCT || pscope == SymbolType::TRAIT) {
-            this->IdentifierNew("self", SymbolType::VARIABLE, {}, false);
-            flags |= FunctionFlags::METHOD;
-            p_count++;
-        }
-    }
-
     this->CompileFunctionParams(func->params, p_count, flags);
 
     if (func->body != nullptr) {
@@ -989,6 +978,14 @@ void Compiler::CompileFunctionParams(vm::datatype::List *params, unsigned short 
 
         CHECK_AST_NODE(p, type_ast_unary_,
                        "Compiler::CompileFunctionParams: expects a unary node as an element in the parameter list");
+
+        if (p_count == 0 && this->unit_->prev != nullptr) {
+            auto pscope = this->unit_->prev->symt->type;
+
+            if ((pscope == SymbolType::STRUCT || pscope == SymbolType::TRAIT) &&
+                StringEqual((const String *) ((const Unary *) p)->value, "self"))
+                flags |= FunctionFlags::METHOD;
+        }
 
         this->IdentifierNew((String *) ((const Unary *) p)->value, SymbolType::VARIABLE, {}, false);
 
@@ -1475,7 +1472,8 @@ void Compiler::CompileTest(const parser::Binary *test) {
     if ((end = BasicBlockNew()) == nullptr)
         throw DatatypeException();
 
-    while (cursor->left->token_type == scanner::TokenType::AND || cursor->left->token_type == scanner::TokenType::OR) {
+    while (cursor->left->token_type == scanner::TokenType::AND ||
+           cursor->left->token_type == scanner::TokenType::OR) {
         cursor = (const parser::Binary *) cursor->left;
         deep++;
     }
