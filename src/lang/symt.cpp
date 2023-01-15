@@ -62,8 +62,6 @@ bool argon::lang::SymbolNewSub(SymbolT *table) {
 SymbolT *argon::lang::SymbolInsert(SymbolT *table, String *name, SymbolType type) {
     SymbolT *sym;
 
-    bool inserted = false;
-
     if ((sym = (SymbolT *) DictLookup(table->stable, (ArObject *) name)) != nullptr) {
         if (sym->type != SymbolType::UNKNOWN && sym->declared) {
             // TODO redeclaration error!
@@ -91,19 +89,18 @@ SymbolT *argon::lang::SymbolInsert(SymbolT *table, String *name, SymbolType type
 }
 
 SymbolT *argon::lang::SymbolLookup(const SymbolT *table, String *name) {
-    SymbolT *sym = nullptr;
+    SymbolT *sym;
 
-    for (const SymbolT *cur = table; cur != nullptr; cur = cur->back) {
-        for (const SymbolT *nested = cur->nested_stack; nested != nullptr; nested = nested->back) {
-            if ((sym = (SymbolT *) DictLookup(nested->stable, (ArObject *) name)) != nullptr)
-                return sym;
-        }
-
-        if ((sym = (SymbolT *) DictLookup(cur->stable, (ArObject *) name)) != nullptr)
-            break;
+    for (const SymbolT *nested = table->nested_stack; nested != nullptr; nested = nested->back) {
+        if ((sym = (SymbolT *) DictLookup(nested->stable, (ArObject *) name)) != nullptr)
+            return sym;
     }
 
-    return sym;
+    if ((sym = (SymbolT *) DictLookup(table->stable, (ArObject *) name)) != nullptr)
+        return sym;
+
+
+    return nullptr;
 }
 
 SymbolT *argon::lang::SymbolNew(String *name) {

@@ -1101,6 +1101,12 @@ void Compiler::CompileInit(const parser::Initialization *init) {
 
     this->Expression(init->left);
 
+    if (init->values == nullptr) {
+        this->unit_->DecrementStack(1); //  init->left
+        this->unit_->Emit(vm::OpCode::INIT, (unsigned char) vm::OpCodeInitMode::POSITIONAL, 0, &init->loc);
+        return;
+    }
+
     iter = IteratorGet(init->values, false);
     if (!iter)
         throw DatatypeException();
