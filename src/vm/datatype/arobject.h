@@ -18,6 +18,8 @@ namespace argon::vm::datatype {
 
     ArObject *AttributeLoadMethod(const ArObject *object, ArObject *key, bool *is_method);
 
+    ArObject *ComputeMRO(TypeInfo *type, TypeInfo **bases, unsigned int length);
+
     ArObject *Compare(const ArObject *self, const ArObject *other, CompareMode mode);
 
     ArObject *IteratorGet(ArObject *object, bool reversed);
@@ -27,6 +29,12 @@ namespace argon::vm::datatype {
     ArObject *Repr(const ArObject *object);
 
     ArObject *Str(ArObject *object);
+
+    ArObject *TraitNew(const char *name, const char *qname, const char *doc,
+                       ArObject *ns, TypeInfo **bases, unsigned int length);
+
+    ArObject *TypeNew(const TypeInfo *type, const char *name, const char *qname, const char *doc,
+                      ArObject *ns, TypeInfo **bases, unsigned int length);
 
     bool AttributeSet(ArObject *object, ArObject *key, ArObject *value, bool static_attr);
 
@@ -50,7 +58,7 @@ namespace argon::vm::datatype {
 
     bool IsTrue(const ArObject *object);
 
-    bool TypeInit(const TypeInfo *type, ArObject *auxiliary);
+    bool TypeInit(TypeInfo *type, ArObject *auxiliary);
 
     bool TraitIsImplemented(const ArObject *object, const TypeInfo *type);
 

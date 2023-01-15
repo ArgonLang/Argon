@@ -18,23 +18,15 @@ using namespace argon::vm::datatype;
 
 static List *static_references = nullptr;
 
-ArObject *MROSearch(const TypeInfo *type, ArObject *key, AttributeProperty *aprop) {
-    if (type->mro == nullptr)
-        return nullptr;
+// Prototypes
 
-    const auto *mro = (Tuple *) type->mro;
-    for (ArSize i = 0; i < mro->length; i++) {
-        const auto *cursor = (const TypeInfo *) mro->objects[i];
+ArObject *MROSearch(const TypeInfo *type, ArObject *key, AttributeProperty *aprop);
 
-        if (cursor->tp_map != nullptr) {
-            auto *ret = NamespaceLookup((Namespace *) cursor->tp_map, key, aprop);
-            if (ret != nullptr)
-                return ret;
-        }
-    }
+List *BuildBasesList(TypeInfo **bases, unsigned int length);
 
-    return nullptr;
-}
+Tuple *CalculateMRO(const List *bases);
+
+// ***
 
 ArObject *type_compare(const ArObject *self, const ArObject *other, CompareMode mode) {
     if (!AR_SAME_TYPE(self, other) || mode != CompareMode::EQ)
@@ -65,16 +57,19 @@ ArObject *type_get_attr(const ArObject *self, ArObject *key, bool static_attr) {
     if (frame != nullptr)
         instance = frame->instance;
 
-    if (!static_attr && AR_SLOT_OBJECT(self)->namespace_offset >= 0)
-        ret = NamespaceLookup(*ns, key, &aprop);
+    if (!static_attr) {
+        if (AR_SLOT_OBJECT(self)->namespace_offset >= 0)
+            ret = NamespaceLookup(*ns, key, &aprop);
 
-    if (ret == nullptr) {
-        if (ancestor->tp_map != nullptr)
-            ret = NamespaceLookup((Namespace *) ancestor->tp_map, key, &aprop);
+        if (ret == nullptr) {
+            if (ancestor->tp_map != nullptr)
+                ret = NamespaceLookup((Namespace *) ancestor->tp_map, key, &aprop);
 
-        if (ret == nullptr && ancestor->mro != nullptr)
-            ret = MROSearch(ancestor, key, &aprop);
-    }
+            if (ret == nullptr && ancestor->mro != nullptr)
+                ret = MROSearch(ancestor, key, &aprop);
+        }
+    } else
+        ret = NamespaceLookup((Namespace *) ((const TypeInfo *) self)->tp_map, key, &aprop);
 
     if (ret == nullptr) {
         ErrorFormat(kAttributeError[0], kAttributeError[3], ARGON_RAW_STRING((String *) key), ancestor->name);
@@ -219,6 +214,32 @@ TypeInfo TypeType = {
 };
 const TypeInfo *argon::vm::datatype::type_type_ = &TypeType;
 
+const TypeInfo TypeTrait = {
+        AROBJ_HEAD_INIT_TYPE,
+        "Trait",
+        nullptr,
+        nullptr,
+        0,
+        TypeInfoFlags::TRAIT,
+        nullptr,
+        nullptr,
+        nullptr,
+        nullptr,
+        nullptr,
+        nullptr,
+        nullptr,
+        nullptr,
+        nullptr,
+        nullptr,
+        nullptr,
+        nullptr,
+        nullptr,
+        nullptr,
+        nullptr,
+        nullptr,
+        nullptr
+};
+
 ArObject *argon::vm::datatype::AttributeLoad(const ArObject *object, ArObject *key, bool static_attr) {
     AttributeGetter aload = type_type_->object->get_attr;
 
@@ -240,6 +261,50 @@ ArObject *argon::vm::datatype::AttributeLoadMethod(const ArObject *object, ArObj
         *is_method = true;
 
     return aload;
+}
+
+ArObject *argon::vm::datatype::ComputeMRO(TypeInfo *type, TypeInfo **bases, unsigned int length) {
+    const auto *mro = (const Tuple *) type->mro;
+    TypeInfo **merge = nullptr;
+    Tuple *ret = nullptr;
+    List *bases_list;
+
+    if (length == 0)
+        return (ArObject *) TupleNew((ArSize) 0);
+
+    if (mro != nullptr) {
+        if (mro->length > 0) {
+            if ((merge = (TypeInfo **) memory::Alloc((mro->length + length) * sizeof(void *))) == nullptr)
+                return nullptr;
+
+            int count = 0;
+
+            for (ArSize i = 0; i < mro->length; i++)
+                merge[count++] = (TypeInfo *) IncRef(mro->objects[i]);
+
+            for (ArSize i = 0; i < length; i++)
+                merge[count++] = IncRef(bases[i]);
+
+            bases = merge;
+            length = count;
+        }
+
+        Release(&type->mro);
+    }
+
+    if ((bases_list = BuildBasesList(bases, length)) != nullptr) {
+        ret = CalculateMRO(bases_list);
+        Release(bases_list);
+    }
+
+    if (merge != nullptr) {
+        for (int i = 0; i < length; i++)
+            Release(merge[i]);
+
+        memory::Free(merge);
+    }
+
+    return (ArObject *) ret;
 }
 
 ArObject *argon::vm::datatype::Compare(const ArObject *self, const ArObject *other, CompareMode mode) {
@@ -299,6 +364,24 @@ ArObject *argon::vm::datatype::IteratorNext(ArObject *iterator) {
     return AR_GET_TYPE(iterator)->iter_next(iterator);
 }
 
+ArObject *MROSearch(const TypeInfo *type, ArObject *key, AttributeProperty *aprop) {
+    if (type->mro == nullptr)
+        return nullptr;
+
+    const auto *mro = (Tuple *) type->mro;
+    for (ArSize i = 0; i < mro->length; i++) {
+        const auto *cursor = (const TypeInfo *) mro->objects[i];
+
+        if (cursor->tp_map != nullptr) {
+            auto *ret = NamespaceLookup((Namespace *) cursor->tp_map, key, aprop);
+            if (ret != nullptr)
+                return ret;
+        }
+    }
+
+    return nullptr;
+}
+
 ArObject *argon::vm::datatype::Repr(const ArObject *object) {
     auto repr = AR_GET_TYPE(object)->repr;
 
@@ -315,6 +398,220 @@ ArObject *argon::vm::datatype::Str(ArObject *object) {
         return str(object);
 
     return Repr(object);
+}
+
+ArObject *argon::vm::datatype::TraitNew(const char *name, const char *qname, const char *doc, ArObject *ns,
+                                        TypeInfo **bases, unsigned int length) {
+    return TypeNew(&TypeTrait, name, qname, doc, ns, bases, length);
+}
+
+ArObject *argon::vm::datatype::TypeNew(const TypeInfo *type, const char *name, const char *qname, const char *doc,
+                                       ArObject *ns, TypeInfo **bases, unsigned int length) {
+    TypeInfo *ret;
+
+    ArSize name_len;
+    ArSize qname_len;
+    ArSize doc_len;
+
+    name_len = strlen(name);
+
+    if (qname != nullptr)
+        qname_len = strlen(qname);
+
+    if (doc != nullptr)
+        doc_len = strlen(doc);
+
+    if ((ret = (TypeInfo *) memory::Calloc(sizeof(TypeInfo))) == nullptr)
+        return nullptr;
+
+    memory::MemoryCopy(ret, type, sizeof(TypeInfo));
+
+    AR_GET_RC(ret) = memory::RCType::INLINE;
+    AR_GET_TYPE(ret) = IncRef((TypeInfo *) type_type_);
+
+    if ((ret->name = (char *) memory::Alloc(name_len + 1)) == nullptr) {
+        memory::Free(ret);
+        return nullptr;
+    }
+
+    memory::MemoryCopy((char *) ret->name, name, name_len);
+    ((char *) ret->name)[name_len] = '\0';
+
+    if (qname != nullptr) {
+        ret->qname = (char *) memory::Alloc(qname_len + 1);
+        if (ret->qname == nullptr) {
+            memory::Free((void *) ret->name);
+
+            memory::Free(ret);
+            return nullptr;
+        }
+
+        memory::MemoryCopy((char *) ret->qname, qname, qname_len);
+        ((char *) ret->qname)[qname_len] = '\0';
+    }
+
+    if (doc != nullptr && doc_len > 0) {
+        ret->doc = (char *) memory::Alloc(doc_len + 1);
+        if (ret->doc == nullptr) {
+            memory::Free((void *) ret->name);
+            memory::Free((void *) ret->qname);
+
+            memory::Free(ret);
+            return nullptr;
+        }
+
+        memory::MemoryCopy((char *) ret->doc, doc, doc_len);
+        ((char *) ret->doc)[doc_len] = '\0';
+    }
+
+    if ((ret->mro = ComputeMRO(ret, bases, length)) == nullptr) {
+        memory::Free((void *) ret->name);
+        memory::Free((void *) ret->qname);
+        memory::Free((void *) ret->doc);
+
+        memory::Free(ret);
+        return nullptr;
+    }
+
+    if (!TypeInit(ret, (ArObject *) ns))
+        Release((ArObject **) ret);
+
+    return (ArObject *) ret;
+}
+
+List *BuildBasesList(TypeInfo **bases, unsigned int length) {
+    List *tmp = nullptr;
+    List *ret;
+
+    if ((ret = ListNew(length)) == nullptr)
+        return nullptr;
+
+    for (int i = 0; i < length; i++) {
+        auto *type = bases[i];
+
+        // Sanity check
+        if (!AR_TYPEOF(type, type_type_)) {
+            ErrorFormat(kTypeError[0], "you can only inherit from traits and '%s' is not", AR_GET_TYPE(type)->name);
+            goto ERROR;
+        }
+
+        if (ENUMBITMASK_ISFALSE(type->flags, TypeInfoFlags::TRAIT)) {
+            // you can only inherit from traits
+            ErrorFormat(kTypeError[0], "you can only inherit from traits and '%s' is not", type->name);
+            goto ERROR;
+        }
+
+        ArSize cap = 1;
+
+        if (type->mro != nullptr)
+            cap += ((Tuple *) type)->length;
+
+        if ((tmp = ListNew(cap)) == nullptr)
+            goto ERROR;
+
+        /*
+         * MRO list should contain the trait itself as the first element,
+         * this would cause a circular reference!
+         * To avoid this, the trait itself is excluded from the MRO list.
+         *
+         * To perform the calculation, however, it must be included!
+         * Therefore, it is added during the generation of the list of base traits.
+         */
+
+        ListAppend(tmp, (ArObject *) type);
+
+        // ***
+
+        if (type->mro != nullptr)
+            ListExtend(tmp, type->mro);
+
+        ListAppend(ret, (ArObject *) tmp);
+
+        Release((ArObject **) &tmp);
+    }
+
+    return ret;
+
+    ERROR:
+    Release(tmp);
+    Release(ret);
+    return nullptr;
+}
+
+Tuple *CalculateMRO(const List *bases) {
+    /*
+     * Calculate MRO with C3 Linearization
+     * WARNING: This function uses List object in raw mode!
+     * NO IncRef or Release will be made during elaboration.
+     *
+     * T1  T2  T3  T4  T5  T6  T7  T8  T9  ...  TN
+     * ^  ^                                       ^
+     * |  +---------------------------------------+
+     * |                   Tail
+     * +--Head
+     */
+
+    ArSize bases_idx = 0;
+    List *output;
+    Tuple *ret;
+
+    if ((output = ListNew()) == nullptr)
+        return nullptr;
+
+    while (bases_idx < bases->length) {
+        // Get head list
+        auto head_list = (List *) bases->objects[bases_idx];
+
+        if (head_list->length == 0) {
+            bases_idx++;
+            continue;
+        }
+
+        ArObject *head = head_list->objects[0];
+        bool found = false;
+
+        // Check if head is in the tail of any other list
+        for (ArSize i = 0; i < bases->length && !found; i++) {
+            if (bases_idx == i)
+                continue;
+
+            const auto *tail_list = (const List *) bases->objects[i];
+
+            for (ArSize j = 1; j < tail_list->length; j++) {
+                if (head == tail_list->objects[j]) {
+                    found = true;
+                    break;
+                }
+            }
+        }
+
+        if (found) {
+            bases_idx++;
+            continue;
+        }
+
+        // If the current head is equal to head of another list, REMOVE IT!
+        for (ArSize i = 0; i < bases->length; i++) {
+            auto tail_list = ((List *) bases->objects[i]);
+
+            if (bases_idx != i && head == tail_list->objects[0])
+                ListRemove(tail_list, 0);
+        }
+
+        if (!ListAppend(output, head)) {
+            Release(output);
+            return nullptr;
+        }
+
+        ListRemove(head_list, 0);
+        bases_idx = 0;
+    }
+
+    ret = TupleConvertList(&output);
+
+    Release(output);
+
+    return ret;
 }
 
 bool argon::vm::datatype::AttributeSet(ArObject *object, ArObject *key, ArObject *value, bool static_attr) {
@@ -427,9 +724,7 @@ bool InitMembers(TypeInfo *type) {
     return true;
 }
 
-bool argon::vm::datatype::TypeInit(const TypeInfo *type, ArObject *auxiliary) {
-    auto *unsafe_tp = (TypeInfo *) type;
-
+bool argon::vm::datatype::TypeInit(TypeInfo *type, ArObject *auxiliary) {
     if (ENUMBITMASK_ISTRUE(type->flags, TypeInfoFlags::INITIALIZED))
         return true;
 
@@ -438,41 +733,41 @@ bool argon::vm::datatype::TypeInit(const TypeInfo *type, ArObject *auxiliary) {
     // TODO: traits here
 
     // Build tp_map
-    unsafe_tp->tp_map = IncRef(auxiliary);
+    type->tp_map = IncRef(auxiliary);
     if (auxiliary == nullptr) {
-        unsafe_tp->tp_map = (ArObject *) NamespaceNew();
-        if (unsafe_tp->tp_map == nullptr)
+        type->tp_map = (ArObject *) NamespaceNew();
+        if (type->tp_map == nullptr)
             return false;
     }
 
     // Push members
-    if (!InitMembers(unsafe_tp)) {
-        Release(&unsafe_tp->tp_map);
+    if (!InitMembers(type)) {
+        Release(&type->tp_map);
         return false;
     }
 
     // TODO: Override check!
 
     if (type->qname == nullptr) {
-        unsafe_tp->qname = type->name;
+        type->qname = type->name;
 
         if (!type->head_.ref_count_.IsStatic()) {
             auto qn_len = strlen(type->name);
 
             auto *qname = (char *) vm::memory::Alloc(qn_len + 1);
             if (qname == nullptr) {
-                Release(&unsafe_tp->tp_map);
+                Release(&type->tp_map);
                 return false;
             }
 
             vm::memory::MemoryCopy(qname, type->name, qn_len);
             qname[qn_len] = '\0';
 
-            unsafe_tp->qname = qname;
+            type->qname = qname;
         }
     }
 
-    *((TypeInfoFlags *) &type->flags) = unsafe_tp->flags | TypeInfoFlags::INITIALIZED;
+    *((TypeInfoFlags *) &type->flags) = type->flags | TypeInfoFlags::INITIALIZED;
 
     return true;
 }

@@ -97,7 +97,8 @@ namespace argon::vm::datatype {
             (const char *) "method %s doesn't apply to '%s' type",
             (const char *) "%s does not support %s (async function)",
             (const char *) "%s does not support %s (generator function)",
-            (const char *) "no viable conversion from '%s' to %s"
+            (const char *) "no viable conversion from '%s' to %s",
+            (const char *) "'%s' is not callable"
     };
 
     constexpr const char *kUnassignableError[] = {
@@ -108,7 +109,9 @@ namespace argon::vm::datatype {
 
     constexpr const char *kUndeclaredeError[] = {
             (const char *) "UndeclaredError",
-            (const char *) "'%s' undeclared global variable"
+            (const char *) "'%s' undeclared global variable",
+            (const char *) "too many args to initialize struct '%s'",
+            (const char *) "'%s' have no property named '%s'"
     };
 
     constexpr const char *kUnhashableError[] = {

@@ -11,6 +11,7 @@
 #include <vm/datatype/nil.h>
 #include <vm/datatype/module.h>
 #include <vm/datatype/set.h>
+#include <vm/datatype/struct.h>
 
 #include <vm/importer/import.h>
 
@@ -41,6 +42,29 @@ ArObject *Binary(ArObject *l, ArObject *r, int offset) {
 
     return result;
 #undef GET_BINARY_OP
+}
+
+ArObject *GetCallableFromType(ArObject **type) {
+    String *key;
+    ArObject *ret;
+
+    if (AR_TYPEOF(*type, type_type_)) {
+        if ((key = StringNew(((TypeInfo *) *type)->name)) == nullptr)
+            argon::vm::DiscardLastPanic();
+
+        if ((ret = AttributeLoad(*type, (ArObject *) key, true)) == nullptr) {
+            argon::vm::DiscardLastPanic();
+            Release(key);
+            return *type;
+        }
+
+        Release(key);
+
+        Release(type);
+        *type = ret;
+    }
+
+    return *type;
 }
 
 ArObject *Subscribe(ArObject *subscr, ArObject *index) {
@@ -137,7 +161,7 @@ bool CallFunction(Fiber *fiber, Frame **cu_frame, const Code **cu_code, bool val
     mode = I32Flag<OpCodeCallMode>((*cu_frame)->instr_ptr);
 
     eval_stack = (*cu_frame)->eval_stack - stack_size;
-    func = (Function *) *((*cu_frame)->eval_stack - (stack_size + 1));
+    func = (Function *) GetCallableFromType((*cu_frame)->eval_stack - (stack_size + 1));
 
     args = eval_stack;
     args_length = stack_size;
@@ -145,6 +169,11 @@ bool CallFunction(Fiber *fiber, Frame **cu_frame, const Code **cu_code, bool val
     if (*args == nullptr) {
         args++;
         args_length--;
+    }
+
+    if (!AR_TYPEOF(func, type_function_)) {
+        ErrorFormat(kTypeError[0], kTypeError[9], AR_TYPE_NAME(func));
+        return false;
     }
 
     if (ENUMBITMASK_ISTRUE(mode, OpCodeCallMode::REST_PARAMS)) {
@@ -286,6 +315,11 @@ bool Spawn(Frame *cu_frame) {
     if (*args == nullptr) {
         args++;
         args_length--;
+    }
+
+    if (!AR_TYPEOF(func, type_function_)) {
+        ErrorFormat(kTypeError[0], kTypeError[9], AR_TYPE_NAME(func));
+        return false;
     }
 
     if (ENUMBITMASK_ISTRUE(mode, OpCodeCallMode::REST_PARAMS)) {
@@ -493,6 +527,11 @@ ArObject *argon::vm::Eval(Fiber *fiber) {
                 auto count = I16Arg(cu_frame->instr_ptr);
                 auto *func = (Function *) *(cu_frame->eval_stack - (count + 1));
 
+                if (!AR_TYPEOF(func, type_function_)) {
+                    ErrorFormat(kTypeError[0], kTypeError[9], AR_TYPE_NAME(func));
+                    break;
+                }
+
                 if (func->IsAsync()) {
                     ErrorFormat(kTypeError[0], kTypeError[6], "defer", ARGON_RAW_STRING(func->qname));
                     break;
@@ -589,6 +628,19 @@ ArObject *argon::vm::Eval(Fiber *fiber) {
             }
             TARGET_OP(INC) {
                 UNARY_OP(inc, ++);
+            }
+            TARGET_OP(INIT) {
+                auto args = I16Arg(cu_frame->instr_ptr);
+                auto mode = I32Flag<OpCodeInitMode>(cu_frame->instr_ptr);
+
+                ret = (ArObject *) StructNew((TypeInfo *) *(cu_frame->eval_stack - (args + 1)),
+                                             cu_frame->eval_stack - args, args, mode);
+                if (ret == nullptr)
+                    break;
+
+                STACK_REWIND(args);
+                TOP_REPLACE(ret);
+                DISPATCH();
             }
             TARGET_OP(INV) {
                 UNARY_OP(invert, ~);
@@ -903,6 +955,29 @@ ArObject *argon::vm::Eval(Fiber *fiber) {
                 PUSH(ret);
                 DISPATCH();
             }
+            TARGET_OP(MKSTRUCT) {
+                auto trait_count = I32Arg(cu_frame->instr_ptr);
+                auto *stack_base = cu_frame->eval_stack - trait_count;
+
+                ret = StructTypeNew((String *) *(stack_base - 4),
+                                    (String *) *(stack_base - 3),
+                                    (String *) *(stack_base - 2),
+                                    (Namespace *) *(stack_base - 1),
+                                    (TypeInfo **) stack_base,
+                                    trait_count);
+
+                if (ret == nullptr)
+                    break;
+
+                STACK_REWIND(trait_count);
+
+                POP(); // namespace
+                POP(); // doc
+                POP(); // qname
+
+                TOP_REPLACE(ret);
+                DISPATCH();
+            }
             TARGET_OP(MKTP) {
                 auto args = I32Arg(cu_frame->instr_ptr);
                 auto tuple = TupleNew(args);
@@ -917,6 +992,29 @@ ArObject *argon::vm::Eval(Fiber *fiber) {
 
                 cu_frame->eval_stack -= args;
                 PUSH((ArObject *) tuple);
+                DISPATCH();
+            }
+            TARGET_OP(MKTRAIT) {
+                auto trait_count = I32Arg(cu_frame->instr_ptr);
+                auto *stack_base = cu_frame->eval_stack - trait_count;
+
+                ret = TraitNew((const char *) ARGON_RAW_STRING((String *) *(stack_base - 4)),
+                               (const char *) ARGON_RAW_STRING((String *) *(stack_base - 3)),
+                               (const char *) ARGON_RAW_STRING((String *) *(stack_base - 2)),
+                               *(stack_base - 1),
+                               (TypeInfo **) stack_base,
+                               trait_count);
+
+                if (ret == nullptr)
+                    break;
+
+                STACK_REWIND(trait_count);
+
+                POP(); // namespace
+                POP(); // doc
+                POP(); // qname
+
+                TOP_REPLACE(ret);
                 DISPATCH();
             }
             TARGET_OP(MOD) {

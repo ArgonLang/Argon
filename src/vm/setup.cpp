@@ -31,8 +31,8 @@ using namespace argon::vm;
 using namespace argon::vm::datatype;
 
 bool argon::vm::Setup() {
-#define INIT(type)                  \
-    if(!TypeInit((type), nullptr))  \
+#define INIT(type)                              \
+    if(!TypeInit((TypeInfo *)(type), nullptr))  \
         return false
 
     if (!ErrorInit())
