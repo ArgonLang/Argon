@@ -267,6 +267,7 @@ Tuple *argon::vm::datatype::TupleConvertList(argon::vm::datatype::List **list) {
         tuple->length = (*list)->length;
 
         (*list)->objects = nullptr;
+        (*list)->length = 0;
 
         Release(list);
     }
