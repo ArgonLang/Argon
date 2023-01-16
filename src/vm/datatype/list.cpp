@@ -21,6 +21,21 @@ List *ListShift(List *, ArSSize);
 
 bool CheckSize(List *, ArSize);
 
+ARGON_FUNCTION(list_list, List,
+               "Creates an empty list or construct it from an iterable object.\n"
+               "\n"
+               "- Parameter iter: Iterable object.\n"
+               "- Returns: New list.\n",
+               nullptr, true, false) {
+    if (!VariadicCheckPositional(list_list.name, (unsigned int) argc, 0, 1))
+        return nullptr;
+
+    if (argc == 1)
+        return (ArObject *) ListNew(*args);
+
+    return (ArObject *) ListNew();
+}
+
 ARGON_METHOD(list_append, append,
              "Add an item to the end of the list.\n"
              "\n"
@@ -169,6 +184,8 @@ ARGON_METHOD(list_reverse, reverse,
 }
 
 const FunctionDef list_methods[] = {
+        list_list,
+
         list_append,
         list_clear,
         list_extend,

@@ -92,6 +92,18 @@ const BufferSlots string_buffer = {
         nullptr
 };
 
+ARGON_METHOD(str_string, String,
+             "Create a new string object from the given object.\n"
+             "\n"
+             "- Parameter obj: Object to convert into a string.\n"
+             "- Returns: New string.\n",
+             ": obj", false, false) {
+    if (AR_TYPEOF(args[0], type_string_))
+        return IncRef(args[0]);
+
+    return Str(args[0]);
+}
+
 ARGON_METHOD(str_capitalize, capitalize,
              "Returns a capitalized version of the string. \n"
              "\n"
@@ -431,6 +443,8 @@ ARGON_METHOD(str_upper, upper,
 }
 
 const FunctionDef string_methods[] = {
+        str_string,
+
         str_capitalize,
         str_chr,
         str_count,

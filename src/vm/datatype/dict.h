@@ -107,6 +107,14 @@ namespace argon::vm::datatype {
     Dict *DictNew();
 
     /**
+     * @brief Create a new dict from an iterable object.
+     *
+     * @param object Pointer to an iterable object.
+     * @return A pointer to a dict object, otherwise nullptr.
+     */
+    Dict *DictNew(ArObject *object);
+
+    /**
      * @brief Delete the contents of the entire dict.
      *
      * @param dict Pointer to an instance of dict.

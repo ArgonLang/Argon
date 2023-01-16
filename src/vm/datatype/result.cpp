@@ -5,11 +5,30 @@
 #include "arstring.h"
 #include "boolean.h"
 #include "error.h"
-
+#include "pcheck.h"
 #include "result.h"
+
 #include "nil.h"
 
 using namespace argon::vm::datatype;
+
+ARGON_FUNCTION(result_Error, Error,
+               "Create a new Result object and set the value to Err.\n"
+               "\n"
+               "- Parameter obj: Object.\n"
+               "- Returns: New Result.\n",
+               ": obj", false, false) {
+    return (ArObject *) ResultNew(*args, false);
+}
+
+ARGON_FUNCTION(result_Ok, Ok,
+               "Create a new Result object and set the value to Ok.\n"
+               "\n"
+               "- Parameter obj: Object.\n"
+               "- Returns: New Result.\n",
+               ": obj", false, false) {
+    return (ArObject *) ResultNew(*args, true);
+}
 
 ARGON_METHOD(result_err, err,
              "Returns the contained value if it is Err, otherwise it panics.\n"
@@ -42,6 +61,9 @@ ARGON_METHOD(result_ok, ok,
 }
 
 const FunctionDef result_methods[] = {
+        result_Error,
+        result_Ok,
+
         result_err,
         result_ok,
         ARGON_METHOD_SENTINEL

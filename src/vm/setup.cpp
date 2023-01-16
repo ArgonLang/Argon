@@ -57,6 +57,7 @@ bool argon::vm::Setup() {
     INIT(type_set_);
     INIT(type_string_);
     INIT(type_tuple_);
+    INIT(type_uint_);
 
     INIT(importer::type_import_spec_);
     INIT(importer::type_import_);

@@ -15,6 +15,23 @@ using namespace argon::vm::datatype;
 
 bool SetAddNoLock(Set *set, ArObject *object);
 
+// ***
+
+ARGON_FUNCTION(set_set, Set,
+               "Creates an empty set or construct it from an iterable object.\n"
+               "\n"
+               "- Parameter iter: Iterable object.\n"
+               "- Returns: New set.\n",
+               nullptr, true, false) {
+    if (!VariadicCheckPositional(set_set.name, (unsigned int) argc, 0, 1))
+        return nullptr;
+
+    if (argc == 1)
+        return (ArObject *) SetNew(*args);
+
+    return (ArObject *) SetNew();
+}
+
 ARGON_METHOD(set_add, add,
              "Adds an element to the set.\n"
              "\n"
@@ -49,7 +66,7 @@ ARGON_METHOD(set_contains, contains,
 ARGON_METHOD(set_diff, diff,
              "Removes the items in this set that are also included in another set(s).\n"
              "\n"
-             "- Parameters ...sets: Another sets.\n"
+             "- Parameter ...sets: Another sets.\n"
              "- Returns: Set itself.\n",
              nullptr, true, false) {
     auto *self = (Set *) _self;
@@ -129,7 +146,7 @@ ARGON_METHOD(set_discard, discard,
 ARGON_METHOD(set_intersect, intersect,
              "Removes the items in this set that are not present in other, specified set(s)\n"
              "\n"
-             "- Parameters ...sets: Another sets.\n"
+             "- Parameter ...sets: Another sets.\n"
              "- Returns: Set itself.\n",
              nullptr, true, false) {
     auto *self = (Set *) _self;
@@ -212,7 +229,7 @@ ARGON_METHOD(set_symdiff, symdiff,
 ARGON_METHOD(set_update, update,
              "Update the set with the union of this set and others.\n"
              "\n"
-             "- Parameters ...sets: Another sets.\n"
+             "- Parameter ...sets: Another sets.\n"
              "- Returns: Set itself.\n",
              nullptr, false, false) {
     auto *self = (Set *) _self;
@@ -246,6 +263,8 @@ ARGON_METHOD(set_update, update,
 }
 
 const FunctionDef set_methods[] = {
+        set_set,
+
         set_add,
         set_clear,
         set_contains,

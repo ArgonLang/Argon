@@ -15,6 +15,21 @@
 
 using namespace argon::vm::datatype;
 
+ARGON_FUNCTION(tuple_tuple, Tuple,
+               "Creates an empty tuple or construct it from an iterable object.\n"
+               "\n"
+               "- Parameter iter: Iterable object.\n"
+               "- Returns: New tuple.\n",
+               nullptr, true, false) {
+    if (!VariadicCheckPositional(tuple_tuple.name, (unsigned int) argc, 0, 1))
+        return nullptr;
+
+    if (argc == 1)
+        return (ArObject *) TupleNew(*args);
+
+    return (ArObject *) TupleNew((ArSize) 0);
+}
+
 ARGON_METHOD(tuple_find, find,
              "Find an item into the tuple and returns its position.\n"
              "\n"
@@ -32,6 +47,8 @@ ARGON_METHOD(tuple_find, find,
 }
 
 const FunctionDef tuple_methods[] = {
+        tuple_tuple,
+
         tuple_find,
         ARGON_METHOD_SENTINEL
 };

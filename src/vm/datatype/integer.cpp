@@ -25,6 +25,47 @@ using namespace argon::vm::datatype;
         return (ArObject *) IntNew(left->sint op right->sint);              \
     } while(0)
 
+ARGON_FUNCTION(number_parse, parse,
+               "Convert a string or number to number, if possible.\n"
+               "\n"
+               "- Parameter obj: obj to convert.\n"
+               "- Returns: integer number.\n",
+               "sx: obj, i: base", false, false) {
+    ArBuffer buffer{};
+
+    const auto *self_type = (const TypeInfo *) ((Function *) _func)->base;
+    auto base = (int) ((Integer *) args[1])->sint;
+
+    if (AR_TYPEOF(*args, type_int_)) {
+        if (self_type == type_int_)
+            return IncRef(*args);
+
+        return (ArObject *) UIntNew(((Integer *) *args)->sint);
+    } else if (AR_TYPEOF(*args, type_uint_)) {
+        if (self_type == type_uint_)
+            return IncRef(*args);
+
+        return (ArObject *) IntNew((IntegerUnderlying) ((Integer *) *args)->uint);
+    }
+
+    if (!BufferGet(*args, &buffer, argon::vm::datatype::BufferFlags::READ))
+        return nullptr;
+
+    if (self_type == type_int_) {
+        auto *result = IntNew((const char *) buffer.buffer, base);
+
+        BufferRelease(&buffer);
+
+        return (ArObject *) result;
+    }
+
+    auto *result = UIntNew((const char *) buffer.buffer, base);
+
+    BufferRelease(&buffer);
+
+    return (ArObject *) result;
+}
+
 ARGON_METHOD(number_bits, bits,
              "Return number of bits necessary to represent an integer in binary.\n"
              "\n"
@@ -62,6 +103,8 @@ ARGON_METHOD(number_digits, digits,
 }
 
 const FunctionDef number_methods[] = {
+        number_parse,
+
         number_bits,
         number_digits,
         ARGON_METHOD_SENTINEL

@@ -10,6 +10,7 @@
 #include "arobject.h"
 #include "arstring.h"
 #include "atom.h"
+#include "dict.h"
 #include "hashmap.h"
 
 namespace argon::vm::datatype {
@@ -98,7 +99,8 @@ namespace argon::vm::datatype {
             (const char *) "%s does not support %s (async function)",
             (const char *) "%s does not support %s (generator function)",
             (const char *) "no viable conversion from '%s' to %s",
-            (const char *) "'%s' is not callable"
+            (const char *) "'%s' is not callable",
+            (const char *) "'%s' is not iterable"
     };
 
     constexpr const char *kUnassignableError[] = {
@@ -154,6 +156,8 @@ namespace argon::vm::datatype {
     Error *ErrorNewFormat(const char *id, const char *format, ArObject *args);
 
     Error *ErrorNew(Atom *id, String *reason);
+
+    Error *ErrorNew(Atom *id, String *reason, Dict *aux);
 
     Error *ErrorNew(const char *id, String *reason);
 

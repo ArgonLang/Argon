@@ -35,6 +35,30 @@
 
 using namespace argon::vm::datatype;
 
+ARGON_FUNCTION(bytes_bytes, Bytes,
+               "Creates bytes object.\n"
+               "\n"
+               "The src parameter is optional, in case of call without src parameter an empty zero-length"
+               "bytes object will be constructed.\n"
+               "\n"
+               "- Parameter src: Integer or bytes-like object.\n"
+               "- Returns: Construct a new bytes object.\n",
+               nullptr, true, false) {
+    UIntegerUnderlying size = 0;
+
+    if (!VariadicCheckPositional(bytes_bytes.name, (unsigned int) argc, 0, 1))
+        return nullptr;
+
+    if (argc == 1) {
+        if (!AR_TYPEOF(args[0], type_uint_))
+            return (ArObject *) BytesNew(*args);
+
+        size = ((Integer *) *args)->uint;
+    }
+
+    return (ArObject *) BytesNew(size, true, true, false);
+}
+
 ARGON_METHOD(bytes_capitalize, capitalize,
              "Returns a capitalized version of the bytes string. \n"
              "\n"
@@ -410,7 +434,6 @@ ARGON_METHOD(bytes_lower, lower,
     return (ArObject *) ret;
 }
 
-
 ARGON_METHOD(bytes_rfind, rfind,
              "Searches the string for a specified value and returns the last position of where it was found.\n"
              "\n"
@@ -668,6 +691,8 @@ ARGON_METHOD(bytes_upper, upper,
 }
 
 const FunctionDef bytes_method[] = {
+        bytes_bytes,
+
         bytes_capitalize,
         bytes_count,
         bytes_clone,

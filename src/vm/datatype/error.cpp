@@ -26,7 +26,21 @@ void SetErrorOOM();
 
 // ***
 
+ARGON_FUNCTION(error_error, Error,
+               "Create a new error.\n"
+               "\n"
+               "- Parameters:\n"
+               "  - id: Atom representing an ID.\n"
+               "  - reason: String containing the reason for the error.\n"
+               "  - &kwargs: Containing additional information about the error.\n"
+               "- Returns: New Error.\n",
+               "a: id, s: reason", 0, true) {
+    return (ArObject *) ErrorNew((Atom *) args[0], (String *) args[1], (Dict *) kwargs);
+}
+
 const FunctionDef error_methods[] = {
+        error_error,
+
         ARGON_METHOD_SENTINEL
 };
 
@@ -206,6 +220,61 @@ Error *argon::vm::datatype::ErrorNew(Atom *id, String *reason) {
 
     return err;
 }
+
+Error *argon::vm::datatype::ErrorNew(Atom *id, String *reason, Dict *aux) {
+    ArObject *iter;
+    Tuple *tmp;
+
+    auto *err = MakeObject<Error>(type_error_);
+    if (err == nullptr)
+        return nullptr;
+
+    memory::MemoryZero(&err->detail, sizeof(HashMap<ArObject *, ArObject>));
+
+    err->reason = (ArObject *) IncRef(reason);
+    err->id = IncRef(id);
+
+    if (aux != nullptr) {
+        if (!err->detail.Initialize()) {
+            Release(err);
+            return nullptr;
+        }
+
+        if ((iter = IteratorGet((ArObject *) aux, false)) == nullptr) {
+            Release(err);
+            return nullptr;
+        }
+
+        while ((tmp = (Tuple *) IteratorNext(iter)) != nullptr) {
+            auto *entry = err->detail.AllocHEntry();
+            if (entry == nullptr) {
+                Release(tmp);
+                Release(iter);
+                Release(err);
+
+                return nullptr;
+            }
+
+            entry->key = TupleGet(tmp, 0);
+            entry->value = TupleGet(tmp, 1);
+
+            if (!err->detail.Insert(entry)) {
+                Release(tmp);
+                Release(iter);
+                Release(err);
+
+                return nullptr;
+            }
+
+            Release(tmp);
+        }
+
+        Release(iter);
+    }
+
+    return err;
+}
+
 
 Error *argon::vm::datatype::ErrorNew(const char *id, String *reason) {
     Atom *aid;

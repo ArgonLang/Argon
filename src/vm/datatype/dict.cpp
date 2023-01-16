@@ -22,6 +22,21 @@ using namespace argon::vm::datatype;
         }                                                                               \
     } while(0)
 
+ARGON_FUNCTION(dict_dict, Dict,
+               "Create an empty dict or construct it from an iterable object.\n"
+               "\n"
+               "- Parameter iter: Iterable object.\n"
+               "- Returns: New dict.\n",
+               nullptr, true, false) {
+    if (!VariadicCheckPositional(dict_dict.name, (unsigned int) argc, 0, 1))
+        return nullptr;
+
+    if (argc == 1)
+        return (ArObject *) DictNew(*args);
+
+    return (ArObject *) DictNew();
+}
+
 ARGON_METHOD(dict_clear, clear,
              "Removes all the elements from the dict.\n"
              "\n"
@@ -164,6 +179,8 @@ ARGON_METHOD(dict_values, values,
 }
 
 const FunctionDef dict_methods[] = {
+        dict_dict,
+
         dict_clear,
         dict_contains,
         dict_get,
@@ -497,6 +514,78 @@ Dict *argon::vm::datatype::DictNew() {
     }
 
     return dict;
+}
+
+Dict *DictNewFromIterable(ArObject *iterable) {
+    ArObject *iter;
+    ArObject *key;
+    ArObject *value;
+    Dict *dict;
+
+    bool ok;
+
+    if (!AR_ISITERABLE(iterable)) {
+        ErrorFormat(kTypeError[0], kTypeError[10], AR_TYPE_NAME(iterable));
+        return nullptr;
+    }
+
+    if ((dict = DictNew()) == nullptr)
+        return nullptr;
+
+    if ((iter = IteratorGet(iterable, false)) == nullptr) {
+        Release(dict);
+        return nullptr;
+    }
+
+    while (true) {
+        if ((key = IteratorNext(iter)) == nullptr)
+            break;
+
+        if ((value = IteratorNext(iter)) == nullptr) {
+            Release(key);
+            Release(iter);
+            Release(dict);
+
+            ErrorFormat(kValueError[0], "dict new require an iterable object of even length");
+
+            return nullptr;
+        }
+
+        ok = DictInsert(dict, key, value);
+        Release(key);
+        Release(value);
+
+        if (!ok) {
+            Release(iter);
+            Release(dict);
+            return nullptr;
+        }
+    }
+
+    Release(iter);
+    return dict;
+}
+
+Dict *argon::vm::datatype::DictNew(ArObject *object) {
+    auto *o = (Dict *) object;
+    Dict *ret;
+
+    if (!AR_TYPEOF(object, type_dict_))
+        return DictNewFromIterable(object);
+
+    if ((ret = DictNew()) == nullptr)
+        return nullptr;
+
+    std::shared_lock _(o->rwlock);
+
+    for (auto *cur = o->hmap.iter_begin; cur != nullptr; cur = cur->iter_next) {
+        if (!DictInsert(ret, cur->key, cur->value)) {
+            Release((ArObject **) &ret);
+            break;
+        }
+    }
+
+    return ret;
 }
 
 void argon::vm::datatype::DictClear(Dict *dict) {
