@@ -206,11 +206,14 @@ ArObject *argon::vm::datatype::FunctionInvokeNative(Function *func, ArObject **a
         f_count += func->currying->length;
 
         if (count > 0) {
-            if ((args = (ArObject **) memory::Alloc(sizeof(void *) * f_count)) == nullptr)
+            if ((f_args = (ArObject **) memory::Alloc(sizeof(void *) * f_count)) == nullptr)
                 return nullptr;
 
-            memory::MemoryCopy(f_args, func->currying->objects, clen);
-            memory::MemoryCopy(f_args + clen, args, count);
+            for (int i = 0; i < clen; i++)
+                f_args[i] = func->currying->objects[i];
+
+            for (int i = 0; i < count; i++)
+                f_args[clen + i] = args[i];
 
             free_args = true;
         }
