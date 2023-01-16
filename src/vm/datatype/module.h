@@ -53,7 +53,7 @@ namespace argon::vm::datatype {
     {(fn_native).name, {.func=&(fn_native)}, true, MODULE_ATTRIBUTE_DEFAULT}
 
 #define MODULE_EXPORT_TYPE(type)                                                \
-    {nullptr, {.obj=(ArObject *) (type)}, false, MODULE_ATTRIBUTE_DEFAULT}
+    {nullptr, {.object=(ArObject *) (type)}, false, MODULE_ATTRIBUTE_DEFAULT}
 
 #define MODULE_EXPORT_TYPE_ALIAS(name, type)                                    \
     {name, {.obj=(ArObject *) (type)}, false, MODULE_ATTRIBUTE_DEFAULT}
