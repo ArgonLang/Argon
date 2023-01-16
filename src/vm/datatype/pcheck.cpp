@@ -267,3 +267,20 @@ PCheck *argon::vm::datatype::PCheckNew(const char *description) {
 
     return pc;
 }
+
+bool argon::vm::datatype::VariadicCheckPositional(const char *name, unsigned int nargs, unsigned int min,
+                                                  unsigned int max) {
+    if (nargs < min) {
+        ErrorFormat(kTypeError[0], "%s expected %s%d argument%s, got %d", name,
+                    (min == max ? "" : "at least "), min, min == 1 ? "" : "s", nargs);
+
+        return false;
+    } else if (nargs > max) {
+        ErrorFormat(kTypeError[0], "%s expected %s%d argument%s, got %d", name,
+                    (min == max ? "" : "at most "), max, max == 1 ? "" : "s", nargs);
+
+        return false;
+    }
+
+    return true;
+}

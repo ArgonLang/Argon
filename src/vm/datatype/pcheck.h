@@ -26,6 +26,8 @@ namespace argon::vm::datatype {
 
     PCheck *PCheckNew(const char *description);
 
+    bool VariadicCheckPositional(const char *name, unsigned int nargs, unsigned int min, unsigned int max);
+
 } // namespace argon::vm::datatype
 
 #endif // !ARGON_VM_DATATYPE_PCHECK_H_
