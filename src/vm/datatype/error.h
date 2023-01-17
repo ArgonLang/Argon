@@ -81,6 +81,10 @@ namespace argon::vm::datatype {
             (const char *) "%s index out of range (length: %d, index: %d)"
     };
 
+    constexpr const char *kOverrideError[] = {
+            (const char *) "OverrideError"
+    };
+
     constexpr const char *kRuntimeError[] = {
             (const char *) "RuntimeError",
             (const char *) "unsupported operand '%s' for type '%s'",
@@ -164,11 +168,13 @@ namespace argon::vm::datatype {
     Error *ErrorNew(const char *id, const char *reason);
 
 #ifdef _ARGON_PLATFORM_WINDOWS
+
     Error *ErrorNewFromWinErr();
 
     String *ErrorGetMsgFromWinErr();
 
     void ErrorFromWinErr();
+
 #endif
 
     void ErrorFormat(const char *id, const char *format, ...);

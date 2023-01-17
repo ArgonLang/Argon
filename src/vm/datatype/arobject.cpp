@@ -79,13 +79,19 @@ ArObject *type_get_attr(const ArObject *self, ArObject *key, bool static_attr) {
     if (static_attr && !aprop.IsConstant()) {
         ErrorFormat(kAccessViolationError[0], kAccessViolationError[2],
                     ARGON_RAW_STRING((String *) key), ancestor->name);
-        Release(&ret);
+
+        Release(ret);
+
+        return nullptr;
     }
 
     if (!aprop.IsPublic() && !TraitIsImplemented(instance, ancestor)) {
         ErrorFormat(kAccessViolationError[0], kAccessViolationError[1],
                     ARGON_RAW_STRING((String *) key), ancestor->name);
-        Release(&ret);
+
+        Release(ret);
+
+        return nullptr;
     }
 
     if (AR_TYPEOF(ret, type_native_wrapper_)) {
@@ -473,8 +479,8 @@ ArObject *argon::vm::datatype::TypeNew(const TypeInfo *type, const char *name, c
         return nullptr;
     }
 
-    if (!TypeInit(ret, (ArObject *) ns))
-        Release((ArObject **) ret);
+    if (!TypeInit(ret,  ns))
+        Release((ArObject **) &ret);
 
     return (ArObject *) ret;
 }
@@ -504,7 +510,7 @@ List *BuildBasesList(TypeInfo **bases, unsigned int length) {
         ArSize cap = 1;
 
         if (type->mro != nullptr)
-            cap += ((Tuple *) type)->length;
+            cap += ((Tuple *) type->mro)->length;
 
         if ((tmp = ListNew(cap)) == nullptr)
             goto ERROR;
@@ -719,7 +725,67 @@ bool InitMembers(TypeInfo *type) {
         }
     }
 
-    // TODO members
+    // Members
+    if (type->object->members != nullptr) {
+        for (auto *cursor = type->object->members; cursor->name != nullptr; cursor++) {
+            auto *nw = (ArObject *) NativeWrapperNew(cursor);
+            if (nw == nullptr)
+                return false;
+
+            if (!NamespaceNewSymbol(ns, cursor->name, nw, AttributeFlag::CONST | AttributeFlag::PUBLIC)) {
+                Release(nw);
+                return false;
+            }
+
+            Release(nw);
+        }
+    }
+
+    return true;
+}
+
+bool MethodCheckOverride(TypeInfo *type) {
+    auto *tp_map = (Namespace *) type->tp_map;
+
+    if (type->mro == nullptr || ((Tuple *) type->mro)->length == 0)
+        return true;
+
+    std::shared_lock _(tp_map->rwlock);
+
+    auto *cursor = tp_map->ns.iter_begin;
+    while (cursor != nullptr) {
+        auto *fn = (Function *) cursor->value.value.Get();
+
+        if (fn == nullptr)
+            continue;
+
+        if (AR_TYPEOF(fn, type_function_) && fn->IsMethod()) {
+            auto *other = (Function *) MROSearch(type, cursor->key, nullptr);
+
+            if (other != nullptr &&
+                other->IsMethod() &&
+                (fn->arity != other->arity ||
+                 fn->IsVariadic() != other->IsVariadic() ||
+                 fn->IsKWArgs() != other->IsKWArgs())) {
+
+                ErrorFormat(kOverrideError[0],
+                            "signature mismatch for %s(%d%s%s), expected %s(%d%s%s)",
+                            ARGON_RAW_STRING(fn->qname),
+                            fn->arity - 1,
+                            fn->IsVariadic() ? ", ..." : "", fn->IsKWArgs() ? ", &" : "",
+                            ARGON_RAW_STRING(other->qname),
+                            other->arity - 1,
+                            other->IsVariadic() ? ", ..." : "", other->IsKWArgs() ? ", &" : "");
+
+                Release(fn);
+                Release(other);
+                return false;
+            }
+        }
+
+        Release(fn);
+        cursor = cursor->iter_next;
+    }
 
     return true;
 }
@@ -730,7 +796,15 @@ bool argon::vm::datatype::TypeInit(TypeInfo *type, ArObject *auxiliary) {
 
     assert(type->tp_map == nullptr);
 
-    // TODO: traits here
+    // Calculate MRO
+    if (type->object != nullptr && type->object->traits != nullptr) {
+        // Count base traits
+        unsigned int length = 0;
+        for (auto **base = type->object->traits; *base != nullptr; length++, base++);
+
+        if ((type->mro = ComputeMRO(type, type->object->traits, length)) == nullptr)
+            return false;
+    }
 
     // Build tp_map
     type->tp_map = IncRef(auxiliary);
@@ -746,7 +820,10 @@ bool argon::vm::datatype::TypeInit(TypeInfo *type, ArObject *auxiliary) {
         return false;
     }
 
-    // TODO: Override check!
+    if (!MethodCheckOverride(type)) {
+        Release(&type->tp_map);
+        return false;
+    }
 
     if (type->qname == nullptr) {
         type->qname = type->name;

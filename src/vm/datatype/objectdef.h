@@ -196,8 +196,9 @@ ArObject *name##_fn(ArObject *_func, ArObject *_self, ArObject **args, ArObject 
      */
     struct ObjectSlots {
         const FunctionDef *methods;
-        const void *members;
-        const struct TypeInfo **traits;
+        const MemberDef *members;
+
+        struct TypeInfo **traits;
 
         AttributeGetter get_attr;
         AttributeWriter set_attr;
