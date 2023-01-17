@@ -962,6 +962,10 @@ void Compiler::CompileFunctionDefaultBody(const parser::Function *func, String *
     this->LoadStatic(msg.Get(), false, true);
 
     this->unit_->Emit(vm::OpCode::CALL, (unsigned char) vm::OpCodeCallMode::FASTCALL, 2, &func->loc);
+
+    this->unit_->DecrementStack(2);
+
+    this->unit_->Emit(vm::OpCode::PANIC, &func->loc);
 }
 
 void Compiler::CompileFunctionParams(vm::datatype::List *params, unsigned short &p_count, FunctionFlags &flags) {
