@@ -715,6 +715,8 @@ List *argon::vm::datatype::ListNew(ArSize capacity) {
 
     if (list != nullptr) {
         list->objects = nullptr;
+        list->capacity = capacity;
+        list->length = 0;
 
         if (capacity > 0) {
             list->objects = (ArObject **) argon::vm::memory::Alloc(capacity * sizeof(void *));
@@ -723,9 +725,6 @@ List *argon::vm::datatype::ListNew(ArSize capacity) {
                 return nullptr;
             }
         }
-
-        list->capacity = capacity;
-        list->length = 0;
 
         new(&list->rwlock)sync::RecursiveSharedMutex();
     }
