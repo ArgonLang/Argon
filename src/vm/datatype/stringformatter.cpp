@@ -2,7 +2,7 @@
 //
 // Licensed under the Apache License v2.0
 
-#include <cassert>
+#include <cctype>
 
 #include <vm/runtime.h>
 
@@ -226,7 +226,7 @@ bool StringFormatter::NextSpecifier() {
         if (*(base + index++) == '%') {
             if ((base + index) >= this->fmt_.end) {
                 this->error_ = (ArObject *) ErrorNew(kValueError[0], "incomplete format specifier");
-                return -1;
+                return false;
             }
 
             if (*(base + index) != '%') {
@@ -241,7 +241,7 @@ bool StringFormatter::NextSpecifier() {
     }
 
     if (this->Write(base, index, 0) < 0)
-        return -1;
+        return false;
 
     this->fmt_.cursor += index;
 
@@ -381,6 +381,7 @@ int StringFormatter::FormatChar() {
 int StringFormatter::FormatDecimal(unsigned char op) {
     // TODO: format decimal
     assert(false);
+    return 0;
 }
 
 int StringFormatter::FormatInteger(int base, bool unsign, bool upper) {

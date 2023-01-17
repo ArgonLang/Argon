@@ -2,6 +2,8 @@
 //
 // Licensed under the Apache License v2.0
 
+#include <cctype>
+
 #include <vm/opcode.h>
 
 #include <vm/datatype/error.h>

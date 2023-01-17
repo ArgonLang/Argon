@@ -2,6 +2,8 @@
 //
 // Licensed under the Apache License v2.0
 
+#include <cctype>
+
 #include "atom.h"
 #include "arstring.h"
 #include "boolean.h"

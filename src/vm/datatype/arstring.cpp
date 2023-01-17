@@ -2,7 +2,7 @@
 //
 // Licensed under the Apache License v2.0
 
-#include <cassert>
+#include <cctype>
 
 #include <vm/memory/memory.h>
 #include <vm/runtime.h>

@@ -44,10 +44,9 @@ Decimal *argon::vm::datatype::DecimalNew(DecimalUnderlying number) {
 
 Decimal *argon::vm::datatype::DecimalNew(const char *string) {
     auto *decimal = MakeObject<Decimal>(type_decimal_);
-    ArSize idx;
 
     if (decimal != nullptr)
-        decimal->decimal = std::stold(string, &idx);
+        decimal->decimal = std::strtod(string, nullptr);
 
     return decimal;
 }

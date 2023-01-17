@@ -2,6 +2,8 @@
 //
 // Licensed under the Apache License v2.0
 
+#include <cctype>
+
 #include <vm/datatype/stringbuilder.h>
 #include <vm/memory/memory.h>
 
