@@ -54,6 +54,10 @@ namespace argon::vm::datatype {
 
     bool Hash(ArObject *object, ArSize *out_hash);
 
+    inline bool IsBufferable(const ArObject *object) {
+        return AR_GET_TYPE(object)->buffer != nullptr && AR_GET_TYPE(object)->buffer->get_buffer != nullptr;
+    }
+
     bool IsNull(const ArObject *object);
 
     bool IsTrue(const ArObject *object);
