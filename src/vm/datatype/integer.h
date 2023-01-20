@@ -9,7 +9,7 @@
 
 namespace argon::vm::datatype {
     using IntegerUnderlying = long;
-    using UIntegerUnderlying = unsigned long;
+    using UIntegerUnderlying = unsigned long long;
 
     struct Integer {
         AROBJ_HEAD;
