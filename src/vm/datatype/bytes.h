@@ -107,6 +107,19 @@ namespace argon::vm::datatype {
         return BytesNew((const unsigned char *) string, strlen(string), frozen);
     }
 
+    /**
+     * @brief Create a new bytes object using the buffer parameter as an internal buffer.
+     *
+     * The new bytes object becomes the owner of the buffer passed as a parameter.
+     *
+     * @param buffer Buffer to use as an internal buffer.
+     * @param cap Set buffer capacity.
+     * @param len Dimension actually used by the data.
+     * @param frozen Set if it is immutable.
+     * @return A pointer to a bytes object, otherwise nullptr.
+     */
+    Bytes *BytesNewHoldBuffer(unsigned char *buffer, ArSize cap, ArSize len, bool frozen);
+
 } // namespace argon::vm::datatype
 
 #endif // !ARGON_VM_DATATYPE_BYTES_H_

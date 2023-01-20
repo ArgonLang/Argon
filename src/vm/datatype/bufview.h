@@ -59,6 +59,8 @@ namespace argon::vm::datatype {
 
     bool BufferViewEnlarge(BufferView *view, ArSize count);
 
+    bool BufferViewHoldBuffer(BufferView *view, unsigned char *buffer, ArSize len, ArSize cap);
+
     bool BufferViewInit(BufferView *view, ArSize capacity);
 
     bool BufferViewInit(BufferView *view, unsigned char *buffer, ArSize length, ArSize capacity);

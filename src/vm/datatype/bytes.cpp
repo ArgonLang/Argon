@@ -1231,6 +1231,22 @@ Bytes *argon::vm::datatype::BytesNew(Bytes *bytes, ArSize start, ArSize length) 
     return bs;
 }
 
+Bytes *argon::vm::datatype::BytesNewHoldBuffer(unsigned char *buffer, ArSize cap, ArSize len, bool frozen) {
+    auto *bs = MakeObject<Bytes>(type_bytes_);
+
+    if (bs != nullptr) {
+        if (!BufferViewHoldBuffer(&bs->view, buffer, len, cap)) {
+            Release(bs);
+            return nullptr;
+        }
+
+        bs->hash = 0;
+        bs->frozen = frozen;
+    }
+
+    return bs;
+}
+
 // BYTES ITERATOR
 
 ArObject *bytesiterator_iter_next(BytesIterator *self) {

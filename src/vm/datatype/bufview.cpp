@@ -18,13 +18,12 @@ SharedBuffer *SharedBufferNew(ArSize cap) {
         shared->buffer = nullptr;
         shared->capacity = cap;
 
-        if (cap == 0)
-            return shared;
-
-        shared->buffer = (unsigned char *) Alloc(cap);
-        if (shared->buffer == nullptr) {
-            Free(shared);
-            return nullptr;
+        if (cap != 0) {
+            shared->buffer = (unsigned char *) Alloc(cap);
+            if (shared->buffer == nullptr) {
+                Free(shared);
+                return nullptr;
+            }
         }
 
         new(&shared->rwlock)std::shared_mutex();
@@ -80,6 +79,19 @@ bool argon::vm::datatype::BufferViewEnlarge(BufferView *view, ArSize count) {
     }
 
     view->buffer = view->shared->buffer;
+    return true;
+}
+
+bool argon::vm::datatype::BufferViewHoldBuffer(BufferView *view, unsigned char *buffer, ArSize len, ArSize cap) {
+    if ((view->shared = SharedBufferNew(0)) == nullptr)
+        return false;
+
+    view->shared->buffer = buffer;
+    view->shared->capacity = cap;
+
+    view->buffer = buffer;
+    view->length = len;
+
     return true;
 }
 
