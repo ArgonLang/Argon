@@ -11,7 +11,11 @@ namespace argon::vm::io {
 
 #ifdef _ARGON_PLATFORM_WINDOWS
     using IOHandle = void *;
+#else
+    using IOHandle = int;
 #endif
+
+    bool IOInit();
 
 } // namespace argon::vm::io
 

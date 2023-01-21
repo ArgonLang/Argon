@@ -49,15 +49,15 @@ namespace argon::vm::io {
         return Write(file, (const unsigned char *) str, strlen(str));
     }
 
-    bool GetFileSize(File *file, datatype::ArSize *out_size);
+    bool GetFileSize(const File *file, datatype::ArSize *out_size);
 
-    bool Isatty(File *file);
+    bool Isatty(const File *file);
 
-    bool IsSeekable(File *file);
+    bool IsSeekable(const File *file);
 
-    bool Seek(File *file, datatype::ArSSize offset, FileWhence whence);
+    bool Seek(const File *file, datatype::ArSSize offset, FileWhence whence);
 
-    bool Tell(File *file, datatype::ArSize *out_pos);
+    bool Tell(const File *file, datatype::ArSize *out_pos);
 
     File *FileNew(const char *path, FileMode mode);
 } // namespace argon::vm::io

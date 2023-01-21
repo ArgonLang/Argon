@@ -17,11 +17,28 @@
 #include <Windows.h>
 
 #undef ERROR
+#else
+
+#include <sys/fcntl.h>
+#include <sys/stat.h>
+#include <unistd.h>
 
 #endif
 
 using namespace argon::vm::datatype;
 using namespace argon::vm::io;
+
+ARGON_FUNCTION(file_file, File,
+             "Create a new File object associated with the given path.\n"
+             "\n"
+             "- Parameters:\n"
+             "  - path: File path.\n"
+             "  - mode: Opening mode.\n"
+             "- Returns: New File object.\n",
+             "s: path, i: mode", false, false) {
+    return (ArObject *) FileNew((const char *) ARGON_RAW_STRING((String *) *args),
+                                (FileMode) ((Integer *) args[1])->sint);
+}
 
 ARGON_METHOD(file_getfd, getfd,
              "Return the underlying file descriptor.\n"
@@ -196,6 +213,8 @@ ARGON_METHOD(file_write, write,
 }
 
 const FunctionDef file_methods[] = {
+        file_file,
+
         file_getfd,
         file_isatty,
         file_isseekable,
@@ -378,7 +397,7 @@ ArSSize argon::vm::io::Write(File *file, const unsigned char *buf, datatype::ArS
     return (ArSSize) written;
 }
 
-bool argon::vm::io::GetFileSize(File *file, datatype::ArSize *out_size) {
+bool argon::vm::io::GetFileSize(const File *file, datatype::ArSize *out_size) {
     BY_HANDLE_FILE_INFORMATION finfo{};
 
     if (!GetFileInformationByHandle(file->handle, &finfo)) {
@@ -391,17 +410,17 @@ bool argon::vm::io::GetFileSize(File *file, datatype::ArSize *out_size) {
     return true;
 }
 
-bool argon::vm::io::Isatty(File *file) {
+bool argon::vm::io::Isatty(const File *file) {
     auto type = GetFileType(file->handle);
     return type == FILE_TYPE_CHAR;
 }
 
-bool argon::vm::io::IsSeekable(File *file) {
+bool argon::vm::io::IsSeekable(const File *file) {
     auto type = GetFileType(file->handle);
     return type != FILE_TYPE_CHAR && type != FILE_TYPE_PIPE;
 }
 
-bool argon::vm::io::Seek(File *file, datatype::ArSSize offset, FileWhence whence) {
+bool argon::vm::io::Seek(const File *file, datatype::ArSSize offset, FileWhence whence) {
     int _whence;
 
     switch (whence) {
@@ -428,7 +447,7 @@ bool argon::vm::io::Seek(File *file, datatype::ArSSize offset, FileWhence whence
     return true;
 }
 
-bool argon::vm::io::Tell(File *file, ArSize *out_pos) {
+bool argon::vm::io::Tell(const File *file, ArSize *out_pos) {
     *out_pos = SetFilePointer(file->handle, 0, nullptr, FILE_CURRENT);
     if (*out_pos == INVALID_SET_FILE_POINTER) {
         assert(false); // TODO
@@ -481,6 +500,133 @@ File *argon::vm::io::FileNew(const char *path, FileMode mode) {
     args[0] = (ArObject *) IntNew(-1);
 
     file_read_fn(nullptr, (ArObject *) file, args, nullptr, 1);
+
+    return file;
+}
+
+#else
+
+ArSSize argon::vm::io::Read(File *file, unsigned char *buf, datatype::ArSize count) {
+    ArSSize rd;
+
+    if ((rd = read(file->handle, buf, count)) < 0) {
+        assert(false); // TODO
+        return -1;
+    }
+
+    return rd;
+}
+
+ArSSize argon::vm::io::Write(File *file, const unsigned char *buf, datatype::ArSize count) {
+    ArSSize written;
+
+    if ((written = write(file->handle, buf, count)) < 0) {
+        assert(false); // TODO
+        return -1;
+    }
+
+    return written;
+}
+
+bool argon::vm::io::GetFileSize(const File *file, datatype::ArSize *out_size) {
+    struct stat st{};
+
+    if (Isatty(file))
+        return false;
+
+    if (fstat(file->handle, &st) >= 0) {
+        *out_size = st.st_size;
+        return true;
+    }
+
+    return false;
+}
+
+bool argon::vm::io::Isatty(const File *file) {
+    return isatty(file->handle) != 0;
+}
+
+bool argon::vm::io::IsSeekable(const File *file) {
+#ifdef S_ISFIFO
+#define ISFIFO(st)  S_ISFIFO((st).st_mode)
+#else
+#ifdef S_IFIFO
+#define ISFIFO(st)  ((st).st_mode & S_IFMT) == S_IFIFO
+#elif defined _S_IFIFO  // Windows
+#define ISFIFO(st)  ((st).st_mode & S_IFMT) == _S_IFIFO
+#endif
+#endif
+    struct stat st{};
+
+    if (fstat(file->handle, &st) < 0)
+        return false;
+
+    return !ISFIFO(st) && isatty(file->handle) == 0;
+}
+
+bool argon::vm::io::Seek(const File *file, datatype::ArSSize offset, FileWhence whence) {
+    int _whence;
+
+    switch (whence) {
+        case FileWhence::START:
+            _whence = SEEK_SET;
+            break;
+        case FileWhence::CUR:
+            _whence = SEEK_CUR;
+            break;
+        case FileWhence::END:
+            _whence = SEEK_END;
+            break;
+    }
+
+    auto pos = lseek(file->handle, offset, _whence);
+    if (pos < 0) {
+        assert(false); // TODO
+        return false;
+    }
+
+    return true;
+}
+
+bool argon::vm::io::Tell(const File *file, ArSize *out_pos) {
+    auto pos = lseek(file->handle, 0, SEEK_CUR);
+    if (pos < 0) {
+        assert(false); // TODO
+        return false;
+    }
+
+    *out_pos = pos;
+
+    return true;
+}
+
+File *argon::vm::io::FileNew(const char *path, FileMode mode) {
+    unsigned int omode = O_RDONLY;
+    int fd;
+
+    if (ENUMBITMASK_ISTRUE(mode, FileMode::WRITE)) {
+        omode |= (unsigned int) O_WRONLY | (unsigned int) O_CREAT;
+
+        if (ENUMBITMASK_ISTRUE(mode, FileMode::READ))
+            omode = (unsigned int) O_RDWR | (unsigned int) O_CREAT;
+    }
+
+    if (ENUMBITMASK_ISTRUE(mode, FileMode::APPEND))
+        omode |= (unsigned int) O_APPEND;
+
+    if ((fd = open(path, (int) omode)) < 0) {
+        // TODO: return (File *) ErrorSetFromErrno();
+        return nullptr;
+    }
+
+    auto *file = MakeObject<File>(&FileType);
+    if (file == nullptr) {
+        close(fd);
+        return nullptr;
+    }
+
+    file->handle = fd;
+    file->mode = mode;
 
     return file;
 }
