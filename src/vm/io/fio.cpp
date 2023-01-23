@@ -201,7 +201,26 @@ ARGON_METHOD(file_tell, tell,
 ARGON_METHOD(file_write, write,
              "Write a bytes-like object to underlying stream.\n"
              "\n"
-             "- Parameter obj: Bytes-like object to write to.\n"
+             "- Parameter: obj: Bytes-like object to write to.\n"
+             "- Returns: Bytes written.\n",
+             ": obj", false, false) {
+    auto *self = (File *) _self;
+    ArSSize written;
+
+    if ((written = WriteObject(self, *args)) < 0)
+        return nullptr;
+
+    return (ArObject *) IntNew(written);
+}
+
+ARGON_METHOD(file_writestr, writestr,
+             "Writes an object to the underlying stream.\n"
+             "\n"
+             "The behavior varies based on the object passed as a parameter. "
+             "If the object supports the buffer protocol then it will be written directly into the underlying stream. "
+             "Otherwise it will be converted to String and then written to the underlying stream.\n"
+             "\n"
+             "- Parameter obj: Object to write to.\n"
              "- Returns: Bytes written.\n",
              ": obj", false, false) {
     auto *self = (File *) _self;
@@ -224,6 +243,7 @@ const FunctionDef file_methods[] = {
         file_seek,
         file_tell,
         file_write,
+        file_writestr,
         ARGON_METHOD_SENTINEL
 };
 
