@@ -659,4 +659,21 @@ File *argon::vm::io::FileNew(const char *path, FileMode mode) {
     return file;
 }
 
+File *argon::vm::io::FileNew(int fd, FileMode mode) {
+    errno = 0;
+    if(fcntl(fd, F_GETFD) == -1){
+        ErrorFromErrno(errno);
+        return nullptr;
+    }
+
+    auto *file = MakeObject<File>(&FileType);
+    if (file == nullptr)
+        return nullptr;
+
+    file->handle = fd;
+    file->mode = mode;
+
+    return file;
+}
+
 #endif
