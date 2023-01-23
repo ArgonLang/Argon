@@ -137,6 +137,20 @@ bool argon::vm::datatype::NamespaceContains(Namespace *ns, ArObject *key, Attrib
     return false;
 }
 
+bool argon::vm::datatype::NamespaceMergePublic(Namespace *dest, Namespace *src) {
+    std::unique_lock dst_lck(dest->rwlock);
+    std::shared_lock src_lck(src->rwlock);
+
+    for (auto *cursor = src->ns.iter_begin; cursor != nullptr; cursor = cursor->iter_next) {
+        if (cursor->value.properties.IsPublic()) {
+            if (!NewEntry(dest, cursor->key, cursor->value.value.Get(), cursor->value.properties.flags))
+                return false;
+        }
+    }
+
+    return true;
+}
+
 bool argon::vm::datatype::NamespaceNewSymbol(Namespace *ns, ArObject *key, ArObject *value, AttributeFlag aa) {
     assert(AR_GET_TYPE(key)->hash != nullptr);
 
@@ -247,7 +261,7 @@ Namespace *argon::vm::datatype::NamespaceNew(Namespace *ns, AttributeFlag ignore
         if ((int) ignore == 0 || (int) (cursor->value.properties.flags & ignore) == 0) {
             auto *value = cursor->value.value.Get();
 
-            if(!NamespaceNewSymbol(ret, cursor->key,value,cursor->value.properties.flags)){
+            if (!NamespaceNewSymbol(ret, cursor->key, value, cursor->value.properties.flags)) {
                 Release(value);
                 Release(ret);
 

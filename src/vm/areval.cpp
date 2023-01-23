@@ -596,6 +596,13 @@ ArObject *argon::vm::Eval(Fiber *fiber) {
             TARGET_OP(IDIV) {
                 BINARY_OP(idiv, '//');
             }
+            TARGET_OP(IMPALL) {
+                if (!NamespaceMergePublic(cu_frame->globals, ((Module*) TOP())->ns))
+                    break;
+
+                POP();
+                DISPATCH();
+            }
             TARGET_OP(IMPFRM) {
                 auto attribute = TupleGet(cu_code->statics, I32Arg(cu_frame->instr_ptr));
 

@@ -72,6 +72,15 @@ namespace argon::vm::datatype {
     bool NamespaceContains(Namespace *ns, ArObject *key, AttributeProperty *out_aprop);
 
     /**
+     * @brief Merges the public contents of two namespaces.
+     *
+     * @param dest Destination namespace.
+     * @param src Source namespace.
+     * @return True if successful, otherwise returns false.
+     */
+    bool NamespaceMergePublic(Namespace *dest, Namespace *src);
+
+    /**
      * @brief Add new symbol to namespace.
      *
      * @param ns Pointer to namespace.
