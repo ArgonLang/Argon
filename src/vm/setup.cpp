@@ -23,6 +23,8 @@
 #include <vm/datatype/set.h>
 #include <vm/datatype/tuple.h>
 
+#include <vm/io/io.h>
+
 #include <vm/importer/import.h>
 
 #include "setup.h"
@@ -36,6 +38,9 @@ bool argon::vm::Setup() {
         return false
 
     if (!ErrorInit())
+        return false;
+
+    if (!io::IOInit())
         return false;
 
     INIT(type_atom_);

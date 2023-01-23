@@ -243,7 +243,10 @@ ARGON_FUNCTION(import_builtins_locator, builtins_locator,
                "   - hint: ImportSpec | nil.\n"
                "- Returns: ImportSpec instance if module was found, otherwise nil.\n",
                ": import, s: name, : hint", false, false) {
-    static const ModuleInit *builtins[] = {argon::vm::mod::module_builtins_};
+    static const ModuleInit *builtins[] = {
+            argon::vm::mod::module_builtins_,
+            argon::vm::mod::module_io_
+    };
     ImportSpec *spec = nullptr;
 
     for (auto &builtin: builtins) {

@@ -9,6 +9,7 @@
 
 namespace argon::vm::mod {
     extern const datatype::ModuleInit *module_builtins_;
+    extern const datatype::ModuleInit *module_io_;
 
 } // namespace argon::vm::mod
 
