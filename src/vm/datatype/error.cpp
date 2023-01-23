@@ -7,6 +7,7 @@
 #include "atom.h"
 #include "boolean.h"
 #include "error.h"
+#include "integer.h"
 #include "stringbuilder.h"
 
 using namespace argon::vm::datatype;
@@ -111,7 +112,7 @@ ArObject *error_repr(const Error *self) {
     String *id;
     String *reason;
 
-    if ((id = (String *) Repr((ArObject *) self->id)) == nullptr)
+    if ((id = (String *) Str((ArObject *) self->id)) == nullptr)
         return nullptr;
 
     if ((reason = (String *) Repr(self->reason)) == nullptr) {
@@ -206,6 +207,29 @@ bool argon::vm::datatype::ErrorInit() {
     return true;
 }
 
+const char *ErrorIdFromErrno(int err) {
+    switch (err) {
+        case EPERM:
+            return "OperationError";
+        case ENOENT:
+            return "FileError";
+        case EINTR:
+            return "InterruptError";
+        case EAGAIN:
+            return "TryAgainError";
+        case EACCES:
+            return "PermissionDeniedError";
+        case EEXIST:
+            return "FileError";
+        case EISDIR:
+            return "IsDirectoryError";
+        case EPIPE:
+            return "BrokenPipeError";
+        default:
+            return kOSError[0];
+    }
+}
+
 Error *argon::vm::datatype::ErrorNew(Atom *id, String *reason) {
     auto *err = MakeObject<Error>(type_error_);
     if (err == nullptr) {
@@ -227,7 +251,7 @@ Error *argon::vm::datatype::ErrorNew(Atom *id, String *reason, Dict *aux) {
 
     auto *err = MakeObject<Error>(type_error_);
     if (err == nullptr)
-        return nullptr;
+        goto ERROR;
 
     memory::MemoryZero(&err->detail, sizeof(HashMap<ArObject *, ArObject>));
 
@@ -237,12 +261,12 @@ Error *argon::vm::datatype::ErrorNew(Atom *id, String *reason, Dict *aux) {
     if (aux != nullptr) {
         if (!err->detail.Initialize()) {
             Release(err);
-            return nullptr;
+            goto ERROR;
         }
 
         if ((iter = IteratorGet((ArObject *) aux, false)) == nullptr) {
             Release(err);
-            return nullptr;
+            goto ERROR;
         }
 
         while ((tmp = (Tuple *) IteratorNext(iter)) != nullptr) {
@@ -252,18 +276,23 @@ Error *argon::vm::datatype::ErrorNew(Atom *id, String *reason, Dict *aux) {
                 Release(iter);
                 Release(err);
 
-                return nullptr;
+                goto ERROR;
             }
 
             entry->key = TupleGet(tmp, 0);
             entry->value = TupleGet(tmp, 1);
 
             if (!err->detail.Insert(entry)) {
+                Release(entry->key);
+                Release(entry->value);
+
+                err->detail.FreeHEntry(entry);
+
                 Release(tmp);
                 Release(iter);
                 Release(err);
 
-                return nullptr;
+                goto ERROR;
             }
 
             Release(tmp);
@@ -273,8 +302,17 @@ Error *argon::vm::datatype::ErrorNew(Atom *id, String *reason, Dict *aux) {
     }
 
     return err;
-}
 
+    ERROR:
+    if (argon::vm::CheckLastPanic(kOOMError[0])) {
+        SetErrorOOM();
+        return nullptr;
+    }
+
+    argon::vm::Panic((ArObject *) error_while_error);
+
+    return nullptr;
+}
 
 Error *argon::vm::datatype::ErrorNew(const char *id, String *reason) {
     Atom *aid;
@@ -315,6 +353,55 @@ Error *argon::vm::datatype::ErrorNew(const char *id, const char *reason) {
     Release(sreason);
 
     return err;
+}
+
+Error *argon::vm::datatype::ErrorNewFromErrno(int err) {
+    ArObject *entry_name = nullptr;
+    ArObject *num = nullptr;
+    Error *error;
+
+    HEntry<ArObject, ArObject *> *entry;
+
+    if ((error = ErrorNew(ErrorIdFromErrno(err), strerror(err))) == nullptr)
+        goto ERROR;
+
+    if (!error->detail.Initialize()) {
+        Release(error);
+        return nullptr;
+    }
+
+    if ((entry_name = (ArObject *) StringNew("errno")) == nullptr)
+        goto ERROR;
+
+    if ((num = (ArObject *) IntNew(err)) == nullptr)
+        goto ERROR;
+
+    if ((entry = error->detail.AllocHEntry()) == nullptr)
+        goto ERROR;
+
+    entry->key = entry_name;
+    entry->value = num;
+
+    if (!error->detail.Insert(entry)) {
+        error->detail.FreeHEntry(entry);
+        goto ERROR;
+    }
+
+    return error;
+
+    ERROR:
+    Release(entry_name);
+    Release(num);
+    Release(error);
+
+    if (argon::vm::CheckLastPanic(kOOMError[0])) {
+        SetErrorOOM();
+        return nullptr;
+    }
+
+    argon::vm::Panic((ArObject *) error_while_error);
+
+    return nullptr;
 }
 
 Error *argon::vm::datatype::ErrorNewFormat(const char *id, const char *format, ...) {
@@ -419,6 +506,15 @@ String *ReprDetails(const Error *self, const String *header) {
     }
 
     return ret;
+}
+
+void argon::vm::datatype::ErrorFromErrno(int err) {
+    auto *error = ErrorNewFromErrno(err);
+
+    if (error != nullptr)
+        argon::vm::Panic((ArObject *) error);
+
+    Release(error);
 }
 
 void argon::vm::datatype::ErrorFormat(const char *id, const char *format, ...) {

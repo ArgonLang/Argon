@@ -167,6 +167,8 @@ namespace argon::vm::datatype {
 
     Error *ErrorNew(const char *id, const char *reason);
 
+    Error *ErrorNewFromErrno(int err);
+
 #ifdef _ARGON_PLATFORM_WINDOWS
 
     Error *ErrorNewFromWinErr();
@@ -176,6 +178,8 @@ namespace argon::vm::datatype {
     void ErrorFromWinErr();
 
 #endif
+
+    void ErrorFromErrno(int err);
 
     void ErrorFormat(const char *id, const char *format, ...);
 
