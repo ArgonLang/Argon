@@ -14,6 +14,7 @@
 
 #ifdef _ARGON_PLATFORM_WINDOWS
 
+#include <io.h>
 #include <Windows.h>
 
 #undef ERROR
@@ -29,13 +30,13 @@ using namespace argon::vm::datatype;
 using namespace argon::vm::io;
 
 ARGON_FUNCTION(file_file, File,
-             "Create a new File object associated with the given path.\n"
-             "\n"
-             "- Parameters:\n"
-             "  - path: File path.\n"
-             "  - mode: Opening mode.\n"
-             "- Returns: New File object.\n",
-             "s: path, i: mode", false, false) {
+               "Create a new File object associated with the given path.\n"
+               "\n"
+               "- Parameters:\n"
+               "  - path: File path.\n"
+               "  - mode: Opening mode.\n"
+               "- Returns: New File object.\n",
+               "s: path, i: mode", false, false) {
     return (ArObject *) FileNew((const char *) ARGON_RAW_STRING((String *) *args),
                                 (FileMode) ((Integer *) args[1])->sint);
 }
@@ -206,7 +207,7 @@ ARGON_METHOD(file_write, write,
     auto *self = (File *) _self;
     ArSSize written;
 
-    if ((written = WriteObject(self, *args)) < 0)
+    if ((written = WriteObjectStr(self, *args)) < 0)
         return nullptr;
 
     return (ArObject *) IntNew(written);
@@ -366,14 +367,12 @@ ArSSize argon::vm::io::WriteObjectStr(File *file, datatype::ArObject *object) {
 ArSSize argon::vm::io::Read(File *file, unsigned char *buf, datatype::ArSize count) {
     DWORD read;
 
-    bool ok = ReadFile(file->handle,
-                       buf,
-                       (DWORD) count,
-                       &read,
-                       nullptr);
-
-    if (!ok) {
-        assert(false); // TODO
+    if (!ReadFile(file->handle,
+                  buf,
+                  (DWORD) count,
+                  &read,
+                  nullptr)) {
+        ErrorFromWinErr();
         return -1;
     }
 
@@ -383,14 +382,12 @@ ArSSize argon::vm::io::Read(File *file, unsigned char *buf, datatype::ArSize cou
 ArSSize argon::vm::io::Write(File *file, const unsigned char *buf, datatype::ArSize count) {
     DWORD written;
 
-    bool ok = WriteFile(file->handle,
-                        buf,
-                        (DWORD) count,
-                        &written,
-                        nullptr);
-
-    if (!ok) {
-        assert(false); // TODO
+    if (!WriteFile(file->handle,
+                   buf,
+                   (DWORD) count,
+                   &written,
+                   nullptr)) {
+        ErrorFromWinErr();
         return -1;
     }
 
@@ -401,7 +398,7 @@ bool argon::vm::io::GetFileSize(const File *file, datatype::ArSize *out_size) {
     BY_HANDLE_FILE_INFORMATION finfo{};
 
     if (!GetFileInformationByHandle(file->handle, &finfo)) {
-        assert(false); // TODO
+        ErrorFromWinErr();
         return false;
     }
 
@@ -435,12 +432,11 @@ bool argon::vm::io::Seek(const File *file, datatype::ArSSize offset, FileWhence 
             break;
     }
 
-    auto pos = SetFilePointer(file->handle,
-                              offset,
-                              nullptr,
-                              _whence);
-    if (pos == INVALID_SET_FILE_POINTER) {
-        assert(false); // TODO
+    if (SetFilePointer(file->handle,
+                       offset,
+                       nullptr,
+                       _whence) == INVALID_SET_FILE_POINTER) {
+        ErrorFromWinErr();
         return false;
     }
 
@@ -450,7 +446,7 @@ bool argon::vm::io::Seek(const File *file, datatype::ArSSize offset, FileWhence 
 bool argon::vm::io::Tell(const File *file, ArSize *out_pos) {
     *out_pos = SetFilePointer(file->handle, 0, nullptr, FILE_CURRENT);
     if (*out_pos == INVALID_SET_FILE_POINTER) {
-        assert(false); // TODO
+        ErrorFromWinErr();
         return false;
     }
 
@@ -483,7 +479,8 @@ File *argon::vm::io::FileNew(const char *path, FileMode mode) {
             nullptr);
 
     if (handle == INVALID_HANDLE_VALUE) {
-        assert(false); // TODO
+        ErrorFromWinErr();
+        return nullptr;
     }
 
     auto *file = MakeObject<File>(&FileType);
@@ -495,11 +492,22 @@ File *argon::vm::io::FileNew(const char *path, FileMode mode) {
     file->handle = handle;
     file->mode = mode;
 
-    ArObject *args[1]{};
+    return file;
+}
 
-    args[0] = (ArObject *) IntNew(-1);
+File *argon::vm::io::FileNew(int fd, FileMode mode) {
+    auto handle = (HANDLE) _get_osfhandle(fd);
+    if (handle == INVALID_HANDLE_VALUE) {
+        ErrorFromErrno(errno);
+        return nullptr;
+    }
 
-    file_read_fn(nullptr, (ArObject *) file, args, nullptr, 1);
+    auto *file = MakeObject<File>(&FileType);
+    if (file == nullptr)
+        return nullptr;
+
+    file->handle = handle;
+    file->mode = mode;
 
     return file;
 }
@@ -510,7 +518,7 @@ ArSSize argon::vm::io::Read(File *file, unsigned char *buf, datatype::ArSize cou
     ArSSize rd;
 
     if ((rd = read(file->handle, buf, count)) < 0) {
-        assert(false); // TODO
+        ErrorFromErrno(errno);
         return -1;
     }
 
@@ -521,7 +529,7 @@ ArSSize argon::vm::io::Write(File *file, const unsigned char *buf, datatype::ArS
     ArSSize written;
 
     if ((written = write(file->handle, buf, count)) < 0) {
-        assert(false); // TODO
+        ErrorFromErrno(errno);
         return -1;
     }
 
@@ -581,7 +589,7 @@ bool argon::vm::io::Seek(const File *file, datatype::ArSSize offset, FileWhence 
 
     auto pos = lseek(file->handle, offset, _whence);
     if (pos < 0) {
-        assert(false); // TODO
+        ErrorFromErrno(errno);
         return false;
     }
 
@@ -591,7 +599,7 @@ bool argon::vm::io::Seek(const File *file, datatype::ArSSize offset, FileWhence 
 bool argon::vm::io::Tell(const File *file, ArSize *out_pos) {
     auto pos = lseek(file->handle, 0, SEEK_CUR);
     if (pos < 0) {
-        assert(false); // TODO
+        ErrorFromErrno(errno);
         return false;
     }
 
@@ -615,7 +623,7 @@ File *argon::vm::io::FileNew(const char *path, FileMode mode) {
         omode |= (unsigned int) O_APPEND;
 
     if ((fd = open(path, (int) omode)) < 0) {
-        // TODO: return (File *) ErrorSetFromErrno();
+        ErrorFromErrno(errno);
         return nullptr;
     }
 

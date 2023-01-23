@@ -60,6 +60,9 @@ namespace argon::vm::io {
     bool Tell(const File *file, datatype::ArSize *out_pos);
 
     File *FileNew(const char *path, FileMode mode);
+
+    File *FileNew(int fd, FileMode mode);
+
 } // namespace argon::vm::io
 
 ENUMBITMASK_ENABLE(argon::vm::io::FileMode);

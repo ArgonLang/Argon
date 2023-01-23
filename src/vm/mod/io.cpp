@@ -2,10 +2,14 @@
 //
 // Licensed under the Apache License v2.0
 
+#include <vm/datatype/integer.h>
+
 #include <vm/io/fio.h>
 
 #ifdef _ARGON_PLATFORM_WINDOWS
+
 #include <stdio.h>
+
 #else
 
 #include <unistd.h>
@@ -16,6 +20,17 @@
 
 using namespace argon::vm::datatype;
 using namespace argon::vm::io;
+
+ARGON_FUNCTION(io_openfd, openfd,
+               "Create a new File object associated with the given fd.\n"
+               "\n"
+               "- Parameters:\n"
+               "  - fd: Int representing a file descriptor.\n"
+               "  - mode: Opening mode.\n"
+               "- Returns: New File object.\n",
+               "i: fd, i: mode", false, false) {
+    return (ArObject *) FileNew(((Integer *) *args)->sint, (FileMode) ((Integer *) args[1])->sint);
+}
 
 bool IOInit(Module *self) {
 #define ADD_CONSTANT(name, value)                   \
@@ -33,9 +48,9 @@ bool IOInit(Module *self) {
     ADD_CONSTANT("SEEK_END", (int) FileWhence::END);
 
 #ifdef _ARGON_PLATFORM_WINDOWS
-        ADD_CONSTANT("STDIN_NO", _fileno(stdin));
-        ADD_CONSTANT("STDOUT_NO", _fileno(stdout));
-        ADD_CONSTANT("STDERR_NO", _fileno(stderr));
+    ADD_CONSTANT("STDIN_NO", _fileno(stdin));
+    ADD_CONSTANT("STDOUT_NO", _fileno(stdout));
+    ADD_CONSTANT("STDERR_NO", _fileno(stderr));
 #else
     ADD_CONSTANT("STDIN_NO", STDIN_FILENO);
     ADD_CONSTANT("STDOUT_NO", STDOUT_FILENO);
@@ -47,6 +62,8 @@ bool IOInit(Module *self) {
 
 const ModuleEntry io_entries[] = {
         MODULE_EXPORT_TYPE(argon::vm::io::type_file_),
+
+        MODULE_EXPORT_FUNCTION(io_openfd),
         ARGON_MODULE_SENTINEL
 };
 
