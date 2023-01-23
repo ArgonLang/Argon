@@ -5,6 +5,7 @@
 #include "boolean.h"
 #include "error.h"
 #include "function.h"
+#include "integer.h"
 #include "module.h"
 
 using namespace argon::vm::datatype;
@@ -165,7 +166,7 @@ bool AddObject(Module *mod, const ModuleEntry *entry) {
 
     for (const ModuleEntry *cursor = entry; cursor->prop.object != nullptr && ok; cursor++) {
         const auto *name = cursor->name;
-        ArObject *value = cursor->prop.object;
+        ArObject * value = cursor->prop.object;
 
         if (cursor->func) {
             value = (ArObject *) FunctionNew(cursor->prop.func, nullptr, mod->ns);
@@ -209,6 +210,18 @@ ArObject *argon::vm::datatype::ModuleLookup(const Module *mod, const char *key, 
     Release(skey);
 
     return ret;
+}
+
+bool argon::vm::datatype::ModuleAddIntConstant(Module *mod, const char *key, ArSSize value) {
+    auto *avalue = IntNew(value);
+    bool ok = false;
+
+    if (avalue != nullptr) {
+        ok = ModuleAddObject(mod, key, (ArObject *) avalue, MODULE_ATTRIBUTE_DEFAULT);
+        Release(avalue);
+    }
+
+    return ok;
 }
 
 bool argon::vm::datatype::ModuleAddObject(Module *mod, const char *key, ArObject *object, AttributeFlag flags) {

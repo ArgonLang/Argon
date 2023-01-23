@@ -72,6 +72,8 @@ namespace argon::vm::datatype {
 
     ArObject *ModuleLookup(const Module *mod, const char *key, AttributeProperty *out_prop);
 
+    bool ModuleAddIntConstant(Module *mod, const char *key, ArSSize value);
+
     bool ModuleAddObject(Module *mod, const char *key, ArObject *object, AttributeFlag flags);
 
     Module *ModuleNew(const ModuleInit *init);
