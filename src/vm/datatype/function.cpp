@@ -185,17 +185,16 @@ Function *FunctionNew(String *name, String *doc, unsigned short arity, FunctionF
 
 ArObject *argon::vm::datatype::FunctionInvokeNative(Function *func, ArObject **args, ArSize count, bool kwargs) {
     ArObject **f_args = args;
+    ArObject **f_args_base = nullptr;
     ArObject *f_kwargs = nullptr;
     ArObject *instance = nullptr;
     ArObject *ret = nullptr;
 
     ArSize f_count = count;
 
-    bool free_args = false;
-
     // Check stub
     if (func->native == nullptr) {
-        ErrorFormat(kNotImplementedError[0], kNotImplementedError[1], ARGON_RAW_STRING(func->name));
+        ErrorFormat(kNotImplementedError[0], kNotImplementedError[1], ARGON_RAW_STRING(func->qname));
         return nullptr;
     }
 
@@ -206,16 +205,16 @@ ArObject *argon::vm::datatype::FunctionInvokeNative(Function *func, ArObject **a
         f_count += func->currying->length;
 
         if (count > 0) {
-            if ((f_args = (ArObject **) memory::Alloc(sizeof(void *) * f_count)) == nullptr)
+            if ((f_args_base = (ArObject **) memory::Alloc(sizeof(void *) * f_count)) == nullptr)
                 return nullptr;
+
+            f_args = f_args_base;
 
             for (int i = 0; i < clen; i++)
                 f_args[i] = func->currying->objects[i];
 
             for (int i = 0; i < count; i++)
                 f_args[clen + i] = args[i];
-
-            free_args = true;
         }
     }
 
@@ -240,8 +239,8 @@ ArObject *argon::vm::datatype::FunctionInvokeNative(Function *func, ArObject **a
         ret = func->native((ArObject *) func, instance, f_args, f_kwargs, f_count);
 
     ERROR:
-    if (free_args)
-        memory::Free(f_args);
+    if (f_args_base != nullptr)
+        memory::Free(f_args_base);
 
     return ret;
 }
