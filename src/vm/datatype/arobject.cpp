@@ -106,7 +106,14 @@ ArObject *type_get_attr(const ArObject *self, ArObject *key, bool static_attr) {
 }
 
 ArObject *type_repr(const TypeInfo *self) {
-    return nullptr;
+    const char *type = "type";
+
+    if (ENUMBITMASK_ISTRUE(self->flags, TypeInfoFlags::STRUCT))
+        type = "struct";
+    else if (ENUMBITMASK_ISTRUE(self->flags, TypeInfoFlags::TRAIT))
+        type = "trait";
+
+    return (ArObject *) StringFormat("<%s %s>", type, self->name);
 }
 
 ArSize type_hash(TypeInfo *self) {
@@ -479,7 +486,7 @@ ArObject *argon::vm::datatype::TypeNew(const TypeInfo *type, const char *name, c
         return nullptr;
     }
 
-    if (!TypeInit(ret,  ns))
+    if (!TypeInit(ret, ns))
         Release((ArObject **) &ret);
 
     return (ArObject *) ret;
