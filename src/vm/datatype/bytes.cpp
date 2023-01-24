@@ -168,7 +168,7 @@ ARGON_METHOD(bytes_find, find,
     ArSSize index;
 
     if (_self == args[0])
-        return BoolToArBool(true);
+        return (ArObject *) IntNew(0);
 
     if (!BufferGet(args[0], &buffer, BufferFlags::READ))
         return nullptr;
@@ -181,7 +181,33 @@ ARGON_METHOD(bytes_find, find,
 
     BufferRelease(&buffer);
 
-    return BoolToArBool(index);
+    return (ArObject *) IntNew(index);
+}
+
+ARGON_METHOD(bytes_findbyte, findbyte,
+             "Searches the bytes string for a specified value and returns the position of where it was found.\n"
+             "\n"
+             "- Parameters:\n"
+             "  - offset: Start offset.\n"
+             "  - byte: The value to search for.\n"
+             "- Returns: Index of the first position, -1 otherwise.\n",
+             "iu: offset, u: byte", false, false) {
+    auto *self = (Bytes *) _self;
+    ArSize start = ((Integer *) args[0])->uint;
+    auto pattern = (unsigned char) ((Integer *) args[1])->uint;
+
+    SHARED_LOCK(self);
+
+    for (ArSize i = start; i < BUFFER_LEN(self); i++) {
+        if (BUFFER_GET(self)[i] == pattern) {
+            SHARED_UNLOCK(self);
+            return (ArObject *) IntNew((IntegerUnderlying) i);
+        }
+    }
+
+    SHARED_UNLOCK(self);
+
+    return (ArObject *) IntNew(-1);
 }
 
 ARGON_METHOD(bytes_freeze, freeze,
@@ -450,7 +476,7 @@ ARGON_METHOD(bytes_rfind, rfind,
     ArSSize index;
 
     if (_self == args[0])
-        return BoolToArBool(true);
+        return (ArObject *) IntNew(0);
 
     if (!BufferGet(args[0], &buffer, BufferFlags::READ))
         return nullptr;
@@ -463,7 +489,7 @@ ARGON_METHOD(bytes_rfind, rfind,
 
     BufferRelease(&buffer);
 
-    return BoolToArBool(index);
+    return (ArObject *) IntNew(index);
 }
 
 ARGON_METHOD(bytes_rmpostfix, rmpostfix,
@@ -700,6 +726,7 @@ const FunctionDef bytes_method[] = {
         bytes_clone,
         bytes_endswith,
         bytes_find,
+        bytes_findbyte,
         bytes_freeze,
         bytes_isalnum,
         bytes_isalpha,
