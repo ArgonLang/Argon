@@ -199,7 +199,7 @@ bool argon::vm::datatype::NamespaceSetPositional(Namespace *ns, ArObject **value
 
     for (auto *cursor = ns->ns.iter_begin; cursor != nullptr; cursor = cursor->iter_next) {
         if (idx >= count)
-            return false;
+            break;
 
         if (cursor->value.properties.IsConstant())
             continue;
@@ -207,7 +207,7 @@ bool argon::vm::datatype::NamespaceSetPositional(Namespace *ns, ArObject **value
         cursor->value.value.Store(values[idx++]);
     }
 
-    return true;
+    return count <= idx;
 }
 
 bool NewEntry(Namespace *ns, ArObject *key, ArObject *value, AttributeFlag aa) {
