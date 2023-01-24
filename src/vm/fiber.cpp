@@ -151,6 +151,9 @@ Frame *argon::vm::FrameNew(Fiber *fiber, Function *func, ArObject **argv, ArSize
             ListAppend(rest, argv[index_argv++]);
     }
 
+    if(func->IsMethod())
+        frame->instance = *frame->locals;
+
     if (func->IsVariadic())
         frame->locals[index_locals++] = NilOrValue((ArObject *) rest);
 
