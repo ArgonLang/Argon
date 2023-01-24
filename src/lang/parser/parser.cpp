@@ -1392,7 +1392,7 @@ Node *Parser::ParseLiteral() {
             value = (ArObject *) DecimalNew((const char *) this->tkcur_.buffer);
             break;
         case TokenType::NUMBER_CHR:
-            value = (ArObject *) IntNew(StringUTF8ToInt((const unsigned char *) this->tkcur_.buffer));
+            value = (ArObject *) UIntNew(StringUTF8ToInt((const unsigned char *) this->tkcur_.buffer));
             break;
         case TokenType::STRING:
         case TokenType::RAW_STRING:
