@@ -192,6 +192,9 @@ bool argon::vm::datatype::NamespaceSet(Namespace *ns, ArObject *key, ArObject *v
 bool argon::vm::datatype::NamespaceSetPositional(Namespace *ns, ArObject **values, ArSize count) {
     ArSize idx = 0;
 
+    if(count == 0)
+        return true;
+
     std::unique_lock _(ns->rwlock);
 
     for (auto *cursor = ns->ns.iter_begin; cursor != nullptr; cursor = cursor->iter_next) {
