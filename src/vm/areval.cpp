@@ -166,7 +166,7 @@ bool CallFunction(Fiber *fiber, Frame **cu_frame, const Code **cu_code, bool val
     args = eval_stack;
     args_length = stack_size;
 
-    if (*args == nullptr) {
+    if (stack_size > 0 && *args == nullptr) {
         args++;
         args_length--;
     }
@@ -312,7 +312,7 @@ bool Spawn(Frame *cu_frame) {
     args = eval_stack;
     args_length = stack_size;
 
-    if (*args == nullptr) {
+    if (stack_size > 0 && *args == nullptr) {
         args++;
         args_length--;
     }
@@ -597,7 +597,7 @@ ArObject *argon::vm::Eval(Fiber *fiber) {
                 BINARY_OP(idiv, '//');
             }
             TARGET_OP(IMPALL) {
-                if (!NamespaceMergePublic(cu_frame->globals, ((Module*) TOP())->ns))
+                if (!NamespaceMergePublic(cu_frame->globals, ((Module *) TOP())->ns))
                     break;
 
                 POP();

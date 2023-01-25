@@ -224,7 +224,7 @@ bool NewEntry(Namespace *ns, ArObject *key, ArObject *value, AttributeFlag aa) {
 
     entry->key = IncRef(key);
 
-    entry->value.value.Store(value, ENUMBITMASK_ISTRUE(aa, AttributeFlag::WEAK));
+    entry->value.value.Store(value, ENUMBITMASK_ISFALSE(aa, AttributeFlag::WEAK));
     entry->value.properties.flags = aa;
 
     if (!ns->ns.Insert(entry)) {
