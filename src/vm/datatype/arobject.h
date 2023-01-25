@@ -216,8 +216,8 @@ namespace argon::vm::datatype {
             return this->weak_ ? nullptr : this->s_value;
         }
 
-        void Store(ArObject *object, bool weak) {
-            if (!weak
+        void Store(ArObject *object, bool strong) {
+            if (strong
                 || object->head_.ref_count_.IsStatic()
                 || ENUMBITMASK_ISFALSE(AR_GET_TYPE(object)->flags, TypeInfoFlags::WEAKABLE)) {
                 object->head_.ref_count_.IncStrong();
