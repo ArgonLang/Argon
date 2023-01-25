@@ -316,8 +316,8 @@ Loop *argon::lang::parser::LoopNew(Node *init, Node *test, Node *inc, Node *body
     return loop;
 }
 
-Subscript *argon::lang::parser::SubscriptNew(Node *expr, Node *start, Node *stop) {
-    auto *sub = NodeNew<Subscript>(&SubscriptAstType, stop == nullptr ? NodeType::INDEX : NodeType::SLICE);
+Subscript *argon::lang::parser::SubscriptNew(Node *expr, Node *start, Node *stop, bool slice) {
+    auto *sub = NodeNew<Subscript>(&SubscriptAstType, slice ? NodeType::SLICE : NodeType::INDEX);
 
     if (sub != nullptr) {
         sub->expression = IncRef(expr);

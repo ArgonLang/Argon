@@ -219,7 +219,7 @@ namespace argon::lang::parser {
 
     Loop *LoopNew(Node *init, Node *test, Node *inc, Node *body, NodeType type);
 
-    Subscript *SubscriptNew(Node *expr, Node *start, Node *stop);
+    Subscript *SubscriptNew(Node *expr, Node *start, Node *stop, bool slice);
 
     SwitchCase *
     SwitchCaseNew(vm::datatype::ArObject *conditions, vm::datatype::ArObject *body, const scanner::Loc &loc);

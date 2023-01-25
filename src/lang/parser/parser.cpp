@@ -1723,6 +1723,8 @@ Node *Parser::ParseSubscript(Node *left) {
     ARC start;
     ARC stop;
 
+    bool is_slice = false;
+
     this->Eat();
     this->IgnoreNL();
 
@@ -1735,10 +1737,14 @@ Node *Parser::ParseSubscript(Node *left) {
 
     if (this->MatchEat(TokenType::COLON)) {
         this->IgnoreNL();
-        stop = (ArObject *) this->ParseExpression(0);
+
+        if (!this->Match(TokenType::RIGHT_SQUARE))
+            stop = (ArObject *) this->ParseExpression(0);
+
+        is_slice = true;
     }
 
-    auto *slice = SubscriptNew(left, (Node *) start.Get(), (Node *) stop.Get());
+    auto *slice = SubscriptNew(left, (Node *) start.Get(), (Node *) stop.Get(), is_slice);
     if (slice == nullptr)
         throw DatatypeException();
 
