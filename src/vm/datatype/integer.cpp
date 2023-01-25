@@ -334,8 +334,10 @@ const TypeInfo *argon::vm::datatype::type_uint_ = &UIntegerType;
 Integer *argon::vm::datatype::IntNew(IntegerUnderlying number) {
     auto *si = MakeObject<Integer>(&IntegerType);
 
-    if (si != nullptr)
+    if (si != nullptr) {
+        si->uint = 0;
         si->sint = number;
+    }
 
     return si;
 }
@@ -343,8 +345,10 @@ Integer *argon::vm::datatype::IntNew(IntegerUnderlying number) {
 Integer *argon::vm::datatype::IntNew(const char *string, int base) {
     auto *si = MakeObject<Integer>(&IntegerType);
 
-    if (si != nullptr)
+    if (si != nullptr) {
+        si->uint = 0;
         si->sint = std::strtol(string, nullptr, base);
+    }
 
     return si;
 }
