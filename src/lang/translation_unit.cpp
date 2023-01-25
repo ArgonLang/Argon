@@ -128,7 +128,10 @@ JBlock *TranslationUnit::JBNew(String *label) {
     JBlock *block = this->jstack;
 
     for (; block != nullptr; block = block->prev) {
-        if (StringCompare(block->label, label) == 0 && block->nested == this->symt->nested)
+        if (label != nullptr &&
+            block->label != nullptr &&
+            StringCompare(block->label, label) == 0 &&
+            block->nested == this->symt->nested)
             break;
     }
 
