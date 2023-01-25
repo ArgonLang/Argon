@@ -46,19 +46,24 @@ ARGON_FUNCTION(bytes_bytes, Bytes,
                "- Parameter src: Integer or bytes-like object.\n"
                "- Returns: Construct a new bytes object.\n",
                nullptr, true, false) {
-    UIntegerUnderlying size = 0;
-
     if (!VariadicCheckPositional(bytes_bytes.name, (unsigned int) argc, 0, 1))
         return nullptr;
 
     if (argc == 1) {
-        if (!AR_TYPEOF(args[0], type_uint_))
-            return (ArObject *) BytesNew(*args);
+        if (AR_TYPEOF(args[0], type_int_)) {
+            if (((Integer *) *args)->sint < 0) {
+                ErrorFormat(kValueError[0], "cannot create a negative length bytes string");
+                return nullptr;
+            }
 
-        size = ((Integer *) *args)->uint;
+            return (ArObject *) BytesNew(((Integer *) *args)->sint, true, true, false);
+        } else if (AR_TYPEOF(args[0], type_uint_))
+            return (ArObject *) BytesNew(((Integer *) *args)->uint, true, true, false);
+
+        return (ArObject *) BytesNew(*args);
     }
 
-    return (ArObject *) BytesNew(size, true, true, false);
+    return (ArObject *) BytesNew(0, true, true, false);
 }
 
 ARGON_METHOD(bytes_capitalize, capitalize,
@@ -85,6 +90,66 @@ ARGON_METHOD(bytes_capitalize, capitalize,
     BUFFER_GET(ret)[0] = (unsigned char) toupper(*BUFFER_GET(ret));
 
     return (ArObject *) ret;
+}
+
+ARGON_METHOD(bytes_copy, copy,
+             "Copies a specified number of bytes from a bytes-like object.\n"
+             "\n"
+             "- Parameters:\n"
+             "  - src: Source buffer, any bytes-like object.\n"
+             "  - soff: Source offset.\n"
+             "  - doff: Destination offset.\n"
+             "  - len: Number of bytes to copy.\n"
+             " - Returns: Number of bytes copied.\n",
+             ": src, iu: soff, iu: doff, iu: len", false, false) {
+    auto *self = (Bytes *) _self;
+    auto *src = args[0];
+    auto soff = ((Integer *) args[1])->uint;
+    auto doff = ((Integer *) args[2])->uint;
+    auto cplen = ((Integer *) args[3])->uint;
+
+    ArBuffer buffer{};
+
+    if (AR_TYPEOF(args[1], type_int_) && ((Integer *) args[1])->sint < 0) {
+        ErrorFormat(kValueError[0], "invalid negative source offset");
+        return nullptr;
+    }
+
+    if (AR_TYPEOF(args[2], type_int_) && ((Integer *) args[2])->sint < 0) {
+        ErrorFormat(kValueError[0], "invalid negative destination offset");
+        return nullptr;
+    }
+
+    if (AR_TYPEOF(args[3], type_int_) && ((Integer *) args[3])->sint < 0) {
+        ErrorFormat(kValueError[0], "invalid negative length");
+        return nullptr;
+    }
+
+    if (self->frozen) {
+        ErrorFormat(kValueError[0], "frozen Bytes object cannot be used as destination for copy");
+        return nullptr;
+    }
+
+    if (!BufferGet(src, &buffer, BufferFlags::READ))
+        return nullptr;
+
+    if (_self != src)
+        VIEW_GET(self).WritableBufferLock();
+
+    if (cplen > BUFFER_LEN(self) - doff)
+        cplen = BUFFER_LEN(self) - doff;
+
+    if (cplen > buffer.length - soff)
+        cplen = buffer.length - soff;
+
+    argon::vm::memory::MemoryCopy(BUFFER_GET(self) + doff, buffer.buffer + soff, cplen);
+
+    if (_self != src)
+        VIEW_GET(self).WritableRelease();
+
+    BufferRelease(&buffer);
+
+    return (ArObject *) IntNew((IntegerUnderlying) cplen);
 }
 
 ARGON_METHOD(bytes_count, count,
@@ -723,6 +788,7 @@ const FunctionDef bytes_method[] = {
 
         bytes_capitalize,
         bytes_count,
+        bytes_copy,
         bytes_clone,
         bytes_endswith,
         bytes_find,
