@@ -129,6 +129,8 @@ ArObject *name##_fn(ArObject *_func, ArObject *_self, ArObject **args, ArObject 
 const FunctionDef name = {#exported_name, doc, name##_fn, params, variadic, kw, true};                  \
 ArObject *name##_fn(ArObject *_func, ArObject *_self, ArObject **args, ArObject *kwargs, ArSize argc)
 
+#define ARGON_METHOD_STUB(name, doc, params, variadic, kw)  {name, doc, nullptr, params, variadic, kw, true}
+
 #define ARGON_METHOD_SENTINEL {nullptr, nullptr, nullptr, 0, false, false, false}
 
     using MemberGetFn = ArObject *(*)(const ArObject *);

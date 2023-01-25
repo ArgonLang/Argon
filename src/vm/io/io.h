@@ -7,6 +7,8 @@
 
 #include <util/macros.h>
 
+#include <vm/datatype/objectdef.h>
+
 namespace argon::vm::io {
 
 #ifdef _ARGON_PLATFORM_WINDOWS
@@ -14,6 +16,10 @@ namespace argon::vm::io {
 #else
     using IOHandle = int;
 #endif
+
+    const extern datatype::TypeInfo *type_reader_t_;
+
+    const extern datatype::TypeInfo *type_writer_t_;
 
     bool IOInit();
 
