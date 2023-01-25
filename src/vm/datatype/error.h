@@ -78,7 +78,8 @@ namespace argon::vm::datatype {
 
     constexpr const char *kOverflowError[] = {
             (const char *) "OverflowError",
-            (const char *) "%s index out of range (length: %d, index: %d)"
+            (const char *) "%s index out of range (length: %d, index: %d)",
+            (const char *) "%s offset out of range (length: %d, offset: %d)"
     };
 
     constexpr const char *kOverrideError[] = {

@@ -133,17 +133,29 @@ ARGON_METHOD(file_read, read,
 ARGON_METHOD(file_readinto, readinto,
              "Read bytes into a pre-allocated, writable bytes-like object.\n"
              "\n"
-             "- Parameter obj: Bytes-like writable object.\n"
+             "- Parameters:\n"
+             "  - obj: Bytes-like writable object.\n"
+             "  - offset: Offset to start writing from.\n"
              "- Returns: Number of bytes read.\n",
-             ": obj", false, false) {
+             ": obj, i: offset", false, false) {
     ArBuffer buffer{};
     auto *self = (File *) _self;
+    auto offset = ((Integer *) args[1])->sint;
     ArSSize rlen;
 
     if (!BufferGet(*args, &buffer, BufferFlags::WRITE))
         return nullptr;
 
-    if ((rlen = Read(self, buffer.buffer, buffer.length)) < 0) {
+    if (offset < 0)
+        offset = 0;
+
+    if (offset >= buffer.length) {
+        ErrorFormat(kOverflowError[0], kOverflowError[2], AR_TYPE_NAME(*args), buffer.length, offset);
+        BufferRelease(&buffer);
+        return nullptr;
+    }
+
+    if ((rlen = Read(self, buffer.buffer + offset, buffer.length - offset)) < 0) {
         BufferRelease(&buffer);
         return nullptr;
     }
@@ -247,10 +259,16 @@ const FunctionDef file_methods[] = {
         ARGON_METHOD_SENTINEL
 };
 
+TypeInfo *file_bases[] = {
+        (TypeInfo *) type_reader_t_,
+        (TypeInfo *) type_writer_t_,
+        nullptr
+};
+
 const ObjectSlots file_objslot = {
         file_methods,
         nullptr,
-        nullptr,
+        file_bases,
         nullptr,
         nullptr,
         -1
