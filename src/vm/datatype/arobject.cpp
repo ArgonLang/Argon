@@ -821,17 +821,6 @@ bool argon::vm::datatype::TypeInit(TypeInfo *type, ArObject *auxiliary) {
             return false;
     }
 
-    // Push members
-    if (!InitMembers(type)) {
-        Release(&type->tp_map);
-        return false;
-    }
-
-    if (!MethodCheckOverride(type)) {
-        Release(&type->tp_map);
-        return false;
-    }
-
     if (type->qname == nullptr) {
         type->qname = type->name;
 
@@ -849,6 +838,19 @@ bool argon::vm::datatype::TypeInit(TypeInfo *type, ArObject *auxiliary) {
 
             type->qname = qname;
         }
+    }
+
+    // Push members
+    if (!InitMembers(type)) {
+        Release(&type->tp_map);
+        vm::memory::Free((char *) type->qname);
+        return false;
+    }
+
+    if (!MethodCheckOverride(type)) {
+        Release(&type->tp_map);
+        vm::memory::Free((char *) type->qname);
+        return false;
     }
 
     *((TypeInfoFlags *) &type->flags) = type->flags | TypeInfoFlags::INITIALIZED;
