@@ -769,24 +769,28 @@ bool MethodCheckOverride(TypeInfo *type) {
         if (AR_TYPEOF(fn, type_function_) && fn->IsMethod()) {
             auto *other = (Function *) MROSearch(type, cursor->key, nullptr);
 
-            if (other != nullptr &&
-                other->IsMethod() &&
-                (fn->arity != other->arity ||
-                 fn->IsVariadic() != other->IsVariadic() ||
-                 fn->IsKWArgs() != other->IsKWArgs())) {
+            if (other != nullptr && other->IsMethod()) {
+                if (fn->arity != other->arity ||
+                    fn->IsVariadic() != other->IsVariadic() ||
+                    fn->IsKWArgs() != other->IsKWArgs()) {
+                    ErrorFormat(kOverrideError[0],
+                                "signature mismatch for %s(%d%s%s), expected %s(%d%s%s)",
+                                ARGON_RAW_STRING(fn->qname),
+                                fn->arity - 1,
+                                fn->IsVariadic() ? ", ..." : "", fn->IsKWArgs() ? ", &" : "",
+                                ARGON_RAW_STRING(other->qname),
+                                other->arity - 1,
+                                other->IsVariadic() ? ", ..." : "", other->IsKWArgs() ? ", &" : "");
 
-                ErrorFormat(kOverrideError[0],
-                            "signature mismatch for %s(%d%s%s), expected %s(%d%s%s)",
-                            ARGON_RAW_STRING(fn->qname),
-                            fn->arity - 1,
-                            fn->IsVariadic() ? ", ..." : "", fn->IsKWArgs() ? ", &" : "",
-                            ARGON_RAW_STRING(other->qname),
-                            other->arity - 1,
-                            other->IsVariadic() ? ", ..." : "", other->IsKWArgs() ? ", &" : "");
+                    Release(fn);
+                    Release(other);
+                    return false;
+                }
 
-                Release(fn);
+                if (other->doc != nullptr && fn->doc == nullptr)
+                    fn->doc = IncRef(other->doc);
+
                 Release(other);
-                return false;
             }
         }
 
