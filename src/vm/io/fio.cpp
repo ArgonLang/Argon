@@ -67,13 +67,7 @@ ARGON_METHOD(file_isseekable, isseekable,
 }
 
 ARGON_METHOD(file_read, read,
-             "Read up to size bytes from the file and return them.\n"
-             "\n"
-             "As a convenience, if size is -1, all bytes until EOF are returned.\n"
-             "With size = -1, read() may be using multiple calls to the stream.\n"
-             "\n"
-             "- Parameter size: Number of bytes to read from the file.\n"
-             "- Returns: Bytes object.\n",
+             nullptr, // Inherited from Reader trait
              "i: size", false, false) {
     auto *self = (File *) _self;
     ArSize blksize = ((Integer *) *args)->sint;
@@ -131,12 +125,7 @@ ARGON_METHOD(file_read, read,
 }
 
 ARGON_METHOD(file_readinto, readinto,
-             "Read bytes into a pre-allocated, writable bytes-like object.\n"
-             "\n"
-             "- Parameters:\n"
-             "  - obj: Bytes-like writable object.\n"
-             "  - offset: Offset to start writing from.\n"
-             "- Returns: Number of bytes read.\n",
+             nullptr, // Inherited from Reader trait
              ": obj, i: offset", false, false) {
     ArBuffer buffer{};
     auto *self = (File *) _self;
@@ -211,10 +200,7 @@ ARGON_METHOD(file_tell, tell,
 }
 
 ARGON_METHOD(file_write, write,
-             "Write a bytes-like object to underlying stream.\n"
-             "\n"
-             "- Parameter: obj: Bytes-like object to write to.\n"
-             "- Returns: Bytes written.\n",
+             nullptr, // Inherited from Writer trait
              ": obj", false, false) {
     auto *self = (File *) _self;
     ArSSize written;

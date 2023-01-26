@@ -10,14 +10,22 @@ using namespace argon::vm::io;
 
 const FunctionDef reader_methods[] = {
         ARGON_METHOD_STUB("read",
-                          "Read up to size bytes from the file and return them.\n"
+                          "Read up to size bytes from the stream and return them.\n"
                           "\n"
                           "As a convenience, if size is -1, all bytes until EOF are returned.\n"
                           "With size = -1, read() may be using multiple calls to the stream.\n"
                           "\n"
-                          "- Parameter size: Number of bytes to read from the file.\n"
+                          "- Parameter size: Number of bytes to read from the stream.\n"
                           "- Returns: Bytes object.\n",
                           "i: size", false, false),
+        ARGON_METHOD_STUB("readinto",
+                          "Read bytes into a pre-allocated, writable bytes-like object.\n"
+                          "\n"
+                          "- Parameters:\n"
+                          "  - obj: Bytes-like writable object.\n"
+                          "  - offset: Offset to start writing from.\n"
+                          "- Returns: Number of bytes read.\n",
+                          ": obj, i: offset", false, false),
         ARGON_METHOD_SENTINEL
 };
 
