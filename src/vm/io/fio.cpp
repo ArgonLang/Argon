@@ -66,9 +66,8 @@ ARGON_METHOD(file_isseekable, isseekable,
     return BoolToArBool(IsSeekable((File *) _self));
 }
 
-ARGON_METHOD(file_read, read,
-             nullptr, // Inherited from Reader trait
-             "i: size", false, false) {
+// Inherited from Reader trait
+ARGON_METHOD_INHERITED(file_read, read) {
     auto *self = (File *) _self;
     ArSize blksize = ((Integer *) *args)->sint;
     Bytes *ret;
@@ -124,9 +123,8 @@ ARGON_METHOD(file_read, read,
     return nullptr;
 }
 
-ARGON_METHOD(file_readinto, readinto,
-             nullptr, // Inherited from Reader trait
-             ": obj, i: offset", false, false) {
+// Inherited from Reader trait
+ARGON_METHOD_INHERITED(file_readinto, readinto) {
     ArBuffer buffer{};
     auto *self = (File *) _self;
     auto offset = ((Integer *) args[1])->sint;
@@ -199,9 +197,8 @@ ARGON_METHOD(file_tell, tell,
     return (ArObject *) UIntNew(pos);
 }
 
-ARGON_METHOD(file_write, write,
-             nullptr, // Inherited from Writer trait
-             ": obj", false, false) {
+// Inherited from Writer trait
+ARGON_METHOD_INHERITED(file_write, write) {
     auto *self = (File *) _self;
     ArSSize written;
 
@@ -665,7 +662,7 @@ File *argon::vm::io::FileNew(const char *path, FileMode mode) {
 
 File *argon::vm::io::FileNew(int fd, FileMode mode) {
     errno = 0;
-    if(fcntl(fd, F_GETFD) == -1){
+    if (fcntl(fd, F_GETFD) == -1) {
         ErrorFromErrno(errno);
         return nullptr;
     }

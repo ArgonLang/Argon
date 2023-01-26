@@ -757,41 +757,50 @@ bool MethodCheckOverride(TypeInfo *type) {
     if (type->mro == nullptr || ((Tuple *) type->mro)->length == 0)
         return true;
 
-    std::shared_lock _(tp_map->rwlock);
-
     auto *cursor = tp_map->ns.iter_begin;
     while (cursor != nullptr) {
         auto *fn = (Function *) cursor->value.value.Get();
-
         if (fn == nullptr)
             continue;
 
         if (AR_TYPEOF(fn, type_function_) && fn->IsMethod()) {
             auto *other = (Function *) MROSearch(type, cursor->key, nullptr);
+            if (other == nullptr || !other->IsMethod()) {
+                Release(fn);
+                cursor = cursor->iter_next;
 
-            if (other != nullptr && other->IsMethod()) {
-                if (fn->arity != other->arity ||
-                    fn->IsVariadic() != other->IsVariadic() ||
-                    fn->IsKWArgs() != other->IsKWArgs()) {
-                    ErrorFormat(kOverrideError[0],
-                                "signature mismatch for %s(%d%s%s), expected %s(%d%s%s)",
-                                ARGON_RAW_STRING(fn->qname),
-                                fn->arity - 1,
-                                fn->IsVariadic() ? ", ..." : "", fn->IsKWArgs() ? ", &" : "",
-                                ARGON_RAW_STRING(other->qname),
-                                other->arity - 1,
-                                other->IsVariadic() ? ", ..." : "", other->IsKWArgs() ? ", &" : "");
-
-                    Release(fn);
-                    Release(other);
-                    return false;
-                }
-
-                if (other->doc != nullptr && fn->doc == nullptr)
-                    fn->doc = IncRef(other->doc);
-
-                Release(other);
+                continue;
             }
+
+            if (!fn->IsNative() && (fn->arity != other->arity ||
+                                    fn->IsVariadic() != other->IsVariadic() ||
+                                    fn->IsKWArgs() != other->IsKWArgs())) {
+                ErrorFormat(kOverrideError[0],
+                            "signature mismatch for %s(%d%s%s), expected %s(%d%s%s)",
+                            ARGON_RAW_STRING(fn->qname),
+                            fn->arity - 1,
+                            fn->IsVariadic() ? ", ..." : "", fn->IsKWArgs() ? ", &" : "",
+                            ARGON_RAW_STRING(other->qname),
+                            other->arity - 1,
+                            other->IsVariadic() ? ", ..." : "", other->IsKWArgs() ? ", &" : "");
+
+                Release(fn);
+                Release(other);
+                return false;
+            }
+
+            if (other->doc != nullptr && fn->doc == nullptr)
+                fn->doc = IncRef(other->doc);
+
+            if (fn->IsNative()) {
+                Release(fn->pcheck);
+
+                fn->pcheck = IncRef(other->pcheck);
+                fn->arity = other->arity;
+                fn->flags = other->flags;
+            }
+
+            Release(other);
         }
 
         Release(fn);
