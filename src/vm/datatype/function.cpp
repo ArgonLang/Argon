@@ -297,9 +297,9 @@ Function *argon::vm::datatype::FunctionNew(const FunctionDef *func, TypeInfo *ba
     FunctionFlags flags = FunctionFlags::NATIVE;
     unsigned short arity = 0;
     PCheck *pcheck = nullptr;
+    String *doc = nullptr;
     String *name;
     String *qname;
-    String *doc;
 
     if ((name = StringNew(func->name)) == nullptr)
         return nullptr;
@@ -309,10 +309,13 @@ Function *argon::vm::datatype::FunctionNew(const FunctionDef *func, TypeInfo *ba
         return nullptr;
     }
 
-    if ((doc = StringNew(func->doc)) == nullptr) {
-        Release(name);
-        Release(qname);
-        return nullptr;
+    if (func->doc != nullptr) {
+        doc = StringNew(func->doc);
+        if (doc == nullptr) {
+            Release(name);
+            Release(qname);
+            return nullptr;
+        }
     }
 
     if (func->params != nullptr && *func->params != '\0') {
