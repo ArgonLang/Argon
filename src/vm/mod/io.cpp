@@ -21,6 +21,15 @@
 using namespace argon::vm::datatype;
 using namespace argon::vm::io;
 
+ARGON_FUNCTION(io_open, open,
+               "Open file for reading.\n"
+               "\n"
+               "- Parameter path: File path.\n"
+               "- Returns: New File object.\n",
+               "s: path", false, false) {
+    return (ArObject *) FileNew((const char *) ARGON_RAW_STRING((String *) *args), FileMode::READ);
+}
+
 ARGON_FUNCTION(io_openfd, openfd,
                "Create a new File object associated with the given fd.\n"
                "\n"
@@ -30,6 +39,18 @@ ARGON_FUNCTION(io_openfd, openfd,
                "- Returns: New File object.\n",
                "i: fd, i: mode", false, false) {
     return (ArObject *) FileNew(((Integer *) *args)->sint, (FileMode) ((Integer *) args[1])->sint);
+}
+
+ARGON_FUNCTION(io_openfile, openfile,
+               "Opens the named file with specified flag.\n"
+               "\n"
+               "- Parameters:\n"
+               "  - path: File path.\n"
+               "  - mode: Opening mode.\n"
+               "- Returns: New File object.\n",
+               "s: path, i: mode", false, false) {
+    return (ArObject *) FileNew((const char *) ARGON_RAW_STRING((String *) *args),
+                                (FileMode) ((Integer *) args[1])->sint);
 }
 
 bool IOInit(Module *self) {
@@ -65,7 +86,10 @@ const ModuleEntry io_entries[] = {
         MODULE_EXPORT_TYPE(argon::vm::io::type_reader_t_),
         MODULE_EXPORT_TYPE(argon::vm::io::type_writer_t_),
 
+
+        MODULE_EXPORT_FUNCTION(io_open),
         MODULE_EXPORT_FUNCTION(io_openfd),
+        MODULE_EXPORT_FUNCTION(io_openfile),
         ARGON_MODULE_SENTINEL
 };
 

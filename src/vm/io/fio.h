@@ -49,6 +49,8 @@ namespace argon::vm::io {
         return Write(file, (const unsigned char *) str, strlen(str));
     }
 
+    bool FileClose(File *file);
+
     bool GetFileSize(const File *file, datatype::ArSize *out_size);
 
     bool Isatty(const File *file);

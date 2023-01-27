@@ -29,16 +29,15 @@
 using namespace argon::vm::datatype;
 using namespace argon::vm::io;
 
-ARGON_FUNCTION(file_file, File,
-               "Create a new File object associated with the given path.\n"
-               "\n"
-               "- Parameters:\n"
-               "  - path: File path.\n"
-               "  - mode: Opening mode.\n"
-               "- Returns: New File object.\n",
-               "s: path, i: mode", false, false) {
-    return (ArObject *) FileNew((const char *) ARGON_RAW_STRING((String *) *args),
-                                (FileMode) ((Integer *) args[1])->sint);
+ARGON_METHOD(file_close, close,
+             "Close this stream.\n"
+             "\n"
+             "This method has no effect if the stream is already closed.\n",
+             nullptr, false, false) {
+    if (!FileClose((File *) _self))
+        return nullptr;
+
+    return (ArObject *) IncRef(Nil);
 }
 
 ARGON_METHOD(file_getfd, getfd,
@@ -56,6 +55,23 @@ ARGON_METHOD(file_isatty, isatty,
              "- Returns: True if this descriptor refers to a terminal, false otherwise.\n",
              nullptr, false, false) {
     return BoolToArBool(Isatty((File *) _self));
+}
+
+ARGON_METHOD(file_isclosed, isclosed,
+             "Test if this file is closed.\n"
+             "\n"
+             "- Returns: True if file is closed, false otherwise.\n",
+             nullptr, false, false) {
+    auto self = (File *) _self;
+    bool closed;
+
+#ifdef _ARGON_PLATFORM_WINDOWS
+    closed = self->handle == INVALID_HANDLE_VALUE;
+#else
+    close = self->handle < 0;
+#endif
+
+    return BoolToArBool(closed);
 }
 
 ARGON_METHOD(file_isseekable, isseekable,
@@ -228,10 +244,10 @@ ARGON_METHOD(file_writestr, writestr,
 }
 
 const FunctionDef file_methods[] = {
-        file_file,
-
+        file_close,
         file_getfd,
         file_isatty,
+        file_isclosed,
         file_isseekable,
         file_read,
         file_readinto,
@@ -307,7 +323,11 @@ ArObject *file_repr(const File *self) {
 
 bool file_dtor(File *self) {
 #ifdef _ARGON_PLATFORM_WINDOWS
-    CloseHandle(self->handle);
+    if (self->handle != INVALID_HANDLE_VALUE)
+        return CloseHandle(self->handle) != 0;
+#else
+    if (self->handle >= 0)
+        return close(self->handle) == 0;
 #endif
 
     return true;
@@ -413,6 +433,19 @@ ArSSize argon::vm::io::Write(File *file, const unsigned char *buf, datatype::ArS
     }
 
     return (ArSSize) written;
+}
+
+bool argon::vm::io::FileClose(File *file) {
+    if (file->handle == INVALID_HANDLE_VALUE)
+        return true;
+
+    if (CloseHandle(file->handle) != 0) {
+        file->handle = INVALID_HANDLE_VALUE;
+        return true;
+    }
+
+    ErrorFromWinErr();
+    return false;
 }
 
 bool argon::vm::io::GetFileSize(const File *file, datatype::ArSize *out_size) {
@@ -555,6 +588,19 @@ ArSSize argon::vm::io::Write(File *file, const unsigned char *buf, datatype::ArS
     }
 
     return written;
+}
+
+bool argon::vm::io::FileClose(File *file) {
+    if (file->handle == -1)
+        return true;
+
+    if (close(file->handle) == 0) {
+        file->handle = -1;
+        return true;
+    }
+
+    ErrorFromErrno(errno);
+    return false;
 }
 
 bool argon::vm::io::GetFileSize(const File *file, datatype::ArSize *out_size) {
