@@ -26,6 +26,24 @@
 
 using namespace argon::vm::datatype;
 
+ARGON_FUNCTION(builtins_str, str,
+               "Return a string version of an object.\n"
+               "\n"
+               "- Parameter obj: Object to represent as a string.\n"
+               "- Returns: String version of object.\n",
+               ": obj", false, false) {
+    return Str(*args);
+}
+
+ARGON_FUNCTION(builtins_repr, repr,
+              "Return a string containing a printable representation of an object.\n"
+              "\n"
+              "- Parameter obj: Object to get a printable representation from.\n"
+              "- Returns: String version of object.\n",
+               ": obj", false, false) {
+    return Repr(*args);
+}
+
 const ModuleEntry builtins_entries[] = {
         MODULE_EXPORT_TYPE(type_atom_),
         MODULE_EXPORT_TYPE(type_boolean_),
@@ -46,11 +64,15 @@ const ModuleEntry builtins_entries[] = {
         MODULE_EXPORT_TYPE(type_set_),
         MODULE_EXPORT_TYPE(type_tuple_),
         MODULE_EXPORT_TYPE(type_uint_),
+
+
+        MODULE_EXPORT_FUNCTION(builtins_str),
+        MODULE_EXPORT_FUNCTION(builtins_repr),
         ARGON_MODULE_SENTINEL
 };
 
 constexpr ModuleInit ModuleBuiltins = {
-        "builtins",
+        "argon:builtins",
         "Built-in functions and other things.",
         builtins_entries,
         nullptr,
