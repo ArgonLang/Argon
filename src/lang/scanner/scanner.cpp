@@ -640,7 +640,8 @@ bool Scanner::TokenizeWord(Token *out_token) {
     if (out_token->length > 1) {
         for (KwToken kt: kw2tktype) {
             auto delta = out_token->length;
-            if (argon::vm::memory::MemoryCompare(kt.keyword, out_token->buffer, delta) == 0) {
+            if (strlen(kt.keyword) == delta &&
+                argon::vm::memory::MemoryCompare(kt.keyword, out_token->buffer, delta) == 0) {
                 out_token->type = kt.type;
                 break;
             }
