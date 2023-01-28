@@ -1055,7 +1055,7 @@ ArObject *stringiterator_iter_next(StringIterator *self) {
         if (self->index < STR_LEN(self->iterable)) {
             len = StringSubstrLen(self->iterable, self->index, 1);
 
-            if ((ret = StringIntern((const char *) buf, len)) != nullptr)
+            if ((ret = StringIntern((const char *) buf, len)) == nullptr)
                 return nullptr;
 
             self->index += len;
