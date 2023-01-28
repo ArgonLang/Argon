@@ -847,6 +847,7 @@ bool Scanner::NextToken(Token *out_token) noexcept {
                 CHECK_AGAIN('.', TokenType::QUESTION_DOT)
                 RETURN_TK(TokenType::QUESTION);
             case '@':
+                CHECK_AGAIN('(', TokenType::LEFT_INIT)
                 return this->TokenizeAtom(out_token);
             case '[':
                 RETURN_TK(TokenType::LEFT_SQUARE);

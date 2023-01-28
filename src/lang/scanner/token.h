@@ -104,7 +104,6 @@ namespace argon::lang::scanner {
         OR,
         INFIX_END,
 
-
         EXCLAMATION,
         LEFT_ROUND,
         RIGHT_ROUND,
@@ -112,6 +111,7 @@ namespace argon::lang::scanner {
         RIGHT_SQUARE,
         LEFT_BRACES,
         RIGHT_BRACES,
+        LEFT_INIT,
         COMMA,
         DOT,
         COLON,

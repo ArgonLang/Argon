@@ -44,52 +44,51 @@ int Parser::PeekPrecedence(scanner::TokenType token) {
             return 20;
         case TokenType::COMMA:
             return 30;
-        case TokenType::LEFT_BRACES:
-            return 40;
         case TokenType::ELVIS:
         case TokenType::QUESTION:
-            return 50;
+            return 40;
         case TokenType::PIPELINE:
-            return 60;
+            return 50;
         case TokenType::OR:
-            return 70;
+            return 60;
         case TokenType::AND:
-            return 80;
+            return 70;
         case TokenType::PIPE:
-            return 90;
+            return 80;
         case TokenType::CARET:
-            return 100;
+            return 90;
         case TokenType::EQUAL_EQUAL:
         case TokenType::EQUAL_STRICT:
         case TokenType::NOT_EQUAL:
         case TokenType::NOT_EQUAL_STRICT:
-            return 110;
+            return 100;
         case TokenType::LESS:
         case TokenType::LESS_EQ:
         case TokenType::GREATER:
         case TokenType::GREATER_EQ:
-            return 120;
+            return 110;
         case TokenType::SHL:
         case TokenType::SHR:
-            return 130;
+            return 120;
         case TokenType::PLUS:
         case TokenType::MINUS:
         case TokenType::EXCLAMATION:
         case TokenType::TILDE:
-            return 140;
+            return 130;
         case TokenType::ASTERISK:
         case TokenType::SLASH:
         case TokenType::SLASH_SLASH:
         case TokenType::PERCENT:
-            return 150;
+            return 140;
         case TokenType::PLUS_PLUS:
         case TokenType::MINUS_MINUS:
+        case TokenType::LEFT_INIT:
         case TokenType::LEFT_SQUARE:
         case TokenType::LEFT_ROUND:
         case TokenType::DOT:
         case TokenType::QUESTION_DOT:
         case TokenType::SCOPE:
-            return 160;
+            return 150;
         default:
             return 1000;
     }
@@ -117,7 +116,7 @@ Parser::LedMeth Parser::LookupLed(lang::scanner::TokenType token) const {
             return &Parser::ParsePipeline;
         case TokenType::LEFT_SQUARE:
             return &Parser::ParseSubscript;
-        case TokenType::LEFT_BRACES:
+        case TokenType::LEFT_INIT:
             return &Parser::ParseInit;
         case TokenType::ELVIS:
             return &Parser::ParseElvis;
@@ -842,9 +841,9 @@ Node *Parser::ParseFor() {
 
         this->IgnoreNL();
 
-        inc = (ArObject *) this->ParseExpression(PeekPrecedence(scanner::TokenType::LEFT_BRACES));
+        inc = (ArObject *) this->ParseExpression(0);
     } else
-        test = (ArObject *) this->ParseExpression(PeekPrecedence(scanner::TokenType::LEFT_BRACES));
+        test = (ArObject *) this->ParseExpression(PeekPrecedence(TokenType::EQUAL));
 
 
     body = (ArObject *) this->ParseBlock(ParserScope::LOOP);
@@ -1129,7 +1128,7 @@ Node *Parser::ParseIF() {
 
     this->Eat();
 
-    test = (ArObject *) this->ParseExpression(PeekPrecedence(scanner::TokenType::LEFT_BRACES));
+    test = (ArObject *) this->ParseExpression(PeekPrecedence(scanner::TokenType::EQUAL));
 
     body = (ArObject *) this->ParseBlock(ParserScope::BLOCK);
 
@@ -1251,7 +1250,7 @@ Node *Parser::ParseInit(Node *left) {
     if (!list)
         throw DatatypeException();
 
-    if (this->Match(TokenType::RIGHT_BRACES)) {
+    if (this->Match(TokenType::RIGHT_ROUND)) {
         auto *init = InitNew(left, nullptr, this->tkcur_.loc, false);
         if (init == nullptr)
             throw DatatypeException();
@@ -1276,7 +1275,10 @@ Node *Parser::ParseInit(Node *left) {
         this->IgnoreNL();
 
         count++;
-        if (this->MatchEat(TokenType::COLON)) {
+        if (this->MatchEat(TokenType::EQUAL)) {
+            if (key->node_type != NodeType::IDENTIFIER)
+                throw ParserException("invalid initialization key");
+
             if (--count != 0)
                 throw ParserException("can't mix field names with positional initialization");
 
@@ -1306,9 +1308,9 @@ Node *Parser::ParseInit(Node *left) {
     if (init == nullptr)
         throw DatatypeException();
 
-    if (!this->MatchEat(TokenType::RIGHT_BRACES)) {
+    if (!this->MatchEat(TokenType::RIGHT_ROUND)) {
         Release(init);
-        throw ParserException("expected '}' after struct initialization");
+        throw ParserException("expected ')' after struct initialization");
     }
 
     return (Node *) init;
@@ -1434,7 +1436,7 @@ Node *Parser::ParseLoop() {
     this->Eat();
 
     if (!this->Match(scanner::TokenType::LEFT_BRACES))
-        test = (ArObject *) this->ParseExpression(PeekPrecedence(scanner::TokenType::LEFT_BRACES));
+        test = (ArObject *) this->ParseExpression(PeekPrecedence(scanner::TokenType::EQUAL));
 
     body = (ArObject *) this->ParseBlock(ParserScope::LOOP);
 
