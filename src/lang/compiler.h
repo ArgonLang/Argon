@@ -66,6 +66,8 @@ namespace argon::lang {
 
         void CompileForLoop(const parser::Loop *loop);
 
+        void CompileForLoopInc(const parser::Node *node);
+
         void CompileFunction(const parser::Function *func);
 
         void CompileFunctionDefaultBody(const parser::Function *func, vm::datatype::String *fname);

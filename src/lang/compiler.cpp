@@ -855,7 +855,7 @@ void Compiler::CompileForLoop(const parser::Loop *loop) {
 
         // Compile Inc
         if (loop->inc != nullptr)
-            this->Compile(loop->inc);
+            this->CompileForLoopInc(loop->inc);
 
         this->unit_->Emit(vm::OpCode::JMP, begin, nullptr);
     } catch (...) {
@@ -867,6 +867,21 @@ void Compiler::CompileForLoop(const parser::Loop *loop) {
 
     this->unit_->JBPop(jb);
     this->unit_->BlockAppend(end);
+}
+
+void Compiler::CompileForLoopInc(const parser::Node *node) {
+    switch(node->node_type){
+        case NodeType::ASSIGNMENT:
+            this->CompileAssignment((const parser::Binary *) node);
+            break;
+        case NodeType::CALL:
+            this->CompileCall((const parser::Call *) node);
+            break;
+        case NodeType::UPDATE:
+            this->CompileUpdate((const Unary *) node);
+            this->unit_->Emit(vm::OpCode::POP, nullptr);
+            break;
+    }
 }
 
 void Compiler::CompileFunction(const parser::Function *func) {
