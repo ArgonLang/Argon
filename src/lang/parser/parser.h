@@ -9,6 +9,7 @@
 
 #include "docstring.h"
 #include "node.h"
+#include "parsererr.h"
 
 namespace argon::lang::parser {
     constexpr const char *kParserError[] = {
@@ -45,6 +46,34 @@ namespace argon::lang::parser {
             if (!this->Match(type))
                 return this->Match(types...);
             return true;
+        }
+
+        void IgnoreNewLineIF(scanner::TokenType type) {
+            const scanner::Token *peek;
+
+            if (!this->scanner_.PeekToken(&peek))
+                throw ScannerException();
+
+            if(peek->type == type)
+                this->Eat();
+        }
+
+        template<typename ...TokenTypes>
+        void IgnoreNewLineIF(scanner::TokenType type, TokenTypes... types) {
+            const scanner::Token *peek;
+
+            if (this->tkcur_.type != scanner::TokenType::END_OF_LINE)
+                return;
+
+            if (!this->scanner_.PeekToken(&peek))
+                throw ScannerException();
+
+            if (peek->type != type) {
+                this->IgnoreNewLineIF(types...);
+                return;
+            }
+
+            this->Eat();
         }
 
         bool MatchEat(scanner::TokenType type) {

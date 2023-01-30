@@ -719,6 +719,18 @@ bool Scanner::NextToken(Token *out_token) noexcept {
         out_token->length = 0;
     }
 
+    if (this->peeked.type != TokenType::TK_NULL) {
+        out_token->type = this->peeked.type;
+        out_token->loc = this->peeked.loc;
+        out_token->buffer = this->peeked.buffer;
+        out_token->length = this->peeked.length;
+
+        this->peeked.type = TokenType::TK_NULL;
+        this->peeked.buffer = nullptr;
+
+        return true;
+    }
+
     while ((value = this->Peek()) > 0) {
 #define RETURN_TK(tk_type)          \
     do {                            \
@@ -875,6 +887,18 @@ bool Scanner::NextToken(Token *out_token) noexcept {
     out_token->loc.end = this->loc;
     out_token->type = TokenType::END_OF_FILE;
     return true;
+}
+
+bool Scanner::PeekToken(const Token **out_token) noexcept {
+    *out_token = &this->peeked;
+
+    if (this->peeked.type != TokenType::TK_NULL)
+        return true;
+
+    if (this->NextToken(&this->peeked))
+        return true;
+
+    return false;
 }
 
 const char *Scanner::GetStatusMessage() const {

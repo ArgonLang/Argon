@@ -52,9 +52,11 @@ namespace argon::lang::scanner {
 
         InputBuffer ibuf_;
 
-        ScannerStatus status_ = ScannerStatus::GOOD;
+        Token peeked{};
 
         Position loc{1, 1, 0};
+
+        ScannerStatus status_ = ScannerStatus::GOOD;
 
         int HexToByte();
 
@@ -128,6 +130,17 @@ namespace argon::lang::scanner {
          * @return True in case of success, false otherwise (you can use GetStatusMessage to know the error).
          */
         bool NextToken(Token *out_token) noexcept;
+
+        /**
+         * @brief Peek the next Token.
+         *
+         * @warning The returned pointer points to an internal structure,
+         * DO NOT modify its contents!
+         *
+         * @param out_token A pointer to a variable which will hold the pointer to the scanner internal token.
+         * @return True in case of success, false otherwise (you can use GetStatusMessage to know the error).
+         */
+        bool PeekToken(const Token **out_token) noexcept;
 
         /**
          * @brief Get Scanner status message.

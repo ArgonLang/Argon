@@ -98,6 +98,20 @@ Parser::LedMeth Parser::LookupLed(lang::scanner::TokenType token) const {
     if (this->TokenInRange(TokenType::INFIX_BEGIN, TokenType::INFIX_END))
         return &Parser::ParseInfix;
 
+    // They must necessarily appear on the same line!
+    switch (this->tkcur_.type) {
+        case TokenType::LEFT_ROUND:
+            return &Parser::ParseFnCall;
+        case TokenType::LEFT_SQUARE:
+            return &Parser::ParseSubscript;
+        case TokenType::LEFT_INIT:
+            return &Parser::ParseInit;
+        default:
+            break;
+    }
+
+    // They can appear in a new line while remaining valid!
+    // (See ParseExpression code to better understand)
     switch (token) {
         case TokenType::KW_IN:
             return &Parser::ParseIn;
@@ -110,14 +124,8 @@ Parser::LedMeth Parser::LookupLed(lang::scanner::TokenType token) const {
         case TokenType::QUESTION_DOT:
         case TokenType::SCOPE:
             return &Parser::ParseSelector;
-        case TokenType::LEFT_ROUND:
-            return &Parser::ParseFnCall;
         case TokenType::PIPELINE:
             return &Parser::ParsePipeline;
-        case TokenType::LEFT_SQUARE:
-            return &Parser::ParseSubscript;
-        case TokenType::LEFT_INIT:
-            return &Parser::ParseInit;
         case TokenType::ELVIS:
             return &Parser::ParseElvis;
         case TokenType::QUESTION:
@@ -261,9 +269,9 @@ Node *Parser::ParseAssertion() {
 
     expr = (ArObject *) this->ParseExpression(PeekPrecedence(scanner::TokenType::COMMA));
 
-    this->IgnoreNL();
+    this->IgnoreNewLineIF(TokenType::COMMA);
 
-    if (this->MatchEat(scanner::TokenType::COMMA)) {
+    if (this->MatchEat(TokenType::COMMA)) {
         this->IgnoreNL();
         msg = (ArObject *) this->ParseExpression(0);
     }
@@ -369,7 +377,7 @@ Node *Parser::ParseArrowOrTuple() {
     if (!this->MatchEat(scanner::TokenType::RIGHT_ROUND))
         throw ParserException("expected ')' after tuple/function definition");
 
-    this->IgnoreNL();
+    this->IgnoreNewLineIF(TokenType::FAT_ARROW);
 
     if (this->MatchEat(scanner::TokenType::FAT_ARROW)) {
         // Check param list
@@ -723,6 +731,10 @@ Node *Parser::ParseExpression() {
 
 Node *Parser::ParseExpression(int precedence) {
     bool is_safe = false;
+    bool nl = false;
+
+    const Token *token;
+
     LedMeth led;
     NudMeth nud;
 
@@ -733,14 +745,37 @@ Node *Parser::ParseExpression(int precedence) {
 
     left = (ArObject *) (this->*nud)();
 
-    while (precedence < Parser::PeekPrecedence(TKCUR_TYPE)) {
-        if ((led = this->LookupLed(TKCUR_TYPE)) == nullptr)
+    token = &this->tkcur_;
+
+    if (this->Match(scanner::TokenType::END_OF_LINE)) {
+        if (!this->scanner_.PeekToken(&token))
+            throw ScannerException();
+
+        nl = true;
+    }
+
+    while (precedence < Parser::PeekPrecedence(token->type)) {
+        if ((led = this->LookupLed(token->type)) == nullptr)
             break;
 
-        if (TKCUR_TYPE == TokenType::QUESTION_DOT)
+        if (nl) {
+            this->IgnoreNL();
+            nl = false;
+        }
+
+        if (token->type == TokenType::QUESTION_DOT)
             is_safe = true;
 
         left = (ArObject *) (this->*led)((Node *) left.Get());
+
+        token = &this->tkcur_;
+
+        if (this->Match(scanner::TokenType::END_OF_LINE)) {
+            if (!this->scanner_.PeekToken(&token))
+                throw ScannerException();
+
+            nl = true;
+        }
     }
 
     if (is_safe) {
@@ -1228,6 +1263,7 @@ Node *Parser::ParseInfix(Node *left) {
     ARC right;
 
     this->Eat();
+    this->IgnoreNL();
 
     right = (ArObject *) this->ParseExpression(this->PeekPrecedence(kind));
 
@@ -1483,7 +1519,7 @@ Node *Parser::ParsePipeline(Node *left) {
     this->Eat();
     this->IgnoreNL();
 
-    right = this->ParseExpression(PeekPrecedence(TokenType::LEFT_BRACES) - 1);
+    right = this->ParseExpression(PeekPrecedence(TokenType::ASTERISK));
     if (right->node_type == NodeType::CALL) {
         auto *call = (Call *) right;
 
@@ -1967,7 +2003,7 @@ Node *Parser::ParseVarDecl(bool visibility, bool constant, bool weak) {
     token = std::move(this->tkcur_);
 
     this->Eat();
-    this->IgnoreNL();
+    this->IgnoreNewLineIF(TokenType::COMMA, TokenType::EQUAL);
 
     if (!this->MatchEat(TokenType::COMMA)) {
         auto *id = MakeIdentifier(&token);
@@ -1984,7 +2020,7 @@ Node *Parser::ParseVarDecl(bool visibility, bool constant, bool weak) {
     } else
         assign = (ArObject *) this->ParseVarDeclTuple(token, visibility, constant, weak);
 
-    this->IgnoreNL();
+    this->IgnoreNewLineIF(TokenType::EQUAL);
 
     if (this->MatchEat(TokenType::EQUAL)) {
         this->IgnoreNL();
@@ -2125,7 +2161,12 @@ File *Parser::Parse() noexcept {
             }
 
             end = this->tkcur_.loc.end;
-            this->IgnoreNL();
+
+            if (!this->Match(TokenType::END_OF_LINE, TokenType::SEMICOLON, TokenType::END_OF_FILE))
+                throw ParserException("invalid token at the end of the line");
+
+            while (this->Match(TokenType::END_OF_LINE, TokenType::SEMICOLON))
+                this->Eat();
         }
 
         doc = (ArObject *) this->doc_string_->Unwrap();
