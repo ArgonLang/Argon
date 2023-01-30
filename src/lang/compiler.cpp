@@ -752,18 +752,18 @@ void Compiler::CompileDeclaration(const parser::Assignment *declaration) {
     }
 }
 
-void Compiler::CompileElvis(const parser::Test *test) {
+void Compiler::CompileElvis(const parser::Binary *binary) {
     BasicBlock *end;
 
-    this->Expression(test->test);
+    this->Expression(binary->left);
 
     if ((end = BasicBlockNew()) == nullptr)
         throw DatatypeException();
 
     try {
-        this->unit_->Emit(vm::OpCode::JTOP, nullptr);
+        this->unit_->Emit(vm::OpCode::JTOP, end, nullptr);
 
-        this->Expression(test->orelse);
+        this->Expression(binary->right);
     } catch (const std::exception &) {
         BasicBlockDel(end);
         throw;
@@ -1650,7 +1650,7 @@ void Compiler::Expression(const Node *node) {
             this->CompileFunction((const parser::Function *) node);
             break;
         case NodeType::ELVIS:
-            this->CompileElvis((const Test *) node);
+            this->CompileElvis((const parser::Binary *) node);
             break;
         case NodeType::IN:
             this->CompileContains((const parser::Binary *) node);

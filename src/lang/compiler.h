@@ -60,7 +60,7 @@ namespace argon::lang {
 
         void CompileDeclaration(const parser::Assignment *declaration);
 
-        void CompileElvis(const parser::Test *test);
+        void CompileElvis(const parser::Binary *binary);
 
         void CompileForEach(const parser::Loop *loop);
 

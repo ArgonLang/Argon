@@ -689,13 +689,13 @@ Node *Parser::ParseElvis(Node *left) {
 
     auto *expr = this->ParseExpression(0);
 
-    auto *test = TestNew(left, nullptr, expr, NodeType::ELVIS);
-    if (test == nullptr) {
+    auto *binary = BinaryNew(left, expr, TokenType::TK_NULL, NodeType::ELVIS);
+    if (binary == nullptr) {
         Release(expr);
         throw DatatypeException();
     }
 
-    return (Node *) test;
+    return (Node *) binary;
 }
 
 Node *Parser::ParseExpression() {
