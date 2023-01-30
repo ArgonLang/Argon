@@ -855,6 +855,7 @@ bool Scanner::NextToken(Token *out_token) noexcept {
                 CHECK_AGAIN('>', TokenType::SHR)
                 RETURN_TK(TokenType::GREATER);
             case '?':
+                CHECK_AGAIN('?', TokenType::NULL_COALESCING)
                 CHECK_AGAIN(':', TokenType::ELVIS)
                 CHECK_AGAIN('.', TokenType::QUESTION_DOT)
                 RETURN_TK(TokenType::QUESTION);

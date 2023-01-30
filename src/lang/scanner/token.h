@@ -122,6 +122,7 @@ namespace argon::lang::scanner {
         QUESTION,
         QUESTION_DOT,
         ELVIS,
+        NULL_COALESCING,
         PIPELINE,
         TILDE,
 

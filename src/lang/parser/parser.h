@@ -153,6 +153,8 @@ namespace argon::lang::parser {
 
         Node *ParseLoop();
 
+        Node *ParseNullCoalescing(Node *left);
+
         Node *ParseOOBCall();
 
         Node *ParsePipeline(Node *left);

@@ -89,6 +89,8 @@ namespace argon::lang {
 
         void CompileLTDS(const parser::Unary *list);
 
+        void CompileNullCoalescing(const parser::Binary *binary);
+
         void CompileSafe(const parser::Unary *unary);
 
         void CompileSubscr(const parser::Subscript *subscr, bool dup, bool emit);

@@ -688,6 +688,14 @@ ArObject *argon::vm::Eval(Fiber *fiber) {
 
                 DISPATCH();
             }
+            TARGET_OP(JNN) {
+                // JUMP IF NOT NIL
+                if (TOP() != (ArObject *) Nil) {
+                    JUMPTO(I32Arg(cu_frame->instr_ptr));
+                }
+
+                DISPATCH();
+            }
             TARGET_OP(JT) {
                 // JUMP IF TRUE
                 if (IsTrue(TOP())) {

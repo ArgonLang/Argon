@@ -870,7 +870,7 @@ void Compiler::CompileForLoop(const parser::Loop *loop) {
 }
 
 void Compiler::CompileForLoopInc(const parser::Node *node) {
-    switch(node->node_type){
+    switch (node->node_type) {
         case NodeType::ASSIGNMENT:
             this->CompileAssignment((const parser::Binary *) node);
             break;
@@ -1250,6 +1250,27 @@ void Compiler::CompileLTDS(const Unary *list) {
     this->unit_->DecrementStack(items);
 
     this->unit_->Emit(code, items, nullptr, &list->loc);
+}
+
+void Compiler::CompileNullCoalescing(const parser::Binary *binary) {
+    BasicBlock *end;
+
+    this->Expression(binary->left);
+
+    if ((end = BasicBlockNew()) == nullptr)
+        throw DatatypeException();
+
+    try {
+        this->unit_->Emit(vm::OpCode::JNN, end, nullptr);
+        this->unit_->Emit(vm::OpCode::POP, nullptr);
+
+        this->Expression(binary->right);
+    } catch (const std::exception &) {
+        BasicBlockDel(end);
+        throw;
+    }
+
+    this->unit_->BlockAppend(end);
 }
 
 void Compiler::CompileSafe(const parser::Unary *unary) {
@@ -1636,6 +1657,9 @@ void Compiler::Expression(const Node *node) {
             break;
         case NodeType::LITERAL:
             this->LoadStatic(((const Unary *) node)->value, true, true);
+            break;
+        case NodeType::NULL_COALESCING:
+            this->CompileNullCoalescing((const parser::Binary *) node);
             break;
         case NodeType::UNARY:
             this->CompileUnary((const Unary *) node);

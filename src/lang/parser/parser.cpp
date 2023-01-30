@@ -46,6 +46,7 @@ int Parser::PeekPrecedence(scanner::TokenType token) {
             return 30;
         case TokenType::ELVIS:
         case TokenType::QUESTION:
+        case TokenType::NULL_COALESCING:
             return 40;
         case TokenType::PIPELINE:
             return 50;
@@ -130,6 +131,8 @@ Parser::LedMeth Parser::LookupLed(lang::scanner::TokenType token) const {
             return &Parser::ParseElvis;
         case TokenType::QUESTION:
             return &Parser::ParseTernary;
+        case TokenType::NULL_COALESCING:
+            return &Parser::ParseNullCoalescing;
         case TokenType::EQUAL:
         case TokenType::ASSIGN_ADD:
         case TokenType::ASSIGN_SUB:
@@ -1483,6 +1486,21 @@ Node *Parser::ParseLoop() {
     loop->loc.start = start;
 
     return (Node *) loop;
+}
+
+Node *Parser::ParseNullCoalescing(Node *left) {
+    this->Eat();
+    this->IgnoreNL();
+
+    auto *expr = this->ParseExpression(PeekPrecedence(scanner::TokenType::NULL_COALESCING));
+
+    auto *binary = BinaryNew(left, expr, TokenType::TK_NULL, NodeType::NULL_COALESCING);
+    if (binary == nullptr) {
+        Release(expr);
+        throw DatatypeException();
+    }
+
+    return (Node *) binary;
 }
 
 Node *Parser::ParseOOBCall() {
