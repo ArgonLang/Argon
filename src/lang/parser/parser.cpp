@@ -34,6 +34,17 @@ Node *MakeIdentifier(const Token *token) {
     return (Node *) id;
 }
 
+Node *MakeSafeExpr(Node *left) {
+// Encapsulates "null safety" expressions, e.g.: a?.b, a.b?.c(), a?.b = c?.o
+    auto *safe = UnaryNew((ArObject *) left, NodeType::SAFE_EXPR, left->loc);
+    if (safe == nullptr)
+        throw DatatypeException();
+
+    safe->loc = ((Node *) safe->value)->loc;
+
+    return (Node *) safe;
+}
+
 int Parser::PeekPrecedence(scanner::TokenType token) {
     switch (token) {
         case TokenType::EQUAL:
@@ -81,15 +92,16 @@ int Parser::PeekPrecedence(scanner::TokenType token) {
         case TokenType::SLASH_SLASH:
         case TokenType::PERCENT:
             return 140;
+        case TokenType::DOT:
+        case TokenType::QUESTION_DOT:
+        case TokenType::SCOPE:
+            return 150;
         case TokenType::PLUS_PLUS:
         case TokenType::MINUS_MINUS:
         case TokenType::LEFT_INIT:
         case TokenType::LEFT_SQUARE:
         case TokenType::LEFT_ROUND:
-        case TokenType::DOT:
-        case TokenType::QUESTION_DOT:
-        case TokenType::SCOPE:
-            return 150;
+            return 160;
         default:
             return 1000;
     }
@@ -171,12 +183,13 @@ Parser::NudMeth Parser::LookupNud(lang::scanner::TokenType token) const {
     }
 }
 
-ArObject *Parser::ParseParamList(bool parse_expr) {
+ArObject *Parser::ParseParamList(bool parse_expr, bool *out_grouped_expr) {
     ARC params;
     ARC tmp;
 
     Position start{};
 
+    int count = 0;
     int mode = 0;
 
     params = (ArObject *) ListNew();
@@ -231,7 +244,14 @@ ArObject *Parser::ParseParamList(bool parse_expr) {
             throw DatatypeException();
 
         this->IgnoreNL();
+
+        if (this->Match(TokenType::COMMA))
+            count++;
+
     } while (this->MatchEat(TokenType::COMMA));
+
+    if (out_grouped_expr != nullptr)
+        *out_grouped_expr = count == 0;
 
     return params.Unwrap();
 }
@@ -368,10 +388,12 @@ Node *Parser::ParseArrowOrTuple() {
     Position start = this->tkcur_.loc.start;
     Position end{};
 
+    bool grouped_expression;
+
     this->Eat();
     this->IgnoreNL();
 
-    items = this->ParseParamList(true);
+    items = this->ParseParamList(true, &grouped_expression);
 
     this->IgnoreNL();
 
@@ -413,7 +435,7 @@ Node *Parser::ParseArrowOrTuple() {
         return (Node *) func;
     }
 
-    const auto *list = (List *) items.Get();
+    auto *list = (List *) items.Get();
     for (ArSize i = 0; i < list->length; i++) {
         const auto *node = (Node *) list->objects[i];
         if (node->node_type == NodeType::REST)
@@ -421,6 +443,9 @@ Node *Parser::ParseArrowOrTuple() {
         else if (node->node_type == NodeType::KWARG)
             throw ParserException("unexpected kwarg operator");
     }
+
+    if (grouped_expression && list->length > 0)
+        return (Node *) ListGet(list, 0);
 
     auto *unary = UnaryNew(items.Get(), NodeType::TUPLE, this->tkcur_.loc);
     if (unary == nullptr)
@@ -687,7 +712,7 @@ Node *Parser::ParseElvis(Node *left) {
     this->Eat();
     this->IgnoreNL();
 
-    auto *expr = this->ParseExpression(0);
+    auto *expr = this->ParseExpression(PeekPrecedence(TokenType::EQUAL));
 
     auto *binary = BinaryNew(left, expr, TokenType::TK_NULL, NodeType::ELVIS);
     if (binary == nullptr) {
@@ -779,18 +804,15 @@ Node *Parser::ParseExpression(int precedence) {
 
             nl = true;
         }
+
+        if (is_safe && Parser::PeekPrecedence(token->type) < PeekPrecedence(TokenType::DOT)) {
+            left = (ArObject *) MakeSafeExpr((Node *) left.Get());
+            is_safe = false;
+        }
     }
 
-    if (is_safe) {
-        // Encapsulates "null safety" expressions, e.g.: a?.b, a.b?.c(), a?.b = c?.o
-        auto *safe = UnaryNew(left.Get(), NodeType::SAFE_EXPR, this->tkcur_.loc);
-        if (safe == nullptr)
-            throw DatatypeException();
-
-        safe->loc = ((Node *) safe->value)->loc;
-
-        return (Node *) safe;
-    }
+    if (is_safe)
+        return MakeSafeExpr((Node *) left.Get());
 
     return (Node *) left.Unwrap();
 }
@@ -914,7 +936,7 @@ Node *Parser::ParseFn(ParserScope scope, bool pub) {
     this->Eat();
 
     if (this->MatchEat(TokenType::LEFT_ROUND)) {
-        params = this->ParseParamList(false);
+        params = this->ParseParamList(false, nullptr);
 
         this->IgnoreNL();
 
@@ -1641,7 +1663,7 @@ Node *Parser::ParseSelector(Node *left) {
     if (!this->Match(TokenType::IDENTIFIER))
         throw ParserException("expected identifier after '.'/'?.'/'::' access operator");
 
-    auto *right = this->ParseExpression(PeekPrecedence(kind));
+    auto *right = this->ParseIdentifier();
 
     auto *binary = BinaryNew(left, right, kind, NodeType::SELECTOR);
 
@@ -1945,16 +1967,14 @@ Node *Parser::ParseTernary(Node *left) {
     this->Eat();
     this->IgnoreNL();
 
-    body = (ArObject *) this->ParseExpression(0);
+    body = (ArObject *) this->ParseExpression(PeekPrecedence(TokenType::EQUAL));
 
     this->IgnoreNL();
 
     if (this->MatchEat(TokenType::COLON)) {
         this->IgnoreNL();
 
-        orelse = (ArObject *) this->ParseExpression(0);
-
-        this->IgnoreNL();
+        orelse = (ArObject *) this->ParseExpression(PeekPrecedence(TokenType::EQUAL));
     }
 
     auto *test = TestNew(left, (Node *) body.Get(), (Node *) orelse.Get(), NodeType::TERNARY);
@@ -2100,8 +2120,8 @@ Node *Parser::ParseUnaryStmt(NodeType type, bool expr_required) {
     this->Eat();
     this->IgnoreNL();
 
-    if (!this->Match(scanner::TokenType::END_OF_FILE, TokenType::SEMICOLON))
-        expr = this->ParseExpression(0);
+    if (!this->Match(scanner::TokenType::END_OF_FILE, TokenType::RIGHT_BRACES, TokenType::SEMICOLON))
+        expr = this->ParseExpression(PeekPrecedence(TokenType::EQUAL));
     else if (expr_required)
         throw ParserException("expected expression");
 
@@ -2191,11 +2211,14 @@ File *Parser::Parse() noexcept {
 
         this->ExitDocContext();
     } catch (const ParserException &e) {
-        ErrorFormat(kParserError[0], "%s", e.what());
+        ErrorFormat(kParserErrors[1], "%s", e.what());
+        return nullptr;
+    } catch (const ScannerException &e) {
+        ErrorFormat(kParserErrors[1], this->scanner_.GetStatusMessage());
         return nullptr;
     } catch (const DatatypeException &e) {
         // This exception can be safely ignored!
-        e.what(); // To avoid problems with the linter
+        return nullptr;
     }
 
     auto *file = FileNew(this->filename_, statements);

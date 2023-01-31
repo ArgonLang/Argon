@@ -12,7 +12,8 @@
 #include "parsererr.h"
 
 namespace argon::lang::parser {
-    constexpr const char *kParserError[] = {
+    constexpr const char *kParserErrors[] = {
+            (const char *) "ScannerError",
             (const char *) "ParserError"
     };
 
@@ -93,7 +94,7 @@ namespace argon::lang::parser {
 
         [[nodiscard]] LedMeth LookupLed(lang::scanner::TokenType token) const;
 
-        argon::vm::datatype::ArObject *ParseParamList(bool parse_expr);
+        argon::vm::datatype::ArObject *ParseParamList(bool parse_expr, bool *out_grouped_expr);
 
         argon::vm::datatype::ArObject *ParseTraitList();
 
