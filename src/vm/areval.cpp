@@ -841,15 +841,11 @@ ArObject *argon::vm::Eval(Fiber *fiber) {
                 ArObject *stop = TOP();
                 ArObject *start = PEEK1();
 
-                cu_frame->eval_stack--;
-
                 ret = (ArObject *) BoundsNew(start, stop, (ArObject *) Nil);
-                Release(stop);
-                Release(start);
-
                 if (ret == nullptr)
                     break;
 
+                POP();
                 TOP_REPLACE(ret);
                 DISPATCH();
             }
