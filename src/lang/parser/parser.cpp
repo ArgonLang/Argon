@@ -1104,7 +1104,7 @@ Node *Parser::ParseFromImport(bool pub) {
 
         id = (ArObject *) this->ParseIdentifier();
 
-        this->IgnoreNL();
+        this->IgnoreNewLineIF(TokenType::KW_AS);
 
         if (this->MatchEat(TokenType::KW_AS)) {
             if (!this->Match(TokenType::IDENTIFIER))
@@ -1133,7 +1133,7 @@ Node *Parser::ParseFromImport(bool pub) {
 
         Release(binary);
 
-        this->IgnoreNL();
+        this->IgnoreNewLineIF(TokenType::COMMA);
     } while (this->MatchEat(scanner::TokenType::COMMA));
 
     auto *imp = ImportNew((Node *) mname.Get(), import_list.Get(), pub);
@@ -1235,7 +1235,7 @@ Node *Parser::ParseImport(bool pub) {
 
         path = (ArObject *) this->ParseLiteral();
 
-        this->IgnoreNL();
+        this->IgnoreNewLineIF(scanner::TokenType::KW_AS);
 
         if (this->MatchEat(scanner::TokenType::KW_AS)) {
             this->IgnoreNL();
@@ -1257,7 +1257,7 @@ Node *Parser::ParseImport(bool pub) {
 
         Release(binary);
 
-        this->IgnoreNL();
+        this->IgnoreNewLineIF(scanner::TokenType::COMMA);
     } while (this->MatchEat(scanner::TokenType::COMMA));
 
     auto *imp = ImportNew(nullptr, import_list.Get(), pub);

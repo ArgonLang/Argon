@@ -52,6 +52,9 @@ namespace argon::lang::parser {
         void IgnoreNewLineIF(scanner::TokenType type) {
             const scanner::Token *peek;
 
+            if (this->tkcur_.type != scanner::TokenType::END_OF_LINE)
+                return;
+
             if (!this->scanner_.PeekToken(&peek))
                 throw ScannerException();
 
