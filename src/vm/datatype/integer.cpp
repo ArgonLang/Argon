@@ -119,17 +119,17 @@ const ObjectSlots number_objslot = {
         -1
 };
 
-ArObject *number_compare(const Integer *self, const Integer *other, CompareMode mode) {
+ArObject *integer_compare(const Integer *self, const Integer *other, CompareMode mode) {
     if (!AR_SAME_TYPE(self, other))
         return nullptr;
 
     if (self == other && mode == CompareMode::EQ)
         return BoolToArBool(true);
 
-    auto left = self->uint;
-    auto right = other->uint;
+    auto left = self->sint;
+    auto right = other->sint;
 
-    ARGON_RICH_COMPARE_CASES(left, right, mode)
+    ARGON_RICH_COMPARE_CASES(left, right, mode);
 }
 
 ArSize number_hash(const Integer *self) {
@@ -281,7 +281,7 @@ TypeInfo IntegerType = {
         nullptr,
         (ArSize_UnaryOp) number_hash,
         (Bool_UnaryOp) integer_is_true,
-        (CompareOp) number_compare,
+        (CompareOp) integer_compare,
         (UnaryConstOp) integer_repr,
         nullptr,
         nullptr,
@@ -295,6 +295,19 @@ TypeInfo IntegerType = {
         nullptr
 };
 const TypeInfo *argon::vm::datatype::type_int_ = &IntegerType;
+
+ArObject *uint_compare(const Integer *self, const Integer *other, CompareMode mode) {
+    if (!AR_TYPEOF(other, type_int_) && AR_TYPEOF(other, type_uint_))
+        return nullptr;
+
+    if (self == other && mode == CompareMode::EQ)
+        return BoolToArBool(true);
+
+    auto left = self->uint;
+    auto right = other->uint;
+
+    ARGON_RICH_COMPARE_CASES(left, right, mode);
+}
 
 ArObject *uinteger_repr(const Integer *self) {
     return (ArObject *) StringFormat("%u", self->uint);
@@ -316,7 +329,7 @@ TypeInfo UIntegerType = {
         nullptr,
         (ArSize_UnaryOp) number_hash,
         (Bool_UnaryOp) uinteger_is_true,
-        (CompareOp) number_compare,
+        (CompareOp) uint_compare,
         (UnaryConstOp) uinteger_repr,
         nullptr,
         nullptr,

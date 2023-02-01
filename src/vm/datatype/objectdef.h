@@ -47,8 +47,8 @@ namespace argon::vm::datatype {
             return BoolToArBool((a) <= (b));    \
         default:                                \
             assert(false);                      \
-            return nullptr;                     \
     }                                           \
+    return nullptr                              \
 
     enum class TypeInfoFlags : unsigned int {
         // BIT FLAGS | OBJECT TYPE

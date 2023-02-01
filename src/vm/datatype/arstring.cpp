@@ -630,7 +630,7 @@ ArObject *string_compare(const String *self, const ArObject *other, CompareMode 
     else if (res > 0)
         right = -1;
 
-    ARGON_RICH_COMPARE_CASES(left, right, mode)
+    ARGON_RICH_COMPARE_CASES(left, right, mode);
 }
 
 ArObject *string_iter(String *self, bool reverse) {

@@ -1139,7 +1139,7 @@ ArObject *bytes_compare(Bytes *self, ArObject *other, CompareMode mode) {
     SHARED_UNLOCK(self);
     SHARED_UNLOCK(o);
 
-    ARGON_RICH_COMPARE_CASES(left, right, mode)
+    ARGON_RICH_COMPARE_CASES(left, right, mode);
 }
 
 ArObject *bytes_iter(Bytes *self, bool reverse) {
