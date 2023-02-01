@@ -1,0 +1,49 @@
+/*
+ * This source file is part of the Argon project.
+ *
+ * Licensed under the Apache License v2.0
+*/
+
+from "argon:io" import *
+from "io/bufio" import BufferedReader, DEFAULT_BUFSIZE
+
+pub var stdin = openfd(STDIN_NO, O_READ)
+pub var stdout = openfd(STDOUT_NO, O_WRITE)
+pub var stderr = openfd(STDERR_NO, O_WRITE)
+
+# TODO: Check for unbuffered mode
+stdin = BufferedReader(stdin, DEFAULT_BUFSIZE)
+
+# Read only backup
+pub let __stdin = stdin
+pub let __stdout = stdout
+pub let __stderr = stderr
+
+pub func input(&kwargs) {
+	kwargs?.contains("prompt") ? print(kwargs["prompt"], end="")
+	return stdin.readline(-1)
+}
+
+pub func print(...args, &kwargs) {
+	var sep = kwargs?.contains("sep") ? str(kwargs["sep"]) : " "
+	var end = kwargs?.contains("end") ? str(kwargs["end"]) : "\n"
+
+	# Use currying evaluation to avoid loading
+	# the same method over and over while printing args.
+	var out = stdout.write()
+
+	var psep = false
+
+	if args != nil {
+		var arg
+
+		for arg in args {
+			psep ? out(sep)
+			psep = true
+
+			out(str(arg))
+		}
+	}
+
+	out(end)
+}

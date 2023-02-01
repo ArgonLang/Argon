@@ -1,0 +1,122 @@
+/*
+ * This source file is part of the Argon project.
+ *
+ * Licensed under the Apache License v2.0
+*/
+
+pub let DEFAULT_BUFSIZE = 2046 # 2KiB
+
+pub struct BufferedReader {
+    var stream
+	var buffer
+
+    var capacity = 0
+    var index = 0
+    var length = 0
+
+    pub func BufferedReader(stream, buflen) {
+        return BufferedReader@(
+			stream = stream,
+			buffer = Bytes(buflen),
+			capacity = buflen
+		)
+    }
+
+	func FillBuffer(self) {
+        # Check if buffer is empty
+        if self.index < self.length {
+            return self.length - self.index
+        }
+
+        self.length = self.stream.readinto(self.buffer, 0)
+        self.index = 0
+
+        return self.length
+    }
+
+	pub func read(self, size) {
+        var retval = Bytes(size)
+        var nbytes = 0
+		var copied
+
+        var to_read = self.FillBuffer()
+
+        loop size > to_read {
+            copied = retval.copy(self.buffer, self.index, nbytes, to_read)
+
+            self.index += copied
+            nbytes += copied
+            size -= copied
+
+            loop size >= self.capacity {
+                to_read = self.stream.readinto(retval, nbytes)
+
+				# EOF Check
+				if to_read == 0 {
+                    return retval
+                }
+
+                nbytes += to_read
+                size -= to_read
+            }
+
+            to_read = self.FillBuffer()
+
+            # EOF Check
+            if to_read == 0 {
+                size = 0
+            }
+        }
+
+        if to_read < size {
+            size = to_read
+        }
+
+        copied = retval.copy(self.buffer, self.index, nbytes, size)
+        self.index += copied
+
+        return retval
+    }
+
+	pub func readline(self, size) {
+		var retval = Bytes()
+		var to_read
+		var found
+
+		if size == 0 {
+			return retval
+		}
+
+		to_read = self.FillBuffer()
+
+		loop to_read > 0 && (size < 0 || size > 0) {
+			found = self.buffer.findbyte(self.index, '\n')
+			if found >= 0 && (self.index + found) < self.length {
+				found += 1
+
+				if size > 0 && size < found {
+					found = size
+				}
+
+				retval += self.buffer[self.index : self.index + found]
+				self.index += found
+
+				return retval
+			}
+
+			found = self.length - self.index
+
+			if size > 0 && size < found {
+				found = size
+			}
+
+			retval += self.buffer[self.index : self.index + found]
+			self.index = self.index + found
+			size -= found
+
+			to_read = self.FillBuffer()
+		}
+
+		return retval
+	}
+}

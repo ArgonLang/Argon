@@ -24,3 +24,5 @@ include_directories(lib)
 add_subdirectory(lib/stratum)
 add_subdirectory(src)
 add_subdirectory(test)
+
+file(COPY arlib/ DESTINATION ${LIBRARY_OUTPUT_PATH}/packages)

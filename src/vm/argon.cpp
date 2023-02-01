@@ -11,9 +11,11 @@ using namespace argon::vm;
 using namespace argon::vm::datatype;
 
 bool SetupImportPaths(importer::Import *imp) {
+    const char *arpackages = _ARGON_PLATFORM_PATHSEP"packages";
     const char *arpaths = std::getenv(ARGON_EVAR_PATH);
     List *paths;
     String *tmp;
+    String *pkgs;
 
     if ((tmp = GetExecutablePath()) == nullptr)
         return false;
@@ -23,7 +25,21 @@ bool SetupImportPaths(importer::Import *imp) {
         return false;
     }
 
+    pkgs = StringConcat(tmp, arpackages, strlen(arpackages));
+
     Release(tmp);
+
+    if(pkgs == nullptr)
+        return false;
+
+    if (!importer::ImportAddPath(imp, pkgs)) {
+        Release(pkgs);
+        return false;
+    }
+
+    Release(pkgs);
+
+    // *** PATHS FROM ENVS VAR ***
 
     if (arpaths == nullptr)
         return true;

@@ -266,7 +266,7 @@ ARGON_METHOD(bytes_findbyte, findbyte,
     for (ArSize i = start; i < BUFFER_LEN(self); i++) {
         if (BUFFER_GET(self)[i] == pattern) {
             SHARED_UNLOCK(self);
-            return (ArObject *) IntNew((IntegerUnderlying) i);
+            return (ArObject *) IntNew((IntegerUnderlying) (i - start));
         }
     }
 
