@@ -68,7 +68,7 @@ ARGON_METHOD(file_isclosed, isclosed,
 #ifdef _ARGON_PLATFORM_WINDOWS
     closed = self->handle == INVALID_HANDLE_VALUE;
 #else
-    close = self->handle < 0;
+    closed = self->handle < 0;
 #endif
 
     return BoolToArBool(closed);
