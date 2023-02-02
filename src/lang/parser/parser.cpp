@@ -516,6 +516,7 @@ Node *Parser::ParseBCFLabel() {
     }
 
     unary->loc = loc;
+    unary->token_type = type;
 
     if (id != nullptr)
         unary->loc.end = id->loc.end;
@@ -1768,7 +1769,14 @@ Node *Parser::ParseStatement() {
     } while (true);
 
     if (label) {
-        auto *lbl = BinaryNew((Node *) label.Get(), (Node *) expr.Get(), TokenType::TK_NULL, NodeType::LABEL);
+        auto *check = (Node *) expr.Get();
+
+        if (check->node_type != NodeType::FOR &&
+            check->node_type != NodeType::FOREACH &&
+            check->node_type != NodeType::LOOP)
+            throw ParserException("expected for/loop after label");
+
+        auto *lbl = BinaryNew((Node *) label.Get(), check, TokenType::TK_NULL, NodeType::LABEL);
         if (lbl == nullptr)
             throw DatatypeException();
 

@@ -775,7 +775,7 @@ void Compiler::CompileElvis(const parser::Binary *binary) {
 void Compiler::CompileForEach(const parser::Loop *loop) {
     BasicBlock *end = nullptr;
     BasicBlock *begin;
-    const JBlock *jb;
+    JBlock *jb;
 
     if (!SymbolNewSub(this->unit_->symt))
         throw DatatypeException();
@@ -793,7 +793,7 @@ void Compiler::CompileForEach(const parser::Loop *loop) {
 
         begin = this->unit_->bb.cur;
 
-        jb = this->unit_->JBNew(begin, end);
+        jb = this->unit_->JBNew(begin, end, 1);
 
         this->unit_->Emit(vm::OpCode::NJE, end, nullptr);
 
@@ -824,7 +824,7 @@ void Compiler::CompileForEach(const parser::Loop *loop) {
 void Compiler::CompileForLoop(const parser::Loop *loop) {
     BasicBlock *begin;
     BasicBlock *end;
-    const JBlock *jb;
+    JBlock *jb;
 
     if (!SymbolNewSub(this->unit_->symt))
         throw DatatypeException();
@@ -841,7 +841,7 @@ void Compiler::CompileForLoop(const parser::Loop *loop) {
         throw DatatypeException();
 
     try {
-        jb = this->unit_->JBNew(begin, end);
+        jb = this->unit_->JBNew(begin, end, 0);
 
         // Compile test
         this->Expression(loop->test);
@@ -1160,22 +1160,43 @@ void Compiler::CompileInit(const parser::Initialization *init) {
 
 void Compiler::CompileJump(const parser::Unary *jump) {
     BasicBlock *dst = nullptr;
+    String *label = nullptr;
     JBlock *jb;
 
-    if (jump->token_type == scanner::TokenType::KW_BREAK ||
-        jump->token_type == scanner::TokenType::KW_CONTINUE) {
+    if (jump->token_type != scanner::TokenType::KW_BREAK && jump->token_type != scanner::TokenType::KW_CONTINUE) {
+        this->unit_->Emit(vm::OpCode::JMP, dst, nullptr);
+        return;
+    }
 
-        if ((jb = this->unit_->FindLoop((String *) jump->value)) == nullptr) {
-            ErrorFormat(kCompilerError[0], "unknown loop label, the loop '%s' cannot be %s",
-                        ARGON_RAW_STRING((String *) ((const Unary *) jump->value)->value),
-                        jump->token_type == scanner::TokenType::KW_BREAK ? "breaked" : "continued");
-            throw DatatypeException();
+    if (jump->value != nullptr)
+        label = (String *) (((const Unary *) jump->value)->value);
+
+    if ((jb = this->unit_->FindLoop(label)) == nullptr) {
+        ErrorFormat(kCompilerError[0], "unknown loop label, the loop '%s' cannot be %s",
+                    ARGON_RAW_STRING((String *) ((const Unary *) jump->value)->value),
+                    jump->token_type == scanner::TokenType::KW_BREAK ? "breaked" : "continued");
+
+        throw DatatypeException();
+    }
+
+    dst = jb->end;
+
+    if (jump->token_type == scanner::TokenType::KW_BREAK) {
+        for (auto i = 0; i < jb->pops; i++)
+            this->unit_->Emit(vm::OpCode::POP, nullptr);
+
+        // Don't decrease the stack size
+        this->unit_->IncrementStack(jb->pops);
+    } else if (jump->token_type == scanner::TokenType::KW_CONTINUE) {
+        if (jb != this->unit_->jstack) {
+            for (auto i = 0; i < jb->pops; i++)
+                this->unit_->Emit(vm::OpCode::POP, nullptr);
+
+            // Don't decrease the stack size
+            this->unit_->IncrementStack(jb->pops);
         }
 
-        dst = jb->end;
-
-        if (jump->token_type == scanner::TokenType::KW_CONTINUE)
-            dst = jb->start;
+        dst = jb->start;
     }
 
     this->unit_->Emit(vm::OpCode::JMP, dst, nullptr);
@@ -1184,7 +1205,7 @@ void Compiler::CompileJump(const parser::Unary *jump) {
 void Compiler::CompileLoop(const parser::Loop *loop) {
     BasicBlock *begin;
     BasicBlock *end;
-    const JBlock *jb;
+    JBlock *jb;
 
     if (!this->unit_->BlockNew())
         throw DatatypeException();
@@ -1195,7 +1216,7 @@ void Compiler::CompileLoop(const parser::Loop *loop) {
         throw DatatypeException();
 
     try {
-        jb = this->unit_->JBNew(begin, end);
+        jb = this->unit_->JBNew(begin, end, 0);
 
         if (loop->test != nullptr) {
             this->Expression(loop->test);
@@ -1275,7 +1296,7 @@ void Compiler::CompileNullCoalescing(const parser::Binary *binary) {
 
 void Compiler::CompileSafe(const parser::Unary *unary) {
     BasicBlock *end;
-    const JBlock *jb;
+    JBlock *jb;
 
     if ((end = BasicBlockNew()) == nullptr)
         throw DatatypeException();
@@ -1364,7 +1385,8 @@ void Compiler::CompileSwitch(const parser::Test *test) {
         lbody = bodies;
 
         while ((scase = IteratorNext(iter.Get()))) {
-            this->CompileSwitchCase((const parser::SwitchCase *) scase.Get(), &ltest, &lbody, &_default, end, as_if);
+            this->CompileSwitchCase((const parser::SwitchCase *) scase.Get(), &ltest, &lbody, &_default, end,
+                                    as_if);
 
             // Switch to test thread
             this->unit_->bb.cur = ltest;

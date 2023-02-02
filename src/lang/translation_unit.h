@@ -71,7 +71,7 @@ namespace argon::lang {
 
         JBlock *JBNew(vm::datatype::String *label, BasicBlock *end);
 
-        JBlock *JBNew(BasicBlock *start, BasicBlock *end);
+        JBlock *JBNew(BasicBlock *start, BasicBlock *end, unsigned short pops);
 
         JBlock *FindLoop(vm::datatype::String *label);
 
@@ -108,7 +108,7 @@ namespace argon::lang {
                 this->stack.required = this->stack.current;
         }
 
-        void JBPop(const JBlock *block);
+        void JBPop(JBlock *block);
     };
 
     TranslationUnit *TranslationUnitNew(TranslationUnit *prev, vm::datatype::String *name, SymbolT *symt);

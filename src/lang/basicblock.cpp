@@ -69,6 +69,7 @@ JBlock *argon::lang::JBlockNew(JBlock *prev, argon::vm::datatype::String *label,
         j->prev = prev;
         j->label = IncRef(label);
         j->nested = nested;
+        j->pops = 0;
     }
 
     return j;
