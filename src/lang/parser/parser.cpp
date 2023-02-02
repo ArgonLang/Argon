@@ -281,6 +281,23 @@ ArObject *Parser::ParseTraitList() {
     return list.Unwrap();
 }
 
+bool Parser::ScopeExactMatch(ParserScope scope) const {
+    return this->scope_stack_ != nullptr && this->scope_stack_->scope == scope;
+}
+
+bool Parser::ScopeMatch(ParserScope scope) const {
+    auto *cursor = this->scope_stack_;
+
+    while (cursor != nullptr) {
+        if (cursor->scope == scope)
+            return true;
+
+        cursor = cursor->prev;
+    }
+
+    return false;
+}
+
 Node *Parser::ParseAssertion() {
     ARC expr;
     ARC msg;
@@ -350,13 +367,13 @@ Node *Parser::ParseAssignment(Node *left) {
     return (Node *) assign;
 }
 
-Node *Parser::ParseAsync(ParserScope scope, bool pub) {
+Node *Parser::ParseAsync(bool pub) {
     Position start = this->tkcur_.loc.start;
 
     this->Eat();
     this->IgnoreNL();
 
-    auto *func = (Function *) this->ParseFn(scope, pub);
+    auto *func = (Function *) this->ParseFn(pub);
 
     func->async = true;
     func->loc.start = start;
@@ -552,6 +569,10 @@ Node *Parser::ParseDecls(ParserScope scope) {
     Position start = this->tkcur_.loc.start;
     bool pub = false;
 
+    ScopeEntry entry(scope);
+
+    this->ScopePush(&entry);
+
     if (this->MatchEat(TokenType::KW_PUB)) {
         pub = true;
 
@@ -587,10 +608,10 @@ Node *Parser::ParseDecls(ParserScope scope) {
             stmt = (ArObject *) this->ParseVarDecl(pub, true, false);
             break;
         case TokenType::KW_ASYNC:
-            stmt = (ArObject *) this->ParseAsync(scope, pub);
+            stmt = (ArObject *) this->ParseAsync(pub);
             break;
         case TokenType::KW_FUNC:
-            stmt = (ArObject *) this->ParseFn(scope, pub);
+            stmt = (ArObject *) this->ParseFn(pub);
             break;
         case TokenType::KW_STRUCT:
             if (scope != ParserScope::MODULE && scope != ParserScope::BLOCK)
@@ -611,13 +632,15 @@ Node *Parser::ParseDecls(ParserScope scope) {
             if (scope == ParserScope::STRUCT || scope == ParserScope::TRAIT)
                 throw ParserException("unexpected statement here");
 
-            stmt = (ArObject *) this->ParseStatement(scope);
+            stmt = (ArObject *) this->ParseStatement();
     }
 
     auto *s = (Node *) stmt.Unwrap();
 
     if (s != nullptr && pub)
         s->loc.start = start;
+
+    this->ScopePop();
 
     return s;
 }
@@ -917,7 +940,7 @@ Node *Parser::ParseFor() {
     return (Node *) loop;
 }
 
-Node *Parser::ParseFn(ParserScope scope, bool pub) {
+Node *Parser::ParseFn(bool pub) {
     ARC name;
     ARC params;
     ARC body;
@@ -946,7 +969,7 @@ Node *Parser::ParseFn(ParserScope scope, bool pub) {
 
     this->EnterDocContext();
 
-    if (scope != ParserScope::TRAIT || this->Match(TokenType::LEFT_BRACES))
+    if (!this->ScopeExactMatch(ParserScope::TRAIT) || this->Match(TokenType::LEFT_BRACES))
         body = (ArObject *) this->ParseBlock(ParserScope::BLOCK);
 
     auto *func = FunctionNew((String *) name.Get(), (List *) params.Get(), (Node *) body.Get(), pub);
@@ -1675,7 +1698,7 @@ Node *Parser::ParseSelector(Node *left) {
     return (Node *) binary;
 }
 
-Node *Parser::ParseStatement(ParserScope scope) {
+Node *Parser::ParseStatement() {
     ARC expr;
     ARC label;
 
@@ -1711,19 +1734,19 @@ Node *Parser::ParseStatement(ParserScope scope) {
                 expr = (ArObject *) this->ParseSwitch();
                 break;
             case TokenType::KW_BREAK:
-                if (scope != ParserScope::LOOP && scope != ParserScope::SWITCH)
+                if (!this->ScopeMatch(ParserScope::LOOP) && !this->ScopeMatch(ParserScope::SWITCH))
                     throw ParserException("'break' not allowed outside loop or switch");
 
                 expr = (ArObject *) this->ParseBCFLabel();
                 break;
             case TokenType::KW_CONTINUE:
-                if (scope != ParserScope::LOOP)
+                if (!this->ScopeMatch(ParserScope::LOOP))
                     throw ParserException("'continue' not allowed outside of loop");
 
                 expr = (ArObject *) this->ParseBCFLabel();
                 break;
             case TokenType::KW_FALLTHROUGH:
-                if (scope != ParserScope::SWITCH)
+                if (!this->ScopeExactMatch(ParserScope::SWITCH))
                     throw ParserException("'fallthrough' not allowed outside of switch");
 
                 expr = (ArObject *) this->ParseBCFLabel();
@@ -2166,6 +2189,19 @@ void Parser::EnterDocContext() {
 void Parser::IgnoreNL() {
     while (this->Match(TokenType::END_OF_LINE))
         this->Eat();
+}
+
+void Parser::ScopePush(ScopeEntry *entry) {
+    if (this->scope_stack_ == nullptr)
+        this->scope_stack_ = entry;
+
+    entry->prev = this->scope_stack_;
+    this->scope_stack_ = entry;
+}
+
+void Parser::ScopePop() {
+    if (this->scope_stack_ != nullptr)
+        this->scope_stack_ = this->scope_stack_->prev;
 }
 
 // PUBLIC
