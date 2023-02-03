@@ -46,6 +46,7 @@ namespace argon::lang {
         BasicBlock *end;
 
         unsigned short nested;
+        unsigned short pops;
         bool loop;
     };
 

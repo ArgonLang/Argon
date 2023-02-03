@@ -160,13 +160,11 @@ JBlock *TranslationUnit::JBNew(String *label, BasicBlock *end) {
     return jb;
 }
 
-JBlock *TranslationUnit::JBNew(BasicBlock *start, BasicBlock *end) {
+JBlock *TranslationUnit::JBNew(BasicBlock *start, BasicBlock *end, unsigned short pops) {
     String *label = nullptr;
 
-    if (this->jstack != nullptr) {
-        if (this->jstack->start->size == 0)
-            label = this->jstack->label;
-    }
+    if (this->jstack != nullptr && !this->jstack->loop)
+        label = this->jstack->label;
 
     auto *jb = this->JBNew(label);
 
@@ -174,6 +172,7 @@ JBlock *TranslationUnit::JBNew(BasicBlock *start, BasicBlock *end) {
     jb->end = end;
 
     jb->loop = true;
+    jb->pops = pops;
 
     return jb;
 }
@@ -212,7 +211,7 @@ void TranslationUnit::Emit(vm::OpCode opcode, int arg, BasicBlock *dest, const s
     throw DatatypeException();
 }
 
-void TranslationUnit::JBPop(const JBlock *block) {
+void TranslationUnit::JBPop(JBlock *block) {
     JBlock *tmp = this->jstack;
 
     if (tmp == block) {

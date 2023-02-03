@@ -26,6 +26,14 @@ namespace argon::lang::parser {
         TRAIT
     };
 
+    struct ScopeEntry {
+        ScopeEntry *prev = nullptr;
+
+        ParserScope scope;
+
+        explicit ScopeEntry(ParserScope scope) : scope(scope) {}
+    };
+
     class Parser {
         using NudMeth = Node *(Parser::*)();
         using LedMeth = Node *(Parser::*)(Node *);
@@ -35,6 +43,8 @@ namespace argon::lang::parser {
         const char *filename_ = nullptr;
 
         DocString *doc_string_ = nullptr;
+
+        ScopeEntry *scope_stack_ = nullptr;
 
         lang::scanner::Token tkcur_;
 
@@ -49,37 +59,6 @@ namespace argon::lang::parser {
             return true;
         }
 
-        void IgnoreNewLineIF(scanner::TokenType type) {
-            const scanner::Token *peek;
-
-            if (this->tkcur_.type != scanner::TokenType::END_OF_LINE)
-                return;
-
-            if (!this->scanner_.PeekToken(&peek))
-                throw ScannerException();
-
-            if(peek->type == type)
-                this->Eat();
-        }
-
-        template<typename ...TokenTypes>
-        void IgnoreNewLineIF(scanner::TokenType type, TokenTypes... types) {
-            const scanner::Token *peek;
-
-            if (this->tkcur_.type != scanner::TokenType::END_OF_LINE)
-                return;
-
-            if (!this->scanner_.PeekToken(&peek))
-                throw ScannerException();
-
-            if (peek->type != type) {
-                this->IgnoreNewLineIF(types...);
-                return;
-            }
-
-            this->Eat();
-        }
-
         bool MatchEat(scanner::TokenType type) {
             if (this->Match(type)) {
                 this->Eat();
@@ -88,6 +67,10 @@ namespace argon::lang::parser {
 
             return false;
         }
+
+        bool ScopeExactMatch(ParserScope scope) const;
+
+        bool ScopeMatch(ParserScope scope) const;
 
         [[nodiscard]] bool TokenInRange(scanner::TokenType begin, scanner::TokenType end) const {
             return this->tkcur_.type > begin && this->tkcur_.type < end;
@@ -105,7 +88,7 @@ namespace argon::lang::parser {
 
         Node *ParseAssignment(Node *left);
 
-        Node *ParseAsync(ParserScope scope, bool pub);
+        Node *ParseAsync(bool pub);
 
         Node *ParseAsync();
 
@@ -131,7 +114,7 @@ namespace argon::lang::parser {
 
         Node *ParseFor();
 
-        Node *ParseFn(ParserScope scope, bool pub);
+        Node *ParseFn(bool pub);
 
         Node *ParseFnCall(Node *left);
 
@@ -171,7 +154,7 @@ namespace argon::lang::parser {
 
         Node *ParseSelector(Node *left);
 
-        Node *ParseStatement(ParserScope scope);
+        Node *ParseStatement();
 
         Node *ParseStructDecl(bool pub);
 
@@ -202,6 +185,41 @@ namespace argon::lang::parser {
         }
 
         void IgnoreNL();
+
+        void IgnoreNewLineIF(scanner::TokenType type) {
+            const scanner::Token *peek;
+
+            if (this->tkcur_.type != scanner::TokenType::END_OF_LINE)
+                return;
+
+            if (!this->scanner_.PeekToken(&peek))
+                throw ScannerException();
+
+            if (peek->type == type)
+                this->Eat();
+        }
+
+        template<typename ...TokenTypes>
+        void IgnoreNewLineIF(scanner::TokenType type, TokenTypes... types) {
+            const scanner::Token *peek;
+
+            if (this->tkcur_.type != scanner::TokenType::END_OF_LINE)
+                return;
+
+            if (!this->scanner_.PeekToken(&peek))
+                throw ScannerException();
+
+            if (peek->type != type) {
+                this->IgnoreNewLineIF(types...);
+                return;
+            }
+
+            this->Eat();
+        }
+
+        void ScopePush(ScopeEntry *entry);
+
+        void ScopePop();
 
     public:
         /**
