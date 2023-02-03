@@ -86,6 +86,11 @@ bool argon::vm::datatype::BufferViewHoldBuffer(BufferView *view, unsigned char *
     if ((view->shared = SharedBufferNew(0)) == nullptr)
         return false;
 
+    if (buffer == nullptr) {
+        len = 0;
+        cap = 0;
+    }
+
     view->shared->buffer = buffer;
     view->shared->capacity = cap;
 
