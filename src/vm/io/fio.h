@@ -39,6 +39,9 @@ namespace argon::vm::io {
 
     datatype::ArSSize Read(File *file, unsigned char *buf, datatype::ArSize count);
 
+    datatype::ArSSize
+    ReadLine(File *file, unsigned char **buf, datatype::ArSSize length, datatype::ArSize *out_capacity);
+
     datatype::ArSSize Write(File *file, const unsigned char *buf, datatype::ArSize count);
 
     datatype::ArSSize WriteObject(File *file, datatype::ArObject *object);

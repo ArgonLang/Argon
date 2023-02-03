@@ -139,6 +139,25 @@ ARGON_METHOD_INHERITED(file_read, read) {
     return nullptr;
 }
 
+// Inherited from LineReader trait
+ARGON_METHOD_INHERITED(file_readline, readline) {
+    Bytes *ret;
+
+    unsigned char *buffer;
+    ArSize capacity;
+    ArSSize length;
+
+    if ((length = ReadLine((File *) _self, &buffer, ((Integer *) *args)->sint, &capacity)) < 0)
+        return nullptr;
+
+    if ((ret = BytesNewHoldBuffer(buffer, capacity, length, true)) == nullptr) {
+        argon::vm::memory::Free(buffer);
+        return nullptr;
+    }
+
+    return (ArObject *) ret;
+}
+
 // Inherited from Reader trait
 ARGON_METHOD_INHERITED(file_readinto, readinto) {
     ArBuffer buffer{};
@@ -250,6 +269,7 @@ const FunctionDef file_methods[] = {
         file_isclosed,
         file_isseekable,
         file_read,
+        file_readline,
         file_readinto,
         file_seek,
         file_tell,
@@ -259,6 +279,7 @@ const FunctionDef file_methods[] = {
 };
 
 TypeInfo *file_bases[] = {
+        (TypeInfo *) type_line_reader_t_,
         (TypeInfo *) type_reader_t_,
         (TypeInfo *) type_writer_t_,
         nullptr
@@ -361,6 +382,65 @@ TypeInfo FileType = {
 const TypeInfo *argon::vm::io::type_file_ = &FileType;
 
 // Platform Independent
+
+ArSSize argon::vm::io::ReadLine(File *file, unsigned char **buf, ArSSize length, ArSize *out_capacity) {
+    unsigned char *output;
+    unsigned char byte;
+
+    ArSize buflen;
+    ArSize index;
+    ArSSize to_read;
+
+    *buf = nullptr;
+
+    if (length == 0) {
+        if (out_capacity != nullptr)
+            *out_capacity = 0;
+
+        return 0;
+    }
+
+    buflen = length;
+    if (length < 0)
+        buflen = 5;
+
+    if ((output = (unsigned char *) argon::vm::memory::Alloc(buflen)) == nullptr)
+        return -1;
+
+    index = 0;
+    while (length < 0 || index < buflen) {
+        if ((to_read = Read(file, &byte, 1)) < 0)
+            goto ERROR;
+
+        // EOF
+        if (to_read == 0)
+            break;
+
+        if (index >= buflen) {
+            auto tmp = (unsigned char *) argon::vm::memory::Realloc(output, buflen * 2);
+            if (tmp == nullptr)
+                goto ERROR;
+
+            buflen = buflen * 2;
+            output = tmp;
+        }
+
+        output[index++] = byte;
+        if (byte == '\n')
+            break;
+    }
+
+    *buf = output;
+
+    if (out_capacity != nullptr)
+        *out_capacity = buflen;
+
+    return (ArSSize) index;
+
+    ERROR:
+    argon::vm::memory::Free(output);
+    return -1;
+}
 
 ArSize argon::vm::io::GetFd(File *file) {
     return (ArSize) file->handle;

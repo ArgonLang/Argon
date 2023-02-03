@@ -17,6 +17,8 @@ namespace argon::vm::io {
     using IOHandle = int;
 #endif
 
+    const extern datatype::TypeInfo *type_line_reader_t_;
+
     const extern datatype::TypeInfo *type_reader_t_;
 
     const extern datatype::TypeInfo *type_writer_t_;
