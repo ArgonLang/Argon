@@ -881,6 +881,8 @@ void Compiler::CompileForLoopInc(const parser::Node *node) {
             this->CompileUpdate((const Unary *) node);
             this->unit_->Emit(vm::OpCode::POP, nullptr);
             break;
+        default:
+            throw CompilerException("invalid AST node for CompileForLoopInc");
     }
 }
 
