@@ -2,6 +2,8 @@
 //
 // Licensed under the Apache License v2.0
 
+#include <iostream>
+
 #include <vm/config.h>
 #include <vm/runtime.h>
 
@@ -9,6 +11,12 @@
 
 using namespace argon::vm;
 using namespace argon::vm::datatype;
+
+// Prototypes
+
+void PrintRaw(ArObject *);
+
+// EOL
 
 bool SetupImportPaths(importer::Import *imp) {
     const char *arpackages = _ARGON_PLATFORM_PATHSEP"packages";
@@ -29,7 +37,7 @@ bool SetupImportPaths(importer::Import *imp) {
 
     Release(tmp);
 
-    if(pkgs == nullptr)
+    if (pkgs == nullptr)
         return false;
 
     if (!importer::ImportAddPath(imp, pkgs)) {
@@ -67,7 +75,7 @@ bool SetupImportPaths(importer::Import *imp) {
 int argon::vm::ArgonMain(int argc, char **argv) {
     Config config{};
     Context *context;
-    Module *main;
+    Module *mod;
 
     memory::MemoryCopy(&config, kConfigDefault, sizeof(Config));
 
@@ -83,20 +91,64 @@ int argon::vm::ArgonMain(int argc, char **argv) {
     if (!SetupImportPaths(context->imp))
         return EXIT_FAILURE;
 
-    if ((main = importer::ImportAdd(context->imp, "main")) == nullptr)
+    if ((mod = importer::ImportAdd(context->imp, "main")) == nullptr)
         return EXIT_FAILURE;
 
     if (config.file > -1) {
-        Release(EvalFile(context, "main", argv[config.file], main->ns));
+        Release(EvalFile(context, "main", argv[config.file], mod->ns));
 
         return 0;
     }
 
     if (config.cmd > -1) {
-        Release(EvalString(context, "main", argv[config.cmd], main->ns));
+        Release(EvalString(context, "main", argv[config.cmd], mod->ns));
 
         return 0;
     }
 
-    assert(false);
+    if ((mod = importer::LoadModule(context->imp, "repl", nullptr)) == nullptr) {
+        if (CheckLastPanic(kModuleImportError[0])) {
+            std::cerr << "No REPL script found, interactive mode not available.\n"
+                         "Check your installation!" << std::endl;
+            return EXIT_FAILURE;
+        }
+
+        PrintRaw(GetLastError());
+        return EXIT_FAILURE;
+    }
+
+    auto *res = EvalString(context, "repl", "RunDefaultRepl()", mod->ns);
+    if (!res->success)
+        PrintRaw(res->value);
+
+    Release(res);
+
+    return EXIT_SUCCESS;
+}
+
+void PrintRaw(ArObject *object) {
+    auto *str = (String *) Str(object);
+
+    if (str != nullptr) {
+        if (AR_TYPEOF(object, type_error_))
+            std::cerr << ARGON_RAW_STRING(str) << std::endl;
+        else
+            std::cout << ARGON_RAW_STRING(str) << std::endl;
+
+        Release(str);
+        return;
+    }
+
+    auto *err = GetLastError();
+    str = (String *) Str(err);
+
+    if (str != nullptr) {
+        std::cerr << ARGON_RAW_STRING(str) << std::endl;
+        Release(str);
+        Release(err);
+        return;
+    }
+
+    Release(err);
+    std::cerr << "FATAL: Too many errors occurred while trying to print an object";
 }
