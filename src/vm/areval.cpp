@@ -436,9 +436,9 @@ ArObject *argon::vm::Eval(Fiber *fiber) {
     cu_frame->instr_ptr += OpCodeOffset[*cu_frame->instr_ptr];  \
     CGOTO
 
-#define DISPATCH_YIELD()                                        \
-    cu_frame->instr_ptr += OpCodeOffset[*cu_frame->instr_ptr];  \
-    if(fiber->status != FiberStatus::RUNNING) return nullptr;   \
+#define DISPATCH_YIELD()                                            \
+    cu_frame->instr_ptr += OpCodeOffset[*cu_frame->instr_ptr];      \
+    if(GetFiberStatus() != FiberStatus::RUNNING) return nullptr;    \
     CGOTO
 
 #define JUMPTO(offset)                                                  \
@@ -519,7 +519,7 @@ ArObject *argon::vm::Eval(Fiber *fiber) {
                     if (IsPanicking())
                         break;
 
-                    fiber->status = FiberStatus::SUSPENDED;
+                    SetFiberStatus(FiberStatus::SUSPENDED);
                     return nullptr;
                 }
 
@@ -653,7 +653,7 @@ ArObject *argon::vm::Eval(Fiber *fiber) {
                 Release(mod_name);
 
                 if (ret == nullptr) {
-                    if (fiber->status != FiberStatus::RUNNING)
+                    if (GetFiberStatus() != FiberStatus::RUNNING)
                         return nullptr;
 
                     break;

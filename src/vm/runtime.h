@@ -24,8 +24,8 @@ namespace argon::vm {
 
     argon::vm::datatype::ArObject *GetLastError();
 
-    argon::vm::datatype::Future *EvalAsync(datatype::Function *func, datatype::ArObject **argv, datatype::ArSize argc,
-                                           OpCodeCallMode mode);
+    argon::vm::datatype::Future *EvalAsync(datatype::Function *func, datatype::ArObject **argv,
+                                           datatype::ArSize argc, OpCodeCallMode mode);
 
     argon::vm::datatype::Result *Eval(Context *context, datatype::Code *code, datatype::Namespace *ns);
 
@@ -49,11 +49,15 @@ namespace argon::vm {
 
     Fiber *GetFiber();
 
+    FiberStatus GetFiberStatus();
+
     Frame *GetFrame();
 
     void DiscardLastPanic();
 
     void Panic(datatype::ArObject *panic);
+
+    void SetFiberStatus(FiberStatus status);
 
     void Spawn(Fiber *fiber);
 

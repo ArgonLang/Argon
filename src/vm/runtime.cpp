@@ -51,6 +51,7 @@ struct OSThread {
     OSThread **prev;
 
     Fiber *fiber;
+    FiberStatus fiber_status;
 
     VCore *current;
     VCore *old;
@@ -499,12 +500,12 @@ void Scheduler(OSThread *self) {
         if (self->spinning)
             ResetSpinning(self);
 
-        self->fiber->status = FiberStatus::RUNNING;
+        SetFiberStatus(FiberStatus::RUNNING);
 
         result = Eval(self->fiber);
 
-        if (self->fiber->status != FiberStatus::RUNNING) {
-            if (self->fiber->status == FiberStatus::SUSPENDED)
+        if (self->fiber_status != FiberStatus::RUNNING) {
+            if (self->fiber_status == FiberStatus::SUSPENDED)
                 last = self->fiber;
 
             continue;
@@ -814,6 +815,12 @@ Fiber *argon::vm::GetFiber() {
     return nullptr;
 }
 
+FiberStatus argon::vm::GetFiberStatus() {
+    ON_ARGON_CONTEXT return ost_local->fiber_status;
+
+    assert(false);
+}
+
 Frame *argon::vm::GetFrame() {
     ON_ARGON_CONTEXT return ost_local->fiber->frame;
 
@@ -842,6 +849,13 @@ void argon::vm::Panic(datatype::ArObject *panic) {
         PanicOOM(&panic_global, panic);
 }
 
+void argon::vm::SetFiberStatus(FiberStatus status) {
+    ON_ARGON_CONTEXT {
+        ost_local->fiber->status = status;
+        ost_local->fiber_status = status;
+    }
+}
+
 void argon::vm::Spawn(argon::vm::Fiber *fiber) {
     fiber->status = FiberStatus::RUNNABLE;
 
@@ -856,5 +870,5 @@ void argon::vm::Yield() {
 
     VCoreRelease(ost_local);
 
-    ost_local->fiber->status = FiberStatus::SUSPENDED;
+    SetFiberStatus(FiberStatus::SUSPENDED);
 }

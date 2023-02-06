@@ -19,7 +19,7 @@ bool NotifyQueue::Wait() {
         return true; // No wait needed!
 
     // Enqueue
-    fiber->status = FiberStatus::BLOCKED;
+    SetFiberStatus(FiberStatus::BLOCKED);
 
     fiber->ticket = ticket;
 
