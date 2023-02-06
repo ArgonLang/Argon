@@ -5,9 +5,12 @@
 #ifndef ARGON_VM_DATATYPE_FUNCTION_H_
 #define ARGON_VM_DATATYPE_FUNCTION_H_
 
+#include <vm/frame.h>
+
 #include "arobject.h"
 #include "arstring.h"
 #include "code.h"
+#include "error.h"
 #include "tuple.h"
 #include "namespace.h"
 #include "pcheck.h"
@@ -20,7 +23,8 @@ namespace argon::vm::datatype {
         VARIADIC = 1u << 3,
         KWARGS = 1u << 4,
         GENERATOR = 1u << 5,
-        ASYNC = 1u << 6
+        ASYNC = 1u << 6,
+        RECOVERABLE = 1u << 7
     };
 }
 
@@ -62,6 +66,12 @@ namespace argon::vm::datatype {
         /// Pointer to the global namespace in which this function is declared.
         Namespace *gns;
 
+        /// Pointer to status object(e.g. vm::Frame) valid only if it is a generator and recoverable function.
+        void *status;
+
+        /// Prevents another thread from executing this generator at the same time.
+        std::atomic_uintptr_t lock;
+
         /// Arity of the function, how many args accepts in input?!.
         unsigned short arity;
 
@@ -70,6 +80,10 @@ namespace argon::vm::datatype {
 
         [[nodiscard]] bool IsAsync() const {
             return ENUMBITMASK_ISTRUE(this->flags, FunctionFlags::ASYNC);
+        }
+
+        [[nodiscard]] bool IsExhausted() const {
+            return this->status == nullptr && ENUMBITMASK_ISTRUE(this->flags, FunctionFlags::RECOVERABLE);
         }
 
         [[nodiscard]] bool IsGenerator() const {
@@ -88,11 +102,43 @@ namespace argon::vm::datatype {
             return ENUMBITMASK_ISTRUE(this->flags, FunctionFlags::NATIVE);
         }
 
+        [[nodiscard]] bool IsRecoverable() const {
+            return ENUMBITMASK_ISTRUE(this->flags, FunctionFlags::RECOVERABLE);
+        }
+
         [[nodiscard]] bool IsVariadic() const {
             return ENUMBITMASK_ISTRUE(this->flags, FunctionFlags::VARIADIC);
         }
+
+        [[nodiscard]] void *LockAndGetStatus(void *on_address) {
+            uintptr_t expected = 0;
+
+            if (this->lock.compare_exchange_strong(expected, (uintptr_t) on_address)) {
+                if (this->IsExhausted()) {
+                    this->lock = 0;
+
+                    ErrorFormat(kExhaustedGeneratorError[0],
+                                kExhaustedGeneratorError[1],
+                                ARGON_RAW_STRING(this->qname));
+
+                    return nullptr;
+                }
+
+                return this->status;
+            }
+
+            return nullptr;
+        }
+
+        void Unlock(void *on_address) {
+            auto old = this->lock.exchange(0);
+            assert(old == 0 || old == (uintptr_t) on_address);
+        }
     };
+
     extern const TypeInfo *type_function_;
+
+    Function *FunctionInitGenerator(Function *func, vm::Frame *frame);
 
     ArObject *FunctionInvokeNative(Function *func, ArObject **args, ArSize count, bool kwargs);
 

@@ -134,6 +134,11 @@ namespace argon::vm::datatype {
         Release((ArObject *) t);
     }
 
+    inline void Replace(ArObject **variable, ArObject *value) {
+        Release(*variable);
+        *variable = value;
+    }
+
     void RecursionUntrack(ArObject *object);
 
     class ARC {

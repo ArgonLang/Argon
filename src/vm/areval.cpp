@@ -15,6 +15,7 @@
 
 #include <vm/importer/import.h>
 
+#include "defer.h"
 #include "opcode.h"
 #include "runtime.h"
 #include "areval.h"
@@ -149,6 +150,7 @@ bool CallFunction(Fiber *fiber, Frame **cu_frame, const Code **cu_code, bool val
     ArObject **args;
     ArObject *ret;
     Frame *old_frame;
+    Frame *new_frame;
     Function *func;
 
     ArSize stack_size;
@@ -223,29 +225,46 @@ bool CallFunction(Fiber *fiber, Frame **cu_frame, const Code **cu_code, bool val
         goto CLEANUP;
     }
 
-    if (!func->IsAsync()) {
-        auto *frame = FrameNew(fiber, func, args, args_length, mode);
-        if (frame == nullptr)
-            return false;
-
-        *cu_frame = frame;
-        *cu_code = frame->code;
-
-        FiberPushFrame(fiber, frame);
-    } else {
+    if (func->IsAsync()) {
         if ((ret = (ArObject *) EvalAsync(func, args, args_length, mode)) == nullptr)
             return false;
+
+        goto CLEANUP;
     }
+
+    if (!func->IsRecoverable()) {
+        new_frame = FrameNew(fiber, func, args, args_length, mode);
+        if (new_frame == nullptr)
+            return false;
+    }
+
+    if (func->IsGenerator()) {
+        if (!func->IsRecoverable()) {
+            if ((ret = (ArObject *) FunctionInitGenerator(func, new_frame)) == nullptr) {
+                FrameDel(new_frame);
+                return false;
+            }
+
+            goto CLEANUP;
+        }
+
+        if ((new_frame = (Frame *) func->LockAndGetStatus(fiber)) == nullptr)
+            return false;
+    }
+
+    *cu_frame = new_frame;
+    *cu_code = new_frame->code;
+
+    FiberPushFrame(fiber, new_frame);
 
     CLEANUP:
     for (ArSize i = 0; i < stack_size; i++)
         Release(eval_stack[i]);
 
-    old_frame->eval_stack -= (stack_size + 1);
-    Release(old_frame->eval_stack); // Release function
+    old_frame->eval_stack -= stack_size;
 
     if (ret != nullptr)
-        *(old_frame->eval_stack++) = ret;
+        Replace(old_frame->eval_stack - 1, ret);
 
     old_frame->instr_ptr += OpCodeOffset[*(old_frame->instr_ptr)];
 
@@ -256,8 +275,10 @@ bool PopExecutedFrame(Fiber *fiber, const Code **out_code, Frame **out_frame, Ar
     auto *cu_frame = *out_frame;
 
     do {
-        for (ArSize i = cu_frame->eval_stack - cu_frame->extra; i > 0; i--)
-            Release(*(--cu_frame->eval_stack));
+        if (cu_frame->eval_stack != nullptr) {
+            for (ArSize i = cu_frame->eval_stack - cu_frame->extra; i > 0; i--)
+                Release(*(--cu_frame->eval_stack));
+        }
 
         cu_frame->eval_stack = nullptr;
 
@@ -275,10 +296,10 @@ bool PopExecutedFrame(Fiber *fiber, const Code **out_code, Frame **out_frame, Ar
             return false;
         }
 
-        *out_frame = fiber->frame;
-        *out_code = (*out_frame)->code;
+        cu_frame = fiber->frame;
 
-        cu_frame = *out_frame;
+        *out_frame = fiber->frame;
+        *out_code = fiber->frame->code;
 
         if (cu_frame->eval_stack == nullptr) {
             // Deferred call
@@ -286,8 +307,11 @@ bool PopExecutedFrame(Fiber *fiber, const Code **out_code, Frame **out_frame, Ar
             continue;
         }
 
-        *cu_frame->eval_stack = *ret;
-        cu_frame->eval_stack++;
+        // It is only needed if the function is an initialized generator
+        // and allows other threads to execute the frame.
+        ((Function *) *(cu_frame->eval_stack - 1))->Unlock(fiber);
+
+        Replace(cu_frame->eval_stack - 1, *ret);
     } while (IsPanicking());
 
     return true;
@@ -491,8 +515,13 @@ ArObject *argon::vm::Eval(Fiber *fiber) {
                 DISPATCH();
             }
             TARGET_OP(CALL) {
-                if (!CallFunction(fiber, &cu_frame, &cu_code, false))
-                    break;
+                if (!CallFunction(fiber, &cu_frame, &cu_code, false)) {
+                    if (IsPanicking())
+                        break;
+
+                    fiber->status = FiberStatus::SUSPENDED;
+                    return nullptr;
+                }
 
                 continue;
             }
@@ -1253,6 +1282,24 @@ ArObject *argon::vm::Eval(Fiber *fiber) {
 
                 Release(ret);
                 DISPATCH();
+            }
+            TARGET_OP(YLD) {
+                ret = TOP();
+
+                cu_frame->eval_stack--;
+
+                cu_frame->instr_ptr += OpCodeOffset[*cu_frame->instr_ptr];
+
+                FiberPopFrame(fiber);
+
+                cu_frame = fiber->frame;
+                cu_code = cu_frame->code;
+
+                ((Function *) TOP())->Unlock(fiber);
+
+                Replace(cu_frame->eval_stack - 1, ret);
+
+                continue;
             }
             default:
                 ErrorFormat(kRuntimeError[0], "unknown opcode: 0x%X", *cu_frame->instr_ptr);

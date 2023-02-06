@@ -2,9 +2,10 @@
 //
 // Licensed under the Apache License v2.0
 
+#include <vm/frame.h>
+
 #include "arstring.h"
 #include "boolean.h"
-#include "error.h"
 #include "function.h"
 
 using namespace argon::vm::datatype;
@@ -157,6 +158,8 @@ Function *FunctionClone(const Function *func) {
         fn->enclosed = IncRef(func->enclosed);
         fn->base = IncRef(func->base);
         fn->gns = IncRef(func->gns);
+        fn->status = nullptr;
+        fn->lock = 0;
         fn->arity = func->arity;
         fn->flags = func->flags;
     }
@@ -176,11 +179,27 @@ Function *FunctionNew(String *name, String *doc, unsigned short arity, FunctionF
         fn->enclosed = nullptr;
         fn->base = nullptr;
         fn->gns = nullptr;
+        fn->status = nullptr;
+        fn->lock = 0;
         fn->arity = arity;
         fn->flags = flags;
     }
 
     return fn;
+}
+
+Function *argon::vm::datatype::FunctionInitGenerator(Function *func, vm::Frame *frame) {
+    auto *gen = FunctionClone(func);
+
+    if (gen != nullptr) {
+        gen->arity=0;
+        gen->status = frame;
+        gen->flags |= FunctionFlags::RECOVERABLE;
+
+        frame->gen_status = &gen->status;
+    }
+
+    return gen;
 }
 
 ArObject *argon::vm::datatype::FunctionInvokeNative(Function *func, ArObject **args, ArSize count, bool kwargs) {

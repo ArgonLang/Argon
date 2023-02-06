@@ -46,6 +46,11 @@ namespace argon::vm::datatype {
             (const char *) "an error occurred while creating an error"
     };
 
+    constexpr const char *kExhaustedGeneratorError[] = {
+            (const char *) "ExhaustedGeneratorError",
+            (const char *) "%s exhausted"
+    };
+
     constexpr const char *kKeyError[] = {
             (const char *) "KeyError",
             (const char *) "invalid key '%s'",

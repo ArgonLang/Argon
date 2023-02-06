@@ -151,7 +151,7 @@ Frame *argon::vm::FrameNew(Fiber *fiber, Function *func, ArObject **argv, ArSize
             ListAppend(rest, argv[index_argv++]);
     }
 
-    if(func->IsMethod())
+    if (func->IsMethod())
         frame->instance = *frame->locals;
 
     if (func->IsVariadic())
@@ -184,6 +184,9 @@ void argon::vm::FrameDel(Frame *frame) {
     Release(frame->globals);
     Release(frame->enclosed);
     Release(frame->return_value);
+
+    if (frame->gen_status != nullptr)
+        *frame->gen_status = nullptr;
 
     if (frame->fiber_id == 0) {
         memory::Free(frame);

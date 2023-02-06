@@ -10,8 +10,6 @@
 #include <vm/datatype/list.h>
 #include <vm/datatype/namespace.h>
 
-#include "defer.h"
-
 namespace argon::vm {
     struct Frame {
         datatype::ArSize fiber_id;
@@ -20,13 +18,16 @@ namespace argon::vm {
         Frame *back;
 
         /// Pointer to head of deferred stack.
-        Defer *defer;
+        struct Defer *defer;
 
         /// Pointer to global namespace.
         datatype::Namespace *globals;
 
         /// Pointer to instance object (if method).
         datatype::ArObject *instance;
+
+        /// Pointer to the status variable of Function which contains the address of this frame (generator function).
+        void **gen_status;
 
         /// Code being executed in this frame.
         datatype::Code *code;
