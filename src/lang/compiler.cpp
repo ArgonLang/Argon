@@ -382,12 +382,20 @@ void Compiler::CompileAssertion(const parser::Binary *binary) {
 
         this->PushAtom(kAssertionError[0], true);
 
-        if (binary->right != nullptr) {
+        if (binary->right == nullptr) {
+            auto *empty = StringIntern("");
+
+            this->LoadStatic((ArObject *) empty, true, true);
+
+            Release(empty);
+        } else
             this->Expression(binary->right);
-            args++;
-        }
+
+        args++;
 
         this->unit_->Emit(vm::OpCode::CALL, (unsigned char) vm::OpCodeCallMode::FASTCALL, args, &binary->loc);
+
+        this->unit_->DecrementStack(args);
 
         this->unit_->Emit(vm::OpCode::PANIC, &binary->loc);
     } catch (...) {
