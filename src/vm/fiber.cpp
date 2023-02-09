@@ -151,6 +151,9 @@ Frame *argon::vm::FrameNew(Fiber *fiber, Function *func, ArObject **argv, ArSize
             ListAppend(rest, argv[index_argv++]);
     }
 
+    // Push enclosed (closure)
+    frame->enclosed = IncRef(func->enclosed);
+
     if (func->IsMethod())
         frame->instance = *frame->locals;
 
