@@ -297,7 +297,7 @@ TypeInfo IntegerType = {
 const TypeInfo *argon::vm::datatype::type_int_ = &IntegerType;
 
 ArObject *uint_compare(const Integer *self, const Integer *other, CompareMode mode) {
-    if (!AR_TYPEOF(other, type_int_) && AR_TYPEOF(other, type_uint_))
+    if (!AR_TYPEOF(other, type_int_) && !AR_TYPEOF(other, type_uint_))
         return nullptr;
 
     if (self == other && mode == CompareMode::EQ)
