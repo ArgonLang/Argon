@@ -252,6 +252,8 @@ bool CallFunction(Fiber *fiber, Frame **cu_frame, const Code **cu_code, bool val
             return false;
     }
 
+    assert(new_frame != nullptr);
+
     *cu_frame = new_frame;
     *cu_code = new_frame->code;
 
@@ -311,7 +313,8 @@ bool PopExecutedFrame(Fiber *fiber, const Code **out_code, Frame **out_frame, Ar
         // and allows other threads to execute the frame.
         ((Function *) *(cu_frame->eval_stack - 1))->Unlock(fiber);
 
-        Replace(cu_frame->eval_stack - 1, *ret);
+        Replace(cu_frame->eval_stack - 1,
+                *ret != nullptr ? *ret : (ArObject *) IncRef(Nil));
     } while (IsPanicking());
 
     return true;
@@ -517,10 +520,10 @@ ArObject *argon::vm::Eval(Fiber *fiber) {
             TARGET_OP(CALL) {
                 bool call_ok = CallFunction(fiber, &cu_frame, &cu_code, false);
 
-                if(GetFiberStatus() != FiberStatus::RUNNING)
+                if (GetFiberStatus() != FiberStatus::RUNNING)
                     return nullptr;
 
-                if(!call_ok)
+                if (!call_ok)
                     break;
 
                 continue;
