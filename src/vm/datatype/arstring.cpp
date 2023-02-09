@@ -573,16 +573,27 @@ ArObject *string_mul(const String *left, const ArObject *right) {
         right = (const ArObject *) left;
     }
 
-    if (AR_TYPEOF(right, type_uint_)) {
-        times = ((const Integer *) right)->uint;
-        if ((ret = StringInit(l->length * times, true)) != nullptr) {
-            ret->cp_length = l->cp_length * times;
+    if (!AR_TYPEOF(right, type_int_) && !AR_TYPEOF(right, type_uint_))
+        return nullptr;
 
-            while (times--)
-                argon::vm::memory::MemoryCopy(ret->buffer + l->length * times, l->buffer, l->length);
+    times = ((const Integer *) right)->uint;
 
-            ret->kind = l->kind;
+    if (AR_TYPEOF(right, type_int_)) {
+        if (((const Integer *) right)->sint < 0) {
+            ErrorFormat(kValueError[0], "string cannot be multiplied by a negative value");
+            return nullptr;
         }
+
+        times = ((const Integer *) right)->sint;
+    }
+
+    if ((ret = StringInit(l->length * times, true)) != nullptr) {
+        ret->cp_length = l->cp_length * times;
+
+        while (times--)
+            argon::vm::memory::MemoryCopy(ret->buffer + l->length * times, l->buffer, l->length);
+
+        ret->kind = l->kind;
     }
 
     return (ArObject *) ret;
