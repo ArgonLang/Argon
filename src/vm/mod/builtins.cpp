@@ -2,6 +2,10 @@
 //
 // Licensed under the Apache License v2.0
 
+#include <lang/compiler_wrapper.h>
+
+#include <vm/runtime.h>
+
 #include <vm/datatype/arstring.h>
 #include <vm/datatype/atom.h>
 #include <vm/datatype/boolean.h>
@@ -26,6 +30,43 @@
 
 using namespace argon::vm::datatype;
 
+ARGON_FUNCTION(builtins_eval, eval,
+               "Evaluate and execute string as Argon code.\n"
+               "\n"
+               "- Parameters:\n"
+               "  - name: Input name.\n"
+               "  - module: Module context in which to evaluate the argon code.\n"
+               "  - src: Argon code.\n"
+               "- Returns: A result object that contains the result of the evaluation.\n",
+               "s: name, m: module, sx: src", false, false) {
+    ArBuffer buffer{};
+    Result *result;
+
+    if (!BufferGet(args[2], &buffer, BufferFlags::READ))
+        return nullptr;
+
+    argon::lang::CompilerWrapper c_wrapper;
+
+    auto *code = c_wrapper.Compile((const char *) ARGON_RAW_STRING((String *) args[0]),
+                                   (const char *) buffer.buffer,
+                                   buffer.length);
+
+    BufferRelease(&buffer);
+
+    if (code == nullptr) {
+        auto *err = argon::vm::GetLastError();
+
+        result = ResultNew(err, false);
+
+        Release(err);
+    } else {
+        result = Eval(argon::vm::GetFiber()->context, code, ((Module *) args[1])->ns);
+        Release(code);
+    }
+
+    return (ArObject *) result;
+}
+
 ARGON_FUNCTION(builtins_str, str,
                "Return a string version of an object.\n"
                "\n"
@@ -36,10 +77,10 @@ ARGON_FUNCTION(builtins_str, str,
 }
 
 ARGON_FUNCTION(builtins_repr, repr,
-              "Return a string containing a printable representation of an object.\n"
-              "\n"
-              "- Parameter obj: Object to get a printable representation from.\n"
-              "- Returns: String version of object.\n",
+               "Return a string containing a printable representation of an object.\n"
+               "\n"
+               "- Parameter obj: Object to get a printable representation from.\n"
+               "- Returns: String version of object.\n",
                ": obj", false, false) {
     return Repr(*args);
 }
@@ -66,6 +107,7 @@ const ModuleEntry builtins_entries[] = {
         MODULE_EXPORT_TYPE(type_uint_),
 
 
+        MODULE_EXPORT_FUNCTION(builtins_eval),
         MODULE_EXPORT_FUNCTION(builtins_str),
         MODULE_EXPORT_FUNCTION(builtins_repr),
         ARGON_MODULE_SENTINEL

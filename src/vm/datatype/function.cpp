@@ -2,6 +2,7 @@
 //
 // Licensed under the Apache License v2.0
 
+#include <vm/runtime.h>
 #include <vm/frame.h>
 
 #include "arstring.h"
@@ -192,7 +193,7 @@ Function *argon::vm::datatype::FunctionInitGenerator(Function *func, vm::Frame *
     auto *gen = FunctionClone(func);
 
     if (gen != nullptr) {
-        gen->arity=0;
+        gen->arity = 0;
         gen->status = frame;
         gen->flags |= FunctionFlags::RECOVERABLE;
 
@@ -374,4 +375,25 @@ Function *argon::vm::datatype::FunctionNew(const FunctionDef *func, TypeInfo *ba
     Release(pcheck);
 
     return fn;
+}
+
+void *argon::vm::datatype::Function::LockAndGetStatus(void *on_address) {
+    uintptr_t expected = 0;
+
+    if (this->lock.compare_exchange_strong(expected, (uintptr_t) on_address)) {
+        if (this->IsExhausted()) {
+            this->lock = 0;
+
+            ErrorFormat(kExhaustedGeneratorError[0],
+                        kExhaustedGeneratorError[1],
+                        ARGON_RAW_STRING(this->qname));
+
+            return nullptr;
+        }
+
+        return this->status;
+    }
+
+    argon::vm::SetFiberStatus(FiberStatus::SUSPENDED);
+    return nullptr;
 }

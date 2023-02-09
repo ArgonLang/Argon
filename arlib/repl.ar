@@ -1,3 +1,95 @@
+/*
+ * This source file is part of the Argon project.
+ *
+ * Licensed under the Apache License v2.0
+*/
+
+import "io"
+
+pub var repl
+
+struct Repl {
+    pub var ps1
+    pub var ps2
+    var module
+
+    var in_name = "stdin"
+
+    pub func Repl(ps1, ps2, mod_name) {
+        return Repl@(
+            ps1,
+            ps2,
+            Module(mod_name, ""))
+    }
+    
+    pub func interactive_loop(self) {
+        var value
+
+        loop {
+            var result = eval(self.in_name, self.module, self.read_input())
+            if result {
+                value = result.ok()
+
+                value != nil ? io.print(value)
+
+                io.print("[Ok]")
+            } else {
+                value = result.err()
+                io.perror(value)
+                io.perror("[Err]")
+            }
+        }
+    }
+
+    func read_input(self) {
+        var p_open = [0, 0, 0]
+        var line = self.ps1
+        var total_buffer = ""
+        var buffer
+        var cursor
+        var tabs = 0
+
+        loop {
+            buffer = io.input(prompt=line+("\t"*tabs))
+
+            for cursor in buffer {
+                switch {
+                    case cursor == '(':
+                        p_open[0]++
+                    case cursor == ')':
+                        p_open[0]--
+                    case cursor == '[':
+                        p_open[1]++
+                    case cursor == ']':
+                        p_open[1]--
+                    case cursor == '{':
+                        p_open[2]++
+                    case cursor == '}':
+                        p_open[2]--
+                }
+            }
+
+            total_buffer += buffer.tostr()
+            line = self.ps2
+
+            if p_open[0] < 0 || p_open[1] < 0 || p_open[2] < 0 {
+                break
+            }
+
+            tabs = p_open[0] + p_open[1] + p_open[2]
+
+            # TODO: Keep getting input if it ends with: :, ?, ??, |>, ::, ?., .
+
+            if  tabs == 0 {
+                break
+            }
+        }
+
+        return total_buffer
+    }
+}
+
 func RunDefaultRepl() {
-    assert false, "WIP: REPL"
+    repl = Repl("Ar> ", "... ", "main")
+    repl.interactive_loop()
 }

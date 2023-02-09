@@ -515,13 +515,13 @@ ArObject *argon::vm::Eval(Fiber *fiber) {
                 DISPATCH();
             }
             TARGET_OP(CALL) {
-                if (!CallFunction(fiber, &cu_frame, &cu_code, false)) {
-                    if (IsPanicking())
-                        break;
+                bool call_ok = CallFunction(fiber, &cu_frame, &cu_code, false);
 
-                    SetFiberStatus(FiberStatus::SUSPENDED);
+                if(GetFiberStatus() != FiberStatus::RUNNING)
                     return nullptr;
-                }
+
+                if(!call_ok)
+                    break;
 
                 continue;
             }

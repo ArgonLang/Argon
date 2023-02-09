@@ -14,6 +14,23 @@ using namespace argon::vm::datatype;
 
 String *ModuleGetQname(const Module *);
 
+ARGON_FUNCTION(module_module, Module,
+               "Create a new empty module.\n"
+               "\n"
+               "- Parameters:\n"
+               "  - name: Module name.\n"
+               "  - doc: Module documentations.\n"
+               "- Returns: New module object.\n",
+               "s: name, s: doc", false, false) {
+    return (ArObject *) ModuleNew((String *) args[0], (String *) args[1]);
+}
+
+const FunctionDef module_methods[] = {
+        module_module,
+
+        ARGON_METHOD_SENTINEL
+};
+
 ArObject *module_get_attr(const Module *self, ArObject *key, bool static_attr) {
     String *qname;
     ArObject *value;
@@ -92,7 +109,7 @@ bool module_set_attr(Module *self, struct ArObject *key, struct ArObject *value,
 }
 
 const ObjectSlots module_objslot = {
-        nullptr,
+        module_methods,
         nullptr,
         nullptr,
         (AttributeGetter) module_get_attr,
@@ -166,7 +183,7 @@ bool AddObject(Module *mod, const ModuleEntry *entry) {
 
     for (const ModuleEntry *cursor = entry; cursor->prop.object != nullptr && ok; cursor++) {
         const auto *name = cursor->name;
-        ArObject * value = cursor->prop.object;
+        ArObject *value = cursor->prop.object;
 
         if (cursor->func) {
             value = (ArObject *) FunctionNew(cursor->prop.func, nullptr, mod->ns);

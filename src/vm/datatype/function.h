@@ -110,25 +110,7 @@ namespace argon::vm::datatype {
             return ENUMBITMASK_ISTRUE(this->flags, FunctionFlags::VARIADIC);
         }
 
-        [[nodiscard]] void *LockAndGetStatus(void *on_address) {
-            uintptr_t expected = 0;
-
-            if (this->lock.compare_exchange_strong(expected, (uintptr_t) on_address)) {
-                if (this->IsExhausted()) {
-                    this->lock = 0;
-
-                    ErrorFormat(kExhaustedGeneratorError[0],
-                                kExhaustedGeneratorError[1],
-                                ARGON_RAW_STRING(this->qname));
-
-                    return nullptr;
-                }
-
-                return this->status;
-            }
-
-            return nullptr;
-        }
+        [[nodiscard]] void *LockAndGetStatus(void *on_address);
 
         void Unlock(void *on_address) {
             auto old = this->lock.exchange(0);
