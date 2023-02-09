@@ -1637,7 +1637,7 @@ void Compiler::CompileUnpack(List *list, const scanner::Loc *loc) {
 void Compiler::CompileUpdate(const parser::Unary *update) {
     const auto *value = (const Node *) update->value;
 
-    this->Expression((const Node *) update->value);
+    this->Expression(value);
 
     this->unit_->Emit(vm::OpCode::DUP, 1, nullptr, nullptr);
     this->unit_->IncrementStack(1);
@@ -1652,13 +1652,9 @@ void Compiler::CompileUpdate(const parser::Unary *update) {
     if (value->node_type == parser::NodeType::IDENTIFIER)
         this->StoreVariable((String *) ((const Unary *) value)->value, &update->loc);
     else if (value->node_type == parser::NodeType::INDEX) {
-        this->unit_->Emit(vm::OpCode::PBHEAD, 3, nullptr, nullptr);
-        this->unit_->Emit(vm::OpCode::PBHEAD, 3, nullptr, nullptr);
+        this->CompileSubscr((const Subscript *) value, false, false);
         this->unit_->Emit(vm::OpCode::STSUBSCR, &update->loc);
     } else if (value->node_type == parser::NodeType::SELECTOR) {
-        this->unit_->Emit(vm::OpCode::PBHEAD, 2, nullptr, nullptr);
-        this->unit_->Emit(vm::OpCode::PBHEAD, 2, nullptr, nullptr);
-
         auto code = vm::OpCode::STATTR;
         if (value->token_type == scanner::TokenType::SCOPE)
             code = vm::OpCode::STSCOPE;
