@@ -53,13 +53,16 @@ ArObject *function_compare(const Function *self, const ArObject *other, CompareM
 
 ArObject *function_repr(const Function *self) {
     if (self->IsGenerator()) {
-        return (ArObject *) StringFormat("<generator function %s at %p>", AR_TYPE_QNAME(self), self);
+        if (self->IsRecoverable())
+            return (ArObject *) StringFormat("<instantiated generator %s at %p>", ARGON_RAW_STRING(self->qname), self);
+
+        return (ArObject *) StringFormat("<generator %s at %p>", ARGON_RAW_STRING(self->qname), self);
     }
 
     if (self->IsNative())
-        return (ArObject *) StringFormat("<native function %s at %p>", AR_TYPE_QNAME(self), self);
+        return (ArObject *) StringFormat("<native function %s at %p>", ARGON_RAW_STRING(self->qname), self);
 
-    return (ArObject *) StringFormat("<function %s at %p>", AR_TYPE_QNAME(self), self);
+    return (ArObject *) StringFormat("<function %s at %p>", ARGON_RAW_STRING(self->qname), self);
 }
 
 ArSize function_hash(const ArObject *self) {
