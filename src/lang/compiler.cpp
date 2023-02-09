@@ -1840,8 +1840,10 @@ void Compiler::StoreVariable(String *name, const scanner::Loc *loc) {
     vm::OpCode code = vm::OpCode::STGBL;
     SymbolT *sym;
 
-    if (StringEqual(name, (const char *) "_"))
+    if (StringEqual(name, (const char *) "_")) {
         this->unit_->Emit(vm::OpCode::POP, nullptr);
+        return;
+    }
 
     sym = this->IdentifierLookupOrCreate(name, SymbolType::VARIABLE);
 
