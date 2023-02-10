@@ -19,6 +19,7 @@
 #include <vm/datatype/module.h>
 #include <vm/datatype/namespace.h>
 #include <vm/datatype/nil.h>
+#include <vm/datatype/option.h>
 #include <vm/datatype/result.h>
 #include <vm/datatype/set.h>
 #include <vm/datatype/tuple.h>
@@ -58,6 +59,7 @@ bool argon::vm::Setup() {
     INIT(type_module_);
     INIT(type_namespace_);
     INIT(type_nil_);
+    INIT(type_option_);
     INIT(type_result_);
     INIT(type_set_);
     INIT(type_string_);

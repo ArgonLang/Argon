@@ -22,6 +22,7 @@
 #include <vm/datatype/module.h>
 #include <vm/datatype/namespace.h>
 #include <vm/datatype/nil.h>
+#include <vm/datatype/option.h>
 #include <vm/datatype/result.h>
 #include <vm/datatype/set.h>
 #include <vm/datatype/tuple.h>
@@ -101,6 +102,7 @@ const ModuleEntry builtins_entries[] = {
         MODULE_EXPORT_TYPE(type_module_),
         MODULE_EXPORT_TYPE(type_namespace_),
         MODULE_EXPORT_TYPE(type_nil_),
+        MODULE_EXPORT_TYPE(type_option_),
         MODULE_EXPORT_TYPE(type_result_),
         MODULE_EXPORT_TYPE(type_set_),
         MODULE_EXPORT_TYPE(type_tuple_),
