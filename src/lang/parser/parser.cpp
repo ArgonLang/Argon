@@ -760,12 +760,13 @@ Node *Parser::ParseExpression() {
     }
 
     auto *ret = (Node *) expr.Unwrap();
+    auto *inner = ret;
 
     // This trick allows us to check if there is an assignment expression under the Null Safety expression.
-    if (ret->node_type == NodeType::SAFE_EXPR)
-        ret = (Node *) ((Unary *) ret)->value;
+    if (inner->node_type == NodeType::SAFE_EXPR)
+        inner = (Node *) ((Unary *) inner)->value;
 
-    if (ret->node_type != NodeType::ASSIGNMENT) {
+    if (inner->node_type != NodeType::ASSIGNMENT) {
         auto *unary = UnaryNew((ArObject *) ret, NodeType::EXPRESSION, this->tkcur_.loc);
 
         Release(ret);
