@@ -255,7 +255,7 @@ ArObject *list_item_in(List *self, const ArObject *key) {
     return BoolToArBool(false);
 }
 
-ArSize list_length(const Tuple *self) {
+ArSize list_length(const List *self) {
     return self->length;
 }
 
@@ -669,6 +669,22 @@ bool argon::vm::datatype::ListInsert(List *list, ArObject *object, ArSSize index
     list->objects[index] = IncRef(object);
 
     argon::vm::memory::TrackIf((ArObject *) list, object);
+
+    return true;
+}
+
+bool argon::vm::datatype::ListPrepend(List *list, ArObject *object) {
+    std::unique_lock _(list->rwlock);
+
+    if (!CheckSize(list, 1))
+        return false;
+
+    for (ArSize i = list->length; i > 0; i--)
+        list->objects[i] = list->objects[i-1];
+
+    list->objects[0] = IncRef(object);
+
+    list->length++;
 
     return true;
 }

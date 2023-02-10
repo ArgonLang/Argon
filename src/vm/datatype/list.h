@@ -77,6 +77,15 @@ namespace argon::vm::datatype {
     bool ListInsert(List *list, ArObject *object, ArSSize index);
 
     /**
+     * @brief Prepend object to the list.
+     *
+     * @param list List object.
+     * @param object Object to prepend list.
+     * @return True on success, in case of error false will be returned and the panic state will be set.
+     */
+    bool ListPrepend(List *list, ArObject *object);
+
+    /**
      * @brief Create a new list.
      *
      * @param capacity Set initial capacity.
