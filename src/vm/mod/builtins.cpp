@@ -183,6 +183,7 @@ const ModuleEntry builtins_entries[] = {
         MODULE_EXPORT_TYPE(type_option_),
         MODULE_EXPORT_TYPE(type_result_),
         MODULE_EXPORT_TYPE(type_set_),
+        MODULE_EXPORT_TYPE(type_string_),
         MODULE_EXPORT_TYPE(type_tuple_),
         MODULE_EXPORT_TYPE(type_uint_),
 
