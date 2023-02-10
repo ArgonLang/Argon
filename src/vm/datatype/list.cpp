@@ -241,6 +241,8 @@ ArObject *list_get_slice(List *self, ArObject *bounds) {
             ret->objects[i++] = IncRef(self->objects[start]);
     }
 
+    ret->length = slice_len;
+
     return (ArObject *) ret;
 }
 
