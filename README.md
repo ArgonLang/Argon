@@ -8,16 +8,19 @@
 This is the main repository for Argon language. It contains interpreter and builtins libraries.
 
 # What's Argon
-Argon is an interpreted multi-paradigm programming language. Its syntax is mainly influenced by Python, Go and Rust and aims to be elegant, clean and simple to use. 
+Argon is an interpreted multi-paradigm programming language. Its syntax is influenced by many modern languages and aims to be elegant, clean and simple to use. 
 
 ```js
-import enum
+import "enum"
+import "io"
 
 let NOBLE_GAS = ["Helium", "Neon", "Argon", "Krypton", "Xenon"]
 
-NOBLE_GAS |> enum.group_by((itm) => {
-    return itm |> len
-}) |> println
+var group_by_name_length = enum.group_by(len)
+
+NOBLE_GAS
+    |> group_by_name_length
+    |> io.print
 
 /* {6: [Helium], 4: [Neon], 5: [Argon, Xenon], 7: [Krypton]} */
 ```
@@ -27,7 +30,7 @@ The wiki is under development, you can view the current version here: [wiki](htt
 
 If you are looking for examples, you can find them here: [examples](https://github.com/ArgonLang/Argon/tree/master/example)
 
-A good way to start could also be to take a look at Argon's built-in modules [here](https://github.com/ArgonLang/Argon/tree/master/src/arlib)
+A good way to start could also be to take a look at Argon's built-in modules [here](https://github.com/ArgonLang/Argon/tree/master/arlib)
 
 # 🛠️ Installing from source
 
