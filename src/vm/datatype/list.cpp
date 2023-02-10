@@ -6,7 +6,7 @@
 
 #include "boolean.h"
 #include "bounds.h"
-#include "result.h"
+#include "option.h"
 #include "stringbuilder.h"
 
 #include "list.h"
@@ -123,14 +123,14 @@ ARGON_METHOD(list_pop, pop,
     std::unique_lock _(self->rwlock);
 
     if (self->length > 0) {
-        obj = (ArObject *) ResultNew(self->objects[self->length - 1], true);
+        obj = (ArObject *) OptionNew(self->objects[self->length - 1]);
 
         Release(self->objects[--self->length]);
 
         return obj;
     }
 
-    return (ArObject *) ResultNew(nullptr, false);
+    return (ArObject *) OptionNew();
 }
 
 ARGON_METHOD(list_remove, remove,

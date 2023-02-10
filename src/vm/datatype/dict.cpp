@@ -7,7 +7,7 @@
 #include "arstring.h"
 #include "boolean.h"
 #include "error.h"
-#include "result.h"
+#include "option.h"
 #include "stringbuilder.h"
 
 #include "dict.h"
@@ -64,14 +64,14 @@ ARGON_METHOD(dict_get, get,
              "Returns the value of the specified key.\n"
              "\n"
              "- Parameter key: Key to look up in the dict.\n"
-             "- Returns: Result<?>.\n",
+             "- Returns: Option<?>.\n",
              ": key", false, false) {
     auto *itm = DictLookup((Dict *) _self, args[0]);
 
     if (itm == nullptr)
-        return (ArObject *) ResultNew(nullptr, false);
+        return (ArObject *) OptionNew();
 
-    auto *result = ResultNew(itm, false);
+    auto *result = OptionNew(itm);
 
     Release(itm);
 
@@ -132,7 +132,7 @@ ARGON_METHOD(dict_pop, pop,
              "Removes the element with the specified key.\n"
              "\n"
              "- Parameter key: Key to look up in the dict.\n"
-             "- Returns: Result<?>.\n",
+             "- Returns: Option<?>.\n",
              ": key", false, false) {
     auto *self = (Dict *) _self;
 
@@ -141,7 +141,7 @@ ARGON_METHOD(dict_pop, pop,
     auto *item = self->hmap.Remove(args[0]);
 
     if (item == nullptr)
-        return (ArObject *) ResultNew(nullptr, false);
+        return (ArObject *) OptionNew();
 
     auto *value = item->value;
 
@@ -152,7 +152,7 @@ ARGON_METHOD(dict_pop, pop,
 
     _.unlock();
 
-    auto *ret = ResultNew(value, true);
+    auto *ret = OptionNew(value);
 
     Release(value);
 
@@ -304,8 +304,8 @@ ArObject *dict_repr(Dict *self) {
     builder.Write((const unsigned char *) "{", 1, self->hmap.length == 0 ? 1 : 256);
 
     for (auto *cursor = self->hmap.iter_begin; cursor != nullptr; cursor = cursor->iter_next) {
-        auto *key = (String *) Repr(cursor->key);
-        auto *value = (String *) Repr(cursor->value);
+        auto *key = (String *) Str(cursor->key);
+        auto *value = (String *) Str(cursor->value);
 
         if (key == nullptr || value == nullptr) {
             Release(key);
