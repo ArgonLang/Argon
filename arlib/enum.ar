@@ -1,0 +1,266 @@
+/*
+ * This source file is part of the Argon project.
+ *
+ * Licensed under the Apache License v2.0
+ *
+ * Provides a set of algorithms to work with enumerables.
+*/
+
+pub func all(enum) {
+    var cur
+
+    for cur in enum {
+        if !cur {
+            return false
+        }
+    }
+
+    return true
+}
+
+pub func all_by(fn, enum) {
+    var cur
+
+    for cur in enum {
+        if !fn(cur) {
+            return false
+        }
+    }
+
+    return true
+}
+
+pub func any(enum) {
+    var cur
+
+    for cur in enum {
+        if cur {
+            return true
+        }
+    }
+
+    return false
+}
+
+pub func any_by(fn, enum) {
+    var cur
+
+    for cur in enum {
+        if fn(cur) {
+            return true
+        }
+    }
+
+    return false
+}
+
+pub func at(enum, index, _default) {
+    if typeof(enum, List, Tuple, String) {
+        if index >= len(enum) {
+            return _default
+        }
+
+        return enum[index]
+    }
+
+    var idx = 0
+
+    var cur
+    for cur in enum {
+        if idx == index {
+            return cur
+        }
+
+        idx += 1
+    }
+
+    return _default
+}
+
+pub func chunk_by(fn, enum) {
+    var ret = []
+    var tmp = []
+    var chg = false
+
+    var cur
+    for cur in enum {
+        if fn(cur) {
+            if !chg {
+                ret.append(tmp)
+                tmp = []
+                chg = true
+            }
+
+            tmp.append(cur)
+            continue
+        }
+
+        if chg {
+            ret.append(tmp)
+            tmp = []
+            chg = false
+        }
+
+        tmp.append(cur)
+    }
+
+    if tmp {
+        ret.append(tmp)
+    }
+
+    return ret
+}
+
+pub func count(fn, enum) {
+    var length = 0
+
+    var cur
+    for cur in enum {
+        if fn(cur) {
+            length += 1
+        }
+    }
+
+    return length
+}
+
+pub func dedup(enum) {
+    var ret = []
+    var ins = false
+    var last
+
+    var cur
+    for cur in enum {
+        if last !== cur && ins {
+            ret.append(last)
+        }
+
+        last = cur
+        ins = true
+    }
+
+    ret.append(last)
+
+    return ret
+}
+
+pub func drop(enum, num) {
+    var ret = enum
+
+    if !typeof(enum, List) {
+        ret = List(enum)
+    }
+
+    return num >= 0 ? ret[num:] : ret[:num]
+}
+
+pub func each(fn, enum) {
+    var cur
+    for cur in enum {
+        fn(cur)
+    }
+}
+
+pub func fibgen(n1, n2) {
+    var nth
+
+    loop {
+        yield n1
+        nth = n1 + n2
+        n1 = n2
+        n2 = nth
+    }
+}
+
+pub var fib = fibgen(0, 1)
+
+pub func frequencies(enum) {
+    var ret = {}
+    var cur
+
+    for cur in enum {
+        ret[cur] = ret.get(cur).unwrap_or(0) + 1
+    }
+
+    return ret
+}
+
+pub func frequencies_by(fn, enum) {
+    var ret = {}
+    var tmp
+    var cur
+
+    for cur in enum {
+        tmp = fn(cur)
+        ret[tmp] = ret.get(tmp).unwrap_or(0) + 1
+    }
+
+    return ret
+}
+
+pub func group_by(fn, enum) {
+    var ret = {}
+    var tmp
+    var cur
+
+    for cur in enum {
+        tmp = fn(cur)
+        ret[tmp] = ret.get(tmp).unwrap_or([]).append(cur)
+    }
+
+    return ret
+}
+
+pub func reject(fn, enum) {
+    var ret = []
+
+    var cur
+    for cur in enum {
+        if !fn(cur) {
+            ret.append(cur)
+        }
+    }
+
+    return ret
+}
+
+pub func seqgen(base) {
+    loop {
+        yield base++
+    }
+}
+
+pub var seq = seqgen(0)
+
+pub func uniq(enum) {
+    var chk = Set()
+    var ret = []
+
+    var cur
+    for cur in enum {
+        if !chk.contains(cur) {
+            chk.add(cur)
+            ret.append(cur)
+        }
+    }
+
+    return ret
+}
+
+pub func uniq_by(fn, enum) {
+    var chk = Set()
+    var ret = []
+    var tmp
+
+    var cur
+    for cur in enum {
+        tmp = fn(cur)
+
+        if !chk.contains(tmp) {
+            chk.add(tmp)
+            ret.append(cur)
+        }
+    }
+
+    return ret
+}
