@@ -304,8 +304,8 @@ ArObject *dict_repr(Dict *self) {
     builder.Write((const unsigned char *) "{", 1, self->hmap.length == 0 ? 1 : 256);
 
     for (auto *cursor = self->hmap.iter_begin; cursor != nullptr; cursor = cursor->iter_next) {
-        auto *key = (String *) Str(cursor->key);
-        auto *value = (String *) Str(cursor->value);
+        auto *key = (String *) Repr(cursor->key);
+        auto *value = (String *) Repr(cursor->value);
 
         if (key == nullptr || value == nullptr) {
             Release(key);

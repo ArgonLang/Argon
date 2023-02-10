@@ -31,7 +31,7 @@ ArObject *boolean_compare(Boolean *self, ArObject *other, CompareMode mode) {
     ARGON_RICH_COMPARE_CASES(l, r, mode);
 }
 
-ArObject *boolean_str(const Boolean *self) {
+ArObject *boolean_repr(const Boolean *self) {
     return (ArObject *) StringFormat("%s", self->value ? "true" : "false");
 }
 
@@ -56,8 +56,8 @@ TypeInfo BooleanType = {
         (ArSize_UnaryOp) boolean_hash,
         (Bool_UnaryOp) boolean_is_true,
         (CompareOp) boolean_compare,
+        (UnaryConstOp) boolean_repr,
         nullptr,
-        (UnaryOp) boolean_str,
         nullptr,
         nullptr,
         nullptr,
