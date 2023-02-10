@@ -1588,14 +1588,13 @@ Node *Parser::ParsePipeline(Node *left) {
     if (right->node_type == NodeType::CALL) {
         auto *call = (Call *) right;
 
-        if (!ListInsert((List *) call->args, (ArObject *) left, 0)) {
+        if (!ListPrepend((List *) call->args, (ArObject *) left)) {
             Release(right);
             throw DatatypeException();
         }
 
-        Release(right);
-
         right->loc.start = left->loc.start;
+
         return right;
     }
 
