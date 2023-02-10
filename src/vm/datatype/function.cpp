@@ -120,9 +120,7 @@ bool FunctionCheckParams(const PCheck *pcheck, ArObject **args, ArSize count) {
     if (pcheck == nullptr)
         return true;
 
-    assert(pcheck->count == count);
-
-    for (int i = 0; i < count; i++) {
+    for (int i = 0; i < pcheck->count; i++) {
         const auto *param = pcheck->params[i];
         const auto *arg = args[i];
         bool ok = false;
