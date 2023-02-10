@@ -1840,7 +1840,8 @@ Node *Parser::ParseSubscript(Node *left) {
     if (this->Match(TokenType::RIGHT_SQUARE))
         throw ParserException("subscript definition (index | slice) cannot be empty");
 
-    start = (ArObject *) this->ParseExpression(0);
+    if (!this->Match(TokenType::COLON))
+        start = (ArObject *) this->ParseExpression(0);
 
     this->IgnoreNL();
 

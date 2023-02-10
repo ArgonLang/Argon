@@ -87,7 +87,7 @@ ArSSize argon::vm::datatype::BoundsIndex(Bounds *bound, ArSize length, ArSSize *
     ArSSize low;
     ArSSize high;
 
-    *out_step = IsNull((ArObject *) bound->step) ? 1 : bound->step->sint;
+    *out_step = IsNull(bound->step) ? 1 : ((Integer *) bound->step)->sint;
     if (*out_step < 0) {
         low = -1;
         high = (ArSSize) length + low;
@@ -99,8 +99,8 @@ ArSSize argon::vm::datatype::BoundsIndex(Bounds *bound, ArSize length, ArSSize *
     *out_start = *out_step < 0 ? high : low;
     *out_stop = *out_step < 0 ? low : high;
 
-    if (!IsNull((ArObject *) bound->start)) {
-        *out_start = bound->start->sint;
+    if (!IsNull(bound->start)) {
+        *out_start = ((Integer *) bound->start)->sint;
         if (*out_start < 0) {
             if ((*out_start = *out_start + (ArSSize) length) < low)
                 *out_start = low;
@@ -108,8 +108,8 @@ ArSSize argon::vm::datatype::BoundsIndex(Bounds *bound, ArSize length, ArSSize *
             *out_start = high;
     }
 
-    if (!IsNull((ArObject *) bound->stop)) {
-        *out_stop = bound->stop->sint;
+    if (!IsNull(bound->stop)) {
+        *out_stop = ((Integer *) bound->stop)->sint;
         if (*out_stop < 0) {
             if ((*out_stop = *out_stop + (ArSSize) length) < low)
                 *out_stop = low;
@@ -146,9 +146,9 @@ Bounds *argon::vm::datatype::BoundsNew(ArObject *start, ArObject *stop, ArObject
     auto *bound = MakeObject<Bounds>(type_bounds_);
 
     if (bound != nullptr) {
-        bound->start = (Integer *) IncRef(start);
-        bound->stop = (Integer *) IncRef(stop);
-        bound->step = (Integer *) IncRef(step);
+        bound->start = IncRef(start);
+        bound->stop = IncRef(stop);
+        bound->step = IncRef(step);
     }
 
     return bound;

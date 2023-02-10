@@ -12,9 +12,9 @@ namespace argon::vm::datatype{
     struct Bounds {
         AROBJ_HEAD;
 
-        Integer *start;
-        Integer *stop;
-        Integer *step;
+        ArObject *start;
+        ArObject *stop;
+        ArObject *step;
     };
     extern const TypeInfo *type_bounds_;
 
