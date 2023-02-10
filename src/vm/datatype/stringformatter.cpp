@@ -121,7 +121,7 @@ unsigned char *StringFormatter::Format(ArSize *out_len, ArSize *out_cap) {
             return nullptr;
     }
 
-    *out_len = (this->output_.cursor - 1) - this->output_.buffer;
+    *out_len = this->output_.cursor - this->output_.buffer;
     *out_cap = this->output_.end - this->output_.buffer;
 
     *this->output_.cursor = '\0';
