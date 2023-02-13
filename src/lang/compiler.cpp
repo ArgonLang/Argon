@@ -1588,6 +1588,37 @@ void Compiler::CompileTest(const parser::Binary *test) {
     this->unit_->BlockAppend(end);
 }
 
+void Compiler::CompileTrap(const parser::Unary *unary) {
+    BasicBlock *end;
+    JBlock *jb;
+
+    if ((end = BasicBlockNew()) == nullptr)
+        throw DatatypeException();
+
+    try {
+        jb = this->unit_->JBNew((String *) nullptr, end);
+        jb->trap = true;
+
+        this->unit_->Emit(vm::OpCode::ST, end, &unary->loc);
+
+        this->Expression((Node *) unary->value);
+    } catch (...) {
+        BasicBlockDel(end);
+        throw;
+    }
+
+    this->unit_->BlockAppend(end);
+
+    this->unit_->JBPop(jb);
+
+    this->unit_->Emit(vm::OpCode::POPGT, this->unit_->stack.current, nullptr, nullptr);
+
+    if (this->unit_->jstack != nullptr && this->unit_->jstack->trap)
+        this->unit_->Emit(vm::OpCode::TRAP, this->unit_->jstack->end, nullptr);
+    else
+        this->unit_->Emit(vm::OpCode::TRAP, 0, nullptr, nullptr);
+}
+
 void Compiler::CompileUnary(const parser::Unary *unary) {
     CHECK_AST_NODE(unary, type_ast_unary_, "Compiler::Unary: invalid AST node");
 
@@ -1702,6 +1733,9 @@ void Compiler::Expression(const Node *node) {
             break;
         case NodeType::TERNARY:
             this->CompileTernary((const parser::Test *) node);
+            break;
+        case NodeType::TRAP:
+            this->CompileTrap((const Unary *) node);
             break;
         case NodeType::IDENTIFIER:
             this->LoadIdentifier((String *) ((const Unary *) node)->value);

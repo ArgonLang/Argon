@@ -104,6 +104,8 @@ namespace argon::lang {
 
         void CompileTest(const parser::Binary *test);
 
+        void CompileTrap(const parser::Unary *unary);
+
         void CompileUnary(const parser::Unary *unary);
 
         void CompileUnpack(vm::datatype::List *list, const scanner::Loc *loc);

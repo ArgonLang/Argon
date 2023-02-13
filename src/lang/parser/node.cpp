@@ -254,10 +254,11 @@ Call *argon::lang::parser::CallNew(Node *left, ArObject *args, ArObject *kwargs)
     auto *call = NodeNew<Call>(&CallAstType, NodeType::CALL);
 
     if (call != nullptr) {
+        call->token_type = scanner::TokenType::TK_NULL;
+
         call->left = IncRef(left);
         call->args = IncRef(args);
         call->kwargs = IncRef(kwargs);
-
 
         call->loc.start = left->loc.start;
         call->loc.end = {};
