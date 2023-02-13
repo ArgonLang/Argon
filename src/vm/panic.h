@@ -15,6 +15,9 @@ namespace argon::vm {
         /// Pointer to panic object.
         datatype::ArObject *object;
 
+        /// If the panic originated in an Argon context it is the ID (raw pointer) of the frame that generated the error.
+        uintptr_t gen_id;
+
         /// This panic was recovered?
         bool recovered;
 

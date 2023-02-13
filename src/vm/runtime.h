@@ -45,6 +45,8 @@ namespace argon::vm {
 
     bool IsPanicking();
 
+    bool IsPanickingFrame();
+
     bool Spawn(datatype::Function *func, datatype::ArObject **argv, datatype::ArSize argc, OpCodeCallMode mode);
 
     Fiber *GetFiber();

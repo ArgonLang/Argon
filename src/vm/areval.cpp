@@ -38,7 +38,7 @@ ArObject *Binary(ArObject *l, ArObject *r, int offset) {
     if (lop != nullptr)
         result = lop(l, r);
 
-    if (rop != nullptr && result == nullptr && !IsPanicking())
+    if (rop != nullptr && result == nullptr && !IsPanickingFrame())
         result = rop(l, r);
 
     return result;
@@ -315,7 +315,7 @@ bool PopExecutedFrame(Fiber *fiber, const Code **out_code, Frame **out_frame, Ar
 
         Replace(cu_frame->eval_stack - 1,
                 *ret != nullptr ? *ret : (ArObject *) IncRef(Nil));
-    } while (IsPanicking());
+    } while (cu_frame->eval_stack == nullptr || IsPanicking());
 
     return true;
 }
@@ -469,10 +469,10 @@ ArObject *argon::vm::Eval(Fiber *fiber) {
 
 #define BINARY_OP(op, opchar)                                                                                       \
     if ((ret = Binary(PEEK1(), TOP(), offsetof(OpSlots, op))) == nullptr) {                                         \
-        if (!IsPanicking()) {                                                                                       \
+        if (!IsPanickingFrame()) {                                                                                       \
             ErrorFormat(kRuntimeError[0], kRuntimeError[2], #opchar, AR_TYPE_NAME(PEEK1()), AR_TYPE_NAME(TOP()));   \
         }                                                                                                           \
-        break; }                                                                                            \
+        break; }                                                                                                    \
     POP();                                                                                                          \
     TOP_REPLACE(ret);                                                                                               \
     DISPATCH()
@@ -481,9 +481,9 @@ ArObject *argon::vm::Eval(Fiber *fiber) {
     ret = TOP();                                                                                                \
     if(AR_GET_TYPE(ret)->ops == nullptr || AR_GET_TYPE(ret)->ops->op == nullptr) {                              \
         ErrorFormat(kRuntimeError[0], kRuntimeError[1], #opchar, AR_TYPE_NAME(ret));                            \
-        break; }                                                                                        \
+        break; }                                                                                                \
     if((ret = AR_GET_TYPE(ret)->ops->op(ret)) == nullptr)                                                       \
-        break;                                                                                          \
+        break;                                                                                                  \
     TOP_REPLACE(ret);                                                                                           \
     DISPATCH()
 
@@ -492,7 +492,7 @@ ArObject *argon::vm::Eval(Fiber *fiber) {
 
     ArObject *ret = nullptr;
 
-    if (IsPanicking() && !PopExecutedFrame(fiber, &cu_code, &cu_frame, &ret))
+    if (IsPanickingFrame() && !PopExecutedFrame(fiber, &cu_code, &cu_frame, &ret))
         return ret;
 
     while (cu_frame->instr_ptr < cu_code->instr_end) {
@@ -1086,7 +1086,7 @@ ArObject *argon::vm::Eval(Fiber *fiber) {
                     DISPATCH();
                 }
 
-                if (IsPanicking())
+                if (IsPanickingFrame())
                     break;
 
                 POP();

@@ -785,6 +785,17 @@ bool argon::vm::IsPanicking() {
     return panic_global != nullptr;
 }
 
+bool argon::vm::IsPanickingFrame() {
+    ON_ARGON_CONTEXT {
+        if (ost_local->fiber->panic == nullptr)
+            return false;
+
+        return (uintptr_t) ost_local->fiber->frame == ost_local->fiber->panic->gen_id;
+    }
+
+    assert(false);
+}
+
 bool argon::vm::Spawn(Function *func, ArObject **argv, ArSize argc, OpCodeCallMode mode) {
     Fiber *fiber;
 
@@ -841,6 +852,8 @@ void argon::vm::Panic(datatype::ArObject *panic) {
     ON_ARGON_CONTEXT {
         if ((ost_local->fiber->panic = PanicNew(ost_local->fiber->panic, panic)) == nullptr)
             PanicOOM(&ost_local->fiber->panic, panic);
+
+        ost_local->fiber->panic->gen_id = (uintptr_t) ost_local->fiber->frame;
 
         return;
     }
