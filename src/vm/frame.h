@@ -35,6 +35,9 @@ namespace argon::vm {
         /// Pointer to the last executed instruction.
         unsigned char *instr_ptr;
 
+        /// Pointer to the code trap handler for this frame.
+        unsigned char *trap_ptr;
+
         /// Evaluation stack.
         datatype::ArObject **eval_stack;
 

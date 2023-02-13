@@ -315,7 +315,7 @@ bool PopExecutedFrame(Fiber *fiber, const Code **out_code, Frame **out_frame, Ar
 
         Replace(cu_frame->eval_stack - 1,
                 *ret != nullptr ? *ret : (ArObject *) IncRef(Nil));
-    } while (cu_frame->eval_stack == nullptr || IsPanicking());
+    } while (cu_frame->eval_stack == nullptr || (IsPanicking() && cu_frame->trap_ptr == nullptr));
 
     return true;
 }
@@ -444,8 +444,10 @@ ArObject *argon::vm::Eval(Fiber *fiber) {
     if(GetFiberStatus() != FiberStatus::RUNNING) return nullptr;    \
     CGOTO
 
-#define JUMPTO(offset)                                                  \
-    cu_frame->instr_ptr = (unsigned char *)cu_code->instr + (offset);   \
+#define JUMPADDR(offset) (unsigned char *) (cu_code->instr + (offset))
+
+#define JUMPTO(offset)                          \
+    cu_frame->instr_ptr = JUMPADDR(offset);     \
     continue
 
 #define PEEK1() (*(cu_frame->eval_stack - 2))
@@ -469,7 +471,7 @@ ArObject *argon::vm::Eval(Fiber *fiber) {
 
 #define BINARY_OP(op, opchar)                                                                                       \
     if ((ret = Binary(PEEK1(), TOP(), offsetof(OpSlots, op))) == nullptr) {                                         \
-        if (!IsPanickingFrame()) {                                                                                       \
+        if (!IsPanickingFrame()) {                                                                                  \
             ErrorFormat(kRuntimeError[0], kRuntimeError[2], #opchar, AR_TYPE_NAME(PEEK1()), AR_TYPE_NAME(TOP()));   \
         }                                                                                                           \
         break; }                                                                                                    \
@@ -1143,6 +1145,14 @@ ArObject *argon::vm::Eval(Fiber *fiber) {
                 POP();
                 DISPATCH();
             }
+            TARGET_OP(POPGT) {
+                auto arg = I16Arg(cu_frame->instr_ptr);
+
+                while (cu_frame->eval_stack - cu_frame->extra > arg)
+                    POP();
+
+                DISPATCH();
+            }
             TARGET_OP(POS) {
                 UNARY_OP(pos, +);
             }
@@ -1164,6 +1174,10 @@ ArObject *argon::vm::Eval(Fiber *fiber) {
                 if (!::Spawn(cu_frame))
                     break;
 
+                DISPATCH();
+            }
+            TARGET_OP(ST) {
+                cu_frame->trap_ptr = JUMPADDR(I32Arg(cu_frame->instr_ptr));
                 DISPATCH();
             }
             TARGET_OP(STATTR) {
@@ -1272,6 +1286,29 @@ ArObject *argon::vm::Eval(Fiber *fiber) {
                 TOP_REPLACE(BoolToArBool(false));
                 DISPATCH();
             }
+            TARGET_OP(TRAP) {
+                auto handler = I32Arg(cu_frame->instr_ptr);
+                ArObject *tmp = GetLastError();
+
+                cu_frame->trap_ptr = handler > 0 ? JUMPADDR(handler) : nullptr;
+
+                if (tmp == nullptr)
+                    ret = (ArObject *) ResultNew(TOP(), true);
+                else
+                    ret = (ArObject *) ResultNew(tmp, false);
+
+                Release(tmp);
+
+                if (ret == nullptr)
+                    break;
+
+                if (cu_frame->eval_stack - cu_frame->extra > 0)
+                    TOP_REPLACE(ret);
+                else
+                    PUSH(ret);
+
+                DISPATCH();
+            }
             TARGET_OP(UNPACK) {
                 ret = TOP();
 
@@ -1306,6 +1343,11 @@ ArObject *argon::vm::Eval(Fiber *fiber) {
             }
             default:
                 ErrorFormat(kRuntimeError[0], "unknown opcode: 0x%X", *cu_frame->instr_ptr);
+        }
+
+        if (IsPanickingFrame() && (uintptr_t) cu_frame->trap_ptr > 0) {
+            cu_frame->instr_ptr = cu_frame->trap_ptr;
+            continue;
         }
 
         if (!PopExecutedFrame(fiber, &cu_code, &cu_frame, &ret))
