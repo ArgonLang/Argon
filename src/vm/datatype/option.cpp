@@ -18,7 +18,7 @@ ARGON_FUNCTION(option_option, Option,
                "- Parameter obj: Optional object.\n"
                "- Returns: Option<?>.\n",
                nullptr, true, false) {
-    if (!VariadicCheckPositional(option_option.name, argc, 0, 1))
+    if (!VariadicCheckPositional(option_option.name, (unsigned int) argc, 0, 1))
         return nullptr;
 
     if (argc == 1)
