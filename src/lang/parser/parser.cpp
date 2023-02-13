@@ -172,6 +172,8 @@ Parser::NudMeth Parser::LookupNud(lang::scanner::TokenType token) const {
         case TokenType::EXCLAMATION:
         case TokenType::TILDE:
             return &Parser::ParsePrefix;
+        case TokenType::KW_TRAP:
+            return &Parser::ParseTrap;
         case TokenType::LEFT_ROUND:
             return &Parser::ParseArrowOrTuple;
         case TokenType::LEFT_SQUARE:
@@ -1566,8 +1568,6 @@ Node *Parser::ParseOOBCall() {
             throw ParserException("defer expected call expression");
         else if (type == scanner::TokenType::KW_SPAWN)
             throw ParserException("spawn expected call expression");
-        else if (type == scanner::TokenType::KW_TRAP)
-            throw ParserException("trap expected call expression");
         else
             assert(false);
     }
@@ -1710,7 +1710,6 @@ Node *Parser::ParseStatement() {
                 break;
             case TokenType::KW_DEFER:
             case TokenType::KW_SPAWN:
-            case TokenType::KW_TRAP:
                 expr = (ArObject *) this->ParseOOBCall();
                 break;
             case TokenType::KW_RETURN:
@@ -2056,6 +2055,26 @@ Node *Parser::ParseTraitDecl(bool pub) {
     this->ExitDocContext();
 
     return (Node *) cstr;
+}
+
+Node *Parser::ParseTrap() {
+    Position start = this->tkcur_.loc.start;
+
+    this->Eat();
+    this->IgnoreNL();
+
+    auto *trap_expr = this->ParseExpression(PeekPrecedence(TokenType::EQUAL));
+
+    if (trap_expr->node_type == NodeType::TRAP) {
+        Release(trap_expr);
+        throw ParserException("invalid use of trap, trap does not intercept another trap");
+    }
+
+    auto *unary = UnaryNew((ArObject *) trap_expr, NodeType::TRAP, trap_expr->loc);
+
+    unary->loc.start = start;
+
+    return (Node *) unary;
 }
 
 Node *Parser::ParseVarDecl(bool visibility, bool constant, bool weak) {

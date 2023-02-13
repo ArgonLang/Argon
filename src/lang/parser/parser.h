@@ -168,6 +168,8 @@ namespace argon::lang::parser {
 
         Node *ParseTraitDecl(bool pub);
 
+        Node *ParseTrap();
+
         Node *ParseVarDecl(bool visibility, bool constant, bool weak);
 
         Node *ParseVarDeclTuple(const scanner::Token &token, bool visibility, bool constant, bool weak);
