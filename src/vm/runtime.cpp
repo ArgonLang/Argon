@@ -44,6 +44,7 @@ struct VCore {
     FiberQueue queue;
 
     bool wired;
+    bool stealing;
 };
 
 struct OSThread {
@@ -196,15 +197,14 @@ Fiber *AllocFiber(Context *context) {
     return FiberNew(context, fiber_stack_size);
 }
 
-Fiber *FindExecutable(bool ignore_local) {
+Fiber *FindExecutable(bool lq_last) {
     auto *current = ost_local->current;
     Fiber *fiber;
 
     if (should_stop)
         return nullptr;
 
-    if (!ignore_local) {
-        // Check from local queue
+    if (!lq_last) {
         fiber = current->queue.Dequeue();
         if (fiber != nullptr)
             return fiber;
@@ -217,6 +217,12 @@ Fiber *FindExecutable(bool ignore_local) {
     if ((fiber = StealWork(ost_local)) != nullptr)
         return fiber;
 
+    if (lq_last) {
+        fiber = current->queue.Dequeue();
+        if (fiber != nullptr)
+            return fiber;
+    }
+
     return nullptr;
 }
 
@@ -224,8 +230,6 @@ Fiber *StealWork(OSThread *ost) {
     static std::minstd_rand vc_random;
 
     auto *cur_vc = ost->current;
-
-    auto attempts = kOSTStealWorkAttempts;
 
     std::unique_lock lock(ost_lock);
 
@@ -242,20 +246,25 @@ Fiber *StealWork(OSThread *ost) {
 
     // Steal work from other VCore
     std::uniform_int_distribution<unsigned int> r_distrib(0, vc_total);
-    do {
-        auto start = r_distrib(vc_random);
 
-        for (auto i = start; i < vc_total; i++) {
-            auto *target_vc = vcores + i;
-            if (target_vc == cur_vc)
-                continue;
+    auto start = r_distrib(vc_random);
 
-            // Steal from queues that contain more than one item
-            auto *fiber = cur_vc->queue.StealDequeue(1, target_vc->queue);
-            if (fiber != nullptr)
-                return fiber;
+    cur_vc->stealing = true;
+
+    for (auto i = start; i < vc_total + (vc_total - start); i++) {
+        auto *target_vc = vcores + (i % vc_total);
+        if (target_vc == cur_vc || target_vc->stealing)
+            continue;
+
+        // Steal from queues that contain one or more items
+        auto *fiber = cur_vc->queue.StealDequeue(1, target_vc->queue);
+        if (fiber != nullptr) {
+            cur_vc->stealing = false;
+            return fiber;
         }
-    } while (--attempts > 0);
+    }
+
+    cur_vc->stealing = false;
 
     return nullptr;
 }
@@ -270,38 +279,24 @@ OSThread *AllocOST() {
 }
 
 void AcquireOrSuspend(OSThread *ost, Fiber **last) {
-    if (ost->current == nullptr && *last != nullptr) {
-        auto *old = ost->old;
-
-        PUSH_LCQUEUE(old, *last);
-
-        std::unique_lock _(vc_lock);
-
-        if (!old->queue.IsEmpty() && !ost->old->wired && ost->old->prev == nullptr) {
-            auto *next = &vcores_active;
-
-            while (*next != nullptr)
-                next = &((*next)->next);
-
-            *next = old;
-            old->prev = next;
-        }
-
-        *last = nullptr;
-    }
+    std::unique_lock lock(vc_lock);
 
     while (ost->current == nullptr) {
-        std::unique_lock lock(vc_lock);
-
         if (WireVCore(ost, ost->old) || AcquireVCore(ost)) {
             lock.unlock();
 
             OSTIdle2Active(ost);
-
             break;
         }
 
+        if (*last != nullptr) {
+            fiber_global.Enqueue(*last);
+            *last = nullptr;
+        }
+
+        lock.unlock();
         OSTSleep();
+        lock.lock();
     }
 }
 
@@ -358,7 +353,7 @@ void OSTWakeRun() {
 
     std::unique_lock v_lock(vc_lock);
 
-    if (fiber_global.IsEmpty() || vc_idle_count == 0)
+    if (fiber_global.IsEmpty() && vc_idle_count == 0)
         return;
 
     std::unique_lock o_lock(ost_lock);
@@ -636,9 +631,9 @@ Result *argon::vm::Eval(Context *context, Code *code, Namespace *ns) {
 
     fiber_global.Enqueue(fiber);
 
-    ON_ARGON_CONTEXT Yield();
-
     OSTWakeRun();
+
+    ON_ARGON_CONTEXT Yield();
 
     FutureWait(future);
 
@@ -653,8 +648,10 @@ Result *argon::vm::EvalFile(Context *context, const char *name, const char *path
     lang::CompilerWrapper c_wrapper;
     FILE *f;
 
-    if ((f = fopen(path, "r")) == nullptr)
-        return nullptr; // TODO: set Error from ERRNO
+    if ((f = fopen(path, "r")) == nullptr){
+        ErrorFromErrno(errno);
+        return nullptr;
+    }
 
     auto *code = c_wrapper.Compile(name, f);
 
@@ -881,7 +878,12 @@ void argon::vm::Yield() {
     if (ost_local == nullptr || ost_local->current == nullptr)
         return;
 
+    SetFiberStatus(FiberStatus::SUSPENDED);
+
+    bool has_work = !ost_local->current->queue.IsEmpty();
+
     VCoreRelease(ost_local);
 
-    SetFiberStatus(FiberStatus::SUSPENDED);
+    if (has_work)
+        OSTWakeRun();
 }
