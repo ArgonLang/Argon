@@ -314,6 +314,10 @@ TranslationUnit *argon::lang::TranslationUnitDel(TranslationUnit *unit) {
     Release(unit->names);
     Release(unit->locals);
 
+    // Free all JBlock
+    JBlock *jb = unit->jstack;
+    while((jb = JBlockDel(jb)) != nullptr);
+
     argon::vm::memory::Free(unit);
 
     return prev;
