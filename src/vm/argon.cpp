@@ -76,6 +76,7 @@ int argon::vm::ArgonMain(int argc, char **argv) {
     Config config{};
     Context *context;
     Module *mod;
+    Result *result;
 
     memory::MemoryCopy(&config, kConfigDefault, sizeof(Config));
 
@@ -91,37 +92,48 @@ int argon::vm::ArgonMain(int argc, char **argv) {
     if (!SetupImportPaths(context->imp))
         return EXIT_FAILURE;
 
-    if ((mod = importer::ImportAdd(context->imp, "main")) == nullptr)
+    if ((mod = importer::ImportAdd(context->imp, "__main")) == nullptr)
         return EXIT_FAILURE;
 
     if (config.file > -1) {
-        Release(EvalFile(context, "main", argv[config.file], mod->ns));
+        result = EvalFile(context, "__main", argv[config.file], mod->ns);
+        if (!result->success)
+            PrintRaw(result->value);
 
-        return 0;
+        Release(result);
     }
 
     if (config.cmd > -1) {
-        Release(EvalString(context, "main", argv[config.cmd], mod->ns));
+        result = EvalString(context, "__main", argv[config.cmd], mod->ns);
+        if (!result->success)
+            PrintRaw(result->value);
 
-        return 0;
+        Release(result);
     }
 
-    if ((mod = importer::LoadModule(context->imp, "repl", nullptr)) == nullptr) {
-        if (CheckLastPanic(kModuleImportError[0])) {
-            std::cerr << "No REPL script found, interactive mode not available.\n"
-                         "Check your installation!" << std::endl;
+    if (config.interactive) {
+        if ((mod = importer::LoadModule(context->imp, "repl", nullptr)) == nullptr) {
+            if (CheckLastPanic(kModuleImportError[0])) {
+                std::cerr << "No REPL script found, interactive mode not available.\n"
+                             "Check your installation!" << std::endl;
+                return EXIT_FAILURE;
+            }
+
+            PrintRaw(GetLastError());
             return EXIT_FAILURE;
         }
 
-        PrintRaw(GetLastError());
-        return EXIT_FAILURE;
+        result = EvalString(context, "repl", "RunDefaultRepl()", mod->ns);
+        if (!result->success)
+            PrintRaw(result->value);
+
+        Release(result);
     }
 
-    auto *res = EvalString(context, "repl", "RunDefaultRepl()", mod->ns);
-    if (!res->success)
-        PrintRaw(res->value);
-
-    Release(res);
+    if (Shutdown()) {
+        ContextDel(context);
+        Cleanup();
+    }
 
     return EXIT_SUCCESS;
 }

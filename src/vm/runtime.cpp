@@ -648,7 +648,7 @@ Result *argon::vm::EvalFile(Context *context, const char *name, const char *path
     lang::CompilerWrapper c_wrapper;
     FILE *f;
 
-    if ((f = fopen(path, "r")) == nullptr){
+    if ((f = fopen(path, "r")) == nullptr) {
         ErrorFromErrno(errno);
         return nullptr;
     }
@@ -793,6 +793,20 @@ bool argon::vm::IsPanickingFrame() {
     assert(false);
 }
 
+bool argon::vm::Shutdown() {
+    short attempt = 10;
+
+    should_stop = true;
+    ost_cond.notify_all();
+
+    while (ost_total > 0 && attempt > 0) {
+        std::this_thread::sleep_for(std::chrono::milliseconds(500));
+        attempt--;
+    }
+
+    return ost_total == 0;
+}
+
 bool argon::vm::Spawn(Function *func, ArObject **argv, ArSize argc, OpCodeCallMode mode) {
     Fiber *fiber;
 
@@ -833,6 +847,15 @@ Frame *argon::vm::GetFrame() {
     ON_ARGON_CONTEXT return ost_local->fiber->frame;
 
     return nullptr;
+}
+
+void argon::vm::Cleanup() {
+    if (ost_total == 0) {
+        for (unsigned int i = 0; i < vc_total; i++)
+            (vcores + i)->queue.~FiberQueue();
+
+        memory::MemoryFinalize();
+    }
 }
 
 void argon::vm::DiscardLastPanic() {

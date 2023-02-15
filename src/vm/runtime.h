@@ -47,6 +47,8 @@ namespace argon::vm {
 
     bool IsPanickingFrame();
 
+    bool Shutdown();
+
     bool Spawn(datatype::Function *func, datatype::ArObject **argv, datatype::ArSize argc, OpCodeCallMode mode);
 
     Fiber *GetFiber();
@@ -54,6 +56,8 @@ namespace argon::vm {
     FiberStatus GetFiberStatus();
 
     Frame *GetFrame();
+
+    void Cleanup();
 
     void DiscardLastPanic();
 
