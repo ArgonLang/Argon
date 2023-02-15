@@ -120,6 +120,33 @@ ARGON_FUNCTION(builtins_repr, repr,
     return Repr(*args);
 }
 
+ARGON_FUNCTION(builtins_require, require,
+               "Allows you to dynamically import a module.\n"
+               "\n"
+               "- Parameter name: Module name.\n"
+               "- Returns: A result object that can contain a loaded module.\n",
+               "s: name", false, false) {
+    ArObject *error;
+    Result *result;
+
+    auto *fiber = argon::vm::GetFiber();
+
+    auto *mod = LoadModule(fiber->context->imp, ((String *) *args), nullptr);
+    if (mod != nullptr) {
+        if ((result = ResultNew((ArObject *) mod, true)) == nullptr)
+            Release(mod);
+
+        return (ArObject *) result;
+    }
+
+    error = argon::vm::GetLastError();
+
+    if ((result = ResultNew(error, false)) == nullptr)
+        Release(error);
+
+    return (ArObject *) result;
+}
+
 ARGON_FUNCTION(builtins_str, str,
                "Return a string version of an object.\n"
                "\n"
@@ -148,13 +175,13 @@ ARGON_FUNCTION(builtins_typeof, typeof,
                ": obj", true, false) {
     const auto *base = *args;
 
-    if (!VariadicCheckPositional(builtins_typeof.name, (unsigned int) argc-1, 1, 0))
+    if (!VariadicCheckPositional(builtins_typeof.name, (unsigned int) argc - 1, 1, 0))
         return nullptr;
 
     for (auto i = 1; i < argc; i++) {
         auto *tp = (const TypeInfo *) args[i];
 
-        if(!AR_TYPEOF(tp, type_type_))
+        if (!AR_TYPEOF(tp, type_type_))
             tp = AR_GET_TYPE(tp);
 
         if (AR_TYPEOF(base, tp))
@@ -191,6 +218,7 @@ const ModuleEntry builtins_entries[] = {
         MODULE_EXPORT_FUNCTION(builtins_eval),
         MODULE_EXPORT_FUNCTION(builtins_iscallable),
         MODULE_EXPORT_FUNCTION(builtins_len),
+        MODULE_EXPORT_FUNCTION(builtins_require),
         MODULE_EXPORT_FUNCTION(builtins_repr),
         MODULE_EXPORT_FUNCTION(builtins_str),
         MODULE_EXPORT_FUNCTION(builtins_type),

@@ -15,11 +15,15 @@ struct Repl {
 
     var in_name = "stdin"
 
-    pub func Repl(ps1, ps2, mod_name) {
+    pub func Repl(ps1, ps2, module) {
+        if !typeof(module, Module) {
+            module = Module(module, "")
+        }
+
         return Repl@(
             ps1,
             ps2,
-            Module(mod_name, ""))
+            module)
     }
     
     pub func interactive_loop(self) {
@@ -90,6 +94,8 @@ struct Repl {
 }
 
 func RunDefaultRepl() {
-    repl = Repl("Ar> ", "... ", "main")
+    var module = require("__main") # Check if the "__main" context already exists
+
+    repl = Repl("Ar> ", "... ", module ? module.ok() : "__main")
     repl.interactive_loop()
 }
