@@ -29,6 +29,14 @@ bool NotifyQueue::Wait() {
 }
 
 void NotifyQueue::Enqueue(argon::vm::Fiber *fiber) {
+    //                                            +----head
+    //                                            v
+    //           +--------+    +--------+    +--------+
+    //           |        |    |        |    |        |
+    // tail ---> |  obj3  +--->|  obj2  +--->|  obj1  |
+    //           |        |    |        |    |        |
+    //           +--------+    +--------+    +--------+
+
     fiber->rq.next = this->tail_;
     fiber->rq.prev = nullptr;
 
@@ -72,7 +80,7 @@ void NotifyQueue::NotifyAll() {
 
     std::unique_lock lock(this->lock_);
 
-    Fiber *next = nullptr;
+    Fiber *next;
     for (Fiber *cursor = this->tail_; cursor != nullptr; cursor = next) {
         next = cursor->rq.next;
 
