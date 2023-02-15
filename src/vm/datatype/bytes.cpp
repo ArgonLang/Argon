@@ -40,7 +40,7 @@ using namespace argon::vm::datatype;
 ARGON_FUNCTION(bytes_bytes, Bytes,
                "Creates bytes object.\n"
                "\n"
-               "The src parameter is optional, in case of call without src parameter an empty zero-length"
+               "The src parameter is optional, in case of call without src parameter an empty zero-length "
                "bytes object will be constructed.\n"
                "\n"
                "- Parameter src: Integer or bytes-like object.\n"

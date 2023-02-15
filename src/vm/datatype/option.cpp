@@ -93,7 +93,8 @@ ArObject *option_compare(const Option *self, const ArObject *other, CompareMode 
 }
 
 ArObject *option_repr(const Option *self) {
-    return (ArObject *) StringFormat("Option<%s>", self->some == nullptr ? "?" : AR_TYPE_NAME(self->some));
+    return (ArObject *) StringFormat("<%s -- value: %s>", type_option_->name,
+                                     self->some == nullptr ? "?" : AR_TYPE_NAME(self->some));
 }
 
 bool option_dtor(Option *self) {

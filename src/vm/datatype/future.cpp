@@ -32,6 +32,10 @@ bool future_dtor(Future *self) {
     return true;
 }
 
+bool future_is_true(const Future *self) {
+    return self->status == FutureStatus::FULFILLED;
+}
+
 void future_trace(Future *self, Void_UnaryOp trace) {
     trace(self->value);
 }
@@ -47,7 +51,7 @@ TypeInfo FutureType = {
         (Bool_UnaryOp) future_dtor,
         (TraceOp) future_trace,
         nullptr,
-        nullptr,
+        (Bool_UnaryOp) future_is_true,
         future_compare,
         (UnaryConstOp) future_repr,
         nullptr,

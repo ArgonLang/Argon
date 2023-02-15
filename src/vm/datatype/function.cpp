@@ -272,6 +272,7 @@ Function *argon::vm::datatype::FunctionNew(Code *code, String *name, String *qna
 
     if (fn != nullptr) {
         fn->qname = IncRef(qname);
+        fn->doc = IncRef(code->doc);
         fn->enclosed = IncRef(enclosed);
         fn->gns = IncRef(ns);
         fn->code = IncRef(code);

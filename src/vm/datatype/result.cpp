@@ -95,7 +95,7 @@ ArObject *result_compare(const Result *self, const ArObject *other, CompareMode 
 
 ArObject *result_repr(const Result *self) {
     return (ArObject *) StringFormat("<%s -- success: %s, value: %s>", type_result_->name,
-                                     self->success ? "Ok" : "Err", AR_TYPE_NAME(self->value));
+                                     self->success ? "true" : "false", AR_TYPE_NAME(self->value));
 }
 
 bool result_dtor(Result *self) {
