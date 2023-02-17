@@ -602,6 +602,12 @@ Node *Parser::ParseDecls(ParserScope scope) {
             if (scope != ParserScope::STRUCT)
                 throw ParserException("unexpected use of 'weak' in this context");
 
+            this->Eat();
+            this->IgnoreNL();
+
+            if(!this->Match(scanner::TokenType::KW_VAR))
+                throw ParserException("expected 'var' after weak keyword");
+
             stmt = (ArObject *) this->ParseVarDecl(pub, false, true);
             break;
         case TokenType::KW_VAR:
