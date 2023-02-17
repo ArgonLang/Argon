@@ -19,7 +19,7 @@ ArObject *atom_compare(const ArObject *self, const ArObject *other, CompareMode 
     return BoolToArBool(self == other);
 }
 
-ArObject *atom_str(Atom *self) {
+ArObject *atom_repr(const Atom *self) {
     return (ArObject *) StringFormat("@%s", ARGON_RAW_STRING(self->value));
 }
 
@@ -45,8 +45,8 @@ TypeInfo AtomType = {
         (ArSize_UnaryOp) atom_hash,
         nullptr,
         atom_compare,
+        (UnaryConstOp) atom_repr,
         nullptr,
-        (UnaryOp) atom_str,
         nullptr,
         nullptr,
         nullptr,
