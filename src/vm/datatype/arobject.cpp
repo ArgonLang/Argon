@@ -959,3 +959,61 @@ void argon::vm::datatype::RecursionUntrack(ArObject *object) {
 
     ListRemove(*ref, ((ArSSize) (*ref)->length) - 1);
 }
+
+// RefStore
+
+RefStore::~RefStore() {
+    this->Release();
+}
+
+ArObject *RefStore::Get() {
+    if (!this->weak_) {
+        if (!this->s_value->head_.ref_count_.IncStrong())
+            return nullptr;
+
+        return this->s_value;
+    }
+
+    return NilOrValue((ArObject *) this->w_value.GetObject());
+}
+
+ArObject *RefStore::GetRawReference() const {
+    return this->weak_ ? nullptr : this->s_value;
+}
+
+void RefStore::Store(ArObject *object, bool strong) {
+    this->Release();
+
+    if (strong
+        || object->head_.ref_count_.IsStatic()
+        || ENUMBITMASK_ISFALSE(AR_GET_TYPE(object)->flags, TypeInfoFlags::WEAKABLE)) {
+        object->head_.ref_count_.IncStrong();
+        this->s_value = object;
+        this->weak_ = false;
+        return;
+    }
+
+    this->w_value = object->head_.ref_count_.IncWeak();
+    this->weak_ = true;
+}
+
+void RefStore::Store(ArObject *object) {
+    bool strong = true;
+
+    if (this->s_value != nullptr && this->weak_)
+        strong = false;
+
+    this->Store(object, strong);
+}
+
+void RefStore::Release() {
+    if(this->s_value == nullptr)
+        return;
+
+    if (this->weak_)
+        this->w_value.DecWeak();
+    else
+        this->s_value->head_.ref_count_.DecStrong();
+
+    this->s_value = nullptr;
+}

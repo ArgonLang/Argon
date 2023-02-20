@@ -202,56 +202,17 @@ namespace argon::vm::datatype {
         bool weak_ = false;
 
     public:
-        ~RefStore() {
-            this->Release();
-        }
+        ~RefStore();
 
-        ArObject *Get() {
-            if (!this->weak_) {
-                if (!this->s_value->head_.ref_count_.IncStrong())
-                    return nullptr;
+        ArObject *Get();
 
-                return this->s_value;
-            }
+        [[nodiscard]] ArObject *GetRawReference() const;
 
-            return (ArObject *) this->w_value.GetObject();
-        }
+        void Store(ArObject *object, bool strong);
 
-        ArObject *GetRawReference() {
-            return this->weak_ ? nullptr : this->s_value;
-        }
+        void Store(ArObject *object);
 
-        void Store(ArObject *object, bool strong) {
-            if (strong
-                || object->head_.ref_count_.IsStatic()
-                || ENUMBITMASK_ISFALSE(AR_GET_TYPE(object)->flags, TypeInfoFlags::WEAKABLE)) {
-                object->head_.ref_count_.IncStrong();
-                this->s_value = object;
-                this->weak_ = false;
-                return;
-            }
-
-            this->w_value = object->head_.ref_count_.IncWeak();
-            this->weak_ = true;
-        }
-
-        void Store(ArObject *object) {
-            bool strong = true;
-
-            if (this->s_value != nullptr && this->weak_)
-                strong = false;
-
-            this->Store(object, strong);
-        }
-
-        void Release() {
-            if (this->weak_)
-                this->w_value.DecWeak();
-            else
-                this->s_value->head_.ref_count_.DecStrong();
-
-            this->s_value = nullptr;
-        }
+        void Release();
     };
 
 } // namespace argon::vm::datatype
