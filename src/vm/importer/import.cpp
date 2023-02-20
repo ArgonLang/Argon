@@ -245,6 +245,7 @@ ARGON_FUNCTION(import_builtins_locator, builtins_locator,
                ": import, s: name, : hint", false, false) {
     static const ModuleInit *builtins[] = {
             argon::vm::mod::module_builtins_,
+            argon::vm::mod::module_gc_,
             argon::vm::mod::module_io_
     };
     ImportSpec *spec = nullptr;

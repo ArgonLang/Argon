@@ -935,12 +935,12 @@ void argon::vm::datatype::Release(ArObject *object) {
     if (object == nullptr)
         return;
 
-    if (AR_GET_RC(object).DecStrong()) {
-        if (AR_GET_RC(object).IsGcObject()) {
-            memory::GCFree(object);
-            return;
-        }
+    if (AR_GET_RC(object).IsGcObject()) {
+        memory::GCFree(object);
+        return;
+    }
 
+    if (AR_GET_RC(object).DecStrong()) {
         if (AR_GET_TYPE(object)->dtor != nullptr)
             AR_GET_TYPE(object)->dtor(object);
 

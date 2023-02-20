@@ -190,12 +190,12 @@ argon::vm::datatype::ArObject *argon::vm::memory::GCNew(ArSize length, bool trac
 size_t argon::vm::memory::Collect(unsigned short generation) {
     GCHead *unreachable = nullptr;
     GCGeneration *selected;
-
-    unsigned short next_gen = (generation + 1) % kGCGenerations;
-    if (next_gen == 0)
-        next_gen = kGCGenerations - 1;
+    unsigned short next_gen;
 
     std::unique_lock lock(track_lock);
+
+    if ((next_gen = (generation + 1) % kGCGenerations) == 0)
+        next_gen = kGCGenerations - 1;
 
     ResetStats(generation);
 
@@ -247,13 +247,20 @@ GCHead *argon::vm::memory::GCGetHead(datatype::ArObject *object) {
 void argon::vm::memory::GCFree(datatype::ArObject *object) {
     auto *head = GCGetHead(object);
 
-    if (head == nullptr || !Untrack(object))
+    if(head == nullptr)
         return;
 
-    if (AR_GET_TYPE(object)->dtor != nullptr)
-        AR_GET_TYPE(object)->dtor(object);
+    if(head->IsTracked()) {
+        AR_GET_RC(object).DecStrong();
+        return;
+    }
 
-    memory::Free(head);
+    if (AR_GET_RC(object).DecStrong()) {
+        if (AR_GET_TYPE(object)->dtor != nullptr)
+            AR_GET_TYPE(object)->dtor(object);
+
+        memory::Free(head);
+    }
 }
 
 void argon::vm::memory::Sweep() {
@@ -267,7 +274,7 @@ void argon::vm::memory::Sweep() {
     lock.unlock();
 
     while (cursor != nullptr) {
-        auto *obj = cursor->GetObject();
+        const auto *obj = cursor->GetObject();
         auto *tmp = cursor;
 
         cursor = cursor->Next();
@@ -279,15 +286,13 @@ void argon::vm::memory::Sweep() {
 }
 
 void argon::vm::memory::ThresholdCollect() {
-    bool requested = false;
+    bool desired = false;
 
     if (!enabled || (allocations - deallocations) < generations[0].threshold)
         return;
 
-    if (!gc_requested.compare_exchange_strong(requested, true, std::memory_order_relaxed))
+    if (!gc_requested.compare_exchange_strong(desired, true, std::memory_order_relaxed))
         return;
-
-    // TODO: STOP THE WORLD!
 
     Collect(0);
 
@@ -296,8 +301,6 @@ void argon::vm::memory::ThresholdCollect() {
             Collect(i);
 
     gc_requested = false;
-
-    // TODO: START THE WORLD
 
     Sweep();
 }
@@ -319,26 +322,8 @@ void argon::vm::memory::Track(datatype::ArObject *object) {
 }
 
 void argon::vm::memory::TrackIf(datatype::ArObject *track, datatype::ArObject *gc_object) {
-    auto *head = GCGetHead(gc_object);
+    const auto *head = GCGetHead(gc_object);
 
     if (head != nullptr)
         Track(track);
-}
-
-bool argon::vm::memory::Untrack(datatype::ArObject *object) {
-    auto *head = GCGetHead(object);
-    if (head == nullptr)
-        return true;
-
-    std::unique_lock lock(track_lock);
-    if(head->IsFinalized())
-        return false;
-
-    if (head->IsTracked()) {
-        GCHeadRemove(head);
-        total_tracked--;
-        deallocations++;
-    }
-
-    return true;
 }
