@@ -6,6 +6,7 @@
 
 #include "boolean.h"
 #include "bounds.h"
+#include "decimal.h"
 #include "integer.h"
 #include "list.h"
 #include "nil.h"
@@ -411,6 +412,68 @@ Tuple *argon::vm::datatype::TupleNew(ArObject **objects, ArSize count) {
     if (tuple != nullptr) {
         for (ArSize i = 0; i < count; i++)
             tuple->objects[i] = IncRef(objects[i]);
+    }
+
+    return tuple;
+}
+
+Tuple *argon::vm::datatype::TupleNew(const char *fmt, ...) {
+    va_list args;
+    ArObject *obj;
+    Tuple *tuple;
+    const void *tmp;
+
+    ArSize flen = strlen(fmt);
+
+    if ((tuple = TupleNew(flen)) == nullptr)
+        return nullptr;
+
+    va_start(args, fmt);
+
+    for (int i = 0; i < flen; i++) {
+        switch (fmt[i]) {
+            case 'o':
+            case 'O':
+                obj = NilOrValue(IncRef(va_arg(args, ArObject*)));
+                break;
+            case 's':
+                tmp = va_arg(args, const char*);
+                obj = (ArObject *) (tmp == nullptr ? StringIntern("") : StringNew((const char *) tmp));
+                break;
+            case 'd':
+                obj = (ArObject *) DecimalNew(va_arg(args, DecimalUnderlying));
+                break;
+            case 'i':
+                obj = (ArObject *) IntNew((int) va_arg(args, ArSSize));
+                break;
+            case 'I':
+                obj = (ArObject *) IntNew((IntegerUnderlying) ((unsigned int) va_arg(args, ArSSize)));
+                break;
+            case 'l':
+                obj = (ArObject *) IntNew(va_arg(args, ArSSize));
+                break;
+            case 'h':
+                obj = (ArObject *) IntNew((short) va_arg(args, ArSSize));
+                break;
+            case 'H':
+                obj = (ArObject *) IntNew((unsigned short) va_arg(args, ArSSize));
+                break;
+            case 'u':
+                obj = (ArObject *) UIntNew(va_arg(args, ArSSize));
+                break;
+            default:
+                ErrorFormat(kValueError[0], "TupleNew: unexpected '%c' in fmt string", fmt[i]);
+                Release(tuple);
+                return nullptr;
+        }
+
+        if (obj == nullptr) {
+            Release(tuple);
+            return nullptr;
+        }
+
+        TupleInsert(tuple, obj, i);
+        Release(obj);
     }
 
     return tuple;
