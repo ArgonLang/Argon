@@ -29,6 +29,10 @@ ArObject *future_repr(const Future *self) {
 bool future_dtor(Future *self) {
     Release(self->value);
 
+    self->wait.lock.~mutex();
+    self->wait.cond.~condition_variable();
+    self->wait.queue.~NotifyQueue();
+
     return true;
 }
 
