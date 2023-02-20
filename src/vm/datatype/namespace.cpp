@@ -182,7 +182,7 @@ bool argon::vm::datatype::NamespaceSet(Namespace *ns, ArObject *key, ArObject *v
     std::unique_lock _(ns->rwlock);
 
     if ((entry = ns->ns.Lookup(key)) != nullptr) {
-        entry->value.value.Store(value);
+        entry->value.value.Store(value, !entry->value.properties.IsWeak());
         return true;
     }
 
@@ -204,7 +204,7 @@ bool argon::vm::datatype::NamespaceSetPositional(Namespace *ns, ArObject **value
         if (cursor->value.properties.IsConstant())
             continue;
 
-        cursor->value.value.Store(values[idx++]);
+        cursor->value.value.Store(values[idx++],!cursor->value.properties.IsWeak());
     }
 
     return count <= idx;
