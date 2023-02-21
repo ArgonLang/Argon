@@ -45,6 +45,16 @@ namespace argon::vm::datatype {
     bool TupleInsert(Tuple * tuple, ArObject * object, ArSize index);
 
     /**
+     * @brief Extracts associated c-type values from the tuple.
+     *
+     * @param tuple Tuple object.
+     * @param fmt Format string.
+     * @param ... Arguments.
+     * @return True on success, false otherwise.
+     */
+    bool TupleUnpack(Tuple *tuple, const char *fmt, ...);
+
+    /**
      * @brief Transform a list with only one reference into a tuple.
      *
      * This function allows you to use a List object to dynamically add elements and then return a Tuple

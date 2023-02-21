@@ -275,6 +275,113 @@ bool argon::vm::datatype::TupleInsert(Tuple *tuple, ArObject *object, ArSize ind
     return true;
 }
 
+bool argon::vm::datatype::TupleUnpack(Tuple *tuple, const char *fmt, ...) {
+    va_list args;
+    ArObject *obj;
+    ArSize flen;
+
+    va_start(args, fmt);
+
+    flen = strlen(fmt);
+
+    if (tuple->length < flen) {
+        va_end(args);
+
+        ErrorFormat(kValueError[0], "unable to unpack, invalid tuple length");
+
+        return false;
+    }
+
+    for (int i = 0; i < flen; i++) {
+        obj = tuple->objects[i];
+        switch (fmt[i]) {
+            case 'o':
+            case 'O':
+                *va_arg(args, ArObject**) = IncRef(tuple->objects[i]);
+                break;
+            case 's':
+                if (!AR_TYPEOF(obj, type_string_)) {
+                    va_end(args);
+
+                    ErrorFormat(kTypeError[0], "TupleUnpack: expected '%s' in index %d, not '%s'",
+                                type_string_->name, i, AR_TYPE_NAME(obj));
+
+                    return false;
+                }
+
+                *va_arg(args, const char **) = (const char *) ARGON_RAW_STRING((String *) obj);
+                break;
+            case 'd':
+                if (!AR_TYPEOF(obj, type_decimal_)) {
+                    va_end(args);
+
+                    ErrorFormat(kTypeError[0], "TupleUnpack: expected '%s' in index %d, not '%s'",
+                                type_decimal_->name, i, AR_TYPE_NAME(obj));
+
+                    return false;
+                }
+
+                *va_arg(args, double *) = (double) ((Decimal *) obj)->decimal;
+                break;
+            case 'i':
+            case 'I':
+                if (!AR_TYPEOF(obj, type_int_)) {
+                    va_end(args);
+
+                    ErrorFormat(kTypeError[0], "TupleUnpack: expected '%s' in index %d, not '%s'",
+                                type_int_->name, i, AR_TYPE_NAME(obj));
+
+                    return false;
+                }
+
+                *va_arg(args, int *) = (int) ((Integer *) obj)->sint;
+                break;
+            case 'l':
+                if (!AR_TYPEOF(obj, type_int_)) {
+                    va_end(args);
+
+                    ErrorFormat(kTypeError[0], "TupleUnpack: expected '%s' in index %d, not '%s'",
+                                type_int_->name, i, AR_TYPE_NAME(obj));
+
+                    return false;
+                }
+
+                *va_arg(args, long *) = (long) ((Integer *) obj)->sint;
+                break;
+            case 'h':
+                if (!AR_TYPEOF(obj, type_int_)) {
+                    va_end(args);
+
+                    ErrorFormat(kTypeError[0], "TupleUnpack: expected '%s' in index %d, not '%s'",
+                                type_string_->name, i, AR_TYPE_NAME(obj));
+
+                    return false;
+                }
+
+                *va_arg(args, short *) = (short) ((Integer *) obj)->sint;
+                break;
+            case 'u':
+                if (!AR_TYPEOF(obj, type_uint_)) {
+                    va_end(args);
+
+                    ErrorFormat(kTypeError[0], "TupleUnpack: expected '%s' in index %d, not '%s'",
+                                type_uint_->name, i, AR_TYPE_NAME(obj));
+
+                    return false;
+                }
+
+                *va_arg(args, UIntegerUnderlying *) = (UIntegerUnderlying) ((Integer *) obj)->sint;
+                break;
+            default:
+                ErrorFormat(kValueError[0], "TupleUnpack: unexpected '%c' in  fmt string", fmt[i]);
+                return false;
+        }
+    }
+
+    va_end(args);
+    return true;
+}
+
 Tuple *argon::vm::datatype::TupleConvertList(argon::vm::datatype::List **list) {
     assert(AR_GET_RC(*list).GetStrongCount() == 1);
 
