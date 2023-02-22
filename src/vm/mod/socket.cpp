@@ -498,6 +498,9 @@ bool SocketInit(Module *self) {
     if(!ModuleAddIntConstant(self, #c, c))  \
         goto ERROR
 
+    if (!TypeInit((TypeInfo *) type_socket_, nullptr))
+        return false;
+
 #ifdef _ARGON_PLATFORM_WINDOWS
     WSADATA WSAData;
 
@@ -625,40 +628,40 @@ bool SocketInit(Module *self) {
         AddIntConstant(MSG_EOR);
 #endif
 #ifdef  MSG_TRUNC
-        AddIntConstant(MSG_TRUNC);
+    AddIntConstant(MSG_TRUNC);
 #endif
 #ifdef  MSG_CTRUNC
-        AddIntConstant(MSG_CTRUNC);
+    AddIntConstant(MSG_CTRUNC);
 #endif
 #ifdef  MSG_WAITALL
     AddIntConstant(MSG_WAITALL);
 #endif
 #ifdef  MSG_BTAG
-    AddIntConstant(MSG_BTAG);
+        AddIntConstant(MSG_BTAG);
 #endif
 #ifdef  MSG_ETAG
-    AddIntConstant(MSG_ETAG);
+        AddIntConstant(MSG_ETAG);
 #endif
 #ifdef  MSG_NOSIGNAL
-    AddIntConstant(MSG_NOSIGNAL);
+        AddIntConstant(MSG_NOSIGNAL);
 #endif
 #ifdef  MSG_NOTIFICATION
-    AddIntConstant(MSG_NOTIFICATION);
+        AddIntConstant(MSG_NOTIFICATION);
 #endif
 #ifdef  MSG_CMSG_CLOEXEC
-    AddIntConstant(MSG_CMSG_CLOEXEC);
+        AddIntConstant(MSG_CMSG_CLOEXEC);
 #endif
 #ifdef  MSG_ERRQUEUE
-    AddIntConstant(MSG_ERRQUEUE);
+        AddIntConstant(MSG_ERRQUEUE);
 #endif
 #ifdef  MSG_CONFIRM
-    AddIntConstant(MSG_CONFIRM);
+        AddIntConstant(MSG_CONFIRM);
 #endif
 #ifdef  MSG_MORE
-    AddIntConstant(MSG_MORE);
+        AddIntConstant(MSG_MORE);
 #endif
 #ifdef  MSG_EOF
-    AddIntConstant(MSG_EOF);
+        AddIntConstant(MSG_EOF);
 #endif
 #ifdef  MSG_BCAST
     AddIntConstant(MSG_BCAST);
@@ -681,6 +684,8 @@ bool SocketInit(Module *self) {
 }
 
 const ModuleEntry socket_entries[] = {
+        MODULE_EXPORT_TYPE(type_socket_),
+
         MODULE_EXPORT_FUNCTION(socket_getaddrinfo),
         MODULE_EXPORT_FUNCTION(socket_gethostname),
         MODULE_EXPORT_FUNCTION(socket_gethostbyaddr),
