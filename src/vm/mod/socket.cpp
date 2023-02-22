@@ -5,7 +5,6 @@
 #include <util/macros.h>
 
 #ifdef _ARGON_PLATFORM_WINDOWS
-#pragma comment(lib, "Ws2_32.lib")
 
 #include <WinSock2.h>
 #include <ws2ipdef.h>
@@ -499,6 +498,26 @@ bool SocketInit(Module *self) {
     if(!ModuleAddIntConstant(self, #c, c))  \
         goto ERROR
 
+#ifdef _ARGON_PLATFORM_WINDOWS
+    WSADATA WSAData;
+
+    int err = WSAStartup(MAKEWORD(2, 2), &WSAData);
+    switch (err) {
+        case 0:
+            break;
+        case WSASYSNOTREADY:
+            ErrorFormat(kOSError[0], "WSAStartup failed: network not ready");
+            return false;
+        case WSAVERNOTSUPPORTED:
+        case WSAEINVAL:
+            ErrorFormat(kOSError[0], "WSAStartup failed: requested version not supported");
+            return false;
+        default:
+            ErrorFormat(kOSError[0], "WSAStartup failed: error code %d", err);
+            return false;
+    }
+#endif
+
 #ifdef AF_APPLETALK
     AddIntConstant(AF_APPLETALK);
 #endif
@@ -516,7 +535,7 @@ bool SocketInit(Module *self) {
     AddIntConstant(AF_UNSPEC);
 #endif
 #ifdef AF_VSOCK
-    AddIntConstant(AF_VSOCK);
+        AddIntConstant(AF_VSOCK);
 #endif
 
 #ifdef PF_APPLETALK
@@ -529,10 +548,10 @@ bool SocketInit(Module *self) {
     AddIntConstant(PF_INET6);
 #endif
 #ifdef PF_LOCAL
-    AddIntConstant(PF_LOCAL);
+        AddIntConstant(PF_LOCAL);
 #endif
 #ifdef PF_NETBIOS
-    AddIntConstant(PF_NETBIOS);
+        AddIntConstant(PF_NETBIOS);
 #endif
 #ifdef PF_UNIX
     AddIntConstant(PF_UNIX);
@@ -541,7 +560,7 @@ bool SocketInit(Module *self) {
     AddIntConstant(PF_UNSPEC);
 #endif
 #ifdef PF_VSOCK
-    AddIntConstant(PF_VSOCK);
+        AddIntConstant(PF_VSOCK);
 #endif
 
     AddIntConstant(SOCK_DGRAM);
@@ -589,7 +608,7 @@ bool SocketInit(Module *self) {
     AddIntConstant(NI_NUMERICHOST);
     AddIntConstant(NI_NUMERICSERV);
 
-    /* Flags for send, recv */
+        /* Flags for send, recv */
 #ifdef  MSG_OOB
     AddIntConstant(MSG_OOB);
 #endif
@@ -600,43 +619,43 @@ bool SocketInit(Module *self) {
     AddIntConstant(MSG_DONTROUTE);
 #endif
 #ifdef  MSG_DONTWAIT
-    AddIntConstant(MSG_DONTWAIT);
+        AddIntConstant(MSG_DONTWAIT);
 #endif
 #ifdef  MSG_EOR
-    AddIntConstant(MSG_EOR);
+        AddIntConstant(MSG_EOR);
 #endif
 #ifdef  MSG_TRUNC
-    AddIntConstant(MSG_TRUNC);
+        AddIntConstant(MSG_TRUNC);
 #endif
 #ifdef  MSG_CTRUNC
-    AddIntConstant(MSG_CTRUNC);
+        AddIntConstant(MSG_CTRUNC);
 #endif
 #ifdef  MSG_WAITALL
     AddIntConstant(MSG_WAITALL);
 #endif
 #ifdef  MSG_BTAG
-        AddIntConstant(MSG_BTAG);
+    AddIntConstant(MSG_BTAG);
 #endif
 #ifdef  MSG_ETAG
-        AddIntConstant(MSG_ETAG);
+    AddIntConstant(MSG_ETAG);
 #endif
 #ifdef  MSG_NOSIGNAL
     AddIntConstant(MSG_NOSIGNAL);
 #endif
 #ifdef  MSG_NOTIFICATION
-        AddIntConstant(MSG_NOTIFICATION);
+    AddIntConstant(MSG_NOTIFICATION);
 #endif
 #ifdef  MSG_CMSG_CLOEXEC
-        AddIntConstant(MSG_CMSG_CLOEXEC);
+    AddIntConstant(MSG_CMSG_CLOEXEC);
 #endif
 #ifdef  MSG_ERRQUEUE
-        AddIntConstant(MSG_ERRQUEUE);
+    AddIntConstant(MSG_ERRQUEUE);
 #endif
 #ifdef  MSG_CONFIRM
-        AddIntConstant(MSG_CONFIRM);
+    AddIntConstant(MSG_CONFIRM);
 #endif
 #ifdef  MSG_MORE
-        AddIntConstant(MSG_MORE);
+    AddIntConstant(MSG_MORE);
 #endif
 #ifdef  MSG_EOF
     AddIntConstant(MSG_EOF);
@@ -654,6 +673,9 @@ bool SocketInit(Module *self) {
     return true;
 
     ERROR:
+#ifdef _ARGON_PLATFORM_WINDOWS
+    WSACleanup();
+#endif
     return false;
 #undef AddIntConstant
 }
