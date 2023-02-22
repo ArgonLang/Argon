@@ -171,7 +171,11 @@ namespace argon::vm::datatype {
 
     Error *ErrorNew(const char *id, String *reason);
 
+    Error *ErrorNew(const char *id, String *reason, Dict *aux);
+
     Error *ErrorNew(const char *id, const char *reason);
+
+    Error *ErrorNew(const char *id, const char *reason, Dict *aux);
 
     Error *ErrorNewFromErrno(int err);
 

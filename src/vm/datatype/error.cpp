@@ -330,6 +330,22 @@ Error *argon::vm::datatype::ErrorNew(const char *id, String *reason) {
     return err;
 }
 
+Error *argon::vm::datatype::ErrorNew(const char *id, String *reason, Dict *aux) {
+    Atom *aid;
+    Error *err;
+
+    if ((aid = AtomNew(id)) == nullptr) {
+        SetErrorOOM();
+        return nullptr;
+    }
+
+    err = ErrorNew(aid, reason, aux);
+
+    Release(aid);
+
+    return err;
+}
+
 Error *argon::vm::datatype::ErrorNew(const char *id, const char *reason) {
     Atom *aid;
     Error *err;
@@ -348,6 +364,31 @@ Error *argon::vm::datatype::ErrorNew(const char *id, const char *reason) {
     }
 
     err = ErrorNew(aid, sreason);
+
+    Release(aid);
+    Release(sreason);
+
+    return err;
+}
+
+Error *argon::vm::datatype::ErrorNew(const char *id, const char *reason, Dict *aux) {
+    Atom *aid;
+    Error *err;
+    String *sreason;
+
+    if ((aid = AtomNew(id)) == nullptr) {
+        SetErrorOOM();
+        return nullptr;
+    }
+
+    if ((sreason = StringNew(reason)) == nullptr) {
+        Release(aid);
+
+        SetErrorOOM();
+        return nullptr;
+    }
+
+    err = ErrorNew(aid, sreason, aux);
 
     Release(aid);
     Release(sreason);
