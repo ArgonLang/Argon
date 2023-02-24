@@ -30,6 +30,7 @@
 #include <vm/setup.h>
 
 #include "areval.h"
+#include "event.h"
 #include "fiber.h"
 #include "fqueue.h"
 #include "runtime.h"
@@ -98,6 +99,9 @@ std::atomic<struct Panic *> panic_oom = nullptr;
 // Global queues
 FiberQueue fiber_global;
 FiberQueue fiber_pool;
+
+// Event loop
+EvLoop *default_event_loop = nullptr;
 
 // Prototypes
 
@@ -197,33 +201,53 @@ Fiber *AllocFiber(Context *context) {
     return FiberNew(context, fiber_stack_size);
 }
 
-Fiber *FindExecutable(bool lq_last) {
+void FindExecutable(Fiber **out_fiber, unsigned int *tick, bool lq_last) {
     auto *current = ost_local->current;
-    Fiber *fiber;
+    Event *event;
+
+    *out_fiber = nullptr;
 
     if (should_stop)
-        return nullptr;
+        return;
+
+    if (!EventPool(default_event_loop, &event, kEventTimeout)) {
+        // TODO error
+        assert(false);
+    }
+
+    if (event != nullptr) {
+        // It's necessary to immediately set the current fiber in ost_local so that callback
+        // can call functions like Panic/GetLastError referring to the correct context
+        *out_fiber = event->fiber;
+
+        if (event->callback != nullptr)
+            event->callback(event);
+        else
+            ReplaceFrameTopValue(event->initiator); // Default: Set initiator as return value
+
+        EventDel(event);
+
+        return;
+    }
 
     if (!lq_last) {
-        fiber = current->queue.Dequeue();
-        if (fiber != nullptr)
-            return fiber;
+        *out_fiber = current->queue.Dequeue();
+        if (*out_fiber != nullptr)
+            return;
     }
 
     // Check from global queue
-    if ((fiber = fiber_global.Dequeue()) != nullptr)
-        return fiber;
+    if ((*out_fiber = fiber_global.Dequeue()) != nullptr)
+        return;
 
-    if ((fiber = StealWork(ost_local)) != nullptr)
-        return fiber;
+    if ((*out_fiber = StealWork(ost_local)) != nullptr)
+        return;
 
     if (lq_last) {
-        fiber = current->queue.Dequeue();
-        if (fiber != nullptr)
-            return fiber;
-    }
+        *tick = 0;
 
-    return nullptr;
+        *out_fiber = current->queue.Dequeue();
+    }
 }
 
 Fiber *StealWork(OSThread *ost) {
@@ -469,11 +493,7 @@ void Scheduler(OSThread *self) {
     while (!should_stop) {
         AcquireOrSuspend(self, &last);
 
-        if (++tick >= kScheduleTickBeforeCheck) {
-            self->fiber = FindExecutable(true);
-            tick = 0;
-        } else
-            self->fiber = FindExecutable(false);
+        FindExecutable(&self->fiber, &tick, ++tick >= kScheduleTickBeforeCheck);
 
         if (self->fiber == nullptr) {
             if (last == nullptr) {
@@ -771,6 +791,9 @@ bool argon::vm::Initialize(const Config *config) {
     if (!Setup())
         return false;
 
+    if ((default_event_loop = EvLoopNew()) == nullptr)
+        return false;
+
     // TODO: panic_oom
 
     return true;
@@ -831,6 +854,12 @@ bool argon::vm::Spawn(Function *func, ArObject **argv, ArSize argc, OpCodeCallMo
     return true;
 }
 
+EvLoop *argon::vm::GetEventLoop() {
+    ON_ARGON_CONTEXT return default_event_loop;
+
+    return nullptr;
+}
+
 Fiber *argon::vm::GetFiber() {
     ON_ARGON_CONTEXT return ost_local->fiber;
 
@@ -880,6 +909,10 @@ void argon::vm::Panic(datatype::ArObject *panic) {
 
     if ((panic_global = PanicNew(panic_global, panic)) == nullptr)
         PanicOOM(&panic_global, panic);
+}
+
+void argon::vm::ReplaceFrameTopValue(datatype::ArObject *value) {
+    ON_ARGON_CONTEXT Replace(GetFiber()->frame->eval_stack - 1, IncRef(value));
 }
 
 void argon::vm::SetFiberStatus(FiberStatus status) {

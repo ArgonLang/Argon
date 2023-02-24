@@ -9,6 +9,13 @@
 #include <winsock2.h>
 #include <ws2tcpip.h>
 
+#undef CONST
+#undef FASTCALL
+#undef Yield
+
+#include <vm/runtime.h>
+#include <vm/event.h>
+
 #include <vm/datatype/dict.h>
 #include <vm/datatype/integer.h>
 
@@ -40,7 +47,30 @@ ArSSize argon::vm::io::socket::Connect(Socket *sock, const sockaddr *addr, sockl
     if (!Bind(sock, (const struct sockaddr *) &local, sizeof(sockaddr_in)))
         return -1;
 
-    assert(false);
+    auto *ovr = vm::EventAlloc(vm::GetEventLoop(), (ArObject *) sock);
+
+    auto result = sock->ConnectEx(sock->sock, addr, len, nullptr, 0, nullptr, (OVERLAPPED *) ovr);
+    if (result == 0) {
+        auto err = ::GetLastError();
+
+        if (err == ERROR_IO_PENDING) {
+            vm::SetFiberStatus(FiberStatus::BLOCKED);
+
+            ovr->fiber = vm::GetFiber();
+
+            return -1;
+        }
+
+        vm::EventDel(ovr);
+
+        ErrorFromSocket();
+
+        return -1;
+    }
+
+    vm::EventDel(ovr);
+
+    return 0;
 }
 
 bool argon::vm::io::socket::Bind(const Socket *sock, const struct sockaddr *addr, socklen_t addrlen) {
@@ -137,6 +167,11 @@ Socket *argon::vm::io::socket::SocketNew(int domain, int type, int protocol) {
     if ((handle = WSASocketW(domain, type, protocol, nullptr, 0, WSA_FLAG_OVERLAPPED | WSA_FLAG_NO_HANDLE_INHERIT)) ==
         INVALID_SOCKET) {
         ErrorFromSocket();
+        return nullptr;
+    }
+
+    if (!vm::EvLoopRegister(vm::GetEventLoop(), (vm::EvHandle) handle)) {
+        closesocket(handle);
         return nullptr;
     }
 

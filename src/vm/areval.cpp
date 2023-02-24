@@ -158,6 +158,8 @@ bool CallFunction(Fiber *fiber, Frame **cu_frame, const Code **cu_code, bool val
     ArSize positional_args;
     OpCodeCallMode mode;
 
+    bool exit_ok = true;
+
     old_frame = *cu_frame;
     stack_size = I16Arg((*cu_frame)->instr_ptr);
     mode = I32Flag<OpCodeCallMode>((*cu_frame)->instr_ptr);
@@ -219,8 +221,10 @@ bool CallFunction(Fiber *fiber, Frame **cu_frame, const Code **cu_code, bool val
 
     if (func->IsNative()) {
         ret = FunctionInvokeNative(func, args, args_length, ENUMBITMASK_ISTRUE(mode, OpCodeCallMode::KW_PARAMS));
-        if (ret == nullptr)
-            return false;
+        if (ret == nullptr) {
+            exit_ok = false;
+            ret = (ArObject *) IncRef(Nil);
+        }
 
         goto CLEANUP;
     }
@@ -270,7 +274,7 @@ bool CallFunction(Fiber *fiber, Frame **cu_frame, const Code **cu_code, bool val
 
     old_frame->instr_ptr += OpCodeOffset[*(old_frame->instr_ptr)];
 
-    return true;
+    return exit_ok;
 }
 
 bool PopExecutedFrame(Fiber *fiber, const Code **out_code, Frame **out_frame, ArObject **ret) {
