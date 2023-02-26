@@ -19,6 +19,7 @@
 #endif
 
 #include <vm/datatype/arobject.h>
+#include <vm/datatype/bytes.h>
 #include <vm/datatype/error.h>
 
 namespace argon::vm::io::socket {
@@ -46,6 +47,10 @@ namespace argon::vm::io::socket {
         SockHandle sock;
 
         int family;
+        int type;
+        int protocol;
+
+        sockaddr_storage addr;
 
 #ifdef _ARGON_PLATFORM_WINDOWS
         LPFN_ACCEPTEX AcceptEx;
@@ -57,9 +62,19 @@ namespace argon::vm::io::socket {
 
     datatype::ArSSize Connect(Socket *sock, const struct sockaddr *addr, socklen_t addrlen);
 
+    datatype::ArSSize RecvInto(Socket *sock, datatype::ArObject *buffer, int offset, int flags);
+
+    datatype::ArSSize Send(Socket *sock, datatype::ArObject *buffer, int flags);
+
+    bool Accept(Socket *sock, Socket **out);
+
     bool AddrToSockAddr(datatype::ArObject *addr, sockaddr_storage *store, socklen_t *len, int family);
 
     bool Bind(const Socket *sock, const struct sockaddr *addr, socklen_t addrlen);
+
+    bool Listen(const Socket *sock, int backlog);
+
+    bool Recv(Socket *sock, datatype::Bytes **out, size_t len, int flags);
 
     datatype::Error *ErrorNewFromSocket();
 

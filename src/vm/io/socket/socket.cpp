@@ -21,12 +21,49 @@ ARGON_FUNCTION(socket_socket, Socket,
                                   (int) ((Integer *) args[2])->sint);
 }
 
+ARGON_METHOD(socket_accept, accept,
+             "Accept a connection.\n"
+             "\n"
+             "The socket must be bound to an address and listening for connections.\n"
+             "\n"
+             "- Returns: Socket.\n",
+             nullptr, false, false) {
+    auto *self = (Socket *) _self;
+    Socket *remote;
+
+    if (!Accept(self, &remote))
+        return nullptr;
+
+    return (ArObject *) remote;
+}
+
+ARGON_METHOD(socket_bind, bind,
+             "Bind the socket to address.\n"
+             "\n"
+             "The socket must not already be bound.\n"
+             "\n"
+             "- Parameter address: format of address depends on the address family.\n",
+             "st: address", false, false) {
+    sockaddr_storage addr{};
+    socklen_t addrlen;
+
+    const auto *self = (Socket *) _self;
+
+    if (!AddrToSockAddr(args[0], &addr, &addrlen, self->family))
+        return nullptr;
+
+    if (!Bind(self, (const struct sockaddr *) &addr, addrlen))
+        return nullptr;
+
+    return IncRef(_self);
+}
+
 ARGON_METHOD(socket_connect, connect,
              "Connect to a remote socket at given address.\n"
              "\n"
              "- Parameter address: Format of address depends on the address family.\n",
              "st: address", false, false) {
-    sockaddr_storage addr;
+    sockaddr_storage addr{};
     socklen_t addrlen;
 
     auto *self = (Socket *) _self;
@@ -40,10 +77,80 @@ ARGON_METHOD(socket_connect, connect,
     return IncRef(_self);
 }
 
+ARGON_METHOD(socket_listen, listen,
+             "Enable a server to accept connections.\n"
+             "\n"
+             "Backlog must be at least 0. It specifies the number of unaccepted "
+             "connections that the system will allow before refusing new connections.\n"
+             "\n"
+             "- Parameter backlog: number of unaccepted connections that the system will allow.\n",
+             "i: backlog", false, false) {
+    const auto *self = (Socket *) _self;
+
+    if (!Listen(self, ((Integer *) *args)->sint))
+        return nullptr;
+
+    return IncRef(_self);
+}
+
+ARGON_METHOD(socket_read, read,
+             "",
+             "i: size", false, false) {
+    auto *self = (Socket *) _self;
+    Bytes *bytes;
+
+    IntegerUnderlying bufsize = ((Integer *) args[0])->sint;
+
+
+    if (bufsize < 0) {
+        ErrorFormat(kValueError[0], "size cannot be less than zero");
+        return nullptr;
+    }
+
+    if (!Recv(self, &bytes, bufsize, 0))
+        return nullptr;
+
+    return (ArObject *) bytes;
+}
+
+ARGON_METHOD(socket_readinto, readinto,
+             "",
+             ": obj, i: offset", false, false) {
+    auto *self = (Socket *) _self;
+    auto offset = ((Integer *) args[1])->sint;
+
+    if (offset < 0)
+        offset = 0;
+
+    auto recv = RecvInto(self, args[0], offset, 0);
+    if (recv < 0)
+        return nullptr;
+
+    return (ArObject *) IntNew(recv);
+}
+
+ARGON_METHOD(socket_write, write,
+             "",
+             ": obj", false, false) {
+    auto *self = (Socket *) _self;
+
+    auto wbytes = Send(self, *args, 0);
+    if (wbytes < 0)
+        return nullptr;
+
+    return (ArObject *) IntNew(wbytes);
+}
+
 const FunctionDef sock_methods[] = {
         socket_socket,
 
+        socket_accept,
+        socket_bind,
         socket_connect,
+        socket_listen,
+        socket_read,
+        socket_readinto,
+        socket_write,
         ARGON_METHOD_SENTINEL
 };
 
@@ -147,3 +254,4 @@ void argon::vm::io::socket::ErrorFromSocket() {
     ErrorFromErrno(errno);
 #endif
 }
+

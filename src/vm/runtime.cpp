@@ -90,6 +90,10 @@ std::atomic_uint vc_idle_count = 0;         // IDLE VCore
 
 std::mutex vc_lock;
 
+// Async event managements
+EvLoop *default_event_loop = nullptr;
+thread_local Event *event_local = nullptr;
+
 unsigned int fiber_stack_size = 0;          // Fiber stack size
 
 // Panic management
@@ -99,9 +103,6 @@ std::atomic<struct Panic *> panic_oom = nullptr;
 // Global queues
 FiberQueue fiber_global;
 FiberQueue fiber_pool;
-
-// Event loop
-EvLoop *default_event_loop = nullptr;
 
 // Prototypes
 
@@ -125,6 +126,9 @@ void VCoreRelease(OSThread *);
 
 #define ON_ARGON_CONTEXT                    \
     if (ost_local != nullptr)
+
+#define ON_EVENT_DISPATCHER \
+    if(event_local != nullptr)
 
 #define PUSH_LCQUEUE(vcore, fiber)          \
     do {                                    \
@@ -209,26 +213,6 @@ void FindExecutable(Fiber **out_fiber, unsigned int *tick, bool lq_last) {
 
     if (should_stop)
         return;
-
-    if (!EventPool(default_event_loop, &event, kEventTimeout)) {
-        // TODO error
-        assert(false);
-    }
-
-    if (event != nullptr) {
-        // It's necessary to immediately set the current fiber in ost_local so that callback
-        // can call functions like Panic/GetLastError referring to the correct context
-        *out_fiber = event->fiber;
-
-        if (event->callback != nullptr)
-            event->callback(event);
-        else
-            ReplaceFrameTopValue(event->initiator); // Default: Set initiator as return value
-
-        EventDel(event);
-
-        return;
-    }
 
     if (!lq_last) {
         *out_fiber = current->queue.Dequeue();
@@ -321,6 +305,32 @@ void AcquireOrSuspend(OSThread *ost, Fiber **last) {
         lock.unlock();
         OSTSleep();
         lock.lock();
+    }
+}
+
+void EventDispatcher() {
+    Event *event;
+    bool ok;
+
+    while (!should_stop) {
+        ok = EventPool(default_event_loop, &event, kEventTimeout);
+
+        if (event != nullptr) {
+            event_local = event;
+
+            if (ok) {
+                if (event->callback != nullptr)
+                    event->callback(event);
+                else
+                    ReplaceFrameTopValue(event->initiator); // Default: Set initiator as return value
+            } else {
+                ErrorFromWinErr();
+            }
+
+            Spawn(event->fiber);
+
+            EventDel(event);
+        }
     }
 }
 
@@ -444,7 +454,7 @@ void PanicOOM(struct Panic **panic, ArObject *object) {
 void PublishResult(Fiber *fiber, ArObject *result) {
     if (fiber->future != nullptr) {
         if (result == nullptr) {
-            result = GetLastError();
+            result = argon::vm::GetLastError();
 
             FutureSetResult(fiber->future, nullptr, result);
             return;
@@ -571,15 +581,21 @@ void VCoreRelease(OSThread *ost) {
 // Public
 
 ArObject *argon::vm::GetLastError() {
+    Fiber *fiber = nullptr;
     ArObject *error;
 
-    ON_ARGON_CONTEXT {
-        if (ost_local->fiber->panic == nullptr)
+    if (ost_local != nullptr)
+        fiber = ost_local->fiber;
+    else if (event_local != nullptr)
+        fiber = event_local->fiber;
+
+    if (fiber != nullptr) {
+        if (fiber->panic == nullptr)
             return nullptr;
 
-        error = IncRef(ost_local->fiber->panic->object);
+        error = IncRef(fiber->panic->object);
 
-        PanicCleanup(&ost_local->fiber->panic);
+        PanicCleanup(&fiber->panic);
 
         return error;
     }
@@ -759,7 +775,10 @@ argon::vm::datatype::String *argon::vm::GetExecutablePath() {
 bool argon::vm::CheckLastPanic(const char *id) {
     auto **last = &panic_global;
 
-    ON_ARGON_CONTEXT last = &ost_local->fiber->panic;
+    if (ost_local != nullptr)
+        last = &ost_local->fiber->panic;
+    else if (event_local != nullptr)
+        last = &event_local->fiber->panic;
 
     if (last == nullptr || !AR_TYPEOF((*last)->object, type_error_))
         return false;
@@ -794,6 +813,9 @@ bool argon::vm::Initialize(const Config *config) {
     if ((default_event_loop = EvLoopNew()) == nullptr)
         return false;
 
+    // Start event dispatcher
+    std::thread(EventDispatcher).detach();
+
     // TODO: panic_oom
 
     return true;
@@ -801,6 +823,8 @@ bool argon::vm::Initialize(const Config *config) {
 
 bool argon::vm::IsPanicking() {
     ON_ARGON_CONTEXT return ost_local->fiber->panic != nullptr;
+
+    ON_EVENT_DISPATCHER return event_local->fiber->panic != nullptr;
 
     return panic_global != nullptr;
 }
@@ -855,7 +879,8 @@ bool argon::vm::Spawn(Function *func, ArObject **argv, ArSize argc, OpCodeCallMo
 }
 
 EvLoop *argon::vm::GetEventLoop() {
-    ON_ARGON_CONTEXT return default_event_loop;
+    if (ost_local != nullptr || event_local != nullptr)
+        return default_event_loop;
 
     return nullptr;
 }
@@ -863,17 +888,23 @@ EvLoop *argon::vm::GetEventLoop() {
 Fiber *argon::vm::GetFiber() {
     ON_ARGON_CONTEXT return ost_local->fiber;
 
+    ON_EVENT_DISPATCHER return event_local->fiber;
+
     return nullptr;
 }
 
 FiberStatus argon::vm::GetFiberStatus() {
     ON_ARGON_CONTEXT return ost_local->fiber_status;
 
+    ON_EVENT_DISPATCHER return event_local->fiber->status;
+
     assert(false);
 }
 
 Frame *argon::vm::GetFrame() {
     ON_ARGON_CONTEXT return ost_local->fiber->frame;
+
+    ON_EVENT_DISPATCHER return event_local->fiber->frame;
 
     return nullptr;
 }
@@ -893,16 +924,28 @@ void argon::vm::DiscardLastPanic() {
         return;
     }
 
+    ON_EVENT_DISPATCHER {
+        PanicCleanup(&event_local->fiber->panic);
+        return;
+    }
+
     if (panic_global != nullptr)
         PanicCleanup(&panic_global);
 }
 
 void argon::vm::Panic(datatype::ArObject *panic) {
-    ON_ARGON_CONTEXT {
-        if ((ost_local->fiber->panic = PanicNew(ost_local->fiber->panic, panic)) == nullptr)
-            PanicOOM(&ost_local->fiber->panic, panic);
+    Fiber *fiber = nullptr;
 
-        ost_local->fiber->panic->gen_id = (uintptr_t) ost_local->fiber->frame;
+    if (ost_local != nullptr)
+        fiber = ost_local->fiber;
+    else if (event_local != nullptr)
+        fiber = event_local->fiber;
+
+    if (fiber != nullptr) {
+        if ((fiber->panic = PanicNew(fiber->panic, panic)) == nullptr)
+            PanicOOM(&fiber->panic, panic);
+
+        fiber->panic->gen_id = (uintptr_t) fiber->frame;
 
         return;
     }
@@ -912,14 +955,19 @@ void argon::vm::Panic(datatype::ArObject *panic) {
 }
 
 void argon::vm::ReplaceFrameTopValue(datatype::ArObject *value) {
-    ON_ARGON_CONTEXT Replace(GetFiber()->frame->eval_stack - 1, IncRef(value));
+    if (ost_local != nullptr || event_local != nullptr)
+        Replace(GetFiber()->frame->eval_stack - 1, IncRef(value));
 }
 
 void argon::vm::SetFiberStatus(FiberStatus status) {
     ON_ARGON_CONTEXT {
         ost_local->fiber->status = status;
         ost_local->fiber_status = status;
+
+        return;
     }
+
+    ON_EVENT_DISPATCHER event_local->fiber->status = status;
 }
 
 void argon::vm::Spawn(argon::vm::Fiber *fiber) {

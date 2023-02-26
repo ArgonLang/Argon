@@ -11,9 +11,11 @@
 
 #include <minwindef.h>
 #include <minwinbase.h>
+#include <winsock2.h>
 
 #undef CONST
 #undef FASTCALL
+#undef Yield
 
 #endif
 
@@ -31,16 +33,28 @@ namespace argon::vm {
         Event *next;
         Event **prev;
 
-        EventCB callback;
-
         struct EvLoop *loop;
 
         struct Fiber *fiber;
 
+        EventCB callback;
+
+        datatype::ArObject *aux;
+
         datatype::ArObject *initiator;
 
-        unsigned char *buffer;
-        size_t length;
+        struct {
+            datatype::ArBuffer bufferable;
+
+#ifdef _ARGON_PLATFORM_WINDOWS
+            WSABUF wsa;
+#else
+            unsigned char *data;
+
+            datatype::ArSize length;
+#endif
+            datatype::ArSize allocated;
+        } buffer;
     };
 
 } // namespace argon::vm

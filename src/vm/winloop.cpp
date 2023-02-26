@@ -49,6 +49,8 @@ bool argon::vm::EventPool(EvLoop *loop, Event **out_event, unsigned long timeout
     if (!GetQueuedCompletionStatus(loop->handle, &bytes, (PULONG_PTR) &key, (LPOVERLAPPED *) out_event, timeout))
         return ::GetLastError() == WAIT_TIMEOUT;
 
+    (*out_event)->buffer.wsa.len = bytes;
+
     return true;
 }
 
