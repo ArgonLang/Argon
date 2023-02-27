@@ -12,7 +12,7 @@ using namespace argon::vm::datatype;
 using namespace argon::vm::io::socket;
 
 Error *argon::vm::io::socket::ErrorNewFromSocket() {
-    return ErrorNewFromErrno();
+    return ErrorNewFromErrno(errno);
 }
 
 #endif
