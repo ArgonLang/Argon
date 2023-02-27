@@ -27,10 +27,12 @@
 #include <vm/datatype/atom.h>
 #include <vm/datatype/error.h>
 #include <vm/datatype/future.h>
+
+#include <vm/loop/evloop.h>
+
 #include <vm/setup.h>
 
 #include "areval.h"
-#include "event.h"
 #include "fiber.h"
 #include "fqueue.h"
 #include "runtime.h"
@@ -90,10 +92,6 @@ std::atomic_uint vc_idle_count = 0;         // IDLE VCore
 
 std::mutex vc_lock;
 
-// Async event managements
-EvLoop *default_event_loop = nullptr;
-thread_local Event *event_local = nullptr;
-
 unsigned int fiber_stack_size = 0;          // Fiber stack size
 
 // Panic management
@@ -128,7 +126,7 @@ void VCoreRelease(OSThread *);
     if (ost_local != nullptr)
 
 #define ON_EVENT_DISPATCHER \
-    if(event_local != nullptr)
+    if(loop::thlocal_event != nullptr)
 
 #define PUSH_LCQUEUE(vcore, fiber)          \
     do {                                    \
@@ -205,33 +203,33 @@ Fiber *AllocFiber(Context *context) {
     return FiberNew(context, fiber_stack_size);
 }
 
-void FindExecutable(Fiber **out_fiber, unsigned int *tick, bool lq_last) {
+Fiber *FindExecutable(bool lq_last) {
     auto *current = ost_local->current;
-    Event *event;
-
-    *out_fiber = nullptr;
+    Fiber *fiber;
 
     if (should_stop)
-        return;
+        return nullptr;
 
     if (!lq_last) {
-        *out_fiber = current->queue.Dequeue();
-        if (*out_fiber != nullptr)
-            return;
+        fiber = current->queue.Dequeue();
+        if (fiber != nullptr)
+            return fiber;
     }
 
     // Check from global queue
-    if ((*out_fiber = fiber_global.Dequeue()) != nullptr)
-        return;
+    if ((fiber = fiber_global.Dequeue()) != nullptr)
+        return fiber;
 
-    if ((*out_fiber = StealWork(ost_local)) != nullptr)
-        return;
+    if ((fiber = StealWork(ost_local)) != nullptr)
+        return fiber;
 
     if (lq_last) {
-        *tick = 0;
-
-        *out_fiber = current->queue.Dequeue();
+        fiber = current->queue.Dequeue();
+        if (fiber != nullptr)
+            return fiber;
     }
+
+    return nullptr;
 }
 
 Fiber *StealWork(OSThread *ost) {
@@ -308,29 +306,31 @@ void AcquireOrSuspend(OSThread *ost, Fiber **last) {
     }
 }
 
-void EventDispatcher() {
-    Event *event;
-    bool ok;
+void FindExecutable(Fiber **out_fiber, unsigned int *tick, bool lq_last) {
+    auto *current = ost_local->current;
 
-    while (!should_stop) {
-        ok = EventPool(default_event_loop, &event, kEventTimeout);
+    *out_fiber = nullptr;
 
-        if (event != nullptr) {
-            event_local = event;
+    if (should_stop)
+        return;
 
-            if (ok) {
-                if (event->callback != nullptr)
-                    event->callback(event);
-                else
-                    ReplaceFrameTopValue(event->initiator); // Default: Set initiator as return value
-            } else {
-                ErrorFromWinErr();
-            }
+    if (!lq_last) {
+        *out_fiber = current->queue.Dequeue();
+        if (*out_fiber != nullptr)
+            return;
+    }
 
-            Spawn(event->fiber);
+    // Check from global queue
+    if ((*out_fiber = fiber_global.Dequeue()) != nullptr)
+        return;
 
-            EventDel(event);
-        }
+    if ((*out_fiber = StealWork(ost_local)) != nullptr)
+        return;
+
+    if (lq_last) {
+        *tick = 0;
+
+        *out_fiber = current->queue.Dequeue();
     }
 }
 
@@ -503,7 +503,11 @@ void Scheduler(OSThread *self) {
     while (!should_stop) {
         AcquireOrSuspend(self, &last);
 
-        FindExecutable(&self->fiber, &tick, ++tick >= kScheduleTickBeforeCheck);
+        if (++tick >= kScheduleTickBeforeCheck) {
+            self->fiber = FindExecutable(true);
+            tick = 0;
+        } else
+            self->fiber = FindExecutable(false);
 
         if (self->fiber == nullptr) {
             if (last == nullptr) {
@@ -586,8 +590,8 @@ ArObject *argon::vm::GetLastError() {
 
     if (ost_local != nullptr)
         fiber = ost_local->fiber;
-    else if (event_local != nullptr)
-        fiber = event_local->fiber;
+    else if (loop::thlocal_event != nullptr)
+        fiber = loop::thlocal_event->fiber;
 
     if (fiber != nullptr) {
         if (fiber->panic == nullptr)
@@ -777,8 +781,8 @@ bool argon::vm::CheckLastPanic(const char *id) {
 
     if (ost_local != nullptr)
         last = &ost_local->fiber->panic;
-    else if (event_local != nullptr)
-        last = &event_local->fiber->panic;
+    else if (loop::thlocal_event != nullptr)
+        last = &loop::thlocal_event->fiber->panic;
 
     if (last == nullptr || !AR_TYPEOF((*last)->object, type_error_))
         return false;
@@ -810,11 +814,8 @@ bool argon::vm::Initialize(const Config *config) {
     if (!Setup())
         return false;
 
-    if ((default_event_loop = EvLoopNew()) == nullptr)
+    if (!loop::EventLoopInit())
         return false;
-
-    // Start event dispatcher
-    std::thread(EventDispatcher).detach();
 
     // TODO: panic_oom
 
@@ -824,7 +825,7 @@ bool argon::vm::Initialize(const Config *config) {
 bool argon::vm::IsPanicking() {
     ON_ARGON_CONTEXT return ost_local->fiber->panic != nullptr;
 
-    ON_EVENT_DISPATCHER return event_local->fiber->panic != nullptr;
+    ON_EVENT_DISPATCHER return loop::thlocal_event->fiber->panic != nullptr;
 
     return panic_global != nullptr;
 }
@@ -842,6 +843,8 @@ bool argon::vm::IsPanickingFrame() {
 
 bool argon::vm::Shutdown() {
     short attempt = 10;
+
+    loop::EventLoopShutdown();
 
     should_stop = true;
     ost_cond.notify_all();
@@ -878,17 +881,10 @@ bool argon::vm::Spawn(Function *func, ArObject **argv, ArSize argc, OpCodeCallMo
     return true;
 }
 
-EvLoop *argon::vm::GetEventLoop() {
-    if (ost_local != nullptr || event_local != nullptr)
-        return default_event_loop;
-
-    return nullptr;
-}
-
 Fiber *argon::vm::GetFiber() {
     ON_ARGON_CONTEXT return ost_local->fiber;
 
-    ON_EVENT_DISPATCHER return event_local->fiber;
+    ON_EVENT_DISPATCHER return loop::thlocal_event->fiber;
 
     return nullptr;
 }
@@ -896,7 +892,7 @@ Fiber *argon::vm::GetFiber() {
 FiberStatus argon::vm::GetFiberStatus() {
     ON_ARGON_CONTEXT return ost_local->fiber_status;
 
-    ON_EVENT_DISPATCHER return event_local->fiber->status;
+    ON_EVENT_DISPATCHER return loop::thlocal_event->fiber->status;
 
     assert(false);
 }
@@ -904,7 +900,7 @@ FiberStatus argon::vm::GetFiberStatus() {
 Frame *argon::vm::GetFrame() {
     ON_ARGON_CONTEXT return ost_local->fiber->frame;
 
-    ON_EVENT_DISPATCHER return event_local->fiber->frame;
+    ON_EVENT_DISPATCHER return loop::thlocal_event->fiber->frame;
 
     return nullptr;
 }
@@ -925,7 +921,7 @@ void argon::vm::DiscardLastPanic() {
     }
 
     ON_EVENT_DISPATCHER {
-        PanicCleanup(&event_local->fiber->panic);
+        PanicCleanup(&loop::thlocal_event->fiber->panic);
         return;
     }
 
@@ -938,8 +934,8 @@ void argon::vm::Panic(datatype::ArObject *panic) {
 
     if (ost_local != nullptr)
         fiber = ost_local->fiber;
-    else if (event_local != nullptr)
-        fiber = event_local->fiber;
+    else if (loop::thlocal_event != nullptr)
+        fiber = loop::thlocal_event->fiber;
 
     if (fiber != nullptr) {
         if ((fiber->panic = PanicNew(fiber->panic, panic)) == nullptr)
@@ -955,7 +951,7 @@ void argon::vm::Panic(datatype::ArObject *panic) {
 }
 
 void argon::vm::ReplaceFrameTopValue(datatype::ArObject *value) {
-    if (ost_local != nullptr || event_local != nullptr)
+    if (ost_local != nullptr || loop::thlocal_event != nullptr)
         Replace(GetFiber()->frame->eval_stack - 1, IncRef(value));
 }
 
@@ -967,7 +963,7 @@ void argon::vm::SetFiberStatus(FiberStatus status) {
         return;
     }
 
-    ON_EVENT_DISPATCHER event_local->fiber->status = status;
+    ON_EVENT_DISPATCHER loop::thlocal_event->fiber->status = status;
 }
 
 void argon::vm::Spawn(argon::vm::Fiber *fiber) {

@@ -2,10 +2,10 @@
 //
 // Licensed under the Apache License v2.0
 
-#ifndef ARGON_VM_EVENT_H_
-#define ARGON_VM_EVENT_H_
+#ifndef ARGON_VM_LOOP_EVENT_H_
+#define ARGON_VM_LOOP_EVENT_H_
 
-#include <util/macros.h>
+#include "util/macros.h"
 
 #ifdef _ARGON_PLATFORM_WINDOWS
 
@@ -21,7 +21,7 @@
 
 #include <vm/datatype/arobject.h>
 
-namespace argon::vm {
+namespace argon::vm::loop {
 
     using EventCB = void (*)(struct Event *);
 
@@ -44,7 +44,7 @@ namespace argon::vm {
         datatype::ArObject *initiator;
 
         struct {
-            datatype::ArBuffer bufferable;
+            datatype::ArBuffer arbuf;
 
 #ifdef _ARGON_PLATFORM_WINDOWS
             WSABUF wsa;
@@ -57,6 +57,6 @@ namespace argon::vm {
         } buffer;
     };
 
-} // namespace argon::vm
+} // namespace argon::vm::loop
 
-#endif // !ARGON_VM_EVENT_H_
+#endif // !ARGON_VM_LOOP_EVENT_H_

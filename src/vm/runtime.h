@@ -13,12 +13,10 @@
 
 #include "config.h"
 #include "context.h"
-#include "evloop.h"
 #include "fiber.h"
 
 namespace argon::vm {
     constexpr const unsigned int kOSThreadMax = 10000;
-    constexpr const unsigned int kEventTimeout = 500; // millisecond
     constexpr const unsigned short kScheduleTickBeforeCheck = 32;
     constexpr const unsigned short kVCoreDefault = 4;
     constexpr const unsigned short kVCoreQueueLengthMax = 256;
@@ -51,8 +49,6 @@ namespace argon::vm {
     bool Shutdown();
 
     bool Spawn(datatype::Function *func, datatype::ArObject **argv, datatype::ArSize argc, OpCodeCallMode mode);
-
-    EvLoop *GetEventLoop();
 
     Fiber *GetFiber();
 
