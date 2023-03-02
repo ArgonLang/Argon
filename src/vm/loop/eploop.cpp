@@ -1,0 +1,152 @@
+// This source file is part of the Argon project.
+//
+// Licensed under the Apache License v2.0
+
+#include "util/macros.h"
+
+#ifndef _ARGON_PLATFORM_WINDOWS
+
+#include <sys/epoll.h>
+
+#include <vm/runtime.h>
+
+#include <vm/memory/memory.h>
+
+#include <vm/datatype/error.h>
+
+#include "event.h"
+#include "evloop.h"
+
+using namespace argon::vm::loop;
+using namespace argon::vm::datatype;
+
+// Prototypes
+
+void ProcessOutTrigger(EvLoop *loop);
+
+void ProcessQueue(EventQueue *queue, EventDirection direction);
+
+// EOL
+
+EvLoop *argon::vm::loop::EventLoopNew() {
+    EvLoop *evl;
+
+    if ((evl = (EvLoop *) argon::vm::memory::Alloc(sizeof(EvLoop))) != nullptr) {
+        if ((evl->handle = epoll_create1(EPOLL_CLOEXEC)) < 0) {
+            ErrorFromErrno(errno);
+
+            argon::vm::memory::Free(evl);
+
+            return nullptr;
+        }
+
+        evl->out_queues = nullptr;
+
+        new(&evl->queue_lock)std::mutex();
+    }
+
+    return evl;
+}
+
+bool argon::vm::loop::EventLoopIOPoll(EvLoop *loop, unsigned long timeout) {
+    epoll_event events[kMaxEvents];
+
+    ProcessOutTrigger(loop);
+
+    auto ret = epoll_wait(loop->handle, events, kMaxEvents, (int) timeout);
+    if (ret < 0) {
+        if (errno == EINTR)
+            return false; // Try again
+
+        // Never get here!
+        assert(false);
+    }
+
+    for (int i = 0; i < ret; i++) {
+        auto *queue = (EventQueue *) events->data.ptr;
+
+        std::unique_lock _(queue->lock);
+
+        if (events[i].events & EPOLLIN)
+            ProcessQueue(queue, EventDirection::IN);
+
+        if (events[i].events & EPOLLOUT)
+            ProcessQueue(queue, EventDirection::OUT);
+
+        if (queue->items == 0 && epoll_ctl(loop->handle, EPOLL_CTL_DEL, queue->handle, nullptr) < 0)
+            assert(false); // Never get here!
+    }
+
+    return true;
+}
+
+bool argon::vm::loop::EventLoopAddEvent(EvLoop *loop, EventQueue *queue, Event *event, EventDirection direction) {
+    epoll_event ep_event{};
+
+    std::unique_lock _(queue->lock);
+
+    if (queue->items == 0) {
+        ep_event.events = EPOLLOUT | EPOLLIN | EPOLLET;
+        ep_event.data.ptr = queue;
+
+        if (epoll_ctl(loop->handle, EPOLL_CTL_ADD, queue->handle, &ep_event) < 0) {
+            _.unlock();
+
+            vm::SetFiberStatus(FiberStatus::RUNNING);
+
+            ErrorFromErrno(errno);
+
+            return false;
+        }
+    } else if (direction == EventDirection::OUT && queue->out_event.head == nullptr) {
+        // Since an event with active EPOLLET flag is used, it is possible that the send callback
+        // is not immediately invoked, to avoid this, the desire to write to a socket is signaled
+        // in a separate queue
+        queue->next = loop->out_queues;
+        loop->out_queues = queue;
+    }
+
+    vm::SetFiberStatus(FiberStatus::BLOCKED);
+
+    event->fiber = vm::GetFiber();
+
+    queue->AddEvent(event, direction);
+
+    return true;
+}
+
+void ProcessOutTrigger(EvLoop *loop) {
+    std::unique_lock qlock(loop->queue_lock);
+
+    for (EventQueue *queue = loop->out_queues; queue != nullptr; queue = queue->next) {
+        std::unique_lock _(queue->lock);
+        ProcessQueue(queue, EventDirection::OUT);
+    }
+
+    loop->out_queues = nullptr;
+}
+
+void ProcessQueue(EventQueue *queue, EventDirection direction) {
+    Event **head = &queue->in_event.head;
+    bool ok;
+
+    if (direction == EventDirection::OUT)
+        head = &queue->out_event.head;
+
+    do {
+        thlocal_event = *head;
+
+        if (*head == nullptr)
+            break;
+
+        ok = thlocal_event->callback(thlocal_event);
+        if (!ok && !argon::vm::IsPanicking())
+            return;
+
+        Spawn(thlocal_event->fiber);
+
+        EventDel(queue->PopEvent(direction));
+    } while (ok);
+}
+
+#endif

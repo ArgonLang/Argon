@@ -19,6 +19,8 @@
 #include <netinet/in.h>
 #include <sys/socket.h>
 
+#include <vm/loop/evloop.h>
+
 #endif
 
 #include <vm/datatype/arobject.h>
@@ -54,30 +56,33 @@ namespace argon::vm::io::socket {
         int protocol;
 
         sockaddr_storage addr;
+        socklen_t addrlen;
 
 #ifdef _ARGON_PLATFORM_WINDOWS
         LPFN_ACCEPTEX AcceptEx;
         LPFN_CONNECTEX ConnectEx;
+#else
+        loop::EventQueue *queue;
 #endif
     };
 
     const extern datatype::TypeInfo *type_socket_;
 
-    datatype::ArSSize Connect(Socket *sock, const struct sockaddr *addr, socklen_t addrlen);
-
-    datatype::ArSSize RecvInto(Socket *sock, datatype::ArObject *buffer, int offset, int flags);
-
-    datatype::ArSSize Send(Socket *sock, datatype::ArObject *buffer, int flags);
-
-    bool Accept(Socket *sock, Socket **out);
+    bool Accept(Socket *sock);
 
     bool AddrToSockAddr(datatype::ArObject *addr, sockaddr_storage *store, socklen_t *len, int family);
 
     bool Bind(const Socket *sock, const struct sockaddr *addr, socklen_t addrlen);
 
+    bool Connect(Socket *sock, const struct sockaddr *addr, socklen_t addrlen);
+
     bool Listen(const Socket *sock, int backlog);
 
-    bool Recv(Socket *sock, datatype::Bytes **out, size_t len, int flags);
+    bool Recv(Socket *sock, size_t len, int flags);
+
+    bool RecvInto(Socket *sock, datatype::ArObject *buffer, int offset, int flags);
+
+    bool Send(Socket *sock, datatype::ArObject *buffer, int flags);
 
     datatype::Error *ErrorNewFromSocket();
 

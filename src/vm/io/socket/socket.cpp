@@ -29,12 +29,10 @@ ARGON_METHOD(socket_accept, accept,
              "- Returns: Socket.\n",
              nullptr, false, false) {
     auto *self = (Socket *) _self;
-    Socket *remote;
 
-    if (!Accept(self, &remote))
-        return nullptr;
+    Accept(self);
 
-    return (ArObject *) remote;
+    return nullptr;
 }
 
 ARGON_METHOD(socket_bind, bind,
@@ -71,10 +69,9 @@ ARGON_METHOD(socket_connect, connect,
     if (!AddrToSockAddr(args[0], &addr, &addrlen, self->family))
         return nullptr;
 
-    if (Connect(self, (const sockaddr *) &addr, addrlen) < 0)
-        return nullptr;
+    Connect(self, (const sockaddr *) &addr, addrlen);
 
-    return IncRef(_self);
+    return nullptr;
 }
 
 ARGON_METHOD(socket_listen, listen,
@@ -97,20 +94,17 @@ ARGON_METHOD(socket_read, read,
              "",
              "i: size", false, false) {
     auto *self = (Socket *) _self;
-    Bytes *bytes;
 
     IntegerUnderlying bufsize = ((Integer *) args[0])->sint;
-
 
     if (bufsize < 0) {
         ErrorFormat(kValueError[0], "size cannot be less than zero");
         return nullptr;
     }
 
-    if (!Recv(self, &bytes, bufsize, 0))
-        return nullptr;
+    Recv(self, bufsize, 0);
 
-    return (ArObject *) bytes;
+    return nullptr;
 }
 
 ARGON_METHOD(socket_readinto, readinto,
@@ -122,11 +116,9 @@ ARGON_METHOD(socket_readinto, readinto,
     if (offset < 0)
         offset = 0;
 
-    auto recv = RecvInto(self, args[0], offset, 0);
-    if (recv < 0)
-        return nullptr;
+    RecvInto(self, args[0], (int) offset, 0);
 
-    return (ArObject *) IntNew(recv);
+    return nullptr;
 }
 
 ARGON_METHOD(socket_write, write,
@@ -134,11 +126,9 @@ ARGON_METHOD(socket_write, write,
              ": obj", false, false) {
     auto *self = (Socket *) _self;
 
-    auto wbytes = Send(self, *args, 0);
-    if (wbytes < 0)
-        return nullptr;
+    Send(self, *args, 0);
 
-    return (ArObject *) IntNew(wbytes);
+    return nullptr;
 }
 
 const FunctionDef sock_methods[] = {

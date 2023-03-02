@@ -17,21 +17,25 @@
 #undef FASTCALL
 #undef Yield
 
+#else
+
+#include <netinet/in.h>
+
 #endif
 
 #include <vm/datatype/arobject.h>
 
 namespace argon::vm::loop {
 
-    using EventCB = void (*)(struct Event *);
+    using EventCB = bool (*)(struct Event *);
 
 #ifdef _ARGON_PLATFORM_WINDOWS
     struct Event : OVERLAPPED {
 #else
-        struct Event {
+    struct Event {
 #endif
         Event *next;
-        Event **prev;
+        Event *prev;
 
         struct EvLoop *loop;
 
@@ -55,6 +59,8 @@ namespace argon::vm::loop {
 #endif
             datatype::ArSize allocated;
         } buffer;
+
+        int flags;
     };
 
 } // namespace argon::vm::loop
