@@ -36,6 +36,8 @@ EvLoop *argon::vm::loop::EventLoopNew() {
 
             return nullptr;
         }
+
+        new(&evl->queue_lock)std::mutex();
     }
 
     return evl;
@@ -72,7 +74,7 @@ bool argon::vm::loop::EventLoopIOPoll(EvLoop *loop, unsigned long timeout) {
     return true;
 }
 
-bool argon::vm::loop::EventLoopIOAdd(EvLoop *loop, EvHandle handle) {
+bool argon::vm::loop::EventLoopAddHandle(EvLoop *loop, EvHandle handle) {
     if (CreateIoCompletionPort(handle, loop->handle, 0, 0) == nullptr) {
         ErrorFromWinErr();
 

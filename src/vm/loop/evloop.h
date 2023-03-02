@@ -57,9 +57,9 @@ namespace argon::vm::loop {
 #endif
 
     struct EvLoop {
-#ifndef _ARGON_PLATFORM_WINDOWS
         std::mutex queue_lock;
 
+#ifndef _ARGON_PLATFORM_WINDOWS
         EventQueue *out_queues;
 #endif
 
@@ -80,15 +80,19 @@ namespace argon::vm::loop {
 
     EvLoop *GetEventLoop();
 
-    bool EventLoopInit();
+#ifdef _ARGON_PLATFORM_WINDOWS
 
-    bool EventLoopIOPoll(EvLoop *loop, unsigned long timeout);
+    bool EventLoopAddHandle(EvLoop *loop, EvHandle handle);
 
-#ifndef _ARGON_PLATFORM_WINDOWS
+#else
 
     bool EventLoopAddEvent(EvLoop *loop, EventQueue *queue, Event *event, EventDirection direction);
 
 #endif
+
+    bool EventLoopInit();
+
+    bool EventLoopIOPoll(EvLoop *loop, unsigned long timeout);
 
     void EventDel(Event *event);
 

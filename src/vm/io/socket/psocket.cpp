@@ -272,7 +272,7 @@ bool argon::vm::io::socket::RecvInto(Socket *sock, datatype::ArObject *buffer, i
     event->flags = flags;
 
     if (!EventLoopAddEvent(GetEventLoop(), sock->queue, event, EventDirection::IN)) {
-        memory::Free(event->buffer.data);
+        BufferRelease(&event->buffer.arbuf);
         EventDel(event);
         return false;
     }

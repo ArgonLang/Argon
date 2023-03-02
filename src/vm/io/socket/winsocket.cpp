@@ -32,156 +32,70 @@ bool LoadWSAExtension(SOCKET socket, GUID guid, void **target);
 
 // EOL
 
-ArSSize argon::vm::io::socket::Connect(Socket *sock, const sockaddr *addr, socklen_t len) {
-    constexpr GUID wconnectex = WSAID_CONNECTEX;
-    sockaddr_in local{};
+bool AcceptCallBack(Event *event) {
+    argon::vm::ReplaceFrameTopValue(event->aux);
 
-    if (sock->ConnectEx == nullptr && !LoadWSAExtension(sock->sock, wconnectex, (void **) &sock->ConnectEx))
-        return -1;
-
-    // Bind socket
-    local.sin_family = (short) sock->family;
-    local.sin_addr.S_un.S_addr = INADDR_ANY;
-
-    if (!Bind(sock, (const struct sockaddr *) &local, sizeof(sockaddr_in)))
-        return -1;
-
-    auto *ovr = EventAlloc(GetEventLoop(), (ArObject *) sock);
-    if (ovr == nullptr)
-        return -1;
-
-    vm::SetFiberStatus(FiberStatus::BLOCKED);
-
-    ovr->fiber = vm::GetFiber();
-
-    auto result = sock->ConnectEx(sock->sock, addr, len, nullptr, 0, nullptr, (OVERLAPPED *) ovr);
-    if (result != 0 && WSAGetLastError() != WSA_IO_PENDING) {
-        vm::SetFiberStatus(FiberStatus::RUNNING);
-
-        EventDel(ovr);
-
-        ErrorFromSocket();
-    }
-
-    return -1;
+    return true;
 }
 
-ArSSize argon::vm::io::socket::RecvInto(Socket *sock, datatype::ArObject *buffer, int offset, int flags) {
-    Event *ovr = EventAlloc(GetEventLoop(), (ArObject *) sock);
-    if (ovr == nullptr)
-        return -1;
+bool ConnectCallBack(Event *event) {
+    argon::vm::ReplaceFrameTopValue(event->initiator);
 
-    if (!BufferGet(buffer, &ovr->buffer.arbuf, BufferFlags::WRITE)) {
-        EventDel(ovr);
-
-        return -1;
-    }
-
-    if (offset >= ovr->buffer.arbuf.length) {
-        ErrorFormat(kOverflowError[0], kOverflowError[2], AR_TYPE_NAME(buffer), ovr->buffer.arbuf.length, offset);
-
-        BufferRelease(&ovr->buffer.arbuf);
-
-        EventDel(ovr);
-
-        return -1;
-    }
-
-    ovr->buffer.wsa.buf = (char *) ovr->buffer.arbuf.buffer + offset;
-    ovr->buffer.wsa.len = (u_long) ovr->buffer.arbuf.length - offset;
-
-    vm::SetFiberStatus(FiberStatus::BLOCKED);
-
-    ovr->fiber = vm::GetFiber();
-
-    ovr->callback = [](Event *event) {
-        BufferRelease(&event->buffer.arbuf);
-
-        auto *bytes = IntNew((IntegerUnderlying) event->buffer.wsa.len);
-        if (bytes != nullptr) {
-            vm::ReplaceFrameTopValue((ArObject *) bytes);
-
-            Release(bytes);
-        }
-    };
-
-    auto result = WSARecv(sock->sock,
-                          &ovr->buffer.wsa,
-                          1,
-                          nullptr,
-                          (DWORD *) &flags,
-                          ovr,
-                          nullptr);
-
-    if (result != 0 && WSAGetLastError() != WSA_IO_PENDING) {
-        BufferRelease(&ovr->buffer.arbuf);
-
-        vm::SetFiberStatus(FiberStatus::RUNNING);
-
-        EventDel(ovr);
-
-        ErrorFromSocket();
-    }
-
-    return -1;
+    return true;
 }
 
-ArSSize argon::vm::io::socket::Send(Socket *sock, datatype::ArObject *buffer, int flags) {
-    Event *ovr;
+bool RecvCallBack(Event *event) {
+    auto *bytes = BytesNewHoldBuffer(
+            (unsigned char *) event->buffer.wsa.buf,
+            event->buffer.allocated,
+            event->buffer.wsa.len,
+            true);
 
-    if((ovr = EventAlloc(GetEventLoop(), (ArObject *) sock)) == nullptr)
-        return -1;
-
-    if (!BufferGet(buffer, &ovr->buffer.arbuf, BufferFlags::READ)) {
-        EventDel(ovr);
-
-        return -1;
+    if (bytes == nullptr) {
+        argon::vm::memory::Free(event->buffer.wsa.buf);
+        return false;
     }
 
-    ovr->buffer.wsa.buf = (char *) ovr->buffer.arbuf.buffer;
-    ovr->buffer.wsa.len = (u_long) ovr->buffer.arbuf.length;
+    argon::vm::ReplaceFrameTopValue((ArObject *) bytes);
 
-    vm::SetFiberStatus(FiberStatus::BLOCKED);
+    Release(bytes);
 
-    ovr->fiber = vm::GetFiber();
-
-    ovr->callback = [](Event *event) {
-        BufferRelease(&event->buffer.arbuf);
-
-        auto *wbytes = IntNew((IntegerUnderlying) event->buffer.wsa.len);
-        if (wbytes != nullptr) {
-            vm::ReplaceFrameTopValue((ArObject *) wbytes);
-
-            Release(wbytes);
-        }
-    };
-
-    auto result = WSASend(sock->sock,
-                          &ovr->buffer.wsa,
-                          1,
-                          nullptr,
-                          (DWORD) flags,
-                          ovr,
-                          nullptr);
-
-    if (result != 0 && WSAGetLastError() != WSA_IO_PENDING) {
-        BufferRelease(&ovr->buffer.arbuf);
-
-        vm::SetFiberStatus(FiberStatus::RUNNING);
-
-        EventDel(ovr);
-
-        ErrorFromSocket();
-    }
-
-    return -1;
+    return true;
 }
 
-bool argon::vm::io::socket::Accept(Socket *sock, Socket **out) {
+bool RecvIntoCallBack(Event *event) {
+    BufferRelease(&event->buffer.arbuf);
+
+    auto *bytes = IntNew((IntegerUnderlying) event->buffer.wsa.len);
+    if (bytes != nullptr) {
+        argon::vm::ReplaceFrameTopValue((ArObject *) bytes);
+
+        Release(bytes);
+
+        return true;
+    }
+
+    return false;
+}
+
+bool SendCallBack(Event *event) {
+    BufferRelease(&event->buffer.arbuf);
+
+    auto *wbytes = IntNew((IntegerUnderlying) event->buffer.wsa.len);
+    if (wbytes != nullptr) {
+        argon::vm::ReplaceFrameTopValue((ArObject *) wbytes);
+
+        Release(wbytes);
+
+        return true;
+    }
+
+    return false;
+}
+
+bool argon::vm::io::socket::Accept(Socket *sock) {
     constexpr GUID wsacceptex = WSAID_ACCEPTEX;
     Socket *remote;
-
-    *out = nullptr;
 
     if (sock->AcceptEx == nullptr && !LoadWSAExtension(sock->sock, wsacceptex, (void **) &sock->AcceptEx))
         return false;
@@ -189,7 +103,7 @@ bool argon::vm::io::socket::Accept(Socket *sock, Socket **out) {
     if ((remote = SocketNew(sock->family, sock->type, sock->protocol)) == nullptr)
         return false;
 
-    auto *ovr = EventAlloc(GetEventLoop(), (ArObject *) sock);
+    auto *ovr = EventNew(GetEventLoop(), (ArObject *) sock);
     if (ovr == nullptr)
         return false;
 
@@ -197,10 +111,7 @@ bool argon::vm::io::socket::Accept(Socket *sock, Socket **out) {
 
     ovr->fiber = vm::GetFiber();
 
-    ovr->callback = [](Event *event) {
-        vm::ReplaceFrameTopValue(event->aux);
-        Release(event->aux);
-    };
+    ovr->callback = AcceptCallBack;
 
     ovr->aux = (ArObject *) remote;
 
@@ -220,9 +131,11 @@ bool argon::vm::io::socket::Accept(Socket *sock, Socket **out) {
         EventDel(ovr);
 
         ErrorFromSocket();
+
+        return false;
     }
 
-    return false;
+    return true;
 }
 
 bool argon::vm::io::socket::Bind(const Socket *sock, const struct sockaddr *addr, socklen_t addrlen) {
@@ -235,8 +148,187 @@ bool argon::vm::io::socket::Bind(const Socket *sock, const struct sockaddr *addr
     return true;
 }
 
+bool argon::vm::io::socket::Connect(Socket *sock, const sockaddr *addr, socklen_t len) {
+    constexpr GUID wconnectex = WSAID_CONNECTEX;
+    sockaddr_in local{};
+
+    if (sock->ConnectEx == nullptr && !LoadWSAExtension(sock->sock, wconnectex, (void **) &sock->ConnectEx))
+        return false;
+
+    // Bind socket
+    local.sin_family = (short) sock->family;
+    local.sin_addr.S_un.S_addr = INADDR_ANY;
+
+    if (!Bind(sock, (const struct sockaddr *) &local, sizeof(sockaddr_in)))
+        return false;
+
+    auto *ovr = EventNew(GetEventLoop(), (ArObject *) sock);
+    if (ovr == nullptr)
+        return false;
+
+    vm::SetFiberStatus(FiberStatus::BLOCKED);
+
+    ovr->fiber = vm::GetFiber();
+
+    ovr->callback = ConnectCallBack;
+
+    auto result = sock->ConnectEx(sock->sock, addr, len, nullptr, 0, nullptr, (OVERLAPPED *) ovr);
+    if (result != 0 && WSAGetLastError() != WSA_IO_PENDING) {
+        vm::SetFiberStatus(FiberStatus::RUNNING);
+
+        EventDel(ovr);
+
+        ErrorFromSocket();
+
+        return false;
+    }
+
+    return true;
+}
+
 bool argon::vm::io::socket::Listen(const Socket *sock, int backlog) {
     return listen(sock->sock, backlog) == 0;
+}
+
+bool argon::vm::io::socket::Recv(Socket *sock, size_t len, int flags) {
+    Event *ovr;
+
+    if ((ovr = EventNew(GetEventLoop(), (ArObject *) sock)) == nullptr)
+        return false;
+
+    if ((ovr->buffer.wsa.buf = (char *) memory::Alloc(len)) == nullptr) {
+        EventDel(ovr);
+
+        return false;
+    }
+
+    ovr->buffer.wsa.len = (u_long) len;
+    ovr->buffer.allocated = len;
+
+    vm::SetFiberStatus(FiberStatus::BLOCKED);
+
+    ovr->fiber = vm::GetFiber();
+
+    ovr->callback = RecvCallBack;
+
+    auto result = WSARecv(sock->sock,
+                          &ovr->buffer.wsa,
+                          1,
+                          nullptr,
+                          (DWORD *) &flags,
+                          ovr,
+                          nullptr);
+
+    if (result != 0 && WSAGetLastError() != WSA_IO_PENDING) {
+        memory::Free(ovr->buffer.wsa.buf);
+
+        vm::SetFiberStatus(FiberStatus::RUNNING);
+
+        EventDel(ovr);
+
+        ErrorFromSocket();
+
+        return false;
+    }
+
+    return true;
+}
+
+bool argon::vm::io::socket::RecvInto(Socket *sock, datatype::ArObject *buffer, int offset, int flags) {
+    Event *ovr = EventNew(GetEventLoop(), (ArObject *) sock);
+    if (ovr == nullptr)
+        return false;
+
+    if (!BufferGet(buffer, &ovr->buffer.arbuf, BufferFlags::WRITE)) {
+        EventDel(ovr);
+
+        return false;
+    }
+
+    if (offset >= ovr->buffer.arbuf.length) {
+        ErrorFormat(kOverflowError[0], kOverflowError[2], AR_TYPE_NAME(buffer), ovr->buffer.arbuf.length, offset);
+
+        BufferRelease(&ovr->buffer.arbuf);
+
+        EventDel(ovr);
+
+        return false;
+    }
+
+    ovr->buffer.wsa.buf = (char *) ovr->buffer.arbuf.buffer + offset;
+    ovr->buffer.wsa.len = (u_long) ovr->buffer.arbuf.length - offset;
+
+    vm::SetFiberStatus(FiberStatus::BLOCKED);
+
+    ovr->fiber = vm::GetFiber();
+
+    ovr->callback = RecvIntoCallBack;
+
+    auto result = WSARecv(sock->sock,
+                          &ovr->buffer.wsa,
+                          1,
+                          nullptr,
+                          (DWORD *) &flags,
+                          ovr,
+                          nullptr);
+
+    if (result != 0 && WSAGetLastError() != WSA_IO_PENDING) {
+        BufferRelease(&ovr->buffer.arbuf);
+
+        vm::SetFiberStatus(FiberStatus::RUNNING);
+
+        EventDel(ovr);
+
+        ErrorFromSocket();
+
+        return false;
+    }
+
+    return true;
+}
+
+bool argon::vm::io::socket::Send(Socket *sock, datatype::ArObject *buffer, int flags) {
+    Event *ovr;
+
+    if((ovr = EventNew(GetEventLoop(), (ArObject *) sock)) == nullptr)
+        return false;
+
+    if (!BufferGet(buffer, &ovr->buffer.arbuf, BufferFlags::READ)) {
+        EventDel(ovr);
+
+        return false;
+    }
+
+    ovr->buffer.wsa.buf = (char *) ovr->buffer.arbuf.buffer;
+    ovr->buffer.wsa.len = (u_long) ovr->buffer.arbuf.length;
+
+    vm::SetFiberStatus(FiberStatus::BLOCKED);
+
+    ovr->fiber = vm::GetFiber();
+
+    ovr->callback = SendCallBack;
+
+    auto result = WSASend(sock->sock,
+                          &ovr->buffer.wsa,
+                          1,
+                          nullptr,
+                          (DWORD) flags,
+                          ovr,
+                          nullptr);
+
+    if (result != 0 && WSAGetLastError() != WSA_IO_PENDING) {
+        BufferRelease(&ovr->buffer.arbuf);
+
+        vm::SetFiberStatus(FiberStatus::RUNNING);
+
+        EventDel(ovr);
+
+        ErrorFromSocket();
+
+        return false;
+    }
+
+    return true;
 }
 
 bool LoadWSAExtension(SOCKET socket, GUID guid, void **target) {
@@ -261,65 +353,6 @@ bool LoadWSAExtension(SOCKET socket, GUID guid, void **target) {
     }
 
     return true;
-}
-
-bool argon::vm::io::socket::Recv(Socket *sock, Bytes **out, size_t len, int flags) {
-    Event *ovr;
-
-    *out = nullptr;
-
-    if ((ovr = EventAlloc(GetEventLoop(), (ArObject *) sock)) == nullptr)
-        return false;
-
-    if ((ovr->buffer.wsa.buf = (char *) memory::Alloc(len)) == nullptr) {
-        EventDel(ovr);
-
-        return false;
-    }
-
-    ovr->buffer.wsa.len = (u_long) len;
-    ovr->buffer.allocated = len;
-
-    vm::SetFiberStatus(FiberStatus::BLOCKED);
-
-    ovr->fiber = vm::GetFiber();
-
-    ovr->callback = [](Event *event) {
-        auto *bytes = BytesNewHoldBuffer(
-                (unsigned char *) event->buffer.wsa.buf,
-                event->buffer.allocated,
-                event->buffer.wsa.len,
-                true);
-
-        if (bytes == nullptr) {
-            memory::Free(event->buffer.wsa.buf);
-            return;
-        }
-
-        vm::ReplaceFrameTopValue((ArObject *) bytes);
-
-        Release(bytes);
-    };
-
-    auto result = WSARecv(sock->sock,
-                          &ovr->buffer.wsa,
-                          1,
-                          nullptr,
-                          (DWORD *) &flags,
-                          ovr,
-                          nullptr);
-
-    if (result != 0 && WSAGetLastError() != WSA_IO_PENDING) {
-        memory::Free(ovr->buffer.wsa.buf);
-
-        vm::SetFiberStatus(FiberStatus::RUNNING);
-
-        EventDel(ovr);
-
-        ErrorFromSocket();
-    }
-
-    return false;
 }
 
 Error *argon::vm::io::socket::ErrorNewFromSocket() {
@@ -385,7 +418,7 @@ Socket *argon::vm::io::socket::SocketNew(int domain, int type, int protocol) {
         return nullptr;
     }
 
-    if (!EventLoopIOAdd(GetEventLoop(), (EvHandle) handle)) {
+    if (!EventLoopAddHandle(GetEventLoop(), (EvHandle) handle)) {
         closesocket(handle);
         return nullptr;
     }
