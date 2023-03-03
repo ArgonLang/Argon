@@ -15,6 +15,7 @@
 
 namespace argon::vm::loop {
     constexpr const unsigned int kEventTimeout = 500; // millisecond
+    constexpr const unsigned int kMaxFreeEvents = 2046;
 
 #ifdef _ARGON_PLATFORM_WINDOWS
 
@@ -62,6 +63,10 @@ namespace argon::vm::loop {
 #ifndef _ARGON_PLATFORM_WINDOWS
         EventQueue *out_queues;
 #endif
+
+        Event *allocable_events;
+
+        datatype::ArSize free_count;
 
         EvHandle handle;
     };

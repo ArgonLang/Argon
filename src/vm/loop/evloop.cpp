@@ -42,12 +42,27 @@ bool argon::vm::loop::EventLoopInit() {
 }
 
 Event *argon::vm::loop::EventNew(EvLoop *loop, ArObject *initiator) {
+    Event *event = nullptr;
+
     if (loop == nullptr)
         return nullptr;
 
-    auto *event = (Event *) memory::Alloc(sizeof(Event));
+    std::unique_lock _(loop->queue_lock);
 
-    assert(event != nullptr);
+    if (loop->allocable_events != nullptr) {
+        event = loop->allocable_events;
+        loop->allocable_events = event->next;
+
+        loop->free_count--;
+    }
+
+    _.unlock();
+
+    if (event == nullptr) {
+        event = (Event *) memory::Alloc(sizeof(Event));
+        if (event == nullptr)
+            return nullptr;
+    }
 
     memory::MemoryZero(event, sizeof(Event));
 
@@ -81,10 +96,23 @@ EvLoop *argon::vm::loop::GetEventLoop() {
 }
 
 void argon::vm::loop::EventDel(Event *event) {
+    auto *loop = event->loop;
+
     Release(event->initiator);
     Release(event->aux);
 
-    memory::Free(event);
+    std::unique_lock _(loop->queue_lock);
+
+    if (loop->free_count + 1 <= kMaxFreeEvents) {
+        event->next = loop->allocable_events;
+        loop->allocable_events = event;
+
+        loop->free_count++;
+
+        return;
+    }
+
+    argon::vm::memory::Free(event);
 }
 
 void argon::vm::loop::EventLoopShutdown() {

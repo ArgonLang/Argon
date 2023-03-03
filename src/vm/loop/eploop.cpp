@@ -40,9 +40,11 @@ EvLoop *argon::vm::loop::EventLoopNew() {
             return nullptr;
         }
 
-        evl->out_queues = nullptr;
-
         new(&evl->queue_lock)std::mutex();
+
+        evl->out_queues = nullptr;
+        evl->allocable_events = nullptr;
+        evl->free_count = 0;
     }
 
     return evl;
