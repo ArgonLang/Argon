@@ -33,13 +33,13 @@ bool LoadWSAExtension(SOCKET socket, GUID guid, void **target);
 // EOL
 
 bool AcceptCallBack(Event *event) {
-    argon::vm::ReplaceFrameTopValue(event->aux);
+    argon::vm::FiberSetAsyncResult(event->fiber, event->aux);
 
     return true;
 }
 
 bool ConnectCallBack(Event *event) {
-    argon::vm::ReplaceFrameTopValue(event->initiator);
+    argon::vm::FiberSetAsyncResult(event->fiber, event->initiator);
 
     return true;
 }
@@ -56,7 +56,7 @@ bool RecvCallBack(Event *event) {
         return false;
     }
 
-    argon::vm::ReplaceFrameTopValue((ArObject *) bytes);
+    argon::vm::FiberSetAsyncResult(event->fiber, (ArObject *) bytes);
 
     Release(bytes);
 
@@ -68,7 +68,7 @@ bool RecvIntoCallBack(Event *event) {
 
     auto *bytes = IntNew((IntegerUnderlying) event->buffer.wsa.len);
     if (bytes != nullptr) {
-        argon::vm::ReplaceFrameTopValue((ArObject *) bytes);
+        argon::vm::FiberSetAsyncResult(event->fiber, (ArObject *) bytes);
 
         Release(bytes);
 
@@ -83,7 +83,7 @@ bool SendCallBack(Event *event) {
 
     auto *wbytes = IntNew((IntegerUnderlying) event->buffer.wsa.len);
     if (wbytes != nullptr) {
-        argon::vm::ReplaceFrameTopValue((ArObject *) wbytes);
+        argon::vm::FiberSetAsyncResult(event->fiber, (ArObject *) wbytes);
 
         Release(wbytes);
 

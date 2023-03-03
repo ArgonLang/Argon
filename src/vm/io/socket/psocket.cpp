@@ -42,7 +42,7 @@ bool AcceptCallBack(Event *event) {
     if (ret == nullptr)
         return false;
 
-    argon::vm::ReplaceFrameTopValue((ArObject *) ret);
+    argon::vm::FiberSetAsyncResult(event->fiber, (ArObject *) ret);
 
     Release(ret);
 
@@ -59,7 +59,7 @@ bool ConnectResultCallBack(Event *event) {
     argon::vm::memory::Free(event->buffer.data);
 
     if (error == 0) {
-        argon::vm::ReplaceFrameTopValue((ArObject *) IncRef(sock));
+        argon::vm::FiberSetAsyncResult(event->fiber, (ArObject *) sock);
 
         return true;
     }
@@ -115,7 +115,7 @@ bool RecvCallBack(Event *event) {
         return false;
     }
 
-    argon::vm::ReplaceFrameTopValue((ArObject *) buffer);
+    argon::vm::FiberSetAsyncResult(event->fiber, (ArObject *) buffer);
 
     Release(buffer);
 
@@ -149,7 +149,7 @@ bool RecvIntoCallBack(Event *event) {
     BufferRelease(&event->buffer.arbuf);
 
     if (buffer != nullptr) {
-        argon::vm::ReplaceFrameTopValue((ArObject *) buffer);
+        argon::vm::FiberSetAsyncResult(event->fiber, (ArObject *) buffer);
 
         Release(buffer);
 
@@ -181,7 +181,7 @@ bool SendCallBack(Event *event) {
     BufferRelease(&event->buffer.arbuf);
 
     if (buffer != nullptr) {
-        argon::vm::ReplaceFrameTopValue((ArObject *) buffer);
+        argon::vm::FiberSetAsyncResult(event->fiber, (ArObject *) buffer);
 
         Release(buffer);
 

@@ -45,6 +45,8 @@ namespace argon::vm {
 
         Context *context;
 
+        datatype::ArObject *async_result;
+
         /// Current execution frame.
         Frame *frame;
 
@@ -79,6 +81,11 @@ namespace argon::vm {
         fiber->frame = popped->back;
 
         return popped;
+    }
+
+    inline void FiberSetAsyncResult(Fiber *fiber, datatype::ArObject *result) {
+        datatype::Release(fiber->async_result);
+        fiber->async_result = datatype::IncRef(result);
     }
 
     void FiberDel(Fiber *fiber);

@@ -62,8 +62,6 @@ namespace argon::vm {
 
     void Panic(datatype::ArObject *panic);
 
-    void ReplaceFrameTopValue(datatype::ArObject *value);
-
     void SetFiberStatus(FiberStatus status);
 
     void Spawn(Fiber *fiber);

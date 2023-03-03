@@ -529,6 +529,11 @@ void Scheduler(OSThread *self) {
         if (self->spinning)
             ResetSpinning(self);
 
+        if (self->fiber->async_result != nullptr) {
+            *(self->fiber->frame->eval_stack - 1) = self->fiber->async_result;
+            self->fiber->async_result = nullptr;
+        }
+
         SetFiberStatus(FiberStatus::RUNNING);
 
         result = Eval(self->fiber);
@@ -948,11 +953,6 @@ void argon::vm::Panic(datatype::ArObject *panic) {
 
     if ((panic_global = PanicNew(panic_global, panic)) == nullptr)
         PanicOOM(&panic_global, panic);
-}
-
-void argon::vm::ReplaceFrameTopValue(datatype::ArObject *value) {
-    if (ost_local != nullptr || loop::thlocal_event != nullptr)
-        Replace(GetFiber()->frame->eval_stack - 1, IncRef(value));
 }
 
 void argon::vm::SetFiberStatus(FiberStatus status) {
