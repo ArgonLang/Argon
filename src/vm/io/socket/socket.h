@@ -88,6 +88,8 @@ namespace argon::vm::io::socket {
 
     Socket *SocketNew(int domain, int type, int protocol);
 
+    Socket *SocketNew(int domain, int type, int protocol, SockHandle handle);
+
     void ErrorFromSocket();
 
 } // namespace argon::vm::io::socket

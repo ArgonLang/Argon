@@ -4,9 +4,9 @@
 
 #include "util/macros.h"
 
-#ifdef _ARGON_PLATFORM_LINUX
+#ifdef _ARGON_PLATFORM_DARWIN
 
-#include <sys/epoll.h>
+#include <sys/event.h>
 
 #include <vm/runtime.h>
 
@@ -32,7 +32,7 @@ EvLoop *argon::vm::loop::EventLoopNew() {
     EvLoop *evl;
 
     if ((evl = (EvLoop *) argon::vm::memory::Alloc(sizeof(EvLoop))) != nullptr) {
-        if ((evl->handle = epoll_create1(EPOLL_CLOEXEC)) < 0) {
+        if ((evl->handle = kqueue()) < 0) {
             ErrorFromErrno(errno);
 
             argon::vm::memory::Free(evl);
@@ -49,11 +49,16 @@ EvLoop *argon::vm::loop::EventLoopNew() {
 }
 
 bool argon::vm::loop::EventLoopIOPoll(EvLoop *loop, unsigned long timeout) {
-    epoll_event events[kMaxEvents];
+    struct kevent events[kMaxEvents];
+    struct kevent kev[2];
+    timespec ts{};
 
     ProcessOutTrigger(loop);
 
-    auto ret = epoll_wait(loop->handle, events, kMaxEvents, (int) timeout);
+    ts.tv_sec = (long) timeout / 1000;
+    ts.tv_nsec = (long) ((timeout % 1000) * 1000000);
+
+    auto ret = kevent(loop->handle, nullptr, 0, events, kMaxEvents, &ts);
     if (ret < 0) {
         if (errno == EINTR)
             return false; // Try again
@@ -63,33 +68,36 @@ bool argon::vm::loop::EventLoopIOPoll(EvLoop *loop, unsigned long timeout) {
     }
 
     for (int i = 0; i < ret; i++) {
-        auto *queue = (EventQueue *) events[i].data.ptr;
+        auto *queue = (EventQueue *) events[i].udata;
 
         std::unique_lock _(queue->lock);
 
-        if (events[i].events & EPOLLIN)
+        if (events[i].filter == EVFILT_READ)
             ProcessQueue(queue, EventDirection::IN);
-
-        if (events[i].events & EPOLLOUT)
+        else if (events[i].filter == EVFILT_WRITE)
             ProcessQueue(queue, EventDirection::OUT);
 
-        if (queue->items == 0 && epoll_ctl(loop->handle, EPOLL_CTL_DEL, queue->handle, nullptr) < 0)
-            assert(false); // Never get here!
+        if (queue->items == 0) {
+            EV_SET(kev, queue->handle, events[i].filter, EV_DELETE, 0, 0, nullptr);
+
+            if (kevent(loop->handle, kev, 1, nullptr, 0, nullptr) < 0)
+                assert(false); // Never get here!
+        }
     }
 
     return true;
 }
 
 bool argon::vm::loop::EventLoopAddEvent(EvLoop *loop, EventQueue *queue, Event *event, EventDirection direction) {
-    epoll_event ep_event{};
+    struct kevent kev[2];
 
     std::unique_lock _(queue->lock);
 
     if (queue->items == 0) {
-        ep_event.events = EPOLLOUT | EPOLLIN | EPOLLET;
-        ep_event.data.ptr = queue;
+        EV_SET(kev, queue->handle, EVFILT_READ, EV_ADD | EV_CLEAR, 0, 0, queue);
+        EV_SET(kev + 1, queue->handle, EVFILT_WRITE, EV_ADD | EV_CLEAR, 0, 0, queue);
 
-        if (epoll_ctl(loop->handle, EPOLL_CTL_ADD, queue->handle, &ep_event) < 0) {
+        if (kevent(loop->handle, kev, 2, nullptr, 0, nullptr) < 0) {
             _.unlock();
 
             vm::SetFiberStatus(FiberStatus::RUNNING);
@@ -98,10 +106,9 @@ bool argon::vm::loop::EventLoopAddEvent(EvLoop *loop, EventQueue *queue, Event *
 
             return false;
         }
-    } else if (direction == EventDirection::OUT && queue->out_event.head == nullptr) {
-        // Since an event with active EPOLLET flag is used, it is possible that the send callback
-        // is not immediately invoked, to avoid this, the desire to write to a socket is signaled
-        // in a separate queue
+    }
+
+    if (direction == EventDirection::OUT && queue->out_event.head == nullptr) {
         queue->next = loop->out_queues;
         loop->out_queues = queue;
     }

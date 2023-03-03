@@ -21,11 +21,14 @@ using namespace argon::vm::datatype;
 using namespace argon::vm::io::socket;
 
 bool AcceptCallBack(Event *event) {
-    auto *sock = (const Socket *) event->initiator;
-    auto *remote = (Socket *) event->aux;
+    sockaddr_storage addr{};
+    socklen_t addrlen;
+    int remote;
 
-    remote->sock = accept(sock->sock, (sockaddr *) &remote->addr, &remote->addrlen);
-    if (remote->sock < 0) {
+    auto *sock = ((const Socket *) event->initiator);
+
+    remote = accept(sock->sock, (sockaddr *) &addr, &addrlen);
+    if (remote < 0) {
         if (errno != EAGAIN && errno != EWOULDBLOCK) {
             Release(event->aux);
 
@@ -35,17 +38,42 @@ bool AcceptCallBack(Event *event) {
         return false;
     }
 
-    argon::vm::ReplaceFrameTopValue(event->aux);
+    auto *ret = SocketNew(sock->family, sock->type, sock->protocol, remote);
+    if (ret == nullptr)
+        return false;
+
+    argon::vm::ReplaceFrameTopValue((ArObject *) ret);
+
+    Release(ret);
 
     return true;
 }
 
+bool ConnectResultCallBack(Event *event) {
+    auto *sock = (Socket *) event->initiator;
+    socklen_t len = sizeof(int);
+    int error;
+
+    getsockopt(sock->sock, SOL_SOCKET, SO_ERROR, &error, &len);
+
+    argon::vm::memory::Free(event->buffer.data);
+
+    if (error == 0) {
+        argon::vm::ReplaceFrameTopValue((ArObject *) IncRef(sock));
+
+        return true;
+    }
+
+    ErrorFromErrno(error);
+
+    return false;
+}
+
 bool ConnectCallBack(Event *event) {
-    auto *sock = (const Socket *) event->initiator;
+    event->callback = ConnectResultCallBack;
 
-    auto res = connect(sock->sock, (sockaddr *) event->buffer.data, (socklen_t) event->buffer.length);
-
-    if (res < 0) {
+    if (connect(((const Socket *) event->initiator)->sock, (sockaddr *) event->buffer.data,
+                (socklen_t) event->buffer.length) < 0) {
         if (errno != EINPROGRESS) {
             argon::vm::memory::Free(event->buffer.data);
 
@@ -53,8 +81,7 @@ bool ConnectCallBack(Event *event) {
         }
 
         return false;
-    } else
-        argon::vm::memory::Free(event->buffer.data);
+    }
 
     return true;
 }
@@ -169,11 +196,6 @@ bool argon::vm::io::socket::Accept(Socket *sock) {
 
     if ((event = EventNew(GetEventLoop(), (ArObject *) sock)) == nullptr)
         return false;
-
-    if ((event->aux = (ArObject *) SocketNew(sock->family, sock->type, sock->protocol)) == nullptr) {
-        EventDel(event);
-        return false;
-    }
 
     event->callback = AcceptCallBack;
 
@@ -316,11 +338,20 @@ Socket *argon::vm::io::socket::SocketNew(int domain, int type, int protocol) {
         return nullptr;
     }
 
+    if ((sock = SocketNew(domain, type, protocol, handle)) == nullptr) {
+        close(handle);
+        return nullptr;
+    }
+
+    return sock;
+}
+
+Socket *argon::vm::io::socket::SocketNew(int domain, int type, int protocol, SockHandle handle) {
+    Socket *sock;
+
     auto flags = fcntl(handle, F_GETFL, 0);
     if (flags < 0) {
         ErrorFromErrno(errno);
-
-        close(handle);
 
         return nullptr;
     }
@@ -330,16 +361,11 @@ Socket *argon::vm::io::socket::SocketNew(int domain, int type, int protocol) {
     if (fcntl(handle, F_SETFL, flags) < 0) {
         ErrorFromErrno(errno);
 
-        close(handle);
-
         return nullptr;
     }
 
-    if ((sock = MakeObject<Socket>(type_socket_)) == nullptr) {
-        close(handle);
-
+    if ((sock = MakeObject<Socket>(type_socket_)) == nullptr)
         return nullptr;
-    }
 
     sock->sock = handle;
 
