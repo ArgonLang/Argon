@@ -17,6 +17,7 @@
 #include <vm/memory/memory.h>
 
 #include <vm/datatype/error.h>
+#include <vm/datatype/nil.h>
 
 #include "event.h"
 #include "evloop.h"
@@ -67,7 +68,7 @@ bool argon::vm::loop::EventLoopIOPoll(EvLoop *loop, unsigned long timeout) {
         if (event->callback != nullptr)
             event->callback(event);
         else
-            ReplaceFrameTopValue(event->initiator); // Default: Set initiator as return value
+            vm::FiberSetAsyncResult(event->fiber, (ArObject *) Nil); // Default: Set initiator as return value
     }
 
     Spawn(event->fiber);

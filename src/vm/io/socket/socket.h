@@ -39,7 +39,7 @@ namespace argon::vm::io::socket {
 #endif
 
 #ifdef _ARGON_PLATFORM_WINDOWS
-#define SOCK_HANDLE_INVALID (sock_handle)(~0)
+#define SOCK_HANDLE_INVALID (SockHandle)(~0)
     using SockHandle = unsigned long long;
 #else
 #define SOCK_HANDLE_INVALID (SockHandle)(-1)

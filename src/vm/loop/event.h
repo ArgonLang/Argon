@@ -52,11 +52,11 @@ namespace argon::vm::loop {
 
 #ifdef _ARGON_PLATFORM_WINDOWS
             WSABUF wsa;
-#else
+#endif
             unsigned char *data;
 
             datatype::ArSize length;
-#endif
+
             datatype::ArSize allocated;
         } buffer;
 

@@ -2,16 +2,21 @@
 //
 // Licensed under the Apache License v2.0
 
+#include <util/macros.h>
+
+#ifndef _ARGON_PLATFORM_WINDOWS
+#include <sys/un.h>
+#endif
+
 #include <vm/runtime.h>
 
 #include <vm/io/io.h>
 
+#include <vm/datatype/boolean.h>
 #include <vm/datatype/integer.h>
-#include <sys/un.h>
+#include <vm/datatype/nil.h>
 
 #include "socket.h"
-#include "vm/datatype/nil.h"
-#include "vm/datatype/boolean.h"
 
 using namespace argon::vm::datatype;
 using namespace argon::vm::io::socket;

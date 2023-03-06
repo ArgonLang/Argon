@@ -136,7 +136,7 @@ bool RecvFromCallBack(Event *event) {
 
     if (bytes < 0) {
         if (errno != EAGAIN) {
-            BufferRelease(&event->buffer.arbuf);
+            argon::vm::memory::Free(event->buffer.data);
 
             ErrorFromSocket();
         }
@@ -150,13 +150,13 @@ bool RecvFromCallBack(Event *event) {
 
     auto *remote_addr = SockAddrToAddr(&storage, sock->family);
     if (remote_addr == nullptr) {
-        BufferRelease(&event->buffer.arbuf);
+        argon::vm::memory::Free(event->buffer.data);
         return false;
     }
 
     auto *data = BytesNewHoldBuffer(event->buffer.data, event->buffer.allocated, event->buffer.length, true);
     if (data == nullptr) {
-        BufferRelease(&event->buffer.arbuf);
+        argon::vm::memory::Free(event->buffer.data);
         Release(remote_addr);
         return false;
     }

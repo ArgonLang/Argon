@@ -63,6 +63,40 @@ bool RecvCallBack(Event *event) {
     return true;
 }
 
+bool RecvFromCallBack(Event *event) {
+    auto *remote_addr = SockAddrToAddr((sockaddr_storage *) event->buffer.data, ((Socket *) event->initiator)->family);
+    if (remote_addr == nullptr) {
+        argon::vm::memory::Free(event->buffer.wsa.buf);
+        argon::vm::memory::Free(event->buffer.data);
+        return false;
+    }
+
+    argon::vm::memory::Free(event->buffer.data);
+
+    auto *data = BytesNewHoldBuffer((unsigned char *) event->buffer.wsa.buf, event->buffer.allocated,
+                                    event->buffer.wsa.len, true);
+    if (data == nullptr) {
+        argon::vm::memory::Free(event->buffer.wsa.buf);
+        Release(remote_addr);
+        return false;
+    }
+
+    auto *ret = TupleNew("oo", data, remote_addr);
+
+    Release(remote_addr);
+    Release(data);
+
+    if (ret != nullptr) {
+        argon::vm::FiberSetAsyncResult(event->fiber, (ArObject *) ret);
+
+        Release(ret);
+
+        return true;
+    }
+
+    return false;
+}
+
 bool RecvIntoCallBack(Event *event) {
     BufferRelease(&event->buffer.arbuf);
 
@@ -80,6 +114,23 @@ bool RecvIntoCallBack(Event *event) {
 
 bool SendCallBack(Event *event) {
     BufferRelease(&event->buffer.arbuf);
+
+    auto *wbytes = IntNew((IntegerUnderlying) event->buffer.wsa.len);
+    if (wbytes != nullptr) {
+        argon::vm::FiberSetAsyncResult(event->fiber, (ArObject *) wbytes);
+
+        Release(wbytes);
+
+        return true;
+    }
+
+    return false;
+}
+
+bool SendToCallBack(Event *event) {
+    BufferRelease(&event->buffer.arbuf);
+
+    argon::vm::memory::Free(event->buffer.data);
 
     auto *wbytes = IntNew((IntegerUnderlying) event->buffer.wsa.len);
     if (wbytes != nullptr) {
@@ -186,6 +237,34 @@ bool argon::vm::io::socket::Connect(Socket *sock, const sockaddr *addr, socklen_
     return true;
 }
 
+bool argon::vm::io::socket::Close(Socket *sock) {
+    int times = 3;
+    int err;
+
+    do {
+        if (closesocket(sock->sock) == 0) {
+            sock->sock = SOCK_HANDLE_INVALID;
+
+            return true;
+        }
+
+        err = WSAGetLastError();
+    } while ((err == WSAEINTR || err == WSAEINPROGRESS) && times-- > 0);
+
+    return false;
+}
+
+bool argon::vm::io::socket::IsInheritable(const Socket *sock) {
+    unsigned long flags;
+
+    if (GetHandleInformation((HANDLE) sock->sock, &flags) == 0) {
+        ErrorFromWinErr();
+        return false;
+    }
+
+    return (flags & HANDLE_FLAG_INHERIT) == HANDLE_FLAG_INHERIT;
+}
+
 bool argon::vm::io::socket::Listen(const Socket *sock, int backlog) {
     return listen(sock->sock, backlog) == 0;
 }
@@ -287,10 +366,66 @@ bool argon::vm::io::socket::RecvInto(Socket *sock, datatype::ArObject *buffer, i
     return true;
 }
 
+bool argon::vm::io::socket::RecvFrom(Socket *sock, size_t len, int flags) {
+    Event *ovr;
+
+    if ((ovr = EventNew(GetEventLoop(), (ArObject *) sock)) == nullptr)
+        return false;
+
+    if ((ovr->buffer.wsa.buf = (char *) memory::Alloc(len)) == nullptr) {
+        EventDel(ovr);
+
+        return false;
+    }
+
+    // Remote address goes here!
+    ovr->buffer.length = sizeof(sockaddr_storage);
+    if ((ovr->buffer.data = (unsigned char *) memory::Alloc(ovr->buffer.length)) == nullptr) {
+        argon::vm::memory::Free(ovr->buffer.wsa.buf);
+        EventDel(ovr);
+
+        return false;
+    }
+
+    ovr->buffer.wsa.len = (u_long) len;
+    ovr->buffer.allocated = len;
+
+    vm::SetFiberStatus(FiberStatus::BLOCKED);
+
+    ovr->fiber = vm::GetFiber();
+
+    ovr->callback = RecvFromCallBack;
+
+    auto result = WSARecvFrom(sock->sock,
+                              &ovr->buffer.wsa,
+                              1,
+                              nullptr,
+                              (DWORD *) &flags,
+                              (sockaddr *) ovr->buffer.data,
+                              (LPINT) &ovr->buffer.length,
+                              ovr,
+                              nullptr);
+
+    if (result != 0 && WSAGetLastError() != WSA_IO_PENDING) {
+        memory::Free(ovr->buffer.wsa.buf);
+        memory::Free(ovr->buffer.data);
+
+        vm::SetFiberStatus(FiberStatus::RUNNING);
+
+        EventDel(ovr);
+
+        ErrorFromSocket();
+
+        return false;
+    }
+
+    return true;
+}
+
 bool argon::vm::io::socket::Send(Socket *sock, datatype::ArObject *buffer, long size, int flags) {
     Event *ovr;
 
-    if((ovr = EventNew(GetEventLoop(), (ArObject *) sock)) == nullptr)
+    if ((ovr = EventNew(GetEventLoop(), (ArObject *) sock)) == nullptr)
         return false;
 
     if (!BufferGet(buffer, &ovr->buffer.arbuf, BufferFlags::READ)) {
@@ -300,8 +435,8 @@ bool argon::vm::io::socket::Send(Socket *sock, datatype::ArObject *buffer, long 
     }
 
     ovr->buffer.wsa.len = size;
-    if (size < 0 || size > event->buffer.arbuf.length)
-        ovr->buffer.wsa.len = event->buffer.arbuf.length;
+    if (size < 0 || size > ovr->buffer.arbuf.length)
+        ovr->buffer.wsa.len = (unsigned long) ovr->buffer.arbuf.length;
 
     ovr->buffer.wsa.buf = (char *) ovr->buffer.arbuf.buffer;
 
@@ -332,6 +467,84 @@ bool argon::vm::io::socket::Send(Socket *sock, datatype::ArObject *buffer, long 
     }
 
     return true;
+}
+
+bool argon::vm::io::socket::SendTo(Socket *sock, datatype::ArObject *dest, datatype::ArObject *buffer, long size,
+                                   int flags) {
+    Event *ovr;
+
+    if ((ovr = EventNew(GetEventLoop(), (ArObject *) sock)) == nullptr)
+        return false;
+
+    if (!BufferGet(buffer, &ovr->buffer.arbuf, BufferFlags::READ)) {
+        EventDel(ovr);
+
+        return false;
+    }
+
+    // Remote address here!
+    ovr->buffer.length = sizeof(sockaddr_storage);
+    if ((ovr->buffer.data = (unsigned char *) memory::Alloc(ovr->buffer.length)) == nullptr) {
+        BufferRelease(&ovr->buffer.arbuf);
+
+        EventDel(ovr);
+
+        return false;
+    }
+
+    if (!AddrToSockAddr(dest, (sockaddr_storage *) ovr->buffer.data, (socklen_t *) &ovr->buffer.length, sock->family)) {
+        argon::vm::memory::Free(ovr->buffer.data);
+
+        BufferRelease(&ovr->buffer.arbuf);
+
+        EventDel(ovr);
+
+        return false;
+    }
+
+    ovr->buffer.wsa.len = size;
+    if (size < 0 || size > ovr->buffer.arbuf.length)
+        ovr->buffer.wsa.len = (unsigned long) ovr->buffer.arbuf.length;
+
+    ovr->buffer.wsa.buf = (char *) ovr->buffer.arbuf.buffer;
+
+    vm::SetFiberStatus(FiberStatus::BLOCKED);
+
+    ovr->fiber = vm::GetFiber();
+
+    ovr->callback = SendToCallBack;
+
+    auto result = WSASendTo(sock->sock,
+                            &ovr->buffer.wsa,
+                            1,
+                            nullptr,
+                            (DWORD) flags,
+                            (sockaddr *) ovr->buffer.data,
+                            (int) ovr->buffer.length,
+                            ovr,
+                            nullptr);
+
+    if (result != 0 && WSAGetLastError() != WSA_IO_PENDING) {
+        BufferRelease(&ovr->buffer.arbuf);
+
+        memory::Free(ovr->buffer.data);
+
+        vm::SetFiberStatus(FiberStatus::RUNNING);
+
+        EventDel(ovr);
+
+        ErrorFromSocket();
+
+        return false;
+    }
+
+    return true;
+}
+
+bool argon::vm::io::socket::SetInheritable(const Socket *sock, bool inheritable) {
+    return SetHandleInformation((HANDLE) sock->sock,
+                                HANDLE_FLAG_INHERIT,
+                                inheritable ? HANDLE_FLAG_INHERIT : 0);
 }
 
 bool LoadWSAExtension(SOCKET socket, GUID guid, void **target) {
@@ -411,6 +624,37 @@ Error *argon::vm::io::socket::ErrorNewFromSocket() {
     return ret;
 }
 
+Socket *argon::vm::io::socket::Dup(const Socket *sock) {
+    _WSAPROTOCOL_INFOW info{};
+    Socket *ret;
+    SockHandle handle;
+
+    if (WSADuplicateSocketW(sock->sock, GetCurrentProcessId(), &info) != 0) {
+        ErrorNewFromSocket();
+        return nullptr;
+    }
+
+    handle = WSASocketW(FROM_PROTOCOL_INFO,
+                        FROM_PROTOCOL_INFO,
+                        FROM_PROTOCOL_INFO,
+                        &info,
+                        0,
+                        WSA_FLAG_NO_HANDLE_INHERIT);
+
+    if (handle == INVALID_SOCKET) {
+        ErrorNewFromSocket();
+        return nullptr;
+    }
+
+    if ((ret = SocketNew(sock->family, sock->type, sock->protocol, handle)) == nullptr) {
+        closesocket(handle);
+
+        return nullptr;
+    }
+
+    return ret;
+}
+
 Socket *argon::vm::io::socket::SocketNew(int domain, int type, int protocol) {
     Socket *sock;
     SockHandle handle;
@@ -420,6 +664,17 @@ Socket *argon::vm::io::socket::SocketNew(int domain, int type, int protocol) {
         ErrorFromSocket();
         return nullptr;
     }
+
+    if ((sock = SocketNew(domain, type, protocol, handle)) == nullptr) {
+        closesocket(handle);
+        return nullptr;
+    }
+
+    return sock;
+}
+
+Socket *argon::vm::io::socket::SocketNew(int domain, int type, int protocol, SockHandle handle) {
+    Socket *sock;
 
     if (!EventLoopAddHandle(GetEventLoop(), (EvHandle) handle)) {
         closesocket(handle);
@@ -441,6 +696,44 @@ Socket *argon::vm::io::socket::SocketNew(int domain, int type, int protocol) {
     sock->ConnectEx = nullptr;
 
     return sock;
+}
+
+SockHandle argon::vm::io::socket::Detach(Socket *sock) {
+    auto handle = sock->sock;
+
+    sock->sock = SOCK_HANDLE_INVALID;
+
+    return handle;
+}
+
+ArObject *argon::vm::io::socket::PeerName(const Socket *sock) {
+    sockaddr_storage storage{};
+    int namelen;
+
+    if ((namelen = SocketAddrLen(sock)) == 0)
+        return nullptr;
+
+    if (getpeername(sock->sock, (sockaddr *) &storage, (socklen_t *) &namelen) != 0) {
+        ErrorFromErrno(errno);
+        return nullptr;
+    }
+
+    return SockAddrToAddr(&storage, sock->family);
+}
+
+ArObject *argon::vm::io::socket::SockName(const Socket *sock) {
+    sockaddr_storage storage{};
+    int namelen;
+
+    if ((namelen = SocketAddrLen(sock)) == 0)
+        return nullptr;
+
+    if (getsockname(sock->sock, (sockaddr *) &storage, (socklen_t *) &namelen) != 0) {
+        ErrorFromErrno(errno);
+        return nullptr;
+    }
+
+    return SockAddrToAddr(&storage, sock->family);
 }
 
 #endif
