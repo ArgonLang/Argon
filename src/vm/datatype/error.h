@@ -116,7 +116,8 @@ namespace argon::vm::datatype {
     constexpr const char *kUnassignableError[] = {
             (const char *) "UnassignableError",
             (const char *) "unable to assign value to constant '%s'",
-            (const char *) "%s::%s is read-only"
+            (const char *) "%s::%s is read-only",
+            (const char *) "unable to read %s::%s property"
     };
 
     constexpr const char *kUndeclaredeError[] = {

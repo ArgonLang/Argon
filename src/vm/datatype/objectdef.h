@@ -168,6 +168,7 @@ ArObject *name##_fn(ArObject *_func, ArObject *_self, ArObject **args, ArObject 
     };
 
 #define ARGON_MEMBER(name, type, offset, readonly) {name, nullptr, nullptr, type, offset, readonly}
+#define ARGON_MEMBER_GETSET(name, get, set) {name, get, set, MemberType::ULONG, 0, false}
 #define ARGON_MEMBER_SENTINEL {nullptr, nullptr, nullptr, MemberType::ULONG, 0, false}
 
 #define AROBJ_HEAD                                                      \

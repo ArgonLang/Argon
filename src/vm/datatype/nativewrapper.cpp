@@ -140,6 +140,10 @@ bool argon::vm::datatype::NativeWrapperSet(const NativeWrapper *wrapper, ArObjec
 
     if (wrapper->member.set != nullptr)
         return wrapper->member.set(native, value);
+    else if (wrapper->member.get != nullptr) {
+        ErrorFormat(kUnassignableError[0], kUnassignableError[2], AR_TYPE_NAME(native), wrapper->member.name);
+        return false;
+    }
 
     switch (wrapper->member.type) {
         case MemberType::BOOL:
@@ -180,6 +184,10 @@ ArObject *argon::vm::datatype::NativeWrapperGet(const NativeWrapper *wrapper, co
 
     if (wrapper->member.get != nullptr)
         return wrapper->member.get(native);
+    else if (wrapper->member.set != nullptr) {
+        ErrorFormat(kUnassignableError[0], kUnassignableError[3], AR_TYPE_NAME(native), wrapper->member.name);
+        return nullptr;
+    }
 
     switch (wrapper->member.type) {
         case MemberType::BOOL:
