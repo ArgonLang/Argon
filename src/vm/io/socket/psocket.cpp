@@ -13,8 +13,11 @@
 
 #include <vm/loop/evloop.h>
 
+#include <vm/datatype/boolean.h>
+#include <vm/datatype/integer.h>
+
 #include "socket.h"
-#include "vm/datatype/integer.h"
+
 
 using namespace argon::vm::loop;
 using namespace argon::vm::datatype;
@@ -29,11 +32,8 @@ bool AcceptCallBack(Event *event) {
 
     remote = accept(sock->sock, (sockaddr *) &addr, &addrlen);
     if (remote < 0) {
-        if (errno != EAGAIN && errno != EWOULDBLOCK) {
-            Release(event->aux);
-
+        if (errno != EAGAIN && errno != EWOULDBLOCK)
             ErrorFromSocket();
-        }
 
         return false;
     }
@@ -122,6 +122,61 @@ bool RecvCallBack(Event *event) {
     return true;
 }
 
+bool RecvFromCallBack(Event *event) {
+    sockaddr_storage storage{};
+    socklen_t addrlen = sizeof(sockaddr_storage);
+
+    auto *sock = (const Socket *) event->initiator;
+
+
+    auto bytes = recvfrom(sock->sock,
+                          event->buffer.data + event->buffer.length,
+                          event->buffer.allocated - event->buffer.length,
+                          event->flags, (sockaddr *) &storage, &addrlen);
+
+    if (bytes < 0) {
+        if (errno != EAGAIN) {
+            BufferRelease(&event->buffer.arbuf);
+
+            ErrorFromSocket();
+        }
+
+        return false;
+    }
+
+    event->buffer.length += bytes;
+    if (sock->type != SOCK_DGRAM && bytes > 0 && event->buffer.length < event->buffer.allocated)
+        return false;
+
+    auto *remote_addr = SockAddrToAddr(&storage, sock->family);
+    if (remote_addr == nullptr) {
+        BufferRelease(&event->buffer.arbuf);
+        return false;
+    }
+
+    auto *data = BytesNewHoldBuffer(event->buffer.data, event->buffer.allocated, event->buffer.length, true);
+    if (data == nullptr) {
+        BufferRelease(&event->buffer.arbuf);
+        Release(remote_addr);
+        return false;
+    }
+
+    auto *ret = TupleNew("oo", data, remote_addr);
+
+    Release(remote_addr);
+    Release(data);
+
+    if (ret != nullptr) {
+        argon::vm::FiberSetAsyncResult(event->fiber, (ArObject *) ret);
+
+        Release(ret);
+
+        return true;
+    }
+
+    return false;
+}
+
 bool RecvIntoCallBack(Event *event) {
     auto *sock = (const Socket *) event->initiator;
 
@@ -164,8 +219,46 @@ bool SendCallBack(Event *event) {
 
     auto bytes = send(sock->sock,
                       event->buffer.arbuf.buffer,
-                      event->buffer.arbuf.length,
+                      event->buffer.length,
                       event->flags);
+
+    if (bytes < 0) {
+        if (errno != EAGAIN) {
+            BufferRelease(&event->buffer.arbuf);
+            ErrorFromSocket();
+        }
+
+        return false;
+    }
+
+    auto *buffer = IntNew(bytes);
+
+    BufferRelease(&event->buffer.arbuf);
+
+    if (buffer != nullptr) {
+        argon::vm::FiberSetAsyncResult(event->fiber, (ArObject *) buffer);
+
+        Release(buffer);
+
+        return true;
+    }
+
+    return false;
+}
+
+bool SendToCallBack(Event *event) {
+    sockaddr_storage storage{};
+    socklen_t addrlen;
+
+    auto *sock = (const Socket *) event->initiator;
+
+    if (!AddrToSockAddr(event->aux, &storage, &addrlen, sock->family))
+        return false;
+
+    auto bytes = sendto(sock->sock,
+                        event->buffer.arbuf.buffer,
+                        event->buffer.length,
+                        event->flags, (sockaddr *) &storage, addrlen);
 
     if (bytes < 0) {
         if (errno != EAGAIN) {
@@ -243,6 +336,27 @@ bool argon::vm::io::socket::Connect(Socket *sock, const sockaddr *addr, socklen_
     return true;
 }
 
+bool argon::vm::io::socket::Close(Socket *sock) {
+    int times = 3;
+    int err;
+
+    do {
+        err = close(sock->sock);
+    } while (err != 0 && errno == EINTR && times-- > 0);
+
+    if (err == 0) {
+        sock->sock = SOCK_HANDLE_INVALID;
+        return true;
+    }
+
+    return false;
+}
+
+bool argon::vm::io::socket::IsInheritable(const Socket *sock) {
+    int flags = fcntl(sock->sock, F_GETFD, 0);
+    return (flags & FD_CLOEXEC) != FD_CLOEXEC;
+}
+
 bool argon::vm::io::socket::Listen(const Socket *sock, int backlog) {
     return listen(sock->sock, backlog) == 0;
 }
@@ -302,7 +416,34 @@ bool argon::vm::io::socket::RecvInto(Socket *sock, datatype::ArObject *buffer, i
     return true;
 }
 
-bool argon::vm::io::socket::Send(Socket *sock, datatype::ArObject *buffer, int flags) {
+bool argon::vm::io::socket::RecvFrom(Socket *sock, size_t len, int flags) {
+    Event *event;
+
+    if ((event = EventNew(GetEventLoop(), (ArObject *) sock)) == nullptr)
+        return false;
+
+    if ((event->buffer.data = (unsigned char *) memory::Alloc(len)) == nullptr) {
+        EventDel(event);
+        return false;
+    }
+
+    event->buffer.length = 0;
+    event->buffer.allocated = len;
+
+    event->callback = RecvFromCallBack;
+
+    event->flags = flags;
+
+    if (!EventLoopAddEvent(GetEventLoop(), sock->queue, event, EventDirection::IN)) {
+        memory::Free(event->buffer.data);
+        EventDel(event);
+        return false;
+    }
+
+    return true;
+}
+
+bool argon::vm::io::socket::Send(Socket *sock, datatype::ArObject *buffer, long size, int flags) {
     Event *event;
 
     if ((event = EventNew(GetEventLoop(), (ArObject *) sock)) == nullptr)
@@ -312,6 +453,11 @@ bool argon::vm::io::socket::Send(Socket *sock, datatype::ArObject *buffer, int f
         EventDel(event);
         return false;
     }
+
+    event->buffer.length = size;
+
+    if (size < 0 || size > event->buffer.arbuf.length)
+        event->buffer.length = event->buffer.arbuf.length;
 
     event->callback = SendCallBack;
     event->flags = flags;
@@ -325,8 +471,67 @@ bool argon::vm::io::socket::Send(Socket *sock, datatype::ArObject *buffer, int f
     return true;
 }
 
+bool argon::vm::io::socket::SendTo(Socket *sock, datatype::ArObject *dest, datatype::ArObject *buffer, long size,
+                                   int flags) {
+    Event *event;
+
+    if ((event = EventNew(GetEventLoop(), (ArObject *) sock)) == nullptr)
+        return false;
+
+    if (!BufferGet(buffer, &event->buffer.arbuf, BufferFlags::READ)) {
+        EventDel(event);
+        return false;
+    }
+
+    event->buffer.length = size;
+
+    if (size < 0 || size > event->buffer.arbuf.length)
+        event->buffer.length = event->buffer.arbuf.length;
+
+    event->aux = IncRef(dest);
+    event->callback = SendToCallBack;
+    event->flags = flags;
+
+    if (!EventLoopAddEvent(GetEventLoop(), sock->queue, event, EventDirection::OUT)) {
+        BufferRelease(&event->buffer.arbuf);
+        EventDel(event);
+        return false;
+    }
+
+    return true;
+}
+
+bool argon::vm::io::socket::SetInheritable(const Socket *sock, bool inheritable) {
+    int flags = fcntl(sock->sock, F_GETFD, 0);
+
+    flags = !inheritable ? flags | FD_CLOEXEC : flags & (~FD_CLOEXEC);
+
+    if (fcntl(sock->sock, F_SETFD, flags) < 0) {
+        ErrorFromErrno(errno);
+
+        return false;
+    }
+
+    return true;
+}
+
 Error *argon::vm::io::socket::ErrorNewFromSocket() {
     return ErrorNewFromErrno(errno);
+}
+
+Socket *argon::vm::io::socket::Dup(const Socket *sock) {
+    Socket *ret;
+    SockHandle handle;
+
+    if ((handle = dup(sock->sock)) < 0) {
+        ErrorFromErrno(errno);
+        return nullptr;
+    }
+
+    if ((ret = SocketNew(sock->family, sock->type, sock->protocol, handle)) == nullptr)
+        close(handle);
+
+    return ret;
 }
 
 Socket *argon::vm::io::socket::SocketNew(int domain, int type, int protocol) {
@@ -379,6 +584,44 @@ Socket *argon::vm::io::socket::SocketNew(int domain, int type, int protocol, Soc
     }
 
     return sock;
+}
+
+SockHandle argon::vm::io::socket::Detach(Socket *sock) {
+    auto handle = sock->sock;
+
+    sock->sock = SOCK_HANDLE_INVALID;
+
+    return handle;
+}
+
+ArObject *argon::vm::io::socket::PeerName(const Socket *sock) {
+    sockaddr_storage storage{};
+    int namelen;
+
+    if ((namelen = SocketAddrLen(sock)) == 0)
+        return nullptr;
+
+    if (getpeername(sock->sock, (sockaddr *) &storage, (socklen_t *) &namelen) != 0) {
+        ErrorFromErrno(errno);
+        return nullptr;
+    }
+
+    return SockAddrToAddr(&storage, sock->family);
+}
+
+ArObject *argon::vm::io::socket::SockName(const Socket *sock) {
+    sockaddr_storage storage{};
+    int namelen;
+
+    if ((namelen = SocketAddrLen(sock)) == 0)
+        return nullptr;
+
+    if (getsockname(sock->sock, (sockaddr *) &storage, (socklen_t *) &namelen) != 0) {
+        ErrorFromErrno(errno);
+        return nullptr;
+    }
+
+    return SockAddrToAddr(&storage, sock->family);
 }
 
 #endif

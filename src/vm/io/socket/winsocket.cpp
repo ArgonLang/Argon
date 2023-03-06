@@ -287,7 +287,7 @@ bool argon::vm::io::socket::RecvInto(Socket *sock, datatype::ArObject *buffer, i
     return true;
 }
 
-bool argon::vm::io::socket::Send(Socket *sock, datatype::ArObject *buffer, int flags) {
+bool argon::vm::io::socket::Send(Socket *sock, datatype::ArObject *buffer, long size, int flags) {
     Event *ovr;
 
     if((ovr = EventNew(GetEventLoop(), (ArObject *) sock)) == nullptr)
@@ -299,8 +299,11 @@ bool argon::vm::io::socket::Send(Socket *sock, datatype::ArObject *buffer, int f
         return false;
     }
 
+    ovr->buffer.wsa.len = size;
+    if (size < 0 || size > event->buffer.arbuf.length)
+        ovr->buffer.wsa.len = event->buffer.arbuf.length;
+
     ovr->buffer.wsa.buf = (char *) ovr->buffer.arbuf.buffer;
-    ovr->buffer.wsa.len = (u_long) ovr->buffer.arbuf.length;
 
     vm::SetFiberStatus(FiberStatus::BLOCKED);
 

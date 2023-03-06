@@ -7,14 +7,23 @@
 #include <vm/io/io.h>
 
 #include <vm/datatype/integer.h>
+#include <sys/un.h>
 
 #include "socket.h"
+#include "vm/datatype/nil.h"
+#include "vm/datatype/boolean.h"
 
 using namespace argon::vm::datatype;
 using namespace argon::vm::io::socket;
 
 ARGON_FUNCTION(socket_socket, Socket,
-               "",
+               "Create a new socket using the given address family, socket type and protocol number.\n"
+               "\n"
+               "- Parameters:\n"
+               "  - family: Family.\n"
+               "  - type: Type.\n"
+               "  - protocol: Protocol.\n"
+               "- Returns: Socket object.\n",
                "i: family, i: type, i: protocol", false, false) {
     return (ArObject *) SocketNew((int) ((Integer *) args[0])->sint,
                                   (int) ((Integer *) args[1])->sint,
@@ -66,12 +75,46 @@ ARGON_METHOD(socket_connect, connect,
 
     auto *self = (Socket *) _self;
 
-    if (!AddrToSockAddr(args[0], &addr, &addrlen, self->family))
-        return nullptr;
-
-    Connect(self, (const sockaddr *) &addr, addrlen);
+    if (AddrToSockAddr(args[0], &addr, &addrlen, self->family))
+        Connect(self, (const sockaddr *) &addr, addrlen);
 
     return nullptr;
+}
+
+ARGON_METHOD(socket_close, close,
+             "Mark the socket closed.\n"
+             "\n"
+             "The underlying file descriptor is also closed.\n"
+             "\n"
+             "- Returns: nil.\n",
+             nullptr, false, false) {
+    if (Close((Socket *) _self))
+        return (ArObject *) IncRef(Nil);
+
+    return nullptr;
+}
+
+ARGON_METHOD(socket_detach, detach,
+             "Put the socket object into closed state.\n"
+             "\n"
+             "This method does not affect the underlying file descriptor.\n"
+             "\n"
+             "- Returns: File descriptor as UInt.\n",
+             nullptr, false, false) {
+    auto *uint = UIntNew(0);
+
+    if (uint != nullptr)
+        uint->uint = Detach((Socket *) *args);
+
+    return (ArObject *) uint;
+}
+
+ARGON_METHOD(socket_dup, dup,
+             "Duplicate the socket.\n"
+             "\n"
+             "- Returns: Duplicated socket.\n",
+             nullptr, false, false) {
+    return (ArObject *) Dup((Socket *) *args);
 }
 
 ARGON_METHOD(socket_listen, listen,
@@ -90,26 +133,21 @@ ARGON_METHOD(socket_listen, listen,
     return IncRef(_self);
 }
 
-ARGON_METHOD(socket_read, read,
-             "",
-             "i: size", false, false) {
+// Inherited from Reader trait
+ARGON_METHOD_INHERITED(socket_read, read) {
     auto *self = (Socket *) _self;
-
     IntegerUnderlying bufsize = ((Integer *) args[0])->sint;
 
-    if (bufsize < 0) {
+    if (bufsize < 0)
         ErrorFormat(kValueError[0], "size cannot be less than zero");
-        return nullptr;
-    }
-
-    Recv(self, bufsize, 0);
+    else
+        Recv(self, bufsize, 0);
 
     return nullptr;
 }
 
-ARGON_METHOD(socket_readinto, readinto,
-             "",
-             ": obj, i: offset", false, false) {
+// Inherited from Reader trait
+ARGON_METHOD_INHERITED(socket_readinto, readinto) {
     auto *self = (Socket *) _self;
     auto offset = ((Integer *) args[1])->sint;
 
@@ -121,12 +159,93 @@ ARGON_METHOD(socket_readinto, readinto,
     return nullptr;
 }
 
-ARGON_METHOD(socket_write, write,
-             "",
-             ": obj", false, false) {
+ARGON_METHOD(socket_recv, recv,
+             "Receive data from socket.\n"
+             "\n"
+             "- Parameters:\n"
+             "  - size: Buffer size.\n"
+             "  - flags: Flags.\n"
+             "- Returns: Bytes object.\n",
+             "i: size, i: flags", false, false) {
     auto *self = (Socket *) _self;
 
-    Send(self, *args, 0);
+    IntegerUnderlying bufsize = ((Integer *) args[0])->sint;
+
+    if (bufsize < 0)
+        ErrorFormat(kValueError[0], "size cannot be less than zero");
+    else
+        Recv(self, bufsize, (int) ((Integer *) args[1])->sint);
+
+    return nullptr;
+}
+
+ARGON_METHOD(socket_recvfrom, recvfrom,
+             "Receive data from socket.\n"
+             "\n"
+             "- Parameters:\n"
+             "  - size: Buffer size.\n"
+             "  - flags: Flags.\n"
+             "- Returns: Bytes object.\n",
+             "i: size, i: flags", false, false) {
+    auto *self = (Socket *) _self;
+
+    IntegerUnderlying bufsize = ((Integer *) args[0])->sint;
+
+    if (bufsize < 0)
+        ErrorFormat(kValueError[0], "size cannot be less than zero");
+    else
+        RecvFrom(self, bufsize, (int) ((Integer *) args[1])->sint);
+
+    return nullptr;
+}
+
+ARGON_METHOD(socket_send, send,
+             "Send data to socket.\n"
+             "\n"
+             "- Parameters:\n"
+             "  - buffer: Bytes-like object.\n"
+             "  - nbytes: Maximum number of bytes to send, if omitted the value is equal to the length of the buffer.\n"
+             "  - flags: Flags.\n"
+             "- Returns: Bytes sent.\n",
+             ": obj, i: nbytes, i: flags", false, false) {
+    auto *self = (Socket *) _self;
+
+    Send(self, *args, ((Integer *) args[2])->sint, (int) ((Integer *) args[2])->sint);
+
+    return nullptr;
+}
+
+ARGON_METHOD(socket_sendto, sendto,
+             "Send data to the socket.\n"
+             "\n"
+             "- Parameters:\n"
+             "  - dest: Destination address.\n"
+             "  - buffer: Bytes-like object.\n"
+             "  - nbytes: Maximum number of bytes to send, if omitted the value is equal to the length of the buffer.\n"
+             "  - flags: Flags.\n"
+             "- Returns: Bytes sent.\n",
+             " : dest, : obj, i: nbytes, i: flags", false, false) {
+    auto *self = (Socket *) _self;
+
+    SendTo(self, args[0], args[1], ((Integer *) args[2])->sint, (int) ((Integer *) args[3])->sint);
+
+    return nullptr;
+}
+
+ARGON_METHOD(socket_setinheritable, setinherit,
+             "Set the inheritable flag of the socket.\n"
+             "\n"
+             "- Parameters:\n"
+             "  - inheritable: Set inheritable mode (true|false).\n",
+             "b: inheritable", false, false) {
+    return (ArObject *) SetInheritable(((Socket *) *args), ArBoolToBool((Boolean *) args[1]));
+}
+
+// Inherited from Writer trait
+ARGON_METHOD_INHERITED(socket_write, write) {
+    auto *self = (Socket *) _self;
+
+    Send(self, *args, -1, 0);
 
     return nullptr;
 }
@@ -137,11 +256,38 @@ const FunctionDef sock_methods[] = {
         socket_accept,
         socket_bind,
         socket_connect,
+        socket_close,
+        socket_detach,
+        socket_dup,
         socket_listen,
         socket_read,
         socket_readinto,
+        socket_recv,
+        socket_recvfrom,
+        socket_send,
+        socket_sendto,
+        socket_setinheritable,
         socket_write,
         ARGON_METHOD_SENTINEL
+};
+
+ArObject *sock_member_get_inheritable(const Socket *sock) {
+    return BoolToArBool(IsInheritable(sock));
+}
+
+ArObject *sock_member_get_peername(const Socket *sock) {
+    return PeerName(sock);
+}
+
+ArObject *sock_member_get_sockname(const Socket *sock) {
+    return SockName(sock);
+}
+
+const MemberDef sock_members[] = {
+        ARGON_MEMBER_GETSET("inheritable", (MemberGetFn) sock_member_get_inheritable, nullptr),
+        ARGON_MEMBER_GETSET("peername", (MemberGetFn) sock_member_get_peername, nullptr),
+        ARGON_MEMBER_GETSET("sockname", (MemberGetFn) sock_member_get_sockname, nullptr),
+        ARGON_MEMBER_SENTINEL
 };
 
 TypeInfo *sock_bases[] = {
@@ -152,7 +298,7 @@ TypeInfo *sock_bases[] = {
 
 const ObjectSlots sock_objslot = {
         sock_methods,
-        nullptr,
+        sock_members,
         sock_bases,
         nullptr,
         nullptr,
@@ -185,6 +331,31 @@ TypeInfo SocketType = {
         nullptr
 };
 const TypeInfo *argon::vm::io::socket::type_socket_ = &SocketType;
+
+ArObject *argon::vm::io::socket::SockAddrToAddr(sockaddr_storage *storage, int family) {
+    char saddr[INET6_ADDRSTRLEN];
+
+    switch (family) {
+        case AF_INET: {
+            auto addr = (sockaddr_in *) storage;
+            inet_ntop(family, &addr->sin_addr, saddr, INET6_ADDRSTRLEN);
+            return (ArObject *) TupleNew("sH", saddr, ntohs(addr->sin_port));
+        }
+        case AF_INET6: {
+            auto addr = (sockaddr_in6 *) storage;
+            inet_ntop(family, &addr->sin6_addr, saddr, INET6_ADDRSTRLEN);
+            return (ArObject *) TupleNew("sHII", saddr, ntohs(addr->sin6_port), ntohs(addr->sin6_flowinfo),
+                                         ntohs(addr->sin6_scope_id));
+        }
+#ifndef _ARGON_PLATFORM_WINDOWS
+        case AF_UNIX:
+            return (ArObject *) StringNew(((sockaddr_un *) storage)->sun_path);
+#endif
+        default:
+            ErrorFormat(kOSError[0], "unsupported address family");
+            return nullptr;
+    }
+}
 
 bool argon::vm::io::socket::AddrToSockAddr(ArObject *addr, sockaddr_storage *store, socklen_t *len, int family) {
     char *saddr;
@@ -232,6 +403,18 @@ bool argon::vm::io::socket::AddrToSockAddr(ArObject *addr, sockaddr_storage *sto
     return false;
 }
 
+int argon::vm::io::socket::SocketAddrLen(const Socket *sock) {
+    switch (sock->family) {
+        case AF_INET:
+            return sizeof(sockaddr_in);
+        case AF_INET6:
+            return sizeof(sockaddr_in6);
+        default:
+            ErrorFormat(kOSError[0], "SocketGetAddrLen: unknown protocol");
+            return 0;
+    }
+}
+
 void argon::vm::io::socket::ErrorFromSocket() {
 #ifdef _ARGON_PLATFORM_WINDOWS
     auto *error = ErrorNewFromSocket();
@@ -244,4 +427,3 @@ void argon::vm::io::socket::ErrorFromSocket() {
     ErrorFromErrno(errno);
 #endif
 }
-

@@ -42,7 +42,7 @@ namespace argon::vm::io::socket {
 #define SOCK_HANDLE_INVALID (sock_handle)(~0)
     using SockHandle = unsigned long long;
 #else
-#define SOCK_HANDLE_INVALID (sock_handle)(-1)
+#define SOCK_HANDLE_INVALID (SockHandle)(-1)
     using SockHandle = int;
 #endif
 
@@ -55,10 +55,10 @@ namespace argon::vm::io::socket {
         int type;
         int protocol;
 
+#ifdef _ARGON_PLATFORM_WINDOWS
         sockaddr_storage addr;
         socklen_t addrlen;
 
-#ifdef _ARGON_PLATFORM_WINDOWS
         LPFN_ACCEPTEX AcceptEx;
         LPFN_CONNECTEX ConnectEx;
 #else
@@ -68,6 +68,8 @@ namespace argon::vm::io::socket {
 
     const extern datatype::TypeInfo *type_socket_;
 
+    datatype::ArObject *SockAddrToAddr(sockaddr_storage *storage, int family);
+
     bool Accept(Socket *sock);
 
     bool AddrToSockAddr(datatype::ArObject *addr, sockaddr_storage *store, socklen_t *len, int family);
@@ -76,19 +78,39 @@ namespace argon::vm::io::socket {
 
     bool Connect(Socket *sock, const struct sockaddr *addr, socklen_t addrlen);
 
+    bool Close(Socket *sock);
+
+    bool IsInheritable(const Socket *sock);
+
     bool Listen(const Socket *sock, int backlog);
 
     bool Recv(Socket *sock, size_t len, int flags);
 
     bool RecvInto(Socket *sock, datatype::ArObject *buffer, int offset, int flags);
 
-    bool Send(Socket *sock, datatype::ArObject *buffer, int flags);
+    bool RecvFrom(Socket *sock, size_t len, int flags);
+
+    bool Send(Socket *sock, datatype::ArObject *buffer, long size, int flags);
+
+    bool SendTo(Socket *sock, datatype::ArObject *dest, datatype::ArObject *buffer, long size, int flags);
+
+    bool SetInheritable(const Socket *sock, bool inheritable);
 
     datatype::Error *ErrorNewFromSocket();
+
+    int SocketAddrLen(const Socket *sock);
+
+    Socket *Dup(const Socket *sock);
 
     Socket *SocketNew(int domain, int type, int protocol);
 
     Socket *SocketNew(int domain, int type, int protocol, SockHandle handle);
+
+    SockHandle Detach(Socket *sock);
+
+    datatype::ArObject *PeerName(const Socket *sock);
+
+    datatype::ArObject *SockName(const Socket *sock);
 
     void ErrorFromSocket();
 
