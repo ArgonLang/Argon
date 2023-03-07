@@ -7,6 +7,8 @@
 
 #include <vm/runtime.h>
 
+#include <vm/datatype/nil.h>
+
 #include "event.h"
 #include "evloop.h"
 
@@ -14,20 +16,59 @@ using namespace argon::vm;
 using namespace argon::vm::loop;
 using namespace argon::vm::datatype;
 
-thread_local Event *argon::vm::loop::thlocal_event = nullptr;
-
 EvLoop *default_event_loop = nullptr;
 
-bool evloop_should_stop = false;
+thread_local Event *argon::vm::loop::thlocal_event = nullptr;
+
+// Prototypes
+
+void TimerTaskDel(TimerTask *ttask);
 
 // Internal
 
-void EventLoopDispatcher() {
-    while (!evloop_should_stop) {
-        EventLoopIOPoll(default_event_loop, kEventTimeout);
+unsigned long TimeNow() {
+    auto now = std::chrono::high_resolution_clock::now();
+    return std::chrono::duration_cast<std::chrono::milliseconds>(now.time_since_epoch()).count();
+}
 
-        // TODO: Timers
+void EventLoopDispatcher(EvLoop *loop) {
+    TimerTask *ttask;
+
+    while (!loop->should_stop) {
+        EventLoopIOPoll(loop, kEventTimeout);
+
+        auto loop_time = TimeNow();
+
+        std::unique_lock _(loop->lock);
+
+        while ((ttask = loop->timer_heap.PeekMin()) != nullptr) {
+            if (loop_time < ttask->timeout)
+                break;
+
+            loop->timer_heap.PopMin();
+
+            argon::vm::Spawn(ttask->fiber);
+
+            TimerTaskDel(ttask);
+        }
     }
+}
+
+void TimerTaskDel(TimerTask *ttask) {
+    auto *loop = ttask->loop;
+
+    std::unique_lock _(loop->lock);
+
+    if (loop->free_t_task_count + 1 <= kMaxFreeTasks) {
+        ttask->next = loop->free_t_task;
+        loop->free_t_task = ttask;
+
+        loop->free_t_task_count++;
+
+        return;
+    }
+
+    argon::vm::memory::Free(ttask);
 }
 
 // Public
@@ -36,7 +77,7 @@ bool argon::vm::loop::EventLoopInit() {
     if ((default_event_loop = EventLoopNew()) == nullptr)
         return false;
 
-    std::thread(EventLoopDispatcher).detach();
+    std::thread(EventLoopDispatcher, default_event_loop).detach();
 
     return true;
 }
@@ -47,13 +88,13 @@ Event *argon::vm::loop::EventNew(EvLoop *loop, ArObject *initiator) {
     if (loop == nullptr)
         return nullptr;
 
-    std::unique_lock _(loop->queue_lock);
+    std::unique_lock _(loop->lock);
 
-    if (loop->allocable_events != nullptr) {
-        event = loop->allocable_events;
-        loop->allocable_events = event->next;
+    if (loop->free_events != nullptr) {
+        event = loop->free_events;
+        loop->free_events = event->next;
 
-        loop->free_count--;
+        loop->free_events_count--;
     }
 
     _.unlock();
@@ -95,19 +136,64 @@ EvLoop *argon::vm::loop::GetEventLoop() {
     return default_event_loop;
 }
 
+bool argon::vm::loop::EventLoopSetTimeout(EvLoop *loop, datatype::ArSize timeout) {
+    auto now = TimeNow();
+    TimerTask *ttask = nullptr;
+
+    if (loop == nullptr)
+        return false;
+
+    std::unique_lock _(loop->lock);
+
+    if (loop->free_t_task != nullptr) {
+        ttask = loop->free_t_task;
+        loop->free_t_task = (TimerTask *) ttask->next;
+
+        loop->free_t_task_count--;
+    }
+
+    _.unlock();
+
+    if (ttask == nullptr) {
+        ttask = (TimerTask *) memory::Alloc(sizeof(TimerTask));
+        if (ttask == nullptr)
+            return false;
+    }
+
+    memory::MemoryZero(ttask, sizeof(TimerTask));
+
+    ttask->loop = loop;
+    ttask->fiber = vm::GetFiber();
+
+    ttask->callback = [](Task *task) {
+        vm::FiberSetAsyncResult(task->fiber, (ArObject *) Nil);
+    };
+
+    _.lock();
+
+    ttask->id = loop->t_task_id++;
+    ttask->timeout = now + timeout;
+
+    vm::SetFiberStatus(FiberStatus::BLOCKED);
+
+    loop->timer_heap.Insert(ttask);
+
+    return true;
+}
+
 void argon::vm::loop::EventDel(Event *event) {
     auto *loop = event->loop;
 
     Release(event->initiator);
     Release(event->aux);
 
-    std::unique_lock _(loop->queue_lock);
+    std::unique_lock _(loop->lock);
 
-    if (loop->free_count + 1 <= kMaxFreeEvents) {
-        event->next = loop->allocable_events;
-        loop->allocable_events = event;
+    if (loop->free_events_count + 1 <= kMaxFreeEvents) {
+        event->next = loop->free_events;
+        loop->free_events = event;
 
-        loop->free_count++;
+        loop->free_events_count++;
 
         return;
     }
@@ -116,7 +202,10 @@ void argon::vm::loop::EventDel(Event *event) {
 }
 
 void argon::vm::loop::EventLoopShutdown() {
-    evloop_should_stop = true;
+    auto *loop = GetEventLoop();
+
+    if (loop != nullptr)
+        loop->should_stop = true;
 }
 
 #ifndef _ARGON_PLATFORM_WINDOWS

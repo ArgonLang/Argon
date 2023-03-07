@@ -12,10 +12,13 @@
 #include <vm/datatype/arobject.h>
 
 #include "event.h"
+#include "minheap.h"
+#include "task.h"
 
 namespace argon::vm::loop {
     constexpr const unsigned int kEventTimeout = 500; // millisecond
     constexpr const unsigned int kMaxFreeEvents = 2046;
+    constexpr const unsigned int kMaxFreeTasks = 128;
 
 #ifdef _ARGON_PLATFORM_WINDOWS
 
@@ -58,17 +61,27 @@ namespace argon::vm::loop {
 #endif
 
     struct EvLoop {
-        std::mutex queue_lock;
+        std::mutex lock;
+
+        MinHeap<TimerTask, TimerTaskLess> timer_heap;
 
 #ifndef _ARGON_PLATFORM_WINDOWS
         EventQueue *out_queues;
 #endif
 
-        Event *allocable_events;
+        Event *free_events;
 
-        datatype::ArSize free_count;
+        TimerTask *free_t_task;
+
+        datatype::ArSize free_events_count;
+
+        datatype::ArSize free_t_task_count;
+
+        datatype::ArSize t_task_id;
 
         EvHandle handle;
+
+        bool should_stop;
     };
 
     extern thread_local Event *thlocal_event;
@@ -98,6 +111,8 @@ namespace argon::vm::loop {
     bool EventLoopInit();
 
     bool EventLoopIOPoll(EvLoop *loop, unsigned long timeout);
+
+    bool EventLoopSetTimeout(EvLoop *loop, datatype::ArSize timeout);
 
     void EventDel(Event *event);
 

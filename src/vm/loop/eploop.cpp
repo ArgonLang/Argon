@@ -31,7 +31,7 @@ void ProcessQueue(EventQueue *queue, EventDirection direction);
 EvLoop *argon::vm::loop::EventLoopNew() {
     EvLoop *evl;
 
-    if ((evl = (EvLoop *) argon::vm::memory::Alloc(sizeof(EvLoop))) != nullptr) {
+    if ((evl = (EvLoop *) argon::vm::memory::Calloc(sizeof(EvLoop))) != nullptr) {
         if ((evl->handle = epoll_create1(EPOLL_CLOEXEC)) < 0) {
             ErrorFromErrno(errno);
 
@@ -40,11 +40,7 @@ EvLoop *argon::vm::loop::EventLoopNew() {
             return nullptr;
         }
 
-        new(&evl->queue_lock)std::mutex();
-
-        evl->out_queues = nullptr;
-        evl->allocable_events = nullptr;
-        evl->free_count = 0;
+        new(&evl->lock)std::mutex();
     }
 
     return evl;
@@ -118,7 +114,7 @@ bool argon::vm::loop::EventLoopAddEvent(EvLoop *loop, EventQueue *queue, Event *
 }
 
 void ProcessOutTrigger(EvLoop *loop) {
-    std::unique_lock qlock(loop->queue_lock);
+    std::unique_lock qlock(loop->lock);
 
     for (EventQueue *queue = loop->out_queues; queue != nullptr; queue = queue->next) {
         std::unique_lock _(queue->lock);

@@ -26,7 +26,7 @@ using namespace argon::vm::loop;
 using namespace argon::vm::datatype;
 
 EvLoop *argon::vm::loop::EventLoopNew() {
-    auto *evl = (EvLoop *) argon::vm::memory::Alloc(sizeof(EvLoop));
+    auto *evl = (EvLoop *) argon::vm::memory::Calloc(sizeof(EvLoop));
 
     if (evl != nullptr) {
         evl->handle = CreateIoCompletionPort(INVALID_HANDLE_VALUE, nullptr, 0, 0);
@@ -38,10 +38,7 @@ EvLoop *argon::vm::loop::EventLoopNew() {
             return nullptr;
         }
 
-        new(&evl->queue_lock)std::mutex();
-
-        evl->allocable_events = nullptr;
-        evl->free_count = 0;
+        new(&evl->lock)std::mutex();
     }
 
     return evl;
