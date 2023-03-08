@@ -325,7 +325,7 @@ ArObject *socket_compare(const Socket *self, const ArObject *other, CompareMode 
 }
 
 ArObject *socket_repr(const Socket *self) {
-    return (ArObject *) StringFormat("<socket fd: %d, family: %d, type: %s, protocol: %d>", self->sock,
+    return (ArObject *) StringFormat("<socket fd: %d, family: %d, type: %d, protocol: %d>", self->sock,
                                      self->family, self->type, self->protocol);
 }
 
@@ -335,7 +335,7 @@ bool socket_dtor(Socket *self) {
     }
 
 #ifndef _ARGON_PLATFORM_WINDOWS
-    argon::vm::loop::EventQueueDel(&self->queue)
+    argon::vm::loop::EventQueueDel(&self->queue);
 #endif
 
     return true;
