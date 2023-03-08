@@ -5,6 +5,8 @@
 #ifndef ARGON_VM_LOOP_EVLOOP_H_
 #define ARGON_VM_LOOP_EVLOOP_H_
 
+#include <atomic>
+#include <condition_variable>
 #include <mutex>
 
 #include <util/macros.h>
@@ -16,7 +18,7 @@
 #include "task.h"
 
 namespace argon::vm::loop {
-    constexpr const unsigned int kEventTimeout = 500; // millisecond
+    constexpr const unsigned int kEventTimeout = 24; // millisecond
     constexpr const unsigned int kMaxFreeEvents = 2046;
     constexpr const unsigned int kMaxFreeTasks = 128;
 
@@ -63,6 +65,12 @@ namespace argon::vm::loop {
     struct EvLoop {
         std::mutex lock;
 
+#ifndef _ARGON_PLATFORM_WINDOWS
+        std::mutex out_lock;
+#endif
+
+        std::condition_variable cond;
+
         MinHeap<TimerTask, TimerTaskLess> timer_heap;
 
 #ifndef _ARGON_PLATFORM_WINDOWS
@@ -78,6 +86,8 @@ namespace argon::vm::loop {
         datatype::ArSize free_t_task_count;
 
         datatype::ArSize t_task_id;
+
+        std::atomic_ulong io_count;
 
         EvHandle handle;
 
@@ -99,6 +109,8 @@ namespace argon::vm::loop {
     EvLoop *GetEventLoop();
 
 #ifdef _ARGON_PLATFORM_WINDOWS
+
+    bool EventLoopAddEvent(EvLoop *loop, Event *event);
 
     bool EventLoopAddHandle(EvLoop *loop, EvHandle handle);
 

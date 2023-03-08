@@ -39,6 +39,7 @@ EvLoop *argon::vm::loop::EventLoopNew() {
         }
 
         new(&evl->lock)std::mutex();
+        new(&evl->cond)std::condition_variable();
     }
 
     return evl;
@@ -68,9 +69,31 @@ bool argon::vm::loop::EventLoopIOPoll(EvLoop *loop, unsigned long timeout) {
             vm::FiberSetAsyncResult(event->fiber, (ArObject *) Nil); // Default: Set initiator as return value
     }
 
+    loop->io_count--;
+
     Spawn(event->fiber);
 
     EventDel(event);
+
+    return true;
+}
+
+bool argon::vm::loop::EventLoopAddEvent(EvLoop *loop, Event *event) {
+    argon::vm::SetFiberStatus(FiberStatus::BLOCKED);
+
+    event->fiber = vm::GetFiber();
+
+    if (!event->callback(event)) {
+        argon::vm::SetFiberStatus(FiberStatus::RUNNING);
+
+        EventDel(event);
+
+        return false;
+    }
+
+    loop->io_count++;
+
+    loop->cond.notify_one();
 
     return true;
 }

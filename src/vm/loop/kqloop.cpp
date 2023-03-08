@@ -41,10 +41,9 @@ EvLoop *argon::vm::loop::EventLoopNew() {
         }
 
         new(&evl->lock)std::mutex();
+        new(&evl->out_lock)std::mutex();
 
-        evl->out_queues = nullptr;
-        evl->free_events = nullptr;
-        evl->free_events_count = 0;
+        new(&evl->cond)std::condition_variable();
     }
 
     return evl;
@@ -111,6 +110,8 @@ bool argon::vm::loop::EventLoopAddEvent(EvLoop *loop, EventQueue *queue, Event *
     }
 
     if (direction == EventDirection::OUT && queue->out_event.head == nullptr) {
+        std::unique_lock out_lock(loop->out_lock);
+
         queue->next = loop->out_queues;
         loop->out_queues = queue;
     }
@@ -121,14 +122,18 @@ bool argon::vm::loop::EventLoopAddEvent(EvLoop *loop, EventQueue *queue, Event *
 
     queue->AddEvent(event, direction);
 
+    loop->io_count++;
+
+    loop->cond.notify_one();
+
     return true;
 }
 
 void ProcessOutTrigger(EvLoop *loop) {
-    std::unique_lock qlock(loop->lock);
+    std::unique_lock _(loop->out_lock);
 
     for (EventQueue *queue = loop->out_queues; queue != nullptr; queue = queue->next) {
-        std::unique_lock _(queue->lock);
+        std::unique_lock qlock(queue->lock);
         ProcessQueue(queue, EventDirection::OUT);
     }
 
@@ -151,6 +156,8 @@ void ProcessQueue(EventQueue *queue, EventDirection direction) {
         ok = thlocal_event->callback(thlocal_event);
         if (!ok && !argon::vm::IsPanicking())
             return;
+
+        thlocal_event->loop->io_count--;
 
         Spawn(thlocal_event->fiber);
 

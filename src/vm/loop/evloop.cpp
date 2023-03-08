@@ -2,7 +2,6 @@
 //
 // Licensed under the Apache License v2.0
 
-#include <cassert>
 #include <thread>
 
 #include <vm/runtime.h>
@@ -26,7 +25,7 @@ void TimerTaskDel(TimerTask *ttask);
 
 // Internal
 
-unsigned long TimeNow() {
+unsigned long long TimeNow() {
     auto now = std::chrono::high_resolution_clock::now();
     return std::chrono::duration_cast<std::chrono::milliseconds>(now.time_since_epoch()).count();
 }
@@ -34,22 +33,47 @@ unsigned long TimeNow() {
 void EventLoopDispatcher(EvLoop *loop) {
     TimerTask *ttask;
 
+    unsigned long long loop_time;
+    long timeout;
+
     while (!loop->should_stop) {
-        EventLoopIOPoll(loop, kEventTimeout);
+        if (loop->io_count == 0) {
+            std::unique_lock lock(loop->lock);
 
-        auto loop_time = TimeNow();
+            loop->cond.wait(lock, [loop]() {
+                return loop->should_stop || loop->io_count > 0;
+            });
 
-        std::unique_lock _(loop->lock);
+            lock.unlock();
 
-        while ((ttask = loop->timer_heap.PeekMin()) != nullptr) {
+            if (loop->should_stop)
+                break;
+        }
+
+        loop_time = TimeNow();
+
+        timeout = kEventTimeout;
+        if ((ttask = loop->timer_heap.PeekMin()) != nullptr) {
+            timeout = (long) (ttask->timeout - loop_time);
+            if (timeout < 0)
+                timeout = 0;
+        }
+
+        EventLoopIOPoll(loop, timeout);
+
+        while (ttask != nullptr) {
             if (loop_time < ttask->timeout)
                 break;
 
             loop->timer_heap.PopMin();
 
+            loop->io_count--;
+
             argon::vm::Spawn(ttask->fiber);
 
             TimerTaskDel(ttask);
+
+            ttask = loop->timer_heap.PeekMin();
         }
     }
 }
@@ -177,6 +201,8 @@ bool argon::vm::loop::EventLoopSetTimeout(EvLoop *loop, datatype::ArSize timeout
     vm::SetFiberStatus(FiberStatus::BLOCKED);
 
     loop->timer_heap.Insert(ttask);
+
+    loop->io_count++;
 
     return true;
 }
