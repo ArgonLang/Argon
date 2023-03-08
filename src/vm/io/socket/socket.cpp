@@ -6,6 +6,8 @@
 
 #ifndef _ARGON_PLATFORM_WINDOWS
 #include <sys/un.h>
+
+#include <vm/loop/evloop.h>
 #endif
 
 #include <vm/runtime.h>
@@ -310,6 +312,39 @@ const ObjectSlots sock_objslot = {
         -1
 };
 
+ArObject *socket_compare(const Socket *self, const ArObject *other, CompareMode mode) {
+    auto *o = (const Socket *) other;
+
+    if (!AR_SAME_TYPE(self, other) || mode != CompareMode::EQ)
+        return nullptr;
+
+    if (self != o)
+        return BoolToArBool(self->sock == o->sock);
+
+    return BoolToArBool(true);
+}
+
+ArObject *socket_repr(const Socket *self) {
+    return (ArObject *) StringFormat("<socket fd: %d, family: %d, type: %s, protocol: %d>", self->sock,
+                                     self->family, self->type, self->protocol);
+}
+
+bool socket_dtor(Socket *self) {
+    if (self->sock != SOCK_HANDLE_INVALID) {
+        Close(self);
+    }
+
+#ifndef _ARGON_PLATFORM_WINDOWS
+    argon::vm::loop::EventQueueDel(&self->queue)
+#endif
+
+    return true;
+}
+
+bool socket_is_true(const Socket *self) {
+    return self->sock != SOCK_HANDLE_INVALID;
+}
+
 TypeInfo SocketType = {
         AROBJ_HEAD_INIT_TYPE,
         "Socket",
@@ -318,12 +353,12 @@ TypeInfo SocketType = {
         sizeof(Socket),
         TypeInfoFlags::BASE,
         nullptr,
+        (Bool_UnaryOp) socket_dtor,
         nullptr,
         nullptr,
-        nullptr,
-        nullptr,
-        nullptr,
-        nullptr,
+        (Bool_UnaryOp) socket_is_true,
+        (CompareOp) socket_compare,
+        (UnaryConstOp) socket_repr,
         nullptr,
         nullptr,
         nullptr,
@@ -353,8 +388,8 @@ ArObject *argon::vm::io::socket::SockAddrToAddr(sockaddr_storage *storage, int f
                                          ntohs(addr->sin6_scope_id));
         }
 #ifndef _ARGON_PLATFORM_WINDOWS
-        case AF_UNIX:
-            return (ArObject *) StringNew(((sockaddr_un *) storage)->sun_path);
+            case AF_UNIX:
+                return (ArObject *) StringNew(((sockaddr_un *) storage)->sun_path);
 #endif
         default:
             ErrorFormat(kOSError[0], "unsupported address family");
