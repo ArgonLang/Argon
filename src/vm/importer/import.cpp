@@ -247,6 +247,7 @@ ARGON_FUNCTION(import_builtins_locator, builtins_locator,
             argon::vm::mod::module_builtins_,
             argon::vm::mod::module_gc_,
             argon::vm::mod::module_io_,
+            argon::vm::mod::module_os_,
             argon::vm::mod::module_runtime_,
             argon::vm::mod::module_socket_
     };
