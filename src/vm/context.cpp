@@ -7,10 +7,12 @@
 using namespace argon::vm;
 using namespace argon::vm::datatype;
 
-Context *argon::vm::ContextNew() {
+Context *argon::vm::ContextNew(Config *global_config) {
     auto *context = (Context *) memory::Calloc(sizeof(Context));
 
     if (context != nullptr) {
+        context->global_config = global_config;
+
         if ((context->imp = importer::ImportNew(context)) == nullptr)
             goto ERROR;
 

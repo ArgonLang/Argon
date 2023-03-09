@@ -5,6 +5,7 @@
 */
 
 import "io"
+import "runtime"
 
 pub var repl
 
@@ -103,5 +104,8 @@ func RunDefaultRepl() {
     var module = require("__main") # Check if the "__main" context already exists
 
     repl = Repl("Ar> ", "... ", module ? module.ok() : "__main")
+
+    io.print(runtime.version_ex)
+
     repl.interactive_loop()
 }

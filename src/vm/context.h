@@ -9,14 +9,18 @@
 
 #include <vm/mod/modules.h>
 
+#include "config.h"
+
 namespace argon::vm {
     struct Context {
+        Config *global_config;
+
         importer::Import *imp;
 
         datatype::Module *builtins;
     };
 
-    Context *ContextNew();
+    Context *ContextNew(Config *global_config);
 
     void ContextDel(Context *context);
 

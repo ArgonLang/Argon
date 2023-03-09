@@ -11,6 +11,7 @@ namespace argon::vm::mod {
     extern const datatype::ModuleInit *module_builtins_;
     extern const datatype::ModuleInit *module_gc_;
     extern const datatype::ModuleInit *module_io_;
+    extern const datatype::ModuleInit *module_runtime_;
     extern const datatype::ModuleInit *module_socket_;
 
 } // namespace argon::vm::mod

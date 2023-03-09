@@ -86,7 +86,7 @@ int argon::vm::ArgonMain(int argc, char **argv) {
     if (!Initialize(&config))
         return EXIT_FAILURE;
 
-    if ((context = ContextNew()) == nullptr)
+    if ((context = ContextNew(&config)) == nullptr)
         return EXIT_FAILURE;
 
     if (!SetupImportPaths(context->imp))
