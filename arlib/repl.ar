@@ -28,19 +28,25 @@ struct Repl {
     
     pub func interactive_loop(self) {
         var value
+        var input
 
         loop {
-            var result = eval(self.in_name, self.module, self.read_input())
+            input = self.read_input()
+            if input == "" || input == "\n" || input == "\r\n" {
+                continue
+            }
+
+            var result = eval(self.in_name, self.module, input)
             if result {
                 value = result.ok()
-
-                value != nil ? io.print(value)
-
-                io.print("[Ok]")
+                if value != nil {
+                    io.print(value)
+                } else {
+                    io.print("[Ok!]")
+                }
             } else {
                 value = result.err()
                 io.perror(value)
-                io.perror("[Err]")
             }
         }
     }
