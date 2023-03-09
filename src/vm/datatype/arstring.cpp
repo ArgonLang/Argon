@@ -179,6 +179,21 @@ ARGON_METHOD(str_find, find,
     return (ArObject *) IntNew(StringFind((String *) _self, (String *) args[0]));
 }
 
+ARGON_METHOD(str_isdigit, isdigit,
+             "Check if all characters in the string are digits.\n"
+             "\n"
+             "- Returns: True if all characters are digits, false otherwise.\n",
+             nullptr, false, false) {
+    auto *self = (const String *) _self;
+
+    for (ArSize i = 0; i < STR_LEN(self); i++) {
+        if (!std::isdigit(STR_BUF(self)[i]))
+            return BoolToArBool(false);
+    }
+
+    return BoolToArBool(true);
+}
+
 ARGON_METHOD(str_lower, lower,
              "Return a copy of the string converted to lowercase.\n"
              "\n"
@@ -450,6 +465,7 @@ const FunctionDef string_methods[] = {
         str_count,
         str_endswith,
         str_find,
+        str_isdigit,
         str_lower,
         str_ord,
         str_replace,
