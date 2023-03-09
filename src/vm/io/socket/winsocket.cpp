@@ -396,7 +396,9 @@ bool argon::vm::io::socket::Close(Socket *sock) {
         }
 
         err = WSAGetLastError();
-    } while ((err == WSAEINTR || err == WSAEINPROGRESS) && times-- > 0);
+
+        times--;
+    } while ((err == WSAEINTR || err == WSAEINPROGRESS) && times > 0);
 
     return false;
 }

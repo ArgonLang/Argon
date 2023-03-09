@@ -134,7 +134,7 @@ ARGON_METHOD(socket_listen, listen,
              "i: backlog", false, false) {
     const auto *self = (Socket *) _self;
 
-    if (!Listen(self, ((Integer *) *args)->sint))
+    if (!Listen(self, (int)((Integer *) *args)->sint))
         return nullptr;
 
     return IncRef(_self);
@@ -401,7 +401,7 @@ bool argon::vm::io::socket::AddrToSockAddr(ArObject *addr, sockaddr_storage *sto
     char *saddr;
 
     *len = sizeof(sockaddr_in);
-    store->ss_family = (short) family;
+    store->ss_family = (unsigned char) family;
 
     switch (family) {
         case AF_INET: {

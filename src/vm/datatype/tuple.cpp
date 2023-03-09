@@ -275,7 +275,7 @@ bool argon::vm::datatype::TupleInsert(Tuple *tuple, ArObject *object, ArSize ind
     return true;
 }
 
-bool argon::vm::datatype::TupleUnpack(Tuple *tuple, const char *fmt, ...) {
+bool argon::vm::datatype::TupleUnpack(const Tuple *tuple, const char *fmt, ...) {
     va_list args;
     ArObject *obj;
     ArSize flen;
@@ -346,7 +346,7 @@ bool argon::vm::datatype::TupleUnpack(Tuple *tuple, const char *fmt, ...) {
                     return false;
                 }
 
-                *va_arg(args, long *) = (long) ((Integer *) obj)->sint;
+                *va_arg(args, long *) = ((Integer *) obj)->sint;
                 break;
             case 'h':
                 if (!AR_TYPEOF(obj, type_int_)) {

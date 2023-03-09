@@ -52,7 +52,7 @@ namespace argon::vm::datatype {
      * @param ... Arguments.
      * @return True on success, false otherwise.
      */
-    bool TupleUnpack(Tuple *tuple, const char *fmt, ...);
+    bool TupleUnpack(const Tuple *tuple, const char *fmt, ...);
 
     /**
      * @brief Transform a list with only one reference into a tuple.

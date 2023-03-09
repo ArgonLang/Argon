@@ -406,7 +406,7 @@ ARGON_FUNCTION(socket_htonl, htonl,
                "- Returns: 32-bit positive integer in network byte order.\n",
                "i: number", false, false) {
 
-    return (ArObject *) IntNew(htonl(((Integer *) *args)->sint));
+    return (ArObject *) IntNew(htonl((unsigned int)((Integer *) *args)->sint));
 }
 
 ARGON_FUNCTION(socket_htons, htons,
@@ -416,7 +416,7 @@ ARGON_FUNCTION(socket_htons, htons,
                "- Returns: 16-bit positive integer in network byte order.\n",
                "i: number", false, false) {
 
-    return (ArObject *) IntNew(htons(((Integer *) *args)->sint));
+    return (ArObject *) IntNew(htons((unsigned short)((Integer *) *args)->sint));
 }
 
 ARGON_FUNCTION(socket_ntohl, ntohl,
@@ -426,7 +426,7 @@ ARGON_FUNCTION(socket_ntohl, ntohl,
                "- Returns: 32-bit positive integer in host byte order.\n",
                "i: number", false, false) {
 
-    return (ArObject *) IntNew(ntohl(((Integer *) *args)->sint));
+    return (ArObject *) IntNew(ntohl((unsigned int)((Integer *) *args)->sint));
 }
 
 ARGON_FUNCTION(socket_ntohs, ntohs,
@@ -436,7 +436,7 @@ ARGON_FUNCTION(socket_ntohs, ntohs,
                "- Returns: 16-bit positive integer in host byte order.\n",
                "i: number", false, false) {
 
-    return (ArObject *) IntNew(ntohs(((Integer *) *args)->sint));
+    return (ArObject *) IntNew(ntohs((unsigned short)((Integer *) *args)->sint));
 }
 
 ARGON_FUNCTION(socket_ntop, ntop,

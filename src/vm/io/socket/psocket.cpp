@@ -342,7 +342,8 @@ bool argon::vm::io::socket::Close(Socket *sock) {
 
     do {
         err = close(sock->sock);
-    } while (err != 0 && errno == EINTR && times-- > 0);
+        times--;
+    } while (err != 0 && errno == EINTR && times > 0);
 
     if (err == 0) {
         sock->sock = SOCK_HANDLE_INVALID;
