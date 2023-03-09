@@ -82,7 +82,7 @@ Atom *argon::vm::datatype::AtomNew(const char *value) {
         return nullptr;
     }
 
-    if (!DictInsert(gat, (ArObject *) atom, (ArObject *) atom)) {
+    if (!DictInsert(gat, (ArObject *) atom->value, (ArObject *) atom)) {
         Release(atom);
         return nullptr;
     }
