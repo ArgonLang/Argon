@@ -1,0 +1,15 @@
+/*
+ * This source file is part of the Argon project.
+ *
+ * Licensed under the Apache License v2.0
+*/
+
+pub let NotImplementedError = Error(@NotImplementedError)
+
+pub let OverflowError = Error(@OverflowError)
+
+pub let TypeError = Error(@TypeError)
+
+pub let UnhashableError = Error(@UnhashableError)
+
+pub let ValueError = Error(@ValueError)

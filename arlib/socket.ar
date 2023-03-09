@@ -1,0 +1,166 @@
+/*
+ * This source file is part of the Argon project.
+ *
+ * Licensed under the Apache License v2.0
+*/
+
+from "argon:socket" import *
+
+import "error"
+
+pub func aton(ip_string) {
+    return pton(AF_INET, ip_string)
+}
+
+func check_number(s) {
+    var i = 0
+    var length = len(s)
+
+    loop i < length && s[i] >= "0" && s[i] <= "9" {
+        i += 1
+    }
+
+    return i
+}
+
+pub func dial(network, address) {
+    var af
+    var tp
+    var proto
+
+    af, tp, proto, address = resolve_address(network, address)
+
+    var sock = Socket(af, tp, proto)
+
+    return sock.connect(address)
+}
+
+pub func gethostbyname(name) {
+    var lookup
+
+    lookup = getaddrinfo(name, nil, AF_INET, 0, AI_CANONNAME)
+
+    return lookup[0][4][0]
+}
+
+pub func ntoa(packed_ip) {
+    return ntop(AF_INET, packed_ip)
+}
+
+func parse_network(network, nproto) {
+    var last = network.rfind(":")
+    var proto
+    var af
+
+    if last < 0 {
+        switch network {
+            case "tcp"; "udp":
+                return "ip", network
+            case "tcp4"; "udp4":
+                return "ip4", network
+            case "tcp6"; "udp6":
+                return "ip6", network
+            case "unix"; "unixgram"; "unixpacket":
+                return network, ""
+            case "ip"; "ip4"; "ip6":
+                if nproto {
+                    panic error.ValueError("expected protocol '%s:??'" % network)
+                }
+            default:
+                panic error.ValueError("unexpected network: %s" % network)
+        }
+
+        return network, proto
+    }
+
+    af = network[:last]
+
+    switch af {
+        case "ip"; "ip4"; "ip6":
+        var protostr = network[last + 1:].trim()
+        var protonum = check_number(protostr)
+
+        if protonum > 0 {
+            proto = Int::parse(protostr[:protonum], 10)
+            proto = getprotobynumber(proto)[0]
+        } else {
+            proto = protostr
+        }
+
+        return af, proto
+    }
+
+    panic error.ValueError("unexpected af: %s" % af)
+}
+
+func resolve_address(network, address) {
+    var af
+    var tp
+    var proto
+
+    var afnet
+    var serv
+    var host
+
+    if !address {
+        panic error.ValueError("missing address")
+    }
+
+    afnet, proto = parse_network(network, true)
+
+    switch afnet {
+        case "unix":
+            af = AF_UNIX
+            tp = SOCK_STREAM
+        case "unixgram":
+            af = AF_UNIX
+            tp = SOCK_DGRAM
+        case "unixpacket":
+            af = AF_UNIX
+            tp = SOCK_SEQPACKET
+    }
+
+    if tp != nil {
+        return af, tp, 0, address
+    }
+
+    host, serv = split_host_port(address)
+
+    # Network address
+    switch proto {
+        case "tcp"; "tcp4":
+            af = AF_INET
+            tp = SOCK_STREAM
+        case "udp"; "udp4":
+            af = AF_INET
+            tp = SOCK_DGRAM
+        case "tcp6":
+            af = AF_INET6
+            tp = SOCK_STREAM
+        case "udp6":
+            af = AF_INET6
+            tp = SOCK_DGRAM
+        default:
+            panic error.ValueError("unexpected proto '%s'" % proto)
+    }
+
+    proto = getprotobyname(proto)[2]
+
+    host = getaddrinfo(host, serv, af, 0, 0)
+
+    return af, tp, proto, host[0][4]
+}
+
+func split_host_port(address) {
+    var port = address.rfind(":")
+
+    if address.count(":") > 1 {
+        panic error.ValueError("too many colons in address")
+    }
+
+    if port != -1 {
+        return address[:port], address[port+1:]
+    }
+
+    return address, ""
+}
