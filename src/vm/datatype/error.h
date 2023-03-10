@@ -99,6 +99,10 @@ namespace argon::vm::datatype {
             (const char *) "unknown native type for the %s::%s property"
     };
 
+    constexpr const char *kRuntimeExitError[] = {
+            (const char *) "RuntimeExit",
+    };
+
     constexpr const char *kTypeError[] = {
             (const char *) "TypeError",
             (const char *) "a type is required, not an instance of %s",

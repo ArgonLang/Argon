@@ -45,9 +45,15 @@ const FunctionDef error_methods[] = {
         ARGON_METHOD_SENTINEL
 };
 
+const MemberDef error_members[] = {
+        ARGON_MEMBER("id", MemberType::OBJECT, offsetof(Error, id), true),
+        ARGON_MEMBER("reason", MemberType::OBJECT, offsetof(Error, reason), true),
+        ARGON_MEMBER_SENTINEL
+};
+
 const ObjectSlots error_objslot = {
         error_methods,
-        nullptr,
+        error_members,
         nullptr,
         nullptr,
         nullptr,
