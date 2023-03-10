@@ -109,6 +109,22 @@ ARGON_FUNCTION(builtins_iscallable, iscallable,
     return BoolToArBool(false);
 }
 
+ARGON_FUNCTION(builtins_implements, implements,
+               "Check if object implements all the indicated traits.\n"
+               "\n"
+               "- Parameters:\n"
+               "  - obj: Object to check.\n"
+               "  - ...traits: Traits list.\n"
+               "- Returns: True if the object implements ALL indicated traits, false otherwise.",
+               ": obj, : traits", true, false) {
+    for (ArSize i = 1; i < argc; i++) {
+        if (!TraitIsImplemented(args[0], (TypeInfo *) args[i]))
+            return BoolToArBool(false);
+    }
+
+    return BoolToArBool(true);
+}
+
 ARGON_FUNCTION(builtins_len, len,
                "Returns the length of an object.\n"
                "\n"
@@ -228,6 +244,7 @@ const ModuleEntry builtins_entries[] = {
         MODULE_EXPORT_FUNCTION(builtins_exit),
         MODULE_EXPORT_FUNCTION(builtins_eval),
         MODULE_EXPORT_FUNCTION(builtins_iscallable),
+        MODULE_EXPORT_FUNCTION(builtins_implements),
         MODULE_EXPORT_FUNCTION(builtins_len),
         MODULE_EXPORT_FUNCTION(builtins_require),
         MODULE_EXPORT_FUNCTION(builtins_repr),
