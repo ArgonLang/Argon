@@ -97,18 +97,24 @@ int argon::vm::ArgonMain(int argc, char **argv) {
 
     if (config.file > -1) {
         result = EvalFile(context, "__main", argv[config.file], mod->ns);
-        if (!result->success)
-            PrintRaw(result->value);
+        if (result != nullptr) {
+            if (!result->success)
+                PrintRaw(result->value);
 
-        Release(result);
+            Release(result);
+        } else
+            PrintRaw(nullptr);
     }
 
     if (config.cmd > -1) {
         result = EvalString(context, "__main", argv[config.cmd], mod->ns);
-        if (!result->success)
-            PrintRaw(result->value);
+        if (result != nullptr) {
+            if (!result->success)
+                PrintRaw(result->value);
 
-        Release(result);
+            Release(result);
+        } else
+            PrintRaw(nullptr);
     }
 
     if (config.interactive) {
@@ -139,7 +145,18 @@ int argon::vm::ArgonMain(int argc, char **argv) {
 }
 
 void PrintRaw(ArObject *object) {
-    auto *str = (String *) Str(object);
+    String *str;
+
+    IncRef(object);
+
+    if (object == nullptr)
+        object = GetLastError();
+
+    assert(object != nullptr);
+
+    str = (String *) Str(object);
+
+    Release(object);
 
     if (str != nullptr) {
         if (AR_TYPEOF(object, type_error_))
