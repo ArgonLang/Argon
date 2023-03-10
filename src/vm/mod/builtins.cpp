@@ -31,6 +31,17 @@
 
 using namespace argon::vm::datatype;
 
+ARGON_FUNCTION(builtins_exit, exit,
+               "Exit by initiating a panicking state with RuntimeExit error.\n"
+               "\n"
+               "This is a convenient function to terminate your interactive session.\n"
+               "\n"
+               "- Returns: This function does not return to the caller.",
+               nullptr, false, false) {
+    ErrorFormat(kRuntimeExitError[0], "");
+    return nullptr;
+}
+
 ARGON_FUNCTION(builtins_eval, eval,
                "Evaluate and execute string as Argon code.\n"
                "\n"
@@ -214,7 +225,7 @@ const ModuleEntry builtins_entries[] = {
         MODULE_EXPORT_TYPE(type_tuple_),
         MODULE_EXPORT_TYPE(type_uint_),
 
-
+        MODULE_EXPORT_FUNCTION(builtins_exit),
         MODULE_EXPORT_FUNCTION(builtins_eval),
         MODULE_EXPORT_FUNCTION(builtins_iscallable),
         MODULE_EXPORT_FUNCTION(builtins_len),

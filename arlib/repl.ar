@@ -47,6 +47,11 @@ struct Repl {
                 }
             } else {
                 value = result.err()
+
+                if typeof(value, Error) && value.id == @RuntimeExit {
+                    return
+                }
+
                 io.perror(value)
             }
         }
