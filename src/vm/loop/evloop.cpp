@@ -204,6 +204,8 @@ bool argon::vm::loop::EventLoopSetTimeout(EvLoop *loop, datatype::ArSize timeout
 
     loop->io_count++;
 
+    loop->cond.notify_one();
+
     return true;
 }
 
