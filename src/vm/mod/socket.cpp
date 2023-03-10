@@ -307,9 +307,11 @@ ARGON_FUNCTION(socket_getprotobyname, getprotobyname,
                "- Parameter name: Name.\n"
                "- Returns: ((name, (alias...), id).\n",
                "s: name", false, false) {
+    static std::mutex protobyname_mtx;
     protoent *pent;
 
-    // TODO: getprotobyname_r
+    std::unique_lock _(protobyname_mtx);
+
     if ((pent = getprotobyname((const char *) ARGON_RAW_STRING((String *) args[0]))) == nullptr) {
         ErrorFormat(kOSError[0], "protocol '%s' not found", ARGON_RAW_STRING((String *) args[0]));
         return nullptr;
@@ -326,9 +328,11 @@ ARGON_FUNCTION(socket_getprotobynumber, getprotobynumber,
                "- Parameter number: Protocol number.\n"
                "- Returns: ((name, (alias...), id).\n",
                "i: number", false, false) {
+    static std::mutex protobynumber_mtx;
     protoent *pent;
 
-    // TODO: getprotobynumber_r
+    std::unique_lock _(protobynumber_mtx);
+
     if ((pent = getprotobynumber((int) ((Integer *) *args)->sint)) == nullptr) {
         ErrorFormat(kOSError[0], "protocol '%d' not found", ((Integer *) *args)->sint);
         return nullptr;
@@ -347,13 +351,16 @@ ARGON_FUNCTION(socket_getservbyname, getservbyname,
                "  - proto: Protocol name.\n"
                "- Returns: (name, (alias...), port, protocol).\n",
                "s: name, sn: proto", false, false) {
+    static std::mutex servbyname_mtx;
+
     const char *pname = nullptr;
     servent *sent;
 
     if (!IsNull(args[1]))
         pname = (const char *) ARGON_RAW_STRING((String *) args[1]);
 
-    // todo: getservbyname_r
+    std::unique_lock _(servbyname_mtx);
+
     if ((sent = getservbyname((const char *) ARGON_RAW_STRING((String *) args[0]), pname)) == nullptr) {
         if (pname != nullptr)
             ErrorFormat(kOSError[0], "service '%s' for protocol: '%s' not found",
@@ -378,13 +385,15 @@ ARGON_FUNCTION(socket_getservbyport, getservbyport,
                "  - proto: Protocol name.\n"
                "- Returns: (name, (alias...), port, protocol).\n",
                "i: port, sn: proto", false, false) {
+    static std::mutex servbyport_mtx;
     const char *pname = nullptr;
     servent *sent;
 
     if (!IsNull(args[1]))
         pname = (const char *) ARGON_RAW_STRING((String *) args[1]);
 
-    // todo: getservbyport_r
+    std::unique_lock _(servbyport_mtx);
+
     if ((sent = getservbyport((int) ((Integer *) args[0])->sint, pname)) == nullptr) {
         if (pname != nullptr)
             ErrorFormat(kOSError[0], "service '%s' for protocol: '%s' not found",
@@ -406,7 +415,7 @@ ARGON_FUNCTION(socket_htonl, htonl,
                "- Returns: 32-bit positive integer in network byte order.\n",
                "i: number", false, false) {
 
-    return (ArObject *) IntNew(htonl((unsigned int)((Integer *) *args)->sint));
+    return (ArObject *) IntNew(htonl((unsigned int) ((Integer *) *args)->sint));
 }
 
 ARGON_FUNCTION(socket_htons, htons,
@@ -416,7 +425,7 @@ ARGON_FUNCTION(socket_htons, htons,
                "- Returns: 16-bit positive integer in network byte order.\n",
                "i: number", false, false) {
 
-    return (ArObject *) IntNew(htons((unsigned short)((Integer *) *args)->sint));
+    return (ArObject *) IntNew(htons((unsigned short) ((Integer *) *args)->sint));
 }
 
 ARGON_FUNCTION(socket_ntohl, ntohl,
@@ -426,7 +435,7 @@ ARGON_FUNCTION(socket_ntohl, ntohl,
                "- Returns: 32-bit positive integer in host byte order.\n",
                "i: number", false, false) {
 
-    return (ArObject *) IntNew(ntohl((unsigned int)((Integer *) *args)->sint));
+    return (ArObject *) IntNew(ntohl((unsigned int) ((Integer *) *args)->sint));
 }
 
 ARGON_FUNCTION(socket_ntohs, ntohs,
@@ -436,7 +445,7 @@ ARGON_FUNCTION(socket_ntohs, ntohs,
                "- Returns: 16-bit positive integer in host byte order.\n",
                "i: number", false, false) {
 
-    return (ArObject *) IntNew(ntohs((unsigned short)((Integer *) *args)->sint));
+    return (ArObject *) IntNew(ntohs((unsigned short) ((Integer *) *args)->sint));
 }
 
 ARGON_FUNCTION(socket_ntop, ntop,
@@ -502,23 +511,23 @@ bool SocketInit(Module *self) {
         return false;
 
 #ifdef _ARGON_PLATFORM_WINDOWS
-    WSADATA WSAData;
+        WSADATA WSAData;
 
-    int err = WSAStartup(MAKEWORD(2, 2), &WSAData);
-    switch (err) {
-        case 0:
-            break;
-        case WSASYSNOTREADY:
-            ErrorFormat(kOSError[0], "WSAStartup failed: network not ready");
-            return false;
-        case WSAVERNOTSUPPORTED:
-        case WSAEINVAL:
-            ErrorFormat(kOSError[0], "WSAStartup failed: requested version not supported");
-            return false;
-        default:
-            ErrorFormat(kOSError[0], "WSAStartup failed: error code %d", err);
-            return false;
-    }
+        int err = WSAStartup(MAKEWORD(2, 2), &WSAData);
+        switch (err) {
+            case 0:
+                break;
+            case WSASYSNOTREADY:
+                ErrorFormat(kOSError[0], "WSAStartup failed: network not ready");
+                return false;
+            case WSAVERNOTSUPPORTED:
+            case WSAEINVAL:
+                ErrorFormat(kOSError[0], "WSAStartup failed: requested version not supported");
+                return false;
+            default:
+                ErrorFormat(kOSError[0], "WSAStartup failed: error code %d", err);
+                return false;
+        }
 #endif
 
 #ifdef AF_APPLETALK
@@ -538,7 +547,7 @@ bool SocketInit(Module *self) {
     AddIntConstant(AF_UNSPEC);
 #endif
 #ifdef AF_VSOCK
-        AddIntConstant(AF_VSOCK);
+    AddIntConstant(AF_VSOCK);
 #endif
 
 #ifdef PF_APPLETALK
@@ -551,10 +560,10 @@ bool SocketInit(Module *self) {
     AddIntConstant(PF_INET6);
 #endif
 #ifdef PF_LOCAL
-        AddIntConstant(PF_LOCAL);
+    AddIntConstant(PF_LOCAL);
 #endif
 #ifdef PF_NETBIOS
-        AddIntConstant(PF_NETBIOS);
+    AddIntConstant(PF_NETBIOS);
 #endif
 #ifdef PF_UNIX
     AddIntConstant(PF_UNIX);
@@ -563,7 +572,7 @@ bool SocketInit(Module *self) {
     AddIntConstant(PF_UNSPEC);
 #endif
 #ifdef PF_VSOCK
-        AddIntConstant(PF_VSOCK);
+    AddIntConstant(PF_VSOCK);
 #endif
 
     AddIntConstant(SOCK_DGRAM);
@@ -622,10 +631,10 @@ bool SocketInit(Module *self) {
     AddIntConstant(MSG_DONTROUTE);
 #endif
 #ifdef  MSG_DONTWAIT
-        AddIntConstant(MSG_DONTWAIT);
+    AddIntConstant(MSG_DONTWAIT);
 #endif
 #ifdef  MSG_EOR
-        AddIntConstant(MSG_EOR);
+    AddIntConstant(MSG_EOR);
 #endif
 #ifdef  MSG_TRUNC
     AddIntConstant(MSG_TRUNC);
@@ -643,7 +652,7 @@ bool SocketInit(Module *self) {
         AddIntConstant(MSG_ETAG);
 #endif
 #ifdef  MSG_NOSIGNAL
-        AddIntConstant(MSG_NOSIGNAL);
+    AddIntConstant(MSG_NOSIGNAL);
 #endif
 #ifdef  MSG_NOTIFICATION
         AddIntConstant(MSG_NOTIFICATION);
@@ -661,7 +670,7 @@ bool SocketInit(Module *self) {
         AddIntConstant(MSG_MORE);
 #endif
 #ifdef  MSG_EOF
-        AddIntConstant(MSG_EOF);
+    AddIntConstant(MSG_EOF);
 #endif
 #ifdef  MSG_BCAST
     AddIntConstant(MSG_BCAST);
