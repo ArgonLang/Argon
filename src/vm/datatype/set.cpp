@@ -335,6 +335,29 @@ const OpSlots set_ops = {
         nullptr,
 };
 
+ArObject *set_item_in(Set *self, ArObject *key) {
+    std::shared_lock _(self->rwlock);
+
+    const auto *entry = self->set.Lookup(key);
+
+    _.unlock();
+
+    return BoolToArBool(entry != nullptr);
+}
+
+ArSize set_length(const Set *self) {
+    return self->set.length;
+}
+
+const SubscriptSlots set_subscript = {
+        (ArSize_UnaryOp) set_length,
+        nullptr,
+        nullptr,
+        nullptr,
+        nullptr,
+        (BinaryOp) set_item_in
+};
+
 ArObject *set_compare(Set *self, ArObject *other, CompareMode mode) {
     auto *o = (Set *) other;
 
@@ -455,7 +478,7 @@ TypeInfo SetType = {
         nullptr,
         nullptr,
         &set_objslot,
-        nullptr,
+        &set_subscript,
         &set_ops,
         nullptr,
         nullptr
