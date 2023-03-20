@@ -1984,7 +1984,7 @@ Code *Compiler::Compile(File *node) {
         code = this->unit_->Assemble(node->doc);
 
         this->TUScopeExit();
-    } catch (std::exception) {
+    } catch (...) {
         Release(module_name);
     }
 
