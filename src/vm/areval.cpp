@@ -696,6 +696,15 @@ ArObject *argon::vm::Eval(Fiber *fiber) {
             TARGET_OP(IPSUB) {
                 BINARY_OP(inp_sub, -=);
             }
+            TARGET_OP(JEX) {
+                if ((AR_TYPEOF(PEEK1(), type_function_) && ((Function *) PEEK1())->IsExhausted()) || TOP() == nullptr) {
+                    POP(); // POP nullptr value of an exhausted iterator, or the return value of a generator
+                    POP(); // POP iterator/generator
+                    JUMPTO(I32Arg(cu_frame->instr_ptr));
+                }
+
+                DISPATCH();
+            }
             TARGET_OP(JF) {
                 // JUMP IF FALSE
                 if (!IsTrue(TOP())) {
@@ -804,6 +813,16 @@ ArObject *argon::vm::Eval(Fiber *fiber) {
                 break;
             }
             TARGET_OP(LDITER) {
+                if (AR_TYPEOF(TOP(), type_function_)) {
+                    if (((Function *) TOP())->IsRecoverable()) {
+                        DISPATCH();
+                    }
+
+                    ErrorFormat(kTypeError[0], "'%s' is not an instance of a generator",
+                                ARGON_RAW_STRING(((Function *) TOP())->qname));
+                    break;
+                }
+
                 if ((ret = IteratorGet(TOP(), false)) == nullptr)
                     break;
 
@@ -1086,18 +1105,6 @@ ArObject *argon::vm::Eval(Fiber *fiber) {
                 POP();
                 DISPATCH();
             }
-            TARGET_OP(NJE) {
-                if ((ret = IteratorNext(TOP())) != nullptr) {
-                    PUSH(ret);
-                    DISPATCH();
-                }
-
-                if (IsPanickingFrame())
-                    break;
-
-                POP();
-                JUMPTO(I32Arg(cu_frame->instr_ptr));
-            }
             TARGET_OP(NOT) {
                 TOP_REPLACE(BoolToArBool(!IsTrue(TOP())));
                 DISPATCH();
@@ -1114,6 +1121,37 @@ ArObject *argon::vm::Eval(Fiber *fiber) {
 
                 STACK_REWIND(2);
                 DISPATCH();
+            }
+            TARGET_OP(NXT){
+                ret = TOP();
+
+                if (!AR_TYPEOF(ret, type_function_)) {
+                    ret = IteratorNext(ret);
+
+                    if (IsPanickingFrame())
+                        break;
+
+                    PUSH(ret);
+                    DISPATCH();
+                }
+
+                auto *g_frame = (Frame *) ((Function *) ret)->LockAndGetStatus(fiber);
+                if (g_frame == nullptr) {
+                    if (GetFiberStatus() != FiberStatus::RUNNING)
+                        return nullptr;
+
+                    break;
+                }
+
+                PUSH(IncRef(ret));
+
+                cu_frame->instr_ptr += OpCodeOffset[*cu_frame->instr_ptr];
+
+                cu_frame = g_frame;
+                cu_code = g_frame->code;
+
+                FiberPushFrame(fiber, g_frame);
+                continue;
             }
             TARGET_OP(PANIC) {
                 Panic(TOP());

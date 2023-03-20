@@ -803,7 +803,8 @@ void Compiler::CompileForEach(const parser::Loop *loop) {
 
         jb = this->unit_->JBNew(begin, end, 1);
 
-        this->unit_->Emit(vm::OpCode::NJE, end, nullptr);
+        this->unit_->Emit(vm::OpCode::NXT, nullptr);
+        this->unit_->Emit(vm::OpCode::JEX, end, nullptr);
 
         if (!this->unit_->BlockNew())
             throw DatatypeException();
