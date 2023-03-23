@@ -1,15 +1,51 @@
 cmake_minimum_required(VERSION 3.15)
 project(Stratum VERSION 1.0.0)
 
+set(PROJECT_NAME_MAJOR_MINOR ${PROJECT_NAME}${PROJECT_VERSION_MAJOR}.${PROJECT_VERSION_MINOR})
+
 set(CMAKE_CXX_STANDARD 17)
 
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 set(CMAKE_WINDOWS_EXPORT_ALL_SYMBOLS ON)
 
-include_directories(src)
-add_subdirectory(src)
-add_subdirectory(test)
+add_subdirectory(stratum)
+add_subdirectory(test EXCLUDE_FROM_ALL)
+
+# *** Install steps ***
+
+install(TARGETS ${PROJECT_NAME}
+        EXPORT StratumTargets
+        DESTINATION lib)
+
+install(DIRECTORY stratum/
+        DESTINATION include/stratum
+        FILES_MATCHING PATTERN "*.h")
+
+install(EXPORT StratumTargets
+        FILE StratumTargets.cmake
+        DESTINATION lib/cmake/${PROJECT_NAME_MAJOR_MINOR})
+
+include(CMakePackageConfigHelpers)
+
+configure_package_config_file(
+        ${CMAKE_CURRENT_SOURCE_DIR}/Config.cmake.in
+        "${CMAKE_CURRENT_BINARY_DIR}/StratumConfig.cmake"
+        INSTALL_DESTINATION "lib/cmake/${PROJECT_NAME_MAJOR_MINOR}"
+        NO_SET_AND_CHECK_MACRO
+        NO_CHECK_REQUIRED_COMPONENTS_MACRO)
+
+write_basic_package_version_file(
+        "${CMAKE_CURRENT_BINARY_DIR}/StratumConfigVersion.cmake"
+        VERSION "${PROJECT_VERSION}"
+        COMPATIBILITY AnyNewerVersion)
+
+install(FILES
+        ${CMAKE_CURRENT_BINARY_DIR}/StratumConfig.cmake
+        ${CMAKE_CURRENT_BINARY_DIR}/StratumConfigVersion.cmake
+        DESTINATION lib/cmake/${PROJECT_NAME_MAJOR_MINOR})
+
+# *** Doxygen ***
 
 option(BUILD_DOC "Build documentation" ON)
 option(ENABLE_TESTS "Enable tests" OFF)

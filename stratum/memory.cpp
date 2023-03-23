@@ -5,8 +5,8 @@
 #include <cassert>
 #include <mutex>
 
-#include "memutil.h"
-#include "memory.h"
+#include <stratum/memutil.h>
+#include <stratum/memory.h>
 
 using namespace stratum;
 
