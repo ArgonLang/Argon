@@ -4,9 +4,9 @@
 
 #include <cassert>
 
-#include "memutil.h"
-#include "osmemory.h"
-#include "arena.h"
+#include <stratum/arena.h>
+#include <stratum/osmemory.h>
+#include <stratum/memutil.h>
 
 using namespace stratum;
 

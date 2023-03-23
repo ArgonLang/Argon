@@ -10,9 +10,8 @@
 #include <mutex>
 #include <new>
 
-#include <support/linklist.h>
-
-#include "arena.h"
+#include <stratum/arena.h>
+#include <stratum/support/linklist.h>
 
 /* Minimum number of arenas, Stratum WILL NEVER release this memory to the OS. */
 #define STRATUM_MINIMUM_POOL       16

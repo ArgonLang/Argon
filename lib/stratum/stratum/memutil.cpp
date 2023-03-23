@@ -2,7 +2,7 @@
 //
 // Licensed under the Apache License v2.0
 
-#include "memutil.h"
+#include <stratum/memutil.h>
 
 int stratum::util::MemoryCompare(const void *ptr1, const void *ptr2, size_t num) {
     auto *p1 = (const unsigned char *) ptr1;

@@ -2,7 +2,7 @@
 //
 // Licensed under the Apache License v2.0
 
-#include "osmemory.h"
+#include <stratum/osmemory.h>
 
 #if defined(_WIN32)
 
