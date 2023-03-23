@@ -7,8 +7,8 @@
 
 #include <cstddef>
 
-#include <stratum/src/memory.h>
-#include <stratum/src/memutil.h>
+#include <stratum/memory.h>
+#include <stratum/memutil.h>
 
 #define ARGON_VM_MEMORY_QUANTUM (STRATUM_QUANTUM)
 

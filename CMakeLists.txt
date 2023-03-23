@@ -3,7 +3,7 @@ project(Argon VERSION 0.3.0)
 
 set(AR_MAJOR ${PROJECT_VERSION_MAJOR})
 set(AR_MINOR ${PROJECT_VERSION_MINOR})
-set(AR_PATCH ${PROJECT_VERSION_MINOR})
+set(AR_PATCH ${PROJECT_VERSION_PATCH})
 set(AR_RELEASE_LEVEL "alpha")
 
 set(BASE_OUTPUT_DIRECTORY "${PROJECT_SOURCE_DIR}/bin")
@@ -30,7 +30,6 @@ elseif (${CMAKE_SYSTEM_NAME} MATCHES "Windows")
 endif ()
 
 include_directories(src)
-include_directories(lib)
 
 add_subdirectory(lib/stratum)
 add_subdirectory(src)
