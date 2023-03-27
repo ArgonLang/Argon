@@ -5,7 +5,7 @@
 #include <gtest/gtest.h>
 #include <codecvt>
 
-#include <lang/parser/parser.h>
+#include <argon/lang/parser/parser.h>
 
 using namespace argon::lang::scanner;
 using namespace argon::lang::parser;

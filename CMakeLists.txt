@@ -29,10 +29,14 @@ elseif (${CMAKE_SYSTEM_NAME} MATCHES "Windows")
     set(CMAKE_WINDOWS_EXPORT_ALL_SYMBOLS ON)
 endif ()
 
-include_directories(src)
-
 add_subdirectory(lib/stratum)
-add_subdirectory(src)
+add_subdirectory(argon)
 add_subdirectory(test)
+
+# *** Argon main executable ***
+
+add_executable(${CMAKE_PROJECT_NAME} "${CMAKE_SOURCE_DIR}/argon/main.cc")
+add_dependencies(${CMAKE_PROJECT_NAME} ArgonVM)
+target_link_libraries(${CMAKE_PROJECT_NAME} PRIVATE ArgonVM)
 
 file(COPY arlib/ DESTINATION ${BASE_OUTPUT_DIRECTORY}/packages)

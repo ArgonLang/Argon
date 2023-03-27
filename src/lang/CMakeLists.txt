@@ -1,5 +1,0 @@
-file(GLOB_RECURSE LANG_SRC RELATIVE "${CMAKE_CURRENT_LIST_DIR}" "*.cpp")
-message(STATUS "Argon lang source files: ${LANG_SRC}")
-
-list(TRANSFORM LANG_SRC PREPEND ${CMAKE_CURRENT_LIST_DIR}/)
-target_sources(ArgonVM PRIVATE ${LANG_SRC})

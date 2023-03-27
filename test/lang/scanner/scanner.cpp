@@ -5,7 +5,7 @@
 #include <gtest/gtest.h>
 #include <codecvt>
 
-#include <lang/scanner/scanner.h>
+#include <argon/lang/scanner/scanner.h>
 
 using namespace argon::lang::scanner;
 
