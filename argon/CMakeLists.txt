@@ -1,5 +1,3 @@
-configure_file("${CMAKE_CURRENT_SOURCE_DIR}/vm/version.h.in" "${CMAKE_CURRENT_SOURCE_DIR}/vm/version.h")
-
 add_library(ArgonVM SHARED)
 add_dependencies(ArgonVM Stratum)
 
@@ -7,7 +5,13 @@ file(GLOB_RECURSE VM_SRC RELATIVE "${CMAKE_CURRENT_LIST_DIR}" "*.cpp")
 message(STATUS "ArgonVM source files: ${VM_SRC}")
 
 target_sources(ArgonVM PRIVATE ${VM_SRC})
-target_include_directories(ArgonVM PUBLIC ${CMAKE_SOURCE_DIR})
+
+configure_file("${CMAKE_CURRENT_SOURCE_DIR}/vm/version.h.in" "${CMAKE_CURRENT_SOURCE_DIR}/vm/version.h")
+
+target_include_directories(ArgonVM PUBLIC
+        $<BUILD_INTERFACE:${CMAKE_SOURCE_DIR}>
+        $<INSTALL_INTERFACE:include>)
+
 target_link_libraries(ArgonVM PUBLIC Stratum)
 
 if(WIN32)
