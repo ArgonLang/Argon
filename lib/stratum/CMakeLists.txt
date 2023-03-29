@@ -7,12 +7,14 @@ set(CMAKE_CXX_STANDARD 17)
 
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-set(CMAKE_WINDOWS_EXPORT_ALL_SYMBOLS ON)
+if (${CMAKE_SYSTEM_NAME} MATCHES "Windows")
+    set(CMAKE_WINDOWS_EXPORT_ALL_SYMBOLS ON)
+endif ()
 
 add_subdirectory(stratum)
 add_subdirectory(test EXCLUDE_FROM_ALL)
 
-# *** Install steps ***
+# *** Install ***
 
 install(TARGETS ${PROJECT_NAME}
         EXPORT StratumTargets
@@ -44,6 +46,15 @@ install(FILES
         ${CMAKE_CURRENT_BINARY_DIR}/StratumConfig.cmake
         ${CMAKE_CURRENT_BINARY_DIR}/StratumConfigVersion.cmake
         DESTINATION lib/cmake/${PROJECT_NAME_MAJOR_MINOR})
+        
+# *** Export package ***
+
+set(CMAKE_EXPORT_PACKAGE_REGISTRY ON)
+
+export(TARGETS ${PROJECT_NAME}
+        FILE "${CMAKE_CURRENT_BINARY_DIR}/StratumTargets.cmake")
+
+export(PACKAGE Stratum)
 
 # *** Doxygen ***
 
