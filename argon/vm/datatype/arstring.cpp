@@ -505,6 +505,9 @@ ArObject *string_get_item(const String *self, ArObject *index) {
         return nullptr;
     }
 
+    if (idx >= self->length)
+        ErrorFormat(kOverflowError[0], kOverflowError[1], type_string_->name, self->length, idx);
+
     return (ArObject *) StringIntern((const char *) STR_BUF(self) + idx, 1);
 }
 
