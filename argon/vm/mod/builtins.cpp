@@ -255,6 +255,7 @@ const ModuleEntry builtins_entries[] = {
 constexpr ModuleInit ModuleBuiltins = {
         "argon:builtins",
         "Built-in functions and other things.",
+        nullptr,
         builtins_entries,
         nullptr,
         nullptr

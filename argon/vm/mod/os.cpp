@@ -283,6 +283,7 @@ bool OSInit(Module *self) {
 constexpr ModuleInit ModuleOs = {
         "os",
         "The module os provides a platform-independent interface to operating system functionality.",
+        nullptr,
         os_entries,
         OSInit,
         nullptr

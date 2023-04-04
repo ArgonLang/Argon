@@ -155,6 +155,7 @@ constexpr ModuleInit ModuleRuntime = {
         "runtime",
         "Interact with ArgonVM. Access directly to objects used or maintained by Argon "
         "and to functions that interact strongly with it.",
+        nullptr,
         runtime_entries,
         RuntimeInit,
         nullptr

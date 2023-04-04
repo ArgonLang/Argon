@@ -47,6 +47,7 @@ const ModuleEntry chrono_entries[] = {
 constexpr ModuleInit ModuleChrono = {
         "chrono",
         "This module provides various functions to manipulate time values.",
+        nullptr,
         chrono_entries,
         nullptr,
         nullptr

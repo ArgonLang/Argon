@@ -64,6 +64,8 @@ namespace argon::vm::datatype {
         const char *name;
         const char *doc;
 
+        const char *version;
+
         const ModuleEntry *bulk;
 
         ModuleInitFn init;

@@ -97,6 +97,7 @@ const ModuleEntry io_entries[] = {
 constexpr ModuleInit ModuleIO = {
         "argon:io",
         "Module IO provides support to I/O primitives to read and write files.",
+        nullptr,
         io_entries,
         IOInit,
         nullptr

@@ -142,6 +142,7 @@ constexpr ModuleInit ModuleGC = {
         "gc",
         "The GC module provides access to GC functionality and "
         "provides information on the status of objects managed by the ARC.",
+        nullptr,
         gc_entries,
         nullptr,
         nullptr

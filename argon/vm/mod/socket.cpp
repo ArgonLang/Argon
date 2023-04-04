@@ -715,6 +715,7 @@ const ModuleEntry socket_entries[] = {
 constexpr ModuleInit ModuleSocket = {
         "argon:socket",
         "Module socket provides access to the socket interface.",
+        nullptr,
         socket_entries,
         SocketInit,
         nullptr

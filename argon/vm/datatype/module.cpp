@@ -270,6 +270,23 @@ Module *argon::vm::datatype::ModuleNew(const ModuleInit *init) {
         }
 
         mod->fini = init->fini;
+
+        if (init->version != nullptr) {
+            auto *ver = StringNew(init->version);
+            if (ver == nullptr) {
+                Release(mod);
+                return nullptr;
+            }
+
+            if (!MakeID(mod, "__version", (ArObject *) ver)) {
+                Release(ver);
+                Release(mod);
+
+                return nullptr;
+            }
+
+            Release(ver);
+        }
     }
 
     return mod;
