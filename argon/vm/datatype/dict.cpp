@@ -2,6 +2,8 @@
 //
 // Licensed under the Apache License v2.0
 
+#include <climits>
+
 #include <argon/vm/runtime.h>
 
 #include <argon/vm/datatype/arstring.h>
@@ -472,6 +474,21 @@ bool argon::vm::datatype::DictInsert(Dict *dict, const char *key, ArObject *valu
     return ok;
 }
 
+bool argon::vm::datatype::DictLookupIsTrue(argon::vm::datatype::Dict *dict, const char *key, bool _default) {
+    ArObject *tmp;
+
+    if (dict != nullptr) {
+        tmp = DictLookup(dict, key, strlen(key));
+
+        if (tmp != nullptr)
+            _default = IsTrue(tmp);
+
+        Release(tmp);
+    }
+
+    return _default;
+}
+
 bool argon::vm::datatype::DictRemove(Dict *dict, ArObject *key) {
     CHECK_HASHABLE(key, false);
 
@@ -586,6 +603,23 @@ Dict *argon::vm::datatype::DictNew(ArObject *object) {
     }
 
     return ret;
+}
+
+IntegerUnderlying argon::vm::datatype::DictLookupInt(Dict *dict, const char *key, IntegerUnderlying _default) {
+    ArObject *tmp;
+
+    if (dict != nullptr) {
+        tmp = DictLookup(dict, key, strlen(key));
+
+        if (AR_TYPEOF(tmp, type_int_))
+            _default = ((Integer *) tmp)->sint;
+        else if (AR_TYPEOF(tmp, type_uint_) && ((Integer *) tmp)->uint <= LONG_MAX)
+            _default = (IntegerUnderlying) ((Integer *) tmp)->uint;
+
+        Release(tmp);
+    }
+
+    return _default;
 }
 
 void argon::vm::datatype::DictClear(Dict *dict) {
