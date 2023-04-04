@@ -967,13 +967,34 @@ String *argon::vm::datatype::StringNew(const char *string, ArSize length) {
 }
 
 String *argon::vm::datatype::StringNew(unsigned char *buffer, ArSize length, ArSize cp_length, StringKind kind) {
+    assert(buffer[length] == '\0');
+
     auto *str = StringInit(length, false);
 
     if (str != nullptr) {
         str->buffer = buffer;
-        buffer[length] = '\0';
         str->cp_length = cp_length;
         str->kind = kind;
+    }
+
+    return str;
+}
+
+String *argon::vm::datatype::StringNewHoldBuffer(unsigned char *buffer, ArSize length) {
+    assert(buffer[length] == '\0');
+
+    auto *str = StringInit(length, false);
+
+    if (str != nullptr) {
+        str->buffer = buffer;
+
+        if(!StringInitKind(str)) {
+            str->buffer = nullptr;
+
+            Release(str);
+
+            return nullptr;
+        }
     }
 
     return str;

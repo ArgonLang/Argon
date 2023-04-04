@@ -392,6 +392,10 @@ String *StringBuilder::BuildString() {
     if (this->buffer_ == nullptr || this->len_ == 0)
         return StringIntern("");
 
+    assert(this->len_ < this->cap_);
+
+    this->buffer_[this->len_] = '\0';
+
     if ((str = StringNew(this->buffer_, this->len_, this->cp_len_, this->kind_)) != nullptr)
         this->buffer_ = nullptr;
     else

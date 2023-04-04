@@ -269,6 +269,10 @@ namespace argon::vm::datatype {
      * It allows you to build an empty String object (container only)
      * which must subsequently be filled by the applicant.
      *
+     * @warning: Buffer must be zero terminated, the value of length MUST NOT include the terminator character,
+     * so the buffer must pass the following assertion: buffer[length] == '\0'.
+     * Obviously the size of the allocated buffer must be sufficient to also contain the terminator character.
+     *
      * @param buffer Raw buffer containing the string
      * (ownership of the buffer will be transferred to the created object).
      * @param length Length of the buffer.
@@ -277,6 +281,22 @@ namespace argon::vm::datatype {
      * @return A pointer to an Argon string object, otherwise nullptr.
      */
     String *StringNew(unsigned char *buffer, ArSize length, ArSize cp_length, StringKind kind);
+
+    /**
+     * @brief Create a new string object using the buffer parameter as an internal buffer.
+     *
+     * The new string object becomes the owner of the buffer passed as a parameter.
+     *
+     * @warning: Buffer must be zero terminated, the value of length MUST NOT include the terminator character,
+     * so the buffer must pass the following assertion: buffer[length] == '\0'.
+     * Obviously the size of the allocated buffer must be sufficient to also contain the terminator character.
+     *
+     * @param buffer Raw buffer containing the string
+     * (ownership of the buffer will be transferred to the created object).
+     * @param length Length of the buffer.
+     * @return A pointer to an Argon string object, otherwise nullptr.
+     */
+    String *StringNewHoldBuffer(unsigned char *buffer, ArSize length);
 
     /**
      * @brief Returns a string where a specified value is replaced with a specified value.
