@@ -3,6 +3,7 @@
 // Licensed under the Apache License v2.0
 
 #include <cassert>
+#include <cstdlib>
 #include <mutex>
 
 #include <stratum/memutil.h>
