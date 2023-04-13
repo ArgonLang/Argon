@@ -26,7 +26,7 @@ NOBLE_GAS
 ```
 
 # 🚀 Quick start
-The wiki is under development, you can view the current version here: [wiki](https://github.com/jacopodl/Argon/wiki)
+The wiki is under development, you can view the current version here: [wiki](https://www.arlang.io/docs/intro)
 
 If you are looking for examples, you can find them here: [examples](https://github.com/ArgonLang/Argon/tree/master/example)
 
