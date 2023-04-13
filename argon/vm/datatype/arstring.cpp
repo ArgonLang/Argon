@@ -3,6 +3,7 @@
 // Licensed under the Apache License v2.0
 
 #include <cctype>
+#include <cstdio>
 
 #include <argon/vm/memory/memory.h>
 #include <argon/vm/runtime.h>
