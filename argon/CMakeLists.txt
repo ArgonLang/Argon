@@ -25,3 +25,10 @@ endif ()
 set_target_properties(ArgonVM PROPERTIES OUTPUT_NAME "argon")
 set_target_properties(ArgonVM PROPERTIES VERSION ${PROJECT_VERSION})
 set_target_properties(ArgonVM PROPERTIES SOVERSION ${PROJECT_VERSION_MAJOR})
+
+# *** Options ***
+option(ARGON_FF_CGOTO "Compile Argon using the computed goto extension" on)
+
+if(NOT MSVC AND ARGON_FF_CGOTO)
+    target_compile_definitions(ArgonVM PRIVATE ARGON_FF_COMPUTED_GOTO)
+endif()

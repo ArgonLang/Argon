@@ -436,6 +436,97 @@ ArObject *argon::vm::Eval(Fiber *fiber) {
 #define TARGET_OP(op) case OpCode::op:
 
 #define CGOTO   continue
+#else
+#define TARGET_OP(op)   \
+      case OpCode::op:  \
+      LBL_##op:
+
+#define CGOTO                                       \
+    if(cu_frame->instr_ptr < cu_code->instr_end)    \
+        goto *LBL_OPCODES[*(cu_frame->instr_ptr)];  \
+    else                                            \
+        break
+
+    static const void *LBL_OPCODES[] = {
+        &&LBL_ADD,
+        &&LBL_AWAIT,
+        &&LBL_CALL,
+        &&LBL_CMP,
+        &&LBL_CNT,
+        &&LBL_DEC,
+        &&LBL_DFR,
+        &&LBL_DIV,
+        &&LBL_DUP,
+        &&LBL_EQST,
+        &&LBL_EXTD,
+        &&LBL_IDIV,
+        &&LBL_IMPALL,
+        &&LBL_IMPFRM,
+        &&LBL_IMPMOD,
+        &&LBL_INC,
+        &&LBL_INIT,
+        &&LBL_INV,
+        &&LBL_IPADD,
+        &&LBL_IPSUB,
+        &&LBL_JEX,
+        &&LBL_JF,
+        &&LBL_JFOP,
+        &&LBL_JMP,
+        &&LBL_JNIL,
+        &&LBL_JNN,
+        &&LBL_JT,
+        &&LBL_JTOP,
+        &&LBL_LAND,
+        &&LBL_LDATTR,
+        &&LBL_LDENC,
+        &&LBL_LDGBL,
+        &&LBL_LDITER,
+        &&LBL_LDLC,
+        &&LBL_LDMETH,
+        &&LBL_LDSCOPE,
+        &&LBL_LOR,
+        &&LBL_LSTATIC,
+        &&LBL_LXOR,
+        &&LBL_MKBND,
+        &&LBL_MKDT,
+        &&LBL_MKFN,
+        &&LBL_MKLT,
+        &&LBL_MKNS,
+        &&LBL_MKST,
+        &&LBL_MKSTRUCT,
+        &&LBL_MKTP,
+        &&LBL_MKTRAIT,
+        &&LBL_MOD,
+        &&LBL_MUL,
+        &&LBL_NEG,
+        &&LBL_NGV,
+        &&LBL_NOT,
+        &&LBL_NSTORE,
+        &&LBL_NXT,
+        &&LBL_PANIC,
+        &&LBL_PBHEAD,
+        &&LBL_PLT,
+        &&LBL_POP,
+        &&LBL_POPGT,
+        &&LBL_POS,
+        &&LBL_RET,
+        &&LBL_SHL,
+        &&LBL_SHR,
+        &&LBL_SPW,
+        &&LBL_ST,
+        &&LBL_STATTR,
+        &&LBL_STENC,
+        &&LBL_STGBL,
+        &&LBL_STLC,
+        &&LBL_STSCOPE,
+        &&LBL_STSUBSCR,
+        &&LBL_SUB,
+        &&LBL_SUBSCR,
+        &&LBL_TEST,
+        &&LBL_TRAP,
+        &&LBL_UNPACK,
+        &&LBL_YLD
+    };
 #endif
 
 // STACK MANIPULATION MACRO
