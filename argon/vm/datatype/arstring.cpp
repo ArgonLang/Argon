@@ -92,7 +92,7 @@ const BufferSlots string_buffer = {
         nullptr
 };
 
-ARGON_METHOD(str_string, String,
+ARGON_FUNCTION(str_string, String,
              "Create a new string object from the given object.\n"
              "\n"
              "- Parameter obj: Object to convert into a string.\n"
@@ -931,7 +931,7 @@ String *argon::vm::datatype::StringIntern(const char *string, ArSize length) {
     if (string == nullptr || length == 0)
         return IncRef(empty_string);
 
-    if ((ret = (String *) DictLookup(intern, string)) == nullptr) {
+    if ((ret = (String *) DictLookup(intern, string, length)) == nullptr) {
         if ((ret = StringNew(string, length)) == nullptr)
             return nullptr;
 
