@@ -7,6 +7,9 @@
 
 #include <argon/vm/datatype/arobject.h>
 
+#define ARGON_NIL_VALUE \
+    (argon::vm::datatype::ArObject *)argon::vm::datatype::IncRef(argon::vm::datatype::Nil)
+
 namespace argon::vm::datatype {
     struct NilBase {
         AROBJ_HEAD;
