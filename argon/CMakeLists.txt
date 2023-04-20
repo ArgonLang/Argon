@@ -12,10 +12,10 @@ target_include_directories(ArgonVM PUBLIC
         $<BUILD_INTERFACE:${CMAKE_SOURCE_DIR}>
         $<INSTALL_INTERFACE:include>)
 
-target_link_libraries(ArgonVM PUBLIC Stratum)
-
 if(WIN32)
-    target_link_libraries(ArgonVM ws2_32)
+    target_link_libraries(ArgonVM PUBLIC Stratum ws2_32)
+else ()
+    target_link_libraries(ArgonVM PUBLIC Stratum)
 endif()
 
 if (NOT MSVC)
