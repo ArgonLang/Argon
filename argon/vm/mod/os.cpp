@@ -9,6 +9,8 @@
 #include <direct.h>
 #include <process.h>
 
+#include <argon/vm/support/nt/nt.h>
+
 #else
 
 #include <unistd.h>
@@ -37,6 +39,17 @@ using namespace argon::vm::datatype;
     else {                                                                  \
         assert(false);                                                      \
     }
+
+#ifdef _ARGON_PLATFORM_WINDOWS
+
+int setenv(const char *name, const char *value, int overwrite) {
+    if (std::getenv(name) == nullptr || overwrite)
+        return _putenv_s(name, value);
+
+    return 0;
+}
+
+#endif
 
 ARGON_FUNCTION(os_exit, exit,
                "Exit to the system with specified status, without normal exit processing.\n"
@@ -120,7 +133,7 @@ ARGON_FUNCTION(os_getlogin, getlogin,
                "- Returns: String containing the username.",
                nullptr, false, false) {
 #ifdef _ARGON_PLATFORM_WINDOWS
-    return nt::GetLogin();
+    return argon::vm::support::nt::GetLogin();
 #else
     char *name;
 
@@ -210,7 +223,7 @@ ARGON_FUNCTION(os_setenv, setenv,
     String *avalue;
     bool ok;
 
-    GET_CSTR(*args, key, setenv, key);
+    GET_CSTR(*args, key, setenv, key)
 
     if ((avalue = (String *) Str(args[1])) == nullptr)
         return nullptr;

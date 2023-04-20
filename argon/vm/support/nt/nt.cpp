@@ -12,7 +12,7 @@
 #include <argon/vm/datatype/arstring.h>
 #include <argon/vm/datatype/error.h>
 
-#include <argon/vm/support/nt.h>
+#include <argon/vm/support/nt/nt.h>
 
 using namespace argon::vm::datatype;
 using namespace argon::vm::support::nt;
