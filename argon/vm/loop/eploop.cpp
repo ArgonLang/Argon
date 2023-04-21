@@ -135,7 +135,7 @@ void ProcessOutTrigger(EvLoop *loop) {
 
 void ProcessQueue(EventQueue *queue, EventDirection direction) {
     Event **head = &queue->in_event.head;
-    bool ok;
+    CallBackReturnStatus status;
 
     if (direction == EventDirection::OUT)
         head = &queue->out_event.head;
@@ -146,16 +146,17 @@ void ProcessQueue(EventQueue *queue, EventDirection direction) {
         if (*head == nullptr)
             break;
 
-        ok = thlocal_event->callback(thlocal_event);
-        if (!ok && !argon::vm::IsPanicking())
+        status = thlocal_event->callback(thlocal_event);
+        if (status == CallBackReturnStatus::RETRY)
             return;
 
         thlocal_event->loop->io_count--;
 
-        Spawn(thlocal_event->fiber);
+        if (status != CallBackReturnStatus::SUCCESS_NO_WAKEUP)
+            Spawn(thlocal_event->fiber);
 
         EventDel(queue->PopEvent(direction));
-    } while (ok);
+    } while (status != CallBackReturnStatus::FAILURE);
 }
 
 #endif

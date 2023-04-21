@@ -23,7 +23,7 @@ using namespace argon::vm::loop;
 using namespace argon::vm::datatype;
 using namespace argon::vm::io::socket;
 
-bool AcceptCallBack(Event *event) {
+CallBackReturnStatus AcceptCallBack(Event *event) {
     sockaddr_storage addr{};
     socklen_t addrlen;
     int remote;
@@ -32,24 +32,27 @@ bool AcceptCallBack(Event *event) {
 
     remote = accept(sock->sock, (sockaddr *) &addr, &addrlen);
     if (remote < 0) {
-        if (errno != EAGAIN && errno != EWOULDBLOCK)
+        if (errno != EAGAIN && errno != EWOULDBLOCK) {
             ErrorFromSocket();
 
-        return false;
+            return CallBackReturnStatus::FAILURE;
+        }
+
+        return CallBackReturnStatus::RETRY;
     }
 
     auto *ret = SocketNew(sock->family, sock->type, sock->protocol, remote);
     if (ret == nullptr)
-        return false;
+        return CallBackReturnStatus::FAILURE;
 
     argon::vm::FiberSetAsyncResult(event->fiber, (ArObject *) ret);
 
     Release(ret);
 
-    return true;
+    return CallBackReturnStatus::SUCCESS;
 }
 
-bool ConnectResultCallBack(Event *event) {
+CallBackReturnStatus ConnectResultCallBack(Event *event) {
     auto *sock = (Socket *) event->initiator;
     socklen_t len = sizeof(int);
     int error;
@@ -61,15 +64,15 @@ bool ConnectResultCallBack(Event *event) {
     if (error == 0) {
         argon::vm::FiberSetAsyncResult(event->fiber, (ArObject *) sock);
 
-        return true;
+        return CallBackReturnStatus::SUCCESS;
     }
 
     ErrorFromErrno(error);
 
-    return false;
+    return CallBackReturnStatus::FAILURE;
 }
 
-bool ConnectCallBack(Event *event) {
+CallBackReturnStatus ConnectCallBack(Event *event) {
     event->callback = ConnectResultCallBack;
 
     if (connect(((const Socket *) event->initiator)->sock, (sockaddr *) event->buffer.data,
@@ -78,15 +81,17 @@ bool ConnectCallBack(Event *event) {
             argon::vm::memory::Free(event->buffer.data);
 
             ErrorFromSocket();
+
+            return CallBackReturnStatus::FAILURE;
         }
 
-        return false;
+        return CallBackReturnStatus::RETRY;
     }
 
-    return true;
+    return CallBackReturnStatus::SUCCESS;
 }
 
-bool RecvCallBack(Event *event) {
+CallBackReturnStatus RecvCallBack(Event *event) {
     auto *sock = (const Socket *) event->initiator;
 
     auto bytes = recv(sock->sock,
@@ -99,30 +104,32 @@ bool RecvCallBack(Event *event) {
             argon::vm::memory::Free(event->buffer.data);
 
             ErrorFromSocket();
+
+            return CallBackReturnStatus::FAILURE;
         }
 
-        return false;
+        return CallBackReturnStatus::RETRY;
     }
 
     event->buffer.length += bytes;
     if (bytes > 0 && event->buffer.length < event->buffer.allocated)
-        return false;
+        return CallBackReturnStatus::RETRY;
 
     auto *buffer = BytesNewHoldBuffer(event->buffer.data, event->buffer.allocated, event->buffer.length, true);
     if (buffer == nullptr) {
         argon::vm::memory::Free(event->buffer.data);
 
-        return false;
+        return CallBackReturnStatus::FAILURE;
     }
 
     argon::vm::FiberSetAsyncResult(event->fiber, (ArObject *) buffer);
 
     Release(buffer);
 
-    return true;
+    return CallBackReturnStatus::SUCCESS;
 }
 
-bool RecvFromCallBack(Event *event) {
+CallBackReturnStatus RecvFromCallBack(Event *event) {
     sockaddr_storage storage{};
     socklen_t addrlen = sizeof(sockaddr_storage);
 
@@ -139,26 +146,31 @@ bool RecvFromCallBack(Event *event) {
             argon::vm::memory::Free(event->buffer.data);
 
             ErrorFromSocket();
+
+            return CallBackReturnStatus::FAILURE;
         }
 
-        return false;
+        return CallBackReturnStatus::RETRY;
     }
 
     event->buffer.length += bytes;
     if (sock->type != SOCK_DGRAM && bytes > 0 && event->buffer.length < event->buffer.allocated)
-        return false;
+        return CallBackReturnStatus::RETRY;
 
     auto *remote_addr = SockAddrToAddr(&storage, sock->family);
     if (remote_addr == nullptr) {
         argon::vm::memory::Free(event->buffer.data);
-        return false;
+
+        return CallBackReturnStatus::FAILURE;
     }
 
     auto *data = BytesNewHoldBuffer(event->buffer.data, event->buffer.allocated, event->buffer.length, true);
     if (data == nullptr) {
         argon::vm::memory::Free(event->buffer.data);
+
         Release(remote_addr);
-        return false;
+
+        return CallBackReturnStatus::FAILURE;
     }
 
     auto *ret = TupleNew("oo", data, remote_addr);
@@ -171,13 +183,13 @@ bool RecvFromCallBack(Event *event) {
 
         Release(ret);
 
-        return true;
+        return CallBackReturnStatus::SUCCESS;
     }
 
-    return false;
+    return CallBackReturnStatus::FAILURE;
 }
 
-bool RecvIntoCallBack(Event *event) {
+CallBackReturnStatus RecvIntoCallBack(Event *event) {
     auto *sock = (const Socket *) event->initiator;
 
     auto bytes = recv(sock->sock,
@@ -190,14 +202,16 @@ bool RecvIntoCallBack(Event *event) {
             BufferRelease(&event->buffer.arbuf);
 
             ErrorFromSocket();
+
+            return CallBackReturnStatus::FAILURE;
         }
 
-        return false;
+        return CallBackReturnStatus::RETRY;
     }
 
     event->buffer.length += bytes;
     if (bytes > 0 && event->buffer.length < event->buffer.allocated)
-        return false;
+        return CallBackReturnStatus::RETRY;
 
     auto *buffer = IntNew((IntegerUnderlying) event->buffer.length);
 
@@ -208,13 +222,13 @@ bool RecvIntoCallBack(Event *event) {
 
         Release(buffer);
 
-        return true;
+        return CallBackReturnStatus::SUCCESS;
     }
 
-    return false;
+    return CallBackReturnStatus::FAILURE;
 }
 
-bool SendCallBack(Event *event) {
+CallBackReturnStatus SendCallBack(Event *event) {
     auto *sock = (const Socket *) event->initiator;
 
     auto bytes = send(sock->sock,
@@ -225,10 +239,13 @@ bool SendCallBack(Event *event) {
     if (bytes < 0) {
         if (errno != EAGAIN) {
             BufferRelease(&event->buffer.arbuf);
+
             ErrorFromSocket();
+
+            return CallBackReturnStatus::FAILURE;
         }
 
-        return false;
+        return CallBackReturnStatus::RETRY;
     }
 
     auto *buffer = IntNew(bytes);
@@ -240,20 +257,20 @@ bool SendCallBack(Event *event) {
 
         Release(buffer);
 
-        return true;
+        return CallBackReturnStatus::SUCCESS;
     }
 
-    return false;
+    return CallBackReturnStatus::FAILURE;
 }
 
-bool SendToCallBack(Event *event) {
+CallBackReturnStatus SendToCallBack(Event *event) {
     sockaddr_storage storage{};
     socklen_t addrlen;
 
     auto *sock = (const Socket *) event->initiator;
 
     if (!AddrToSockAddr(event->aux, &storage, &addrlen, sock->family))
-        return false;
+        return CallBackReturnStatus::FAILURE;
 
     auto bytes = sendto(sock->sock,
                         event->buffer.arbuf.buffer,
@@ -263,10 +280,13 @@ bool SendToCallBack(Event *event) {
     if (bytes < 0) {
         if (errno != EAGAIN) {
             BufferRelease(&event->buffer.arbuf);
+
             ErrorFromSocket();
+
+            return CallBackReturnStatus::FAILURE;
         }
 
-        return false;
+        return CallBackReturnStatus::RETRY;
     }
 
     auto *buffer = IntNew(bytes);
@@ -278,10 +298,10 @@ bool SendToCallBack(Event *event) {
 
         Release(buffer);
 
-        return true;
+        return CallBackReturnStatus::SUCCESS;
     }
 
-    return false;
+    return CallBackReturnStatus::FAILURE;
 }
 
 bool argon::vm::io::socket::Accept(Socket *sock) {
