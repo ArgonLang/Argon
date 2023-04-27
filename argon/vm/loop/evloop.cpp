@@ -226,6 +226,8 @@ void argon::vm::loop::EventDel(Event *event) {
         return;
     }
 
+    _.unlock();
+
     argon::vm::memory::Free(event);
 }
 
@@ -262,10 +264,10 @@ Event *argon::vm::loop::EventQueue::PopEvent(EventDirection direction) {
     ret = *head;
 
     if (ret != nullptr) {
-        if (ret->prev != nullptr)
-            ret->prev->next = nullptr;
-
         *head = ret->prev;
+
+        if(ret->prev != nullptr)
+            ret->prev->next = nullptr;
 
         if (*tail == ret)
             *tail = nullptr;
@@ -287,6 +289,9 @@ void argon::vm::loop::EventQueue::AddEvent(Event *event, EventDirection directio
 
     event->next = *tail;
     event->prev = nullptr;
+
+    if (*tail != nullptr)
+        (*tail)->prev = event;
 
     *tail = event;
 
