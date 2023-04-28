@@ -13,6 +13,8 @@
 #include <ws2tcpip.h>
 #include <mswsock.h>
 
+#include <argon/vm/loop/event.h>
+
 #else
 
 #include <arpa/inet.h>
@@ -86,11 +88,22 @@ namespace argon::vm::io::socket {
 
     bool Recv(Socket *sock, size_t len, int flags);
 
+    bool RecvCB(Socket *sock, datatype::ArObject * user_data, loop::UserCB callback,
+                unsigned char *buffer, size_t len, int flags);
+
     bool RecvInto(Socket *sock, datatype::ArObject *buffer, int offset, int flags);
 
     bool RecvFrom(Socket *sock, size_t len, int flags);
 
     bool Send(Socket *sock, datatype::ArObject *buffer, long size, int flags);
+
+    bool Send(Socket *sock, unsigned char *buffer, long size, int flags);
+
+    bool SendCB(Socket * sock, datatype::ArObject * user_data, loop::UserCB callback,
+                unsigned char *buffer, size_t len, int flags);
+
+    bool SendRecvCB(Socket *sock, datatype::ArObject *user_data, loop::UserCB recv_cb,
+                    unsigned char *buffer, size_t len, size_t capacity);
 
     bool SendTo(Socket *sock, datatype::ArObject *dest, datatype::ArObject *buffer, long size, int flags);
 

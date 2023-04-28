@@ -215,6 +215,8 @@ void argon::vm::loop::EventDel(Event *event) {
     Release(event->initiator);
     Release(event->aux);
 
+    BufferRelease(&event->buffer.arbuf);
+
     std::unique_lock _(loop->lock);
 
     if (loop->free_events_count + 1 <= kMaxFreeEvents) {

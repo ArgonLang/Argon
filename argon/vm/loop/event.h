@@ -26,14 +26,16 @@
 #include <argon/vm/datatype/arobject.h>
 
 namespace argon::vm::loop {
-    enum class CallBackReturnStatus {
+    enum class CallbackReturnStatus {
         FAILURE,
         RETRY,
         SUCCESS,
         SUCCESS_NO_WAKEUP
     };
 
-    using EventCB = CallBackReturnStatus (*)(struct Event *);
+    using EventCB = CallbackReturnStatus (*)(struct Event *);
+
+    using UserCB = CallbackReturnStatus (*)(struct Event *, datatype::ArObject *, int status);
 
 #ifdef _ARGON_PLATFORM_WINDOWS
     struct Event : OVERLAPPED {
@@ -48,6 +50,8 @@ namespace argon::vm::loop {
         struct Fiber *fiber;
 
         EventCB callback;
+
+        UserCB user_callback;
 
         datatype::ArObject *aux;
 

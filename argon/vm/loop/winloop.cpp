@@ -46,6 +46,8 @@ EvLoop *argon::vm::loop::EventLoopNew() {
 }
 
 bool argon::vm::loop::EventLoopIOPoll(EvLoop *loop, unsigned long timeout) {
+    auto status = CallbackReturnStatus::SUCCESS;
+
     Event *event;
     void *key;
 
@@ -60,18 +62,22 @@ bool argon::vm::loop::EventLoopIOPoll(EvLoop *loop, unsigned long timeout) {
             return false;
 
         ErrorFromWinErr();
+
+        if (event->user_callback != nullptr)
+            event->user_callback(event, event->aux, -1);
     } else {
         event->buffer.wsa.len = bytes;
 
         if (event->callback != nullptr)
-            event->callback(event);
+            status = event->callback(event);
         else
             vm::FiberSetAsyncResult(event->fiber, (ArObject *) Nil); // Default: Set initiator as return value
     }
 
     loop->io_count--;
 
-    Spawn(event->fiber);
+    if (status != CallbackReturnStatus::SUCCESS_NO_WAKEUP)
+        Spawn(event->fiber);
 
     EventDel(event);
 
@@ -83,7 +89,7 @@ bool argon::vm::loop::EventLoopAddEvent(EvLoop *loop, Event *event) {
 
     event->fiber = vm::GetFiber();
 
-    if (!event->callback(event)) {
+    if (event->callback(event) == CallbackReturnStatus::FAILURE) {
         argon::vm::SetFiberStatus(FiberStatus::RUNNING);
 
         EventDel(event);

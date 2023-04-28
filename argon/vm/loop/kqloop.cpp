@@ -71,12 +71,12 @@ bool argon::vm::loop::EventLoopIOPoll(EvLoop *loop, unsigned long timeout) {
     for (int i = 0; i < ret; i++) {
         auto *queue = (EventQueue *) events[i].udata;
 
-        std::unique_lock _(queue->lock);
-
         if (events[i].filter == EVFILT_READ)
             ProcessQueue(queue, EventDirection::IN);
         else if (events[i].filter == EVFILT_WRITE)
             ProcessQueue(queue, EventDirection::OUT);
+
+        std::unique_lock _(queue->lock);
 
         if (queue->items == 0) {
             EV_SET(kev, queue->handle, events[i].filter, EV_DELETE, 0, 0, nullptr);
@@ -132,17 +132,17 @@ bool argon::vm::loop::EventLoopAddEvent(EvLoop *loop, EventQueue *queue, Event *
 void ProcessOutTrigger(EvLoop *loop) {
     std::unique_lock _(loop->out_lock);
 
-    for (EventQueue *queue = loop->out_queues; queue != nullptr; queue = queue->next) {
-        std::unique_lock qlock(queue->lock);
+    for (EventQueue *queue = loop->out_queues; queue != nullptr; queue = queue->next)
         ProcessQueue(queue, EventDirection::OUT);
-    }
 
     loop->out_queues = nullptr;
 }
 
 void ProcessQueue(EventQueue *queue, EventDirection direction) {
     Event **head = &queue->in_event.head;
-    bool ok;
+    Event *tmp;
+
+    CallbackReturnStatus status;
 
     if (direction == EventDirection::OUT)
         head = &queue->out_event.head;
@@ -153,16 +153,23 @@ void ProcessQueue(EventQueue *queue, EventDirection direction) {
         if (*head == nullptr)
             break;
 
-        ok = thlocal_event->callback(thlocal_event);
-        if (!ok && !argon::vm::IsPanicking())
+        status = thlocal_event->callback(thlocal_event);
+        if (status == CallbackReturnStatus::RETRY)
             return;
 
         thlocal_event->loop->io_count--;
 
-        Spawn(thlocal_event->fiber);
+        if (status != CallbackReturnStatus::SUCCESS_NO_WAKEUP)
+            Spawn(thlocal_event->fiber);
 
-        EventDel(queue->PopEvent(direction));
-    } while (ok);
+        std::unique_lock _(queue->lock);
+
+        tmp = queue->PopEvent(direction);
+
+        _.unlock();
+
+        EventDel(tmp);
+    } while (status != CallbackReturnStatus::FAILURE);
 }
 
 #endif

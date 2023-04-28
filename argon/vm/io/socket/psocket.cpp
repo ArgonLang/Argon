@@ -23,7 +23,7 @@ using namespace argon::vm::loop;
 using namespace argon::vm::datatype;
 using namespace argon::vm::io::socket;
 
-CallBackReturnStatus AcceptCallBack(Event *event) {
+CallbackReturnStatus AcceptCallBack(Event *event) {
     sockaddr_storage addr{};
     socklen_t addrlen;
     int remote;
@@ -35,24 +35,24 @@ CallBackReturnStatus AcceptCallBack(Event *event) {
         if (errno != EAGAIN && errno != EWOULDBLOCK) {
             ErrorFromSocket();
 
-            return CallBackReturnStatus::FAILURE;
+            return CallbackReturnStatus::FAILURE;
         }
 
-        return CallBackReturnStatus::RETRY;
+        return CallbackReturnStatus::RETRY;
     }
 
     auto *ret = SocketNew(sock->family, sock->type, sock->protocol, remote);
     if (ret == nullptr)
-        return CallBackReturnStatus::FAILURE;
+        return CallbackReturnStatus::FAILURE;
 
     argon::vm::FiberSetAsyncResult(event->fiber, (ArObject *) ret);
 
     Release(ret);
 
-    return CallBackReturnStatus::SUCCESS;
+    return CallbackReturnStatus::SUCCESS;
 }
 
-CallBackReturnStatus ConnectResultCallBack(Event *event) {
+CallbackReturnStatus ConnectResultCallBack(Event *event) {
     auto *sock = (Socket *) event->initiator;
     socklen_t len = sizeof(int);
     int error;
@@ -64,15 +64,15 @@ CallBackReturnStatus ConnectResultCallBack(Event *event) {
     if (error == 0) {
         argon::vm::FiberSetAsyncResult(event->fiber, (ArObject *) sock);
 
-        return CallBackReturnStatus::SUCCESS;
+        return CallbackReturnStatus::SUCCESS;
     }
 
     ErrorFromErrno(error);
 
-    return CallBackReturnStatus::FAILURE;
+    return CallbackReturnStatus::FAILURE;
 }
 
-CallBackReturnStatus ConnectCallBack(Event *event) {
+CallbackReturnStatus ConnectCallBack(Event *event) {
     event->callback = ConnectResultCallBack;
 
     if (connect(((const Socket *) event->initiator)->sock, (sockaddr *) event->buffer.data,
@@ -82,16 +82,16 @@ CallBackReturnStatus ConnectCallBack(Event *event) {
 
             ErrorFromSocket();
 
-            return CallBackReturnStatus::FAILURE;
+            return CallbackReturnStatus::FAILURE;
         }
 
-        return CallBackReturnStatus::RETRY;
+        return CallbackReturnStatus::RETRY;
     }
 
-    return CallBackReturnStatus::SUCCESS;
+    return CallbackReturnStatus::SUCCESS;
 }
 
-CallBackReturnStatus RecvCallBack(Event *event) {
+CallbackReturnStatus RecvCallBack(Event *event) {
     auto *sock = (const Socket *) event->initiator;
 
     auto bytes = recv(sock->sock,
@@ -105,31 +105,31 @@ CallBackReturnStatus RecvCallBack(Event *event) {
 
             ErrorFromSocket();
 
-            return CallBackReturnStatus::FAILURE;
+            return CallbackReturnStatus::FAILURE;
         }
 
-        return CallBackReturnStatus::RETRY;
+        return CallbackReturnStatus::RETRY;
     }
 
     event->buffer.length += bytes;
     if (bytes > 0 && event->buffer.length < event->buffer.allocated)
-        return CallBackReturnStatus::RETRY;
+        return CallbackReturnStatus::RETRY;
 
     auto *buffer = BytesNewHoldBuffer(event->buffer.data, event->buffer.allocated, event->buffer.length, true);
     if (buffer == nullptr) {
         argon::vm::memory::Free(event->buffer.data);
 
-        return CallBackReturnStatus::FAILURE;
+        return CallbackReturnStatus::FAILURE;
     }
 
     argon::vm::FiberSetAsyncResult(event->fiber, (ArObject *) buffer);
 
     Release(buffer);
 
-    return CallBackReturnStatus::SUCCESS;
+    return CallbackReturnStatus::SUCCESS;
 }
 
-CallBackReturnStatus RecvFromCallBack(Event *event) {
+CallbackReturnStatus RecvFromCallBack(Event *event) {
     sockaddr_storage storage{};
     socklen_t addrlen = sizeof(sockaddr_storage);
 
@@ -147,21 +147,21 @@ CallBackReturnStatus RecvFromCallBack(Event *event) {
 
             ErrorFromSocket();
 
-            return CallBackReturnStatus::FAILURE;
+            return CallbackReturnStatus::FAILURE;
         }
 
-        return CallBackReturnStatus::RETRY;
+        return CallbackReturnStatus::RETRY;
     }
 
     event->buffer.length += bytes;
     if (sock->type != SOCK_DGRAM && bytes > 0 && event->buffer.length < event->buffer.allocated)
-        return CallBackReturnStatus::RETRY;
+        return CallbackReturnStatus::RETRY;
 
     auto *remote_addr = SockAddrToAddr(&storage, sock->family);
     if (remote_addr == nullptr) {
         argon::vm::memory::Free(event->buffer.data);
 
-        return CallBackReturnStatus::FAILURE;
+        return CallbackReturnStatus::FAILURE;
     }
 
     auto *data = BytesNewHoldBuffer(event->buffer.data, event->buffer.allocated, event->buffer.length, true);
@@ -170,7 +170,7 @@ CallBackReturnStatus RecvFromCallBack(Event *event) {
 
         Release(remote_addr);
 
-        return CallBackReturnStatus::FAILURE;
+        return CallbackReturnStatus::FAILURE;
     }
 
     auto *ret = TupleNew("oo", data, remote_addr);
@@ -183,13 +183,13 @@ CallBackReturnStatus RecvFromCallBack(Event *event) {
 
         Release(ret);
 
-        return CallBackReturnStatus::SUCCESS;
+        return CallbackReturnStatus::SUCCESS;
     }
 
-    return CallBackReturnStatus::FAILURE;
+    return CallbackReturnStatus::FAILURE;
 }
 
-CallBackReturnStatus RecvIntoCallBack(Event *event) {
+CallbackReturnStatus RecvIntoCallBack(Event *event) {
     auto *sock = (const Socket *) event->initiator;
 
     auto bytes = recv(sock->sock,
@@ -203,15 +203,15 @@ CallBackReturnStatus RecvIntoCallBack(Event *event) {
 
             ErrorFromSocket();
 
-            return CallBackReturnStatus::FAILURE;
+            return CallbackReturnStatus::FAILURE;
         }
 
-        return CallBackReturnStatus::RETRY;
+        return CallbackReturnStatus::RETRY;
     }
 
     event->buffer.length += bytes;
     if (bytes > 0 && event->buffer.length < event->buffer.allocated)
-        return CallBackReturnStatus::RETRY;
+        return CallbackReturnStatus::RETRY;
 
     auto *buffer = IntNew((IntegerUnderlying) event->buffer.length);
 
@@ -222,55 +222,136 @@ CallBackReturnStatus RecvIntoCallBack(Event *event) {
 
         Release(buffer);
 
-        return CallBackReturnStatus::SUCCESS;
+        return CallbackReturnStatus::SUCCESS;
     }
 
-    return CallBackReturnStatus::FAILURE;
+    return CallbackReturnStatus::FAILURE;
 }
 
-CallBackReturnStatus SendCallBack(Event *event) {
+CallbackReturnStatus RecvRawCallBack(Event *event) {
+    auto *sock = (const Socket *) event->initiator;
+
+    auto bytes = recv(sock->sock,
+                      event->buffer.data,
+                      event->buffer.allocated,
+                      event->flags);
+
+    if (bytes < 0) {
+        if (errno != EAGAIN) {
+            ErrorFromSocket();
+
+            event->user_callback(event, event->aux, (int) bytes);
+
+            return CallbackReturnStatus::FAILURE;
+        }
+
+        return CallbackReturnStatus::RETRY;
+    }
+
+    event->buffer.length = bytes;
+
+    return event->user_callback(event, event->aux, 0);
+}
+
+CallbackReturnStatus SendCallBack(Event *event) {
     auto *sock = (const Socket *) event->initiator;
 
     auto bytes = send(sock->sock,
-                      event->buffer.arbuf.buffer,
+                      event->buffer.data,
                       event->buffer.length,
                       event->flags);
 
     if (bytes < 0) {
         if (errno != EAGAIN) {
-            BufferRelease(&event->buffer.arbuf);
+            if (event->buffer.arbuf.buffer != nullptr)
+                BufferRelease(&event->buffer.arbuf);
 
             ErrorFromSocket();
 
-            return CallBackReturnStatus::FAILURE;
+            return CallbackReturnStatus::FAILURE;
         }
 
-        return CallBackReturnStatus::RETRY;
+        return CallbackReturnStatus::RETRY;
     }
 
     auto *buffer = IntNew(bytes);
 
-    BufferRelease(&event->buffer.arbuf);
+    if (event->buffer.arbuf.buffer != nullptr)
+        BufferRelease(&event->buffer.arbuf);
 
     if (buffer != nullptr) {
         argon::vm::FiberSetAsyncResult(event->fiber, (ArObject *) buffer);
 
         Release(buffer);
 
-        return CallBackReturnStatus::SUCCESS;
+        return CallbackReturnStatus::SUCCESS;
     }
 
-    return CallBackReturnStatus::FAILURE;
+    return CallbackReturnStatus::FAILURE;
 }
 
-CallBackReturnStatus SendToCallBack(Event *event) {
+CallbackReturnStatus SendRawCallBack(Event *event) {
+    auto *sock = (const Socket *) event->initiator;
+
+    auto bytes = send(sock->sock,
+                      event->buffer.data,
+                      event->buffer.length,
+                      event->flags);
+
+    if (bytes < 0) {
+        if (errno != EAGAIN) {
+            ErrorFromSocket();
+
+            event->user_callback(event, event->aux, (int) bytes);
+
+            return CallbackReturnStatus::FAILURE;
+        }
+
+        return CallbackReturnStatus::RETRY;
+    }
+
+    event->buffer.length = bytes;
+
+    return event->user_callback(event, event->aux, 0);
+}
+
+CallbackReturnStatus SendRecvCallBack(Event *event) {
+    auto *sock = (Socket *) event->initiator;
+
+    auto bytes = send(sock->sock,
+                      event->buffer.data,
+                      event->buffer.length,
+                      event->flags);
+
+    if (bytes < 0) {
+        if (errno != EAGAIN) {
+            ErrorFromSocket();
+
+            return CallbackReturnStatus::FAILURE;
+        }
+
+        return CallbackReturnStatus::RETRY;
+    }
+
+    if (!RecvCB(sock,
+                event->aux,
+                event->user_callback,
+                event->buffer.data,
+                event->buffer.allocated,
+                0))
+        return CallbackReturnStatus::FAILURE;
+
+    return CallbackReturnStatus::SUCCESS_NO_WAKEUP;
+}
+
+CallbackReturnStatus SendToCallBack(Event *event) {
     sockaddr_storage storage{};
     socklen_t addrlen;
 
     auto *sock = (const Socket *) event->initiator;
 
     if (!AddrToSockAddr(event->aux, &storage, &addrlen, sock->family))
-        return CallBackReturnStatus::FAILURE;
+        return CallbackReturnStatus::FAILURE;
 
     auto bytes = sendto(sock->sock,
                         event->buffer.arbuf.buffer,
@@ -283,10 +364,10 @@ CallBackReturnStatus SendToCallBack(Event *event) {
 
             ErrorFromSocket();
 
-            return CallBackReturnStatus::FAILURE;
+            return CallbackReturnStatus::FAILURE;
         }
 
-        return CallBackReturnStatus::RETRY;
+        return CallbackReturnStatus::RETRY;
     }
 
     auto *buffer = IntNew(bytes);
@@ -298,10 +379,10 @@ CallBackReturnStatus SendToCallBack(Event *event) {
 
         Release(buffer);
 
-        return CallBackReturnStatus::SUCCESS;
+        return CallbackReturnStatus::SUCCESS;
     }
 
-    return CallBackReturnStatus::FAILURE;
+    return CallbackReturnStatus::FAILURE;
 }
 
 bool argon::vm::io::socket::Accept(Socket *sock) {
@@ -409,6 +490,33 @@ bool argon::vm::io::socket::Recv(Socket *sock, size_t len, int flags) {
     return true;
 }
 
+bool argon::vm::io::socket::RecvCB(Socket *sock, ArObject *user_data, UserCB callback,
+                                   unsigned char *buffer, size_t len, int flags) {
+    Event *event;
+
+    if ((event = EventNew(GetEventLoop(), (ArObject *) sock)) == nullptr)
+        return false;
+
+    event->buffer.data = buffer;
+    event->buffer.length = 0;
+    event->buffer.allocated = len;
+
+    event->aux = IncRef(user_data);
+
+    event->callback = RecvRawCallBack;
+    event->user_callback = callback;
+
+    event->flags = flags;
+
+    if (!EventLoopAddEvent(GetEventLoop(), sock->queue, event, EventDirection::IN)) {
+        EventDel(event);
+
+        return false;
+    }
+
+    return true;
+}
+
 bool argon::vm::io::socket::RecvInto(Socket *sock, datatype::ArObject *buffer, int offset, int flags) {
     Event *event;
 
@@ -475,6 +583,7 @@ bool argon::vm::io::socket::Send(Socket *sock, datatype::ArObject *buffer, long 
         return false;
     }
 
+    event->buffer.data = event->buffer.arbuf.buffer;
     event->buffer.length = size;
 
     if (size < 0 || size > event->buffer.arbuf.length)
@@ -486,6 +595,82 @@ bool argon::vm::io::socket::Send(Socket *sock, datatype::ArObject *buffer, long 
     if (!EventLoopAddEvent(GetEventLoop(), sock->queue, event, EventDirection::OUT)) {
         BufferRelease(&event->buffer.arbuf);
         EventDel(event);
+        return false;
+    }
+
+    return true;
+}
+
+bool argon::vm::io::socket::Send(Socket *sock, unsigned char *buffer, long size, int flags) {
+    Event *event;
+
+    if ((event = EventNew(GetEventLoop(), (ArObject *) sock)) == nullptr)
+        return false;
+
+    event->buffer.arbuf.buffer = nullptr;
+
+    event->buffer.data = buffer;
+    event->buffer.length = size;
+
+    event->callback = SendCallBack;
+    event->flags = flags;
+
+    if (!EventLoopAddEvent(GetEventLoop(), sock->queue, event, EventDirection::OUT)) {
+        EventDel(event);
+        return false;
+    }
+
+    return true;
+}
+
+bool argon::vm::io::socket::SendCB(Socket *sock, ArObject *user_data, UserCB callback,
+                                   unsigned char *buffer, size_t len, int flags) {
+    Event *event;
+
+    if ((event = EventNew(GetEventLoop(), (ArObject *) sock)) == nullptr)
+        return false;
+
+    event->buffer.data = buffer;
+    event->buffer.length = len;
+
+    event->aux = IncRef(user_data);
+
+    event->callback = SendRawCallBack;
+    event->user_callback = callback;
+
+    event->flags = flags;
+
+    if (!EventLoopAddEvent(GetEventLoop(), sock->queue, event, EventDirection::OUT)) {
+        EventDel(event);
+
+        return false;
+    }
+
+    return true;
+}
+
+bool argon::vm::io::socket::SendRecvCB(Socket *sock, ArObject *user_data, UserCB rcb,
+                                       unsigned char *buffer, size_t len, size_t capacity) {
+    Event *event;
+
+    if (len == 0)
+        return RecvCB(sock, user_data, rcb, buffer, capacity, 0);
+
+    if ((event = EventNew(GetEventLoop(), (ArObject *) sock)) == nullptr)
+        return false;
+
+    event->buffer.data = buffer;
+    event->buffer.length = len;
+    event->buffer.allocated = capacity;
+
+    event->aux = IncRef(user_data);
+
+    event->callback = SendRecvCallBack;
+    event->user_callback = rcb;
+
+    if (!EventLoopAddEvent(GetEventLoop(), sock->queue, event, EventDirection::OUT)) {
+        EventDel(event);
+
         return false;
     }
 
