@@ -6,13 +6,6 @@
 
 #ifdef _ARGON_PLATFORM_WINDOWS
 
-#include <winsock2.h>
-#include <ws2tcpip.h>
-
-#undef CONST
-#undef FASTCALL
-#undef Yield
-
 #include <argon/vm/runtime.h>
 
 #include <argon/vm/loop/evloop.h>

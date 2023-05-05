@@ -6,12 +6,6 @@
 
 #ifdef _ARGON_PLATFORM_WINDOWS
 
-#include <windows.h>
-
-#undef CONST
-#undef FASTCALL
-#undef Yield
-
 #include <argon/vm/runtime.h>
 
 #include <argon/vm/memory/memory.h>

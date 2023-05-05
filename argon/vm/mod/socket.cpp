@@ -4,15 +4,7 @@
 
 #include <argon/util/macros.h>
 
-#ifdef _ARGON_PLATFORM_WINDOWS
-
-#include <WinSock2.h>
-#include <ws2ipdef.h>
-#include <WS2tcpip.h>
-
-#undef CONST
-#undef ERROR
-#else
+#ifndef _ARGON_PLATFORM_WINDOWS
 
 #include <sys/socket.h>
 #include <netdb.h>
@@ -30,6 +22,10 @@
 #include <argon/vm/io/socket/socket.h>
 
 #include <argon/vm/mod/modules.h>
+
+#undef CONST
+#undef ERROR
+#undef PUBLIC
 
 using namespace argon::vm::io::socket;
 using namespace argon::vm::datatype;

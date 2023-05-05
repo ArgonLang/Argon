@@ -9,11 +9,8 @@
 
 #ifdef _ARGON_PLATFORM_WINDOWS
 
-#include <minwindef.h>
-#include <minwinbase.h>
 #include <winsock2.h>
 
-#undef CONST
 #undef FASTCALL
 #undef Yield
 

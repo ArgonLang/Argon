@@ -9,11 +9,11 @@
 
 #ifdef _ARGON_PLATFORM_WINDOWS
 
+#include <argon/vm/loop/event.h>
+
 #include <winsock2.h>
 #include <ws2tcpip.h>
 #include <mswsock.h>
-
-#include <argon/vm/loop/event.h>
 
 #else
 
