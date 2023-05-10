@@ -14,6 +14,7 @@
 #include <argon/vm/config.h>
 #include <argon/vm/context.h>
 #include <argon/vm/fiber.h>
+#include <argon/vm/opcode.h>
 
 namespace argon::vm {
     constexpr const unsigned int kOSThreadMax = 10000;
@@ -27,6 +28,14 @@ namespace argon::vm {
                                            datatype::ArSize argc, OpCodeCallMode mode);
 
     argon::vm::datatype::Result *Eval(Context *context, datatype::Code *code, datatype::Namespace *ns);
+
+    argon::vm::datatype::Result *Eval(datatype::Function *func, datatype::ArObject **argv,
+                                      datatype::ArSize argc, OpCodeCallMode mode);
+
+    inline argon::vm::datatype::Result *
+    Eval(datatype::Function *func, datatype::ArObject **argv, datatype::ArSize argc) {
+        return Eval(func, argv, argc, OpCodeCallMode::FASTCALL);
+    }
 
     argon::vm::datatype::Result *EvalFile(Context *context, const char *name,
                                           const char *path, datatype::Namespace *ns);

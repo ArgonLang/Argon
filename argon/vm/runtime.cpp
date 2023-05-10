@@ -689,6 +689,20 @@ Result *argon::vm::Eval(Context *context, Code *code, Namespace *ns) {
     return result;
 }
 
+argon::vm::datatype::Result *argon::vm::Eval(Function *func, ArObject **argv, ArSize argc, OpCodeCallMode mode) {
+    auto *future = EvalAsync(func, argv, argc,mode);
+
+    ON_ARGON_CONTEXT Yield();
+
+    FutureWait(future);
+
+    auto *result = FutureResult(future);
+
+    Release(future);
+
+    return result;
+}
+
 Result *argon::vm::EvalFile(Context *context, const char *name, const char *path, Namespace *ns) {
     lang::CompilerWrapper c_wrapper;
     FILE *f;
