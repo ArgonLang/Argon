@@ -58,6 +58,9 @@ namespace argon::vm {
         /// Pointer to object that describe actual routine panic (if any...).
         struct Panic *panic;
 
+        /// Raw pointer to the OSThread running this fiber (only used to check if the fiber is already running on an OSThread).
+        void *active_ost;
+
         void *stack_cur;
 
         void *stack_end;

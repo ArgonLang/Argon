@@ -529,6 +529,18 @@ void Scheduler(OSThread *self) {
         if (self->spinning)
             ResetSpinning(self);
 
+        // Check the fiber is not yet connected to a previous OSThread,
+        // this can happen when the fiber is interrupted by an asynchronous operation (e.g. socket read/write).
+        // Such an operation may complete before the thread that started it has actually released the fiber.
+        if (self->fiber->active_ost != nullptr) {
+            last = self->fiber;
+            continue;
+        }
+
+        self->fiber->active_ost = self;
+
+        // EOL
+
         if (self->fiber->async_result != nullptr) {
             *(self->fiber->frame->eval_stack - 1) = self->fiber->async_result;
             self->fiber->async_result = nullptr;
@@ -538,14 +550,18 @@ void Scheduler(OSThread *self) {
 
         result = Eval(self->fiber);
 
+        self->fiber->active_ost = nullptr;
+
         if (self->fiber_status != FiberStatus::RUNNING) {
             if (self->fiber_status == FiberStatus::SUSPENDED)
                 last = self->fiber;
 
+            self->fiber = nullptr;
             continue;
         }
 
         assert(self->fiber->frame == nullptr);
+
         PublishResult(self->fiber, result);
         Release(result);
     }
@@ -690,7 +706,7 @@ Result *argon::vm::Eval(Context *context, Code *code, Namespace *ns) {
 }
 
 argon::vm::datatype::Result *argon::vm::Eval(Function *func, ArObject **argv, ArSize argc, OpCodeCallMode mode) {
-    auto *future = EvalAsync(func, argv, argc,mode);
+    auto *future = EvalAsync(func, argv, argc, mode);
 
     ON_ARGON_CONTEXT Yield();
 
