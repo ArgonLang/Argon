@@ -19,6 +19,7 @@ namespace argon::lang::parser {
 
     enum class ParserScope {
         BLOCK,
+        IF,
         LOOP,
         MODULE,
         STRUCT,

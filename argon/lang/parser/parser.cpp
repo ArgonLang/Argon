@@ -579,7 +579,10 @@ Node *Parser::ParseDecls(ParserScope scope) {
     if (this->MatchEat(TokenType::KW_PUB)) {
         pub = true;
 
-        if (scope != ParserScope::MODULE && scope != ParserScope::STRUCT && scope != ParserScope::TRAIT)
+        if (scope != ParserScope::MODULE &&
+            scope != ParserScope::STRUCT &&
+            scope != ParserScope::TRAIT &&
+            (scope != ParserScope::IF || entry.prev->scope != ParserScope::MODULE))
             throw ParserException("unexpected use of 'pub' modifier in this context");
 
         this->IgnoreNL();
@@ -605,7 +608,7 @@ Node *Parser::ParseDecls(ParserScope scope) {
             this->Eat();
             this->IgnoreNL();
 
-            if(!this->Match(scanner::TokenType::KW_VAR))
+            if (!this->Match(scanner::TokenType::KW_VAR))
                 throw ParserException("expected 'var' after weak keyword");
 
             stmt = (ArObject *) this->ParseVarDecl(pub, false, true);
@@ -623,7 +626,7 @@ Node *Parser::ParseDecls(ParserScope scope) {
             stmt = (ArObject *) this->ParseFn(pub);
             break;
         case TokenType::KW_STRUCT:
-            if (scope != ParserScope::MODULE && scope != ParserScope::BLOCK)
+            if (scope != ParserScope::BLOCK && scope != ParserScope::IF && scope != ParserScope::MODULE)
                 throw ParserException("unexpected struct declaration");
 
             stmt = (ArObject *) this->ParseStructDecl(pub);
@@ -1223,7 +1226,7 @@ Node *Parser::ParseIF() {
 
     test = (ArObject *) this->ParseExpression(PeekPrecedence(scanner::TokenType::EQUAL));
 
-    body = (ArObject *) this->ParseBlock(ParserScope::BLOCK);
+    body = (ArObject *) this->ParseBlock(ParserScope::IF);
 
     end = ((Node *) body.Get())->loc.end;
 
@@ -1231,7 +1234,7 @@ Node *Parser::ParseIF() {
         orelse = (ArObject *) this->ParseIF();
         end = ((Node *) orelse.Get())->loc.end;
     } else if (this->MatchEat(TokenType::KW_ELSE)) {
-        orelse = (ArObject *) this->ParseBlock(ParserScope::BLOCK);
+        orelse = (ArObject *) this->ParseBlock(ParserScope::IF);
         end = ((Node *) orelse.Get())->loc.end;
     }
 
