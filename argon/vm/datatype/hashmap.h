@@ -245,10 +245,10 @@ namespace argon::vm::datatype {
         }
 
         void FreeHEntry(HEntry<K, V> *entry) {
-            entry->key = nullptr;
-
             if (entry->ref.fetch_sub(1) != 1)
                 return;
+
+            entry->key = nullptr;
 
             if (this->free_count + 1 > this->free_max) {
                 argon::vm::memory::Free(entry);
