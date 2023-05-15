@@ -84,6 +84,7 @@ bool IOInit(Module *self) {
 
 const ModuleEntry io_entries[] = {
         MODULE_EXPORT_TYPE(argon::vm::io::type_file_),
+        MODULE_EXPORT_TYPE(argon::vm::io::type_line_reader_t_),
         MODULE_EXPORT_TYPE(argon::vm::io::type_reader_t_),
         MODULE_EXPORT_TYPE(argon::vm::io::type_writer_t_),
 
