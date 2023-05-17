@@ -439,17 +439,14 @@ ArObject *argon::vm::Eval(Fiber *fiber) {
 #ifndef ARGON_FF_COMPUTED_GOTO
 #define TARGET_OP(op) case OpCode::op:
 
-#define CGOTO   continue
+#define CGOTO continue
 #else
 #define TARGET_OP(op)   \
       case OpCode::op:  \
       LBL_##op:
 
-#define CGOTO                                       \
-    if(cu_frame->instr_ptr < cu_code->instr_end)    \
-        goto *LBL_OPCODES[*(cu_frame->instr_ptr)];  \
-    else                                            \
-        break
+#define CGOTO \
+    goto *LBL_OPCODES[*(cu_frame->instr_ptr)]
 
     static const void *LBL_OPCODES[] = {
             &&LBL_ADD,
