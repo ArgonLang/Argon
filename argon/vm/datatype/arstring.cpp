@@ -480,9 +480,22 @@ const FunctionDef string_methods[] = {
         ARGON_METHOD_SENTINEL
 };
 
+ArObject *string_kind_get(const String *self) {
+    if (self->kind == StringKind::ASCII)
+        return (ArObject *) AtomNew("ascii");
+
+    return (ArObject *) AtomNew("utf8");
+}
+
+const MemberDef string_members[] = {
+        ARGON_MEMBER("intern", MemberType::BOOL, offsetof(String, intern), true),
+        ARGON_MEMBER_GETSET("kind", (MemberGetFn) string_kind_get, nullptr),
+        ARGON_MEMBER_SENTINEL
+};
+
 const ObjectSlots string_objslot = {
         string_methods,
-        nullptr,
+        string_members,
         nullptr,
         nullptr,
         nullptr,
@@ -989,7 +1002,7 @@ String *argon::vm::datatype::StringNewHoldBuffer(unsigned char *buffer, ArSize l
     if (str != nullptr) {
         str->buffer = buffer;
 
-        if(!StringInitKind(str)) {
+        if (!StringInitKind(str)) {
             str->buffer = nullptr;
 
             Release(str);
