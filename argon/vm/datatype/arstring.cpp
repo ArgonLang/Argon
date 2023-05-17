@@ -367,6 +367,20 @@ ARGON_METHOD(str_split, split,
                           ((Integer *) args[1])->sint);
 }
 
+ARGON_METHOD(str_splitws, splitws,
+             "Splits the string at the whitespace and returns a list.\n"
+             "\n"
+             "- Parameters: maxsplit: Specifies how many splits to do.\n"
+             "- Returns: New list of string.\n",
+             "i: maxsplit", false, false) {
+    return support::Split(STR_BUF((String *) _self),
+                          nullptr,
+                          (support::SplitChunkNewFn<String>) StringNew,
+                          STR_LEN((String *) _self),
+                          0,
+                          ((Integer *) args[0])->sint);
+}
+
 ARGON_METHOD(str_startswith, startswith,
              "Returns true if the string starts with the specified value.\n"
              "\n"
@@ -473,6 +487,7 @@ const FunctionDef string_methods[] = {
         str_rfind,
         str_join,
         str_split,
+        str_splitws,
         str_startswith,
         str_trim,
         str_unescape,

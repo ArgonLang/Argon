@@ -683,6 +683,24 @@ ARGON_METHOD(bytes_split, split,
     return ret;
 }
 
+ARGON_METHOD(bytes_splitws, splitws,
+             "Splits the bytes string at the whitespace and returns a list.\n"
+             "\n"
+             "- Parameters: maxsplit: Specifies how many splits to do.\n"
+             "- Returns: New list of bytes string.\n",
+             "i: maxsplit", false, false) {
+    ArObject *ret;
+
+    SHARED_LOCK((Bytes *) _self);
+
+    ret = support::Split(BUFFER_GET((Bytes *) _self), nullptr, (support::SplitChunkNewFn<Bytes>) BytesNew,
+                         BUFFER_LEN((Bytes *) _self), 0, ((Integer *) args[0])->sint);
+
+    SHARED_UNLOCK((Bytes *) _self);
+
+    return ret;
+}
+
 ARGON_METHOD(bytes_startswith, startswith,
              "Returns true if the bytes string starts with the specified value.\n"
              "\n"
@@ -808,6 +826,7 @@ const FunctionDef bytes_method[] = {
         bytes_rmpostfix,
         bytes_rmprefix,
         bytes_split,
+        bytes_splitws,
         bytes_startswith,
         bytes_upper,
         ARGON_METHOD_SENTINEL
