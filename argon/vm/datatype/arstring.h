@@ -199,6 +199,15 @@ namespace argon::vm::datatype {
     String *StringConcat(String *left, const char *string, ArSize length);
 
     /**
+     * @brief Returns a copy of the string where all tab characters were replaced by spaces.
+     *
+     * @param string Argon string.
+     * @param tabsize A number specifying the tabsize.
+     * @return A copy of the string where all tab characters were replaced by spaces.
+     */
+    String *StringExpandTabs(String *string, int tabsize);
+
+    /**
      * @brief Create a new string using a template.
      *
      * @param format Printf style format string.

@@ -168,6 +168,20 @@ ARGON_METHOD(str_endswith, endswith,
     return BoolToArBool(StringEndswith((String *) _self, (String *) args[0]));
 }
 
+ARGON_METHOD(str_expandtabs, expandtabs,
+             "Returns a copy of the string where all tab characters were replaced by spaces.\n"
+             "\n"
+             "- KWParameters:\n"
+             " - tabsize: Size of the tab; default step is 4.\n"
+             "- Returns: A copy of the string where all tab characters were replaced by spaces.\n",
+             nullptr, false, true) {
+    int tabsize;
+
+    tabsize = (int) DictLookupInt((Dict *) kwargs, "tabsize", 4);
+
+    return (ArObject *) StringExpandTabs((String *) _self, tabsize);
+}
+
 ARGON_METHOD(str_find, find,
              "Searches the string for a specified value and returns the position of where it was found.\n"
              "\n"
@@ -488,6 +502,7 @@ const FunctionDef string_methods[] = {
         str_chr,
         str_count,
         str_endswith,
+        str_expandtabs,
         str_find,
         str_isdigit,
         str_lower,
@@ -889,6 +904,49 @@ String *argon::vm::datatype::StringConcat(String *left, const char *string, ArSi
     Release(astr);
 
     return concat;
+}
+
+String *argon::vm::datatype::StringExpandTabs(String *string, int tabsize) {
+    unsigned char *buffer;
+    ArSize length;
+
+    ArSize tabs = 0;
+
+    for (ArSize i = 0; i < STR_LEN(string); i++) {
+        if (STR_BUF(string)[i] == '\t')
+            tabs++;
+    }
+
+    if (tabs == 0)
+        return IncRef(string);
+
+    if (tabsize < 0)
+        tabsize = 0;
+
+    length = (STR_LEN(string) - tabs) + (tabs * tabsize) + 1;
+
+    if ((buffer = (unsigned char *) memory::Alloc(length)) == nullptr)
+        return nullptr;
+
+    ArSize index = 0;
+    for (ArSize i = 0; i < STR_LEN(string); i++) {
+        if (STR_BUF(string)[i] == '\t') {
+            for (int j = 0; j < tabsize; j++)
+                buffer[index++] = ' ';
+
+            continue;
+        }
+
+        buffer[index++] = STR_BUF(string)[i];
+    }
+
+    buffer[index] = '\0';
+
+    auto *ret = StringNew(buffer, index, (string->cp_length - tabs) + (tabs * tabsize), string->kind);
+    if (ret == nullptr)
+        memory::Free(buffer);
+
+    return ret;
 }
 
 String *argon::vm::datatype::StringFormat(const char *format, ...) {
