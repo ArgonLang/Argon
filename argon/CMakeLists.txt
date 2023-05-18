@@ -28,7 +28,12 @@ set_target_properties(ArgonVM PROPERTIES SOVERSION ${PROJECT_VERSION_MAJOR})
 
 # *** Options ***
 option(ARGON_FF_CGOTO "Compile Argon using the computed goto extension" on)
+option(ARGON_FF_UNL "Compile Argon using the universal newline support" on)
 
 if(NOT MSVC AND ARGON_FF_CGOTO)
     target_compile_definitions(ArgonVM PRIVATE ARGON_FF_COMPUTED_GOTO)
+endif()
+
+if(ARGON_FF_UNL)
+    target_compile_definitions(ArgonVM PRIVATE ARGON_FF_UNIVERSAL_NEWLINE)
 endif()
