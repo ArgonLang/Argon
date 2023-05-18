@@ -62,6 +62,15 @@ namespace argon::vm::datatype {
     ArObject *StringSplit(const String *string, const unsigned char *pattern, ArSize plen, ArSSize maxsplit);
 
     /**
+     * @brief Splits the string at the new line, and returns a list.
+     *
+     * @param string String to split.
+     * @param maxsplit Specifies how many splits to do.
+     * @return New list of string.
+     */
+    ArObject *StringSplitLines(const String *string, ArSSize maxsplit);
+
+    /**
      * @bref Returns the length of a unicode substring.
      *
      * This function is useful for taking substrings of length n from a unicode string,

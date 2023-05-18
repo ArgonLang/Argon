@@ -367,6 +367,15 @@ ARGON_METHOD(str_split, split,
                           ((Integer *) args[1])->sint);
 }
 
+ARGON_METHOD(str_splitlines, splitlines,
+             "Splits the string at the new line and returns a list.\n"
+             "\n"
+             "- Parameters: maxsplit: Specifies how many splits to do.\n"
+             "- Returns: New list of string.\n",
+             "i: maxsplit", false, false) {
+    return StringSplitLines((String *) _self, ((Integer *) args[0])->sint);
+}
+
 ARGON_METHOD(str_splitws, splitws,
              "Splits the string at the whitespace and returns a list.\n"
              "\n"
@@ -487,6 +496,7 @@ const FunctionDef string_methods[] = {
         str_rfind,
         str_join,
         str_split,
+        str_splitlines,
         str_splitws,
         str_startswith,
         str_trim,
@@ -775,8 +785,21 @@ const TypeInfo *argon::vm::datatype::type_string_ = &StringType;
 
 ArObject *argon::vm::datatype::StringSplit(const String *string, const unsigned char *pattern,
                                            ArSize plen, ArSSize maxsplit) {
-    return support::Split(STR_BUF(string), pattern, (support::SplitChunkNewFn<String>) StringNew,
-                          STR_LEN(string), plen, maxsplit);
+    return support::Split(
+            STR_BUF(string),
+            pattern,
+            (support::SplitChunkNewFn<String>) StringNew,
+            STR_LEN(string),
+            plen,
+            maxsplit);
+}
+
+ArObject *argon::vm::datatype::StringSplitLines(const String *string, ArSSize maxsplit) {
+    return support::SplitLines(
+            STR_BUF(string),
+            (support::SplitChunkNewFn<String>) StringNew,
+            STR_LEN(string),
+            maxsplit);
 }
 
 ArSize argon::vm::datatype::StringSubstrLen(const String *string, ArSize offset, ArSize graphemes) {
