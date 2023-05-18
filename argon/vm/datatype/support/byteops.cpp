@@ -107,6 +107,29 @@ ArSSize argon::vm::datatype::support::CountWhitespace(const unsigned char *buf, 
     return counter;
 }
 
+ArSSize argon::vm::datatype::support::CountNewLines(const unsigned char *buf, ArSize blen, long n) {
+    ArSSize counter = 0;
+    ArSSize idx = 0;
+    ArSSize lmatch;
+    ArSize end;
+
+    if (n == 0)
+        return 0;
+
+    while (counter < n || n < 0) {
+        end = blen - idx;
+
+        lmatch = FindNewLine(buf + idx, &end);
+        if (lmatch < 0)
+            break;
+
+        counter++;
+        idx += (ArSSize) (lmatch + end);
+    }
+
+    return counter;
+}
+
 ArSSize argon::vm::datatype::support::Find(const unsigned char *buf, ArSize blen, const unsigned char *pattern,
                                            ArSize plen, bool reverse) {
     /*
@@ -130,17 +153,17 @@ ArSSize argon::vm::datatype::support::FindNewLine(const unsigned char *buf, ArSi
     while (index < *inout_len) {
         if (universal && buf[index] == '\r') {
             if (index + 1 < *inout_len && buf[index + 1] == '\n') {
-                *inout_len = index;
-                return (ArSSize) index + 2;
+                *inout_len = (index+2)-index;
+                return (ArSSize) index;
             }
 
-            *inout_len = index;
-            return (ArSSize) index + 1;
+            *inout_len = (index+1)-index;
+            return (ArSSize) index;
         }
 
         if (buf[index] == '\n') {
-            *inout_len = index;
-            return (ArSSize) index + 1;
+            *inout_len = (index+1)-index;
+            return (ArSSize) index;
         }
 
         index++;

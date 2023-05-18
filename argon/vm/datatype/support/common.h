@@ -57,10 +57,10 @@ namespace argon::vm::datatype::support {
             Release(tmp);
 
             if (!whitespace)
-                start = support::Find(buffer + cursor, blen-cursor, pattern, plen);
+                start = support::Find(buffer + cursor, blen - cursor, pattern, plen);
             else {
                 plen = blen - cursor;
-                start = FindWhitespace(buffer+cursor, &plen);
+                start = FindWhitespace(buffer + cursor, &plen);
             }
 
             if (maxsplit > 0)
@@ -71,6 +71,59 @@ namespace argon::vm::datatype::support {
             tmp = tp_new(buffer + cursor, blen - cursor);
             if (tmp == nullptr) {
                 Release(ret);
+                return nullptr;
+            }
+
+            ListAppend(ret, (ArObject *) tmp);
+
+            Release(tmp);
+        }
+
+        return (ArObject *) ret;
+    }
+
+    template<typename T>
+    ArObject *SplitLines(const unsigned char *buffer, SplitChunkNewFn<T> tp_new, ArSize blen, ArSSize maxsplit) {
+        T *tmp;
+        List *ret;
+        ArSize plen;
+
+        auto occurrence = CountNewLines(buffer, blen) + 1;
+
+        if ((ret = ListNew(occurrence)) == nullptr)
+            return nullptr;
+
+        plen = blen;
+
+        auto start = FindNewLine(buffer, &plen);
+        auto cursor = (ArSize) 0;
+
+        while (start > -1 && maxsplit != 0) {
+            tmp = tp_new(buffer + cursor, start);
+            cursor += start + plen;
+
+            if (tmp == nullptr) {
+                Release(ret);
+
+                return nullptr;
+            }
+
+            ListAppend(ret, (ArObject *) tmp);
+
+            Release(tmp);
+
+            plen = blen - cursor;
+            start = FindNewLine(buffer + cursor, &plen);
+
+            if (maxsplit > 0)
+                maxsplit--;
+        }
+
+        if (blen - cursor > 0) {
+            tmp = tp_new(buffer + cursor, blen - cursor);
+            if (tmp == nullptr) {
+                Release(ret);
+
                 return nullptr;
             }
 
