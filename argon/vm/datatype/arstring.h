@@ -338,6 +338,18 @@ namespace argon::vm::datatype {
      */
     String *StringSubs(const String *string, ArSize start, ArSize end);
 
+    /**
+     * @brief Removes any leading (spaces at the beginning) and trailing (spaces at the end) characters.
+     *
+     * @param string Argon string.
+     * @param buffer Optional. A set of characters to remove as leading/trailing characters.
+     * @param length Buffer length, if the buffer is nullptr, the length must be zero.
+     * @param left Removes any leading characters (default spaces).
+     * @param right Removes any trailing characters (default spaces).
+     * @return Returns a new string stripped of characters in left/right or both ends.
+     */
+    String *StringTrim(String *string, const unsigned char *buffer, ArSize length, bool left, bool right);
+
 } // namespace argon::vm::datatype
 
 #endif // !ARGON_VM_DATATYPE_ARSTRING_H_

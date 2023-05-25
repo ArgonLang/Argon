@@ -28,6 +28,33 @@ using namespace argon::vm::datatype;
 static Dict *intern = nullptr;
 static String *empty_string = nullptr;
 
+ArObject *trim(String *self, Dict *kwargs, bool left, bool right) {
+    const unsigned char *trim_buffer = nullptr;
+    ArSize trim_length = 0;
+
+    String *tmp = nullptr;
+
+    if (kwargs != nullptr) {
+        tmp = (String *) DictLookup(kwargs, "chars");
+        if (!AR_TYPEOF(tmp, type_string_)) {
+            Release(tmp);
+
+            ErrorFormat(kTypeError[0], kTypeError[2], type_string_->qname, AR_TYPE_QNAME(tmp));
+
+            return nullptr;
+        }
+
+        trim_buffer = STR_BUF(tmp);
+        trim_length = STR_LEN(tmp);
+    }
+
+    auto *ret = StringTrim(self, trim_buffer, trim_length, left, right);
+
+    Release(tmp);
+
+    return (ArObject *) ret;
+}
+
 bool StringInitKind(String *string) {
     Error *error;
 
@@ -54,6 +81,10 @@ bool StringInitKind(String *string) {
     }
 
     return true;
+}
+
+bool string_get_buffer(String *self, ArBuffer *buffer, BufferFlags flags) {
+    return BufferSimpleFill((ArObject *) self, buffer, flags, self->buffer, 1, self->length, false);
 }
 
 String *StringInit(ArSize len, bool mkbuf) {
@@ -84,21 +115,17 @@ String *StringInit(ArSize len, bool mkbuf) {
     return str;
 }
 
-bool string_get_buffer(String *self, ArBuffer *buffer, BufferFlags flags) {
-    return BufferSimpleFill((ArObject *) self, buffer, flags, self->buffer, 1, self->length, false);
-}
-
 const BufferSlots string_buffer = {
         (BufferGetFn) string_get_buffer,
         nullptr
 };
 
 ARGON_FUNCTION(str_string, String,
-             "Create a new string object from the given object.\n"
-             "\n"
-             "- Parameter obj: Object to convert into a string.\n"
-             "- Returns: New string.\n",
-             ": obj", false, false) {
+               "Create a new string object from the given object.\n"
+               "\n"
+               "- Parameter obj: Object to convert into a string.\n"
+               "- Returns: New string.\n",
+               ": obj", false, false) {
     if (AR_TYPEOF(args[0], type_string_))
         return IncRef(args[0]);
 
@@ -233,6 +260,16 @@ ARGON_METHOD(str_lower, lower,
     }
 
     return (ArObject *) ret;
+}
+
+ARGON_METHOD(str_ltrim, ltrim,
+             "Returns a new string stripped of whitespace from left ends.\n"
+             "\n"
+             "- KWParameters:\n"
+             "  - chars: A set of characters to remove as leading characters.\n"
+             "- Returns: New string without whitespace.\n",
+             nullptr, false, true) {
+    return trim((String *) _self, (Dict *) kwargs, true, false);
 }
 
 ARGON_METHOD(str_ord, ord,
@@ -423,22 +460,24 @@ ARGON_METHOD(str_startswith, startswith,
                         argon::vm::memory::MemoryCompare(STR_BUF(self), STR_BUF(pattern), STR_LEN(pattern)) == 0);
 }
 
+ARGON_METHOD(str_rtrim, rtrim,
+             "Returns a new string stripped of whitespace from right ends.\n"
+             "\n"
+             "- KWParameters:\n"
+             "  - chars: A set of characters to remove as trailing characters.\n"
+             "- Returns: New string without whitespace.\n",
+             nullptr, false, true) {
+    return trim((String *) _self, (Dict *) kwargs, false, true);
+}
+
 ARGON_METHOD(str_trim, trim,
              "Returns a new string stripped of whitespace from both ends.\n"
              "\n"
+             "- KWParameters:\n"
+             "  - chars: A set of characters to remove as leading/trailing characters.\n"
              "- Returns: New string without whitespace.\n",
-             nullptr, false, false) {
-    const auto *self = (String *) _self;
-    ArSize start = 0;
-    ArSize end = STR_LEN(self);
-
-    while (STR_BUF(self)[start] == 0x09 || STR_BUF(self)[start] == 0x20)
-        start++;
-
-    while (STR_BUF(self)[end - 1] == 0x09 || STR_BUF(self)[end - 1] == 0x20)
-        end--;
-
-    return (ArObject *) StringNew((const char *) STR_BUF(self) + start, end - start);
+             nullptr, false, true) {
+    return trim((String *) _self, (Dict *) kwargs, true, true);
 }
 
 ARGON_FUNCTION(str_unescape, unescape,
@@ -506,6 +545,7 @@ const FunctionDef string_methods[] = {
         str_find,
         str_isdigit,
         str_lower,
+        str_ltrim,
         str_ord,
         str_replace,
         str_rfind,
@@ -514,6 +554,7 @@ const FunctionDef string_methods[] = {
         str_splitlines,
         str_splitws,
         str_startswith,
+        str_rtrim,
         str_trim,
         str_unescape,
         str_upper,
@@ -1124,6 +1165,9 @@ String *argon::vm::datatype::StringReplace(String *string, const String *old, co
     // Compute replacements
     n = support::Count(STR_BUF(string), STR_LEN(string), STR_BUF(old), STR_LEN(old), n);
 
+    if (n == 0)
+        return IncRef(string);
+
     newsz = (STR_LEN(string) + n * (STR_LEN(nval) - STR_LEN(old)));
 
     // Allocate string
@@ -1199,6 +1243,55 @@ String *argon::vm::datatype::StringSubs(const String *string, ArSize start, ArSi
     }
 
     return ret;
+}
+
+String *argon::vm::datatype::StringTrim(String *string, const unsigned char *buffer, ArSize length, bool left, bool right) {
+    auto *to_trim = (const unsigned char *) "\x09\x20";
+    ArSize trim_length = 2;
+    ArSize start = 0;
+    ArSize end = STR_LEN(string);
+    ArSize i;
+
+    if (buffer != nullptr && length > 0) {
+        to_trim = buffer;
+        trim_length = length;
+    }
+
+    i = 0;
+    while (left && i < trim_length && start < end) {
+        if (STR_BUF(string)[start] == to_trim[i]) {
+            while (STR_BUF(string)[start] == to_trim[i])
+                start++;
+
+            i = 0;
+
+            continue;
+        }
+
+        i++;
+    }
+
+    if (start == end)
+        return StringIntern("");
+
+    i = 0;
+    while (right && i < trim_length && end > 0) {
+        if (STR_BUF(string)[end - 1] == to_trim[i]) {
+            while (end > 0 && STR_BUF(string)[end - 1] == to_trim[i])
+                end--;
+
+            i = 0;
+
+            continue;
+        }
+
+        i++;
+    }
+
+    if (start == 0 && end == STR_LEN(string))
+        return IncRef(string);
+
+    return StringNew((const char *) STR_BUF(string) + start, end - start);
 }
 
 // STRING ITERATOR

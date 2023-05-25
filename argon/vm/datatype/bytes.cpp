@@ -37,6 +37,39 @@
 
 using namespace argon::vm::datatype;
 
+ArObject *trim(Bytes *self, Dict *kwargs, bool left, bool right) {
+    const unsigned char *trim_buffer = nullptr;
+    ArSize trim_length = 0;
+
+    Bytes *tmp = nullptr;
+
+    if (kwargs != nullptr) {
+        tmp = (Bytes *) DictLookup(kwargs, "chars");
+        if (!AR_TYPEOF(tmp, type_bytes_)) {
+            Release(tmp);
+
+            ErrorFormat(kTypeError[0], kTypeError[2], type_bytes_->qname, AR_TYPE_QNAME(tmp));
+
+            return nullptr;
+        }
+
+        SHARED_LOCK(tmp);
+
+        trim_buffer = BUFFER_GET(tmp);
+        trim_length = BUFFER_LEN(tmp);
+    }
+
+    auto *ret = BytesTrim(self, trim_buffer, trim_length, left, right);
+
+    if (tmp != nullptr) {
+        SHARED_UNLOCK(tmp);
+
+        Release(tmp);
+    }
+
+    return (ArObject *) ret;
+}
+
 ARGON_FUNCTION(bytes_bytes, Bytes,
                "Creates bytes object.\n"
                "\n"
@@ -527,6 +560,16 @@ ARGON_METHOD(bytes_lower, lower,
     return (ArObject *) ret;
 }
 
+ARGON_METHOD(bytes_ltrim, ltrim,
+             "Returns a new bytes string stripped of whitespace from left ends.\n"
+             "\n"
+             "- KWParameters:\n"
+             "  - chars: A set of characters to remove as leading characters.\n"
+             "- Returns: New bytes string without whitespace.\n",
+             nullptr, false, true) {
+    return trim((Bytes *) _self, (Dict *) kwargs, true, false);
+}
+
 ARGON_METHOD(bytes_replace, replace,
              "Returns new bytes string where a specified value is replaced with a specified value.\n"
              "\n"
@@ -651,6 +694,16 @@ ARGON_METHOD(bytes_rmprefix, rmprefix,
     SHARED_UNLOCK(self);
 
     return (ArObject *) IncRef(self);
+}
+
+ARGON_METHOD(bytes_rtrim, rtrim,
+             "Returns a new bytes string stripped of whitespace from right ends.\n"
+             "\n"
+             "- KWParameters:\n"
+             "  - chars: A set of characters to remove as trailing characters.\n"
+             "- Returns: New bytes string without whitespace.\n",
+             nullptr, false, true) {
+    return trim((Bytes *) _self, (Dict *) kwargs, false, true);
 }
 
 ARGON_METHOD(bytes_split, split,
@@ -819,6 +872,16 @@ ARGON_METHOD(bytes_tostr, tostr,
     return ret;
 }
 
+ARGON_METHOD(bytes_trim, trim,
+             "Returns a new bytes string stripped of whitespace from both ends.\n"
+             "\n"
+             "- KWParameters:\n"
+             "  - chars: A set of characters to remove as leading/trailing characters.\n"
+             "- Returns: New bytes string without whitespace.\n",
+             nullptr, false, true) {
+    return trim((Bytes *) _self, (Dict *) kwargs, true, true);
+}
+
 ARGON_METHOD(bytes_upper, upper,
              "Return a copy of the bytes string converted to uppercase.\n"
              "\n"
@@ -855,16 +918,19 @@ const FunctionDef bytes_method[] = {
         bytes_isfrozen,
         bytes_join,
         bytes_lower,
+        bytes_ltrim,
         bytes_tohex,
         bytes_tostr,
         bytes_replace,
         bytes_rfind,
         bytes_rmpostfix,
         bytes_rmprefix,
+        bytes_rtrim,
         bytes_split,
         bytes_splitlines,
         bytes_splitws,
         bytes_startswith,
+        bytes_trim,
         bytes_upper,
         ARGON_METHOD_SENTINEL
 };
@@ -1142,7 +1208,6 @@ ArObject *bytes_mul(Bytes *left, const ArObject *right) {
     return (ArObject *) ret;
 }
 
-
 const OpSlots bytes_ops = {
         (BinaryOp) bytes_add,
         nullptr,
@@ -1416,6 +1481,13 @@ Bytes *argon::vm::datatype::BytesReplace(Bytes *bytes, Bytes *old, Bytes *nval, 
     // Compute replacements
     n = support::Count(BUFFER_GET(bytes), BUFFER_LEN(bytes), BUFFER_GET(old), BUFFER_LEN(old), n);
 
+    if (n == 0) {
+        SHARED_UNLOCK(bytes);
+        SHARED_UNLOCK(old);
+
+        return IncRef(bytes);
+    }
+
     SHARED_LOCK(nval);
 
     newsz = (BUFFER_LEN(bytes) + n * (BUFFER_LEN(nval) - BUFFER_LEN(old)));
@@ -1453,9 +1525,72 @@ Bytes *argon::vm::datatype::BytesReplace(Bytes *bytes, Bytes *old, Bytes *nval, 
     SHARED_UNLOCK(old);
     SHARED_UNLOCK(nval);
 
-    auto *ret = BytesNewHoldBuffer(buffer,newsz,newsz,true);
-    if(ret == nullptr)
+    auto *ret = BytesNewHoldBuffer(buffer, newsz, newsz, true);
+    if (ret == nullptr)
         argon::vm::memory::Free(buffer);
+
+    return ret;
+}
+
+Bytes *argon::vm::datatype::BytesTrim(Bytes *bytes, const unsigned char *buffer, ArSize length, bool left, bool right) {
+    auto *to_trim = (const unsigned char *) "\x09\x20";
+    ArSize trim_length = 2;
+    ArSize start = 0;
+    ArSize end;
+    ArSize i;
+
+    SHARED_LOCK(bytes);
+
+    end = BUFFER_LEN(bytes);
+
+    if (buffer != nullptr && length > 0) {
+        to_trim = buffer;
+        trim_length = length;
+    }
+
+    i = 0;
+    while (left && i < trim_length && start < end) {
+        if (BUFFER_GET(bytes)[start] == to_trim[i]) {
+            while (BUFFER_GET(bytes)[start] == to_trim[i])
+                start++;
+
+            i = 0;
+
+            continue;
+        }
+
+        i++;
+    }
+
+    if (start == end) {
+        SHARED_UNLOCK(bytes);
+
+        return BytesNew(0, true, false, true);
+    }
+
+    i = 0;
+    while (right && i < trim_length && end > 0) {
+        if (BUFFER_GET(bytes)[end - 1] == to_trim[i]) {
+            while (end > 0 && BUFFER_GET(bytes)[end - 1] == to_trim[i])
+                end--;
+
+            i = 0;
+
+            continue;
+        }
+
+        i++;
+    }
+
+    if (start == 0 && end == BUFFER_LEN(bytes)) {
+        SHARED_UNLOCK(bytes);
+
+        return IncRef(bytes);
+    }
+
+    auto *ret = BytesNew(bytes, start, end - start);
+
+    SHARED_UNLOCK(bytes);
 
     return ret;
 }
