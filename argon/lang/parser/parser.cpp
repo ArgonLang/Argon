@@ -51,9 +51,9 @@ int Parser::PeekPrecedence(scanner::TokenType token) {
         case TokenType::ASSIGN_ADD:
         case TokenType::ASSIGN_SUB:
             return 10;
-        case TokenType::KW_IN:
-            return 20;
         case TokenType::COMMA:
+            return 20;
+        case TokenType::KW_IN:
             return 30;
         case TokenType::ELVIS:
         case TokenType::QUESTION:
