@@ -231,7 +231,7 @@ ARGON_METHOD(set_update, update,
              "\n"
              "- Parameter ...sets: Another sets.\n"
              "- Returns: Set itself.\n",
-             nullptr, false, false) {
+             nullptr, true, false) {
     auto *self = (Set *) _self;
 
     for (ArSize i = 0; i < argc; i++) {
@@ -253,7 +253,7 @@ ARGON_METHOD(set_update, update,
 
         std::shared_lock other_lock(other->rwlock);
 
-        for (auto *cursor = self->set.iter_begin; cursor != nullptr; cursor = cursor->iter_next) {
+        for (auto *cursor = other->set.iter_begin; cursor != nullptr; cursor = cursor->iter_next) {
             if (!SetAddNoLock(self, cursor->key))
                 return nullptr;
         }
