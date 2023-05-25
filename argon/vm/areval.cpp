@@ -640,10 +640,15 @@ ArObject *argon::vm::Eval(Fiber *fiber) {
             }
             TARGET_OP(CNT)
             {
+                auto mode = (vm::OpCodeContainsMode) I16Arg(cu_frame->instr_ptr);
                 ret = TOP();
 
                 if (!AR_ISSUBSCRIPTABLE(ret) || AR_GET_TYPE(ret)->subscriptable->item_in == nullptr) {
-                    ErrorFormat(kRuntimeError[0], kRuntimeError[1], "in", AR_TYPE_NAME(ret));
+                    ErrorFormat(kRuntimeError[0],
+                                kRuntimeError[1],
+                                mode == OpCodeContainsMode::IN ? "in" : "not in",
+                                AR_TYPE_NAME(ret));
+
                     break;
                 }
 
@@ -652,6 +657,10 @@ ArObject *argon::vm::Eval(Fiber *fiber) {
 
                 POP();
                 TOP_REPLACE(ret);
+
+                if (mode == OpCodeContainsMode::NOT_IN)
+                    TOP_REPLACE(BoolToArBool(!IsTrue(ret)));
+
                 DISPATCH();
             }
             TARGET_OP(DEC)

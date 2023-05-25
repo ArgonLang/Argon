@@ -46,6 +46,7 @@ namespace argon::lang::parser {
         LIST,
         LITERAL,
         LOOP,
+        NOT_IN,
         NULL_COALESCING,
         KWARG,
         PANIC,

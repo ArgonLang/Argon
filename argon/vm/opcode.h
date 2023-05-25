@@ -188,7 +188,7 @@ namespace argon::vm {
             1,
             4,
             2,
-            1,
+            2,
             1,
             4,
             1,
@@ -273,6 +273,11 @@ namespace argon::vm {
         FASTCALL = 0,
         REST_PARAMS = 1,
         KW_PARAMS = 1 << 1u
+    };
+
+    enum class OpCodeContainsMode : unsigned char {
+        IN,
+        NOT_IN
     };
 } // namespace argon::vm
 

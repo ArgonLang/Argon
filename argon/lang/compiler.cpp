@@ -689,7 +689,12 @@ void Compiler::CompileContains(const parser::Binary *contains) {
     this->Expression(contains->left);
     this->Expression(contains->right);
 
-    this->unit_->Emit(vm::OpCode::CNT, &contains->loc);
+    this->unit_->Emit(vm::OpCode::CNT,
+                      (int) (contains->node_type == NodeType::IN ?
+                             vm::OpCodeContainsMode::IN :
+                             vm::OpCodeContainsMode::NOT_IN),
+                      nullptr,
+                      &contains->loc);
 }
 
 void Compiler::CompileDeclaration(const parser::Assignment *declaration) {
@@ -1713,6 +1718,7 @@ void Compiler::Expression(const Node *node) {
             this->CompileElvis((const parser::Binary *) node);
             break;
         case NodeType::IN:
+        case NodeType::NOT_IN:
             this->CompileContains((const parser::Binary *) node);
             break;
         case NodeType::LITERAL:

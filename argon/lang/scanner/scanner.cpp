@@ -40,6 +40,7 @@ constexpr KwToken kw2tktype[] = {
         {"let",         TokenType::KW_LET},
         {"loop",        TokenType::KW_LOOP},
         {"nil",         TokenType::NIL},
+        {"not",         TokenType::KW_NOT},
         {"panic",       TokenType::KW_PANIC},
         {"pub",         TokenType::KW_PUB},
         {"return",      TokenType::KW_RETURN},
