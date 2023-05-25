@@ -527,8 +527,22 @@ ARGON_METHOD(bytes_lower, lower,
     return (ArObject *) ret;
 }
 
+ARGON_METHOD(bytes_replace, replace,
+             "Returns new bytes string where a specified value is replaced with a specified value.\n"
+             "\n"
+             "- Parameters:\n"
+             " - old: Bytes string to search for.\n"
+             " - new: Bytes string to replace the old value with.\n"
+             " - count: Number specifying how many occurrences of the old value you want to replace.\n"
+             "          To replace all occurrence use -1.\n"
+             "- Returns: Bytes string where a specified value is replaced.\n",
+             "x: old, x: new, i: count", false, false) {
+    return (ArObject *) BytesReplace((Bytes *) _self, (Bytes *) args[0],
+                                     (Bytes *) args[1], ((Integer *) args[2])->sint);
+}
+
 ARGON_METHOD(bytes_rfind, rfind,
-             "Searches the string for a specified value and returns the last position of where it was found.\n"
+             "Searches the bytes string for a specified value and returns the last position of where it was found.\n"
              "\n"
              "- Parameter pattern: The value to search for.\n"
              "- Returns: Index of the last position, -1 otherwise.\n"
@@ -843,6 +857,7 @@ const FunctionDef bytes_method[] = {
         bytes_lower,
         bytes_tohex,
         bytes_tostr,
+        bytes_replace,
         bytes_rfind,
         bytes_rmpostfix,
         bytes_rmprefix,
@@ -1379,6 +1394,70 @@ Bytes *argon::vm::datatype::BytesNewHoldBuffer(unsigned char *buffer, ArSize cap
     }
 
     return bs;
+}
+
+Bytes *argon::vm::datatype::BytesReplace(Bytes *bytes, Bytes *old, Bytes *nval, ArSSize n) {
+    unsigned char *buffer;
+    unsigned char *cursor;
+
+    ArSize idx = 0;
+    ArSize newsz;
+
+    SHARED_LOCK(bytes);
+    SHARED_LOCK(old);
+
+    if (Equal((const ArObject *) bytes, (const ArObject *) old) || n == 0) {
+        SHARED_UNLOCK(bytes);
+        SHARED_UNLOCK(old);
+
+        return IncRef(bytes);
+    }
+
+    // Compute replacements
+    n = support::Count(BUFFER_GET(bytes), BUFFER_LEN(bytes), BUFFER_GET(old), BUFFER_LEN(old), n);
+
+    SHARED_LOCK(nval);
+
+    newsz = (BUFFER_LEN(bytes) + n * (BUFFER_LEN(nval) - BUFFER_LEN(old)));
+
+    // Allocate buffer
+    if ((buffer = (unsigned char *) argon::vm::memory::Alloc(newsz)) == nullptr) {
+        SHARED_UNLOCK(bytes);
+        SHARED_UNLOCK(old);
+        SHARED_UNLOCK(nval);
+
+        return nullptr;
+    }
+
+    cursor = buffer;
+
+    long match;
+    while ((match = support::Find(BUFFER_GET(bytes) + idx, BUFFER_LEN(bytes) - idx,
+                                  BUFFER_GET(old), BUFFER_LEN(old))) > -1) {
+        cursor = (unsigned char *) argon::vm::memory::MemoryCopy(cursor, BUFFER_GET(bytes) + idx, match);
+
+        idx += match + BUFFER_LEN(old);
+
+        cursor = (unsigned char *) argon::vm::memory::MemoryCopy(cursor, BUFFER_GET(nval), BUFFER_LEN(nval));
+
+        if (n > -1) {
+            n--;
+            if (n == 0)
+                break;
+        }
+    }
+
+    argon::vm::memory::MemoryCopy(cursor, BUFFER_GET(bytes) + idx, BUFFER_LEN(bytes) - idx);
+
+    SHARED_UNLOCK(bytes);
+    SHARED_UNLOCK(old);
+    SHARED_UNLOCK(nval);
+
+    auto *ret = BytesNewHoldBuffer(buffer,newsz,newsz,true);
+    if(ret == nullptr)
+        argon::vm::memory::Free(buffer);
+
+    return ret;
 }
 
 // BYTES ITERATOR

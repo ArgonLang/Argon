@@ -120,6 +120,18 @@ namespace argon::vm::datatype {
      */
     Bytes *BytesNewHoldBuffer(unsigned char *buffer, ArSize cap, ArSize len, bool frozen);
 
+    /**
+     * @brief Returns new bytes string where a specified value is replaced with a specified value.
+     *
+     * @param bytes Argon Bytes object.
+     * @param old Bytes string to search for.
+     * @param nval Bytes string to replace the old value with.
+     * @param n Number specifying how many occurrences of the old value you want to replace.
+     *          To replace all occurrence use -1.
+     * @return Bytes string where a specified value is replaced.
+     */
+    Bytes *BytesReplace(Bytes *bytes, Bytes *old, Bytes *nval, ArSSize n);
+
 } // namespace argon::vm::datatype
 
 #endif // !ARGON_VM_DATATYPE_BYTES_H_
