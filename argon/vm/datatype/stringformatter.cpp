@@ -110,6 +110,12 @@ unsigned char *StringFormatter::Format(ArSize *out_len, ArSize *out_cap) {
         return this->output_.buffer;
     }
 
+    this->fmt_.args_length = 1;
+
+    if (AR_TYPEOF(this->fmt_.args, type_tuple_)) {
+        this->fmt_.args_length = ((Tuple *) this->fmt_.args)->length;
+    }
+
     *out_len = 0;
     *out_cap = 0;
 
@@ -119,6 +125,15 @@ unsigned char *StringFormatter::Format(ArSize *out_len, ArSize *out_cap) {
 
         if (!this->Format())
             return nullptr;
+    }
+
+    if (this->error_ != nullptr)
+        return nullptr;
+
+    if (this->fmt_.nspec < this->fmt_.args_length) {
+        this->error_ = (ArObject *) ErrorNew(kValueError[0], "not all arguments converted during string formatting");
+
+        return nullptr;
     }
 
     *out_len = this->output_.cursor - this->output_.buffer;
@@ -203,7 +218,7 @@ bool StringFormatter::Format() {
         default:
             this->error_ = (ArObject *) ErrorNewFormat(kValueError[0],
                                                        "unsupported format character '%c' (0x%x)",
-                                                       (31 <= op && op <= 126 ? '?' : op), op);
+                                                       (op > 127 || op < 32 ? '?' : (char) op), op);
             break;
     }
 
@@ -233,10 +248,18 @@ bool StringFormatter::NextSpecifier() {
                 this->fmt_.nspec++;
                 this->fmt_.cursor++;
                 index--;
-                break;
-            }
 
-            index++;
+                break;
+            } else {
+                if (this->Write(base, index, 0) < 0)
+                    return false;
+
+                this->fmt_.cursor += index + 1;
+
+                base = this->fmt_.cursor;
+
+                index = 0;
+            }
         }
     }
 
