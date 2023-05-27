@@ -1003,16 +1003,44 @@ ArObject *bytes_get_slice(Bytes *self, Bounds *bounds) {
 }
 
 ArObject *bytes_item_in(Bytes *self, ArObject *value) {
-    auto *pattern = (Bytes *) value;
-    ArSSize index;
+    if (!AR_TYPEOF(value, type_bytes_) && !AR_TYPEOF(value, type_int_) && !AR_TYPEOF(value, type_uint_)) {
+        ErrorFormat(kTypeError[0],
+                    "expected '%s'/'%s'/'%s' got '%s'",
+                    type_bytes_->name,
+                    type_int_->name,
+                    type_uint_->name,
+                    AR_TYPE_NAME(value));
 
-    if (!AR_TYPEOF(value, type_bytes_)) {
-        ErrorFormat(kTypeError[0], kTypeError[2], type_bytes_->name, AR_TYPE_NAME(value));
         return nullptr;
     }
 
-    if (self == pattern)
+    if (self == (Bytes *) value)
         return BoolToArBool(true);
+
+    if (AR_TYPEOF(value, type_int_) || AR_TYPEOF(value, type_uint_)) {
+        ArSize byte = ((Integer *) value)->sint;
+
+        if (byte > 255) {
+            ErrorFormat(kValueError[0], "byte must be in range(0, 255)");
+
+            return nullptr;
+        }
+
+        SHARED_LOCK(self);
+        for (ArSize i = 0; i < BUFFER_LEN(self); i++) {
+            if (BUFFER_GET(self)[i] == byte) {
+                SHARED_UNLOCK(self);
+
+                return BoolToArBool(true);
+            }
+        }
+        SHARED_UNLOCK(self);
+
+        return BoolToArBool(false);
+    }
+
+    auto *pattern = (Bytes *) value;
+    ArSSize index;
 
     SHARED_LOCK(self);
     SHARED_LOCK(pattern);
