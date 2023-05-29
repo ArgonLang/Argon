@@ -53,22 +53,22 @@ int Parser::PeekPrecedence(scanner::TokenType token) {
             return 10;
         case TokenType::COMMA:
             return 20;
-        case TokenType::KW_IN:
-        case TokenType::KW_NOT:
-            return 30;
         case TokenType::ELVIS:
         case TokenType::QUESTION:
         case TokenType::NULL_COALESCING:
-            return 40;
+            return 30;
         case TokenType::PIPELINE:
-            return 50;
+            return 40;
         case TokenType::OR:
-            return 60;
+            return 50;
         case TokenType::AND:
-            return 70;
+            return 60;
         case TokenType::PIPE:
-            return 80;
+            return 70;
         case TokenType::CARET:
+            return 80;
+        case TokenType::KW_IN:
+        case TokenType::KW_NOT:
             return 90;
         case TokenType::EQUAL_EQUAL:
         case TokenType::EQUAL_STRICT:
@@ -1321,7 +1321,7 @@ Node *Parser::ParseIn(Node *left) {
     this->Eat();
     this->IgnoreNL();
 
-    auto *expr = this->ParseExpression(PeekPrecedence(TokenType::EQUAL));
+    auto *expr = this->ParseExpression(PeekPrecedence(TokenType::KW_IN));
 
     auto *binary = BinaryNew(left, expr, scanner::TokenType::TK_NULL, kind);
     if (binary == nullptr)
