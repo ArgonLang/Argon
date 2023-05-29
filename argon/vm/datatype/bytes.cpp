@@ -1003,10 +1003,12 @@ ArObject *bytes_get_slice(Bytes *self, Bounds *bounds) {
 }
 
 ArObject *bytes_item_in(Bytes *self, ArObject *value) {
-    if (!AR_TYPEOF(value, type_bytes_) && !AR_TYPEOF(value, type_int_) && !AR_TYPEOF(value, type_uint_)) {
+    ArBuffer buffer{};
+    ArSSize index;
+
+    if (!IsBufferable(value) && !AR_TYPEOF(value, type_int_) && !AR_TYPEOF(value, type_uint_)) {
         ErrorFormat(kTypeError[0],
-                    "expected '%s'/'%s'/'%s' got '%s'",
-                    type_bytes_->name,
+                    "expected bufferable type/'%s'/'%s' got '%s'",
                     type_int_->name,
                     type_uint_->name,
                     AR_TYPE_NAME(value));
@@ -1039,16 +1041,16 @@ ArObject *bytes_item_in(Bytes *self, ArObject *value) {
         return BoolToArBool(false);
     }
 
-    auto *pattern = (Bytes *) value;
-    ArSSize index;
+    if (!BufferGet(value, &buffer, BufferFlags::READ))
+        return nullptr;
 
     SHARED_LOCK(self);
-    SHARED_LOCK(pattern);
 
-    index = support::Find(BUFFER_GET(self), BUFFER_LEN(self), BUFFER_GET(pattern), BUFFER_LEN(pattern));
+    index = support::Find(BUFFER_GET(self), BUFFER_LEN(self), buffer.buffer, buffer.length);
 
-    SHARED_UNLOCK(pattern);
     SHARED_UNLOCK(self);
+
+    BufferRelease(&buffer);
 
     return BoolToArBool(index >= 0);
 }
