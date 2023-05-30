@@ -24,6 +24,19 @@ namespace argon::lang {
         VARIABLE
     };
 
+    static const char *SymbolType2Name[] = {
+        "let",
+        "func",
+        "generator",
+        "LABEL",
+        "module",
+        "NESTED",
+        "struct",
+        "trait",
+        "UNKNOWN",
+        "var"
+    };
+
     struct SymbolT {
         AROBJ_HEAD;
 

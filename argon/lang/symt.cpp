@@ -2,6 +2,8 @@
 //
 // Licensed under the Apache License v2.0
 
+#include <argon/vm/datatype/error.h>
+
 #include <argon/lang/symt.h>
 
 using namespace argon::vm::datatype;
@@ -64,7 +66,13 @@ SymbolT *argon::lang::SymbolInsert(SymbolT *table, String *name, SymbolType type
 
     if ((sym = (SymbolT *) DictLookup(table->stable, (ArObject *) name)) != nullptr) {
         if (sym->type != SymbolType::UNKNOWN && sym->declared) {
-            // TODO redeclaration error!
+            ErrorFormat("RedeclarationError","redeclaration of '%s' as '%s %s' previously known as '%s %s'",
+                        ARGON_RAW_STRING(name),
+                        SymbolType2Name[(int) type],
+                        ARGON_RAW_STRING(name),
+                        SymbolType2Name[(int) sym->type],
+                        ARGON_RAW_STRING(name));
+
             Release(sym);
             return nullptr;
         }
