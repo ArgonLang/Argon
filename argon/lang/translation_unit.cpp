@@ -77,12 +77,10 @@ Code *TranslationUnit::Assemble(String *docstring) const {
     }
 
     if (instr_sz == 0) {
-        code = CodeNew(nullptr, nullptr, this->statics, this->names, this->locals,
-                       this->enclosed, 0, this->stack.required);
-        if (code == nullptr)
+        if ((code = CodeNew(this->statics, this->names, this->locals, this->enclosed)) == nullptr)
             throw DatatypeException();
 
-        return code;
+        return code->SetInfo(this->name, this->qname, nullptr);
     }
 
     if ((instr_buf = (unsigned char *) vm::memory::Alloc(instr_sz)) == nullptr)
@@ -113,14 +111,13 @@ Code *TranslationUnit::Assemble(String *docstring) const {
         }
     }
 
-    code = CodeNew(instr_buf, docstring, this->statics, this->names, this->locals,
-                   this->enclosed, instr_sz, this->stack.required);
-    if (code == nullptr) {
+    if ((code = CodeNew(this->statics, this->names, this->locals, this->enclosed)) == nullptr) {
         vm::memory::Free(instr_buf);
+
         throw DatatypeException();
     }
 
-    return code;
+    return code->SetInfo(this->name, this->qname, docstring)->SetBytecode(instr_buf, instr_sz, this->stack.required);
 }
 
 JBlock *TranslationUnit::JBNew(String *label) {
@@ -316,7 +313,7 @@ TranslationUnit *argon::lang::TranslationUnitDel(TranslationUnit *unit) {
 
     // Free all JBlock
     JBlock *jb = unit->jstack;
-    while((jb = JBlockDel(jb)) != nullptr);
+    while ((jb = JBlockDel(jb)) != nullptr);
 
     argon::vm::memory::Free(unit);
 

@@ -1086,8 +1086,6 @@ ArObject *argon::vm::Eval(Fiber *fiber) {
             TARGET_OP(MKFN)
             {
                 auto flags = I32Flag<FunctionFlags>(cu_frame->instr_ptr);
-                auto *name = (String *) PEEK2();
-                auto *qname = (String *) PEEK1();
                 List *enclosed = nullptr;
 
                 ret = TOP();
@@ -1095,20 +1093,16 @@ ArObject *argon::vm::Eval(Fiber *fiber) {
                 if (ENUMBITMASK_ISTRUE(flags, FunctionFlags::CLOSURE)) {
                     enclosed = (List *) TOP();
                     ret = PEEK1();
-                    qname = (String *) PEEK2();
-                    name = (String *) PEEK3();
                 }
 
-                ret = (ArObject *) FunctionNew((Code *) ret, name, qname, cu_frame->globals,
-                                               enclosed, I16Arg(cu_frame->instr_ptr), flags);
+                ret = (ArObject *) FunctionNew((Code *) ret, cu_frame->globals, enclosed,
+                                               I16Arg(cu_frame->instr_ptr), flags);
                 if (ret == nullptr)
                     break;
 
                 if (ENUMBITMASK_ISTRUE(flags, FunctionFlags::CLOSURE))
                     POP();
 
-                POP(); // Name
-                POP(); // QName
                 TOP_REPLACE(ret);
                 DISPATCH();
             }

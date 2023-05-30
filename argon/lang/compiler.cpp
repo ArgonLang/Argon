@@ -944,10 +944,6 @@ void Compiler::CompileFunction(const parser::Function *func) {
 
     this->TUScopeExit();
 
-    this->LoadStatic(fname.Get(), true, true);
-
-    this->LoadStatic(qname.Get(), false, true);
-
     this->LoadStatic(code.Get(), false, true);
 
     // Load closure
@@ -1990,6 +1986,8 @@ Code *Compiler::Compile(File *node) {
         code = this->unit_->Assemble(node->doc);
 
         this->TUScopeExit();
+    } catch (CompilerException &e) {
+        ErrorFormat("CompilerError", e.what());
     } catch (...) {
         Release(module_name);
     }

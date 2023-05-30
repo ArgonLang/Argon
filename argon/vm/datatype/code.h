@@ -16,59 +16,98 @@ namespace argon::vm::datatype {
     struct Code {
         AROBJ_HEAD;
 
-        /// Code documentation
+        /// Code name.
+        String *name;
+
+        /// Code qualified name.
+        String *qname;
+
+        /// Code documentation.
         String *doc;
 
-        /// Static resources
+        /// Static resources.
         Tuple *statics;
 
-        /// External variables (global scope)
+        /// External variables (global scope).
         Tuple *names;
 
-        /// Local variables (function/cycle scope)
+        /// Local variables (function/cycle scope).
         Tuple *locals;
 
-        /// Closure
+        /// Closure.
         Tuple *enclosed;
 
-        /// Array that contains Argon assembly
+        /// Array that contains Argon assembly.
         const unsigned char *instr;
 
-        /// Pointer to the end of the array that contains the Argon assembly
+        /// Pointer to the end of the array that contains the Argon assembly.
         const unsigned char *instr_end;
 
-        /// Length of instr
+        /// Length of instr.
         unsigned int instr_sz;
 
-        /// Maximum stack size required to run this code
+        /// Maximum stack size required to run this code.
         unsigned int stack_sz;
 
-        /// Hash value computed on buffer instr
+        /// Hash value computed on buffer instr.
         ArSize hash;
+
+        /**
+         * @brief Set information to code object.
+         *
+         * @param co_name Code name.
+         * @param co_qname Code qualified name.
+         * @param co_doc Code Documentation (Makes sense for struct, trait, function, module).
+         * @return this
+         */
+        Code *SetInfo(String *co_name, String *co_qname, String *co_doc) {
+            assert(this->name == nullptr);
+            this->name = IncRef(co_name);
+
+            assert(this->qname == nullptr);
+            this->qname = IncRef(co_qname);
+
+            assert(this->doc == nullptr);
+            this->doc = IncRef(co_doc);
+
+            return this;
+        }
+
+        /**
+         * @brief Set bytecode to code object.
+         *
+         * @param co_instr Buffer containing the bytecode of the Argon VM (give buffer ownership to the Code object).
+         * @param co_instr_sz Length of instr buffer.
+         * @param co_stack_sz Length of evaluation stack.
+         * @return this
+         */
+        Code *SetBytecode(const unsigned char *co_instr, unsigned int co_instr_sz, unsigned int co_stack_sz) {
+            assert(this->instr == nullptr);
+            this->instr = co_instr;
+
+            assert(this->instr_end == nullptr);
+            this->instr_end = co_instr + co_instr_sz;
+
+            this->instr_sz = co_instr_sz;
+            this->stack_sz = co_stack_sz;
+
+            return this;
+        }
     };
+
     extern const TypeInfo *type_code_;
 
     /**
      * @brief Create a new code object.
      *
-     * @param instr Buffer containing the bytecode of the Argon VM (give buffer ownership to the Code object).
-     * @param doc Code Documentation (Makes sense for struct, trait, function, module).
      * @param statics List of static resources (Int, String, etc...).
      * @param names Global names.
      * @param locals Local variables.
      * @param enclosed Enclosed variable names (If present, this code is associate to function closure).
-     * @param instr_sz Length of instr buffer.
-     * @param stack_sz Length of evaluation stack.
      * @return A pointer to an code object, otherwise nullptr.
      */
-    Code *CodeNew(const unsigned char *instr,
-                  String *doc,
-                  List *statics,
-                  List *names,
-                  List *locals,
-                  List *enclosed,
-                  unsigned int instr_sz,
-                  unsigned int stack_sz);
+
+    Code *CodeNew(List *statics, List *names, List *locals, List *enclosed);
 
     /**
      * @brief Create a new code object to wrap native function.

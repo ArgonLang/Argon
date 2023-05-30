@@ -33,6 +33,10 @@ ArSize code_hash(Code *self) {
 }
 
 bool code_dtor(Code *self) {
+    Release(self->name);
+    Release(self->qname);
+    Release(self->doc);
+
     Release(self->statics);
     Release(self->names);
     Release(self->locals);
@@ -70,17 +74,18 @@ TypeInfo CodeType = {
 };
 const TypeInfo *argon::vm::datatype::type_code_ = &CodeType;
 
-Code *argon::vm::datatype::CodeNew(const unsigned char *instr, String *doc, List *statics, List *names,
-                                   List *locals, List *enclosed, unsigned int instr_sz, unsigned int stack_sz) {
+Code *argon::vm::datatype::CodeNew(List *statics, List *names, List *locals, List *enclosed) {
     auto *code = MakeObject<Code>(&CodeType);
 
     if (code != nullptr) {
-        code->instr = instr;
-        code->instr_end = instr + instr_sz;
-        code->instr_sz = instr_sz;
-        code->stack_sz = stack_sz;
+        code->name = nullptr;
+        code->qname = nullptr;
+        code->doc = nullptr;
 
-        code->doc = IncRef(doc);
+        code->instr = nullptr;
+        code->instr_end = nullptr;
+        code->instr_sz = 0;
+        code->stack_sz = 0;
 
         if ((code->statics = TupleNew((ArObject *) statics)) == nullptr) {
             Release(code);
@@ -130,6 +135,8 @@ Code *argon::vm::datatype::CodeWrapFnCall(unsigned short argc, OpCodeCallMode mo
         code->instr_sz = instr_sz;
         code->stack_sz = argc + 1;
 
+        code->name = nullptr;
+        code->qname = nullptr;
         code->doc = nullptr;
         code->statics = nullptr;
         code->names = nullptr;

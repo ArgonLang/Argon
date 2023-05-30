@@ -266,12 +266,11 @@ ArObject *argon::vm::datatype::FunctionInvokeNative(Function *func, ArObject **a
     return ret;
 }
 
-Function *argon::vm::datatype::FunctionNew(Code *code, String *name, String *qname, Namespace *ns,
-                                           List *enclosed, unsigned short arity, FunctionFlags flags) {
-    auto *fn = ::FunctionNew(name, nullptr, arity, flags);
+Function *argon::vm::datatype::FunctionNew(Code *code, Namespace *ns, List *enclosed, unsigned short arity, FunctionFlags flags) {
+    auto *fn = ::FunctionNew(code->name, nullptr, arity, flags);
 
     if (fn != nullptr) {
-        fn->qname = IncRef(qname);
+        fn->qname = IncRef(code->qname);
         fn->doc = IncRef(code->doc);
         fn->enclosed = IncRef(enclosed);
         fn->gns = IncRef(ns);
