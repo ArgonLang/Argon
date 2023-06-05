@@ -912,16 +912,34 @@ Node *Parser::ParseFor() {
         if (this->Match(scanner::TokenType::KW_VAR))
             init = (ArObject *) this->ParseVarDecl(false, false, false);
         else
-            init = (ArObject *) this->ParseExpression(PeekPrecedence(scanner::TokenType::KW_IN));
+            init = (ArObject *) this->ParseExpression(PeekPrecedence(scanner::TokenType::EQUAL));
     }
 
     this->IgnoreNL();
 
-    if (this->MatchEat(TokenType::KW_IN)) {
+    if (this->MatchEat(TokenType::KW_OF)) {
         const auto *check = (Node *) init.Get();
 
-        if (check->node_type != NodeType::IDENTIFIER && check->node_type != NodeType::TUPLE)
-            throw ParserException("expected identifier or tuple before 'in' in foreach");
+        if (check->node_type != NodeType::DECLARATION &&
+            check->node_type != NodeType::IDENTIFIER &&
+            check->node_type != NodeType::TUPLE)
+            throw ParserException("expected var declaration, identifier or tuple before 'of' in foreach");
+
+        if (check->node_type == NodeType::DECLARATION) {
+            const auto *decl = (Assignment *) init.Get();
+
+            if (decl->value != nullptr)
+                throw ParserException("unexpected initialization of var in foreach");
+
+            if (decl->multi) {
+                const auto *tmp = ((List *) decl->name);
+
+                inc = (ArObject *) UnaryNew(decl->name, NodeType::TUPLE, ((Unary *) tmp->objects[0])->loc);
+                ((Node *) inc.Get())->loc.end = ((Node *) tmp->objects[tmp->length - 1])->loc.end;
+            } else
+                inc = IncRef(decl->name);
+        } else
+            inc = init.Unwrap();
 
         type = NodeType::FOREACH;
     } else if (!this->MatchEat(TokenType::SEMICOLON))
@@ -942,7 +960,6 @@ Node *Parser::ParseFor() {
         inc = (ArObject *) this->ParseExpression(0);
     } else
         test = (ArObject *) this->ParseExpression(PeekPrecedence(TokenType::EQUAL));
-
 
     body = (ArObject *) this->ParseBlock(ParserScope::LOOP);
 
@@ -1311,7 +1328,7 @@ Node *Parser::ParseImport(bool pub) {
 Node *Parser::ParseIn(Node *left) {
     NodeType kind = NodeType::IN;
 
-    if(TKCUR_TYPE == TokenType::KW_NOT) {
+    if (TKCUR_TYPE == TokenType::KW_NOT) {
         kind = NodeType::NOT_IN;
 
         this->Eat();

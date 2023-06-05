@@ -68,6 +68,7 @@ namespace argon::lang::scanner {
         KW_LET,
         KW_LOOP,
         KW_NOT,
+        KW_OF,
         KW_PANIC,
         KW_PUB,
         KW_RETURN,

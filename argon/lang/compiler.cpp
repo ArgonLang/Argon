@@ -797,6 +797,9 @@ void Compiler::CompileForEach(const parser::Loop *loop) {
         throw DatatypeException();
 
     try {
+        if (loop->init != nullptr)
+            this->Compile(loop->init);
+
         this->Expression(loop->test);
 
         this->unit_->Emit(vm::OpCode::LDITER, nullptr);
@@ -814,12 +817,12 @@ void Compiler::CompileForEach(const parser::Loop *loop) {
         if (!this->unit_->BlockNew())
             throw DatatypeException();
 
-        if (loop->init->node_type == NodeType::IDENTIFIER)
-            this->StoreVariable((String *) ((const Unary *) loop->init)->value, &loop->init->loc);
-        else if (loop->init->node_type == NodeType::TUPLE)
-            this->CompileUnpack((List *) ((const Unary *) loop->init)->value, &loop->init->loc);
+        if (loop->inc->node_type == NodeType::IDENTIFIER)
+            this->StoreVariable((String *) ((const Unary *) loop->inc)->value, &loop->inc->loc);
+        else if (loop->inc->node_type == NodeType::TUPLE)
+            this->CompileUnpack((List *) ((const Unary *) loop->inc)->value, &loop->inc->loc);
 
-        this->Compile(loop->body);
+        this->CompileBlock(loop->body, false);
 
         this->unit_->Emit(vm::OpCode::JMP, begin, nullptr);
     } catch (...) {
@@ -920,7 +923,7 @@ void Compiler::CompileFunction(const parser::Function *func) {
     this->CompileFunctionParams(func->params, p_count, flags);
 
     if (func->body != nullptr) {
-        this->CompileBlock(func->body, true);
+        this->CompileBlock(func->body, false);
     } else
         this->CompileFunctionDefaultBody(func, (String *) fname.Get());
 
@@ -1050,7 +1053,7 @@ void Compiler::CompileIf(const parser::Test *test) {
 
         this->unit_->BlockNew();
 
-        this->CompileBlock(test->body, true);
+        this->CompileBlock(test->body, this->unit_->symt->type!=SymbolType::MODULE);
 
         if (test->orelse != nullptr) {
             if ((end = BasicBlockNew()) == nullptr)
