@@ -62,13 +62,12 @@ struct Repl {
         var line = self.ps1
         var total_buffer = ""
         var buffer
-        var cursor
         var tabs = 0
 
         loop {
             buffer = io.input(prompt=line+("\t"*tabs))
 
-            for cursor in buffer {
+            for var cursor of buffer {
                 switch {
                     case cursor == '(':
                         p_open[0]++

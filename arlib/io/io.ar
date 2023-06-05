@@ -30,9 +30,7 @@ func _print(stream, args, kwargs) {
     var psep = false
 
     if args != nil {
-        var arg
-
-        for arg in args {
+        for var arg of args {
             psep ? out(sep)
             psep = true
 
