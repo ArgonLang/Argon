@@ -1906,10 +1906,10 @@ void Compiler::TUScopeEnter(String *name, SymbolType context) {
     if (this->unit_ == nullptr) {
         assert(context == SymbolType::MODULE);
 
-        if ((symt = SymbolNew(name)) == nullptr)
+        if ((symt = SymbolTableNew(nullptr, name, SymbolType::MODULE)) == nullptr)
             throw DatatypeException();
     } else {
-        if ((symt = SymbolInsert(this->unit_->symt, name, context)) == nullptr)
+        if ((symt = SymbolTableNew(this->unit_->symt, name, context)) == nullptr)
             throw DatatypeException();
     }
 

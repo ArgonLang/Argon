@@ -43,9 +43,12 @@ bool argon::lang::SymbolNewSub(SymbolT *table) {
             return false;
     }
 
-    auto *subt = SymbolNew(nullptr);
+    auto *subt = SymbolTableNew(nullptr, nullptr, SymbolType::NESTED);
     if (subt == nullptr)
         return false;
+
+    subt->back = table->nested_stack;
+    subt->nested = table->nested + 1;
 
     if (!ListAppend(table->sub, (ArObject *) subt)) {
         Release(subt);
@@ -54,19 +57,21 @@ bool argon::lang::SymbolNewSub(SymbolT *table) {
 
     Release(subt);
 
-    subt->type = SymbolType::NESTED;
-    subt->nested = table->nested;
-
     table->nested_stack = subt;
+
     return true;
 }
 
 SymbolT *argon::lang::SymbolInsert(SymbolT *table, String *name, SymbolType type) {
-    SymbolT *sym;
+    SymbolT *sym = SymbolLookup(table, name);
+    SymbolT *target = table;
 
-    if ((sym = (SymbolT *) DictLookup(table->stable, (ArObject *) name)) != nullptr) {
+    if (table->nested_stack != nullptr)
+        target = table->nested_stack;
+
+    if (sym != nullptr) {
         if (sym->type != SymbolType::UNKNOWN && sym->declared) {
-            ErrorFormat("RedeclarationError","redeclaration of '%s' as '%s %s' previously known as '%s %s'",
+            ErrorFormat("RedeclarationError", "redeclaration of '%s' as '%s %s' previously known as '%s %s'",
                         ARGON_RAW_STRING(name),
                         SymbolType2Name[(int) type],
                         ARGON_RAW_STRING(name),
@@ -77,21 +82,17 @@ SymbolT *argon::lang::SymbolInsert(SymbolT *table, String *name, SymbolType type
             return nullptr;
         }
     } else {
-        if ((sym = SymbolNew(name)) == nullptr)
+        if ((sym = SymbolNew(name, type)) == nullptr)
             return nullptr;
 
-        if (!DictInsert(table->stable, (ArObject *) name, (ArObject *) sym)) {
+        if (!DictInsert(target->stable, (ArObject *) name, (ArObject *) sym)) {
             Release(sym);
             return nullptr;
         }
     }
 
-    sym->back = table;
-    sym->type = type;
-    sym->nested = table->nested;
-
-    if (table->type != SymbolType::MODULE)
-        sym->nested++;
+    sym->back = target;
+    sym->nested = target->nested;
 
     return sym;
 }
@@ -111,11 +112,39 @@ SymbolT *argon::lang::SymbolLookup(const SymbolT *table, String *name) {
     return nullptr;
 }
 
-SymbolT *argon::lang::SymbolNew(String *name) {
+SymbolT *argon::lang::SymbolNew(String *name, SymbolType type) {
     auto *symt = MakeObject<SymbolT>(type_symt_);
 
     if (symt != nullptr) {
         symt->back = nullptr;
+        symt->nested_stack = nullptr;
+
+        symt->name = IncRef(name);
+
+        symt->stable = nullptr;
+
+        symt->sub = nullptr;
+
+        symt->id = -1;
+
+        symt->type = type;
+
+        symt->nested = 0;
+
+        symt->declared = false;
+
+        symt->free = false;
+    }
+
+    return symt;
+}
+
+SymbolT *argon::lang::SymbolTableNew(SymbolT *prev, String *name, SymbolType type) {
+    auto *symt = MakeObject<SymbolT>(type_symt_);
+
+    if (symt != nullptr) {
+        symt->back = prev;
+
         symt->nested_stack = nullptr;
 
         symt->name = IncRef(name);
@@ -129,9 +158,9 @@ SymbolT *argon::lang::SymbolNew(String *name) {
 
         symt->id = -1;
 
-        symt->type = SymbolType::MODULE;
+        symt->type = type;
 
-        symt->nested = 0;
+        symt->nested = prev != nullptr ? prev->nested + 1 : 0;
 
         symt->declared = false;
 

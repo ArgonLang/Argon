@@ -68,7 +68,9 @@ namespace argon::lang {
 
     SymbolT *SymbolLookup(const SymbolT *table, vm::datatype::String *name);
 
-    SymbolT *SymbolNew(vm::datatype::String *name);
+    SymbolT *SymbolNew(vm::datatype::String *name, SymbolType type);
+
+    SymbolT *SymbolTableNew(SymbolT *prev, vm::datatype::String *name, SymbolType type);
 
     void SymbolExitSub(SymbolT *table);
 }
