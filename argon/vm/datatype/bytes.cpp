@@ -504,10 +504,7 @@ ARGON_METHOD(bytes_join, join,
             len = buffer.length;
         }
 
-        if (idx > 0)
-            len += BUFFER_LEN(self);
-
-        if (!BufferViewEnlarge(&ret->view, len)) {
+        if (!BufferViewEnlarge(&ret->view, idx > 0 ? len + BUFFER_LEN(self) : len)) {
             BufferRelease(&buffer);
             goto ERROR;
         }
