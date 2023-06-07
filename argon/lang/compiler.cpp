@@ -1990,7 +1990,7 @@ Code *Compiler::Compile(File *node) {
 
         this->TUScopeExit();
     } catch (CompilerException &e) {
-        ErrorFormat("CompilerError", e.what());
+        ErrorFormat("CompilerError", "%s", e.what());
     } catch (...) {
         Release(module_name);
     }

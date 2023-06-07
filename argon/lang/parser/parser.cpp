@@ -2311,13 +2311,13 @@ File *Parser::Parse() noexcept {
         doc = (ArObject *) this->doc_string_->Unwrap();
 
         this->ExitDocContext();
+    } catch (const ScannerException &) {
+        ErrorFormat(kParserErrors[0], "%s", this->scanner_.GetStatusMessage());
+        return nullptr;
     } catch (const ParserException &e) {
         ErrorFormat(kParserErrors[1], "%s", e.what());
         return nullptr;
-    } catch (const ScannerException &e) {
-        ErrorFormat(kParserErrors[1], this->scanner_.GetStatusMessage());
-        return nullptr;
-    } catch (const DatatypeException &e) {
+    } catch (const DatatypeException &) {
         // This exception can be safely ignored!
         return nullptr;
     }
