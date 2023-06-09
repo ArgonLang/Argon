@@ -205,7 +205,7 @@ ArObject *argon::vm::datatype::NativeWrapperGet(const NativeWrapper *wrapper, co
             if (tmp == nullptr)
                 return (ArObject *) IncRef(Nil);
 
-            return (ArObject *) tmp;
+            return IncRef((ArObject *) tmp);
         case MemberType::SHORT:
             return (ArObject *) UIntNew(*((short *) GET_MEMBER(wrapper, native)));
         case MemberType::STRING:
