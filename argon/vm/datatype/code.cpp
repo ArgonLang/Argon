@@ -10,6 +10,20 @@
 
 using namespace argon::vm::datatype;
 
+unsigned int Code::GetLineMapping(ArSize offset) const {
+    ArSize mapping_offset = 0;
+    unsigned int mapping_line = 0;
+
+    for (unsigned int i = 0; i < this->linfo_sz; i += 2) {
+        mapping_offset += this->linfo[i];
+        mapping_line += (char) this->linfo[i + 1];
+        if (mapping_offset > offset)
+            break;
+    }
+
+    return mapping_line;
+}
+
 ArObject *code_compare(const Code *self, const ArObject *other, CompareMode mode) {
     bool equal = false;
 
@@ -84,8 +98,11 @@ Code *argon::vm::datatype::CodeNew(List *statics, List *names, List *locals, Lis
 
         code->instr = nullptr;
         code->instr_end = nullptr;
+        code->linfo = nullptr;
+
         code->instr_sz = 0;
         code->stack_sz = 0;
+        code->linfo_sz = 0;
 
         if ((code->statics = TupleNew((ArObject *) statics)) == nullptr) {
             Release(code);
@@ -134,6 +151,9 @@ Code *argon::vm::datatype::CodeWrapFnCall(unsigned short argc, OpCodeCallMode mo
         code->instr_end = code->instr + instr_sz;
         code->instr_sz = instr_sz;
         code->stack_sz = argc + 1;
+
+        code->linfo = nullptr;
+        code->linfo_sz = 0;
 
         code->name = nullptr;
         code->qname = nullptr;

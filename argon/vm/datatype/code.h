@@ -43,14 +43,57 @@ namespace argon::vm::datatype {
         /// Pointer to the end of the array that contains the Argon assembly.
         const unsigned char *instr_end;
 
+        /// Array that contains mapping between code lines and opcodes.
+        const unsigned char *linfo;
+
         /// Length of instr.
         unsigned int instr_sz;
 
         /// Maximum stack size required to run this code.
         unsigned int stack_sz;
 
+        /// Length of linfo
+        unsigned int linfo_sz;
+
         /// Hash value computed on buffer instr.
         ArSize hash;
+
+        /**
+         * @brief Set bytecode to code object.
+         *
+         * @param co_instr Buffer containing the bytecode of the Argon VM (give buffer ownership to the Code object).
+         * @param co_instr_sz Length of instr buffer.
+         * @param co_stack_sz Length of evaluation stack.
+         * @param co_lnotab Buffer containing lineno offsets
+         * @param co_lnotab_sz Length of lnotab buffer
+         * @return this
+         */
+        Code *SetBytecode(const unsigned char *co_instr, unsigned int co_instr_sz, unsigned int co_stack_sz) {
+            assert(this->instr == nullptr);
+            this->instr = co_instr;
+
+            assert(this->instr_end == nullptr);
+            this->instr_end = co_instr + co_instr_sz;
+
+            this->instr_sz = co_instr_sz;
+            this->stack_sz = co_stack_sz;
+
+            return this;
+        }
+
+        /***
+         * @brief Set mapping between lines and opcodes.
+         * @param co_linfo Buffer containing lineno offsets
+         * @param size Length of lnotab buffer
+         * @return this
+         */
+        Code *SetTracingInfo(const unsigned char *co_linfo, unsigned int size) {
+            assert(this->linfo == nullptr);
+            this->linfo = co_linfo;
+            this->linfo_sz = size;
+
+            return this;
+        }
 
         /**
          * @brief Set information to code object.
@@ -73,26 +116,7 @@ namespace argon::vm::datatype {
             return this;
         }
 
-        /**
-         * @brief Set bytecode to code object.
-         *
-         * @param co_instr Buffer containing the bytecode of the Argon VM (give buffer ownership to the Code object).
-         * @param co_instr_sz Length of instr buffer.
-         * @param co_stack_sz Length of evaluation stack.
-         * @return this
-         */
-        Code *SetBytecode(const unsigned char *co_instr, unsigned int co_instr_sz, unsigned int co_stack_sz) {
-            assert(this->instr == nullptr);
-            this->instr = co_instr;
-
-            assert(this->instr_end == nullptr);
-            this->instr_end = co_instr + co_instr_sz;
-
-            this->instr_sz = co_instr_sz;
-            this->stack_sz = co_stack_sz;
-
-            return this;
-        }
+        unsigned int GetLineMapping(ArSize offset) const;
     };
 
     extern const TypeInfo *type_code_;

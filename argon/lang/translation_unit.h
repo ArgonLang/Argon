@@ -63,7 +63,7 @@ namespace argon::lang {
 
         bool BlockNew();
 
-        bool IsFreeVar(vm::datatype::String *id);
+        bool IsFreeVar(vm::datatype::String *id) const;
 
         [[nodiscard]] vm::datatype::Code *Assemble(vm::datatype::String *docstring) const;
 
@@ -73,7 +73,9 @@ namespace argon::lang {
 
         JBlock *JBNew(BasicBlock *start, BasicBlock *end, unsigned short pops);
 
-        JBlock *FindLoop(vm::datatype::String *label);
+        JBlock *FindLoop(vm::datatype::String *label) const;
+
+        unsigned int ComputeAssemblyLength(unsigned int *out_linfo_sz) const;
 
         void BlockAppend(BasicBlock *block);
 
