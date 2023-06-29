@@ -673,7 +673,7 @@ int Scanner::Peek(bool advance) {
             break;
 
         if (this->fd_ == nullptr)
-            return 0;
+            return -1;
 
         if (this->prompt_ != nullptr)
             err = this->UnderflowInteractive();
@@ -682,7 +682,7 @@ int Scanner::Peek(bool advance) {
 
         if (err == 0) {
             this->status_ = ScannerStatus::END_OF_FILE;
-            return 0;
+            return -1;
         }
 
         if (err < 0)
