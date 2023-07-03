@@ -69,6 +69,8 @@ Frame *argon::vm::FrameNew(Fiber *fiber, Code *code, Namespace *globals, bool fl
     if (frame == nullptr)
         return nullptr;
 
+    frame->counter = 1;
+
     frame->globals = IncRef(globals);
     frame->code = IncRef(code);
 
@@ -178,6 +180,12 @@ void argon::vm::FiberDel(Fiber *fiber) {
 void argon::vm::FrameDel(Frame *frame) {
     const auto *code = frame->code;
 
+    if (--frame->counter > 0)
+        return;
+
+    if (frame->back != nullptr)
+        frame->back->counter--;
+
     if (code->locals != nullptr) {
         for (ArSize i = 0; i < code->locals->length; i++)
             Release(frame->locals[i]);
@@ -197,4 +205,19 @@ void argon::vm::FrameDel(Frame *frame) {
     }
 
     ((Fiber *) frame->fiber_id)->FrameDel(frame);
+}
+
+void argon::vm::FrameDelRec(Frame *frame) {
+    Frame *back;
+
+    if (frame == nullptr)
+        return;
+
+    do {
+        back = frame->back;
+
+        FrameDel(frame);
+
+        frame = back;
+    } while (frame != nullptr && frame->counter == 0);
 }

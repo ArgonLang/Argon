@@ -431,6 +431,8 @@ void PanicCleanup(struct Panic **panic) {
 
         Release(cursor->object);
 
+        FrameDelRec(cursor->frame);
+
         if (panic_oom.compare_exchange_strong(expected, cursor))
             continue;
 
@@ -438,15 +440,12 @@ void PanicCleanup(struct Panic **panic) {
     }
 }
 
-void PanicOOM(struct Panic **panic, ArObject *object) {
+void PanicOOM(Fiber *fiber, struct Panic **panic, ArObject *object) {
     auto *tmp = panic_oom.exchange(nullptr);
 
     assert(tmp != nullptr);
 
-    tmp->panic = *panic;
-    tmp->object = IncRef(object);
-    tmp->recovered = false;
-    tmp->aborted = *panic != nullptr;
+    PanicFill(tmp, *panic, fiber != nullptr ? fiber->frame : nullptr, object);
 
     *panic = tmp;
 }
@@ -870,7 +869,7 @@ bool argon::vm::IsPanickingFrame() {
         if (ost_local->fiber->panic == nullptr)
             return false;
 
-        return (uintptr_t) ost_local->fiber->frame == ost_local->fiber->panic->gen_id;
+        return ost_local->fiber->frame == ost_local->fiber->panic->frame;
     }
 
     assert(false);
@@ -973,16 +972,14 @@ void argon::vm::Panic(datatype::ArObject *panic) {
         fiber = loop::thlocal_event->fiber;
 
     if (fiber != nullptr) {
-        if ((fiber->panic = PanicNew(fiber->panic, panic)) == nullptr)
-            PanicOOM(&fiber->panic, panic);
-
-        fiber->panic->gen_id = (uintptr_t) fiber->frame;
+        if ((fiber->panic = PanicNew(fiber->panic, fiber->frame, panic)) == nullptr)
+            PanicOOM(fiber, &fiber->panic, panic);
 
         return;
     }
 
     if ((panic_global = PanicNew(panic_global, panic)) == nullptr)
-        PanicOOM(&panic_global, panic);
+        PanicOOM(nullptr, &panic_global, panic);
 }
 
 void argon::vm::SetFiberStatus(FiberStatus status) {

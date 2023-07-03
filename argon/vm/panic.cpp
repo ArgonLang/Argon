@@ -7,15 +7,24 @@
 using namespace argon::vm;
 using namespace argon::vm::datatype;
 
-Panic *argon::vm::PanicNew(Panic *prev, ArObject *object) {
+Panic *argon::vm::PanicNew(Panic *prev, Frame *frame, ArObject *object) {
     auto *panic = (Panic *) memory::Alloc(sizeof(Panic));
 
-    if (panic != nullptr) {
-        panic->panic = prev;
-        panic->object = IncRef(object);
-        panic->recovered = false;
-        panic->aborted = prev != nullptr;
-    }
+    PanicFill(panic, prev, frame, object);
 
     return panic;
+}
+
+void argon::vm::PanicFill(Panic *panic, Panic *prev, Frame *frame, ArObject *object) {
+    if (panic == nullptr)
+        return;
+
+    panic->panic = prev;
+    panic->frame = frame;
+    panic->object = IncRef(object);
+    panic->recovered = false;
+    panic->aborted = prev != nullptr;
+
+    if (panic->frame != nullptr)
+        panic->frame->counter++;
 }

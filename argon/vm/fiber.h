@@ -103,8 +103,14 @@ namespace argon::vm {
 
     void FrameDel(Frame *frame);
 
+    void FrameDelRec(Frame *frame);
+
     inline void FiberPushFrame(Fiber *fiber, Frame *_new) {
         _new->back = fiber->frame;
+
+        if (fiber->frame != nullptr)
+            fiber->frame->counter++;
+
         fiber->frame = _new;
     }
 

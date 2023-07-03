@@ -7,16 +7,18 @@
 
 #include <argon/vm/datatype/arobject.h>
 
+#include <argon/vm/frame.h>
+
 namespace argon::vm {
     struct Panic {
         /// Prev panic.
         Panic *panic;
 
+        /// If the panic originated in an Argon context this is the pointer to frame that generated the error.
+        Frame *frame;
+
         /// Pointer to panic object.
         datatype::ArObject *object;
-
-        /// If the panic originated in an Argon context it is the ID (raw pointer) of the frame that generated the error.
-        uintptr_t gen_id;
 
         /// This panic was recovered?
         bool recovered;
@@ -25,7 +27,13 @@ namespace argon::vm {
         bool aborted;
     };
 
-    struct Panic *PanicNew(struct Panic *prev, datatype::ArObject *object);
+    struct Panic *PanicNew(struct Panic *prev, Frame *frame, datatype::ArObject *object);
+
+    inline struct Panic *PanicNew(struct Panic *prev, datatype::ArObject *object) {
+        return PanicNew(prev, nullptr, object);
+    }
+
+    void PanicFill(struct Panic *panic, struct Panic *prev, Frame *frame, datatype::ArObject *object);
 
 } // namespace argon::vm
 

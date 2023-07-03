@@ -14,6 +14,9 @@ namespace argon::vm {
     struct Frame {
         datatype::ArSize fiber_id;
 
+        /// This counter tracks the use of frame. It is used to prevent panicked frames from being released prematurely.
+        datatype::ArSize counter;
+
         /// Previous frame (caller).
         Frame *back;
 
