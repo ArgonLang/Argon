@@ -16,6 +16,7 @@ namespace argon::vm {
         int argc;
 
         bool interactive;
+        bool nogc;
         bool quiet;
         bool stack_trace;
         bool unbuffered;

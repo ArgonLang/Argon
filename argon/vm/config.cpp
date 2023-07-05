@@ -6,6 +6,7 @@
 #include <cstdlib>
 #include <cstring>
 
+#include <argon/vm/version.h>
 #include <argon/vm/config.h>
 
 using namespace argon::vm;
@@ -15,6 +16,7 @@ constexpr Config DefaultConfig = {
         0,
 
         true,
+        false,
         false,
         false,
         false,
@@ -166,7 +168,7 @@ bool argon::vm::ConfigInit(Config *config, int argc, char **argv) {
     while (ret != -1 && (ret = ReadOp(&status, "c!hiquv", lopt, sizeof(lopt), '-')) != -1) {
         switch (ret) {
             case 0: // --nogc
-                // TODO GC
+                config->nogc = true;
                 break;
             case 1: // --pst
                 config->stack_trace = true;
@@ -188,7 +190,7 @@ bool argon::vm::ConfigInit(Config *config, int argc, char **argv) {
                 config->unbuffered = true;
                 break;
             case 'v':
-                // TODO: printf("Argon %d.%d.%d(%s)\n", AR_MAJOR, AR_MINOR, AR_PATCH, AR_RELEASE_LEVEL);
+                printf("Argon %d.%d.%d(%s)\n", AR_MAJOR, AR_MINOR, AR_PATCH, AR_RELEASE_LEVEL);
                 exit(EXIT_SUCCESS);
             case ISLOPT:
                 break;

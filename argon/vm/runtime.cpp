@@ -847,6 +847,8 @@ bool argon::vm::Initialize(const Config *config) {
     if (config->max_ost <= 0)
         ost_max = kOSThreadMax;
 
+    memory::GCEnable(!config->nogc);
+
     if (!Setup())
         return false;
 
