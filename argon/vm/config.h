@@ -17,6 +17,7 @@ namespace argon::vm {
 
         bool interactive;
         bool quiet;
+        bool stack_trace;
         bool unbuffered;
         int cmd;
         int file;

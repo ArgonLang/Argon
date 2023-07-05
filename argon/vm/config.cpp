@@ -17,6 +17,7 @@ constexpr Config DefaultConfig = {
         true,
         false,
         false,
+        false,
         -1,
         -1,
         0,
@@ -37,6 +38,7 @@ static const char usage[] =
         "-h, --help     : print this help message and exit\n"
         "-i             : start interactive mode after running script\n"
         "--nogc         : disable garbage collector\n"
+        "--pst          : print stacktrace\n"
         "-q             : don't print version messages on interactive startup\n"
         "-u             : force the stdout stream to be unbuffered\n"
         "-v, --version  : print Argon version and exit\n";
@@ -68,7 +70,7 @@ struct ReadOpStatus {
 };
 
 struct ReadOpLong {
-    char *name;
+    const char *name;
     bool harg;
     char rt;
 };
@@ -147,10 +149,11 @@ void ParseEnvs(Config *config) {
 
 bool argon::vm::ConfigInit(Config *config, int argc, char **argv) {
     ReadOpLong lopt[] = {
-            {(char *) "help",    false, 'h'},
-            {(char *) "version", false, 'v'},
+            {"help",    false, 'h'},
+            {"version", false, 'v'},
 
-            {(char *) "nogc",    false, 0}
+            {"nogc",    false, 0},
+            {"pst",     false, 1}
     };
     ReadOpStatus status = {};
 
@@ -164,6 +167,9 @@ bool argon::vm::ConfigInit(Config *config, int argc, char **argv) {
         switch (ret) {
             case 0: // --nogc
                 // TODO GC
+                break;
+            case 1: // --pst
+                config->stack_trace = true;
                 break;
             case 'c':
                 config->cmd = status.argc_cur;

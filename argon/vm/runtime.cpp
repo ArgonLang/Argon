@@ -36,6 +36,7 @@
 #include <argon/vm/fiber.h>
 #include <argon/vm/fqueue.h>
 #include <argon/vm/runtime.h>
+#include <argon/vm/traceback.h>
 
 using namespace argon::vm;
 using namespace argon::vm::datatype;
@@ -451,6 +452,9 @@ void PanicOOM(Fiber *fiber, struct Panic **panic, ArObject *object) {
 }
 
 void PublishResult(Fiber *fiber, ArObject *result) {
+    if (result == nullptr && fiber->context->global_config->stack_trace)
+        TBPrintPanics(stderr);
+
     if (fiber->future != nullptr) {
         if (result == nullptr) {
             result = argon::vm::GetLastError();
@@ -460,8 +464,6 @@ void PublishResult(Fiber *fiber, ArObject *result) {
         }
 
         FutureSetResult(fiber->future, result, nullptr);
-    } else {
-        // TODO: else PrintStackTrace!
     }
 
     FreeFiber(fiber);
