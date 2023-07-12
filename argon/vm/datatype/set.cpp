@@ -384,7 +384,7 @@ ArObject *set_compare(Set *self, ArObject *other, CompareMode mode) {
 }
 
 ArObject *set_iter(Set *self, bool reverse) {
-    auto *li = MakeGCObject<SetIterator>(type_set_iterator_, true);
+    auto *li = MakeObject<SetIterator>(type_set_iterator_);
 
     if (li != nullptr) {
         std::shared_lock _(self->rwlock);
