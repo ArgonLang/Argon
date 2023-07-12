@@ -36,12 +36,7 @@ ArObject *type_compare(const ArObject *self, const ArObject *other, CompareMode 
 }
 
 ArObject *type_get_attr(const ArObject *self, ArObject *key, bool static_attr) {
-    const TypeInfo *ancestor = AR_GET_TYPE(self);
-    auto **ns = (Namespace **) AR_GET_NSOFFSET(self);
-    const ArObject *instance = nullptr;
-    ArObject *ret = nullptr;
-
-    AttributeProperty aprop{};
+    const auto *ancestor = AR_GET_TYPE(self);
 
     if (!AR_HAVE_OBJECT_BEHAVIOUR(self)) {
         ErrorFormat(kAttributeError[0], static_attr ? kAttributeError[2] : kAttributeError[1], ancestor->name);
@@ -54,12 +49,19 @@ ArObject *type_get_attr(const ArObject *self, ArObject *key, bool static_attr) {
     }
 
     const auto *frame = argon::vm::GetFrame();
+    const ArObject *instance = nullptr;
+    ArObject *ret = nullptr;
+
+    AttributeProperty aprop{};
+
     if (frame != nullptr)
         instance = frame->instance;
 
     if (!static_attr) {
-        if (AR_SLOT_OBJECT(self)->namespace_offset >= 0)
-            ret = NamespaceLookup(*ns, key, &aprop);
+        if (AR_SLOT_OBJECT(self)->namespace_offset >= 0) {
+            auto ns = *((Namespace **) AR_GET_NSOFFSET(self));
+            ret = NamespaceLookup(ns, key, &aprop);
+        }
 
         if (ret == nullptr) {
             if (ancestor->tp_map != nullptr)
@@ -136,30 +138,53 @@ bool type_dtor(TypeInfo *self) {
 }
 
 bool type_set_attr(ArObject *self, ArObject *key, ArObject *value, bool static_attr) {
-    auto **ns = (Namespace **) AR_GET_NSOFFSET(self);
-    const ArObject *instance = nullptr;
-    ArObject *current = nullptr;
-
-    bool is_tpm = false;
-
-    AttributeProperty aprop{};
-
     if (!AR_HAVE_OBJECT_BEHAVIOUR(self)) {
         ErrorFormat(kAttributeError[0], static_attr ? kAttributeError[2] : kAttributeError[1], AR_TYPE_NAME(self));
         return false;
     }
 
+    if (static_attr && !AR_TYPEOF(self, type_type_)) {
+        ErrorFormat(kTypeError[0], kTypeError[1], AR_TYPE_NAME(self));
+        return false;
+    }
+
+    const auto *ancestor = AR_GET_TYPE(self);
     const auto *frame = argon::vm::GetFrame();
+    const ArObject *instance = nullptr;
+    ArObject *current = nullptr;
+    Namespace *ns;
+
+    AttributeProperty aprop{};
+
     if (frame != nullptr)
         instance = frame->instance;
 
-    if (AR_SLOT_OBJECT(self)->namespace_offset < 0) {
-        ns = (Namespace **) &(AR_GET_TYPE(self)->tp_map);
-        is_tpm = true;
+    if (!static_attr) {
+        if (AR_SLOT_OBJECT(self)->namespace_offset >= 0) {
+            ns = *((Namespace **) AR_GET_NSOFFSET(self));
+            current = NamespaceLookup(ns, key, &aprop);
+        }
+
+        if (current == nullptr && ancestor->tp_map != nullptr) {
+            current = NamespaceLookup((Namespace *) ancestor->tp_map, key, &aprop);
+            ns = nullptr;
+        }
+    } else {
+        ns = (Namespace *) ((const TypeInfo *) self)->tp_map;
+        current = NamespaceLookup(ns, key, &aprop);
     }
 
-    if ((current = NamespaceLookup(*ns, key, &aprop)) == nullptr) {
-        ErrorFormat(kAttributeError[0], kAttributeError[3], AR_TYPE_NAME(self));
+    if (current == nullptr) {
+        ErrorFormat(kAttributeError[0], kAttributeError[3], ARGON_RAW_STRING((String *) key), AR_TYPE_NAME(self));
+        return false;
+    }
+
+    if (static_attr && !aprop.IsConstant()) {
+        ErrorFormat(kAccessViolationError[0], kAccessViolationError[2],
+                    ARGON_RAW_STRING((String *) key), AR_TYPE_QNAME(self));
+
+        Release(current);
+
         return false;
     }
 
@@ -181,14 +206,14 @@ bool type_set_attr(ArObject *self, ArObject *key, ArObject *value, bool static_a
 
     Release(current);
 
-    if (is_tpm || aprop.IsConstant()) {
+    if (ns== nullptr || aprop.IsConstant()) {
         ErrorFormat(kUnassignableError[0], kUnassignableError[2],
                     AR_TYPE_QNAME(self), ARGON_RAW_STRING((String *) key));
 
         return false;
     }
 
-    return NamespaceSet(*ns, key, value);
+    return NamespaceSet(ns, key, value);
 }
 
 const ObjectSlots type_objslot = {
@@ -1007,7 +1032,7 @@ void RefStore::Store(ArObject *object) {
 }
 
 void RefStore::Release() {
-    if(this->s_value == nullptr)
+    if (this->s_value == nullptr)
         return;
 
     if (this->weak_)
