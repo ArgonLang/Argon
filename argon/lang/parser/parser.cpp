@@ -616,6 +616,9 @@ Node *Parser::ParseDecls(ParserScope scope) {
             stmt = (ArObject *) this->ParseVarDecl(pub, false, true);
             break;
         case TokenType::KW_VAR:
+            if (scope == ParserScope::TRAIT)
+                throw ParserException("unexpected use of 'var' in this context");
+
             stmt = (ArObject *) this->ParseVarDecl(pub, false, false);
             break;
         case TokenType::KW_LET:
