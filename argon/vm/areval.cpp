@@ -408,11 +408,11 @@ int Unpack(ArObject *iterable, ArObject **eval_stack, int len) {
 
     if (!AR_ISITERABLE(iterable)) {
         ErrorFormat(kTypeError[0], "unpacking expression was expecting an iterable not a '%s'", AR_TYPE_NAME(iterable));
-        return false;
+        return -1;
     }
 
     if ((iter = IteratorGet(iterable, false)) == nullptr)
-        return false;
+        return -1;
 
     eval_stack += len;
 
