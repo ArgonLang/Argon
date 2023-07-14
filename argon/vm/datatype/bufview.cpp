@@ -26,7 +26,7 @@ SharedBuffer *SharedBufferNew(ArSize cap) {
             }
         }
 
-        new(&shared->rwlock)std::shared_mutex();
+        new(&shared->rwlock)argon::vm::sync::RecursiveSharedMutex();
     }
 
     return shared;

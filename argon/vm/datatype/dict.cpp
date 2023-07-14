@@ -3,6 +3,7 @@
 // Licensed under the Apache License v2.0
 
 #include <climits>
+#include <shared_mutex>
 
 #include <argon/vm/runtime.h>
 

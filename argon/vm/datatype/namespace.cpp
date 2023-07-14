@@ -3,6 +3,7 @@
 // Licensed under the Apache License v2.0
 
 #include <cassert>
+#include <shared_mutex>
 
 #include <argon/vm/datatype/arstring.h>
 #include <argon/vm/datatype/boolean.h>

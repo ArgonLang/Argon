@@ -2,6 +2,8 @@
 //
 // Licensed under the Apache License v2.0
 
+#include <shared_mutex>
+
 #include <argon/vm/runtime.h>
 
 #include <argon/vm/datatype/boolean.h>
