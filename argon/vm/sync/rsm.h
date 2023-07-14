@@ -6,53 +6,80 @@
 #define ARGON_VM_RSM_H_
 
 #include <atomic>
-#include <shared_mutex>
+#include <cassert>
 #include <thread>
 
 namespace argon::vm::sync {
-    /**
-     * This implementation allows to use a std::shared_mutex with recursive lock when used in unique_lock mode.
-     * It is necessary to be able to use intrinsically recursive functions such as the argon::datatype::Equal on objects of type container (dict, list, tuple, etc...)
-     *
-     * Hey, better solutions are always welcome! Help me! :)
-     */
-    class RecursiveSharedMutex {
-        std::shared_mutex _rwlock{};
-        std::atomic<std::thread::id> _id{};
-        unsigned long _count{};
+    using MutexWord = unsigned int;
+
+    class MutexBits {
+        MutexWord bits{};
 
     public:
-        void lock() {
-            auto id = std::this_thread::get_id();
-
-            if (id == this->_id) {
-                this->_count++;
-                return;
-            }
-
-            this->_rwlock.lock();
-            this->_id = id;
-            this->_count = 1;
+        [[nodiscard]] bool is_ulocked() const {
+            return (this->bits & 0x01) == 1;
         }
 
-        void unlock() {
-            if (this->_count > 1) {
-                this->_count--;
-                return;
-            }
-
-            this->_id = std::thread::id();
-            this->_count = 0;
-            this->_rwlock.unlock();
+        [[nodiscard]] MutexWord value() const {
+            return this->bits;
         }
 
-        void lock_shared() {
-            this->_rwlock.lock_shared();
+        void acquire_unique() {
+            this->bits |= 1;
         }
 
-        void unlock_shared() {
-            this->_rwlock.unlock_shared();
+        void dec_shared() {
+            assert((this->bits >> 1) > 0);
+
+            this->bits -= 0x01 << 1;
         }
+
+        void inc_shared() {
+            this->bits += 0x01 << 1;
+        }
+
+        void release_unique() {
+            this->bits &= ~1;
+        }
+    };
+
+    /**
+     * Normally mutex do not allow unlock to be called by a different thread than the one that requested the lock.
+     * This represents a problem for the Argon VM, let's imagine the following scenario:
+     *
+     * Thread A gets a buffer from an object (e.g. type Bytes) and makes a recv call on a socket.
+     * Since there is no data available, the VM inserts the current fiber into the event loop.
+     *
+     * Thread B that manages the event loop will execute the recv on the waiting fiber, at the end of the call
+     * the used buffer will have to be released through a call to mutex.unlock.
+     * Since the locking thread is different from the unlocking thread, the use of standard mutex is not ALLOWED.
+     *
+     * This mutex implementation solves the problem and allows the following operations:
+     *
+     * - Lock from one thread and unlock from a different thread.
+     * - Recursive lock by a thread (the call to unlock will have to match the number of calls to lock
+     *   and can only be executed by the same thread).
+     * - Shared lock (thread that acquired the unique lock can also request the shared lock).
+     */
+    class RecursiveSharedMutex {
+        std::atomic<MutexBits> _lock{};
+
+        std::thread::id _id{};
+
+        MutexWord _r_count{};
+
+        void lock_shared_slow(std::thread::id id);
+
+        void lock_slow();
+
+    public:
+        void lock();
+
+        void lock_shared();
+
+        void unlock();
+
+        void unlock_shared();
     };
 } // namespace argon::vm::sync
 
