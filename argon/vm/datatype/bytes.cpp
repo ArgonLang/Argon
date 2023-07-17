@@ -1186,7 +1186,7 @@ ArObject *bytes_mod(Bytes *left, ArObject *args) {
     if ((buffer = fmt.Format(&out_length, &out_cap)) == nullptr) {
         auto *err = fmt.GetError();
 
-        argon::vm::Panic((ArObject *) err);
+        argon::vm::Panic( err);
 
         Release(err);
 
@@ -1403,7 +1403,13 @@ Bytes *argon::vm::datatype::BytesFreeze(Bytes *bytes) {
     if (bytes->frozen)
         return IncRef(bytes);
 
-    if ((ret = BytesNew(bytes, 0, BUFFER_LEN(bytes))) == nullptr)
+    SHARED_LOCK(bytes);
+
+    ret = BytesNew(bytes, 0, BUFFER_LEN(bytes));
+
+    SHARED_UNLOCK(bytes);
+
+    if (ret == nullptr)
         return nullptr;
 
     ret->frozen = true;
