@@ -41,6 +41,10 @@ pub struct BufferedReader impl LineReader {
         var nbytes = 0
 		var copied
 
+        if size == 0 {
+            return b""
+        }
+
         var to_read = self.FillBuffer()
 
         loop size > to_read {
@@ -60,6 +64,10 @@ pub struct BufferedReader impl LineReader {
 
                 nbytes += to_read
                 size -= to_read
+            }
+
+            if size == 0 {
+                return retval
             }
 
             to_read = self.FillBuffer()
@@ -114,7 +122,14 @@ pub struct BufferedReader impl LineReader {
 
 			retval += self.buffer[self.index : self.index + found]
 			self.index = self.index + found
-			size -= found
+
+            if size > 0 {
+			    size -= found
+
+                if size == 0 {
+                    return retval
+                }
+            }
 
 			to_read = self.FillBuffer()
 		}
