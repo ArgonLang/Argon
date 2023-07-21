@@ -51,6 +51,15 @@ ARGON_FUNCTION(number_parse, parse,
     if (!BufferGet(*args, &buffer, argon::vm::datatype::BufferFlags::READ))
         return nullptr;
 
+    if (buffer.buffer == nullptr) {
+        BufferRelease(&buffer);
+
+        ErrorFormat(kValueError[0], "empty value cannot be converted to %s",
+                    self_type == type_int_ ? type_int_->name : type_uint_->name);
+
+        return nullptr;
+    }
+
     if (self_type == type_int_) {
         auto *result = IntNew((const char *) buffer.buffer, base);
 
