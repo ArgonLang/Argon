@@ -414,24 +414,7 @@ void Compiler::CompileAssignment(const parser::Binary *assign) {
 
     this->Expression(assign->right);
 
-    if (assign->left->node_type == NodeType::IDENTIFIER)
-        this->StoreVariable((String *) ((const parser::Unary *) assign->left)->value, &assign->loc);
-    else if (assign->left->node_type == NodeType::SELECTOR) {
-        auto idx = this->CompileSelector((const parser::Binary *) assign->left, false, false);
-
-        if (assign->left->token_type == scanner::TokenType::SCOPE) {
-            this->unit_->Emit(vm::OpCode::STSCOPE, idx, nullptr, &assign->loc);
-            return;
-        }
-
-        this->unit_->Emit(vm::OpCode::STATTR, idx, nullptr, &assign->loc);
-    } else if (assign->left->node_type == parser::NodeType::INDEX ||
-               assign->left->node_type == parser::NodeType::SLICE) {
-        this->CompileSubscr((const Subscript *) assign->left, false, false);
-
-        this->unit_->Emit(vm::OpCode::STSUBSCR, &assign->loc);
-    } else if (assign->left->node_type == parser::NodeType::TUPLE)
-        this->CompileUnpack((List *) ((const Unary *) assign->left)->value, &assign->loc);
+    this->CompileStore(assign->left);
 }
 
 void Compiler::CompileAugAssignment(const parser::Binary *assign) {
@@ -1053,7 +1036,7 @@ void Compiler::CompileIf(const parser::Test *test) {
 
         this->unit_->BlockNew();
 
-        this->CompileBlock(test->body, this->unit_->symt->type!=SymbolType::MODULE);
+        this->CompileBlock(test->body, this->unit_->symt->type != SymbolType::MODULE);
 
         if (test->orelse != nullptr) {
             if ((end = BasicBlockNew()) == nullptr)
@@ -1331,6 +1314,26 @@ void Compiler::CompileSafe(const parser::Unary *unary) {
         BasicBlockDel(end);
         throw;
     }
+}
+
+void Compiler::CompileStore(const parser::Node *node) {
+    if (node->node_type == NodeType::IDENTIFIER)
+        this->StoreVariable((String *) ((const parser::Unary *) node)->value, &node->loc);
+    else if (node->node_type == NodeType::SELECTOR) {
+        auto idx = this->CompileSelector((const parser::Binary *) node, false, false);
+
+        if (node->token_type == scanner::TokenType::SCOPE) {
+            this->unit_->Emit(vm::OpCode::STSCOPE, idx, nullptr, &node->loc);
+            return;
+        }
+
+        this->unit_->Emit(vm::OpCode::STATTR, idx, nullptr, &node->loc);
+    } else if (node->node_type == parser::NodeType::INDEX || node->node_type == parser::NodeType::SLICE) {
+        this->CompileSubscr((const Subscript *) node, false, false);
+
+        this->unit_->Emit(vm::OpCode::STSUBSCR, &node->loc);
+    } else if (node->node_type == parser::NodeType::TUPLE)
+        this->CompileUnpack((List *) ((const Unary *) node)->value, &node->loc);
 }
 
 void Compiler::CompileSubscr(const parser::Subscript *subscr, bool dup, bool emit) {
@@ -1661,13 +1664,16 @@ void Compiler::CompileUnpack(List *list, const scanner::Loc *loc) {
 
     ArSize items = 0;
     while ((tmp = IteratorNext(iter.Get()))) {
-        const auto *id = (const Unary *) tmp.Get();
+        auto *id = (const Node *) tmp.Get();
+
         this->unit_->IncrementStack(1);
-        this->StoreVariable((String *) id->value, nullptr);
+
+        this->CompileStore(id);
+
         items++;
     }
 
-    instr->oparg = items;
+    instr->oparg = (unsigned int) items;
 }
 
 void Compiler::CompileUpdate(const parser::Unary *update) {
