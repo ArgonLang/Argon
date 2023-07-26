@@ -111,9 +111,7 @@ CallbackReturnStatus RecvCallBack(Event *event) {
         return CallbackReturnStatus::RETRY;
     }
 
-    event->buffer.length += bytes;
-    if (bytes > 0 && event->buffer.length < event->buffer.allocated)
-        return CallbackReturnStatus::RETRY;
+    event->buffer.length = bytes;
 
     auto *buffer = BytesNewHoldBuffer(event->buffer.data, event->buffer.allocated, event->buffer.length, true);
     if (buffer == nullptr) {
@@ -153,9 +151,7 @@ CallbackReturnStatus RecvFromCallBack(Event *event) {
         return CallbackReturnStatus::RETRY;
     }
 
-    event->buffer.length += bytes;
-    if (sock->type != SOCK_DGRAM && bytes > 0 && event->buffer.length < event->buffer.allocated)
-        return CallbackReturnStatus::RETRY;
+    event->buffer.length = bytes;
 
     auto *remote_addr = SockAddrToAddr(&storage, sock->family);
     if (remote_addr == nullptr) {
@@ -209,9 +205,7 @@ CallbackReturnStatus RecvIntoCallBack(Event *event) {
         return CallbackReturnStatus::RETRY;
     }
 
-    event->buffer.length += bytes;
-    if (bytes > 0 && event->buffer.length < event->buffer.allocated)
-        return CallbackReturnStatus::RETRY;
+    event->buffer.length = bytes;
 
     auto *buffer = IntNew((IntegerUnderlying) event->buffer.length);
 
