@@ -564,7 +564,10 @@ void Scheduler(OSThread *self) {
         assert(self->fiber->frame == nullptr);
 
         PublishResult(self->fiber, result);
+
         Release(result);
+
+        self->fiber = nullptr;
     }
 
     // Shutdown thread
