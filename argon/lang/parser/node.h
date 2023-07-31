@@ -50,6 +50,7 @@ namespace argon::lang::parser {
         NULL_COALESCING,
         KWARG,
         PANIC,
+        PARAM,
         REST,
         RETURN,
         SAFE_EXPR,
@@ -170,6 +171,14 @@ namespace argon::lang::parser {
     };
     extern const vm::datatype::TypeInfo *type_ast_loop_;
 
+    struct Param {
+        NODEOBJ_HEAD;
+
+        Node *id;
+        Node *def_value;
+    };
+    extern const vm::datatype::TypeInfo *type_ast_param_;
+
     struct Subscript {
         NODEOBJ_HEAD;
 
@@ -220,6 +229,8 @@ namespace argon::lang::parser {
     Initialization *InitNew(Node *left, vm::datatype::ArObject *list, const scanner::Loc &loc, bool as_map);
 
     Loop *LoopNew(Node *init, Node *test, Node *inc, Node *body, NodeType type);
+
+    Param *ParamNew(Unary *id, Node *def_value, NodeType type);
 
     Subscript *SubscriptNew(Node *expr, Node *start, Node *stop, bool slice);
 

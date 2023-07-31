@@ -109,6 +109,13 @@ bool loop_dtor(Loop *self) {
     return true;
 }
 
+bool param_dtor(Param *self) {
+    Release(self->id);
+    Release(self->def_value);
+
+    return true;
+}
+
 bool subscript_dtor(Subscript *self) {
     Release(self->expression);
     Release(self->start);
@@ -149,6 +156,7 @@ NODE_NEW(Function, type_ast_function_, Function, nullptr, function_dtor, nullptr
 NODE_NEW(Import, type_ast_import_, Import, nullptr, import_dtor, nullptr);
 NODE_NEW(Initialization, type_ast_initialization_, Initialization, nullptr, initialization_dtor, nullptr);
 NODE_NEW(Loop, type_ast_loop_, Loop, nullptr, loop_dtor, nullptr);
+NODE_NEW(Param, type_ast_param_, Param, nullptr, param_dtor, nullptr);
 NODE_NEW(Subscript, type_ast_subscript_, Subscript, nullptr, subscript_dtor, nullptr);
 NODE_NEW(SwitchCase, type_ast_switchcase_, SwitchCase, nullptr, switchcase_dtor, nullptr);
 NODE_NEW(Test, type_ast_test_, Test, nullptr, test_dtor, nullptr);
@@ -315,6 +323,22 @@ Loop *argon::lang::parser::LoopNew(Node *init, Node *test, Node *inc, Node *body
     }
 
     return loop;
+}
+
+Param *argon::lang::parser::ParamNew(Unary *id, Node *def_value, NodeType type) {
+    auto *param = NodeNew<Param>(&ParamAstType, type);
+
+    if (param != nullptr) {
+        param->id = (Node *) IncRef(id);
+        param->def_value = IncRef(def_value);
+
+        param->loc = id->loc;
+
+        if (def_value != nullptr)
+            param->loc.end = def_value->loc.end;
+    }
+
+    return param;
 }
 
 Subscript *argon::lang::parser::SubscriptNew(Node *expr, Node *start, Node *stop, bool slice) {

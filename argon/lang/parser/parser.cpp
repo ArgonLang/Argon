@@ -193,6 +193,8 @@ ArObject *Parser::ParseParamList(bool parse_expr, bool *out_grouped_expr) {
 
     Position start{};
 
+    const Param *param;
+
     int count = 0;
     int mode = 0;
 
@@ -207,10 +209,10 @@ ArObject *Parser::ParseParamList(bool parse_expr, bool *out_grouped_expr) {
             break;
 
         if (this->Match(TokenType::ELLIPSIS)) {
-            if (mode > 0)
-                throw ParserException("");
+            if (mode > 1)
+                throw ParserException("unexpected rest parameter");
 
-            mode = 1;
+            mode = 2;
 
             start = this->tkcur_.loc.start;
 
@@ -221,27 +223,32 @@ ArObject *Parser::ParseParamList(bool parse_expr, bool *out_grouped_expr) {
 
             tmp = (ArObject *) this->ParseIDValue(NodeType::REST, start);
         } else if (this->Match(TokenType::AMPERSAND)) {
-            if (mode > 1)
-                throw ParserException("");
+            if (mode > 2)
+                throw ParserException("only one &-var is allowed per function declaration");
 
-            mode = 2;
+            mode = 3;
 
             start = this->tkcur_.loc.start;
 
             this->Eat();
 
             if (!this->Match(TokenType::IDENTIFIER))
-                throw ParserException("expected identifier after '&'");
+                throw ParserException("expected identifier after &");
 
             tmp = (ArObject *) this->ParseIDValue(NodeType::KWARG, start);
         } else {
-            if (mode > 0)
-                throw ParserException("");
+            if (mode > 1)
+                throw ParserException("unexpected var/var-keyword parameter");
 
-            if (parse_expr)
-                tmp = (ArObject *) this->ParseExpression(PeekPrecedence(scanner::TokenType::COMMA));
-            else
-                tmp = (ArObject *) this->ParseIdentifier();
+            tmp = (ArObject *) this->ParseIDNamedParam(parse_expr);
+
+            param = (Param *) tmp.Get();
+
+            if (mode > 0 && param->def_value == nullptr)
+                throw ParserException("unexpected non keyword parameter");
+
+            if (param->node_type == NodeType::PARAM && param->def_value != nullptr)
+                mode = 1;
         }
 
         if (!ListAppend((List *) params.Get(), tmp.Get()))
@@ -430,9 +437,9 @@ Node *Parser::ParseArrowOrTuple() {
         const auto *list = (List *) items.Get();
         for (ArSize i = 0; i < list->length; i++) {
             const auto *node = (Node *) list->objects[i];
-            if (node->node_type != NodeType::IDENTIFIER
-                && node->node_type != NodeType::REST
-                && node->node_type != NodeType::KWARG)
+            if (node->node_type != NodeType::PARAM &&
+                node->node_type != NodeType::REST &&
+                node->node_type != NodeType::KWARG)
                 throw ParserException("expression not allowed here");
         }
 
@@ -458,7 +465,19 @@ Node *Parser::ParseArrowOrTuple() {
 
     auto *list = (List *) items.Get();
     for (ArSize i = 0; i < list->length; i++) {
-        const auto *node = (Node *) list->objects[i];
+        auto *node = (Node *) list->objects[i];
+
+        if (node->node_type == NodeType::PARAM) {
+            if (((Param *) node)->def_value != nullptr)
+                throw ParserException("unexpected keyword parameter in tuple expression");
+
+            list->objects[i] = (ArObject *) IncRef(((Param *) node)->id);
+
+            Release(node);
+
+            continue;
+        }
+
         if (node->node_type == NodeType::REST)
             throw ParserException("unexpected rest operator");
         else if (node->node_type == NodeType::KWARG)
@@ -1218,22 +1237,22 @@ Node *Parser::ParseIdentifier() {
 }
 
 Node *Parser::ParseIDValue(NodeType type, const scanner::Position &start) {
-    auto *str = StringNew((const char *) this->tkcur_.buffer, this->tkcur_.length);
-    if (str == nullptr)
-        throw DatatypeException();
-
-    auto *id = UnaryNew((ArObject *) str, type, this->tkcur_.loc);
-
-    Release(str);
-
+    auto id = (Unary *) MakeIdentifier(&this->tkcur_);
     if (id == nullptr)
         throw DatatypeException();
 
-    id->loc.start = start;
+    auto *param = ParamNew(id, nullptr, type);
+
+    Release(id);
+
+    if (param == nullptr)
+        throw DatatypeException();
+
+    param->loc.start = start;
 
     this->Eat();
 
-    return (Node *) id;
+    return (Node *) param;
 }
 
 Node *Parser::ParseIF() {
@@ -1575,6 +1594,42 @@ Node *Parser::ParseLoop() {
     loop->loc.start = start;
 
     return (Node *) loop;
+}
+
+Node *Parser::ParseIDNamedParam(bool parse_expr) {
+    ARC id;
+    ARC value;
+
+    Loc loc{};
+
+    if (parse_expr)
+        id = (ArObject *) this->ParseExpression(PeekPrecedence(scanner::TokenType::COMMA));
+    else
+        id = (ArObject *) this->ParseIdentifier();
+
+    loc = this->tkcur_.loc;
+
+    if (this->MatchEat(scanner::TokenType::EQUAL)) {
+        if (((Node *) id.Get())->node_type != NodeType::IDENTIFIER)
+            throw ParserException("expected identifier before = in named parameter declaration");
+
+        if (this->Match(TokenType::COMMA, TokenType::RIGHT_ROUND)) {
+            value = (ArObject *) UnaryNew((ArObject *) Nil, NodeType::LITERAL, loc);
+            if (!value)
+                throw DatatypeException();
+        } else
+            value = (ArObject *) this->ParseExpression(PeekPrecedence(scanner::TokenType::COMMA));
+    }
+
+    if ((((Node *) id.Get())->node_type == NodeType::IDENTIFIER)) {
+        auto *param = ParamNew((Unary *) id.Get(), (Node *) value.Get(), NodeType::PARAM);
+        if (param == nullptr)
+            throw DatatypeException();
+
+        return (Node *) param;
+    }
+
+    return (Node *) id.Unwrap();
 }
 
 Node *Parser::ParseNullCoalescing(Node *left) {

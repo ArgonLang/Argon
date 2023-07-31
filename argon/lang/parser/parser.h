@@ -141,6 +141,8 @@ namespace argon::lang::parser {
 
         Node *ParseLoop();
 
+        Node *ParseIDNamedParam(bool parse_expr);
+
         Node *ParseNullCoalescing(Node *left);
 
         Node *ParseOOBCall();
