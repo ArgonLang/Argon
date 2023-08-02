@@ -122,9 +122,12 @@ namespace argon::lang {
 
         void Expression(const parser::Node *node);
 
-        void IdentifierNew(vm::datatype::String *name, SymbolType stype, vm::datatype::AttributeFlag aflags, bool emit);
+        void IdentifierNew(vm::datatype::String *name, const scanner::Loc *loc, SymbolType type,
+                           vm::datatype::AttributeFlag aflags, bool emit);
 
-        void IdentifierNew(const char *name, SymbolType stype, vm::datatype::AttributeFlag aflags, bool emit);
+        void IdentifierNew(const parser::Unary *id, SymbolType type, vm::datatype::AttributeFlag aflags, bool emit) {
+            this->IdentifierNew((vm::datatype::String *) id->value, &id->loc, type, aflags, emit);
+        }
 
         void LoadIdentifier(vm::datatype::String *identifier);
 

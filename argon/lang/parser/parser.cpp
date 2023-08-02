@@ -1121,7 +1121,7 @@ Node *Parser::ParseFnCall(Node *left) {
         }
 
         if (mode >= 1)
-            throw ParserException("parameters to a function must be passed in the order: positional, ellipsis, kwargs");
+            throw ParserException("parameters to a function must be passed in the order: positional[, named param], ellipsis");
 
         if (!ListAppend((List *) list.Get(), arg.Get()))
             throw DatatypeException();

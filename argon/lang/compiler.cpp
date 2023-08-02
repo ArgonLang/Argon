@@ -663,7 +663,7 @@ void Compiler::CompileConstruct(const parser::Construct *construct) {
 
     this->unit_->IncrementStack(1);
 
-    this->IdentifierNew(construct->name, stype, aflags, true);
+    this->IdentifierNew(construct->name, nullptr, stype, aflags, true);
 }
 
 void Compiler::CompileContains(const parser::Binary *contains) {
@@ -708,7 +708,7 @@ void Compiler::CompileDeclaration(const parser::Assignment *declaration) {
         } else
             this->Expression((const Node *) declaration->value);
 
-        this->IdentifierNew((String *) ((const Unary *) declaration->name)->value, stype, aflags, true);
+        this->IdentifierNew((Unary *) declaration->name, stype, aflags, true);
 
         return;
     }
@@ -737,7 +737,7 @@ void Compiler::CompileDeclaration(const parser::Assignment *declaration) {
         else
             this->unit_->IncrementStack(1);
 
-        this->IdentifierNew((String *) ((const Unary *) tmp.Get())->value, stype, aflags, true);
+        this->IdentifierNew((const Unary *) tmp.Get(), stype, aflags, true);
 
         count++;
     }
@@ -936,7 +936,7 @@ void Compiler::CompileFunction(const parser::Function *func) {
         if (func->pub)
             aflags |= AttributeFlag::PUBLIC;
 
-        this->IdentifierNew(func->name, SymbolType::FUNC, aflags, true);
+        this->IdentifierNew(func->name, nullptr, SymbolType::FUNC, aflags, true);
     }
 }
 
@@ -1041,7 +1041,7 @@ void Compiler::CompileFunctionParams(vm::datatype::List *params, unsigned short 
                 flags |= FunctionFlags::METHOD;
         }
 
-        this->IdentifierNew((String *) ((const Unary *) p->id)->value, SymbolType::VARIABLE, {}, false);
+        this->IdentifierNew((const Unary *) p->id, SymbolType::VARIABLE, {}, false);
 
         if (p->def_value == nullptr)
             p_count++;
@@ -1151,7 +1151,7 @@ void Compiler::CompileImportAlias(const parser::Binary *alias, bool impfrm) {
     this->unit_->Emit(code, idx, nullptr, &alias->loc);
 
     if (alias->right != nullptr)
-        name = (ArObject *) ((const Unary *) alias->right)->value;
+        name = ((const Unary *) alias->right)->value;
 
     if (!name) {
         if (impfrm) {
@@ -1160,7 +1160,7 @@ void Compiler::CompileImportAlias(const parser::Binary *alias, bool impfrm) {
             name = (ArObject *) this->MakeImportName((String *) ((const Unary *) alias->left)->value);
     }
 
-    this->IdentifierNew((String *) name.Get(), SymbolType::CONSTANT, AttributeFlag::CONST, true);
+    this->IdentifierNew((String *) name.Get(), &alias->left->loc, SymbolType::CONSTANT, AttributeFlag::CONST, true);
 }
 
 void Compiler::CompileInit(const parser::Initialization *init) {
@@ -1829,14 +1829,14 @@ void Compiler::Expression(const Node *node) {
     }
 }
 
-void Compiler::IdentifierNew(String *name, SymbolType stype, AttributeFlag aflags, bool emit) {
+void Compiler::IdentifierNew(String *name, const scanner::Loc *loc, SymbolType type, AttributeFlag aflags, bool emit) {
     ARC sym;
     ArObject *arname;
 
     if (StringEqual(name, "_"))
         throw CompilerException("cannot use '_' as name of identifier");
 
-    sym = (ArObject *) SymbolInsert(this->unit_->symt, name, stype);
+    sym = (ArObject *) SymbolInsert(this->unit_->symt, name, type);
     if (!sym)
         throw DatatypeException();
 
@@ -1847,7 +1847,7 @@ void Compiler::IdentifierNew(String *name, SymbolType stype, AttributeFlag aflag
 
     if (this->unit_->symt->type == SymbolType::STRUCT || this->unit_->symt->type == SymbolType::TRAIT) {
         this->LoadStatic((ArObject *) name, true, true);
-        this->unit_->Emit(vm::OpCode::NSTORE, (unsigned char) aflags, nullptr, nullptr);
+        this->unit_->Emit(vm::OpCode::NSTORE, (unsigned char) aflags, nullptr, loc);
         return;
     }
 
@@ -1855,7 +1855,7 @@ void Compiler::IdentifierNew(String *name, SymbolType stype, AttributeFlag aflag
         auto id = p_sym->id >= 0 ? p_sym->id : dest->length;
 
         if (emit)
-            this->unit_->Emit(vm::OpCode::NGV, (unsigned char) aflags, (unsigned short) id, nullptr);
+            this->unit_->Emit(vm::OpCode::NGV, (unsigned char) aflags, (unsigned short) id, loc);
 
         if (p_sym->id >= 0)
             return;
@@ -1863,7 +1863,7 @@ void Compiler::IdentifierNew(String *name, SymbolType stype, AttributeFlag aflag
         dest = this->unit_->locals;
 
         if (emit)
-            this->unit_->Emit(vm::OpCode::STLC, (int) dest->length, nullptr, nullptr);
+            this->unit_->Emit(vm::OpCode::STLC, (int) dest->length, nullptr, loc);
     }
 
     if (p_sym->id >= 0)
@@ -1871,7 +1871,7 @@ void Compiler::IdentifierNew(String *name, SymbolType stype, AttributeFlag aflag
     else
         arname = (ArObject *) IncRef(name);
 
-    p_sym->id = dest->length;
+    p_sym->id = (ArSSize) dest->length;
 
     if (!ListAppend(dest, arname)) {
         Release(arname);
@@ -1879,16 +1879,6 @@ void Compiler::IdentifierNew(String *name, SymbolType stype, AttributeFlag aflag
     }
 
     Release(arname);
-}
-
-void Compiler::IdentifierNew(const char *name, SymbolType stype, AttributeFlag aflags, bool emit) {
-    ARC id;
-
-    id = (ArObject *) StringIntern(name);
-    if (!id)
-        throw DatatypeException();
-
-    this->IdentifierNew((String *) id.Get(), stype, aflags, emit);
 }
 
 void Compiler::LoadIdentifier(String *identifier) {
