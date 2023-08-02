@@ -889,7 +889,6 @@ void Compiler::CompileForLoopInc(const parser::Node *node) {
 void Compiler::CompileFunction(const parser::Function *func) {
     ARC code;
     ARC fname;
-    ARC qname;
 
     FunctionFlags flags{};
 
@@ -898,8 +897,6 @@ void Compiler::CompileFunction(const parser::Function *func) {
     fname = (ArObject *) func->name;
     if (func->name == nullptr)
         fname = (ArObject *) this->MakeFname();
-
-    qname = (ArObject *) this->MakeQname((String *) fname.Get());
 
     this->TUScopeEnter((String *) fname.Get(), SymbolType::FUNC);
 
@@ -910,17 +907,7 @@ void Compiler::CompileFunction(const parser::Function *func) {
     } else
         this->CompileFunctionDefaultBody(func, (String *) fname.Get());
 
-    // If the function is empty or the last statement is not return,
-    // forcefully enter return as last statement
-    if (this->unit_->bb.cur->instr.tail == nullptr ||
-        this->unit_->bb.cur->instr.tail->opcode != (unsigned char) vm::OpCode::RET) {
-        if (this->unit_->symt->type == SymbolType::GENERATOR)
-            this->PushAtom("stop", true);
-        else
-            this->LoadStatic((ArObject *) Nil, true, true);
-
-        this->unit_->Emit(vm::OpCode::RET, &func->loc);
-    }
+    this->CompileFunctionReturn(func);
 
     // Update function flags if is a generator
     if (this->unit_->symt->type == SymbolType::GENERATOR)
@@ -930,23 +917,13 @@ void Compiler::CompileFunction(const parser::Function *func) {
 
     this->TUScopeExit();
 
-    this->LoadStatic(code.Get(), false, true);
-
     // Load closure
-    const auto *fn_code = (const Code *) code.Get();
+    this->CompileFunctionLoadClosure((Code *) code.Get(), flags);
 
-    if (fn_code->enclosed->length > 0) {
-        for (ArSize i = 0; i < fn_code->enclosed->length; i++)
-            this->LoadIdentifier((String *) fn_code->enclosed->objects[i]);
+    // Load default arguments
+    this->CompileFunctionDefaultArgs(func->params, flags);
 
-        this->unit_->DecrementStack((int) fn_code->enclosed->length);
-
-        this->unit_->Emit(vm::OpCode::MKLT, (int) fn_code->enclosed->length, nullptr, nullptr);
-
-        this->unit_->DecrementStack(1);
-
-        flags |= FunctionFlags::CLOSURE;
-    }
+    this->LoadStatic(code.Get(), false, true);
 
     if (func->async)
         flags |= FunctionFlags::ASYNC;
@@ -961,6 +938,48 @@ void Compiler::CompileFunction(const parser::Function *func) {
 
         this->IdentifierNew(func->name, SymbolType::FUNC, aflags, true);
     }
+}
+
+void Compiler::CompileFunctionDefaultArgs(vm::datatype::List *params, FunctionFlags &flags) {
+    ARC iter;
+    ARC param;
+
+    unsigned short def_count = 0;
+
+    if (params == nullptr) {
+        this->unit_->Emit(vm::OpCode::PSHN, nullptr);
+        return;
+    }
+
+    iter = IteratorGet((ArObject *) params, false);
+    if (!iter)
+        throw DatatypeException();
+
+    while ((param = IteratorNext(iter.Get()))) {
+        const auto *p = (parser::Param *) param.Get();
+
+        CHECK_AST_NODE(p, type_ast_param_,
+                       "Compiler::CompileFunctionParams: expects a param node as an element in the parameter list");
+
+        if (p->def_value != nullptr) {
+            this->Expression(p->def_value);
+            def_count++;
+        }
+
+        // Sanity check
+        if (def_count > 0 && p->node_type == parser::NodeType::PARAM && p->def_value == nullptr)
+            throw CompilerException("");
+    }
+
+    // Build default arguments tuple!
+    if (def_count > 0) {
+        this->unit_->Emit(vm::OpCode::MKTP, def_count, nullptr, nullptr);
+
+        this->unit_->DecrementStack(def_count);
+
+        flags |= FunctionFlags::DEFARGS;
+    } else
+        this->unit_->Emit(vm::OpCode::PSHN, nullptr);
 }
 
 void Compiler::CompileFunctionDefaultBody(const parser::Function *func, String *fname) {
@@ -981,6 +1000,22 @@ void Compiler::CompileFunctionDefaultBody(const parser::Function *func, String *
     this->unit_->Emit(vm::OpCode::PANIC, &func->loc);
 }
 
+void Compiler::CompileFunctionLoadClosure(const Code *code, FunctionFlags &flags) {
+    if (code->enclosed->length == 0) {
+        this->unit_->Emit(vm::OpCode::PSHN, nullptr);
+        return;
+    }
+
+    for (ArSize i = 0; i < code->enclosed->length; i++)
+        this->LoadIdentifier((String *) code->enclosed->objects[i]);
+
+    this->unit_->DecrementStack((int) code->enclosed->length);
+
+    this->unit_->Emit(vm::OpCode::MKLT, (int) code->enclosed->length, nullptr, nullptr);
+
+    flags |= FunctionFlags::CLOSURE;
+}
+
 void Compiler::CompileFunctionParams(vm::datatype::List *params, unsigned short &p_count, FunctionFlags &flags) {
     ARC iter;
     ARC param;
@@ -993,22 +1028,23 @@ void Compiler::CompileFunctionParams(vm::datatype::List *params, unsigned short 
         throw DatatypeException();
 
     while ((param = IteratorNext(iter.Get()))) {
-        const auto *p = (Node *) param.Get();
+        const auto *p = (parser::Param *) param.Get();
 
-        CHECK_AST_NODE(p, type_ast_unary_,
-                       "Compiler::CompileFunctionParams: expects a unary node as an element in the parameter list");
+        CHECK_AST_NODE(p, type_ast_param_,
+                       "Compiler::CompileFunctionParams: expects a param node as an element in the parameter list");
 
         if (p_count == 0 && this->unit_->prev != nullptr) {
             auto pscope = this->unit_->prev->symt->type;
 
             if ((pscope == SymbolType::STRUCT || pscope == SymbolType::TRAIT) &&
-                StringEqual((const String *) ((const Unary *) p)->value, "self"))
+                StringEqual((const String *) ((const Unary *) p->id)->value, "self"))
                 flags |= FunctionFlags::METHOD;
         }
 
-        this->IdentifierNew((String *) ((const Unary *) p)->value, SymbolType::VARIABLE, {}, false);
+        this->IdentifierNew((String *) ((const Unary *) p->id)->value, SymbolType::VARIABLE, {}, false);
 
-        p_count++;
+        if (p->def_value == nullptr)
+            p_count++;
 
         if (p->node_type == parser::NodeType::REST) {
             flags |= FunctionFlags::VARIADIC;
@@ -1017,6 +1053,20 @@ void Compiler::CompileFunctionParams(vm::datatype::List *params, unsigned short 
             flags |= FunctionFlags::KWARGS;
             p_count--;
         }
+    }
+}
+
+void Compiler::CompileFunctionReturn(const parser::Function *func) {
+    // If the function is empty or the last statement is not return,
+    // forcefully enter return as last statement
+    if (this->unit_->bb.cur->instr.tail == nullptr ||
+        this->unit_->bb.cur->instr.tail->opcode != (unsigned char) vm::OpCode::RET) {
+        if (this->unit_->symt->type == SymbolType::GENERATOR)
+            this->PushAtom("stop", true);
+        else
+            this->LoadStatic((ArObject *) Nil, true, true);
+
+        this->unit_->Emit(vm::OpCode::RET, &func->loc);
     }
 }
 

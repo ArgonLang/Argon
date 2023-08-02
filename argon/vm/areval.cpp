@@ -191,7 +191,7 @@ bool CallFunction(Fiber *fiber, Frame **cu_frame, const Code **cu_code, bool val
         positional_args += func->currying->length;
 
     if (ENUMBITMASK_ISTRUE(mode, OpCodeCallMode::KW_PARAMS)) {
-        if (!func->IsKWArgs()) {
+        if (!func->IsKWArgs() && !func->HaveDefaults()) {
             ErrorFormat(kTypeError[0], kTypeError[4], ARGON_RAW_STRING(func->qname));
             return false;
         }
@@ -368,7 +368,7 @@ bool Spawn(Frame *cu_frame) {
         positional_args += func->currying->length;
 
     if (ENUMBITMASK_ISTRUE(mode, OpCodeCallMode::KW_PARAMS)) {
-        if (!func->IsKWArgs()) {
+        if (!func->IsKWArgs() && !func->HaveDefaults()) {
             ErrorFormat(kTypeError[0], kTypeError[4], ARGON_RAW_STRING(func->qname));
             return false;
         }
@@ -510,6 +510,7 @@ ArObject *argon::vm::Eval(Fiber *fiber) {
             &&LBL_POP,
             &&LBL_POPGT,
             &&LBL_POS,
+            &&LBL_PSHN,
             &&LBL_RET,
             &&LBL_SHL,
             &&LBL_SHR,
@@ -1086,23 +1087,14 @@ ArObject *argon::vm::Eval(Fiber *fiber) {
             TARGET_OP(MKFN)
             {
                 auto flags = I32Flag<FunctionFlags>(cu_frame->instr_ptr);
-                List *enclosed = nullptr;
 
-                ret = TOP();
-
-                if (ENUMBITMASK_ISTRUE(flags, FunctionFlags::CLOSURE)) {
-                    enclosed = (List *) TOP();
-                    ret = PEEK1();
-                }
-
-                ret = (ArObject *) FunctionNew((Code *) ret, cu_frame->globals, enclosed,
-                                               I16Arg(cu_frame->instr_ptr), flags);
+                ret = (ArObject *) FunctionNew((Code *) TOP(), cu_frame->globals, (Tuple *) PEEK1(),
+                                               (List *) PEEK2(), I16Arg(cu_frame->instr_ptr), flags);
                 if (ret == nullptr)
                     break;
 
-                if (ENUMBITMASK_ISTRUE(flags, FunctionFlags::CLOSURE))
-                    POP();
-
+                POP(); // defargs
+                POP(); // enclosed
                 TOP_REPLACE(ret);
                 DISPATCH();
             }
@@ -1353,6 +1345,11 @@ ArObject *argon::vm::Eval(Fiber *fiber) {
             TARGET_OP(POS)
             {
                 UNARY_OP(pos, +);
+            }
+            TARGET_OP(PSHN)
+            {
+                PUSH(nullptr);
+                DISPATCH();
             }
             TARGET_OP(RET)
             {

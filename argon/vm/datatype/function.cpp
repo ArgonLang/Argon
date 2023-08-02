@@ -78,6 +78,7 @@ bool function_dtor(Function *self) {
     Release(self->doc);
     Release(self->pcheck);
     Release(self->currying);
+    Release(self->default_args);
     Release(self->enclosed);
     Release(self->base);
     Release(self->gns);
@@ -157,6 +158,7 @@ Function *FunctionClone(const Function *func) {
         fn->doc = IncRef(func->doc);
         fn->pcheck = IncRef(func->pcheck);
         fn->currying = IncRef(func->currying);
+        fn->default_args = IncRef(func->default_args);
         fn->enclosed = IncRef(func->enclosed);
         fn->base = IncRef(func->base);
         fn->gns = IncRef(func->gns);
@@ -178,6 +180,7 @@ Function *FunctionNew(String *name, String *doc, unsigned short arity, FunctionF
         fn->doc = IncRef(doc);
         fn->pcheck = nullptr;
         fn->currying = nullptr;
+        fn->default_args = nullptr;
         fn->enclosed = nullptr;
         fn->base = nullptr;
         fn->gns = nullptr;
@@ -266,12 +269,14 @@ ArObject *argon::vm::datatype::FunctionInvokeNative(Function *func, ArObject **a
     return ret;
 }
 
-Function *argon::vm::datatype::FunctionNew(Code *code, Namespace *ns, List *enclosed, unsigned short arity, FunctionFlags flags) {
+Function *argon::vm::datatype::FunctionNew(Code *code, Namespace *ns, Tuple *default_args, List *enclosed,
+                                           unsigned short arity, FunctionFlags flags) {
     auto *fn = ::FunctionNew(code->name, nullptr, arity, flags);
 
     if (fn != nullptr) {
         fn->qname = IncRef(code->qname);
         fn->doc = IncRef(code->doc);
+        fn->default_args = IncRef(default_args);
         fn->enclosed = IncRef(enclosed);
         fn->gns = IncRef(ns);
         fn->code = IncRef(code);

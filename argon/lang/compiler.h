@@ -70,10 +70,16 @@ namespace argon::lang {
 
         void CompileFunction(const parser::Function *func);
 
+        void CompileFunctionDefaultArgs(vm::datatype::List *params, vm::datatype::FunctionFlags &flags);
+
         void CompileFunctionDefaultBody(const parser::Function *func, vm::datatype::String *fname);
+
+        void CompileFunctionLoadClosure(const vm::datatype::Code *code, vm::datatype::FunctionFlags &flags);
 
         void CompileFunctionParams(vm::datatype::List *params, unsigned short &p_count,
                                    vm::datatype::FunctionFlags &flags);
+
+        void CompileFunctionReturn(const parser::Function *func);
 
         void CompileIf(const parser::Test *test);
 

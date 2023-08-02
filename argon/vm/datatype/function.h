@@ -16,15 +16,16 @@
 #include <argon/vm/datatype/pcheck.h>
 
 namespace argon::vm::datatype {
-    enum class FunctionFlags : unsigned char {
+    enum class FunctionFlags : unsigned short {
         NATIVE = 1,
         METHOD = 1u << 1,
         CLOSURE = 1u << 2,
         VARIADIC = 1u << 3,
         KWARGS = 1u << 4,
-        GENERATOR = 1u << 5,
-        ASYNC = 1u << 6,
-        RECOVERABLE = 1u << 7
+        DEFARGS = 1u << 5,
+        GENERATOR = 1u << 6,
+        ASYNC = 1u << 7,
+        RECOVERABLE = 1u << 8
     };
 }
 
@@ -57,6 +58,9 @@ namespace argon::vm::datatype {
         /// Tuple that contains values for partial application.
         Tuple *currying;
 
+        /// Tuple that contains default arguments for named parameters (e.g.: a=1,b=2,c=)
+        Tuple *default_args;
+
         /// List that contains captured variables in a closure.
         List *enclosed;
 
@@ -77,6 +81,10 @@ namespace argon::vm::datatype {
 
         /// Flags, see: FunctionInfo.
         FunctionFlags flags;
+
+        [[nodiscard]] bool HaveDefaults() const {
+            return ENUMBITMASK_ISTRUE(this->flags, FunctionFlags::DEFARGS);
+        }
 
         [[nodiscard]] bool IsAsync() const {
             return ENUMBITMASK_ISTRUE(this->flags, FunctionFlags::ASYNC);
@@ -124,7 +132,8 @@ namespace argon::vm::datatype {
 
     ArObject *FunctionInvokeNative(Function *func, ArObject **args, ArSize count, bool kwargs);
 
-    Function *FunctionNew(Code *code, Namespace *ns, List *enclosed, unsigned short arity, FunctionFlags flags);
+    Function *FunctionNew(Code *code, Namespace *ns, Tuple *default_args, List *enclosed,
+                          unsigned short arity, FunctionFlags flags);
 
     Function *FunctionNew(const Function *func, ArObject **args, ArSize nargs);
 

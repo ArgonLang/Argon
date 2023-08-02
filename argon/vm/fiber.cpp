@@ -109,8 +109,10 @@ Frame *FrameWrapFnNew(Fiber *fiber, Function *func, ArObject **argv, ArSize argc
 }
 
 Frame *argon::vm::FrameNew(Fiber *fiber, Function *func, ArObject **argv, ArSize argc, OpCodeCallMode mode) {
-    ArObject *kwargs = nullptr;
+    const Code *code = func->code;
+    Dict *kwargs = nullptr;
     List *rest = nullptr;
+
     Frame *frame;
 
     unsigned short index_locals = 0;
@@ -134,7 +136,7 @@ Frame *argon::vm::FrameNew(Fiber *fiber, Function *func, ArObject **argv, ArSize
 
     if (ENUMBITMASK_ISTRUE(mode, OpCodeCallMode::KW_PARAMS)) {
         // If mode == KW_PARAMS, the last element is the arguments dict
-        kwargs = IncRef(argv[argc - 1]);
+        kwargs = (Dict *) argv[argc - 1];
         argc--;
     }
 
@@ -142,6 +144,21 @@ Frame *argon::vm::FrameNew(Fiber *fiber, Function *func, ArObject **argv, ArSize
 
     while (index_argv < remains)
         frame->locals[index_locals++] = IncRef(argv[index_argv++]);
+
+    // Push default arguments (If any...)
+    if (func->default_args != nullptr) {
+        for (auto i = 0; i < func->default_args->length; i++) {
+            ArObject *value = nullptr;
+
+            if (kwargs != nullptr)
+                value = DictLookup(kwargs, code->locals->objects[index_locals]);
+
+            if (value != nullptr)
+                frame->locals[index_locals++] = value;
+            else
+                frame->locals[index_locals++] = IncRef(func->default_args->objects[i]);
+        }
+    }
 
     if (index_argv < argc) {
         if ((rest = ListNew(argc - index_argv)) == nullptr) {
@@ -163,7 +180,7 @@ Frame *argon::vm::FrameNew(Fiber *fiber, Function *func, ArObject **argv, ArSize
         frame->locals[index_locals++] = NilOrValue((ArObject *) rest);
 
     if (func->IsKWArgs())
-        frame->locals[index_locals++] = NilOrValue(kwargs);
+        frame->locals[index_locals++] = NilOrValue(IncRef((ArObject *) kwargs));
 
     return frame;
 }
