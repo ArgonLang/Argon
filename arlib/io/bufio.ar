@@ -4,11 +4,12 @@
  * Licensed under the Apache License v2.0
 */
 
-from "argon:io" import LineReader
+from "argon:io" import LineReader, Reader
+from "error" import ValueError
 
 pub let DEFAULT_BUFSIZE = 2046 # 2KiB
 
-pub struct BufferedReader impl LineReader {
+pub struct BufferedReader impl LineReader, Reader {
     var stream
 	var buffer
 
@@ -16,11 +17,11 @@ pub struct BufferedReader impl LineReader {
     var index = 0
     var length = 0
 
-    pub func BufferedReader(stream, buflen) {
+    pub func BufferedReader(stream, size=DEFAULT_BUFSIZE) {
         return BufferedReader@(
 			stream = stream,
-			buffer = Bytes(buflen),
-			capacity = buflen
+			buffer = Bytes(size),
+			capacity = size
 		)
     }
 
@@ -37,55 +38,92 @@ pub struct BufferedReader impl LineReader {
     }
 
 	pub func read(self, size) {
-        var retval = Bytes(size)
-        var nbytes = 0
-		var copied
-
         if size == 0 {
             return b""
         }
 
-        var to_read = self.FillBuffer()
+        var retval = Bytes(size)
+        var nbytes = 0
 
-        loop size > to_read {
-            copied = retval.copy(self.buffer, self.index, nbytes, to_read)
+        loop size != 0 {
+            var to_read = self.FillBuffer()
 
-            self.index += copied
-            nbytes += copied
-            size -= copied
+            # EOF Check
+            if to_read == 0 {
+                return retval[:nbytes]
+            }
 
-            loop size >= self.capacity {
+            if size < to_read {
+                to_read = size
+            }
+
+            to_read = retval.copy(self.buffer, self.index, nbytes, to_read)
+
+            self.index += to_read
+            nbytes += to_read
+            size -= to_read
+
+            loop size != 0 {
                 to_read = self.stream.readinto(retval, nbytes)
 
 				# EOF Check
 				if to_read == 0 {
-                    return retval
+                    return retval[:nbytes]
                 }
 
                 nbytes += to_read
                 size -= to_read
             }
+        }
 
-            if size == 0 {
-                return retval
-            }
+        return retval[:nbytes]
+    }
 
-            to_read = self.FillBuffer()
+    pub func readinto(self, buffer, offset) {
+        var size = len(buffer)
+
+        if offset < 0 {
+            panic ValueError("offset cannot be less than zero", value=offset)
+        }
+
+        if size == 0 || offset >= size {
+            return 0
+        }
+
+        size -= offset
+
+        var base = offset
+        var to_read = 0
+
+        if self.index < self.length {
+            to_read = self.length - self.index
+        }
+
+        if size < to_read {
+            to_read = size
+        }
+
+        if to_read > 0 {
+            to_read = buffer.copy(self.buffer, self.index, offset, to_read)
+
+            self.index += to_read
+            offset += to_read
+            size -= to_read
+        }
+
+        loop size != 0 {
+            to_read = self.stream.readinto(buffer, offset)
 
             # EOF Check
             if to_read == 0 {
-                size = 0
+                return offset - base
             }
+
+            offset += to_read
+            size -= to_read
         }
 
-        if to_read < size {
-            size = to_read
-        }
-
-        copied = retval.copy(self.buffer, self.index, nbytes, size)
-        self.index += copied
-
-        return retval
+        return offset - base
     }
 
 	pub func readline(self, size) {

@@ -5,24 +5,21 @@
 */
 
 from "argon:io" import *
-from "io/bufio" import BufferedReader, DEFAULT_BUFSIZE
+from "io/bufio" import BufferedReader
 
 pub var stdin = openfd(STDIN_NO, O_READ)
 pub var stdout = openfd(STDOUT_NO, O_WRITE)
 pub var stderr = openfd(STDERR_NO, O_WRITE)
 
 # TODO: Check for unbuffered mode
-stdin = BufferedReader(stdin, DEFAULT_BUFSIZE)
+stdin = BufferedReader(stdin)
 
 # Read only backup
 pub let __stdin = stdin
 pub let __stdout = stdout
 pub let __stderr = stderr
 
-func _print(stream, args, kwargs) {
-    var sep = kwargs?.contains("sep") ? str(kwargs["sep"]) : " "
-    var end = kwargs?.contains("end") ? str(kwargs["end"]) : "\n"
-
+func _print(stream, args, sep, end) {
     # Use currying evaluation to avoid loading
     # the same method over and over while printing args.
     var out = stream.write()
@@ -41,15 +38,15 @@ func _print(stream, args, kwargs) {
     out(end)
 }
 
-pub func input(&kwargs) {
-	kwargs?.contains("prompt") ? print(kwargs["prompt"], end="")
+pub func input(prompt=nil) {
+	prompt ? print(prompt, end="")
 	return stdin.readline(-1)
 }
 
-pub func perror(...args, &kwargs) {
-    _print(stderr, args, kwargs)
+pub func perror(sep=" ", end="\n", ...args) {
+    _print(stderr, args, sep, end)
 }
 
-pub func print(...args, &kwargs) {
-	_print(stdout, args, kwargs)
+pub func print(sep=" ", end="\n", ...args) {
+	_print(stdout, args, sep, end)
 }
