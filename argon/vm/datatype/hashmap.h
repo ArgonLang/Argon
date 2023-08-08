@@ -42,14 +42,14 @@ namespace argon::vm::datatype {
         ArSize free_count;
         ArSize free_max;
 
-        bool Initialize(ArSize free_nodes) {
-            this->map = (HEntry<K, V> **) argon::vm::memory::Calloc(kHashMapInitialSize * sizeof(void *));
+        bool Initialize(ArSize capacity_, ArSize free_nodes) {
+            this->map = (HEntry<K, V> **) argon::vm::memory::Calloc(capacity_ * sizeof(void *));
             if (this->map != nullptr) {
                 this->free_node = nullptr;
                 this->iter_begin = nullptr;
                 this->iter_end = nullptr;
 
-                this->capacity = kHashMapInitialSize;
+                this->capacity = capacity_;
                 this->length = 0;
                 this->free_count = 0;
                 this->free_max = free_nodes;
@@ -58,8 +58,12 @@ namespace argon::vm::datatype {
             return this->map != nullptr;
         }
 
+        bool Initialize(ArSize capacity_) {
+            return this->Initialize(capacity_, kHashMapFreeNodeDefault);
+        }
+
         bool Initialize() {
-            return this->Initialize(kHashMapFreeNodeDefault);
+            return this->Initialize(kHashMapInitialSize, kHashMapFreeNodeDefault);
         }
 
         bool Insert(HEntry<K, V> *entry) {

@@ -6,6 +6,7 @@
 #include <shared_mutex>
 
 #include <argon/vm/runtime.h>
+#include <argon/vm/memory/gc.h>
 
 #include <argon/vm/datatype/arstring.h>
 #include <argon/vm/datatype/boolean.h>
@@ -518,12 +519,96 @@ bool argon::vm::datatype::DictRemove(Dict *dict, const char *key) {
     return ok;
 }
 
+Dict *argon::vm::datatype::DictMerge(Dict *dict1, Dict *dict2, bool clone) {
+    Dict *merge;
+
+    if (IsNull((ArObject *) dict1)) {
+        if (clone)
+            return DictNew((ArObject *) dict2);
+
+        return IncRef(dict2);
+    }
+
+    if (IsNull((ArObject *) dict2)) {
+        if (clone)
+            return DictNew((ArObject *) dict1);
+
+        return IncRef(dict1);
+    }
+
+    std::shared_lock d1(dict1->rwlock);
+    std::shared_lock d2(dict2->rwlock);
+
+    auto merge_sz = (unsigned int) (((float) (dict1->hmap.length + dict2->hmap.length + 1)) / kHashMapLoadFactor);
+
+    if ((merge = DictNew(merge_sz)) == nullptr)
+        return nullptr;
+
+    HEntry<ArObject, ArObject *> *entry;
+
+    for (auto *cursor = dict1->hmap.iter_begin; cursor != nullptr; cursor = cursor->iter_next) {
+        if ((entry = merge->hmap.AllocHEntry()) == nullptr) {
+            Release(merge);
+
+            return nullptr;
+        }
+
+        entry->key = IncRef(cursor->key);
+        entry->value = IncRef(cursor->value);
+
+        if (!merge->hmap.Insert(entry)) {
+            Release(cursor->key);
+            Release(cursor->value);
+
+            merge->hmap.FreeHEntry(entry);
+
+            Release(merge);
+
+            return nullptr;
+        }
+    }
+
+    d1.unlock();
+
+    for (auto *cursor = dict2->hmap.iter_begin; cursor != nullptr; cursor = cursor->iter_next) {
+        if (merge->hmap.Lookup(cursor->key) != nullptr) {
+            ErrorFormat(kValueError[0], "got multiple values for key '%s'", cursor->key);
+
+            Release(merge);
+
+            return nullptr;
+        }
+
+        if ((entry = merge->hmap.AllocHEntry()) == nullptr) {
+            Release(merge);
+
+            return nullptr;
+        }
+
+        entry->key = IncRef(cursor->key);
+        entry->value = IncRef(cursor->value);
+
+        if (!merge->hmap.Insert(entry)) {
+            Release(cursor->key);
+            Release(cursor->value);
+
+            merge->hmap.FreeHEntry(entry);
+
+            Release(merge);
+
+            return nullptr;
+        }
+    }
+
+    return merge;
+}
+
 Dict *argon::vm::datatype::DictNew() {
     auto *dict = MakeGCObject<Dict>(type_dict_, false);
 
     if (dict != nullptr) {
         if (!dict->hmap.Initialize()) {
-            Release(dict);
+            memory::GCFreeRaw((ArObject *) dict);
 
             return nullptr;
         }
@@ -604,6 +689,22 @@ Dict *argon::vm::datatype::DictNew(ArObject *object) {
     }
 
     return ret;
+}
+
+Dict *argon::vm::datatype::DictNew(unsigned int size) {
+    auto *dict = MakeGCObject<Dict>(type_dict_, false);
+
+    if (dict != nullptr) {
+        if (!dict->hmap.Initialize(size)) {
+            memory::GCFreeRaw((ArObject *) dict);
+
+            return nullptr;
+        }
+
+        new(&dict->rwlock)sync::RecursiveSharedMutex();
+    }
+
+    return dict;
 }
 
 IntegerUnderlying argon::vm::datatype::DictLookupInt(Dict *dict, const char *key, IntegerUnderlying _default) {

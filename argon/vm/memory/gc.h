@@ -82,6 +82,10 @@ namespace argon::vm::memory {
 
     void GCFree(datatype::ArObject *object);
 
+    inline void GCFreeRaw(datatype::ArObject *object) {
+        memory::Free(GCGetHead(object));
+    }
+
     void Sweep();
 
     void ThresholdCollect();

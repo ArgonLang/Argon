@@ -110,6 +110,21 @@ namespace argon::vm::datatype {
      */
     bool DictRemove(Dict *dict, const char *key);
 
+    /***
+     * @brief Create a dictionary by merging two dictionaries together.
+     *
+     * @warning If a key collision occurs during dictionary merge,
+     * the operation will be aborted and panic will be set.
+     *
+     * @param dict1 Pointer to first dict.
+     * @param dict2 Pointer to second dict.
+     * @param clone Indicates, in case one of the two dicts is nil/nullptr,
+     * whether to return a reference to the other dictionary or to clone it.
+     *
+     * @return A pointer to new merged dict, otherwise nullptr will be returned and a panic state will be set.
+     */
+    Dict *DictMerge(Dict *dict1, Dict *dict2, bool clone);
+
     /**
      * @brief Create a new dict.
      *
@@ -124,6 +139,13 @@ namespace argon::vm::datatype {
      * @return A pointer to a dict object, otherwise nullptr.
      */
     Dict *DictNew(ArObject *object);
+
+    /**
+     * @brief Create a new dictionary of the desired initial size.
+     *
+     * @return A pointer to a dict object, otherwise nullptr.
+     */
+    Dict *DictNew(unsigned int size);
 
     /**
      * @brief Convenience function to look up an Int type (useful when used with the kwargs function parameter).
