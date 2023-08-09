@@ -457,6 +457,7 @@ ArObject *argon::vm::Eval(Fiber *fiber) {
             &&LBL_DEC,
             &&LBL_DFR,
             &&LBL_DIV,
+            &&LBL_DTMERGE,
             &&LBL_DUP,
             &&LBL_EQST,
             &&LBL_EXTD,
@@ -701,6 +702,16 @@ ArObject *argon::vm::Eval(Fiber *fiber) {
             TARGET_OP(DIV)
             {
                 BINARY_OP(div, /);
+            }
+            TARGET_OP(DTMERGE)
+            {
+                ret = (ArObject *) DictMerge((Dict *) PEEK1(), (Dict *) TOP(), false);
+                if (ret == nullptr)
+                    break;
+
+                POP();
+                TOP_REPLACE(ret);
+                DISPATCH();
             }
             TARGET_OP(DUP)
             {

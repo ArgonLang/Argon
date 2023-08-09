@@ -19,6 +19,7 @@ namespace argon::lang::parser {
     argon::lang::scanner::Loc loc
 
     enum class NodeType {
+        ARGUMENT,
         ASSERT,
         ASSIGNMENT,
         AWAIT,
@@ -50,7 +51,6 @@ namespace argon::lang::parser {
         NULL_COALESCING,
         KWARG,
         PANIC,
-        PARAM,
         REST,
         RETURN,
         SAFE_EXPR,
@@ -72,6 +72,14 @@ namespace argon::lang::parser {
     struct Node {
         NODEOBJ_HEAD;
     };
+
+    struct Argument {
+        NODEOBJ_HEAD;
+
+        Node *id;
+        Node *value;
+    };
+    extern const vm::datatype::TypeInfo *type_ast_argument_;
 
     struct Assignment {
         NODEOBJ_HEAD;
@@ -171,14 +179,6 @@ namespace argon::lang::parser {
     };
     extern const vm::datatype::TypeInfo *type_ast_loop_;
 
-    struct Param {
-        NODEOBJ_HEAD;
-
-        Node *id;
-        Node *def_value;
-    };
-    extern const vm::datatype::TypeInfo *type_ast_param_;
-
     struct Subscript {
         NODEOBJ_HEAD;
 
@@ -212,6 +212,8 @@ namespace argon::lang::parser {
     };
     extern const vm::datatype::TypeInfo *type_ast_unary_;
 
+    Argument *ArgumentNew(Unary *id, Node *def_value, NodeType type);
+
     Assignment *AssignmentNew(vm::datatype::ArObject *name, bool constant, bool pub, bool weak);
 
     Binary *BinaryNew(Node *left, Node *right, scanner::TokenType token, NodeType type);
@@ -229,8 +231,6 @@ namespace argon::lang::parser {
     Initialization *InitNew(Node *left, vm::datatype::ArObject *list, const scanner::Loc &loc, bool as_map);
 
     Loop *LoopNew(Node *init, Node *test, Node *inc, Node *body, NodeType type);
-
-    Param *ParamNew(Unary *id, Node *def_value, NodeType type);
 
     Subscript *SubscriptNew(Node *expr, Node *start, Node *stop, bool slice);
 

@@ -38,6 +38,13 @@ const argon::vm::datatype::TypeInfo *argon::lang::parser::ExtName = &StructName#
 
 // DTORs
 
+bool argument_dtor(Argument *self) {
+    Release(self->id);
+    Release(self->value);
+
+    return true;
+}
+
 bool assignment_dtor(Assignment *self) {
     Release(self->name);
     Release(self->value);
@@ -109,13 +116,6 @@ bool loop_dtor(Loop *self) {
     return true;
 }
 
-bool param_dtor(Param *self) {
-    Release(self->id);
-    Release(self->def_value);
-
-    return true;
-}
-
 bool subscript_dtor(Subscript *self) {
     Release(self->expression);
     Release(self->start);
@@ -147,6 +147,7 @@ bool unary_dtor(Unary *self) {
 
 // TYPEs DEF
 
+NODE_NEW(Argument, type_ast_argument_, Argument, nullptr, argument_dtor, nullptr);
 NODE_NEW(Assignment, type_ast_assignment_, Assignment, nullptr, assignment_dtor, nullptr);
 NODE_NEW(Binary, type_ast_binary_, Binary, nullptr, binary_dtor, nullptr);
 NODE_NEW(Call, type_ast_call_, Call, nullptr, call_dtor, nullptr);
@@ -156,68 +157,26 @@ NODE_NEW(Function, type_ast_function_, Function, nullptr, function_dtor, nullptr
 NODE_NEW(Import, type_ast_import_, Import, nullptr, import_dtor, nullptr);
 NODE_NEW(Initialization, type_ast_initialization_, Initialization, nullptr, initialization_dtor, nullptr);
 NODE_NEW(Loop, type_ast_loop_, Loop, nullptr, loop_dtor, nullptr);
-NODE_NEW(Param, type_ast_param_, Param, nullptr, param_dtor, nullptr);
 NODE_NEW(Subscript, type_ast_subscript_, Subscript, nullptr, subscript_dtor, nullptr);
 NODE_NEW(SwitchCase, type_ast_switchcase_, SwitchCase, nullptr, switchcase_dtor, nullptr);
 NODE_NEW(Test, type_ast_test_, Test, nullptr, test_dtor, nullptr);
 NODE_NEW(Unary, type_ast_unary_, Unary, nullptr, unary_dtor, nullptr);
 
-File *argon::lang::parser::FileNew(const char *filename, List *statements) {
-    auto *file = NodeNew<File>(&FileAstType, NodeType::FILE);
-    size_t length = strlen(filename);
+Argument *argon::lang::parser::ArgumentNew(Unary *id, Node *def_value, NodeType type) {
+    auto *param = NodeNew<Argument>(&ArgumentAstType, type);
 
-    if (file != nullptr) {
-        if ((file->filename = (char *) vm::memory::Alloc(length + 1)) == nullptr) {
-            Release(file);
-            return nullptr;
-        }
+    if (param != nullptr) {
+        param->id = (Node *) IncRef(id);
+        param->value = IncRef(def_value);
 
-        vm::memory::MemoryCopy(file->filename, filename, length);
+        if (id != nullptr)
+            param->loc = id->loc;
 
-        file->filename[length] = '\0';
-
-        file->statements = IncRef(statements);
+        if (def_value != nullptr)
+            param->loc.end = def_value->loc.end;
     }
 
-    return file;
-}
-
-Function *argon::lang::parser::FunctionNew(String *name, List *params, Node *body, bool pub) {
-    auto *func = NodeNew<Function>(&FunctionAstType, NodeType::FUNC);
-
-    if (func != nullptr) {
-
-        func->async = false;
-        func->pub = pub;
-
-        func->name = IncRef(name);
-        func->doc = nullptr;
-        func->params = IncRef(params);
-        func->body = IncRef(body);
-
-        func->loc.start = {};
-        func->loc.end = {};
-
-        if (body != nullptr)
-            func->loc.end = body->loc.end;
-    }
-
-    return func;
-}
-
-Import *argon::lang::parser::ImportNew(Node *mod, ArObject *names, bool pub) {
-    auto *imp = NodeNew<Import>(&ImportAstType, NodeType::IMPORT);
-
-    if (imp != nullptr) {
-        imp->pub = pub;
-
-        imp->mod = IncRef(mod);
-        imp->names = IncRef(names);
-
-        imp->loc = {};
-    }
-
-    return imp;
+    return param;
 }
 
 Assignment *argon::lang::parser::AssignmentNew(ArObject *name, bool constant, bool pub, bool weak) {
@@ -292,6 +251,64 @@ Construct *argon::lang::parser::ConstructNew(String *name, List *impls, Node *bo
     return cstr;
 }
 
+File *argon::lang::parser::FileNew(const char *filename, List *statements) {
+    auto *file = NodeNew<File>(&FileAstType, NodeType::FILE);
+    size_t length = strlen(filename);
+
+    if (file != nullptr) {
+        if ((file->filename = (char *) vm::memory::Alloc(length + 1)) == nullptr) {
+            Release(file);
+            return nullptr;
+        }
+
+        vm::memory::MemoryCopy(file->filename, filename, length);
+
+        file->filename[length] = '\0';
+
+        file->statements = IncRef(statements);
+    }
+
+    return file;
+}
+
+Function *argon::lang::parser::FunctionNew(String *name, List *params, Node *body, bool pub) {
+    auto *func = NodeNew<Function>(&FunctionAstType, NodeType::FUNC);
+
+    if (func != nullptr) {
+
+        func->async = false;
+        func->pub = pub;
+
+        func->name = IncRef(name);
+        func->doc = nullptr;
+        func->params = IncRef(params);
+        func->body = IncRef(body);
+
+        func->loc.start = {};
+        func->loc.end = {};
+
+        if (body != nullptr)
+            func->loc.end = body->loc.end;
+    }
+
+    return func;
+}
+
+Import *argon::lang::parser::ImportNew(Node *mod, ArObject *names, bool pub) {
+    auto *imp = NodeNew<Import>(&ImportAstType, NodeType::IMPORT);
+
+    if (imp != nullptr) {
+        imp->pub = pub;
+
+        imp->mod = IncRef(mod);
+        imp->names = IncRef(names);
+
+        imp->loc = {};
+    }
+
+    return imp;
+}
+
 Initialization *argon::lang::parser::InitNew(Node *left, ArObject *list, const scanner::Loc &loc, bool as_map) {
     auto *init = NodeNew<Initialization>(&InitializationAstType, NodeType::INIT);
     if (init == nullptr)
@@ -323,22 +340,6 @@ Loop *argon::lang::parser::LoopNew(Node *init, Node *test, Node *inc, Node *body
     }
 
     return loop;
-}
-
-Param *argon::lang::parser::ParamNew(Unary *id, Node *def_value, NodeType type) {
-    auto *param = NodeNew<Param>(&ParamAstType, type);
-
-    if (param != nullptr) {
-        param->id = (Node *) IncRef(id);
-        param->def_value = IncRef(def_value);
-
-        param->loc = id->loc;
-
-        if (def_value != nullptr)
-            param->loc.end = def_value->loc.end;
-    }
-
-    return param;
 }
 
 Subscript *argon::lang::parser::SubscriptNew(Node *expr, Node *start, Node *stop, bool slice) {

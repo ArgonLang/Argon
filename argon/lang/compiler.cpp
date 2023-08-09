@@ -538,24 +538,54 @@ void Compiler::CompileCallKwArgs(vm::datatype::ArObject *args, int &args_count, 
 
     int items = 0;
 
+    bool dict_expansion = false;
+
     iter = IteratorGet(args, false);
     if (!iter)
         throw DatatypeException();
 
+    // name = value
     while ((param = IteratorNext(iter.Get()))) {
-        const auto *tmp = (const Unary *) param.Get();
+        const auto *tmp = (const parser::Argument *) param.Get();
 
-        if ((items & 1) == 0)
-            this->LoadStatic(tmp->value, false, true);
-        else
-            this->Expression((const Node *) tmp);
+        if (tmp->id == nullptr) {
+            dict_expansion = true;
+            continue;
+        }
 
-        items++;
+        this->LoadStatic(((const Unary *) tmp->id)->value, false, true);
+
+        this->Expression(tmp->value);
+
+        items += 2;
     }
 
-    this->unit_->DecrementStack(items);
+    if (items > 0) {
+        this->unit_->DecrementStack(items);
 
-    this->unit_->Emit(vm::OpCode::MKDT, items, nullptr, nullptr);
+        this->unit_->Emit(vm::OpCode::MKDT, items, nullptr, nullptr);
+    }
+
+    if (dict_expansion) {
+        iter = IteratorGet(args, false);
+        if (!iter)
+            throw DatatypeException();
+
+        // &kwargs
+        while ((param = IteratorNext(iter.Get()))) {
+            const auto *tmp = (const parser::Argument *) param.Get();
+
+            if (tmp->id != nullptr)
+                continue;
+
+            this->Expression(tmp->value);
+
+            if (items > 0)
+                this->unit_->Emit(vm::OpCode::DTMERGE, nullptr);
+
+            items++;
+        }
+    }
 
     mode |= vm::OpCodeCallMode::KW_PARAMS;
 
@@ -956,18 +986,18 @@ void Compiler::CompileFunctionDefaultArgs(vm::datatype::List *params, FunctionFl
         throw DatatypeException();
 
     while ((param = IteratorNext(iter.Get()))) {
-        const auto *p = (parser::Param *) param.Get();
+        const auto *p = (parser::Argument *) param.Get();
 
-        CHECK_AST_NODE(p, type_ast_param_,
-                       "Compiler::CompileFunctionParams: expects a param node as an element in the parameter list");
+        CHECK_AST_NODE(p, type_ast_argument_,
+                       "Compiler::CompileFunctionParams: expects a argument node as an element in the parameter list");
 
-        if (p->def_value != nullptr) {
-            this->Expression(p->def_value);
+        if (p->value != nullptr) {
+            this->Expression(p->value);
             def_count++;
         }
 
         // Sanity check
-        if (def_count > 0 && p->node_type == parser::NodeType::PARAM && p->def_value == nullptr)
+        if (def_count > 0 && p->node_type == parser::NodeType::ARGUMENT && p->value == nullptr)
             throw CompilerException("");
     }
 
@@ -1028,9 +1058,9 @@ void Compiler::CompileFunctionParams(vm::datatype::List *params, unsigned short 
         throw DatatypeException();
 
     while ((param = IteratorNext(iter.Get()))) {
-        const auto *p = (parser::Param *) param.Get();
+        const auto *p = (parser::Argument *) param.Get();
 
-        CHECK_AST_NODE(p, type_ast_param_,
+        CHECK_AST_NODE(p, type_ast_argument_,
                        "Compiler::CompileFunctionParams: expects a param node as an element in the parameter list");
 
         if (p_count == 0 && this->unit_->prev != nullptr) {
@@ -1043,7 +1073,7 @@ void Compiler::CompileFunctionParams(vm::datatype::List *params, unsigned short 
 
         this->IdentifierNew((const Unary *) p->id, SymbolType::VARIABLE, {}, false);
 
-        if (p->def_value == nullptr)
+        if (p->value == nullptr)
             p_count++;
 
         if (p->node_type == parser::NodeType::REST) {

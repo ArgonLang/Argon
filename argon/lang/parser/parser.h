@@ -69,6 +69,12 @@ namespace argon::lang::parser {
             return false;
         }
 
+        bool ParseFnCallRestArgs(Node *expr, argon::vm::datatype::ARC &args, bool must_parse);
+
+        bool ParseFnCallNamedArg(Node *expr, argon::vm::datatype::ARC &kwargs, bool must_parse);
+
+        bool ParseFnCallUnpack(argon::vm::datatype::ARC &kwargs, bool must_parse);
+
         bool ScopeExactMatch(ParserScope scope) const;
 
         bool ScopeMatch(ParserScope scope) const;

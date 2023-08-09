@@ -193,7 +193,7 @@ ArObject *Parser::ParseParamList(bool parse_expr, bool *out_grouped_expr) {
 
     Position start{};
 
-    const Param *param;
+    const Argument *param;
 
     int count = 0;
     int mode = 0;
@@ -242,12 +242,12 @@ ArObject *Parser::ParseParamList(bool parse_expr, bool *out_grouped_expr) {
 
             tmp = (ArObject *) this->ParseIDNamedParam(parse_expr);
 
-            param = (Param *) tmp.Get();
+            param = (Argument *) tmp.Get();
 
-            if (mode > 0 && param->def_value == nullptr)
+            if (mode > 0 && param->value == nullptr)
                 throw ParserException("unexpected non keyword parameter");
 
-            if (param->node_type == NodeType::PARAM && param->def_value != nullptr)
+            if (param->node_type == NodeType::ARGUMENT && param->value != nullptr)
                 mode = 1;
         }
 
@@ -290,6 +290,111 @@ ArObject *Parser::ParseTraitList() {
     } while (this->MatchEat(TokenType::COMMA));
 
     return list.Unwrap();
+}
+
+bool Parser::ParseFnCallRestArgs(Node *expr, ARC &args, bool must_parse) {
+    Loc loc{};
+
+    loc.start = expr->loc.start;
+    loc.end = this->tkcur_.loc.end;
+
+    if (!this->MatchEat(TokenType::ELLIPSIS)) {
+        if (must_parse)
+            throw ParserException("parameters to a function must be passed in the order: "
+                                  "[positional][, named param][, spread][, kwargs]");
+        return false;
+    }
+
+    auto *rest = UnaryNew((ArObject *) expr, NodeType::ELLIPSIS, loc);
+    if (rest == nullptr)
+        throw DatatypeException();
+
+    if (!ListAppend((List *) args.Get(), (ArObject *) rest)) {
+        Release(rest);
+
+        throw DatatypeException();
+    }
+
+    Release(rest);
+
+    return true;
+}
+
+bool Parser::ParseFnCallNamedArg(Node *expr, ARC &kwargs, bool must_parse) {
+    if (!this->MatchEat(TokenType::EQUAL)) {
+        if (must_parse)
+            throw ParserException("parameters to a function must be passed in the order: "
+                                  "[positional][, named param][, spread][, kwargs]");
+
+        return false;
+    }
+
+    // Sanity check
+    if (expr->node_type != NodeType::IDENTIFIER)
+        throw ParserException("only identifiers are allowed before the '=' sign");
+
+    this->IgnoreNL();
+
+    if (!kwargs)
+        kwargs = (ArObject *) ListNew();
+
+    if (!kwargs)
+        throw DatatypeException();
+
+    auto *value = this->ParseExpression(PeekPrecedence(TokenType::COMMA));
+
+    auto *arg = (ArObject *) ArgumentNew((Unary *) expr, value, NodeType::ARGUMENT);
+
+    Release(value);
+
+    if (arg == nullptr)
+        throw DatatypeException();
+
+    if (!ListAppend((List *) kwargs.Get(), arg)) {
+        Release(arg);
+
+        throw DatatypeException();
+    }
+
+    Release(arg);
+
+    return true;
+}
+
+bool Parser::ParseFnCallUnpack(ARC &kwargs, bool must_parse) {
+    Position start = this->tkcur_.loc.start;
+    ARC expr;
+
+    if (!this->MatchEat(TokenType::AMPERSAND)) {
+        if (must_parse)
+            throw ParserException("parameters to a function must be passed in the order: "
+                                  "[positional][, named param][, spread][, kwargs]");
+        return false;
+    }
+
+    if (!kwargs)
+        kwargs = (ArObject *) ListNew();
+
+    if (!kwargs)
+        throw DatatypeException();
+
+    expr = (ArObject *) this->ParseExpression(PeekPrecedence(TokenType::COMMA));
+
+    auto *arg = ArgumentNew(nullptr, (Node *) expr.Get(), NodeType::ARGUMENT);
+    if (arg == nullptr)
+        throw DatatypeException();
+
+    arg->loc.start = start;
+
+    if (!ListAppend((List *) kwargs.Get(), (ArObject *) arg)) {
+        Release(arg);
+
+        throw DatatypeException();
+    }
+
+    Release(arg);
+
+    return true;
 }
 
 bool Parser::ScopeExactMatch(ParserScope scope) const {
@@ -437,7 +542,7 @@ Node *Parser::ParseArrowOrTuple() {
         const auto *list = (List *) items.Get();
         for (ArSize i = 0; i < list->length; i++) {
             const auto *node = (Node *) list->objects[i];
-            if (node->node_type != NodeType::PARAM &&
+            if (node->node_type != NodeType::ARGUMENT &&
                 node->node_type != NodeType::REST &&
                 node->node_type != NodeType::KWARG)
                 throw ParserException("expression not allowed here");
@@ -467,11 +572,11 @@ Node *Parser::ParseArrowOrTuple() {
     for (ArSize i = 0; i < list->length; i++) {
         auto *node = (Node *) list->objects[i];
 
-        if (node->node_type == NodeType::PARAM) {
-            if (((Param *) node)->def_value != nullptr)
+        if (node->node_type == NodeType::ARGUMENT) {
+            if (((Argument *) node)->value != nullptr)
                 throw ParserException("unexpected keyword parameter in tuple expression");
 
-            list->objects[i] = (ArObject *) IncRef(((Param *) node)->id);
+            list->objects[i] = (ArObject *) IncRef(((Argument *) node)->id);
 
             Release(node);
 
@@ -1040,8 +1145,8 @@ Node *Parser::ParseFn(bool pub) {
 
 Node *Parser::ParseFnCall(Node *left) {
     ARC arg;
+    ARC kwarg;
     ARC list;
-    ARC map;
 
     int mode = 0;
 
@@ -1067,71 +1172,25 @@ Node *Parser::ParseFnCall(Node *left) {
     do {
         this->IgnoreNL();
 
+        if (this->ParseFnCallUnpack(kwarg, mode >= 3)) {
+            mode = 3;
+
+            continue;
+        }
+
         arg = (ArObject *) this->ParseExpression(PeekPrecedence(TokenType::COMMA));
 
-        if (this->MatchEat(TokenType::ELLIPSIS)) {
-            auto *ell = UnaryNew(arg.Get(), NodeType::ELLIPSIS, this->tkcur_.loc);
-            if (ell == nullptr)
-                throw DatatypeException();
-
-            ell->loc.start = ((Node *) arg.Get())->loc.start;
-
-            if (!ListAppend((List *) list.Get(), (ArObject *) ell)) {
-                Release(ell);
-                throw DatatypeException();
-            }
-
-            Release(ell);
-
-            this->IgnoreNL();
-
+        if (this->ParseFnCallRestArgs((Node *) arg.Get(), list, mode == 1))
             mode = 1;
-
-            continue;
-        }
-
-        if (this->MatchEat(TokenType::EQUAL)) {
-            if (((Node *) arg.Get())->node_type != NodeType::IDENTIFIER)
-                throw ParserException("only identifiers are allowed before the '=' sign");
-
-            this->IgnoreNL();
-
-            if (!map)
-                map = (ArObject *) ListNew();
-
-            if (!map)
-                throw DatatypeException();
-
-            if (!ListAppend((List *) map.Get(), arg.Get()))
-                throw DatatypeException();
-
-            auto *value = (ArObject *) this->ParseExpression(PeekPrecedence(TokenType::COMMA));
-
-            if (!ListAppend((List *) map.Get(), value)) {
-                Release(value);
-                throw DatatypeException();
-            }
-
-            Release(value);
-
-            this->IgnoreNL();
-
+        else if (this->ParseFnCallNamedArg((Node *) arg.Get(), kwarg, mode == 2))
             mode = 2;
-            continue;
-        }
-
-        if (mode >= 1)
-            throw ParserException("parameters to a function must be passed in the order: positional[, named param], ellipsis");
-
-        if (!ListAppend((List *) list.Get(), arg.Get()))
+        else if (!ListAppend((List *) list.Get(), arg.Get()))
             throw DatatypeException();
-
-        this->IgnoreNL();
     } while (this->MatchEat(TokenType::COMMA));
 
     this->IgnoreNL();
 
-    auto *call = CallNew(left, list.Get(), map.Get());
+    auto *call = CallNew(left, list.Get(), kwarg.Get());
     if (call == nullptr)
         throw DatatypeException();
 
@@ -1241,7 +1300,7 @@ Node *Parser::ParseIDValue(NodeType type, const scanner::Position &start) {
     if (id == nullptr)
         throw DatatypeException();
 
-    auto *param = ParamNew(id, nullptr, type);
+    auto *param = ArgumentNew(id, nullptr, type);
 
     Release(id);
 
@@ -1622,7 +1681,7 @@ Node *Parser::ParseIDNamedParam(bool parse_expr) {
     }
 
     if ((((Node *) id.Get())->node_type == NodeType::IDENTIFIER)) {
-        auto *param = ParamNew((Unary *) id.Get(), (Node *) value.Get(), NodeType::PARAM);
+        auto *param = ArgumentNew((Unary *) id.Get(), (Node *) value.Get(), NodeType::ARGUMENT);
         if (param == nullptr)
             throw DatatypeException();
 
