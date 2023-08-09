@@ -13,7 +13,7 @@ target_include_directories(ArgonVM PUBLIC
         $<INSTALL_INTERFACE:include>)
 
 if(WIN32)
-    target_link_libraries(ArgonVM PUBLIC Stratum ws2_32)
+    target_link_libraries(ArgonVM PUBLIC Stratum synchronization ws2_32)
 else ()
     target_link_libraries(ArgonVM PUBLIC Stratum)
 endif()

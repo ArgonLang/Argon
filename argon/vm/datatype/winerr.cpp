@@ -11,6 +11,7 @@
 #undef CONST
 #undef FASTCALL
 #undef Yield
+#undef IN
 
 #include <argon/vm/datatype/arobject.h>
 #include <argon/vm/datatype/error.h>
