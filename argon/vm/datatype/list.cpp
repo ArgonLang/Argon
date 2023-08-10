@@ -235,12 +235,14 @@ ArObject *list_get_slice(List *self, ArObject *bounds) {
     if ((ret = ListNew(slice_len)) == nullptr)
         return nullptr;
 
-    if (step >= 0) {
-        for (ArSize i = 0; start < stop; start += step)
-            ret->objects[i++] = IncRef(self->objects[start]);
-    } else {
-        for (ArSize i = 0; stop < start; start += step)
-            ret->objects[i++] = IncRef(self->objects[start]);
+    if (slice_len > 0) {
+        if (step >= 0) {
+            for (ArSize i = 0; start < stop; start += step)
+                ret->objects[i++] = IncRef(self->objects[start]);
+        } else {
+            for (ArSize i = 0; stop < start; start += step)
+                ret->objects[i++] = IncRef(self->objects[start]);
+        }
     }
 
     ret->length = slice_len;
@@ -684,7 +686,7 @@ bool argon::vm::datatype::ListPrepend(List *list, ArObject *object) {
         return false;
 
     for (ArSize i = list->length; i > 0; i--)
-        list->objects[i] = list->objects[i-1];
+        list->objects[i] = list->objects[i - 1];
 
     list->objects[0] = IncRef(object);
 
