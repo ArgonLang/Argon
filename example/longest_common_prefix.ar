@@ -25,7 +25,6 @@ var entries = [
     ["dog","racecar","car"]
 ]
 
-var entry
-for entry in entries {
+for var entry of entries {
     io.print("%s -> %s" % (entry, entry |> longestCommonPrefix))
 }

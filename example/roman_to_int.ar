@@ -15,7 +15,7 @@ func romanToInt(roman) {
     var pre = roman_t[roman[0]]
     var cursor, actual
 
-    for cursor in roman {
+    for cursor of roman {
         actual = roman_t[cursor]
 
         if pre < actual {
