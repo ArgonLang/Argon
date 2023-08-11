@@ -958,7 +958,7 @@ ArObject *bytes_get_item(Bytes *self, ArObject *index) {
         idx = BUFFER_LEN(self) + idx;
 
     if (idx < BUFFER_LEN(self))
-        ret = (ArObject *) UIntNew(BUFFER_GET(self)[idx]);
+        ret = (ArObject *) IntNew(BUFFER_GET(self)[idx]);
     else
         ErrorFormat(kOverflowError[0], "bytes index out of range (index: %d, length: %d)",
                     idx, BUFFER_LEN(self));
@@ -1072,7 +1072,7 @@ bool bytes_set_item(Bytes *self, ArObject *index, ArObject *value) {
 
     idx = ((Integer *) index)->sint;
 
-    if (AR_TYPEOF(value, type_uint_))
+    if (AR_TYPEOF(value, type_int_) || AR_TYPEOF(value, type_uint_))
         rvalue = ((Integer *) value)->uint;
     else if (AR_TYPEOF(value, type_bytes_)) {
         auto *other = (Bytes *) value;
@@ -1186,7 +1186,7 @@ ArObject *bytes_mod(Bytes *left, ArObject *args) {
     if ((buffer = fmt.Format(&out_length, &out_cap)) == nullptr) {
         auto *err = fmt.GetError();
 
-        argon::vm::Panic( err);
+        argon::vm::Panic(err);
 
         Release(err);
 
@@ -1645,7 +1645,7 @@ ArObject *bytesiterator_iter_next(BytesIterator *self) {
 
             self->index++;
 
-            return (ArObject *) UIntNew(byte);
+            return (ArObject *) IntNew(byte);
         }
 
         SHARED_UNLOCK(self->iterable);
@@ -1665,7 +1665,7 @@ ArObject *bytesiterator_iter_next(BytesIterator *self) {
 
     self->index++;
 
-    return (ArObject *) UIntNew(byte);
+    return (ArObject *) IntNew(byte);
 }
 
 TypeInfo BytesIteratorType = {
