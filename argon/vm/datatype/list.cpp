@@ -334,21 +334,34 @@ ArObject *list_mul(ArObject *left, ArObject *right) {
     const auto *num = (Integer *) right;
     List *ret = nullptr;
 
+    UIntegerUnderlying times;
+
     // int * list -> list * int
     if (!AR_TYPEOF(list, type_list_)) {
         list = (List *) right;
         num = (Integer *) left;
     }
 
-    if (AR_TYPEOF(num, type_uint_)) {
-        std::shared_lock _(list->rwlock);
+    if (AR_TYPEOF(num, type_int_)) {
+        if (num->sint < 0) {
+            ErrorFormat(kValueError[0], "integer must be greater than zero");
 
-        if ((ret = ListNew(list->length * num->uint)) != nullptr) {
-            for (ArSize i = 0; i < ret->capacity; i++)
-                ret->objects[i] = IncRef(list->objects[i % list->length]);
-
-            ret->length = ret->capacity;
+            return nullptr;
         }
+
+        times = num->sint;
+    } else if AR_TYPEOF(num, type_uint_)
+        times = num->uint;
+    else
+        return nullptr;
+
+    std::shared_lock _(list->rwlock);
+
+    if ((ret = ListNew(list->length * times)) != nullptr) {
+        for (ArSize i = 0; i < ret->capacity; i++)
+            ret->objects[i] = IncRef(list->objects[i % list->length]);
+
+        ret->length = ret->capacity;
     }
 
     return (ArObject *) ret;
