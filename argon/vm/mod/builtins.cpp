@@ -29,6 +29,41 @@
 
 using namespace argon::vm::datatype;
 
+ARGON_FUNCTION(builtins_bind, bind,
+               "Return a partial-applied function(currying).\n"
+               "\n"
+               "Calling bind(func, args...) is equivalent to the following expression:\n"
+               "\n\tfunc(args...)\n\n"
+               "IF AND ONLY IF the number of arguments is less than the arity of the function, "
+               "otherwise the expression invokes the function call.\n"
+               "This does not happen with the use of bind which allows to bind a number of arguments "
+               "equal to the arity of the function.\n"
+               "\n"
+               "- Parameters:\n"
+               "    - func: callable object(function).\n"
+               "    - ...obj: list of arguments to bind.\n"
+               "- Returns: partial-applied function.\n",
+               "F: func", true, false) {
+    auto *func = (const Function *) args[0];
+
+    if (argc - 1 > 0) {
+        auto positional_args = argc - 1;
+
+        if (func->currying != nullptr)
+            positional_args += func->currying->length;
+
+        if (positional_args > func->arity) {
+            ErrorFormat(kTypeError[0], kTypeError[3], ARGON_RAW_STRING(func->qname), func->arity, positional_args);
+
+            return nullptr;
+        }
+
+        return (ArObject *) FunctionNew(func, args + 1, argc - 1);
+    }
+
+    return IncRef(args[0]);
+}
+
 ARGON_FUNCTION(builtins_exit, exit,
                "Exit by initiating a panicking state with RuntimeExit error.\n"
                "\n"
@@ -239,6 +274,7 @@ const ModuleEntry builtins_entries[] = {
         MODULE_EXPORT_TYPE(type_tuple_),
         MODULE_EXPORT_TYPE(type_uint_),
 
+        MODULE_EXPORT_FUNCTION(builtins_bind),
         MODULE_EXPORT_FUNCTION(builtins_exit),
         MODULE_EXPORT_FUNCTION(builtins_eval),
         MODULE_EXPORT_FUNCTION(builtins_iscallable),
