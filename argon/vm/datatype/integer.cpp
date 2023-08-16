@@ -5,6 +5,7 @@
 #include <argon/vm/runtime.h>
 
 #include <argon/vm/datatype/boolean.h>
+#include <argon/vm/datatype/bytes.h>
 #include <argon/vm/datatype/error.h>
 #include <argon/vm/datatype/integer.h>
 
@@ -25,11 +26,76 @@ using namespace argon::vm::datatype;
         return (ArObject *) IntNew(left->sint op right->sint);              \
     } while(0)
 
+ARGON_FUNCTION(number_frombytes, frombytes,
+               "Return the number represented by the given array of bytes.\n"
+               "\n"
+               "- Parameter bytes: Array of bytes to convert.\n"
+               "- KWParameters:"
+               "  - byteorder: Byte order used to represent the integer (big | little).\n"
+               "- Returns: Number.\n",
+               "x: bytes", false, true) {
+    ArBuffer buffer{};
+
+    UIntegerUnderlying num = 0;
+
+    if (!BufferGet(args[0], &buffer, BufferFlags::READ))
+        return nullptr;
+
+    if (buffer.length > sizeof(UIntegerUnderlying)) {
+        ErrorFormat(kValueError[0], "bytes exceeds the maximum size that can be represented %d/%d",
+                    buffer.length, sizeof(UIntegerUnderlying));
+
+        BufferRelease(&buffer);
+
+        return nullptr;
+    }
+
+    auto byteorder = DictLookupString((Dict *) kwargs, "byteorder", "big");
+    if (byteorder == nullptr) {
+        BufferRelease(&buffer);
+        return nullptr;
+    }
+
+    auto big_endian = StringEqual(byteorder, "big");
+
+    if (!big_endian && !StringEqual(byteorder, "little")) {
+        ErrorFormat(kValueError[0], "byteorder must be 'big' or 'little', got: '%s'", ARGON_RAW_STRING(byteorder));
+
+        Release(byteorder);
+        BufferRelease(&buffer);
+
+        return nullptr;
+    }
+
+    Release(byteorder);
+
+    const unsigned char *bstart = buffer.buffer;
+    int inc = 1;
+
+    if (big_endian) {
+        bstart = buffer.buffer + buffer.length - 1;
+        inc = -1;
+    }
+
+    for (int i = 0; i < buffer.length; i++) {
+        num |= ((UIntegerUnderlying) *bstart) << i * 8u;
+        bstart += inc;
+    }
+
+    BufferRelease(&buffer);
+
+    const auto *self_type = (const TypeInfo *) ((Function *) _func)->base;
+    if (self_type == type_int_)
+        return (ArObject *) IntNew((IntegerUnderlying) num);
+
+    return (ArObject *) UIntNew(num);
+}
+
 ARGON_FUNCTION(number_parse, parse,
                "Convert a string or number to number, if possible.\n"
                "\n"
                "- Parameter obj: obj to convert.\n"
-               "- Returns: integer number.\n",
+               "- Returns: Number.\n",
                "sx: obj, i: base", false, false) {
     ArBuffer buffer{};
 
@@ -111,17 +177,85 @@ ARGON_METHOD(number_digits, digits,
     return (ArObject *) UIntNew(IntegerCountDigits(((Integer *) _self)->uint, base));
 }
 
+ARGON_METHOD(number_tobytes, tobytes,
+             "Return an array of bytes representing the number.\n"
+             "\n"
+             "- KWParameters:"
+             "  - byteorder: Byte order used to represent the integer (big | little).\n"
+             "- Returns: Bytes object.\n",
+             nullptr, false, true) {
+    auto byteorder = DictLookupString((Dict *) kwargs, "byteorder", "big");
+    if (byteorder == nullptr)
+        return nullptr;
+
+    auto big_endian = StringEqual(byteorder, "big");
+
+    if (!big_endian && !StringEqual(byteorder, "little")) {
+        ErrorFormat(kValueError[0], "byteorder must be 'big' or 'little', got: '%s'", ARGON_RAW_STRING(byteorder));
+
+        Release(byteorder);
+
+        return nullptr;
+    }
+
+    Release(byteorder);
+
+    // Calculate bytes array length
+    int blength;
+
+    if (AR_TYPEOF(_self, type_int_))
+        blength = IntegerCountBits(((Integer *) _self)->sint);
+    else
+        blength = IntegerCountBits(((Integer *) _self)->uint);
+
+    blength = (blength / 8) + 1;
+
+    auto *buffer = (unsigned char *) argon::vm::memory::Alloc(blength);
+    if (buffer == nullptr)
+        return nullptr;
+
+    unsigned char *bstart = buffer;
+    int inc = 1;
+
+    if (big_endian) {
+        bstart = buffer + blength - 1;
+        inc = -1;
+    }
+
+    for (int i = 0; i < blength; i++) {
+        *bstart = (((Integer *) _self)->uint >> i * 8u) & 0xFF;
+        bstart += inc;
+    }
+
+    auto *ret = BytesNewHoldBuffer(buffer, blength, blength, true);
+    if (ret == nullptr)
+        argon::vm::memory::Free(buffer);
+
+    return (ArObject *) ret;
+}
+
 const FunctionDef number_methods[] = {
         number_parse,
+        number_frombytes,
 
         number_bits,
         number_digits,
+        number_tobytes,
         ARGON_METHOD_SENTINEL
+};
+
+ArObject *number_blength(const Integer *self) {
+    return (ArObject *) IntNew(sizeof(UIntegerUnderlying));
+}
+
+const MemberDef number_members[] = {
+        ARGON_MEMBER_GETSET("bytes_length", (UnaryConstOp) number_blength, nullptr),
+        ARGON_MEMBER_SENTINEL
 };
 
 const ObjectSlots number_objslot = {
         number_methods,
-        nullptr,
+        number_members,
         nullptr,
         nullptr,
         nullptr,
@@ -319,7 +453,7 @@ ArObject *uint_compare(const Integer *self, const Integer *other, CompareMode mo
 }
 
 ArObject *uinteger_repr(const Integer *self) {
-    return (ArObject *) StringFormat("%u", self->uint);
+    return (ArObject *) StringFormat("%lu", self->uint);
 }
 
 bool uinteger_is_true(const Integer *self) {
