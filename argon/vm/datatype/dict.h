@@ -10,6 +10,7 @@
 #include <argon/vm/sync/rsm.h>
 
 #include <argon/vm/datatype/arobject.h>
+#include <argon/vm/datatype/arstring.h>
 #include <argon/vm/datatype/integer.h>
 #include <argon/vm/datatype/iterator.h>
 #include <argon/vm/datatype/hashmap.h>
@@ -156,6 +157,16 @@ namespace argon::vm::datatype {
      * @return The value obtained by searching for key, otherwise the default value.
      */
     IntegerUnderlying DictLookupInt(Dict *dict, const char *key, IntegerUnderlying _default);
+
+    /**
+     * @brief Convenience function to look up a String type (useful when used with the kwargs function parameter).
+     *
+     * @param dict Pointer to an instance of dict.
+     * @param key Pointer to C-string to use as a key.
+     * @param _default Default value to return if the lookup fails or if the object is not of the expected type.
+     * @return The value obtained by searching for key, otherwise the default value.
+     */
+    String *DictLookupString(Dict *dict, const char *key, const char *_default);
 
     /**
      * @brief Delete the contents of the entire dict.

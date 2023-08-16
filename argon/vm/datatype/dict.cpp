@@ -724,6 +724,24 @@ IntegerUnderlying argon::vm::datatype::DictLookupInt(Dict *dict, const char *key
     return _default;
 }
 
+String *argon::vm::datatype::DictLookupString(Dict *dict, const char *key, const char *_default) {
+    String *tmp;
+
+    if (dict != nullptr) {
+        tmp = (String *) DictLookup(dict, key, strlen(key));
+
+        if (AR_TYPEOF(tmp, type_string_))
+            return tmp;
+
+        Release(tmp);
+    }
+
+    if ((tmp = StringNew(_default)) == nullptr)
+        return nullptr;
+
+    return tmp;
+}
+
 void argon::vm::datatype::DictClear(Dict *dict) {
     std::unique_lock _(dict->rwlock);
 
