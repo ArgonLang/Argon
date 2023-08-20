@@ -473,7 +473,7 @@ const OpSlots integer_ops = {
 };
 
 ArObject *integer_repr(const Integer *self) {
-    return (ArObject *) StringFormat("%i", self->sint);
+    return (ArObject *) StringFormat("%lld", self->sint);
 }
 
 bool integer_is_true(const Integer *self) {

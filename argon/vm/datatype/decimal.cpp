@@ -176,7 +176,7 @@ ArObject *decimal_compare(Decimal *self, ArObject *other, CompareMode mode) {
 }
 
 ArObject *decimal_repr(const Decimal *self) {
-    return (ArObject *) StringFormat("%Lf", self->decimal);
+    return (ArObject *) StringFormat("%LG", self->decimal);
 }
 
 // Hash of double number.
