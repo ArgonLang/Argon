@@ -5,7 +5,10 @@
 #ifndef ARGON_VM_DATATYPE_INTEGER_H_
 #define ARGON_VM_DATATYPE_INTEGER_H_
 
+#include <cfloat>
+
 #include <argon/vm/datatype/arobject.h>
+#include <argon/vm/datatype/decimal.h>
 
 namespace argon::vm::datatype {
     using IntegerUnderlying = long;
@@ -54,6 +57,27 @@ namespace argon::vm::datatype {
         }
 
         return count;
+    }
+
+    template<typename T>
+    DecimalUnderlying Integer2ScaledDouble(T num, int bits, int *exp) {
+        int sign = 1;
+
+        if (num < 0) {
+            sign = -1;
+            num = -num;
+        }
+
+        auto exceeded = bits;
+        while (exceeded > LDBL_MANT_DIG) {
+            num >>= 1;
+            exceeded--;
+        }
+
+        *exp = bits - exceeded;
+
+        assert(num > 0.0);
+        return num * sign;
     }
 
     Integer *IntNew(IntegerUnderlying number);

@@ -7,6 +7,7 @@
 #include <argon/vm/datatype/boolean.h>
 #include <argon/vm/datatype/bytes.h>
 #include <argon/vm/datatype/error.h>
+
 #include <argon/vm/datatype/integer.h>
 
 using namespace argon::vm::datatype;
@@ -292,6 +293,73 @@ ArObject *integer_mul(const Integer *left, const Integer *right) {
 }
 
 ArObject *integer_div(const Integer *left, const Integer *right) {
+    DecimalUnderlying lvalue;
+    DecimalUnderlying rvalue;
+
+    int l_size;
+    int r_size;
+    int lexp;
+    int rexp;
+
+    CHECK_INTEGER(left, right);
+
+    if (AR_TYPEOF(left, type_int_))
+        l_size = IntegerCountBits(left->sint);
+    else
+        l_size = IntegerCountBits(left->uint);
+
+    if (AR_TYPEOF(right, type_int_))
+        r_size = IntegerCountBits(right->sint);
+    else
+        r_size = IntegerCountBits(right->uint);
+
+    if (r_size == 0) {
+        argon::vm::Panic((ArObject *) error_div_by_zero);
+        return nullptr;
+    }
+
+    if (l_size <= LDBL_MANT_DIG && r_size <= LDBL_MANT_DIG) {
+        if (AR_TYPEOF(left, type_int_))
+            lvalue = (DecimalUnderlying) left->sint;
+        else
+            lvalue = (DecimalUnderlying) left->uint;
+
+        if (AR_TYPEOF(right, type_int_))
+            rvalue = (DecimalUnderlying) right->sint;
+        else
+            rvalue = (DecimalUnderlying) right->uint;
+
+        return (ArObject *) DecimalNew(lvalue / rvalue);
+    }
+
+    if (AR_TYPEOF(left, type_int_))
+        lvalue = Integer2ScaledDouble(left->sint, l_size, &lexp);
+    else
+        lvalue = Integer2ScaledDouble(left->uint, l_size, &lexp);
+
+    if (AR_TYPEOF(right, type_int_))
+        rvalue = Integer2ScaledDouble(right->sint, r_size, &rexp);
+    else
+        rvalue = Integer2ScaledDouble(right->uint, r_size, &rexp);
+
+    auto ans_exp = lexp - rexp;
+    if (ans_exp > LDBL_MAX_EXP) {
+        ErrorFormat(kOverflowError[0], "integer division result too large for a %s", type_decimal_->qname);
+        return nullptr;
+    } else if (ans_exp < LDBL_MIN_EXP - LDBL_MANT_DIG - 1) {
+        // Underflow
+        auto negate = (lvalue < 0) ^ (rvalue < 0);
+        return (ArObject *) DecimalNew(negate ? -0.0 : 0.0);
+    }
+
+    lvalue /= rvalue;
+
+    lvalue = ldexp(lvalue, ans_exp);
+
+    return (ArObject *) DecimalNew(lvalue);
+}
+
+ArObject *integer_idiv(const Integer *left, const Integer *right) {
     CHECK_INTEGER(left, right);
 
     if (right->uint == 0) {
@@ -388,7 +456,7 @@ const OpSlots integer_ops = {
         (BinaryOp) integer_sub,
         (BinaryOp) integer_mul,
         (BinaryOp) integer_div,
-        (BinaryOp) integer_div,
+        (BinaryOp) integer_idiv,
         (BinaryOp) integer_mod,
         (UnaryOp) integer_pos,
         (UnaryOp) integer_neg,
