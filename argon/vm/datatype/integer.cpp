@@ -2,6 +2,8 @@
 //
 // Licensed under the Apache License v2.0
 
+#include <cmath>
+
 #include <argon/vm/runtime.h>
 
 #include <argon/vm/datatype/boolean.h>
@@ -354,7 +356,7 @@ ArObject *integer_div(const Integer *left, const Integer *right) {
 
     lvalue /= rvalue;
 
-    lvalue = ldexp(lvalue, ans_exp);
+    lvalue = std::ldexp(lvalue, ans_exp);
 
     return (ArObject *) DecimalNew(lvalue);
 }
