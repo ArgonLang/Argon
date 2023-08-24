@@ -38,6 +38,46 @@ bool DecimalCanConvertFromInt(const Integer *integer, DecimalUnderlying *decimal
                                     \
     return (ArObject*)DecimalNew(l op r)
 
+ARGON_FUNCTION(decimal_parse, parse,
+               "Convert a string to decimal, if possible.\n"
+               "\n"
+               "- Parameter obj: obj to convert.\n"
+               "- Returns: Decimal.\n",
+               "sx: obj", false, false) {
+    ArBuffer buffer{};
+
+    if (!BufferGet(*args, &buffer, argon::vm::datatype::BufferFlags::READ))
+        return nullptr;
+
+    if (buffer.length == 0) {
+        BufferRelease(&buffer);
+
+        ErrorFormat(kValueError[0], "empty value cannot be converted to %s", type_decimal_->qname);
+
+        return nullptr;
+    }
+
+    auto *result = DecimalNew((const char *) buffer.buffer);
+
+    BufferRelease(&buffer);
+
+    return (ArObject *) result;
+}
+
+const FunctionDef decimal_methods[] = {
+        decimal_parse,
+        ARGON_METHOD_SENTINEL
+};
+
+const ObjectSlots decimal_objslot = {
+        decimal_methods,
+        nullptr,
+        nullptr,
+        nullptr,
+        nullptr,
+        -1
+};
+
 ArObject *decimal_add(ArObject *left, ArObject *right) {
     SIMPLE_OP(left, right, +);
 }
@@ -254,7 +294,7 @@ TypeInfo DecimalType = {
         nullptr,
         nullptr,
         nullptr,
-        nullptr,
+        &decimal_objslot,
         nullptr,
         &decimal_ops,
         nullptr,
@@ -275,7 +315,7 @@ Decimal *argon::vm::datatype::DecimalNew(const char *string) {
     auto *decimal = MakeObject<Decimal>(type_decimal_);
 
     if (decimal != nullptr)
-        decimal->decimal = std::strtod(string, nullptr);
+        decimal->decimal = std::strtold(string, nullptr);
 
     return decimal;
 }
