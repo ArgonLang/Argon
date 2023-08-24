@@ -97,7 +97,9 @@ ARGON_FUNCTION(number_frombytes, frombytes,
 ARGON_FUNCTION(number_parse, parse,
                "Convert a string or number to number, if possible.\n"
                "\n"
-               "- Parameter obj: obj to convert.\n"
+               "- Parameters:\n"
+               "  - obj: Obj to convert.\n"
+               "  - base: Base to be used while parsing `obj`.\n"
                "- Returns: Number.\n",
                "sx: obj, i: base", false, false) {
     ArBuffer buffer{};
@@ -105,22 +107,10 @@ ARGON_FUNCTION(number_parse, parse,
     const auto *self_type = (const TypeInfo *) ((Function *) _func)->base;
     auto base = (int) ((Integer *) args[1])->sint;
 
-    if (AR_TYPEOF(*args, type_int_)) {
-        if (self_type == type_int_)
-            return IncRef(*args);
-
-        return (ArObject *) UIntNew(((Integer *) *args)->sint);
-    } else if (AR_TYPEOF(*args, type_uint_)) {
-        if (self_type == type_uint_)
-            return IncRef(*args);
-
-        return (ArObject *) IntNew((IntegerUnderlying) ((Integer *) *args)->uint);
-    }
-
     if (!BufferGet(*args, &buffer, argon::vm::datatype::BufferFlags::READ))
         return nullptr;
 
-    if (buffer.buffer == nullptr) {
+    if (buffer.length == 0) {
         BufferRelease(&buffer);
 
         ErrorFormat(kValueError[0], "empty value cannot be converted to %s",
