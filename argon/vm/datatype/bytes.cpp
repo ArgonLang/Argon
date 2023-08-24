@@ -1220,17 +1220,28 @@ ArObject *bytes_mul(Bytes *left, const ArObject *right) {
         right = (const ArObject *) left;
     }
 
-    if (AR_TYPEOF(right, type_uint_)) {
-        SHARED_LOCK(l);
+    if (!AR_TYPEOF(right, type_int_) && !AR_TYPEOF(right, type_uint_))
+        return nullptr;
 
-        times = ((const Integer *) right)->uint;
-        if ((ret = BytesNew(BUFFER_LEN(l) * times, true, false, false)) != nullptr) {
-            while (times--)
-                argon::vm::memory::MemoryCopy(BUFFER_GET(ret) + (BUFFER_LEN(l) * times), BUFFER_GET(l), BUFFER_LEN(l));
+    times = ((const Integer *) right)->uint;
+
+    if (AR_TYPEOF(right, type_int_)) {
+        if (((const Integer *) right)->sint < 0) {
+            ErrorFormat(kValueError[0], "bytes string cannot be multiplied by a negative value");
+            return nullptr;
         }
 
-        SHARED_UNLOCK(l);
+        times = ((const Integer *) right)->sint;
     }
+
+    SHARED_LOCK(l);
+
+    if ((ret = BytesNew(BUFFER_LEN(l) * times, true, false, false)) != nullptr) {
+        while (times--)
+            argon::vm::memory::MemoryCopy(BUFFER_GET(ret) + (BUFFER_LEN(l) * times), BUFFER_GET(l), BUFFER_LEN(l));
+    }
+
+    SHARED_UNLOCK(l);
 
     return (ArObject *) ret;
 }
