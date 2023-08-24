@@ -4,7 +4,7 @@
  * Licensed under the Apache License v2.0
 */
 
-from "argon:io" import LineReader, Reader
+from "argon:io" import LineReader, Reader, Writer
 from "error" import ValueError
 
 pub let DEFAULT_BUFSIZE = 2046 # 2KiB
@@ -174,4 +174,48 @@ pub struct BufferedReader impl LineReader, Reader {
 
 		return retval
 	}
+}
+
+pub struct BufferedWriter impl Writer {
+    var stream
+    var buffer
+
+    var capacity = 0
+    var index = 0
+
+    pub func BufferedWriter(stream, size=DEFAULT_BUFSIZE) {
+        return BufferedWriter@(
+			stream = stream,
+			buffer = Bytes(size),
+			capacity = size
+		)
+    }
+
+    pub func flush(self) {
+        if self.index < self.capacity {
+            self.stream.write(self.buffer[:self.index])
+        } else {
+            self.stream.write(self.buffer)
+        }
+
+        self.index = 0
+    }
+
+    pub func write(self, buffer) {
+        var length = len(buffer)
+
+        if length >= self.capacity {
+            self.flush()
+
+            return self.stream.write(buffer)
+        }
+
+        length >= self.capacity - self.index ? self.flush()
+
+        var written = self.buffer.copy(buffer, 0, self.index, length)
+
+        self.index += written
+
+        return written
+    }
 }
