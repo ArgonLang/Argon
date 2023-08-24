@@ -137,6 +137,11 @@ Frame *argon::vm::FrameNew(Fiber *fiber, Function *func, ArObject **argv, ArSize
     if (ENUMBITMASK_ISTRUE(mode, OpCodeCallMode::KW_PARAMS)) {
         // If mode == KW_PARAMS, the last element is the arguments dict
         kwargs = (Dict *) argv[argc - 1];
+
+        // Could be nil
+        if ((ArObject *) kwargs == (ArObject *) Nil)
+            kwargs = nullptr;
+
         argc--;
     }
 
