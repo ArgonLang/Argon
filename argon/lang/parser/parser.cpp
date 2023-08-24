@@ -100,6 +100,7 @@ int Parser::PeekPrecedence(scanner::TokenType token) {
         case TokenType::PLUS_PLUS:
         case TokenType::MINUS_MINUS:
         case TokenType::LEFT_INIT:
+        case TokenType::LEFT_BRACES:
         case TokenType::LEFT_SQUARE:
         case TokenType::LEFT_ROUND:
             return 160;
@@ -2036,7 +2037,7 @@ Node *Parser::ParseSwitch() {
     this->Eat();
 
     if (!this->Match(TokenType::LEFT_BRACES))
-        test = (ArObject *) this->ParseExpression(PeekPrecedence(scanner::TokenType::LEFT_BRACES));
+        test = (ArObject *) this->ParseExpression(0);
 
     if (!this->MatchEat(TokenType::LEFT_BRACES))
         throw ParserException("expected '{' after switch declaration");
