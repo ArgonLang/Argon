@@ -185,6 +185,8 @@ namespace argon::lang::parser {
 
         Node *ParseUnaryStmt(NodeType type, bool expr_required);
 
+        Node *ParseWarlus(Node *left);
+
         [[nodiscard]] NudMeth LookupNud(lang::scanner::TokenType token) const;
 
         void Eat();

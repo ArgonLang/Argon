@@ -47,63 +47,65 @@ Node *MakeSafeExpr(Node *left) {
 
 int Parser::PeekPrecedence(scanner::TokenType token) {
     switch (token) {
+        case TokenType::WALRUS:
+            return 10;
         case TokenType::EQUAL:
         case TokenType::ASSIGN_ADD:
         case TokenType::ASSIGN_SUB:
-            return 10;
-        case TokenType::COMMA:
             return 20;
+        case TokenType::COMMA:
+            return 30;
         case TokenType::ELVIS:
         case TokenType::QUESTION:
         case TokenType::NULL_COALESCING:
-            return 30;
-        case TokenType::PIPELINE:
             return 40;
-        case TokenType::OR:
+        case TokenType::PIPELINE:
             return 50;
-        case TokenType::AND:
+        case TokenType::OR:
             return 60;
-        case TokenType::PIPE:
+        case TokenType::AND:
             return 70;
-        case TokenType::CARET:
+        case TokenType::PIPE:
             return 80;
+        case TokenType::CARET:
+            return 90;
         case TokenType::KW_IN:
         case TokenType::KW_NOT:
-            return 90;
+            return 100;
         case TokenType::EQUAL_EQUAL:
         case TokenType::EQUAL_STRICT:
         case TokenType::NOT_EQUAL:
         case TokenType::NOT_EQUAL_STRICT:
-            return 100;
+            return 110;
         case TokenType::LESS:
         case TokenType::LESS_EQ:
         case TokenType::GREATER:
         case TokenType::GREATER_EQ:
-            return 110;
+            return 120;
         case TokenType::SHL:
         case TokenType::SHR:
-            return 120;
+            return 130;
         case TokenType::PLUS:
         case TokenType::MINUS:
         case TokenType::EXCLAMATION:
         case TokenType::TILDE:
-            return 130;
+            return 140;
         case TokenType::ASTERISK:
         case TokenType::SLASH:
         case TokenType::SLASH_SLASH:
         case TokenType::PERCENT:
-            return 140;
+            return 150;
         case TokenType::DOT:
         case TokenType::QUESTION_DOT:
         case TokenType::SCOPE:
-            return 150;
+            return 160;
         case TokenType::PLUS_PLUS:
         case TokenType::MINUS_MINUS:
         case TokenType::LEFT_INIT:
         case TokenType::LEFT_BRACES:
         case TokenType::LEFT_SQUARE:
         case TokenType::LEFT_ROUND:
-            return 160;
+            return 170;
         default:
             return 1000;
     }
@@ -152,6 +154,8 @@ Parser::LedMeth Parser::LookupLed(lang::scanner::TokenType token) const {
         case TokenType::ASSIGN_ADD:
         case TokenType::ASSIGN_SUB:
             return &Parser::ParseAssignment;
+        case TokenType::WALRUS:
+            return &Parser::ParseWarlus;
         default:
             return nullptr;
     }
@@ -907,7 +911,7 @@ Node *Parser::ParseExpression() {
     if (inner->node_type == NodeType::SAFE_EXPR)
         inner = (Node *) ((Unary *) inner)->value;
 
-    if (inner->node_type != NodeType::ASSIGNMENT) {
+    if (inner->node_type != NodeType::ASSIGNMENT && inner->node_type != NodeType::DECLARATION) {
         auto *unary = UnaryNew((ArObject *) ret, NodeType::EXPRESSION, this->tkcur_.loc);
 
         Release(ret);
@@ -1040,7 +1044,7 @@ Node *Parser::ParseFor() {
         if (this->Match(scanner::TokenType::KW_VAR))
             init = (ArObject *) this->ParseVarDecl(false, false, false);
         else
-            init = (ArObject *) this->ParseExpression(PeekPrecedence(scanner::TokenType::EQUAL));
+            init = (ArObject *) this->ParseExpression(0);
     }
 
     this->IgnoreNL();
@@ -2037,7 +2041,7 @@ Node *Parser::ParseSwitch() {
     this->Eat();
 
     if (!this->Match(TokenType::LEFT_BRACES))
-        test = (ArObject *) this->ParseExpression(0);
+        test = (ArObject *) this->ParseExpression(PeekPrecedence(TokenType::EQUAL));
 
     if (!this->MatchEat(TokenType::LEFT_BRACES))
         throw ParserException("expected '{' after switch declaration");
@@ -2343,6 +2347,39 @@ Node *Parser::ParseUnaryStmt(NodeType type, bool expr_required) {
     Release(expr);
 
     return (Node *) unary;
+}
+
+Node *Parser::ParseWarlus(Node *left) {
+    ArObject *tmp;
+    Node *right;
+
+    this->Eat();
+    this->IgnoreNL();
+
+    // Check left
+    if (left->node_type == NodeType::IDENTIFIER)
+        tmp = (ArObject *) left;
+    else if (left->node_type == NodeType::TUPLE) {
+        auto *list = (List *) ((Unary *) left)->value;
+
+        for (ArSize i = 0; i < list->length; i++) {
+            if (((Node *) list->objects[i])->node_type != NodeType::IDENTIFIER)
+                throw ParserException("expected only identifiers before := operator");
+        }
+
+        tmp = (ArObject *) list;
+    } else
+        throw ParserException("expected identifier/s before := operator");
+
+    right = this->ParseExpression(PeekPrecedence(TokenType::WALRUS));
+
+    auto assign = AssignmentNew(tmp, false, false, false);
+    if (assign == nullptr)
+        throw DatatypeException();
+
+    assign->value = (ArObject *) right;
+
+    return (Node *) assign;
 }
 
 void Parser::Eat() {
