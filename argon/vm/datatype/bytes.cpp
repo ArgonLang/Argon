@@ -289,10 +289,16 @@ ARGON_METHOD(bytes_findbyte, findbyte,
              "  - offset: Start offset.\n"
              "  - byte: The value to search for.\n"
              "- Returns: Index of the first position, -1 otherwise.\n",
-             "iu: offset, u: byte", false, false) {
+             "iu: offset, iu: byte", false, false) {
     auto *self = (Bytes *) _self;
     ArSize start = ((Integer *) args[0])->uint;
     auto pattern = (unsigned char) ((Integer *) args[1])->uint;
+
+    if (pattern > 255) {
+        ErrorFormat(kValueError[0], "byte must be in range(0, 255)");
+
+        return nullptr;
+    }
 
     SHARED_LOCK(self);
 
