@@ -41,7 +41,7 @@ constexpr KwToken kw2tktype[] = {
         {"loop",        TokenType::KW_LOOP},
         {"nil",         TokenType::NIL},
         {"not",         TokenType::KW_NOT},
-        {"of",         TokenType::KW_OF},
+        {"of",          TokenType::KW_OF},
         {"panic",       TokenType::KW_PANIC},
         {"pub",         TokenType::KW_PUB},
         {"return",      TokenType::KW_RETURN},
@@ -837,6 +837,7 @@ bool Scanner::NextToken(Token *out_token) noexcept {
                 RETURN_TK(TokenType::SLASH);
             case ':':
                 CHECK_AGAIN(':', TokenType::SCOPE)
+                CHECK_AGAIN('=', TokenType::WALRUS)
                 RETURN_TK(TokenType::COLON);
             case ';':
                 RETURN_TK(TokenType::SEMICOLON);

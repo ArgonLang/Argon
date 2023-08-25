@@ -141,7 +141,8 @@ namespace argon::lang::scanner {
         COMMENT_INLINE,
         COMMENT_END,
 
-        ELLIPSIS
+        ELLIPSIS,
+        WALRUS
     };
 
     using Pos = size_t;
