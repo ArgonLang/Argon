@@ -82,7 +82,10 @@ namespace argon::lang::scanner {
         KW_WEAK,
         KEYWORD_END,
 
+        ARROW_LEFT,
+
         INFIX_BEGIN,
+        ARROW_RIGHT,
         PLUS,
         MINUS,
         ASTERISK,

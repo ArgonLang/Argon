@@ -814,6 +814,7 @@ bool Scanner::NextToken(Token *out_token) noexcept {
             case '-':
                 CHECK_AGAIN('=', TokenType::ASSIGN_SUB)
                 CHECK_AGAIN('-', TokenType::MINUS_MINUS)
+                CHECK_AGAIN('>', TokenType::ARROW_RIGHT)
                 RETURN_TK(TokenType::MINUS);
             case '.':
                 if (this->Peek() == '.') {
@@ -844,6 +845,7 @@ bool Scanner::NextToken(Token *out_token) noexcept {
             case '<':
                 CHECK_AGAIN('=', TokenType::LESS_EQ)
                 CHECK_AGAIN('<', TokenType::SHL)
+                CHECK_AGAIN('-', TokenType::ARROW_LEFT)
                 RETURN_TK(TokenType::LESS);
             case '=':
                 if (this->Peek() == '=') {
