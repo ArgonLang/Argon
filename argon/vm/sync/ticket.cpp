@@ -9,7 +9,7 @@
 using namespace argon::vm;
 using namespace argon::vm::sync;
 
-bool NotifyQueue::Wait() {
+bool NotifyQueue::Wait(FiberStatus status) {
     NotifyQueueTicket ticket = this->wait_.fetch_add(1);
     Fiber *fiber = GetFiber();
 
@@ -19,7 +19,7 @@ bool NotifyQueue::Wait() {
         return true; // No wait needed!
 
     // Enqueue
-    SetFiberStatus(FiberStatus::BLOCKED);
+    SetFiberStatus(status);
 
     fiber->ticket = ticket;
 

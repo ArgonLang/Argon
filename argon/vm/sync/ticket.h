@@ -25,7 +25,11 @@ namespace argon::vm::sync {
         void Enqueue(Fiber *fiber);
 
     public:
-        bool Wait();
+        bool Wait(FiberStatus status);
+
+        bool Wait() {
+            return Wait(FiberStatus::BLOCKED);
+        }
 
         void Notify();
 
