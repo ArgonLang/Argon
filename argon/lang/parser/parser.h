@@ -107,6 +107,8 @@ namespace argon::lang::parser {
 
         Node *ParseBlock(ParserScope scope);
 
+        Node *ParseChanGet();
+
         Node *ParseDecls(ParserScope scope);
 
         Node *ParseDictSet();

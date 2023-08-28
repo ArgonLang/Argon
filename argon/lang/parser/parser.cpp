@@ -53,59 +53,61 @@ int Parser::PeekPrecedence(scanner::TokenType token) {
         case TokenType::ASSIGN_ADD:
         case TokenType::ASSIGN_SUB:
             return 20;
-        case TokenType::COMMA:
+        case TokenType::ARROW_RIGHT:
             return 30;
+        case TokenType::COMMA:
+            return 40;
         case TokenType::ELVIS:
         case TokenType::QUESTION:
         case TokenType::NULL_COALESCING:
-            return 40;
-        case TokenType::PIPELINE:
             return 50;
-        case TokenType::OR:
+        case TokenType::PIPELINE:
             return 60;
-        case TokenType::AND:
+        case TokenType::OR:
             return 70;
-        case TokenType::PIPE:
+        case TokenType::AND:
             return 80;
-        case TokenType::CARET:
+        case TokenType::PIPE:
             return 90;
+        case TokenType::CARET:
+            return 100;
         case TokenType::KW_IN:
         case TokenType::KW_NOT:
-            return 100;
+            return 110;
         case TokenType::EQUAL_EQUAL:
         case TokenType::EQUAL_STRICT:
         case TokenType::NOT_EQUAL:
         case TokenType::NOT_EQUAL_STRICT:
-            return 110;
+            return 120;
         case TokenType::LESS:
         case TokenType::LESS_EQ:
         case TokenType::GREATER:
         case TokenType::GREATER_EQ:
-            return 120;
+            return 130;
         case TokenType::SHL:
         case TokenType::SHR:
-            return 130;
+            return 140;
         case TokenType::PLUS:
         case TokenType::MINUS:
         case TokenType::EXCLAMATION:
         case TokenType::TILDE:
-            return 140;
+            return 150;
         case TokenType::ASTERISK:
         case TokenType::SLASH:
         case TokenType::SLASH_SLASH:
         case TokenType::PERCENT:
-            return 150;
+            return 160;
         case TokenType::DOT:
         case TokenType::QUESTION_DOT:
         case TokenType::SCOPE:
-            return 160;
+            return 170;
         case TokenType::PLUS_PLUS:
         case TokenType::MINUS_MINUS:
         case TokenType::LEFT_INIT:
         case TokenType::LEFT_BRACES:
         case TokenType::LEFT_SQUARE:
         case TokenType::LEFT_ROUND:
-            return 170;
+            return 180;
         default:
             return 1000;
     }
@@ -174,6 +176,8 @@ Parser::NudMeth Parser::LookupNud(lang::scanner::TokenType token) const {
         case TokenType::BLANK:
         case TokenType::SELF:
             return &Parser::ParseIdentifier;
+        case TokenType::ARROW_LEFT:
+            return &Parser::ParseChanGet;
         case TokenType::PLUS:
         case TokenType::MINUS:
         case TokenType::EXCLAMATION:
@@ -696,6 +700,26 @@ Node *Parser::ParseBlock(ParserScope scope) {
     block->loc.start = start;
 
     return (Node *) block;
+}
+
+Node *Parser::ParseChanGet() {
+    Position start = this->tkcur_.loc.start;
+
+    this->Eat();
+    this->IgnoreNL();
+
+    auto expr = this->ParseExpression(PeekPrecedence(TokenType::ASTERISK));
+
+    auto unary = UnaryNew((ArObject *) expr, TokenType::ARROW_LEFT, expr->loc);
+    if (unary == nullptr) {
+        Release(expr);
+
+        throw DatatypeException();
+    }
+
+    unary->loc.start = start;
+
+    return (Node *) unary;
 }
 
 Node *Parser::ParseDecls(ParserScope scope) {

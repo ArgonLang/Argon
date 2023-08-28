@@ -210,6 +210,11 @@ void Compiler::Binary(const parser::Binary *binary) {
     this->Expression(binary->right);
 
     switch (binary->token_type) {
+        case lang::scanner::TokenType::ARROW_RIGHT:
+            this->unit_->Emit(vm::OpCode::PSHC, &binary->loc);
+            break;
+
+            // Maths
         case lang::scanner::TokenType::PLUS:
             this->unit_->Emit(vm::OpCode::ADD, &binary->loc);
             break;
@@ -1713,6 +1718,9 @@ void Compiler::CompileUnary(const parser::Unary *unary) {
     this->Expression((const Node *) unary->value);
 
     switch (unary->token_type) {
+        case scanner::TokenType::ARROW_LEFT:
+            this->unit_->Emit(vm::OpCode::POPC, &unary->loc);
+            break;
         case scanner::TokenType::EXCLAMATION:
             this->unit_->Emit(vm::OpCode::NOT, &unary->loc);
             break;
