@@ -4,6 +4,7 @@
 
 #include <argon/vm/datatype/boolean.h>
 #include <argon/vm/datatype/bounds.h>
+#include <argon/vm/datatype/chan.h>
 #include <argon/vm/datatype/dict.h>
 #include <argon/vm/datatype/error.h>
 #include <argon/vm/datatype/function.h>
@@ -509,8 +510,10 @@ ArObject *argon::vm::Eval(Fiber *fiber) {
             &&LBL_PBHEAD,
             &&LBL_PLT,
             &&LBL_POP,
+            &&LBL_POPC,
             &&LBL_POPGT,
             &&LBL_POS,
+            &&LBL_PSHC,
             &&LBL_PSHN,
             &&LBL_RET,
             &&LBL_SHL,
@@ -1344,6 +1347,21 @@ ArObject *argon::vm::Eval(Fiber *fiber) {
                 POP();
                 DISPATCH();
             }
+            TARGET_OP(POPC)
+            {
+                ret = TOP();
+
+                if (!AR_TYPEOF(ret, type_chan_)) {
+                    ErrorFormat(kTypeError[0], kTypeError[2], type_chan_->name, AR_TYPE_QNAME(ret));
+                    break;
+                }
+
+                if(!ChanRead((Chan *) ret, &ret))
+                    return nullptr;
+
+                TOP_REPLACE(ret);
+                DISPATCH();
+            }
             TARGET_OP(POPGT)
             {
                 auto arg = I16Arg(cu_frame->instr_ptr);
@@ -1356,6 +1374,22 @@ ArObject *argon::vm::Eval(Fiber *fiber) {
             TARGET_OP(POS)
             {
                 UNARY_OP(pos, +);
+            }
+            TARGET_OP(PSHC)
+            {
+                ret = TOP();
+
+                if (!AR_TYPEOF(ret, type_chan_)) {
+                    ErrorFormat(kTypeError[0], kTypeError[2], type_chan_->name, AR_TYPE_QNAME(ret));
+                    break;
+                }
+
+                if(!ChanWrite((Chan *) ret, PEEK1()))
+                    return nullptr;
+
+                // POP only Chan, leave value on stack!
+                POP();
+                DISPATCH();
             }
             TARGET_OP(PSHN)
             {

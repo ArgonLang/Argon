@@ -8,6 +8,7 @@
 #include <argon/vm/datatype/boolean.h>
 #include <argon/vm/datatype/bounds.h>
 #include <argon/vm/datatype/bytes.h>
+#include <argon/vm/datatype/chan.h>
 #include <argon/vm/datatype/code.h>
 #include <argon/vm/datatype/decimal.h>
 #include <argon/vm/datatype/dict.h>
@@ -48,6 +49,7 @@ bool argon::vm::Setup() {
     INIT(type_boolean_);
     INIT(type_bounds_);
     INIT(type_bytes_);
+    INIT(type_chan_);
     INIT(type_code_);
     INIT(type_decimal_);
     INIT(type_dict_);

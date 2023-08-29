@@ -11,6 +11,7 @@
 #include <argon/vm/datatype/boolean.h>
 #include <argon/vm/datatype/bounds.h>
 #include <argon/vm/datatype/bytes.h>
+#include <argon/vm/datatype/chan.h>
 #include <argon/vm/datatype/code.h>
 #include <argon/vm/datatype/decimal.h>
 #include <argon/vm/datatype/dict.h>
@@ -256,6 +257,7 @@ const ModuleEntry builtins_entries[] = {
         MODULE_EXPORT_TYPE(type_boolean_),
         MODULE_EXPORT_TYPE(type_bounds_),
         MODULE_EXPORT_TYPE(type_bytes_),
+        MODULE_EXPORT_TYPE(type_chan_),
         MODULE_EXPORT_TYPE(type_code_),
         MODULE_EXPORT_TYPE(type_decimal_),
         MODULE_EXPORT_TYPE(type_dict_),
