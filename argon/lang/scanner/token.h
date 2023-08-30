@@ -76,6 +76,7 @@ namespace argon::lang::scanner {
         KW_SPAWN,
         KW_STRUCT,
         KW_SWITCH,
+        KW_SYNC,
         KW_TRAIT,
         KW_TRAP,
         KW_VAR,

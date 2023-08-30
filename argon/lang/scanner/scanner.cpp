@@ -49,6 +49,7 @@ constexpr KwToken kw2tktype[] = {
         {"spawn",       TokenType::KW_SPAWN},
         {"struct",      TokenType::KW_STRUCT},
         {"switch",      TokenType::KW_SWITCH},
+        {"sync",        TokenType::KW_SYNC},
         {"trait",       TokenType::KW_TRAIT},
         {"trap",        TokenType::KW_TRAP},
         {"true",        TokenType::TRUE},
