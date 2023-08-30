@@ -60,6 +60,7 @@ namespace argon::lang::parser {
         STRUCT,
         SWITCH,
         SWITCH_CASE,
+        SYNC_BLOCK,
         TERNARY,
         TRAIT,
         TRAP,

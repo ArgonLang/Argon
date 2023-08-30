@@ -789,6 +789,12 @@ Node *Parser::ParseDecls(ParserScope scope) {
 
             stmt = (ArObject *) this->ParseStructDecl(pub);
             break;
+        case TokenType::KW_SYNC:
+            if (scope == ParserScope::STRUCT || scope == ParserScope::TRAIT)
+                throw ParserException("sync not supported in this context");
+
+            stmt = (ArObject *) this->ParseSyncBlock();
+            break;
         case TokenType::KW_TRAIT:
             if (scope != ParserScope::MODULE)
                 throw ParserException("unexpected trait declaration");
@@ -2172,6 +2178,30 @@ Node *Parser::ParseSwitchCase() {
         throw DatatypeException();
 
     return (Node *) sc;
+}
+
+Node *Parser::ParseSyncBlock() {
+    ARC lock_expr;
+    ARC body;
+
+    Position start = this->tkcur_.loc.start;
+
+    this->Eat();
+
+    lock_expr = (ArObject *) this->ParseExpression(PeekPrecedence(TokenType::ASTERISK));
+
+    if (((Node *) lock_expr.Get())->node_type == NodeType::LITERAL)
+        throw ParserException("sync block requires an object reference, not a literal");
+
+    body = (ArObject *) this->ParseBlock(ParserScope::SYNCBLOCK);
+
+    auto binary = BinaryNew((Node *) lock_expr.Get(), (Node *) body.Get(), scanner::TokenType::TK_NULL, NodeType::SYNC_BLOCK);
+    if (binary == nullptr)
+        throw DatatypeException();
+
+    binary->loc.start = start;
+
+    return (Node *) binary;
 }
 
 Node *Parser::ParseTernary(Node *left) {

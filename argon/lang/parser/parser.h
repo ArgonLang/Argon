@@ -24,6 +24,7 @@ namespace argon::lang::parser {
         MODULE,
         STRUCT,
         SWITCH,
+        SYNCBLOCK,
         TRAIT
     };
 
@@ -174,6 +175,8 @@ namespace argon::lang::parser {
         Node *ParseSwitch();
 
         Node *ParseSwitchCase();
+
+        Node *ParseSyncBlock();
 
         Node *ParseTernary(Node *left);
 
