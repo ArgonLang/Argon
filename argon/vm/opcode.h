@@ -100,9 +100,11 @@ namespace argon::vm {
         STSUBSCR,
         SUB,
         SUBSCR,
+        SYNC,
         TEST,
         TRAP,
         UNPACK,
+        UNSYNC,
         YLD
     };
 
@@ -185,9 +187,11 @@ namespace argon::vm {
             -3,
             -1,
             -1,
+            -1,
             0,
             0,
             -1,
+            0,
             -1
     };
 
@@ -271,8 +275,10 @@ namespace argon::vm {
             1,
             1,
             1,
+            1,
             4,
             2,
+            1,
             1
     };
 

@@ -59,6 +59,11 @@ namespace argon::lang {
             unsigned int current;
         } stack;
 
+        struct {
+            unsigned short required;
+            unsigned short current;
+        } sync_stack;
+
         unsigned int anon_count_;
 
         bool BlockNew();
@@ -67,9 +72,9 @@ namespace argon::lang {
 
         [[nodiscard]] vm::datatype::Code *Assemble(vm::datatype::String *docstring) const;
 
-        JBlock *JBNew(vm::datatype::String *label);
+        JBlock *JBNew(vm::datatype::String *label, JBlockType type);
 
-        JBlock *JBNew(vm::datatype::String *label, BasicBlock *end);
+        JBlock *JBNew(vm::datatype::String *label, JBlockType type, BasicBlock *end);
 
         JBlock *JBNew(BasicBlock *start, BasicBlock *end, unsigned short pops);
 
@@ -97,6 +102,23 @@ namespace argon::lang {
         void Emit(vm::OpCode opcode, unsigned char flags, unsigned short arg, const scanner::Loc *loc) {
             int combined = (flags << 16) | arg;
             this->Emit(opcode, combined, nullptr, loc);
+        }
+
+        void EnterSyncBlock(const scanner::Loc *loc) {
+            this->Emit(vm::OpCode::SYNC, nullptr, loc);
+
+            this->sync_stack.current++;
+            if (this->sync_stack.current > this->sync_stack.required)
+                this->sync_stack.required = this->sync_stack.current;
+        }
+
+        void ExitSyncBlock(bool decrement) {
+            this->Emit(vm::OpCode::UNSYNC, nullptr);
+
+            if (decrement)
+                this->sync_stack.current--;
+
+            assert(this->sync_stack.current < 0xFF);
         }
 
         void IncrementRequiredStack(int size) {

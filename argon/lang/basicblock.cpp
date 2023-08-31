@@ -9,6 +9,7 @@
 #include <argon/lang/basicblock.h>
 
 using namespace argon::lang;
+using namespace argon::vm::datatype;
 
 Instr *BasicBlock::AddInstr(vm::OpCode opcode, int arg) {
     auto *i = (Instr *) argon::vm::memory::Alloc(sizeof(Instr));
@@ -62,12 +63,16 @@ BasicBlock *argon::lang::BasicBlockDel(BasicBlock *block) {
     return prev;
 }
 
-JBlock *argon::lang::JBlockNew(JBlock *prev, argon::vm::datatype::String *label, unsigned short nested) {
+JBlock *argon::lang::JBlockNew(JBlock *prev, String *label, JBlockType type, unsigned short nested) {
     auto *j = (JBlock *) argon::vm::memory::Calloc(sizeof(JBlock));
 
     if (j != nullptr) {
         j->prev = prev;
+
         j->label = IncRef(label);
+
+        j->type = type;
+
         j->nested = nested;
     }
 

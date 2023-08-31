@@ -49,6 +49,9 @@ namespace argon::vm::datatype {
         /// Length of instr.
         unsigned int instr_sz;
 
+        /// Maximum size required by sync stack.
+        unsigned int sstack_sz;
+
         /// Maximum stack size required to run this code.
         unsigned int stack_sz;
 
@@ -64,11 +67,11 @@ namespace argon::vm::datatype {
          * @param co_instr Buffer containing the bytecode of the Argon VM (give buffer ownership to the Code object).
          * @param co_instr_sz Length of instr buffer.
          * @param co_stack_sz Length of evaluation stack.
-         * @param co_lnotab Buffer containing lineno offsets
-         * @param co_lnotab_sz Length of lnotab buffer
+         * @param co_sstack_sz Length of sync stack.
          * @return this
          */
-        Code *SetBytecode(const unsigned char *co_instr, unsigned int co_instr_sz, unsigned int co_stack_sz) {
+        Code *SetBytecode(const unsigned char *co_instr, unsigned int co_instr_sz,
+                          unsigned int co_stack_sz, unsigned int co_sstack_sz) {
             assert(this->instr == nullptr);
             this->instr = co_instr;
 
@@ -76,6 +79,7 @@ namespace argon::vm::datatype {
             this->instr_end = co_instr + co_instr_sz;
 
             this->instr_sz = co_instr_sz;
+            this->sstack_sz = co_sstack_sz;
             this->stack_sz = co_stack_sz;
 
             return this;

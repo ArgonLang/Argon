@@ -171,11 +171,11 @@ Code *TranslationUnit::Assemble(String *docstring) const {
 
     return code
             ->SetInfo(this->name, this->qname, docstring)
-            ->SetBytecode(instr_buf, instr_sz, this->stack.required)
+            ->SetBytecode(instr_buf, instr_sz, this->stack.required, this->sync_stack.required)
             ->SetTracingInfo(linfo, linfo_sz);
 }
 
-JBlock *TranslationUnit::JBNew(String *label) {
+JBlock *TranslationUnit::JBNew(String *label, JBlockType type) {
     BasicBlock *begin = this->bb.cur;
     JBlock *block = this->jstack;
 
@@ -194,18 +194,19 @@ JBlock *TranslationUnit::JBNew(String *label) {
             ::BlockAppend(this, begin);
         }
 
-        if ((block = JBlockNew(this->jstack, label, this->symt->nested)) == nullptr)
+        if ((block = JBlockNew(this->jstack, label, type, this->symt->nested)) == nullptr)
             throw DatatypeException();
 
         block->start = begin;
         this->jstack = block;
-    }
+    } else
+        block->type = type;
 
     return block;
 }
 
-JBlock *TranslationUnit::JBNew(String *label, BasicBlock *end) {
-    auto *jb = this->JBNew(label);
+JBlock *TranslationUnit::JBNew(String *label, JBlockType type, BasicBlock *end) {
+    auto *jb = this->JBNew(label, type);
 
     jb->end = end;
 
@@ -215,15 +216,14 @@ JBlock *TranslationUnit::JBNew(String *label, BasicBlock *end) {
 JBlock *TranslationUnit::JBNew(BasicBlock *start, BasicBlock *end, unsigned short pops) {
     String *label = nullptr;
 
-    if (this->jstack != nullptr && !this->jstack->loop)
+    if (this->jstack != nullptr && this->jstack->type != JBlockType::LOOP)
         label = this->jstack->label;
 
-    auto *jb = this->JBNew(label);
+    auto *jb = this->JBNew(label, JBlockType::LOOP);
 
     jb->start = start;
     jb->end = end;
 
-    jb->loop = true;
     jb->pops = pops;
 
     return jb;
@@ -231,7 +231,7 @@ JBlock *TranslationUnit::JBNew(BasicBlock *start, BasicBlock *end, unsigned shor
 
 JBlock *TranslationUnit::FindLoop(String *label) const {
     for (JBlock *block = this->jstack; block != nullptr; block = block->prev) {
-        if (!block->loop)
+        if (block->type != JBlockType::LOOP)
             continue;
 
         if (label == nullptr || (block->label != nullptr && StringCompare(block->label, label) == 0))

@@ -101,6 +101,7 @@ Code *argon::vm::datatype::CodeNew(List *statics, List *names, List *locals, Lis
         code->linfo = nullptr;
 
         code->instr_sz = 0;
+        code->sstack_sz = 0;
         code->stack_sz = 0;
         code->linfo_sz = 0;
 

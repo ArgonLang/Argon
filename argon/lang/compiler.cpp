@@ -322,7 +322,8 @@ void Compiler::Compile(const Node *node) {
             this->CompileImport((const parser::Import *) node);
             break;
         case NodeType::LABEL:
-            this->unit_->JBNew((String *) ((const Unary *) ((const parser::Binary *) node)->left)->value);
+            this->unit_->JBNew((String *) ((const Unary *) ((const parser::Binary *) node)->left)->value,
+                               JBlockType::LABEL);
             this->Compile(((const parser::Binary *) node)->right);
             break;
         case NodeType::LOOP:
@@ -349,6 +350,9 @@ void Compiler::Compile(const Node *node) {
             break;
         case NodeType::SWITCH:
             this->CompileSwitch((const Test *) node);
+            break;
+        case NodeType::SYNC_BLOCK:
+            this->CompileSyncBlock((const parser::Binary *) node);
             break;
         case NodeType::IF:
             this->CompileIf((const Test *) node);
@@ -1282,6 +1286,14 @@ void Compiler::CompileJump(const parser::Unary *jump) {
         dst = jb->start;
     }
 
+    // If continue/break is inside a sync block, release the resource before executing continue/break
+    for (JBlock *cursor = this->unit_->jstack; cursor != jb; cursor = cursor->prev) {
+        if (cursor->type != JBlockType::SYNC)
+            continue;
+
+        this->unit_->ExitSyncBlock(false);
+    }
+
     this->unit_->Emit(vm::OpCode::JMP, dst, nullptr);
 }
 
@@ -1385,7 +1397,7 @@ void Compiler::CompileSafe(const parser::Unary *unary) {
         throw DatatypeException();
 
     try {
-        jb = this->unit_->JBNew((String *) nullptr, end);
+        jb = this->unit_->JBNew((String *) nullptr, JBlockType::SAFE, end);
 
         if (((Node *) unary->value)->node_type == parser::NodeType::ASSIGNMENT)
             this->Compile((const Node *) unary->value);
@@ -1599,6 +1611,22 @@ void Compiler::CompileSwitchCase(const SwitchCase *sw, BasicBlock **ltest, Basic
     *lbody = this->unit_->bb.cur;
 }
 
+void Compiler::CompileSyncBlock(const parser::Binary *sync) {
+    CHECK_AST_NODE(sync, type_ast_binary_, "Compiler::CompileSyncBlock: expects a binary node");
+
+    this->Expression(sync->left);
+
+    this->unit_->EnterSyncBlock(&sync->loc);
+
+    auto *jb = this->unit_->JBNew(nullptr, JBlockType::SYNC);
+
+    this->CompileBlock(sync->right, true);
+
+    this->unit_->ExitSyncBlock(true);
+
+    this->unit_->JBPop(jb);
+}
+
 void Compiler::CompileTernary(const parser::Test *test) {
     BasicBlock *orelse;
     BasicBlock *end;
@@ -1689,8 +1717,7 @@ void Compiler::CompileTrap(const parser::Unary *unary) {
         throw DatatypeException();
 
     try {
-        jb = this->unit_->JBNew((String *) nullptr, end);
-        jb->trap = true;
+        jb = this->unit_->JBNew((String *) nullptr, JBlockType::TRAP, end);
 
         this->unit_->Emit(vm::OpCode::ST, end, &unary->loc);
 
@@ -1706,7 +1733,7 @@ void Compiler::CompileTrap(const parser::Unary *unary) {
 
     this->unit_->Emit(vm::OpCode::POPGT, this->unit_->stack.current, nullptr, nullptr);
 
-    if (this->unit_->jstack != nullptr && this->unit_->jstack->trap)
+    if (this->unit_->jstack != nullptr && this->unit_->jstack->type == JBlockType::TRAP)
         this->unit_->Emit(vm::OpCode::TRAP, this->unit_->jstack->end, nullptr);
     else
         this->unit_->Emit(vm::OpCode::TRAP, 0, nullptr, nullptr);

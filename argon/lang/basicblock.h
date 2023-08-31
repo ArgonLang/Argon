@@ -37,6 +37,14 @@ namespace argon::lang {
         Instr *AddInstr(vm::OpCode opcode, int arg);
     };
 
+    enum class JBlockType {
+        LABEL,
+        LOOP,
+        TRAP,
+        SAFE,
+        SYNC
+    };
+
     struct JBlock {
         JBlock *prev;
 
@@ -45,17 +53,18 @@ namespace argon::lang {
         BasicBlock *start;
         BasicBlock *end;
 
+        JBlockType type;
+
         unsigned short nested;
+
         unsigned short pops;
-        bool loop;
-        bool trap;
     };
 
     BasicBlock *BasicBlockNew();
 
     BasicBlock *BasicBlockDel(BasicBlock *block);
 
-    JBlock *JBlockNew(JBlock *prev, argon::vm::datatype::String *label, unsigned short nested);
+    JBlock *JBlockNew(JBlock *prev, argon::vm::datatype::String *label, JBlockType type, unsigned short nested);
 
     JBlock *JBlockDel(JBlock *jb);
 }

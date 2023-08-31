@@ -108,6 +108,8 @@ namespace argon::lang {
         void CompileSwitchCase(const parser::SwitchCase *sw, BasicBlock **ltest, BasicBlock **lbody,
                                BasicBlock **_default, BasicBlock *end, bool as_if);
 
+        void CompileSyncBlock(const parser::Binary *sync);
+
         void CompileTernary(const parser::Test *test);
 
         void CompileTest(const parser::Binary *test);
