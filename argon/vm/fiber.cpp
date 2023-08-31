@@ -60,10 +60,13 @@ Fiber *argon::vm::FiberNew(Context *context, unsigned int stack_space) {
 }
 
 Frame *argon::vm::FrameNew(Fiber *fiber, Code *code, Namespace *globals, bool floating) {
-    auto slots = code->stack_sz;
+    auto slots = code->stack_sz + code->sstack_sz;
+    ArSize locals_sz = 0;
 
-    if (code->locals != nullptr)
-        slots += code->locals->length;
+    if (code->locals != nullptr) {
+        locals_sz = code->locals->length;
+        slots += locals_sz;
+    }
 
     auto *frame = fiber->FrameAlloc(slots, floating);
     if (frame == nullptr)
@@ -80,9 +83,10 @@ Frame *argon::vm::FrameNew(Fiber *fiber, Code *code, Namespace *globals, bool fl
 
     frame->eval_stack = frame->extra;
     frame->locals = frame->extra + code->stack_sz;
+    frame->sync_keys = frame->locals + locals_sz;
 
     // Set locals slots to nullptr
-    slots -= code->stack_sz;
+    slots = (slots - code->stack_sz) - code->sstack_sz;
     while (slots-- > 0)
         frame->locals[slots] = nullptr;
 
@@ -201,6 +205,7 @@ void argon::vm::FiberDel(Fiber *fiber) {
 
 void argon::vm::FrameDel(Frame *frame) {
     const auto *code = frame->code;
+    auto **locals_end = frame->locals;
 
     if (--frame->counter > 0)
         return;
@@ -209,8 +214,16 @@ void argon::vm::FrameDel(Frame *frame) {
         frame->back->counter--;
 
     if (code->locals != nullptr) {
-        for (ArSize i = 0; i < code->locals->length; i++)
-            Release(frame->locals[i]);
+        for (ArSize i = 0; i < code->locals->length; i++) {
+            Release(locals_end);
+            locals_end++;
+        }
+    }
+
+    while (frame->sync_keys != locals_end) {
+        frame->sync_keys--;
+        // TODO: MonitorRelease
+        assert(false);
     }
 
     Release(code);

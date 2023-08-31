@@ -528,9 +528,11 @@ ArObject *argon::vm::Eval(Fiber *fiber) {
             &&LBL_STSUBSCR,
             &&LBL_SUB,
             &&LBL_SUBSCR,
+            &&LBL_SYNC,
             &&LBL_TEST,
             &&LBL_TRAP,
             &&LBL_UNPACK,
+            &&LBL_UNSYNC,
             &&LBL_YLD
     };
 #endif
@@ -1356,7 +1358,7 @@ ArObject *argon::vm::Eval(Fiber *fiber) {
                     break;
                 }
 
-                if(!ChanRead((Chan *) ret, &ret))
+                if (!ChanRead((Chan *) ret, &ret))
                     return nullptr;
 
                 TOP_REPLACE(ret);
@@ -1384,7 +1386,7 @@ ArObject *argon::vm::Eval(Fiber *fiber) {
                     break;
                 }
 
-                if(!ChanWrite((Chan *) ret, PEEK1()))
+                if (!ChanWrite((Chan *) ret, PEEK1()))
                     return nullptr;
 
                 // POP only Chan, leave value on stack!
@@ -1529,6 +1531,16 @@ ArObject *argon::vm::Eval(Fiber *fiber) {
                 TOP_REPLACE(ret);
                 DISPATCH();
             }
+            TARGET_OP(SYNC)
+            {
+                *cu_frame->sync_keys++ = TOP();
+                POP();
+
+                // TODO MonitorAcquire
+                assert(false);
+
+                DISPATCH();
+            }
             TARGET_OP(TEST)
             {
                 if (Equal(PEEK1(), TOP())) {
@@ -1577,6 +1589,13 @@ ArObject *argon::vm::Eval(Fiber *fiber) {
                 cu_frame->eval_stack += inc - 1;
 
                 Release(ret);
+                DISPATCH();
+            }
+            TARGET_OP(UNSYNC)
+            {
+                *(--cu_frame->sync_keys) = nullptr;
+                // TODO MonitorRelease
+                assert(false);
                 DISPATCH();
             }
             TARGET_OP(YLD)
