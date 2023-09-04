@@ -5,8 +5,8 @@
 #ifndef ARGON_VM_DATATYPE_CHAN_H_
 #define ARGON_VM_DATATYPE_CHAN_H_
 
+#include <argon/vm/sync/notifyqueue.h>
 #include <argon/vm/sync/rsm.h>
-#include <argon/vm/sync/ticket.h>
 
 #include <argon/vm/datatype/arobject.h>
 

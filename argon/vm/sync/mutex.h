@@ -7,7 +7,7 @@
 
 #include <atomic>
 
-#include <argon/vm/sync/ticket.h>
+#include <argon/vm/sync/notifyqueue.h>
 
 namespace argon::vm::sync {
     class Mutex {

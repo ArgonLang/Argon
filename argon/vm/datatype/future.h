@@ -8,7 +8,7 @@
 #include <thread>
 #include <condition_variable>
 
-#include <argon/vm/sync/ticket.h>
+#include <argon/vm/sync/notifyqueue.h>
 
 #include <argon/vm/datatype/result.h>
 #include <argon/vm/datatype/arobject.h>

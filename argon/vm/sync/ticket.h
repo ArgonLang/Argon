@@ -6,34 +6,23 @@
 #define ARGON_VM_SYNC_TICKET_H_
 
 #include <atomic>
-#include <mutex>
 
-#include <argon/vm/fiber.h>
-
-#include <argon/vm/sync/sync.h>
+namespace argon::vm {
+    struct Fiber;
+}
 
 namespace argon::vm::sync {
-    class NotifyQueue {
-        std::mutex lock_;
-
+    class Ticket {
         Fiber *head_ = nullptr;
         Fiber *tail_ = nullptr;
 
         std::atomic_ulong next_ = 0;
         std::atomic_ulong wait_ = 0;
 
-        void Enqueue(Fiber *fiber);
-
     public:
-        bool Wait(FiberStatus status);
+        bool Enqueue(Fiber *fiber);
 
-        bool Wait() {
-            return Wait(FiberStatus::BLOCKED);
-        }
-
-        void Notify();
-
-        void NotifyAll();
+        Fiber *Dequeue();
     };
 }
 
