@@ -13,7 +13,9 @@ namespace argon::vm::sync {
     class Mutex {
         NotifyQueue queue_;
 
-        std::atomic_uintptr_t lock_;
+        std::atomic_uintptr_t lock_{};
+
+        std::atomic_uintptr_t dirty_{};
     public:
         bool Lock();
 

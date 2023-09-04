@@ -22,6 +22,8 @@ bool argon::vm::sync::Mutex::Lock() {
 
     SetFiberStatus(FiberStatus::BLOCKED_SUSPENDED);
 
+    this->dirty_++;
+
     return false;
 }
 
@@ -29,7 +31,10 @@ void argon::vm::sync::Mutex::Release() {
     auto desired = (uintptr_t) vm::GetFiber();
 
     if (this->lock_.compare_exchange_strong(desired, 0)) {
-        this->queue_.Notify();
+        if (this->dirty_ != 0) {
+            this->dirty_--;
+            this->queue_.Notify();
+        }
 
         return;
     }
