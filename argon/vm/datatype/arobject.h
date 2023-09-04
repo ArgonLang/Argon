@@ -66,6 +66,8 @@ namespace argon::vm::datatype {
 
     bool TraitIsImplemented(const ArObject *object, const TypeInfo *type);
 
+    int MonitorAcquire(ArObject *object);
+
     int RecursionTrack(ArObject *object);
 
     template<typename T>
@@ -84,6 +86,7 @@ namespace argon::vm::datatype {
 
         AR_GET_RC(ret) = memory::RCType::INLINE;
         AR_GET_TYPE(ret) = type;
+        AR_GET_MON(ret) = nullptr;
 
         return (T *) ret;
     }
@@ -106,6 +109,7 @@ namespace argon::vm::datatype {
 
         AR_GET_RC(ret) = memory::RCType::GC;
         AR_GET_TYPE(ret) = type;
+        AR_GET_MON(ret) = nullptr;
 
         return (T *) ret;
     }
@@ -120,6 +124,10 @@ namespace argon::vm::datatype {
     }
 
     void BufferRelease(ArBuffer *buffer);
+
+    void MonitorDestroy(ArObject *object);
+
+    void MonitorRelease(ArObject *object);
 
     void Release(ArObject *object);
 

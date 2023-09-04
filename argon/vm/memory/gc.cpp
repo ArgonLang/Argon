@@ -259,6 +259,8 @@ void argon::vm::memory::GCFree(datatype::ArObject *object) {
         if (AR_GET_TYPE(object)->dtor != nullptr)
             AR_GET_TYPE(object)->dtor(object);
 
+        MonitorDestroy(object);
+
         memory::Free(head);
     }
 }
@@ -274,12 +276,14 @@ void argon::vm::memory::Sweep() {
     lock.unlock();
 
     while (cursor != nullptr) {
-        const auto *obj = cursor->GetObject();
+        auto *obj = cursor->GetObject();
         auto *tmp = cursor;
 
         cursor = cursor->Next();
 
         Release(AR_GET_TYPE(obj));
+
+        MonitorDestroy(obj);
 
         memory::Free(tmp);
     }

@@ -221,9 +221,9 @@ void argon::vm::FrameDel(Frame *frame) {
     }
 
     while (frame->sync_keys != locals_end) {
-        frame->sync_keys--;
-        // TODO: MonitorRelease
-        assert(false);
+        MonitorRelease(*(frame->sync_keys - 1));
+
+        Release(*(--frame->sync_keys));
     }
 
     Release(code);

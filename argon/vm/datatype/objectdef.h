@@ -5,10 +5,12 @@
 #ifndef ARGON_VM_DATATYPE_OBJECTDEF_H_
 #define ARGON_VM_DATATYPE_OBJECTDEF_H_
 
+#include <atomic>
 #include <cassert>
 #include <cstddef>
 
 #include <argon/vm/memory/refcount.h>
+#include <argon/vm/sync/ticket.h>
 
 #include <argon/util/enum_bitmask.h>
 
@@ -167,6 +169,14 @@ ArObject *name##_fn(ArObject *_func, ArObject *_self, ArObject **args, ArObject 
         bool readonly;
     };
 
+    struct Monitor {
+        vm::sync::Ticket w_queue;
+
+        std::atomic_uintptr_t a_fiber;
+
+        unsigned int locks;
+    };
+
 #define ARGON_MEMBER(name, type, offset, readonly) {name, nullptr, nullptr, type, offset, readonly}
 #define ARGON_MEMBER_GETSET(name, get, set) {name, get, set, MemberType::ULONG, 0, false}
 #define ARGON_MEMBER_SENTINEL {nullptr, nullptr, nullptr, MemberType::ULONG, 0, false}
@@ -175,11 +185,13 @@ ArObject *name##_fn(ArObject *_func, ArObject *_self, ArObject **args, ArObject 
     struct {                                                            \
         argon::vm::memory::RefCount ref_count_;                         \
         const struct argon::vm::datatype::TypeInfo *type_;              \
+        std::atomic<struct argon::vm::datatype::Monitor *> mon_;        \
     } head_
 
 #define AROBJ_HEAD_INIT(type) {                                         \
         argon::vm::memory::RefCount(argon::vm::memory::RCType::STATIC), \
-        (type) }
+        (type),                                                         \
+        nullptr}
 
 #define AROBJ_HEAD_INIT_TYPE AROBJ_HEAD_INIT(argon::vm::datatype::type_type_)
 
@@ -330,8 +342,10 @@ ArObject *name##_fn(ArObject *_func, ArObject *_self, ArObject **args, ArObject 
         AROBJ_HEAD;
     };
 
-#define AR_GET_RC(object)                   ((object)->head_.ref_count_)
-#define AR_GET_TYPE(object)                 ((object)->head_.type_)
+#define AR_GET_HEAD(object)                 ((object)->head_)
+#define AR_GET_RC(object)                   (AR_GET_HEAD(object).ref_count_)
+#define AR_GET_TYPE(object)                 (AR_GET_HEAD(object).type_)
+#define AR_GET_MON(object)                  (AR_GET_HEAD(object).mon_)
 
 #define AR_SLOT_BUFFER(object)              ((AR_GET_TYPE(object))->buffer)
 #define AR_SLOT_NUMBER(object)              ((AR_GET_TYPE(object))->number)

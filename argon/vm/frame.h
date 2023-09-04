@@ -47,12 +47,7 @@ namespace argon::vm {
         /// Locals variables.
         datatype::ArObject **locals;
 
-        /**
-         * @brief Sync keys
-         *
-         * @warning Avoid trying to access objects; the sole purpose of this pointer is to utilize
-         * the memory address of the Argon object as the key for the Sync Monitor.
-         */
+        /// Sync keys
         datatype::ArObject **sync_keys;
 
         /// Enclosing scope (If Any).

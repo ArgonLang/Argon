@@ -1533,12 +1533,18 @@ ArObject *argon::vm::Eval(Fiber *fiber) {
             }
             TARGET_OP(SYNC)
             {
-                *cu_frame->sync_keys++ = TOP();
+                ret = TOP();
+
+                auto err = MonitorAcquire(ret);
+                if (err < 0)
+                    break;
+
+                if (err == 0)
+                    return nullptr;
+
+                *cu_frame->sync_keys++ = IncRef(ret);
+
                 POP();
-
-                // TODO MonitorAcquire
-                assert(false);
-
                 DISPATCH();
             }
             TARGET_OP(TEST)
@@ -1593,9 +1599,10 @@ ArObject *argon::vm::Eval(Fiber *fiber) {
             }
             TARGET_OP(UNSYNC)
             {
-                *(--cu_frame->sync_keys) = nullptr;
-                // TODO MonitorRelease
-                assert(false);
+                MonitorRelease(*(cu_frame->sync_keys - 1));
+
+                Release(--cu_frame->sync_keys);
+
                 DISPATCH();
             }
             TARGET_OP(YLD)

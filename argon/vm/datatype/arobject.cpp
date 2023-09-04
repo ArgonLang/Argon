@@ -206,7 +206,7 @@ bool type_set_attr(ArObject *self, ArObject *key, ArObject *value, bool static_a
 
     Release(current);
 
-    if (ns== nullptr || aprop.IsConstant()) {
+    if (ns == nullptr || aprop.IsConstant()) {
         ErrorFormat(kUnassignableError[0], kUnassignableError[2],
                     AR_TYPE_QNAME(self), ARGON_RAW_STRING((String *) key));
 
@@ -919,6 +919,62 @@ bool argon::vm::datatype::TraitIsImplemented(const ArObject *object, const TypeI
     return false;
 }
 
+int argon::vm::datatype::MonitorAcquire(ArObject *object) {
+    auto *monitor = AR_GET_MON(object).load(std::memory_order_consume);
+
+    if (monitor == nullptr) {
+        monitor = (Monitor *) argon::vm::memory::Alloc(sizeof(Monitor));
+        if (monitor == nullptr)
+            return -1;
+
+        new(&monitor->w_queue)sync::Ticket();
+
+        monitor->a_fiber = 0;
+        monitor->locks = 0;
+
+        Monitor *expected = nullptr;
+        do {
+            if (expected != nullptr) {
+                monitor->w_queue.~Ticket();
+
+                argon::vm::memory::Free(monitor);
+
+                monitor = expected;
+
+                break;
+            }
+        } while (!AR_GET_MON(object).compare_exchange_strong(expected, monitor));
+    }
+
+    auto expected = monitor->a_fiber.load(std::memory_order_consume);
+    auto fiber = (uintptr_t) GetFiber();
+    int attempts = 3;
+
+    if (fiber == expected) {
+        monitor->locks++;
+
+        return 1;
+    }
+
+    expected = 0;
+
+    while (!monitor->a_fiber.compare_exchange_strong(expected, fiber)) {
+        if (attempts-- <= 0) {
+            monitor->w_queue.Enqueue((Fiber *) fiber);
+
+            SetFiberStatus(FiberStatus::BLOCKED_SUSPENDED);
+
+            return 0;
+        }
+
+        expected = 0;
+    }
+
+    monitor->locks++;
+
+    return 1;
+}
+
 int argon::vm::datatype::RecursionTrack(ArObject *object) {
     auto *fiber = argon::vm::GetFiber();
     List **ref = &static_references;
@@ -956,6 +1012,37 @@ void argon::vm::datatype::BufferRelease(ArBuffer *buffer) {
     Release(&buffer->object);
 }
 
+void argon::vm::datatype::MonitorDestroy(ArObject *object) {
+    assert(AR_GET_RC(object).GetStrongCount() == 0);
+
+    auto *monitor = AR_GET_MON(object).load(std::memory_order_consume);
+
+    if (monitor == nullptr)
+        return;
+
+    monitor->w_queue.~Ticket();
+
+    argon::vm::memory::Free(monitor);
+
+    AR_GET_MON(object) = nullptr;
+}
+
+void argon::vm::datatype::MonitorRelease(ArObject *object) {
+    auto *monitor = AR_GET_MON(object).load(std::memory_order_consume);
+    auto f_stored = monitor->a_fiber.load(std::memory_order_consume);
+
+    assert(monitor != nullptr && f_stored == (uintptr_t) GetFiber());
+
+    if (monitor->locks-- > 1)
+        return;
+
+    monitor->a_fiber = 0;
+
+    auto *fiber = monitor->w_queue.Dequeue();
+    if (fiber != nullptr)
+        vm::Spawn(fiber);
+}
+
 void argon::vm::datatype::Release(ArObject *object) {
     if (object == nullptr)
         return;
@@ -968,6 +1055,8 @@ void argon::vm::datatype::Release(ArObject *object) {
     if (AR_GET_RC(object).DecStrong()) {
         if (AR_GET_TYPE(object)->dtor != nullptr)
             AR_GET_TYPE(object)->dtor(object);
+
+        MonitorDestroy(object);
 
         argon::vm::memory::Free(object);
     }
