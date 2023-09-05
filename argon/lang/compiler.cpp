@@ -477,7 +477,7 @@ void Compiler::CompileAugAssignment(const parser::Binary *assign) {
 
             COMPILE_OP();
 
-            this->unit_->Emit(vm::OpCode::PBHEAD, 3, nullptr, nullptr);
+            this->unit_->Emit(vm::OpCode::PBHEAD, 2, nullptr, nullptr);
             this->unit_->Emit(vm::OpCode::STSUBSCR, &assign->loc);
             break;
         default:
