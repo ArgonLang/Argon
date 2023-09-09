@@ -61,7 +61,7 @@ void RecursiveSharedMutex::lock_shared_slow(std::thread::id id) {
         desired = current;
 
         desired.inc_shared();
-    } while (this->_lock.compare_exchange_strong(current, desired));
+    } while (!this->_lock.compare_exchange_strong(current, desired));
 }
 
 void RecursiveSharedMutex::lock_slow() {
