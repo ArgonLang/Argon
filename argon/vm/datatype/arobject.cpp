@@ -927,7 +927,7 @@ int argon::vm::datatype::MonitorAcquire(ArObject *object) {
         if (monitor == nullptr)
             return -1;
 
-        new(&monitor->w_queue)sync::Ticket();
+        new(&monitor->w_queue)sync::NotifyQueue();
 
         monitor->a_fiber = 0;
         monitor->locks = 0;
@@ -935,7 +935,7 @@ int argon::vm::datatype::MonitorAcquire(ArObject *object) {
         Monitor *expected = nullptr;
         do {
             if (expected != nullptr) {
-                monitor->w_queue.~Ticket();
+                monitor->w_queue.~NotifyQueue();
 
                 argon::vm::memory::Free(monitor);
 
@@ -959,13 +959,11 @@ int argon::vm::datatype::MonitorAcquire(ArObject *object) {
     expected = 0;
 
     while (!monitor->a_fiber.compare_exchange_strong(expected, fiber)) {
-        if (attempts-- <= 0) {
-            monitor->w_queue.Enqueue((Fiber *) fiber);
-
-            SetFiberStatus(FiberStatus::BLOCKED_SUSPENDED);
-
-            return 0;
-        }
+        if (attempts <= 0) {
+            if (!monitor->w_queue.Wait(FiberStatus::BLOCKED_SUSPENDED))
+                return 0;
+        } else
+            attempts--;
 
         expected = 0;
     }
@@ -1020,7 +1018,7 @@ void argon::vm::datatype::MonitorDestroy(ArObject *object) {
     if (monitor == nullptr)
         return;
 
-    monitor->w_queue.~Ticket();
+    monitor->w_queue.~NotifyQueue();
 
     argon::vm::memory::Free(monitor);
 
@@ -1038,9 +1036,7 @@ void argon::vm::datatype::MonitorRelease(ArObject *object) {
 
     monitor->a_fiber = 0;
 
-    auto *fiber = monitor->w_queue.Dequeue();
-    if (fiber != nullptr)
-        vm::Spawn(fiber);
+    monitor->w_queue.Notify();
 }
 
 void argon::vm::datatype::Release(ArObject *object) {

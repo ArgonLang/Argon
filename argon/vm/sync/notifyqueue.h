@@ -8,7 +8,7 @@
 #include <atomic>
 #include <mutex>
 
-#include <argon/vm/fiber.h>
+#include <argon/vm/fstatus.h>
 
 #include <argon/vm/sync/sync.h>
 #include <argon/vm/sync/ticket.h>

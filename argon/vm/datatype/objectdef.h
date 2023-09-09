@@ -10,7 +10,7 @@
 #include <cstddef>
 
 #include <argon/vm/memory/refcount.h>
-#include <argon/vm/sync/ticket.h>
+#include <argon/vm/sync/notifyqueue.h>
 
 #include <argon/util/enum_bitmask.h>
 
@@ -170,7 +170,7 @@ ArObject *name##_fn(ArObject *_func, ArObject *_self, ArObject **args, ArObject 
     };
 
     struct Monitor {
-        vm::sync::Ticket w_queue;
+        vm::sync::NotifyQueue w_queue;
 
         std::atomic_uintptr_t a_fiber;
 

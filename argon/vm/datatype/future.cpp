@@ -2,6 +2,7 @@
 //
 // Licensed under the Apache License v2.0
 
+#include <argon/vm/datatype/stringformatter.h>
 #include <argon/vm/datatype/boolean.h>
 
 #include <argon/vm/datatype/future.h>

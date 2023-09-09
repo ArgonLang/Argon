@@ -13,6 +13,7 @@
 #include <argon/vm/datatype/decimal.h>
 #include <argon/vm/datatype/dict.h>
 #include <argon/vm/datatype/error.h>
+#include <argon/vm/datatype/function.h>
 #include <argon/vm/datatype/future.h>
 #include <argon/vm/datatype/integer.h>
 #include <argon/vm/datatype/module.h>
