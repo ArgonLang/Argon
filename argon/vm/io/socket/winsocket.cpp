@@ -23,6 +23,8 @@ using namespace argon::vm::io::socket;
 
 bool LoadWSAExtension(SOCKET socket, GUID guid, void **target);
 
+CallbackReturnStatus RecvAllStarter(Event *event);
+
 // EOL
 
 CallbackReturnStatus AcceptCallBack(Event *event) {
@@ -122,6 +124,79 @@ CallbackReturnStatus RecvStarter(Event *event) {
 
     if (result != 0 && WSAGetLastError() != WSA_IO_PENDING) {
         argon::vm::memory::Free(event->buffer.wsa.buf);
+
+        ErrorFromSocket();
+
+        return CallbackReturnStatus::FAILURE;
+    }
+
+    return CallbackReturnStatus::SUCCESS;
+}
+
+CallbackReturnStatus RecvAllCallBack(Event *event) {
+    auto delta = event->buffer.allocated - event->buffer.length;
+
+    if (event->buffer.wsa.len < delta) {
+        auto *bytes = BytesNewHoldBuffer(
+                (unsigned char *) event->buffer.data,
+                event->buffer.allocated,
+                event->buffer.length + event->buffer.wsa.len,
+                true);
+
+        if (bytes == nullptr) {
+            argon::vm::memory::Free(event->buffer.data);
+
+            return CallbackReturnStatus::FAILURE;
+        }
+
+        argon::vm::FiberSetAsyncResult(event->fiber, (ArObject *) bytes);
+
+        Release(bytes);
+
+        return CallbackReturnStatus::SUCCESS;
+    }
+
+    auto *tmp = (unsigned char *) argon::vm::memory::Realloc(event->buffer.data,
+                                                             event->buffer.allocated + kRecvAllIncSize);
+    if (tmp == nullptr) {
+        argon::vm::memory::Free(event->buffer.data);
+
+        return CallbackReturnStatus::FAILURE;
+    }
+
+    event->buffer.data = tmp;
+
+    event->buffer.allocated += kRecvAllIncSize;
+
+    event->buffer.length += event->buffer.wsa.len;
+
+    event->buffer.wsa.buf = (char *) (tmp + event->buffer.length);
+    event->buffer.wsa.len = event->buffer.allocated - event->buffer.length;
+
+    if(RecvAllStarter(event) != CallbackReturnStatus::SUCCESS){
+        argon::vm::memory::Free(event->buffer.data);
+
+        return CallbackReturnStatus::FAILURE;
+    }
+
+    return CallbackReturnStatus::RETRY;
+}
+
+CallbackReturnStatus RecvAllStarter(Event *event) {
+    auto *sock = (const Socket *) event->initiator;
+
+    event->callback = RecvAllCallBack;
+
+    auto result = WSARecv(sock->sock,
+                          &event->buffer.wsa,
+                          1,
+                          nullptr,
+                          (DWORD *) &event->flags,
+                          event,
+                          nullptr);
+
+    if (result != 0 && WSAGetLastError() != WSA_IO_PENDING) {
+        argon::vm::memory::Free(event->buffer.data);
 
         ErrorFromSocket();
 
@@ -515,6 +590,32 @@ bool argon::vm::io::socket::Recv(Socket *sock, size_t len, int flags) {
     ovr->buffer.allocated = len;
 
     ovr->callback = RecvStarter;
+
+    ovr->flags = flags;
+
+    return vm::loop::EventLoopAddEvent(GetEventLoop(), ovr);
+}
+
+bool argon::vm::io::socket::RecvAll(Socket *sock, int flags) {
+    Event *ovr;
+
+    if ((ovr = EventNew(GetEventLoop(), (ArObject *) sock)) == nullptr)
+        return false;
+
+    if ((ovr->buffer.wsa.buf = (char *) memory::Alloc(kRecvAllStartSize)) == nullptr) {
+        EventDel(ovr);
+
+        return false;
+    }
+
+    ovr->buffer.wsa.len = (u_long) kRecvAllStartSize;
+
+    ovr->buffer.data = (unsigned char *) ovr->buffer.wsa.buf;
+
+    ovr->buffer.allocated = kRecvAllStartSize;
+    ovr->buffer.length = 0;
+
+    ovr->callback = RecvAllStarter;
 
     ovr->flags = flags;
 

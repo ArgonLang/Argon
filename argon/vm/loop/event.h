@@ -11,6 +11,7 @@
 
 #include <winsock2.h>
 
+#undef CONST
 #undef FASTCALL
 #undef Yield
 

@@ -127,6 +127,58 @@ CallbackReturnStatus RecvCallBack(Event *event) {
     return CallbackReturnStatus::SUCCESS;
 }
 
+CallbackReturnStatus RecvAllCallBack(Event *event) {
+    auto *sock = (const Socket *) event->initiator;
+    auto delta = event->buffer.allocated - event->buffer.length;
+
+    auto bytes = recv(sock->sock,
+                      event->buffer.data + event->buffer.length,
+                      delta, event->flags);
+
+    if (bytes < 0) {
+        if (errno != EAGAIN) {
+            argon::vm::memory::Free(event->buffer.data);
+
+            ErrorFromSocket();
+
+            return CallbackReturnStatus::FAILURE;
+        }
+
+        return CallbackReturnStatus::RETRY;
+    }
+
+    event->buffer.length += bytes;
+
+    if (bytes < delta) {
+        auto *buffer = BytesNewHoldBuffer(event->buffer.data, event->buffer.allocated, event->buffer.length, true);
+        if (buffer == nullptr) {
+            argon::vm::memory::Free(event->buffer.data);
+
+            return CallbackReturnStatus::FAILURE;
+        }
+
+        argon::vm::FiberSetAsyncResult(event->fiber, (ArObject *) buffer);
+
+        Release(buffer);
+
+        return CallbackReturnStatus::SUCCESS;
+    }
+
+    auto *tmp = (unsigned char *) argon::vm::memory::Realloc(event->buffer.data,
+                                                             event->buffer.allocated + kRecvAllIncSize);
+    if (tmp == nullptr) {
+        argon::vm::memory::Free(event->buffer.data);
+
+        return CallbackReturnStatus::FAILURE;
+    }
+
+    event->buffer.data = tmp;
+
+    event->buffer.allocated += kRecvAllIncSize;
+
+    return CallbackReturnStatus::RETRY;
+}
+
 CallbackReturnStatus RecvFromCallBack(Event *event) {
     sockaddr_storage storage{};
     socklen_t addrlen = sizeof(sockaddr_storage);
@@ -472,6 +524,33 @@ bool argon::vm::io::socket::Recv(Socket *sock, size_t len, int flags) {
     event->buffer.allocated = len;
 
     event->callback = RecvCallBack;
+
+    event->flags = flags;
+
+    if (!EventLoopAddEvent(GetEventLoop(), sock->queue, event, EventDirection::IN)) {
+        memory::Free(event->buffer.data);
+        EventDel(event);
+        return false;
+    }
+
+    return true;
+}
+
+bool argon::vm::io::socket::RecvAll(Socket *sock, int flags) {
+    Event *event;
+
+    if ((event = EventNew(GetEventLoop(), (ArObject *) sock)) == nullptr)
+        return false;
+
+    if ((event->buffer.data = (unsigned char *) memory::Alloc(kRecvAllStartSize)) == nullptr) {
+        EventDel(event);
+        return false;
+    }
+
+    event->buffer.length = 0;
+    event->buffer.allocated = kRecvAllStartSize;
+
+    event->callback = RecvAllCallBack;
 
     event->flags = flags;
 

@@ -68,12 +68,14 @@ bool argon::vm::loop::EventLoopIOPoll(EvLoop *loop, unsigned long timeout) {
             vm::FiberSetAsyncResult(event->fiber, (ArObject *) Nil); // Default: Set initiator as return value
     }
 
-    loop->io_count--;
+    if (status != CallbackReturnStatus::SUCCESS_NO_WAKEUP && status != CallbackReturnStatus::RETRY) {
+        loop->io_count--;
 
-    if (status != CallbackReturnStatus::SUCCESS_NO_WAKEUP)
         Spawn(event->fiber);
+    }
 
-    EventDel(event);
+    if (status != CallbackReturnStatus::RETRY)
+        EventDel(event);
 
     return true;
 }
