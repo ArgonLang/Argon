@@ -146,7 +146,7 @@ ARGON_METHOD_INHERITED(socket_read, read) {
     IntegerUnderlying bufsize = ((Integer *) args[0])->sint;
 
     if (bufsize < 0)
-        ErrorFormat(kValueError[0], "size cannot be less than zero");
+        RecvAll(self, 0);
     else
         Recv(self, bufsize, 0);
 

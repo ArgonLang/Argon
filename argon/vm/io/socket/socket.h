@@ -34,6 +34,9 @@ namespace argon::vm::io::socket {
             (const char *) "GAIError",
     };
 
+    constexpr const int kRecvAllStartSize = 1024;
+    constexpr const int kRecvAllIncSize = 1024;
+
 #ifdef _ARGON_PLATFORM_WINDOWS
     constexpr const char *kWSAError[] = {
             (const char *) "WSAError",
@@ -87,6 +90,8 @@ namespace argon::vm::io::socket {
     bool Listen(const Socket *sock, int backlog);
 
     bool Recv(Socket *sock, size_t len, int flags);
+
+    bool RecvAll(Socket *sock, int flags);
 
     bool RecvCB(Socket *sock, datatype::ArObject * user_data, loop::UserCB callback,
                 unsigned char *buffer, size_t len, int flags);
