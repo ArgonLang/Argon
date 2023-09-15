@@ -14,7 +14,7 @@
 #include <argon/vm/datatype/arobject.h>
 
 #include <argon/vm/loop/event.h>
-#include <argon/vm/loop/minheap.h>
+#include "argon/vm/loop/support/minheap.h"
 #include <argon/vm/loop/task.h>
 
 namespace argon::vm::loop {
@@ -71,7 +71,7 @@ namespace argon::vm::loop {
 
         std::condition_variable cond;
 
-        MinHeap<TimerTask, TimerTaskLess> timer_heap;
+        support::MinHeap<TimerTask, TimerTaskLess> timer_heap;
 
 #ifndef _ARGON_PLATFORM_WINDOWS
         EventQueue *out_queues;
