@@ -142,7 +142,7 @@ void ProcessQueue(EventQueue *queue, EventDirection direction) {
     Event **head = &queue->in_event.head;
     Event *tmp;
 
-    CallbackReturnStatus status;
+    CallbackStatus status;
 
     if (direction == EventDirection::OUT)
         head = &queue->out_event.head;
@@ -154,12 +154,12 @@ void ProcessQueue(EventQueue *queue, EventDirection direction) {
             break;
 
         status = thlocal_event->callback(thlocal_event);
-        if (status == CallbackReturnStatus::RETRY)
+        if (status == CallbackStatus::RETRY)
             return;
 
         thlocal_event->loop->io_count--;
 
-        if (status != CallbackReturnStatus::SUCCESS_NO_WAKEUP)
+        if (status != CallbackStatus::CONTINUE)
             Spawn(thlocal_event->fiber);
 
         std::unique_lock _(queue->lock);
@@ -169,7 +169,7 @@ void ProcessQueue(EventQueue *queue, EventDirection direction) {
         _.unlock();
 
         EventDel(tmp);
-    } while (status != CallbackReturnStatus::FAILURE);
+    } while (status != CallbackStatus::FAILURE);
 }
 
 #endif

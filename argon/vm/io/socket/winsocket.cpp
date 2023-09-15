@@ -362,7 +362,7 @@ CallbackReturnStatus SendRecvCallBack(Event *event) {
                 0))
         return CallbackReturnStatus::FAILURE;
 
-    return CallbackReturnStatus::SUCCESS_NO_WAKEUP;
+    return CallbackReturnStatus::CONTINUE;
 }
 
 CallbackReturnStatus SendCBStarter(Event *event) {

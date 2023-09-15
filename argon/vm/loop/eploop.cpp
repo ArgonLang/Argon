@@ -152,7 +152,7 @@ void ProcessQueue(EventQueue *queue, EventDirection direction) {
 
         thlocal_event->loop->io_count--;
 
-        if (status != CallbackReturnStatus::SUCCESS_NO_WAKEUP)
+        if (status != CallbackReturnStatus::CONTINUE)
             Spawn(thlocal_event->fiber);
 
         std::unique_lock _(queue->lock);
