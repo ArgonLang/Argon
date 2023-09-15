@@ -11,14 +11,6 @@
 
 #include <winsock2.h>
 
-#undef CONST
-#undef FASTCALL
-#undef Yield
-
-#else
-
-#include <netinet/in.h>
-
 #endif
 
 #include <argon/vm/datatype/arobject.h>
@@ -58,14 +50,14 @@ namespace argon::vm::loop {
         struct {
             datatype::ArBuffer arbuf;
 
-#ifdef _ARGON_PLATFORM_WINDOWS
-            WSABUF wsa;
-#endif
             unsigned char *data;
 
             datatype::ArSize length;
-
             datatype::ArSize allocated;
+
+#ifdef _ARGON_PLATFORM_WINDOWS
+            WSABUF wsa;
+#endif
         } buffer;
 
         int flags;

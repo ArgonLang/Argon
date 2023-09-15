@@ -29,6 +29,7 @@
 #include <argon/vm/datatype/future.h>
 
 #include <argon/vm/loop/evloop.h>
+#include <argon/vm/loop/event.h>
 
 #include <argon/vm/setup.h>
 

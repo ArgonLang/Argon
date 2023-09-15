@@ -78,7 +78,7 @@ bool argon::vm::loop::EventLoopIOPoll(EvLoop *loop, unsigned long timeout) {
 
         std::unique_lock _(queue->lock);
 
-        if (queue->items == 0) {
+        if (queue->in_events.Count() == 0 && queue->out_events.Count() == 0) {
             EV_SET(kev, queue->handle, events[i].filter, EV_DELETE, 0, 0, nullptr);
 
             if (kevent(loop->handle, kev, 1, nullptr, 0, nullptr) < 0)
@@ -94,7 +94,7 @@ bool argon::vm::loop::EventLoopAddEvent(EvLoop *loop, EventQueue *queue, Event *
 
     std::unique_lock _(queue->lock);
 
-    if (queue->items == 0) {
+    if (queue->in_events.Count() == 0 && queue->out_events.Count() == 0) {
         EV_SET(kev, queue->handle, EVFILT_READ, EV_ADD | EV_CLEAR, 0, 0, queue);
         EV_SET(kev + 1, queue->handle, EVFILT_WRITE, EV_ADD | EV_CLEAR, 0, 0, queue);
 
@@ -109,7 +109,16 @@ bool argon::vm::loop::EventLoopAddEvent(EvLoop *loop, EventQueue *queue, Event *
         }
     }
 
-    if (direction == EventDirection::OUT && queue->out_event.head == nullptr) {
+    auto is_empty = queue->out_events.Count() == 0;
+
+    event->fiber = vm::GetFiber();
+
+    if (direction == EventDirection::IN)
+        queue->in_events.Enqueue(event);
+    else
+        queue->out_events.Enqueue(event);
+
+    if (direction == EventDirection::OUT && is_empty) {
         std::unique_lock out_lock(loop->out_lock);
 
         queue->next = loop->out_queues;
@@ -117,10 +126,6 @@ bool argon::vm::loop::EventLoopAddEvent(EvLoop *loop, EventQueue *queue, Event *
     }
 
     vm::SetFiberStatus(FiberStatus::BLOCKED);
-
-    event->fiber = vm::GetFiber();
-
-    queue->AddEvent(event, direction);
 
     loop->io_count++;
 
@@ -139,21 +144,21 @@ void ProcessOutTrigger(EvLoop *loop) {
 }
 
 void ProcessQueue(EventQueue *queue, EventDirection direction) {
-    Event **head = &queue->in_event.head;
-    Event *tmp;
+    auto *ev_queue = &queue->in_events;
+
+    if (direction == EventDirection::OUT)
+        ev_queue = &queue->out_events;
 
     CallbackStatus status;
 
-    if (direction == EventDirection::OUT)
-        head = &queue->out_event.head;
-
     do {
-        thlocal_event = *head;
-
-        if (*head == nullptr)
+        auto *event = ev_queue->GetHead();
+        if (event == nullptr)
             break;
 
-        status = thlocal_event->callback(thlocal_event);
+        thlocal_event = event;
+
+        status = thlocal_event->callback(event);
         if (status == CallbackStatus::RETRY)
             return;
 
@@ -164,11 +169,11 @@ void ProcessQueue(EventQueue *queue, EventDirection direction) {
 
         std::unique_lock _(queue->lock);
 
-        tmp = queue->PopEvent(direction);
+        event = ev_queue->Dequeue();
 
         _.unlock();
 
-        EventDel(tmp);
+        EventDel(event);
     } while (status != CallbackStatus::FAILURE);
 }
 

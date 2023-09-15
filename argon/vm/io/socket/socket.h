@@ -21,6 +21,7 @@
 #include <netinet/in.h>
 #include <sys/socket.h>
 
+#include <argon/vm/loop/event.h>
 #include <argon/vm/loop/evloop.h>
 
 #endif

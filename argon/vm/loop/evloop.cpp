@@ -148,7 +148,9 @@ EventQueue *argon::vm::loop::EventQueueNew(EvHandle handle) {
 
     new(&(queue->lock))std::mutex();
 
-    queue->items = 0;
+    new(&(queue->in_events))Event();
+    new(&(queue->out_events))Event();
+
     queue->handle = handle;
 
     return queue;
@@ -243,64 +245,11 @@ void argon::vm::loop::EventLoopShutdown() {
 #ifndef _ARGON_PLATFORM_WINDOWS
 
 void argon::vm::loop::EventQueueDel(EventQueue **queue) {
-    assert((*queue)->items == 0);
-
     (*queue)->lock.~mutex();
 
     argon::vm::memory::Free(*queue);
 
     *queue = nullptr;
-}
-
-// EventQueue
-Event *argon::vm::loop::EventQueue::PopEvent(EventDirection direction) {
-    Event **head = &this->in_event.head;
-    Event **tail = &this->in_event.tail;
-    Event *ret;
-
-    if (direction == EventDirection::OUT) {
-        head = &this->out_event.head;
-        tail = &this->out_event.tail;
-    }
-
-    ret = *head;
-
-    if (ret != nullptr) {
-        *head = ret->prev;
-
-        if(ret->prev != nullptr)
-            ret->prev->next = nullptr;
-
-        if (*tail == ret)
-            *tail = nullptr;
-
-        this->items--;
-    }
-
-    return ret;
-}
-
-void argon::vm::loop::EventQueue::AddEvent(Event *event, EventDirection direction) {
-    Event **head = &this->in_event.head;
-    Event **tail = &this->in_event.tail;
-
-    if (direction == EventDirection::OUT) {
-        head = &this->out_event.head;
-        tail = &this->out_event.tail;
-    }
-
-    event->next = *tail;
-    event->prev = nullptr;
-
-    if (*tail != nullptr)
-        (*tail)->prev = event;
-
-    *tail = event;
-
-    if (*head == nullptr)
-        *head = event;
-
-    this->items++;
 }
 
 #endif

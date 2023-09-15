@@ -13,7 +13,7 @@
 
 #include <argon/vm/datatype/arobject.h>
 
-#include <argon/vm/loop/event.h>
+#include <argon/vm/loop/evqueue.h>
 #include "argon/vm/loop/support/minheap.h"
 #include <argon/vm/loop/task.h>
 
@@ -21,46 +21,6 @@ namespace argon::vm::loop {
     constexpr const unsigned int kEventTimeout = 24; // millisecond
     constexpr const unsigned int kMaxFreeEvents = 2046;
     constexpr const unsigned int kMaxFreeTasks = 128;
-
-#ifdef _ARGON_PLATFORM_WINDOWS
-
-    using EvHandle = void *;
-
-#else
-    constexpr const unsigned int kMaxEvents = 50;
-
-    using EvHandle = int;
-
-    enum class EventDirection {
-        IN,
-        OUT
-    };
-
-    struct EventQueue {
-        std::mutex lock;
-
-        EventQueue *next;
-
-        struct {
-            Event *head;
-            Event *tail;
-        } in_event;
-
-        struct {
-            Event *head;
-            Event *tail;
-        } out_event;
-
-        unsigned int items;
-
-        EvHandle handle;
-
-        Event *PopEvent(EventDirection direction);
-
-        void AddEvent(Event *event, EventDirection direction);
-    };
-
-#endif
 
     struct EvLoop {
         std::mutex lock;
