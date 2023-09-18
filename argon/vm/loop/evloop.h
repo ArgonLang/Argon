@@ -6,7 +6,6 @@
 #define ARGON_VM_LOOP_EVLOOP_H_
 
 #include <atomic>
-#include <condition_variable>
 #include <mutex>
 
 #include <argon/util/macros.h>
@@ -14,8 +13,9 @@
 #include <argon/vm/datatype/arobject.h>
 
 #include <argon/vm/loop/evqueue.h>
-#include "argon/vm/loop/support/minheap.h"
 #include <argon/vm/loop/task.h>
+#include <argon/vm/loop/support/minheap.h>
+#include <argon/vm/loop/support/stack.h>
 
 namespace argon::vm::loop {
     constexpr const unsigned int kEventTimeout = 24; // millisecond
@@ -37,13 +37,9 @@ namespace argon::vm::loop {
         EventQueue *out_queues;
 #endif
 
-        Event *free_events;
+        support::Stack<Event> free_events;
 
-        TimerTask *free_t_task;
-
-        datatype::ArSize free_events_count;
-
-        datatype::ArSize free_t_task_count;
+        support::Stack<Task> free_t_tasks;
 
         datatype::ArSize t_task_id;
 
@@ -93,6 +89,10 @@ namespace argon::vm::loop {
 #ifndef _ARGON_PLATFORM_WINDOWS
 
     void EventQueueDel(EventQueue **queue);
+
+    void ProcessOutQueue(EvLoop *loop);
+
+    void ProcessQueueEvents(EvLoop *loop, EventQueue *queue, EventDirection direction);
 
 #endif
 

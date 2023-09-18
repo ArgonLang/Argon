@@ -10,30 +10,17 @@
 
 #include <argon/vm/runtime.h>
 
-#include <argon/vm/memory/memory.h>
-
-#include <argon/vm/datatype/error.h>
-
 #include <argon/vm/loop/event.h>
 #include <argon/vm/loop/evloop.h>
 
 using namespace argon::vm::loop;
-using namespace argon::vm::datatype;
-
-// Prototypes
-
-void ProcessOutTrigger(EvLoop *loop);
-
-void ProcessQueue(EventQueue *queue, EventDirection direction);
-
-// EOL
 
 EvLoop *argon::vm::loop::EventLoopNew() {
     EvLoop *evl;
 
     if ((evl = (EvLoop *) argon::vm::memory::Calloc(sizeof(EvLoop))) != nullptr) {
         if ((evl->handle = kqueue()) < 0) {
-            ErrorFromErrno(errno);
+            datatype::ErrorFromErrno(errno);
 
             argon::vm::memory::Free(evl);
 
@@ -42,7 +29,6 @@ EvLoop *argon::vm::loop::EventLoopNew() {
 
         new(&evl->lock)std::mutex();
         new(&evl->out_lock)std::mutex();
-
         new(&evl->cond)std::condition_variable();
     }
 
@@ -54,7 +40,7 @@ bool argon::vm::loop::EventLoopIOPoll(EvLoop *loop, unsigned long timeout) {
     struct kevent kev[2];
     timespec ts{};
 
-    ProcessOutTrigger(loop);
+    ProcessOutQueue(loop);
 
     ts.tv_sec = (long) timeout / 1000;
     ts.tv_nsec = (long) ((timeout % 1000) * 1000000);
@@ -72,9 +58,9 @@ bool argon::vm::loop::EventLoopIOPoll(EvLoop *loop, unsigned long timeout) {
         auto *queue = (EventQueue *) events[i].udata;
 
         if (events[i].filter == EVFILT_READ)
-            ProcessQueue(queue, EventDirection::IN);
+            ProcessQueueEvents(loop, queue, EventDirection::IN);
         else if (events[i].filter == EVFILT_WRITE)
-            ProcessQueue(queue, EventDirection::OUT);
+            ProcessQueueEvents(loop, queue, EventDirection::OUT);
 
         std::unique_lock _(queue->lock);
 
@@ -103,7 +89,7 @@ bool argon::vm::loop::EventLoopAddEvent(EvLoop *loop, EventQueue *queue, Event *
 
             vm::SetFiberStatus(FiberStatus::RUNNING);
 
-            ErrorFromErrno(errno);
+            datatype::ErrorFromErrno(errno);
 
             return false;
         }
@@ -132,49 +118,6 @@ bool argon::vm::loop::EventLoopAddEvent(EvLoop *loop, EventQueue *queue, Event *
     loop->cond.notify_one();
 
     return true;
-}
-
-void ProcessOutTrigger(EvLoop *loop) {
-    std::unique_lock _(loop->out_lock);
-
-    for (EventQueue *queue = loop->out_queues; queue != nullptr; queue = queue->next)
-        ProcessQueue(queue, EventDirection::OUT);
-
-    loop->out_queues = nullptr;
-}
-
-void ProcessQueue(EventQueue *queue, EventDirection direction) {
-    auto *ev_queue = &queue->in_events;
-
-    if (direction == EventDirection::OUT)
-        ev_queue = &queue->out_events;
-
-    CallbackStatus status;
-
-    do {
-        auto *event = ev_queue->GetHead();
-        if (event == nullptr)
-            break;
-
-        thlocal_event = event;
-
-        status = thlocal_event->callback(event);
-        if (status == CallbackStatus::RETRY)
-            return;
-
-        thlocal_event->loop->io_count--;
-
-        if (status != CallbackStatus::CONTINUE)
-            Spawn(thlocal_event->fiber);
-
-        std::unique_lock _(queue->lock);
-
-        event = ev_queue->Dequeue();
-
-        _.unlock();
-
-        EventDel(event);
-    } while (status != CallbackStatus::FAILURE);
 }
 
 #endif

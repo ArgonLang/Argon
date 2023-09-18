@@ -5,6 +5,8 @@
 #ifndef ARGON_VM_LOOP_TASK_H_
 #define ARGON_VM_LOOP_TASK_H_
 
+#include <argon/vm/fiber.h>
+
 #include <argon/vm/datatype/objectdef.h>
 
 namespace argon::vm::loop {
@@ -14,9 +16,7 @@ namespace argon::vm::loop {
     struct Task {
         Task *next;
 
-        struct EvLoop *loop;
-
-        struct Fiber *fiber;
+        Fiber *fiber;
 
         TaskCB callback;
     };
