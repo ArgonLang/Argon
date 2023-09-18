@@ -6,6 +6,7 @@
 #define ARGON_VM_LOOP_EVLOOP_H_
 
 #include <atomic>
+#include <condition_variable>
 #include <mutex>
 
 #include <argon/util/macros.h>
