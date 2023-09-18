@@ -42,12 +42,12 @@ bool LimitsInit(Module *self) {
 
     // Int
     LIMIT(INT_BITS, IntNew(sizeof(IntegerUnderlying) * 8));
-    LIMIT(INT_MAX, IntNew(LONG_LONG_MAX));
-    LIMIT(INT_MIN, IntNew(LONG_LONG_MIN));
+    LIMIT(INT_MAX, IntNew(LLONG_MAX));
+    LIMIT(INT_MIN, IntNew(LLONG_MIN));
 
     // UInt
     LIMIT(UINT_BITS, IntNew(sizeof(UIntegerUnderlying) * 8));
-    LIMIT(UINT_MAX, UIntNew(ULONG_LONG_MAX));
+    LIMIT(UINT_MAX, UIntNew(ULLONG_MAX));
 
     return true;
 }

@@ -11,7 +11,7 @@
 #include <argon/vm/datatype/decimal.h>
 
 namespace argon::vm::datatype {
-    using IntegerUnderlying = long;
+    using IntegerUnderlying = long long;
     using UIntegerUnderlying = unsigned long long;
 
     struct Integer {
