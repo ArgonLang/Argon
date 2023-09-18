@@ -17,7 +17,7 @@ using namespace argon::vm::datatype;
 
 EvLoop *default_event_loop = nullptr;
 
-thread_local Event *argon::vm::loop::thlocal_event = nullptr;
+thread_local Fiber *argon::vm::loop::evloop_cur_fiber = nullptr;
 
 // Prototypes
 
@@ -250,7 +250,7 @@ void argon::vm::loop::ProcessQueueEvents(EvLoop *loop, EventQueue *queue, EventD
         if (event == nullptr)
             break;
 
-        thlocal_event = event;
+        evloop_cur_fiber = event->fiber;
 
         status = event->callback(event);
         if (status == CallbackStatus::RETRY)

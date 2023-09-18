@@ -51,7 +51,7 @@ namespace argon::vm::loop {
         bool should_stop;
     };
 
-    extern thread_local Event *thlocal_event;
+    extern thread_local struct Fiber *evloop_cur_fiber;
 
     Event *EventNew(EvLoop *loop, datatype::ArObject *initiator);
 
