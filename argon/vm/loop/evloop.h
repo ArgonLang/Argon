@@ -13,54 +13,17 @@
 
 #include <argon/vm/datatype/arobject.h>
 
-#include <argon/vm/loop/event.h>
-#include <argon/vm/loop/minheap.h>
+#include <argon/vm/loop/evqueue.h>
 #include <argon/vm/loop/task.h>
+#include <argon/vm/loop/support/minheap.h>
+#include <argon/vm/loop/support/stack.h>
 
 namespace argon::vm::loop {
     constexpr const unsigned int kEventTimeout = 24; // millisecond
     constexpr const unsigned int kMaxFreeEvents = 2046;
     constexpr const unsigned int kMaxFreeTasks = 128;
 
-#ifdef _ARGON_PLATFORM_WINDOWS
-
-    using EvHandle = void *;
-
-#else
-    constexpr const unsigned int kMaxEvents = 50;
-
-    using EvHandle = int;
-
-    enum class EventDirection {
-        IN,
-        OUT
-    };
-
-    struct EventQueue {
-        std::mutex lock;
-
-        EventQueue *next;
-
-        struct {
-            Event *head;
-            Event *tail;
-        } in_event;
-
-        struct {
-            Event *head;
-            Event *tail;
-        } out_event;
-
-        unsigned int items;
-
-        EvHandle handle;
-
-        Event *PopEvent(EventDirection direction);
-
-        void AddEvent(Event *event, EventDirection direction);
-    };
-
-#endif
+    struct Event;
 
     struct EvLoop {
         std::mutex lock;
@@ -71,19 +34,15 @@ namespace argon::vm::loop {
 
         std::condition_variable cond;
 
-        MinHeap<TimerTask, TimerTaskLess> timer_heap;
+        support::MinHeap<TimerTask, TimerTaskLess> timer_heap;
 
 #ifndef _ARGON_PLATFORM_WINDOWS
         EventQueue *out_queues;
 #endif
 
-        Event *free_events;
+        support::Stack<Event> free_events;
 
-        TimerTask *free_t_task;
-
-        datatype::ArSize free_events_count;
-
-        datatype::ArSize free_t_task_count;
+        support::Stack<Task> free_t_tasks;
 
         datatype::ArSize t_task_id;
 
@@ -94,7 +53,7 @@ namespace argon::vm::loop {
         bool should_stop;
     };
 
-    extern thread_local Event *thlocal_event;
+    extern thread_local struct Fiber *evloop_cur_fiber;
 
     Event *EventNew(EvLoop *loop, datatype::ArObject *initiator);
 
@@ -133,6 +92,10 @@ namespace argon::vm::loop {
 #ifndef _ARGON_PLATFORM_WINDOWS
 
     void EventQueueDel(EventQueue **queue);
+
+    void ProcessOutQueue(EvLoop *loop);
+
+    void ProcessQueueEvents(EvLoop *loop, EventQueue *queue, EventDirection direction);
 
 #endif
 

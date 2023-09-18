@@ -17,11 +17,11 @@ using namespace argon::vm::datatype;
 
 EvLoop *default_event_loop = nullptr;
 
-thread_local Event *argon::vm::loop::thlocal_event = nullptr;
+thread_local Fiber *argon::vm::loop::evloop_cur_fiber = nullptr;
 
 // Prototypes
 
-void TimerTaskDel(TimerTask *ttask);
+void TimerTaskDel(EvLoop *loop, TimerTask *task);
 
 // Internal
 
@@ -31,10 +31,7 @@ unsigned long long TimeNow() {
 }
 
 void EventLoopDispatcher(EvLoop *loop) {
-    TimerTask *ttask;
-
-    unsigned long long loop_time;
-    long timeout;
+    TimerTask *task;
 
     while (!loop->should_stop) {
         if (loop->io_count == 0) {
@@ -50,49 +47,44 @@ void EventLoopDispatcher(EvLoop *loop) {
                 break;
         }
 
-        loop_time = TimeNow();
+        auto loop_time = TimeNow();
+        auto timeout = (long) kEventTimeout;
 
-        timeout = kEventTimeout;
-        if ((ttask = loop->timer_heap.PeekMin()) != nullptr) {
-            timeout = (long) (ttask->timeout - loop_time);
+        if ((task = loop->timer_heap.PeekMin()) != nullptr) {
+            timeout = (long) (task->timeout - loop_time);
             if (timeout < 0)
                 timeout = 0;
         }
 
         EventLoopIOPoll(loop, timeout);
 
-        while (ttask != nullptr) {
-            if (loop_time < ttask->timeout)
+        while (task != nullptr) {
+            if (loop_time < task->timeout)
                 break;
 
             loop->timer_heap.PopMin();
 
             loop->io_count--;
 
-            argon::vm::Spawn(ttask->fiber);
+            argon::vm::Spawn(task->fiber);
 
-            TimerTaskDel(ttask);
+            TimerTaskDel(loop, task);
 
-            ttask = loop->timer_heap.PeekMin();
+            task = loop->timer_heap.PeekMin();
         }
     }
 }
 
-void TimerTaskDel(TimerTask *ttask) {
-    auto *loop = ttask->loop;
-
+void TimerTaskDel(EvLoop *loop, TimerTask *task) {
     std::unique_lock _(loop->lock);
 
-    if (loop->free_t_task_count + 1 <= kMaxFreeTasks) {
-        ttask->next = loop->free_t_task;
-        loop->free_t_task = ttask;
-
-        loop->free_t_task_count++;
+    if (loop->free_t_tasks.Count() + 1 <= kMaxFreeTasks) {
+        loop->free_t_tasks.Push(task);
 
         return;
     }
 
-    argon::vm::memory::Free(ttask);
+    argon::vm::memory::Free(task);
 }
 
 // Public
@@ -107,19 +99,14 @@ bool argon::vm::loop::EventLoopInit() {
 }
 
 Event *argon::vm::loop::EventNew(EvLoop *loop, ArObject *initiator) {
-    Event *event = nullptr;
+    Event *event;
 
     if (loop == nullptr)
         return nullptr;
 
     std::unique_lock _(loop->lock);
 
-    if (loop->free_events != nullptr) {
-        event = loop->free_events;
-        loop->free_events = event->next;
-
-        loop->free_events_count--;
-    }
+    event = loop->free_events.Pop();
 
     _.unlock();
 
@@ -148,7 +135,6 @@ EventQueue *argon::vm::loop::EventQueueNew(EvHandle handle) {
 
     new(&(queue->lock))std::mutex();
 
-    queue->items = 0;
     queue->handle = handle;
 
     return queue;
@@ -161,46 +147,41 @@ EvLoop *argon::vm::loop::GetEventLoop() {
 }
 
 bool argon::vm::loop::EventLoopSetTimeout(EvLoop *loop, datatype::ArSize timeout) {
-    auto now = TimeNow();
-    TimerTask *ttask = nullptr;
+    TimerTask *task;
 
     if (loop == nullptr)
         return false;
 
+    auto now = TimeNow();
+
     std::unique_lock _(loop->lock);
 
-    if (loop->free_t_task != nullptr) {
-        ttask = loop->free_t_task;
-        loop->free_t_task = (TimerTask *) ttask->next;
-
-        loop->free_t_task_count--;
-    }
+    task = (TimerTask *) loop->free_t_tasks.Pop();
 
     _.unlock();
 
-    if (ttask == nullptr) {
-        ttask = (TimerTask *) memory::Alloc(sizeof(TimerTask));
-        if (ttask == nullptr)
+    if (task == nullptr) {
+        task = (TimerTask *) memory::Alloc(sizeof(TimerTask));
+        if (task == nullptr)
             return false;
     }
 
-    memory::MemoryZero(ttask, sizeof(TimerTask));
+    memory::MemoryZero(task, sizeof(TimerTask));
 
-    ttask->loop = loop;
-    ttask->fiber = vm::GetFiber();
+    task->fiber = vm::GetFiber();
 
-    ttask->callback = [](Task *task) {
-        vm::FiberSetAsyncResult(task->fiber, (ArObject *) Nil);
+    task->callback = [](Task *_task) {
+        vm::FiberSetAsyncResult(_task->fiber, (ArObject *) Nil);
     };
 
     _.lock();
 
-    ttask->id = loop->t_task_id++;
-    ttask->timeout = now + timeout;
+    task->id = loop->t_task_id++;
+    task->timeout = now + timeout;
 
     vm::SetFiberStatus(FiberStatus::BLOCKED);
 
-    loop->timer_heap.Insert(ttask);
+    loop->timer_heap.Insert(task);
 
     loop->io_count++;
 
@@ -219,11 +200,8 @@ void argon::vm::loop::EventDel(Event *event) {
 
     std::unique_lock _(loop->lock);
 
-    if (loop->free_events_count + 1 <= kMaxFreeEvents) {
-        event->next = loop->free_events;
-        loop->free_events = event;
-
-        loop->free_events_count++;
+    if (loop->free_events.Count() + 1 <= kMaxFreeEvents) {
+        loop->free_events.Push(event);
 
         return;
     }
@@ -243,8 +221,6 @@ void argon::vm::loop::EventLoopShutdown() {
 #ifndef _ARGON_PLATFORM_WINDOWS
 
 void argon::vm::loop::EventQueueDel(EventQueue **queue) {
-    assert((*queue)->items == 0);
-
     (*queue)->lock.~mutex();
 
     argon::vm::memory::Free(*queue);
@@ -252,55 +228,47 @@ void argon::vm::loop::EventQueueDel(EventQueue **queue) {
     *queue = nullptr;
 }
 
-// EventQueue
-Event *argon::vm::loop::EventQueue::PopEvent(EventDirection direction) {
-    Event **head = &this->in_event.head;
-    Event **tail = &this->in_event.tail;
-    Event *ret;
+void argon::vm::loop::ProcessOutQueue(argon::vm::loop::EvLoop *loop) {
+    std::unique_lock _(loop->out_lock);
 
-    if (direction == EventDirection::OUT) {
-        head = &this->out_event.head;
-        tail = &this->out_event.tail;
-    }
+    for (EventQueue *queue = loop->out_queues; queue != nullptr; queue = queue->next)
+        ProcessQueueEvents(loop, queue, EventDirection::OUT);
 
-    ret = *head;
-
-    if (ret != nullptr) {
-        *head = ret->prev;
-
-        if(ret->prev != nullptr)
-            ret->prev->next = nullptr;
-
-        if (*tail == ret)
-            *tail = nullptr;
-
-        this->items--;
-    }
-
-    return ret;
+    loop->out_queues = nullptr;
 }
 
-void argon::vm::loop::EventQueue::AddEvent(Event *event, EventDirection direction) {
-    Event **head = &this->in_event.head;
-    Event **tail = &this->in_event.tail;
+void argon::vm::loop::ProcessQueueEvents(EvLoop *loop, EventQueue *queue, EventDirection direction) {
+    auto *ev_queue = &queue->in_events;
 
-    if (direction == EventDirection::OUT) {
-        head = &this->out_event.head;
-        tail = &this->out_event.tail;
-    }
+    if (direction == EventDirection::OUT)
+        ev_queue = &queue->out_events;
 
-    event->next = *tail;
-    event->prev = nullptr;
+    CallbackStatus status;
 
-    if (*tail != nullptr)
-        (*tail)->prev = event;
+    do {
+        auto *event = ev_queue->GetHead();
+        if (event == nullptr)
+            break;
 
-    *tail = event;
+        evloop_cur_fiber = event->fiber;
 
-    if (*head == nullptr)
-        *head = event;
+        status = event->callback(event);
+        if (status == CallbackStatus::RETRY)
+            return;
 
-    this->items++;
+        if (status != CallbackStatus::CONTINUE)
+            Spawn(event->fiber);
+
+        loop->io_count--;
+
+        std::unique_lock _(queue->lock);
+
+        event = ev_queue->Dequeue();
+
+        _.unlock();
+
+        EventDel(event);
+    } while (status != CallbackStatus::FAILURE);
 }
 
 #endif

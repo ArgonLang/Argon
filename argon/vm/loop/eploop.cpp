@@ -20,14 +20,6 @@
 using namespace argon::vm::loop;
 using namespace argon::vm::datatype;
 
-// Prototypes
-
-void ProcessOutTrigger(EvLoop *loop);
-
-void ProcessQueue(EventQueue *queue, EventDirection direction);
-
-// EOL
-
 EvLoop *argon::vm::loop::EventLoopNew() {
     EvLoop *evl;
 
@@ -52,7 +44,7 @@ EvLoop *argon::vm::loop::EventLoopNew() {
 bool argon::vm::loop::EventLoopIOPoll(EvLoop *loop, unsigned long timeout) {
     epoll_event events[kMaxEvents];
 
-    ProcessOutTrigger(loop);
+    ProcessOutQueue(loop);
 
     auto ret = epoll_wait(loop->handle, events, kMaxEvents, (int) timeout);
     if (ret < 0) {
@@ -67,14 +59,15 @@ bool argon::vm::loop::EventLoopIOPoll(EvLoop *loop, unsigned long timeout) {
         auto *queue = (EventQueue *) events[i].data.ptr;
 
         if (events[i].events & EPOLLIN)
-            ProcessQueue(queue, EventDirection::IN);
+            ProcessQueueEvents(loop, queue, EventDirection::IN);
 
         if (events[i].events & EPOLLOUT)
-            ProcessQueue(queue, EventDirection::OUT);
+            ProcessQueueEvents(loop, queue, EventDirection::OUT);
 
         std::unique_lock _(queue->lock);
 
-        if (queue->items == 0 && epoll_ctl(loop->handle, EPOLL_CTL_DEL, queue->handle, nullptr) < 0)
+        if (queue->in_events.Count() == 0 && queue->out_events.Count() == 0 &&
+            epoll_ctl(loop->handle, EPOLL_CTL_DEL, queue->handle, nullptr) < 0)
             assert(false); // Never get here!
     }
 
@@ -86,7 +79,7 @@ bool argon::vm::loop::EventLoopAddEvent(EvLoop *loop, EventQueue *queue, Event *
 
     std::unique_lock _(queue->lock);
 
-    if (queue->items == 0) {
+    if (queue->in_events.Count() == 0 && queue->out_events.Count() == 0) {
         ep_event.events = EPOLLOUT | EPOLLIN | EPOLLET;
         ep_event.data.ptr = queue;
 
@@ -99,7 +92,18 @@ bool argon::vm::loop::EventLoopAddEvent(EvLoop *loop, EventQueue *queue, Event *
 
             return false;
         }
-    } else if (direction == EventDirection::OUT && queue->out_event.head == nullptr) {
+    }
+
+    auto is_empty = queue->out_events.Count() == 0;
+
+    event->fiber = vm::GetFiber();
+
+    if (direction == EventDirection::IN)
+        queue->in_events.Enqueue(event);
+    else
+        queue->out_events.Enqueue(event);
+
+    if (direction == EventDirection::OUT && is_empty) {
         // Since an event with active EPOLLET flag is used, it is possible that the send callback
         // is not immediately invoked, to avoid this, the desire to write to a socket is signaled
         // in a separate queue
@@ -111,58 +115,11 @@ bool argon::vm::loop::EventLoopAddEvent(EvLoop *loop, EventQueue *queue, Event *
 
     vm::SetFiberStatus(FiberStatus::BLOCKED);
 
-    event->fiber = vm::GetFiber();
-
-    queue->AddEvent(event, direction);
-
     loop->io_count++;
 
     loop->cond.notify_one();
 
     return true;
-}
-
-void ProcessOutTrigger(EvLoop *loop) {
-    std::unique_lock _(loop->out_lock);
-
-    for (EventQueue *queue = loop->out_queues; queue != nullptr; queue = queue->next)
-        ProcessQueue(queue, EventDirection::OUT);
-
-    loop->out_queues = nullptr;
-}
-
-void ProcessQueue(EventQueue *queue, EventDirection direction) {
-    Event **head = &queue->in_event.head;
-    Event *tmp;
-
-    CallbackReturnStatus status;
-
-    if (direction == EventDirection::OUT)
-        head = &queue->out_event.head;
-
-    do {
-        thlocal_event = *head;
-
-        if (*head == nullptr)
-            break;
-
-        status = thlocal_event->callback(thlocal_event);
-        if (status == CallbackReturnStatus::RETRY)
-            return;
-
-        thlocal_event->loop->io_count--;
-
-        if (status != CallbackReturnStatus::SUCCESS_NO_WAKEUP)
-            Spawn(thlocal_event->fiber);
-
-        std::unique_lock _(queue->lock);
-
-        tmp = queue->PopEvent(direction);
-
-        _.unlock();
-
-        EventDel(tmp);
-    } while (status != CallbackReturnStatus::FAILURE);
 }
 
 #endif

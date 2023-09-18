@@ -2,10 +2,10 @@
 //
 // Licensed under the Apache License v2.0
 
-#ifndef ARGON_VM_LOOP_MINHEAP_H_
-#define ARGON_VM_LOOP_MINHEAP_H_
+#ifndef ARGON_VM_LOOP_SUPPORT_MINHEAP_H_
+#define ARGON_VM_LOOP_SUPPORT_MINHEAP_H_
 
-namespace argon::vm::loop {
+namespace argon::vm::loop::support {
     template<typename T>
     using heap_less = bool (*)(const T *left, const T *right);
 
@@ -230,6 +230,6 @@ namespace argon::vm::loop {
             this->HeapVerify(t);
         }
     };
-} // namespace argon::vm::loop
+} // namespace argon::vm::loop::support
 
-#endif // !ARGON_VM_LOOP_MINHEAP_H_
+#endif // !ARGON_VM_LOOP_SUPPORT_MINHEAP_H_
