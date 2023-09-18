@@ -40,7 +40,7 @@ EvLoop *argon::vm::loop::EventLoopNew() {
 }
 
 bool argon::vm::loop::EventLoopIOPoll(EvLoop *loop, unsigned long timeout) {
-    auto status = CallbackReturnStatus::SUCCESS;
+    auto status = CallbackStatus::SUCCESS;
 
     Event *event;
     void *key;
@@ -48,33 +48,36 @@ bool argon::vm::loop::EventLoopIOPoll(EvLoop *loop, unsigned long timeout) {
     DWORD bytes;
 
     bool ok = GetQueuedCompletionStatus(loop->handle, &bytes, (PULONG_PTR) &key, (LPOVERLAPPED *) &event, timeout);
-
-    thlocal_event = event;
-
     if (!ok) {
         if (::GetLastError() == WAIT_TIMEOUT)
             return false;
 
         ErrorFromWinErr();
 
-        if (event->user_callback != nullptr)
+        if (event->user_callback != nullptr) {
+            evloop_cur_fiber = event->fiber;
+
             event->user_callback(event, event->aux, -1);
+        }
     } else {
         event->buffer.wsa.len = bytes;
 
-        if (event->callback != nullptr)
+        if (event->callback != nullptr) {
+            evloop_cur_fiber = event->fiber;
+
             status = event->callback(event);
+        }
         else
             vm::FiberSetAsyncResult(event->fiber, (ArObject *) Nil); // Default: Set initiator as return value
     }
 
-    if (status != CallbackReturnStatus::CONTINUE && status != CallbackReturnStatus::RETRY) {
+    if (status != CallbackStatus::CONTINUE && status != CallbackStatus::RETRY) {
         loop->io_count--;
 
         Spawn(event->fiber);
     }
 
-    if (status != CallbackReturnStatus::RETRY)
+    if (status != CallbackStatus::RETRY)
         EventDel(event);
 
     return true;
@@ -85,7 +88,7 @@ bool argon::vm::loop::EventLoopAddEvent(EvLoop *loop, Event *event) {
 
     event->fiber = vm::GetFiber();
 
-    if (event->callback(event) == CallbackReturnStatus::FAILURE) {
+    if (event->callback(event) == CallbackStatus::FAILURE) {
         argon::vm::SetFiberStatus(FiberStatus::RUNNING);
 
         EventDel(event);

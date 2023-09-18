@@ -23,6 +23,8 @@ namespace argon::vm::loop {
     constexpr const unsigned int kMaxFreeEvents = 2046;
     constexpr const unsigned int kMaxFreeTasks = 128;
 
+    struct Event;
+
     struct EvLoop {
         std::mutex lock;
 
