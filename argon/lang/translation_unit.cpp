@@ -49,9 +49,12 @@ bool TranslationUnit::IsFreeVar(String *id) const {
     // in turn then this is a free variable
     SymbolT *sym;
 
-    for (TranslationUnit *tu = this->prev; tu != nullptr && tu->symt->type == SymbolType::FUNC; tu = tu->prev) {
+    for (TranslationUnit *tu = this->prev; tu != nullptr; tu = tu->prev) {
         if ((sym = SymbolLookup(tu->symt, id)) != nullptr) {
-            if (sym->declared || sym->free) {
+            // WARNING: sym->nested must be greater than 0,
+            // otherwise this is a global variable.
+            if (sym->type == SymbolType::VARIABLE &&
+                sym->nested > 0 && (sym->declared || sym->free)) {
                 Release(sym);
 
                 return true;
