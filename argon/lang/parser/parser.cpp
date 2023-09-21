@@ -969,9 +969,9 @@ Node *Parser::ParseExpression(int precedence) {
     ARC left;
 
     if ((nud = this->LookupNud(TKCUR_TYPE)) == nullptr)
-        throw ParserException("invalid token");
-
-    left = (ArObject *) (this->*nud)();
+        left = (ArObject *) this->Unknown2Identifier();
+    else
+        left = (ArObject *) (this->*nud)();
 
     token = &this->tkcur_;
 
@@ -2195,7 +2195,8 @@ Node *Parser::ParseSyncBlock() {
 
     body = (ArObject *) this->ParseBlock(ParserScope::SYNCBLOCK);
 
-    auto binary = BinaryNew((Node *) lock_expr.Get(), (Node *) body.Get(), scanner::TokenType::TK_NULL, NodeType::SYNC_BLOCK);
+    auto binary = BinaryNew((Node *) lock_expr.Get(), (Node *) body.Get(), scanner::TokenType::TK_NULL,
+                            NodeType::SYNC_BLOCK);
     if (binary == nullptr)
         throw DatatypeException();
 
@@ -2436,6 +2437,28 @@ Node *Parser::ParseWarlus(Node *left) {
     return (Node *) assign;
 }
 
+Node *Parser::Unknown2Identifier() {
+    bool literal = true;
+
+    for (ArSize i = 0; i < this->tkcur_.length; i++) {
+        if (!isalnum(this->tkcur_.buffer[i])) {
+            literal = false;
+            break;
+        }
+    }
+
+    if (!literal)
+        throw ParserException("invalid token");
+
+    auto *id = MakeIdentifier(&this->tkcur_);
+    if (id == nullptr)
+        throw DatatypeException();
+
+    this->Eat();
+
+    return id;
+}
+
 void Parser::Eat() {
     if (this->tkcur_.type == TokenType::END_OF_FILE)
         return;
@@ -2466,9 +2489,6 @@ void Parser::IgnoreNL() {
 }
 
 void Parser::ScopePush(ScopeEntry *entry) {
-    if (this->scope_stack_ == nullptr)
-        this->scope_stack_ = entry;
-
     entry->prev = this->scope_stack_;
     this->scope_stack_ = entry;
 }

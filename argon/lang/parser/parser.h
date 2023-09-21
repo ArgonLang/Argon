@@ -192,6 +192,8 @@ namespace argon::lang::parser {
 
         Node *ParseWarlus(Node *left);
 
+        Node *Unknown2Identifier();
+
         [[nodiscard]] NudMeth LookupNud(lang::scanner::TokenType token) const;
 
         void Eat();
