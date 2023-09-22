@@ -11,6 +11,7 @@
 
 #include <argon/vm/datatype/arobject.h>
 #include <argon/vm/datatype/hashmap.h>
+#include <argon/vm/datatype/list.h>
 
 namespace argon::vm::datatype {
     enum class AttributeFlag {
@@ -123,6 +124,15 @@ namespace argon::vm::datatype {
     bool NamespaceSetPositional(Namespace *ns, ArObject **values, ArSize count);
 
     /**
+     * @brief Create a list of namespace keys.
+     *
+     * @param ns Pointer to namespace.
+     * @param match Filters the keys by specifying which attributes they must have in order to be exported.
+     * @return List of namespace keys.
+     */
+    List *NamespaceKeysToList(Namespace *ns, AttributeFlag match);
+
+    /**
      * @brief Create new namespace.
      *
      * @return A pointer to new namespace, otherwise nullptr.
@@ -143,7 +153,7 @@ namespace argon::vm::datatype {
      *
      * @param ns Pointer to namespace.
      */
-    void NamespaceClear(Namespace *ns);
+    [[maybe_unused]] void NamespaceClear(Namespace *ns);
 
 } // namespace argon::vm::datatype
 

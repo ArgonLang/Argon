@@ -144,7 +144,8 @@ bool argon::vm::datatype::NamespaceMergePublic(Namespace *dest, Namespace *src) 
 
     for (auto *cursor = src->ns.iter_begin; cursor != nullptr; cursor = cursor->iter_next) {
         if (cursor->value.properties.IsPublic()) {
-            if (!NewEntry(dest, cursor->key, cursor->value.value.Get(), cursor->value.properties.flags))
+            bool ok = NewEntry(dest, cursor->key, cursor->value.value.Get(), cursor->value.properties.flags);
+            if (!ok)
                 return false;
         }
     }
@@ -193,7 +194,7 @@ bool argon::vm::datatype::NamespaceSet(Namespace *ns, ArObject *key, ArObject *v
 bool argon::vm::datatype::NamespaceSetPositional(Namespace *ns, ArObject **values, ArSize count) {
     ArSize idx = 0;
 
-    if(count == 0)
+    if (count == 0)
         return true;
 
     std::unique_lock _(ns->rwlock);
@@ -205,7 +206,7 @@ bool argon::vm::datatype::NamespaceSetPositional(Namespace *ns, ArObject **value
         if (cursor->value.properties.IsConstant())
             continue;
 
-        cursor->value.value.Store(values[idx++],!cursor->value.properties.IsWeak());
+        cursor->value.value.Store(values[idx++], !cursor->value.properties.IsWeak());
     }
 
     return count <= idx;
@@ -237,6 +238,25 @@ bool NewEntry(Namespace *ns, ArObject *key, ArObject *value, AttributeFlag aa) {
     }
 
     return true;
+}
+
+List *argon::vm::datatype::NamespaceKeysToList(Namespace *ns, AttributeFlag match) {
+    std::unique_lock dst_lck(ns->rwlock);
+
+    auto *list = ListNew(ns->ns.length);
+
+    for (auto *cursor = ns->ns.iter_begin; cursor != nullptr; cursor = cursor->iter_next) {
+        if ((int) match == 0 || (cursor->value.properties.flags & match) == match) {
+            bool ok = ListAppend(list, cursor->key);
+            if (!ok) {
+                Release(list);
+
+                return nullptr;
+            }
+        }
+    }
+
+    return list;
 }
 
 Namespace *argon::vm::datatype::NamespaceNew() {
@@ -279,7 +299,7 @@ Namespace *argon::vm::datatype::NamespaceNew(Namespace *ns, AttributeFlag ignore
     return ret;
 }
 
-void argon::vm::datatype::NamespaceClear(Namespace *ns) {
+[[maybe_unused]] void argon::vm::datatype::NamespaceClear(Namespace *ns) {
     std::unique_lock _(ns->rwlock);
 
     ns->ns.Clear([](NSEntry *entry) {

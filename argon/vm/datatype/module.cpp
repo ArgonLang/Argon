@@ -114,7 +114,7 @@ const ObjectSlots module_objslot = {
         nullptr,
         (AttributeGetter) module_get_attr,
         (AttributeWriter) module_set_attr,
-        -1
+        offsetof(Module, ns)
 };
 
 ArObject *module_compare(Module *self, ArObject *other, CompareMode mode) {

@@ -243,6 +243,60 @@ ARGON_FUNCTION(builtins_require, require,
     return (ArObject *) result;
 }
 
+ARGON_FUNCTION(builtins_show, show,
+               "Returns a list of names in the local scope or the attributes of the instance.\n"
+               "\n"
+               "Without arguments, returns a list with names in the current scope, with argument, returns a list "
+               "with the instance attributes of the argument.\n"
+               "\n"
+               "- Parameter ...obj: object whose instance attributes you want to know.\n"
+               "- Returns: List with attributes if any, otherwise an empty list.\n",
+               "", true, false) {
+    if (!VariadicCheckPositional(builtins_show.name, (unsigned int) argc, 0, 1))
+        return nullptr;
+
+    if (argc == 0)
+        return (ArObject *) NamespaceKeysToList(argon::vm::GetFiber()->frame->globals, {});
+
+    List *target = nullptr;
+    List *aux = nullptr;
+
+    const auto *ancestor = (TypeInfo *) *args;
+
+    if (AR_GET_TYPE(ancestor) != type_type_)
+        ancestor = AR_GET_TYPE(ancestor);
+
+    if (ancestor->tp_map != nullptr && ancestor != type_module_) {
+        target = NamespaceKeysToList((Namespace *) ancestor->tp_map, AttributeFlag::CONST | AttributeFlag::PUBLIC);
+        if (target == nullptr)
+            return nullptr;
+    }
+
+    if (AR_SLOT_OBJECT(*args)->namespace_offset >= 0) {
+        aux = NamespaceKeysToList(*((Namespace **) AR_GET_NSOFFSET(*args)), AttributeFlag::PUBLIC);
+        if (aux == nullptr) {
+            Release(target);
+
+            return nullptr;
+        }
+    }
+
+    if (target == nullptr && aux == nullptr)
+        return (ArObject *) ListNew();
+
+    if (target == nullptr)
+        return (ArObject *) aux;
+
+    if (!ListExtend(target, (ArObject *) aux)) {
+        Release(target);
+        Release(aux);
+    }
+
+    Release(aux);
+
+    return (ArObject *) target;
+}
+
 ARGON_FUNCTION(builtins_str, str,
                "Return a string version of an object.\n"
                "\n"
@@ -320,6 +374,7 @@ const ModuleEntry builtins_entries[] = {
         MODULE_EXPORT_FUNCTION(builtins_len),
         MODULE_EXPORT_FUNCTION(builtins_require),
         MODULE_EXPORT_FUNCTION(builtins_repr),
+        MODULE_EXPORT_FUNCTION(builtins_show),
         MODULE_EXPORT_FUNCTION(builtins_str),
         MODULE_EXPORT_FUNCTION(builtins_type),
         MODULE_EXPORT_FUNCTION(builtins_typeof),
