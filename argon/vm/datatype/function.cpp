@@ -12,11 +12,11 @@
 using namespace argon::vm::datatype;
 
 const MemberDef function_members[] = {
-        ARGON_MEMBER("arity", MemberType::SHORT, offsetof(Function, arity), true),
-        ARGON_MEMBER("base", MemberType::OBJECT, offsetof(Function, base), true),
-        ARGON_MEMBER("doc", MemberType::OBJECT, offsetof(Function, doc), true),
-        ARGON_MEMBER("name", MemberType::OBJECT, offsetof(Function, name), true),
-        ARGON_MEMBER("qname", MemberType::OBJECT, offsetof(Function, qname), true),
+        ARGON_MEMBER("__arity", MemberType::SHORT, offsetof(Function, arity), true),
+        ARGON_MEMBER("__base", MemberType::OBJECT, offsetof(Function, base), true),
+        ARGON_MEMBER("__doc", MemberType::OBJECT, offsetof(Function, doc), true),
+        ARGON_MEMBER("__name", MemberType::OBJECT, offsetof(Function, name), true),
+        ARGON_MEMBER("__qname", MemberType::OBJECT, offsetof(Function, qname), true),
         ARGON_MEMBER_SENTINEL
 };
 
