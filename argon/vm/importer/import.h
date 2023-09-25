@@ -66,7 +66,7 @@ namespace argon::vm::importer {
         datatype::String *path_sep;
     };
 
-    extern const datatype::TypeInfo *type_import_;
+    _ARGONAPI extern const datatype::TypeInfo *type_import_;
 
     bool ImportAddPath(Import *imp, const char *path);
 

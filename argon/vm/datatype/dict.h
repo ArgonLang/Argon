@@ -23,10 +23,10 @@ namespace argon::vm::datatype {
 
         HashMap<ArObject, ArObject *> hmap;
     };
-    extern const TypeInfo *type_dict_;
+    _ARGONAPI extern const TypeInfo *type_dict_;
 
     using DictIterator = CursorIterator<Dict, HEntry<ArObject, ArObject *>>;
-    extern const TypeInfo *type_dict_iterator_;
+    _ARGONAPI extern const TypeInfo *type_dict_iterator_;
 
     /**
      * @brief Look for the element \p key.

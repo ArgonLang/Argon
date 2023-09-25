@@ -23,7 +23,7 @@ namespace argon::vm::importer {
         const datatype::ModuleInit *init;
     };
 
-    extern const datatype::TypeInfo *type_import_spec_;
+    _ARGONAPI extern const datatype::TypeInfo *type_import_spec_;
 
     ImportSpec *ISpecNew(datatype::String *name, datatype::String *path,
                          datatype::String *origin, datatype::Function *loader);

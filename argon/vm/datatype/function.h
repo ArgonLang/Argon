@@ -126,7 +126,7 @@ namespace argon::vm::datatype {
         }
     };
 
-    extern const TypeInfo *type_function_;
+    _ARGONAPI extern const TypeInfo *type_function_;
 
     Function *FunctionInitGenerator(Function *func, vm::Frame *frame);
 

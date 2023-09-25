@@ -72,7 +72,7 @@ namespace argon::vm::io::socket {
 #endif
     };
 
-    const extern datatype::TypeInfo *type_socket_;
+    _ARGONAPI const extern datatype::TypeInfo *type_socket_;
 
     datatype::ArObject *SockAddrToAddr(sockaddr_storage *storage, int family);
 

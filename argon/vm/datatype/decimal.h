@@ -15,7 +15,7 @@ namespace argon::vm::datatype {
 
         DecimalUnderlying decimal;
     };
-    extern const TypeInfo *type_decimal_;
+    _ARGONAPI extern const TypeInfo *type_decimal_;
 
     Decimal *DecimalNew(DecimalUnderlying number);
 

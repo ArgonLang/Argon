@@ -13,10 +13,10 @@ namespace argon::vm::datatype {
 
         bool value;
     };
-    extern const TypeInfo *type_boolean_;
+    _ARGONAPI extern const TypeInfo *type_boolean_;
 
-    extern Boolean *True;
-    extern Boolean *False;
+    _ARGONAPI extern Boolean *True;
+    _ARGONAPI extern Boolean *False;
 
     /**
      * @brief Converts Argon Boolean to C++ bool.

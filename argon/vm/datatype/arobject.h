@@ -7,12 +7,14 @@
 
 #include <cstddef>
 
+#include <argon/util/macros.h>
+
 #include <argon/vm/memory/gc.h>
 
 #include <argon/vm/datatype/objectdef.h>
 
 namespace argon::vm::datatype {
-    extern const TypeInfo *type_type_;
+    _ARGONAPI extern const TypeInfo *type_type_;
 
     ArObject *AttributeLoad(const ArObject *object, ArObject *key, bool static_attr);
 

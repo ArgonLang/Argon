@@ -22,8 +22,8 @@ namespace argon::vm::datatype {
             UIntegerUnderlying uint;
         };
     };
-    extern const TypeInfo *type_int_;
-    extern const TypeInfo *type_uint_;
+    _ARGONAPI extern const TypeInfo *type_int_;
+    _ARGONAPI extern const TypeInfo *type_uint_;
 
     inline bool IsIntType(const ArObject *object) {
         return AR_TYPEOF(object, type_int_) || AR_TYPEOF(object, type_uint_);

@@ -16,9 +16,9 @@ namespace argon::vm::datatype {
 
         bool value;
     };
-    extern const TypeInfo *type_nil_;
+    _ARGONAPI extern const TypeInfo *type_nil_;
 
-    extern NilBase *Nil;
+    _ARGONAPI extern NilBase *Nil;
 
     /**
      * @brief Returns the object passed as an argument, or Nil if nullptr is passed.

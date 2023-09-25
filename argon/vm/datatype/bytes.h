@@ -21,10 +21,10 @@ namespace argon::vm::datatype {
 
         bool frozen;
     };
-    extern const TypeInfo *type_bytes_;
+    _ARGONAPI extern const TypeInfo *type_bytes_;
 
     using BytesIterator = Iterator<Bytes>;
-    extern const TypeInfo *type_bytes_iterator_;
+    _ARGONAPI extern const TypeInfo *type_bytes_iterator_;
 
     /**
      * @brief Concatenate two bytes string.

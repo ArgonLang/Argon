@@ -14,7 +14,7 @@ namespace argon::vm::datatype {
 
         String *value;
     };
-    extern const TypeInfo *type_atom_;
+    _ARGONAPI extern const TypeInfo *type_atom_;
 
     /**
      * @brief Create a new Atom object.

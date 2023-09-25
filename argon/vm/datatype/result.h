@@ -15,7 +15,7 @@ namespace argon::vm::datatype {
 
         bool success;
     };
-    extern const TypeInfo *type_result_;
+    _ARGONAPI extern const TypeInfo *type_result_;
 
     Result *ResultNew(ArObject *value, bool success);
 }

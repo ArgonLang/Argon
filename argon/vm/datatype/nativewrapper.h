@@ -13,7 +13,7 @@ namespace argon::vm::datatype {
 
         MemberDef member;
     };
-    extern const TypeInfo *type_native_wrapper_;
+    _ARGONAPI extern const TypeInfo *type_native_wrapper_;
 
     /**
      * @brief Convert a native C type to an Argon type.

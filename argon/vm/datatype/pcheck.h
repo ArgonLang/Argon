@@ -22,7 +22,7 @@ namespace argon::vm::datatype {
         Param **params;
     };
 
-    extern const TypeInfo *type_pcheck_;
+    _ARGONAPI extern const TypeInfo *type_pcheck_;
 
     PCheck *PCheckNew(const char *description);
 

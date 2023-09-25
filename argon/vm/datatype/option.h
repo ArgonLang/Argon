@@ -13,7 +13,7 @@ namespace argon::vm::datatype {
 
         ArObject *some;
     };
-    extern const TypeInfo *type_option_;
+    _ARGONAPI extern const TypeInfo *type_option_;
 
     Option *OptionNew(ArObject *value);
 

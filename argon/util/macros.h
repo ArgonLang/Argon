@@ -10,7 +10,7 @@
 #if (defined __x86_64__ && !defined __ILP32__) || defined __LP64__
 # define __WORDSIZE	64
 #else
-# define __WORDSIZE	32
+# define __WORDSIZE    32
 #endif
 #endif
 
@@ -26,7 +26,11 @@
 #define _ARGON_PLATFORM_WINDOWS
 #define _ARGON_PLATFORM_NAME "windows"
 #define _ARGON_PLATFORM_PATHSEP "\\"
+#ifdef _ARGONAPI_LIB
 #define _ARGONAPI __declspec(dllimport)
+#else
+#define _ARGONAPI __declspec(dllexport)
+#endif
 #elif defined(__APPLE__)
 #define _ARGON_PLATFORM_DARWIN
 #define _ARGON_PLATFORM_NAME "darwin"

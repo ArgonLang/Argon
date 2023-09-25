@@ -33,7 +33,7 @@ namespace argon::vm::io {
 
         FileMode mode;
     };
-    extern const datatype::TypeInfo *type_file_;
+    _ARGONAPI extern const datatype::TypeInfo *type_file_;
 
     datatype::ArSize GetFd(File *file);
 

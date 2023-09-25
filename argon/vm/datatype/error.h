@@ -156,13 +156,13 @@ namespace argon::vm::datatype {
 
         HashMap<ArObject, ArObject *> detail;
     };
-    extern const TypeInfo *type_error_;
+    _ARGONAPI extern const TypeInfo *type_error_;
 
     // Singleton
-    extern Error *error_div_by_zero;
-    extern Error *error_oom;
-    extern Error *error_err_oom;
-    extern Error *error_while_error;
+    _ARGONAPI extern Error *error_div_by_zero;
+    _ARGONAPI extern Error *error_oom;
+    _ARGONAPI extern Error *error_err_oom;
+    _ARGONAPI extern Error *error_while_error;
 
     bool ErrorInit();
 

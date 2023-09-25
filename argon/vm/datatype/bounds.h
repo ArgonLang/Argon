@@ -16,7 +16,7 @@ namespace argon::vm::datatype{
         ArObject *stop;
         ArObject *step;
     };
-    extern const TypeInfo *type_bounds_;
+    _ARGONAPI extern const TypeInfo *type_bounds_;
 
     /**
      * @brief Retrieve the start, stop, and step indices from the bounds.

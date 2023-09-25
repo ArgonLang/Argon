@@ -80,7 +80,7 @@ namespace argon::lang::parser {
         Node *id;
         Node *value;
     };
-    extern const vm::datatype::TypeInfo *type_ast_argument_;
+    _ARGONAPI extern const vm::datatype::TypeInfo *type_ast_argument_;
 
     struct Assignment {
         NODEOBJ_HEAD;
@@ -93,7 +93,7 @@ namespace argon::lang::parser {
         argon::vm::datatype::ArObject *name;
         argon::vm::datatype::ArObject *value;
     };
-    extern const vm::datatype::TypeInfo *type_ast_assignment_;
+    _ARGONAPI extern const vm::datatype::TypeInfo *type_ast_assignment_;
 
     struct Binary {
         NODEOBJ_HEAD;
@@ -101,7 +101,7 @@ namespace argon::lang::parser {
         Node *left;
         Node *right;
     };
-    extern const vm::datatype::TypeInfo *type_ast_binary_;
+    _ARGONAPI extern const vm::datatype::TypeInfo *type_ast_binary_;
 
     struct Call {
         NODEOBJ_HEAD;
@@ -110,7 +110,7 @@ namespace argon::lang::parser {
         argon::vm::datatype::ArObject *args;
         argon::vm::datatype::ArObject *kwargs;
     };
-    extern const vm::datatype::TypeInfo *type_ast_call_;
+    _ARGONAPI extern const vm::datatype::TypeInfo *type_ast_call_;
 
     struct Construct {
         NODEOBJ_HEAD;
@@ -123,7 +123,7 @@ namespace argon::lang::parser {
         vm::datatype::List *impls;
         Node *body;
     };
-    extern const vm::datatype::TypeInfo *type_ast_construct_;
+    _ARGONAPI extern const vm::datatype::TypeInfo *type_ast_construct_;
 
     struct File {
         NODEOBJ_HEAD;
@@ -134,7 +134,7 @@ namespace argon::lang::parser {
 
         vm::datatype::List *statements;
     };
-    extern const vm::datatype::TypeInfo *type_ast_file_;
+    _ARGONAPI extern const vm::datatype::TypeInfo *type_ast_file_;
 
     struct Function {
         NODEOBJ_HEAD;
@@ -148,7 +148,7 @@ namespace argon::lang::parser {
         vm::datatype::List *params;
         Node *body;
     };
-    extern const vm::datatype::TypeInfo *type_ast_function_;
+    _ARGONAPI extern const vm::datatype::TypeInfo *type_ast_function_;
 
     struct Import {
         NODEOBJ_HEAD;
@@ -158,7 +158,7 @@ namespace argon::lang::parser {
         Node *mod;
         argon::vm::datatype::ArObject *names;
     };
-    extern const vm::datatype::TypeInfo *type_ast_import_;
+    _ARGONAPI extern const vm::datatype::TypeInfo *type_ast_import_;
 
     struct Initialization {
         NODEOBJ_HEAD;
@@ -168,7 +168,7 @@ namespace argon::lang::parser {
         Node *left;
         argon::vm::datatype::ArObject *values;
     };
-    extern const vm::datatype::TypeInfo *type_ast_initialization_;
+    _ARGONAPI extern const vm::datatype::TypeInfo *type_ast_initialization_;
 
     struct Loop {
         NODEOBJ_HEAD;
@@ -178,7 +178,7 @@ namespace argon::lang::parser {
         Node *inc;
         Node *body;
     };
-    extern const vm::datatype::TypeInfo *type_ast_loop_;
+    _ARGONAPI extern const vm::datatype::TypeInfo *type_ast_loop_;
 
     struct Subscript {
         NODEOBJ_HEAD;
@@ -187,7 +187,7 @@ namespace argon::lang::parser {
         Node *start;
         Node *stop;
     };
-    extern const vm::datatype::TypeInfo *type_ast_subscript_;
+    _ARGONAPI extern const vm::datatype::TypeInfo *type_ast_subscript_;
 
     struct SwitchCase {
         NODEOBJ_HEAD;
@@ -195,7 +195,7 @@ namespace argon::lang::parser {
         vm::datatype::ArObject *conditions;
         vm::datatype::ArObject *body;
     };
-    extern const vm::datatype::TypeInfo *type_ast_switchcase_;
+    _ARGONAPI extern const vm::datatype::TypeInfo *type_ast_switchcase_;
 
     struct Test {
         NODEOBJ_HEAD;
@@ -204,14 +204,14 @@ namespace argon::lang::parser {
         Node *body;
         Node *orelse;
     };
-    extern const vm::datatype::TypeInfo *type_ast_test_;
+    _ARGONAPI extern const vm::datatype::TypeInfo *type_ast_test_;
 
     struct Unary {
         NODEOBJ_HEAD;
 
         argon::vm::datatype::ArObject *value;
     };
-    extern const vm::datatype::TypeInfo *type_ast_unary_;
+    _ARGONAPI extern const vm::datatype::TypeInfo *type_ast_unary_;
 
     Argument *ArgumentNew(Unary *id, Node *def_value, NodeType type);
 

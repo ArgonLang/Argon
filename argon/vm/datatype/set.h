@@ -21,10 +21,10 @@ namespace argon::vm::datatype {
         
         HashMap<ArObject, bool> set;
     };
-    extern const TypeInfo *type_set_;
+    _ARGONAPI extern const TypeInfo *type_set_;
 
     using SetIterator = CursorIterator<Set, SetEntry>;
-    extern const TypeInfo *type_set_iterator_;
+    _ARGONAPI extern const TypeInfo *type_set_iterator_;
 
     /**
      * @brief Add element to set.

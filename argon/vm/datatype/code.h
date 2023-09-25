@@ -123,7 +123,7 @@ namespace argon::vm::datatype {
         unsigned int GetLineMapping(ArSize offset) const;
     };
 
-    extern const TypeInfo *type_code_;
+    _ARGONAPI extern const TypeInfo *type_code_;
 
     /**
      * @brief Create a new code object.

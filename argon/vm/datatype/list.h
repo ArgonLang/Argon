@@ -24,10 +24,10 @@ namespace argon::vm::datatype {
 
         ArSize length;
     };
-    extern const TypeInfo *type_list_;
+    _ARGONAPI extern const TypeInfo *type_list_;
 
     using ListIterator = Iterator<List>;
-    extern const TypeInfo *type_list_iterator_;
+    _ARGONAPI extern const TypeInfo *type_list_iterator_;
 
     /**
      * @brief Retrieves the item from the list at a given index.

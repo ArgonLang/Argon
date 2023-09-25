@@ -60,7 +60,7 @@ namespace argon::lang {
 
         bool free;
     };
-    extern const argon::vm::datatype::TypeInfo *type_symt_;
+    _ARGONAPI extern const argon::vm::datatype::TypeInfo *type_symt_;
 
     bool SymbolNewSub(SymbolT *table);
 

@@ -34,7 +34,7 @@ namespace argon::vm::datatype {
 
         FutureStatus status;
     };
-    extern const TypeInfo *type_future_;
+    _ARGONAPI extern const TypeInfo *type_future_;
 
     bool FutureAWait(Future *future);
 

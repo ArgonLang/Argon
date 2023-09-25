@@ -33,7 +33,7 @@ namespace argon::vm::datatype {
 
         uintptr_t _dlhandle;
     };
-    extern const TypeInfo *type_module_;
+    _ARGONAPI extern const TypeInfo *type_module_;
 
     struct ModuleEntry {
         const char *name;

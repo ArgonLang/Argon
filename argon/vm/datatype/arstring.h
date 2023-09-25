@@ -45,10 +45,10 @@ namespace argon::vm::datatype {
         /* String hash */
         ArSize hash;
     };
-    extern const TypeInfo *type_string_;
+    _ARGONAPI extern const TypeInfo *type_string_;
 
     using StringIterator = Iterator<String>;
-    extern const TypeInfo *type_string_iterator_;
+    _ARGONAPI extern const TypeInfo *type_string_iterator_;
 
     /**
      * @brief Splits the string at the specified separator, and returns a list.

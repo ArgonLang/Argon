@@ -29,7 +29,7 @@ namespace argon::vm::datatype {
 
         unsigned int length;
     };
-    extern const TypeInfo *type_chan_;
+    _ARGONAPI extern const TypeInfo *type_chan_;
 
     bool ChanRead(Chan *chan, ArObject **out_value);
 

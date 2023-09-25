@@ -58,7 +58,7 @@ namespace argon::vm::datatype {
 
         HashMap<ArObject, PropertyStore> ns;
     };
-    extern const TypeInfo *type_namespace_;
+    _ARGONAPI extern const TypeInfo *type_namespace_;
 
     ArObject *NamespaceLookup(Namespace *ns, ArObject *key, AttributeProperty *out_aprop);
 

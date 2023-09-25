@@ -19,10 +19,10 @@ namespace argon::vm::datatype {
 
         ArSize hash;
     };
-    extern const TypeInfo *type_tuple_;
+    _ARGONAPI extern const TypeInfo *type_tuple_;
 
     using TupleIterator = Iterator<Tuple>;
-    extern const TypeInfo *type_tuple_iterator_;
+    _ARGONAPI extern const TypeInfo *type_tuple_iterator_;
 
     /**
      * @brief Retrieve the object at the 'index´ position.
