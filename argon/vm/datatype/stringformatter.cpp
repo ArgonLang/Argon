@@ -402,9 +402,28 @@ int StringFormatter::FormatChar() {
 }
 
 int StringFormatter::FormatDecimal(unsigned char op) {
-    // TODO: format decimal
-    assert(false);
-    return 0;
+    // TODO: Improve the implementation so that a call to snprintf is no longer necessary.
+
+    char fmt[3]{};
+
+    fmt[0] = '%';
+    fmt[1] = (char) op;
+    fmt[2] = '\0';
+
+    const auto *decimal = (Decimal *) this->NextArg();
+
+    auto len = snprintf(nullptr, 0, (const char *) fmt, decimal->decimal);
+
+    if (!this->BufferResize(len))
+        return -1;
+
+    snprintf((char *) this->output_.cursor, len, (const char *) fmt, decimal->decimal);
+
+    len -= 1; // ignore '\0'
+
+    this->output_.cursor += len;
+
+    return len;
 }
 
 int StringFormatter::FormatInteger(int base, bool unsign, bool upper) {
