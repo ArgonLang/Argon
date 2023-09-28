@@ -1699,7 +1699,7 @@ Node *Parser::ParseIDNamedParam(bool parse_expr) {
     if (parse_expr)
         id = (ArObject *) this->ParseExpression(PeekPrecedence(scanner::TokenType::COMMA));
     else
-        id = (ArObject *) this->ParseIdentifier();
+        id = (ArObject *) this->Unknown2Identifier();
 
     loc = this->tkcur_.loc;
 
@@ -2441,7 +2441,7 @@ Node *Parser::Unknown2Identifier() {
     bool literal = true;
 
     for (ArSize i = 0; i < this->tkcur_.length; i++) {
-        if (!isalnum(this->tkcur_.buffer[i])) {
+        if (!isalnum(this->tkcur_.buffer[i]) && this->tkcur_.buffer[i] != '_') {
             literal = false;
             break;
         }
