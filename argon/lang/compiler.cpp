@@ -1548,6 +1548,9 @@ void Compiler::CompileSwitchCase(const SwitchCase *sw, BasicBlock **ltest, Basic
 
     bool fallthrough = false;
 
+    if (!SymbolNewSub(this->unit_->symt))
+        throw DatatypeException();
+
     if ((*lbody)->size > 0) {
         // Switch to bodies thread
         this->unit_->bb.cur = *lbody;
@@ -1607,6 +1610,8 @@ void Compiler::CompileSwitchCase(const SwitchCase *sw, BasicBlock **ltest, Basic
 
     if (!fallthrough)
         this->unit_->Emit(vm::OpCode::JMP, end, nullptr);
+
+    SymbolExitSub(this->unit_->symt);
 
     *lbody = this->unit_->bb.cur;
 }
