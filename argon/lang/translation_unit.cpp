@@ -50,6 +50,9 @@ bool TranslationUnit::IsFreeVar(String *id) const {
     SymbolT *sym;
 
     for (TranslationUnit *tu = this->prev; tu != nullptr; tu = tu->prev) {
+        if (tu->symt->type == SymbolType::STRUCT || tu->symt->type == SymbolType::TRAIT)
+            continue;
+
         if ((sym = SymbolLookup(tu->symt, id)) != nullptr) {
             // WARNING: sym->nested must be greater than 0,
             // otherwise this is a global variable.
