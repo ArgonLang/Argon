@@ -97,6 +97,13 @@ ArObject *type_get_attr(const ArObject *self, ArObject *key, bool static_attr) {
     }
 
     if (AR_TYPEOF(ret, type_native_wrapper_)) {
+        if (static_attr) {
+            ErrorFormat(kAccessViolationError[0], kAccessViolationError[2],
+                        ARGON_RAW_STRING((String *) key), ((TypeInfo *) self)->name);
+
+            return nullptr;
+        }
+
         auto *value = NativeWrapperGet((NativeWrapper *) ret, self);
 
         Release(ret);
@@ -197,6 +204,13 @@ bool type_set_attr(ArObject *self, ArObject *key, ArObject *value, bool static_a
     }
 
     if (AR_TYPEOF(current, type_native_wrapper_)) {
+        if (static_attr) {
+            ErrorFormat(kAccessViolationError[0], kAccessViolationError[2],
+                        ARGON_RAW_STRING((String *) key), ((TypeInfo *) self)->name);
+
+            return false;
+        }
+
         auto ok = NativeWrapperSet((NativeWrapper *) current, self, value);
 
         Release(current);
