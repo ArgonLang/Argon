@@ -78,7 +78,7 @@ namespace argon::lang {
 
         JBlock *JBNew(BasicBlock *start, BasicBlock *end, unsigned short pops);
 
-        JBlock *FindLoop(vm::datatype::String *label) const;
+        JBlock *FindLoop(vm::datatype::String *label, unsigned short &pops) const;
 
         unsigned int ComputeAssemblyLength(unsigned int *out_linfo_sz) const;
 

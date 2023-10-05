@@ -1258,7 +1258,9 @@ void Compiler::CompileJump(const parser::Unary *jump) {
     if (jump->value != nullptr)
         label = (String *) (((const Unary *) jump->value)->value);
 
-    if ((jb = this->unit_->FindLoop(label)) == nullptr) {
+    unsigned short pops;
+
+    if ((jb = this->unit_->FindLoop(label, pops)) == nullptr) {
         ErrorFormat(kCompilerError[0], "unknown loop label, the loop '%s' cannot be %s",
                     ARGON_RAW_STRING((String *) ((const Unary *) jump->value)->value),
                     jump->token_type == scanner::TokenType::KW_BREAK ? "breaked" : "continued");
@@ -1269,19 +1271,19 @@ void Compiler::CompileJump(const parser::Unary *jump) {
     dst = jb->end;
 
     if (jump->token_type == scanner::TokenType::KW_BREAK) {
-        for (auto i = 0; i < jb->pops; i++)
+        for (auto i = 0; i < pops; i++)
             this->unit_->Emit(vm::OpCode::POP, nullptr);
 
         // Don't decrease the stack size
-        this->unit_->IncrementStack(jb->pops);
+        this->unit_->IncrementStack(pops);
     } else if (jump->token_type == scanner::TokenType::KW_CONTINUE) {
-        if (jb != this->unit_->jstack) {
-            for (auto i = 0; i < jb->pops; i++)
-                this->unit_->Emit(vm::OpCode::POP, nullptr);
+        pops -= jb->pops;
 
-            // Don't decrease the stack size
-            this->unit_->IncrementStack(jb->pops);
-        }
+        for (auto i = 0; i < pops; i++)
+            this->unit_->Emit(vm::OpCode::POP, nullptr);
+
+        // Don't decrease the stack size
+        this->unit_->IncrementStack(pops);
 
         dst = jb->start;
     }
