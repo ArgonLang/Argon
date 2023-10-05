@@ -42,7 +42,8 @@ namespace argon::lang {
         LOOP,
         TRAP,
         SAFE,
-        SYNC
+        SYNC,
+        SWITCH
     };
 
     struct JBlock {

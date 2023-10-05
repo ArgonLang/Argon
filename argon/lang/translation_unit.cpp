@@ -235,11 +235,14 @@ JBlock *TranslationUnit::JBNew(BasicBlock *start, BasicBlock *end, unsigned shor
     return jb;
 }
 
-JBlock *TranslationUnit::FindLoop(String *label, unsigned short &pops) const {
+JBlock *TranslationUnit::FindJB(vm::datatype::String *label, bool is_break, unsigned short &pops) const {
     pops = 0;
 
     for (JBlock *block = this->jstack; block != nullptr; block = block->prev) {
         pops += block->pops;
+
+        if (is_break && label == nullptr && block->type == JBlockType::SWITCH)
+            return block;
 
         if (block->type != JBlockType::LOOP)
             continue;

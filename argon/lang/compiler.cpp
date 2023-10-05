@@ -1260,7 +1260,7 @@ void Compiler::CompileJump(const parser::Unary *jump) {
 
     unsigned short pops;
 
-    if ((jb = this->unit_->FindLoop(label, pops)) == nullptr) {
+    if ((jb = this->unit_->FindJB(label, jump->token_type == scanner::TokenType::KW_BREAK, pops)) == nullptr) {
         ErrorFormat(kCompilerError[0], "unknown loop label, the loop '%s' cannot be %s",
                     ARGON_RAW_STRING((String *) ((const Unary *) jump->value)->value),
                     jump->token_type == scanner::TokenType::KW_BREAK ? "breaked" : "continued");
@@ -1484,6 +1484,8 @@ void Compiler::CompileSwitch(const parser::Test *test) {
         throw DatatypeException();
     }
 
+    auto jb = this->unit_->JBNew(nullptr, JBlockType::SWITCH, end);
+
     try {
         ARC iter;
         ARC scase;
@@ -1538,6 +1540,8 @@ void Compiler::CompileSwitch(const parser::Test *test) {
 
     this->unit_->BlockAppend(bodies);
     this->unit_->bb.cur = lbody;
+
+    this->unit_->JBPop(jb);
 
     // Set end block
     this->unit_->BlockAppend(end);
