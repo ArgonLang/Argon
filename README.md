@@ -1,4 +1,4 @@
-![](https://img.shields.io/badge/version-0.3.0--alpha-red)
+![](https://img.shields.io/badge/version-0.4.0--alpha-red)
 ![https://www.apache.org/licenses/LICENSE-2.0](https://img.shields.io/badge/license-apache--2.0-blue)
 [![Maintainability Rating](https://sonarcloud.io/api/project_badges/measure?project=ArgonLang_Argon&metric=sqale_rating)](https://sonarcloud.io/summary/new_code?id=ArgonLang_Argon)
 [![Bugs](https://sonarcloud.io/api/project_badges/measure?project=ArgonLang_Argon&metric=bugs)](https://sonarcloud.io/summary/new_code?id=ArgonLang_Argon)
