@@ -53,9 +53,9 @@ int Parser::PeekPrecedence(scanner::TokenType token) {
         case TokenType::ASSIGN_ADD:
         case TokenType::ASSIGN_SUB:
             return 20;
-        case TokenType::ARROW_RIGHT:
-            return 30;
         case TokenType::COMMA:
+            return 30;
+        case TokenType::ARROW_RIGHT:
             return 40;
         case TokenType::ELVIS:
         case TokenType::QUESTION:
@@ -911,7 +911,7 @@ Node *Parser::ParseElvis(Node *left) {
     this->Eat();
     this->IgnoreNL();
 
-    auto *expr = this->ParseExpression(PeekPrecedence(TokenType::EQUAL));
+    auto *expr = this->ParseExpression(PeekPrecedence(TokenType::COMMA));
 
     auto *binary = BinaryNew(left, expr, TokenType::TK_NULL, NodeType::ELVIS);
     if (binary == nullptr) {
@@ -2212,14 +2212,14 @@ Node *Parser::ParseTernary(Node *left) {
     this->Eat();
     this->IgnoreNL();
 
-    body = (ArObject *) this->ParseExpression(PeekPrecedence(TokenType::EQUAL));
+    body = (ArObject *) this->ParseExpression(PeekPrecedence(TokenType::COMMA));
 
     this->IgnoreNL();
 
     if (this->MatchEat(TokenType::COLON)) {
         this->IgnoreNL();
 
-        orelse = (ArObject *) this->ParseExpression(PeekPrecedence(TokenType::EQUAL));
+        orelse = (ArObject *) this->ParseExpression(PeekPrecedence(TokenType::COMMA));
     }
 
     auto *test = TestNew(left, (Node *) body.Get(), (Node *) orelse.Get(), NodeType::TERNARY);
