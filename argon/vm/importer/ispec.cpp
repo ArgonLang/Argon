@@ -31,10 +31,10 @@ ArObject *import_spec_repr(const ImportSpec *self) {
     if ((loader = (String *) Repr((ArObject *) self->loader)) == nullptr)
         return nullptr;
 
-    ret = StringFormat("<%s -- name: %s, path: %s, origin: %s, loader: %s>",
+    ret = StringFormat("<%s -- path: %s, origin: %s, loader: %s>",
                        ARGON_RAW_STRING(self->name),
-                       ARGON_RAW_STRING(self->path),
-                       ARGON_RAW_STRING(self->origin),
+                       self->path == nullptr ? (unsigned char *) "" : ARGON_RAW_STRING(self->path),
+                       self->origin == nullptr ? (unsigned char *) "" : ARGON_RAW_STRING(self->origin),
                        ARGON_RAW_STRING(loader));
 
     Release(loader);
