@@ -373,7 +373,9 @@ bool Scanner::TokenizeComment(Token *out_token, bool inline_comment) {
     out_token->loc.end = this->loc;
     out_token->length = this->sbuf_.GetBuffer(&out_token->buffer);
 
-    this->Next();
+    if (!inline_comment)
+        this->Next();
+
     return true;
 }
 
