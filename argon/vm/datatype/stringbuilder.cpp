@@ -215,6 +215,9 @@ bool StringBuilder::ParseEscaped(const unsigned char *buffer, ArSize length) {
                     idx += 1;
                     uidx += 2;
                     break;
+                case '\\':
+                    *wbuf++ = '\\';
+                    break;
                 case 'u':
                     idx++;
                     wbuf += this->ProcessUnicodeEscape(wbuf, buffer + idx, length - idx, false);
