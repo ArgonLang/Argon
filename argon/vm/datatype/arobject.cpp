@@ -38,11 +38,6 @@ ArObject *type_compare(const ArObject *self, const ArObject *other, CompareMode 
 ArObject *type_get_attr(const ArObject *self, ArObject *key, bool static_attr) {
     const auto *ancestor = AR_GET_TYPE(self);
 
-    if (!AR_HAVE_OBJECT_BEHAVIOUR(self)) {
-        ErrorFormat(kAttributeError[0], static_attr ? kAttributeError[2] : kAttributeError[1], ancestor->name);
-        return nullptr;
-    }
-
     if (static_attr && !AR_TYPEOF(self, type_type_)) {
         ErrorFormat(kTypeError[0], kTypeError[1], AR_TYPE_NAME(self));
         return nullptr;
@@ -58,7 +53,7 @@ ArObject *type_get_attr(const ArObject *self, ArObject *key, bool static_attr) {
         instance = frame->instance;
 
     if (!static_attr) {
-        if (AR_SLOT_OBJECT(self)->namespace_offset >= 0) {
+        if (AR_HAVE_OBJECT_BEHAVIOUR(self) && AR_SLOT_OBJECT(self)->namespace_offset >= 0) {
             auto ns = *((Namespace **) AR_GET_NSOFFSET(self));
             ret = NamespaceLookup(ns, key, &aprop);
         }
@@ -398,6 +393,10 @@ ArObject *argon::vm::datatype::Compare(const ArObject *self, const ArObject *oth
     return result;
 }
 
+ArObject *HashWrapper(ArObject *func, ArObject *self, ArObject **args, ArObject *kwargs, ArSize argc) {
+    return (ArObject *) UIntNew(AR_GET_TYPE(self)->hash(self));
+}
+
 ArObject *argon::vm::datatype::IteratorGet(ArObject *object, bool reversed) {
     if (AR_GET_TYPE(object)->iter == nullptr) {
         ErrorFormat(kTypeError[0], "'%s' is not iterable", AR_TYPE_NAME(object));
@@ -443,6 +442,10 @@ ArObject *argon::vm::datatype::Repr(const ArObject *object) {
     return (ArObject *) StringFormat("<object %s @%p>", AR_TYPE_NAME(object), object);
 }
 
+ArObject *ReprWrapper(ArObject *func, ArObject *self, ArObject **args, ArObject *kwargs, ArSize argc) {
+    return Repr(self);
+}
+
 ArObject *argon::vm::datatype::Str(ArObject *object) {
     auto str = AR_GET_TYPE(object)->str;
 
@@ -450,6 +453,10 @@ ArObject *argon::vm::datatype::Str(ArObject *object) {
         return str(object);
 
     return Repr(object);
+}
+
+ArObject *StrWrapper(ArObject *func, ArObject *self, ArObject **args, ArObject *kwargs, ArSize argc) {
+    return Str(self);
 }
 
 ArObject *argon::vm::datatype::TraitNew(const char *name, const char *qname, const char *doc, ArObject *ns,
@@ -749,6 +756,62 @@ bool argon::vm::datatype::IsTrue(const ArObject *object) {
     return AR_GET_TYPE(object)->is_true(object);
 }
 
+bool ExportDefaultMethod(TypeInfo *type) {
+#define PUSH_METHOD(def)                                                        \
+    do {                                                                        \
+        auto *fptr = (ArObject *) FunctionNew(&def, type, nullptr);             \
+        if(fptr == nullptr) {                                                   \
+            return false;                                                       \
+        }                                                                       \
+                                                                                \
+        auto ok = NamespaceNewSymbol((Namespace*) type->tp_map, (def).name,     \
+                            fptr, AttributeFlag::CONST|AttributeFlag::PUBLIC);  \
+                                                                                \
+        Release(fptr);                                                          \
+                                                                                \
+        if(!ok) {                                                               \
+            return false;                                                       \
+        }                                                                       \
+    } while(0)
+
+    FunctionDef fdef{};
+
+    ArObject *tmp;
+
+    bool exists;
+
+    fdef.method = true;
+
+    if (type->hash != nullptr) {
+        fdef.name = "__hash";
+        fdef.func = HashWrapper;
+
+        PUSH_METHOD(fdef);
+    }
+
+    fdef.name = "__str";
+    if(!NamespaceContains((Namespace *) type->tp_map, fdef.name, nullptr, &exists))
+        return false;
+
+    if(!exists) {
+        fdef.func = StrWrapper;
+
+        PUSH_METHOD(fdef);
+    }
+
+    fdef.name = "__repr";
+    if(!NamespaceContains((Namespace *) type->tp_map, fdef.name, nullptr, &exists))
+        return false;
+
+    if(!exists) {
+        fdef.func = ReprWrapper;
+
+        PUSH_METHOD(fdef);
+    }
+
+    return true;
+}
+
 bool InitMembers(TypeInfo *type) {
     auto *ns = (Namespace *) type->tp_map;
 
@@ -850,6 +913,8 @@ bool MethodCheckOverride(TypeInfo *type) {
 }
 
 bool argon::vm::datatype::TypeInit(TypeInfo *type, ArObject *auxiliary) {
+    bool qname_free = false;
+
     if (ENUMBITMASK_ISTRUE(type->flags, TypeInfoFlags::INITIALIZED))
         return true;
 
@@ -865,14 +930,6 @@ bool argon::vm::datatype::TypeInit(TypeInfo *type, ArObject *auxiliary) {
             return false;
     }
 
-    // Build tp_map
-    type->tp_map = IncRef(auxiliary);
-    if (auxiliary == nullptr) {
-        type->tp_map = (ArObject *) NamespaceNew();
-        if (type->tp_map == nullptr)
-            return false;
-    }
-
     if (type->qname == nullptr) {
         type->qname = type->name;
 
@@ -880,10 +937,10 @@ bool argon::vm::datatype::TypeInit(TypeInfo *type, ArObject *auxiliary) {
             auto qn_len = strlen(type->name);
 
             auto *qname = (char *) vm::memory::Alloc(qn_len + 1);
-            if (qname == nullptr) {
-                Release(&type->tp_map);
+            if (qname == nullptr)
                 return false;
-            }
+
+            qname_free = true;
 
             vm::memory::MemoryCopy(qname, type->name, qn_len);
             qname[qn_len] = '\0';
@@ -892,22 +949,35 @@ bool argon::vm::datatype::TypeInit(TypeInfo *type, ArObject *auxiliary) {
         }
     }
 
-    // Push members
-    if (!InitMembers(type)) {
-        Release(&type->tp_map);
-        vm::memory::Free((char *) type->qname);
-        return false;
+    // Build tp_map
+    type->tp_map = IncRef(auxiliary);
+    if (auxiliary == nullptr) {
+        type->tp_map = (ArObject *) NamespaceNew();
+        if (type->tp_map == nullptr)
+            goto ERROR;
     }
 
-    if (!MethodCheckOverride(type)) {
-        Release(&type->tp_map);
-        vm::memory::Free((char *) type->qname);
-        return false;
-    }
+    // Setup default methods like: __str, __repr
+    if (!ExportDefaultMethod(type))
+        goto ERROR;
+
+    // Push members
+    if (!InitMembers(type))
+        goto ERROR;
+
+    if (!MethodCheckOverride(type))
+        goto ERROR;
 
     *((TypeInfoFlags *) &type->flags) = type->flags | TypeInfoFlags::INITIALIZED;
 
     return true;
+
+    ERROR:
+    Release(&type->tp_map);
+    if (qname_free)
+        vm::memory::Free((char *) type->qname);
+
+    return false;
 }
 
 bool argon::vm::datatype::TraitIsImplemented(const ArObject *object, const TypeInfo *type) {
