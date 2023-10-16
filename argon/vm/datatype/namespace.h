@@ -60,17 +60,47 @@ namespace argon::vm::datatype {
     };
     _ARGONAPI extern const TypeInfo *type_namespace_;
 
+    /**
+     * @brief @brief Look for the element \p key.
+     *
+     * @param ns Pointer to an instance of Namespace.
+     * @param key Pointer to an object to use as a key.
+     * @param out_aprop Pointer to AttributeProperty that can receive object properties.
+     * @return A pointer to the object on success, in case of error nullptr will be returned.
+     */
     ArObject *NamespaceLookup(Namespace *ns, ArObject *key, AttributeProperty *out_aprop);
+
+    /**
+     * @brief @brief Look for the element \p key.
+     *
+     * @param ns Pointer to an instance of Namespace.
+     * @param key Pointer to C-string to use as a key.
+     * @param out_aprop Pointer to AttributeProperty that can receive object properties.
+     * @return A pointer to the object on success,
+     * in case of error nullptr will be returned and the panic state will be set.
+     */
+    ArObject *NamespaceLookup(Namespace *ns, const char *key, AttributeProperty *out_aprop);
 
     /**
      * @brief Checks if the namespace contains the key and returns its AttributeProperty.
      *
      * @param ns Pointer to namespace.
      * @param key Pointer to the key.
-     * @param out_aprop Pointer to an AttributeProperty writable object.
+     * @param out_aprop Pointer to AttributeProperty that can receive object properties.
      * @return True if key exists, false otherwise.
      */
     bool NamespaceContains(Namespace *ns, ArObject *key, AttributeProperty *out_aprop);
+
+    /**
+     * @brief Checks if the namespace contains the key and returns its AttributeProperty.
+     *
+     * @param ns Pointer to namespace.
+     * @param key Pointer to the key.
+     * @param out_aprop Pointer to AttributeProperty that can receive object properties.
+     * @param out_exists Pointer to a bool variable that indicates whether the searched object exists or not.
+     * @return True on success, false otherwise (panic state will be set).
+     */
+    bool NamespaceContains(Namespace *ns, const char *key, AttributeProperty *out_aprop, bool *out_exists);
 
     /**
      * @brief Merges the public contents of two namespaces.

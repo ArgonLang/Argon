@@ -125,17 +125,41 @@ ArObject *argon::vm::datatype::NamespaceLookup(Namespace *ns, ArObject *key, Att
     return nullptr;
 }
 
+ArObject *argon::vm::datatype::NamespaceLookup(Namespace *ns, const char *key, AttributeProperty *out_aprop) {
+    auto *skey = StringNew(key);
+    if (skey == nullptr)
+        return nullptr;
+
+    auto *ret = NamespaceLookup(ns, (ArObject *) skey, out_aprop);
+
+    Release(skey);
+    return ret;
+}
+
 bool argon::vm::datatype::NamespaceContains(Namespace *ns, ArObject *key, AttributeProperty *out_aprop) {
     std::shared_lock _(ns->rwlock);
 
     const NSEntry *entry = ns->ns.Lookup(key);
 
     if (entry != nullptr) {
-        *out_aprop = entry->value.properties;
+        if (out_aprop != nullptr)
+            *out_aprop = entry->value.properties;
         return true;
     }
 
     return false;
+}
+
+bool argon::vm::datatype::NamespaceContains(Namespace *ns, const char *key,
+                                            AttributeProperty *out_aprop, bool *out_exists) {
+    auto *skey = StringNew(key);
+    if (skey == nullptr)
+        return false;
+
+    *out_exists = NamespaceContains(ns, (ArObject *) skey, out_aprop);
+
+    Release(skey);
+    return true;
 }
 
 bool argon::vm::datatype::NamespaceMergePublic(Namespace *dest, Namespace *src) {
