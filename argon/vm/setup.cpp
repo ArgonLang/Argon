@@ -45,6 +45,8 @@ bool argon::vm::Setup() {
     if (!io::IOInit())
         return false;
 
+    INIT(type_type_);
+
     INIT(type_atom_);
     INIT(type_boolean_);
     INIT(type_bounds_);

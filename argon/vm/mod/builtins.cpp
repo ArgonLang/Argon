@@ -65,6 +65,7 @@ ARGON_FUNCTION(builtins_bind, bind,
     return IncRef(args[0]);
 }
 
+/*
 ARGON_FUNCTION(builtins_exit, exit,
                "Exit by initiating a panicking state with RuntimeExit error.\n"
                "\n"
@@ -75,6 +76,7 @@ ARGON_FUNCTION(builtins_exit, exit,
     ErrorFormat(kRuntimeExitError[0], "");
     return nullptr;
 }
+*/
 
 ARGON_FUNCTION(builtins_eval, eval,
                "Evaluate and execute string as Argon code.\n"
@@ -207,6 +209,7 @@ ARGON_FUNCTION(builtins_len, len,
     return nullptr;
 }
 
+/*
 ARGON_FUNCTION(builtins_repr, repr,
                "Return a string containing a printable representation of an object.\n"
                "\n"
@@ -215,6 +218,7 @@ ARGON_FUNCTION(builtins_repr, repr,
                ": obj", false, false) {
     return Repr(*args);
 }
+*/
 
 ARGON_FUNCTION(builtins_require, require,
                "Allows you to dynamically import a module.\n"
@@ -272,7 +276,7 @@ ARGON_FUNCTION(builtins_show, show,
             return nullptr;
     }
 
-    if (AR_SLOT_OBJECT(*args)->namespace_offset >= 0) {
+    if (AR_HAVE_OBJECT_BEHAVIOUR(*args) && AR_SLOT_OBJECT(*args)->namespace_offset >= 0) {
         aux = NamespaceKeysToList(*((Namespace **) AR_GET_NSOFFSET(*args)), AttributeFlag::PUBLIC);
         if (aux == nullptr) {
             Release(target);
@@ -297,6 +301,7 @@ ARGON_FUNCTION(builtins_show, show,
     return (ArObject *) target;
 }
 
+/*
 ARGON_FUNCTION(builtins_str, str,
                "Return a string version of an object.\n"
                "\n"
@@ -305,6 +310,7 @@ ARGON_FUNCTION(builtins_str, str,
                ": obj", false, false) {
     return Str(*args);
 }
+*/
 
 ARGON_FUNCTION(builtins_type, type,
                "Returns type of the object passed as parameter.\n"
@@ -366,27 +372,81 @@ const ModuleEntry builtins_entries[] = {
         MODULE_EXPORT_TYPE(type_uint_),
 
         MODULE_EXPORT_FUNCTION(builtins_bind),
-        MODULE_EXPORT_FUNCTION(builtins_exit),
+        //MODULE_EXPORT_FUNCTION(builtins_exit),
         MODULE_EXPORT_FUNCTION(builtins_eval),
         MODULE_EXPORT_FUNCTION(builtins_getattr),
         MODULE_EXPORT_FUNCTION(builtins_iscallable),
         MODULE_EXPORT_FUNCTION(builtins_implements),
         MODULE_EXPORT_FUNCTION(builtins_len),
         MODULE_EXPORT_FUNCTION(builtins_require),
-        MODULE_EXPORT_FUNCTION(builtins_repr),
+        //MODULE_EXPORT_FUNCTION(builtins_repr),
         MODULE_EXPORT_FUNCTION(builtins_show),
-        MODULE_EXPORT_FUNCTION(builtins_str),
+        //MODULE_EXPORT_FUNCTION(builtins_str),
         MODULE_EXPORT_FUNCTION(builtins_type),
         MODULE_EXPORT_FUNCTION(builtins_typeof),
         ARGON_MODULE_SENTINEL
 };
+
+const char *builtins_native = R"(
+
+pub func exit() {
+    /*
+        Exit by initiating a panicking state with RuntimeExit error.
+
+        This is a convenient function to terminate your interactive session.
+
+        - Returns: This function does not return to the caller.
+    */
+
+    panic Error(@RuntimeExit, "")
+}
+
+pub func str(obj) {
+    /*
+        Return a string version of an object.
+
+        - Parameter obj: Object to represent as a string.
+        - Returns: String version of object.
+    */
+
+    return obj.__str()
+}
+
+pub func repr(obj) {
+    /*
+        Return a string containing a printable representation of an object.
+
+        - Parameter obj: Object to get a printable representation from.
+        - Returns: String version of object.
+    */
+
+    return obj.__repr()
+}
+
+)";
+
+bool BuiltinsInit(Module *self) {
+    argon::lang::CompilerWrapper cw;
+
+    auto *code = cw.Compile("builtins", builtins_native);
+    if (code == nullptr)
+        return false;
+
+    auto *result = argon::vm::Eval(nullptr, code, self->ns);
+    if (result == nullptr)
+        return false;
+
+    Release(result);
+
+    return true;
+}
 
 constexpr ModuleInit ModuleBuiltins = {
         "argon:builtins",
         "Built-in functions and other things.",
         nullptr,
         builtins_entries,
-        nullptr,
+        BuiltinsInit,
         nullptr
 };
 const ModuleInit *argon::vm::mod::module_builtins_ = &ModuleBuiltins;
