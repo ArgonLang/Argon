@@ -1161,7 +1161,7 @@ ArObject *argon::vm::Eval(Fiber *fiber) {
 
                 if (!ok) {
                     STACK_REWIND(args - idx);
-                    cu_frame->eval_stack -= args;
+                    cu_frame->eval_stack -= idx;
 
                     Release(ret);
                     break;
