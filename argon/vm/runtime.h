@@ -22,6 +22,9 @@ namespace argon::vm {
     constexpr const unsigned short kVCoreDefault = 4;
     constexpr const unsigned short kVCoreQueueLengthMax = 256;
 
+    argon::vm::datatype::ArObject *EvalRaiseError(datatype::Function *func, datatype::ArObject **argv,
+                                                  datatype::ArSize argc, OpCodeCallMode mode);
+
     argon::vm::datatype::ArObject *GetLastError();
 
     argon::vm::datatype::Future *EvalAsync(datatype::Function *func, datatype::ArObject **argv,

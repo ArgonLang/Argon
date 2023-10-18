@@ -434,12 +434,51 @@ ArObject *MROSearch(const TypeInfo *type, ArObject *key, AttributeProperty *apro
 }
 
 ArObject *argon::vm::datatype::Repr(const ArObject *object) {
-    auto repr = AR_GET_TYPE(object)->repr;
+    ArObject *args[1]{};
 
+    auto repr = AR_GET_TYPE(object)->repr;
     if (repr != nullptr)
         return repr(object);
 
-    return (ArObject *) StringFormat("<object %s @%p>", AR_TYPE_NAME(object), object);
+    auto *key = StringIntern("__repr");
+    if (key == nullptr)
+        return nullptr;
+
+    auto *rfunc = (Function *) AttributeLoad(object, (ArObject *) key, false);
+
+    Release(key);
+
+    if (rfunc == nullptr)
+        return nullptr;
+
+    if (AR_GET_TYPE(rfunc) != type_function_) {
+        ErrorFormat(kTypeError[0], "__repr must be a function, not type %s", AR_TYPE_NAME(rfunc));
+
+        Release(rfunc);
+        return nullptr;
+    }
+
+    if (rfunc->IsNative()) {
+        Release(rfunc);
+
+        return (ArObject *) StringFormat("<object %s @%p>", AR_TYPE_NAME(object), object);
+    }
+
+    auto *result = EvalRaiseError((Function *) rfunc, args, 1, OpCodeCallMode::FASTCALL);
+
+    Release(rfunc);
+
+    if (result == nullptr)
+        return nullptr;
+
+    if (AR_GET_TYPE(result) != type_string_) {
+        Release(result);
+
+        ErrorFormat(kTypeError[0], "__repr must return %s type", type_string_->name);
+        return nullptr;
+    }
+
+    return result;
 }
 
 ArObject *ReprWrapper(ArObject *func, ArObject *self, ArObject **args, ArObject *kwargs, ArSize argc) {
@@ -447,12 +486,51 @@ ArObject *ReprWrapper(ArObject *func, ArObject *self, ArObject **args, ArObject 
 }
 
 ArObject *argon::vm::datatype::Str(ArObject *object) {
-    auto str = AR_GET_TYPE(object)->str;
+    ArObject *args[1]{};
 
+    auto str = AR_GET_TYPE(object)->str;
     if (str != nullptr)
         return str(object);
 
-    return Repr(object);
+    auto *key = StringIntern("__str");
+    if (key == nullptr)
+        return nullptr;
+
+    auto *sfunc = (Function *) AttributeLoad(object, (ArObject *) key, false);
+
+    Release(key);
+
+    if (sfunc == nullptr)
+        return nullptr;
+
+    if (AR_GET_TYPE(sfunc) != type_function_) {
+        ErrorFormat(kTypeError[0], "__str must be a function, not type %s", AR_TYPE_NAME(sfunc));
+
+        Release(sfunc);
+        return nullptr;
+    }
+
+    if (sfunc->IsNative()) {
+        Release(sfunc);
+
+        return Repr(object);
+    }
+
+    auto *result = EvalRaiseError((Function *) sfunc, args, 1, OpCodeCallMode::FASTCALL);
+
+    Release(sfunc);
+
+    if (result == nullptr)
+        return nullptr;
+
+    if (AR_GET_TYPE(result) != type_string_) {
+        Release(result);
+
+        ErrorFormat(kTypeError[0], "__str must return %s type", type_string_->name);
+        return nullptr;
+    }
+
+    return result;
 }
 
 ArObject *StrWrapper(ArObject *func, ArObject *self, ArObject **args, ArObject *kwargs, ArSize argc) {
@@ -790,20 +868,20 @@ bool ExportDefaultMethod(TypeInfo *type) {
     }
 
     fdef.name = "__str";
-    if(!NamespaceContains((Namespace *) type->tp_map, fdef.name, nullptr, &exists))
+    if (!NamespaceContains((Namespace *) type->tp_map, fdef.name, nullptr, &exists))
         return false;
 
-    if(!exists) {
+    if (!exists) {
         fdef.func = StrWrapper;
 
         PUSH_METHOD(fdef);
     }
 
     fdef.name = "__repr";
-    if(!NamespaceContains((Namespace *) type->tp_map, fdef.name, nullptr, &exists))
+    if (!NamespaceContains((Namespace *) type->tp_map, fdef.name, nullptr, &exists))
         return false;
 
-    if(!exists) {
+    if (!exists) {
         fdef.func = ReprWrapper;
 
         PUSH_METHOD(fdef);

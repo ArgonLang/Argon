@@ -609,6 +609,25 @@ void VCoreRelease(OSThread *ost) {
 
 // Public
 
+ArObject *argon::vm::EvalRaiseError(Function *func, ArObject **argv, ArSize argc, OpCodeCallMode mode) {
+    auto *result = Eval(func, argv, argc, mode);
+    if (result == nullptr)
+        return nullptr;
+
+    if (!result->success) {
+        Panic(result->value);
+
+        Release(result);
+        return nullptr;
+    }
+
+    auto *tmp = IncRef(result->value);
+
+    Release(result);
+
+    return tmp;
+}
+
 ArObject *argon::vm::GetLastError() {
     Fiber *fiber = nullptr;
     ArObject *error;
