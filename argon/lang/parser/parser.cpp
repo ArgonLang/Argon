@@ -3,6 +3,7 @@
 // Licensed under the Apache License v2.0
 
 #include <cassert>
+#include <cctype>
 
 #include <argon/vm/datatype/atom.h>
 #include <argon/vm/datatype/boolean.h>
