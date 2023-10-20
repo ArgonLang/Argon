@@ -270,7 +270,7 @@ ARGON_FUNCTION(builtins_show, show,
     if (AR_GET_TYPE(ancestor) != type_type_)
         ancestor = AR_GET_TYPE(ancestor);
 
-    if (ancestor->tp_map != nullptr && ancestor != type_module_) {
+    if (ancestor->tp_map != nullptr) {
         target = NamespaceKeysToList((Namespace *) ancestor->tp_map, AttributeFlag::CONST | AttributeFlag::PUBLIC);
         if (target == nullptr)
             return nullptr;

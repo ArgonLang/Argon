@@ -2,6 +2,8 @@
 //
 // Licensed under the Apache License v2.0
 
+#include <argon/vm/importer/ispec.h>
+
 #include <argon/vm/datatype/boolean.h>
 #include <argon/vm/datatype/error.h>
 #include <argon/vm/datatype/function.h>
@@ -43,13 +45,16 @@ ArObject *module_get_attr(const Module *self, ArObject *key, bool static_attr) {
     }
 
     if ((value = NamespaceLookup(self->ns, key, &aprop)) == nullptr) {
-        qname = ModuleGetQname(self);
+        value = NamespaceLookup((Namespace *) AR_GET_TYPE(self)->tp_map, key, &aprop);
+        if (value == nullptr) {
+            qname = ModuleGetQname(self);
 
-        ErrorFormat(kAttributeError[0], "unknown property '%s' of module '%s'",
-                    ARGON_RAW_STRING((String *) key), ARGON_RAW_STRING(qname));
+            ErrorFormat(kAttributeError[0], "unknown property '%s' of module '%s'",
+                        ARGON_RAW_STRING((String *) key), ARGON_RAW_STRING(qname));
 
-        Release(qname);
-        return nullptr;
+            Release(qname);
+            return nullptr;
+        }
     }
 
     if (!aprop.IsPublic()) {
@@ -75,7 +80,9 @@ bool module_set_attr(Module *self, struct ArObject *key, struct ArObject *value,
         return false;
     }
 
-    if (!NamespaceContains(self->ns, key, &aprop)) {
+    if (!NamespaceContains(self->ns, key, &aprop) &&
+        !NamespaceContains((Namespace *) AR_GET_TYPE(self)->tp_map, key, &aprop)) {
+
         qname = ModuleGetQname(self);
 
         ErrorFormat(kAttributeError[0], "unknown property '%s' of module '%s'",
@@ -135,6 +142,40 @@ ArObject *module_compare(Module *self, ArObject *other, CompareMode mode) {
     return result;
 }
 
+ArObject *module_repr(Module *self) {
+    auto *name = ModuleGetQname(self);
+    auto *ispec = (argon::vm::importer::ImportSpec *) ModuleLookup(self, "__spec", nullptr);
+
+    ArObject *ret;
+
+    if (ispec != nullptr) {
+        if (ispec->origin != nullptr) {
+            ret = (ArObject *) StringFormat("<module '%s' from: %s>",
+                                            ARGON_RAW_STRING(name),
+                                            ARGON_RAW_STRING(ispec->origin));
+
+            Release(name);
+            Release(ispec);
+
+            return ret;
+        }
+
+        Release(ispec);
+
+        ret = (ArObject *) StringFormat("<native module '%s'>", (ArObject *) name);
+
+        Release(name);
+
+        return ret;
+    }
+
+    ret = (ArObject *) StringFormat("<module '%s'>", (ArObject *) name);
+
+    Release(name);
+
+    return ret;
+}
+
 bool module_dtor(Module *self) {
     if (self->fini != nullptr)
         self->fini(self);
@@ -164,7 +205,7 @@ TypeInfo ModuleType = {
         nullptr,
         nullptr,
         (CompareOp) module_compare,
-        nullptr,
+        (UnaryConstOp) module_repr,
         nullptr,
         nullptr,
         nullptr,
@@ -210,7 +251,8 @@ bool MakeID(const Module *mod, const char *id, ArObject *value) {
     if (key == nullptr)
         return false;
 
-    auto ok = NamespaceNewSymbol(mod->ns, (ArObject *) key, value, MODULE_ATTRIBUTE_DEFAULT);
+    auto ok = NamespaceNewSymbol(mod->ns, (ArObject *) key, value,
+                                 MODULE_ATTRIBUTE_DEFAULT | AttributeFlag::NON_COPYABLE);
 
     Release(key);
 

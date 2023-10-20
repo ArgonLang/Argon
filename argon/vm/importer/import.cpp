@@ -117,7 +117,7 @@ ARGON_FUNCTION(import_builtins_loader, builtins_loader,
     if (mod == nullptr)
         return nullptr;
 
-    if (!ModuleAddObject(mod, "__spec", (ArObject *) spec, MODULE_ATTRIBUTE_DEFAULT)) {
+    if (!ModuleAddObject(mod, "__spec", (ArObject *) spec, MODULE_ATTRIBUTE_DEFAULT | AttributeFlag::NON_COPYABLE)) {
         Release(mod);
         return nullptr;
     }
@@ -172,7 +172,7 @@ ARGON_FUNCTION(import_native_loader, native_loader,
 
     ModuleSetDLHandle(mod, ModuleDLHandleUnload, (uintptr_t) handle);
 
-    if (!ModuleAddObject(mod, "__spec", (ArObject *) spec, MODULE_ATTRIBUTE_DEFAULT)) {
+    if (!ModuleAddObject(mod, "__spec", (ArObject *) spec, MODULE_ATTRIBUTE_DEFAULT | AttributeFlag::NON_COPYABLE)) {
         Release(mod);
         return nullptr;
     }
@@ -210,7 +210,7 @@ ARGON_FUNCTION(import_source_loader, source_loader,
         return nullptr;
     }
 
-    if (!ModuleAddObject(mod, "__spec", (ArObject *) spec, MODULE_ATTRIBUTE_DEFAULT)) {
+    if (!ModuleAddObject(mod, "__spec", (ArObject *) spec, MODULE_ATTRIBUTE_DEFAULT | AttributeFlag::NON_COPYABLE)) {
         Release(mod);
         return nullptr;
     }
