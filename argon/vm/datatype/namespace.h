@@ -20,7 +20,10 @@ namespace argon::vm::datatype {
         WEAK = 1 << 1,
 
         // Visibility
-        PUBLIC = 1 << 2
+        PUBLIC = 1 << 2,
+
+        // Misc
+        NON_COPYABLE = 1 << 3
     };
 }
 
@@ -33,6 +36,10 @@ namespace argon::vm::datatype {
         [[nodiscard]] bool IsConstant() const {
             return ENUMBITMASK_ISTRUE(this->flags, AttributeFlag::CONST);
         };
+
+        [[nodiscard]] bool IsNonCopyable() const {
+            return ENUMBITMASK_ISTRUE(this->flags, AttributeFlag::NON_COPYABLE);
+        }
 
         [[nodiscard]] bool IsPublic() const {
             return ENUMBITMASK_ISTRUE(this->flags, AttributeFlag::PUBLIC);

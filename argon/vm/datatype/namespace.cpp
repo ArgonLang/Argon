@@ -167,7 +167,7 @@ bool argon::vm::datatype::NamespaceMergePublic(Namespace *dest, Namespace *src) 
     std::shared_lock src_lck(src->rwlock);
 
     for (auto *cursor = src->ns.iter_begin; cursor != nullptr; cursor = cursor->iter_next) {
-        if (cursor->value.properties.IsPublic()) {
+        if (cursor->value.properties.IsPublic() && !cursor->value.properties.IsNonCopyable()) {
             bool ok = NewEntry(dest, cursor->key, cursor->value.value.Get(), cursor->value.properties.flags);
             if (!ok)
                 return false;
