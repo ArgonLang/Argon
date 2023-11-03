@@ -50,18 +50,6 @@ namespace argon::vm::datatype {
     ArObject *DictLookup(Dict *dict, const char *key, ArSize length);
 
     /**
-     * @brief Look for the element \p key.
-     *
-     * @param dict Pointer to an instance of dict.
-     * @param key Pointer to C-string to use as a key.
-     * @return A pointer to the object on success,
-     * in case of error nullptr will be returned and the panic state will be set.
-     */
-    inline ArObject *DictLookup(Dict *dict, const char *key) {
-        return DictLookup(dict, key, strlen(key));
-    }
-
-    /**
      * @brief Insert an element into the dict.
      *
      * @param dict Pointer to an instance of dict.
@@ -80,6 +68,17 @@ namespace argon::vm::datatype {
      * @return True on success, in case of error false will be returned and the panic state will be set.
      */
     bool DictInsert(Dict *dict, const char *key, ArObject *value);
+
+    /**
+     * @brief Look for the element \p key.
+     *
+     * @param dict Pointer to an instance of dict.
+     * @param key Pointer to C-string to use as a key.
+     * @param out Pointer to the variable containing the retrieved object.
+     * @return In case of error the function returns false,
+     * in case of success it returns true (even if the key was not found).
+     */
+    bool DictLookup(Dict *dict, const char *key, ArObject **out);
 
     /**
      * @brief Convenience function to look up an Bool type (useful when used with the kwargs function parameter).

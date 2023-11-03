@@ -44,19 +44,23 @@ ArObject *trim(Bytes *self, Dict *kwargs, bool left, bool right) {
     Bytes *tmp = nullptr;
 
     if (kwargs != nullptr) {
-        tmp = (Bytes *) DictLookup(kwargs, "chars");
-        if (!AR_TYPEOF(tmp, type_bytes_)) {
-            Release(tmp);
-
-            ErrorFormat(kTypeError[0], kTypeError[2], type_bytes_->qname, AR_TYPE_QNAME(tmp));
-
+        if (!DictLookup(kwargs, "chars", (ArObject **) &tmp))
             return nullptr;
+
+        if (tmp != nullptr) {
+            if (!AR_TYPEOF(tmp, type_bytes_)) {
+                Release(tmp);
+
+                ErrorFormat(kTypeError[0], kTypeError[2], type_bytes_->qname, AR_TYPE_QNAME(tmp));
+
+                return nullptr;
+            }
+
+            SHARED_LOCK(tmp);
+
+            trim_buffer = BUFFER_GET(tmp);
+            trim_length = BUFFER_LEN(tmp);
         }
-
-        SHARED_LOCK(tmp);
-
-        trim_buffer = BUFFER_GET(tmp);
-        trim_length = BUFFER_LEN(tmp);
     }
 
     auto *ret = BytesTrim(self, trim_buffer, trim_length, left, right);

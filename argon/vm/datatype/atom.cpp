@@ -61,6 +61,7 @@ const TypeInfo *argon::vm::datatype::type_atom_ = &AtomType;
 
 Atom *argon::vm::datatype::AtomNew(const char *value) {
     Atom *atom;
+    String *atom_id;
 
     if (gat == nullptr) {
         gat = DictNew();
@@ -71,16 +72,20 @@ Atom *argon::vm::datatype::AtomNew(const char *value) {
     if (value == nullptr || strlen(value) == 0)
         return nullptr;
 
-    if ((atom = (Atom *) DictLookup(gat, value)) != nullptr)
-        return atom;
-
-    if ((atom = MakeObject<Atom>(type_atom_)) == nullptr)
+    if((atom_id = StringNew(value)) == nullptr)
         return nullptr;
 
-    if ((atom->value = StringNew(value)) == nullptr) {
-        Release(atom);
+    if ((atom = (Atom *) DictLookup(gat, (ArObject*) atom_id)) != nullptr) {
+        Release(atom_id);
+        return atom;
+    }
+
+    if ((atom = MakeObject<Atom>(type_atom_)) == nullptr) {
+        Release(atom_id);
         return nullptr;
     }
+
+    atom->value = atom_id;
 
     if (!DictInsert(gat, (ArObject *) atom->value, (ArObject *) atom)) {
         Release(atom);

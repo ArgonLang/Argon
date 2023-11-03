@@ -135,11 +135,8 @@ ARGON_FUNCTION(builtins_getattr, getattr,
     if (res == nullptr) {
         ArObject *def = nullptr;
 
-        if (kwargs != nullptr) {
-            def = DictLookup((Dict *) kwargs, "default");
-            if (def == nullptr && argon::vm::IsPanicking())
-                return nullptr;
-        }
+        if (kwargs != nullptr && !DictLookup((Dict *) kwargs, "default", &def))
+            return nullptr;
 
         if (def != nullptr)
             argon::vm::DiscardLastPanic();

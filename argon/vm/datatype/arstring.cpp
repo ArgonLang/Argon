@@ -35,17 +35,21 @@ ArObject *trim(String *self, Dict *kwargs, bool left, bool right) {
     String *tmp = nullptr;
 
     if (kwargs != nullptr) {
-        tmp = (String *) DictLookup(kwargs, "chars");
-        if (!AR_TYPEOF(tmp, type_string_)) {
-            Release(tmp);
-
-            ErrorFormat(kTypeError[0], kTypeError[2], type_string_->qname, AR_TYPE_QNAME(tmp));
-
+        if (!DictLookup(kwargs, "chars", (ArObject **) &tmp))
             return nullptr;
-        }
 
-        trim_buffer = STR_BUF(tmp);
-        trim_length = STR_LEN(tmp);
+        if (tmp != nullptr) {
+            if (!AR_TYPEOF(tmp, type_string_)) {
+                Release(tmp);
+
+                ErrorFormat(kTypeError[0], kTypeError[2], type_string_->qname, AR_TYPE_QNAME(tmp));
+
+                return nullptr;
+            }
+
+            trim_buffer = STR_BUF(tmp);
+            trim_length = STR_LEN(tmp);
+        }
     }
 
     auto *ret = StringTrim(self, trim_buffer, trim_length, left, right);
@@ -1245,7 +1249,8 @@ String *argon::vm::datatype::StringSubs(const String *string, ArSize start, ArSi
     return ret;
 }
 
-String *argon::vm::datatype::StringTrim(String *string, const unsigned char *buffer, ArSize length, bool left, bool right) {
+String *
+argon::vm::datatype::StringTrim(String *string, const unsigned char *buffer, ArSize length, bool left, bool right) {
     auto *to_trim = (const unsigned char *) "\x09\x20";
     ArSize trim_length = 2;
     ArSize start = 0;

@@ -476,6 +476,19 @@ bool argon::vm::datatype::DictInsert(Dict *dict, const char *key, ArObject *valu
     return ok;
 }
 
+bool argon::vm::datatype::DictLookup(Dict *dict, const char *key, ArObject **out) {
+    (*out) = nullptr;
+
+    auto *skey = StringNew(key, strlen(key));
+    if (skey == nullptr)
+        return false;
+
+    *out = DictLookup(dict, (ArObject *) skey);
+
+    Release(skey);
+    return true;
+}
+
 bool argon::vm::datatype::DictLookupIsTrue(argon::vm::datatype::Dict *dict, const char *key, bool _default) {
     ArObject *tmp;
 
