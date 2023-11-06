@@ -15,6 +15,7 @@
 #include <argon/vm/datatype/dict.h>
 #include <argon/vm/datatype/hash_magic.h>
 #include <argon/vm/datatype/integer.h>
+#include <argon/vm/datatype/pcheck.h>
 #include <argon/vm/datatype/stringbuilder.h>
 #include <argon/vm/datatype/stringformatter.h>
 
@@ -34,22 +35,12 @@ ArObject *trim(String *self, Dict *kwargs, bool left, bool right) {
 
     String *tmp = nullptr;
 
-    if (kwargs != nullptr) {
-        if (!DictLookup(kwargs, "chars", (ArObject **) &tmp))
-            return nullptr;
+    if (!KParamLookupStr(kwargs, "chars", &tmp, nullptr, nullptr))
+        return nullptr;
 
-        if (tmp != nullptr) {
-            if (!AR_TYPEOF(tmp, type_string_)) {
-                Release(tmp);
-
-                ErrorFormat(kTypeError[0], kTypeError[2], type_string_->qname, AR_TYPE_QNAME(tmp));
-
-                return nullptr;
-            }
-
-            trim_buffer = STR_BUF(tmp);
-            trim_length = STR_LEN(tmp);
-        }
+    if (tmp != nullptr) {
+        trim_buffer = STR_BUF(tmp);
+        trim_length = STR_LEN(tmp);
     }
 
     auto *ret = StringTrim(self, trim_buffer, trim_length, left, right);
@@ -206,9 +197,16 @@ ARGON_METHOD(str_expandtabs, expandtabs,
              " - tabsize: Size of the tab; default step is 4.\n"
              "- Returns: A copy of the string where all tab characters were replaced by spaces.\n",
              nullptr, false, true) {
-    int tabsize;
+    IntegerUnderlying tabsize;
 
-    tabsize = (int) DictLookupInt((Dict *) kwargs, "tabsize", 4);
+    if (!KParamLookupInt((Dict *) kwargs, "tabsize", &tabsize, 4))
+        return nullptr;
+
+    if (tabsize < 0) {
+        ErrorFormat(kValueError[0], "tabsize value cannot be negative");
+
+        return nullptr;
+    }
 
     return (ArObject *) StringExpandTabs((String *) _self, tabsize);
 }

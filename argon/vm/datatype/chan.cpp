@@ -7,7 +7,9 @@
 #include <argon/vm/datatype/arstring.h>
 #include <argon/vm/datatype/boolean.h>
 #include <argon/vm/datatype/dict.h>
+#include <argon/vm/datatype/error.h>
 #include <argon/vm/datatype/nil.h>
+#include <argon/vm/datatype/pcheck.h>
 
 #include <argon/vm/datatype/chan.h>
 
@@ -22,7 +24,16 @@ ARGON_FUNCTION(chan_chan, Chan,
                "  - backlog: Set the size of the backlog.\n"
                "- returns: New Chan object.\n",
                nullptr, false, true) {
-    auto backlog = (unsigned int) DictLookupInt((Dict *) kwargs, "backlog", 1);
+    IntegerUnderlying  backlog;
+
+    if (!KParamLookupInt((Dict *) kwargs, "backlog", &backlog, 1))
+        return nullptr;
+
+    if(backlog<0){
+        ErrorFormat(kValueError[0],"backlog value cannot be negative");
+
+        return nullptr;
+    }
 
     return (ArObject *) ChanNew(backlog);
 }

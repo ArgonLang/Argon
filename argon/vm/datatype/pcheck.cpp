@@ -287,3 +287,117 @@ bool argon::vm::datatype::VariadicCheckPositional(const char *name, unsigned int
 
     return true;
 }
+
+// KWParameters utilities
+
+bool argon::vm::datatype::KParamLookupInt(Dict *kwargs, const char *key,
+                                          IntegerUnderlying *out,
+                                          IntegerUnderlying _default) {
+    ArObject *obj;
+
+    if (kwargs == nullptr) {
+        if (out != nullptr)
+            *out = _default;
+
+        return true;
+    }
+
+    if (!DictLookup(kwargs, key, &obj))
+        return false;
+
+    if (obj == nullptr) {
+        if (out != nullptr)
+            *out = _default;
+
+        return true;
+    }
+
+    if (!AR_TYPEOF(obj, type_int_)) {
+        ErrorFormat(kTypeError[0], kTypeError[2], type_int_->name, AR_TYPE_QNAME(obj));
+
+        Release(obj);
+        return false;
+    }
+
+    if (out != nullptr)
+        *out = ((Integer *) obj)->sint;
+
+    Release(obj);
+
+    return true;
+}
+
+bool argon::vm::datatype::KParamLookupStr(Dict *kwargs, const char *key, String **out,
+                                          const char *_default, bool *out_isdef) {
+    ArObject *obj = nullptr;
+
+    if (kwargs != nullptr && !DictLookup(kwargs, key, &obj))
+        return false;
+
+    if (obj == nullptr) {
+        if (out_isdef != nullptr) {
+            *out_isdef = true;
+
+            return true;
+        }
+
+        if(_default == nullptr)
+            return true;
+
+        *out = StringNew(_default);
+
+        return *out != nullptr;
+    }
+
+    if (out_isdef != nullptr)
+        *out_isdef = false;
+
+    if (!AR_TYPEOF(obj, type_string_)) {
+        ErrorFormat(kTypeError[0], kTypeError[2], type_string_->name, AR_TYPE_QNAME(obj));
+
+        Release(obj);
+        return false;
+    }
+
+    *out = (String *) obj;
+
+    return true;
+}
+
+bool argon::vm::datatype::KParamLookupUInt(Dict *kwargs, const char *key,
+                                           UIntegerUnderlying *out,
+                                           UIntegerUnderlying _default) {
+    ArObject *obj;
+
+    if (kwargs == nullptr) {
+        if (out != nullptr)
+            *out = _default;
+
+        return true;
+    }
+
+    if (!DictLookup(kwargs, key, &obj))
+        return false;
+
+    if (obj == nullptr) {
+        if (out != nullptr)
+            *out = _default;
+
+        return true;
+    }
+
+    if (!AR_TYPEOF(obj, type_uint_)) {
+        ErrorFormat(kTypeError[0], kTypeError[2], type_uint_->name, AR_TYPE_QNAME(obj));
+
+        Release(obj);
+        return false;
+    }
+
+    if (out != nullptr)
+        *out = ((Integer *) obj)->uint;
+
+    Release(obj);
+
+    return true;
+}
+

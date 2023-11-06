@@ -39,7 +39,11 @@ ARGON_FUNCTION(number_frombytes, frombytes,
                "x: bytes", false, true) {
     ArBuffer buffer{};
 
+    String *byteorder = nullptr;
+
     UIntegerUnderlying num = 0;
+
+    bool big_endian = true;
 
     if (!BufferGet(args[0], &buffer, BufferFlags::READ))
         return nullptr;
@@ -53,13 +57,8 @@ ARGON_FUNCTION(number_frombytes, frombytes,
         return nullptr;
     }
 
-    auto byteorder = DictLookupString((Dict *) kwargs, "byteorder", "big");
-    if (byteorder == nullptr) {
-        BufferRelease(&buffer);
+    if (!KParamLookupStr((Dict *) kwargs, "byteorder", &byteorder, "big", &big_endian))
         return nullptr;
-    }
-
-    auto big_endian = StringEqual(byteorder, "big");
 
     if (!big_endian && !StringEqual(byteorder, "little")) {
         ErrorFormat(kValueError[0], "byteorder must be 'big' or 'little', got: '%s'", ARGON_RAW_STRING(byteorder));
@@ -177,11 +176,11 @@ ARGON_METHOD(number_tobytes, tobytes,
              "  - byteorder: Byte order used to represent the integer (big | little).\n"
              "- Returns: Bytes object.\n",
              nullptr, false, true) {
-    auto byteorder = DictLookupString((Dict *) kwargs, "byteorder", "big");
-    if (byteorder == nullptr)
-        return nullptr;
+    String *byteorder = nullptr;
+    bool big_endian = true;
 
-    auto big_endian = StringEqual(byteorder, "big");
+    if(!KParamLookupStr((Dict *) kwargs, "byteorder",&byteorder, "big",&big_endian))
+        return nullptr;
 
     if (!big_endian && !StringEqual(byteorder, "little")) {
         ErrorFormat(kValueError[0], "byteorder must be 'big' or 'little', got: '%s'", ARGON_RAW_STRING(byteorder));
