@@ -3,9 +3,13 @@
 // Licensed under the Apache License v2.0
 
 #include <argon/vm/datatype/arstring.h>
+#include <argon/vm/datatype/dict.h>
 #include <argon/vm/datatype/integer.h>
+#include <argon/vm/datatype/pcheck.h>
+#include <argon/vm/datatype/tuple.h>
 
 #include <argon/vm/io/fio.h>
+#include <argon/vm/io/pipe.h>
 
 #ifdef _ARGON_PLATFORM_WINDOWS
 
@@ -14,6 +18,7 @@
 #else
 
 #include <unistd.h>
+#include <fcntl.h>
 
 #endif
 
@@ -54,6 +59,46 @@ ARGON_FUNCTION(io_openfile, openfile,
                                 (FileMode) ((Integer *) args[1])->sint);
 }
 
+ARGON_FUNCTION(io_mkpipe, mkpipe,
+               "Creates a pipe, a unidirectional data channel that can be used for interprocess communication.\n"
+               "\n"
+               "- KWParameters:\n"
+               "  - flags: flags to obtain different behavior.\n"
+               "- Returns: Tuple containing two File objects, one for reading and one for writing.\n",
+               nullptr, false, true) {
+    IntegerUnderlying flags;
+
+    if (!KParamLookupInt((Dict *) kwargs, "flags", &flags, O_CLOEXEC))
+        return nullptr;
+
+    IOHandle read;
+    IOHandle write;
+
+    if (!MakePipe(&read, &write, (int) flags))
+        return nullptr;
+
+    auto *rfd = FileNew(read, FileMode::READ);
+    if (rfd == nullptr) {
+        ClosePipe(read);
+        ClosePipe(write);
+
+        return nullptr;
+    }
+
+    auto wfd = FileNew(write, FileMode::WRITE);
+    if (wfd == nullptr) {
+        Release(rfd);
+        ClosePipe(write);
+    }
+
+    auto ret = TupleNew("oo", rfd, wfd);
+
+    Release(rfd);
+    Release(wfd);
+
+    return (ArObject *) ret;
+}
+
 bool IOInit(Module *self) {
 #define ADD_CONSTANT(name, value)                   \
     if(!ModuleAddIntConstant(self, name, value))    \
@@ -70,9 +115,9 @@ bool IOInit(Module *self) {
     ADD_CONSTANT("SEEK_END", (int) FileWhence::END);
 
 #ifdef _ARGON_PLATFORM_WINDOWS
-    ADD_CONSTANT("STDIN_NO", _fileno(stdin));
-    ADD_CONSTANT("STDOUT_NO", _fileno(stdout));
-    ADD_CONSTANT("STDERR_NO", _fileno(stderr));
+        ADD_CONSTANT("STDIN_NO", _fileno(stdin));
+        ADD_CONSTANT("STDOUT_NO", _fileno(stdout));
+        ADD_CONSTANT("STDERR_NO", _fileno(stderr));
 #else
     ADD_CONSTANT("STDIN_NO", STDIN_FILENO);
     ADD_CONSTANT("STDOUT_NO", STDOUT_FILENO);
@@ -92,6 +137,7 @@ const ModuleEntry io_entries[] = {
         MODULE_EXPORT_FUNCTION(io_open),
         MODULE_EXPORT_FUNCTION(io_openfd),
         MODULE_EXPORT_FUNCTION(io_openfile),
+        MODULE_EXPORT_FUNCTION(io_mkpipe),
         ARGON_MODULE_SENTINEL
 };
 
