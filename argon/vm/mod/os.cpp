@@ -77,6 +77,35 @@ ARGON_FUNCTION(os_chdir, chdir,
     return (ArObject *) IncRef(Nil);
 }
 
+#ifndef _ARGON_PLATFORM_WINDOWS
+
+ARGON_FUNCTION(os_fork, fork,
+               "Creates a new process by duplicating the calling process.\n"
+               "\n"
+               "- Returns: On success, the PID of the child process is returned in the parent, "
+               "and 0 is returned in the child.",
+               nullptr, false, false) {
+    auto *rvalue = IntNew(0);
+    if (rvalue == nullptr)
+        return nullptr;
+
+    auto status = fork();
+
+    if (status < 0) {
+        Release(rvalue);
+
+        ErrorFromErrno(errno);
+
+        return nullptr;
+    }
+
+    rvalue->sint = status;
+
+    return (ArObject *) rvalue;
+}
+
+#endif
+
 ARGON_FUNCTION(os_getcwd, getcwd,
                "Return a string representing the current working directory.\n"
                "\n"
@@ -259,6 +288,9 @@ ARGON_FUNCTION(os_unsetenv, unsetenv,
 const ModuleEntry os_entries[] = {
         MODULE_EXPORT_FUNCTION(os_exit),
         MODULE_EXPORT_FUNCTION(os_chdir),
+#ifndef _ARGON_PLATFORM_WINDOWS
+        MODULE_EXPORT_FUNCTION(os_fork),
+#endif
         MODULE_EXPORT_FUNCTION(os_getenv),
         MODULE_EXPORT_FUNCTION(os_getcwd),
         MODULE_EXPORT_FUNCTION(os_getlogin),
