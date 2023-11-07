@@ -16,6 +16,12 @@
 #include <unistd.h>
 #include <sys/stat.h>
 
+#ifdef _ARGON_PLATFORM_DARWIN
+
+#include <crt_externs.h>
+
+#endif
+
 #endif
 
 #include <argon/vm/datatype/arstring.h>
@@ -28,7 +34,10 @@
 #include <argon/vm/datatype/nil.h>
 
 #include <argon/vm/mod/modules.h>
+#include "argon/vm/datatype/pcheck.h"
+#include "argon/vm/datatype/tuple.h"
 
+using namespace argon::vm;
 using namespace argon::vm::datatype;
 
 #define GET_CSTR(variable, target, fname, pname)                            \
@@ -51,15 +60,6 @@ int setenv(const char *name, const char *value, int overwrite) {
 
 #endif
 
-ARGON_FUNCTION(os_exit, exit,
-               "Exit to the system with specified status, without normal exit processing.\n"
-               "\n"
-               "- Parameter status: Integer value that defines the exit status.\n"
-               "- Returns: This function does not return to the caller.\n",
-               "i: status", false, false) {
-    exit((int) ((Integer *) args[0])->sint);
-}
-
 ARGON_FUNCTION(os_chdir, chdir,
                "Change the current working directory to path.\n"
                "\n"
@@ -77,7 +77,239 @@ ARGON_FUNCTION(os_chdir, chdir,
     return (ArObject *) IncRef(Nil);
 }
 
+ARGON_FUNCTION(os_exit, exit,
+               "Exit to the system with specified status, without normal exit processing.\n"
+               "\n"
+               "- Parameter status: Integer value that defines the exit status.\n"
+               "- Returns: This function does not return to the caller.\n",
+               "i: status", false, false) {
+    exit((int) ((Integer *) args[0])->sint);
+}
+
 #ifndef _ARGON_PLATFORM_WINDOWS
+
+bool Dict2Env(Dict *object, char ***out) {
+    ArObject *cursor;
+    char **envs;
+
+    int length = 1;
+    int index = 0;
+
+#ifdef _ARGON_PLATFORM_DARWIN
+    if (object == nullptr) {
+        *out = nullptr;
+
+        return *_NSGetEnviron();
+    }
+#endif
+
+    if (IsNull((ArObject *) object)) {
+        *out = nullptr;
+        return true;
+    }
+
+    length += (int) AR_SLOT_SUBSCRIPTABLE(object)->length((const ArObject *) object);
+
+    if ((envs = (char **) memory::Alloc(length * sizeof(void *))) == nullptr)
+        return false;
+
+    auto *iter = IteratorGet((ArObject *) object, false);
+    if (iter == nullptr) {
+        memory::Free(envs);
+
+        return false;
+    }
+
+    while ((index < length - 1) && (cursor = IteratorNext(iter)) != nullptr) {
+        auto *kv = (Tuple *) cursor;
+
+        auto *key = (String *) Str(kv->objects[0]);
+        auto *value = (String *) Str(kv->objects[1]);
+
+        if (key == nullptr || value == nullptr) {
+            Release(key);
+            Release(value);
+            Release(cursor);
+            Release(iter);
+
+            goto ERROR;
+        }
+
+        auto *variable = (char *) memory::Alloc(ARGON_RAW_STRING_LENGTH(key) + 1 + ARGON_RAW_STRING_LENGTH(value) + 1);
+        if (variable == nullptr) {
+            Release(key);
+            Release(value);
+            Release(cursor);
+            Release(iter);
+
+            goto ERROR;
+        }
+
+        auto *tmp = (char *) memory::MemoryCopy(variable, ARGON_RAW_STRING(key), ARGON_RAW_STRING_LENGTH(key));
+
+        *tmp++ = '=';
+
+        tmp = (char *) memory::MemoryCopy(tmp, ARGON_RAW_STRING(value), ARGON_RAW_STRING_LENGTH(value));
+
+        *tmp = '\0';
+
+        envs[index++] = variable;
+
+        Release(key);
+        Release(value);
+        Release(cursor);
+    }
+
+    envs[index] = nullptr;
+
+    *out = envs;
+
+    return true;
+
+    ERROR:
+
+    for (int i = 0; i < index; i++)
+        memory::Free(envs[i]);
+
+    memory::Free(envs);
+
+    return false;
+}
+
+char **Subscript2Argv(ArObject *object, String *p_name) {
+    String *str;
+    char **argv;
+
+    int argc = 1;
+    int index = 0;
+
+    if (p_name != nullptr) {
+        argc++;
+        index++;
+    }
+
+    if (!IsNull(object)) {
+        argc += (int) AR_SLOT_SUBSCRIPTABLE(object)->length(object);
+
+        argv = (char **) memory::Alloc(argc * sizeof(char *));
+        if (argv == nullptr)
+            return nullptr;
+
+        auto *iter = IteratorGet(object, false);
+        if (iter == nullptr) {
+            memory::Free(argv);
+
+            return nullptr;
+        }
+
+        ArObject *cursor;
+        while ((index < argc - 1) && (cursor = IteratorNext(iter)) != nullptr) {
+            str = (String *) Str(cursor);
+            if (str == nullptr) {
+                Release(cursor);
+                Release(iter);
+
+                goto ERROR;
+            }
+
+            if (!String2CString(str, argv + index)) {
+                Release(str);
+                Release(cursor);
+                Release(iter);
+
+                goto ERROR;
+            }
+
+            index++;
+
+            Release(str);
+            Release(cursor);
+        }
+
+        Release(iter);
+    } else {
+        argv = (char **) memory::Alloc(argc * sizeof(char *));
+        if (argv == nullptr)
+            return nullptr;
+    }
+
+    if (p_name != nullptr) {
+        if (!String2CString(p_name, argv))
+            goto ERROR;
+    }
+
+    argv[index] = nullptr;
+
+    return argv;
+
+    ERROR:
+
+    for (int i = 0; i < index; i++)
+        memory::Free(argv[i]);
+
+    memory::Free(argv);
+
+    return nullptr;
+}
+
+ARGON_FUNCTION(os_execve, execve,
+               "Execve execute a new program, replacing the current process.\n"
+               "\n"
+               "This function do not return!\n"
+               "\n"
+               "- Parameters:\n"
+               "  - file: Must be either a binary executable, or a script starting with shabang (#!).\n"
+               "  - args: List or Tuple of strings passed to the new program as its command-line arguments.\n"
+               "- KWParameters:\n"
+               "  - name: Boolean indicating whether to insert the program name as the first argument of args.\n"
+               "  - envs: Dict of key/value string pairs passed to the new program as environment variables.\n",
+               "s: file, ltn: args", false, true) {
+    char **exec_args;
+    char **exec_env;
+
+    Dict *envs = nullptr;
+
+    bool p_name;
+
+    if (!KParamLookupBool((Dict *) kwargs, "name", &p_name, true))
+        return nullptr;
+
+    if (kwargs != nullptr && !DictLookup((Dict *) kwargs, (const char *) "envs", (ArObject **) &envs))
+        return nullptr;
+
+    if (envs != nullptr && !AR_TYPEOF(envs, type_dict_) && envs != (Dict *) Nil) {
+        ErrorFormat(kTypeError[0], "expected '%s' or nil, got '%s'", type_dict_->name, AR_TYPE_QNAME(envs));
+
+        return nullptr;
+    }
+
+    exec_args = Subscript2Argv(args[1], (String *) (p_name ? args[0] : nullptr));
+    if (exec_args == nullptr)
+        return nullptr;
+
+    if (!Dict2Env(envs, &exec_env))
+        goto ERROR;
+
+    execve((const char *) ARGON_RAW_STRING((String *) args[0]), exec_args, exec_env);
+
+    ErrorFromErrno(errno);
+
+    ERROR:
+
+    for (int i = 0; exec_args[i] != nullptr; i++)
+        argon::vm::memory::Free(exec_args[i]);
+
+    argon::vm::memory::Free(exec_args);
+
+    if (!IsNull((ArObject *) envs)) {
+        for (int i = 0; exec_env[i] != nullptr; i++)
+            argon::vm::memory::Free(exec_env[i]);
+
+        argon::vm::memory::Free(exec_env);
+    }
+
+    return nullptr;
+}
 
 ARGON_FUNCTION(os_fork, fork,
                "Creates a new process by duplicating the calling process.\n"
@@ -286,9 +518,10 @@ ARGON_FUNCTION(os_unsetenv, unsetenv,
 }
 
 const ModuleEntry os_entries[] = {
-        MODULE_EXPORT_FUNCTION(os_exit),
         MODULE_EXPORT_FUNCTION(os_chdir),
+        MODULE_EXPORT_FUNCTION(os_exit),
 #ifndef _ARGON_PLATFORM_WINDOWS
+        MODULE_EXPORT_FUNCTION(os_execve),
         MODULE_EXPORT_FUNCTION(os_fork),
 #endif
         MODULE_EXPORT_FUNCTION(os_getenv),
