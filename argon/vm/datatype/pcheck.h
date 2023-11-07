@@ -6,6 +6,7 @@
 #define ARGON_VM_DATATYPE_PCHECK_H_
 
 #include <argon/vm/datatype/arobject.h>
+#include <argon/vm/datatype/dict.h>
 
 namespace argon::vm::datatype {
     struct Param {
@@ -29,13 +30,13 @@ namespace argon::vm::datatype {
     bool VariadicCheckPositional(const char *name, unsigned int nargs, unsigned int min, unsigned int max);
 
     // KWParameters utilities
-    bool KParamLookupInt(Dict *kwargs, const char *key, IntegerUnderlying *out, IntegerUnderlying _default);
+    _ARGONAPI bool KParamLookupBool(Dict *kwargs, const char *key, bool *out, bool _default);
 
-    //String *KParamLookupStr(Dict *kwargs, const char *key, const char *_default, bool *);
+    _ARGONAPI bool KParamLookupInt(Dict *kwargs, const char *key, IntegerUnderlying *out, IntegerUnderlying _default);
 
-    bool KParamLookupStr(Dict *kwargs, const char *key, String **out, const char *_default, bool *out_isdef);
+    _ARGONAPI bool KParamLookupStr(Dict *kwargs, const char *key, String **out, const char *_default, bool *out_isdef);
 
-    bool KParamLookupUInt(Dict *kwargs, const char *key, UIntegerUnderlying *out, UIntegerUnderlying _default);
+    _ARGONAPI bool KParamLookupUInt(Dict *kwargs, const char *key, UIntegerUnderlying *out, UIntegerUnderlying _default);
 
 } // namespace argon::vm::datatype
 
