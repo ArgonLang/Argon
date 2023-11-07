@@ -881,6 +881,23 @@ ArSize argon::vm::datatype::StringSubstrLen(const String *string, ArSize offset,
     return buf - (STR_BUF(string) + offset);
 }
 
+bool argon::vm::datatype::String2CString(String *string, char **out) {
+    char *str;
+
+    assert(out != nullptr);
+
+    str = (char *) memory::Alloc(STR_LEN(string) + 1);
+    if (str == nullptr)
+        return false;
+
+    memory::MemoryCopy(str, STR_BUF(string), STR_LEN(string));
+    str[STR_LEN(string)] = '\0';
+
+    *out = str;
+
+    return true;
+}
+
 bool argon::vm::datatype::StringEndswith(const String *string, const String *pattern) {
     auto n = (ArSSize) (STR_LEN(string) - STR_LEN(pattern));
 

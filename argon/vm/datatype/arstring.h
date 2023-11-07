@@ -128,6 +128,15 @@ namespace argon::vm::datatype {
         return support::Find(string->buffer, string->length, (const unsigned char *) pattern, strlen(pattern), true);
     }
 
+    /***
+     * @brief Converts an Argon String to a C-String.
+     *
+     * @param string Pointer to Argon String to covert.
+     * @param out Pointer to a memory area where to allocate and copy the contents of String.
+     * @return True on success, in the event of an error false will be returned and a panic state will be set.
+     */
+    bool String2CString(String *string, char **out);
+
     /**
      * @brief Returns true if the string ends with the specified value.
      *
