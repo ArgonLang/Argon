@@ -629,6 +629,22 @@ File *argon::vm::io::FileNew(const char *path, FileMode mode) {
     return file;
 }
 
+File *argon::vm::io::FileNew(IOHandle handle, FileMode mode) {
+    if (handle == INVALID_HANDLE_VALUE) {
+        ErrorFromErrno(errno);
+        return nullptr;
+    }
+
+    auto *file = MakeObject<File>(&FileType);
+    if (file == nullptr)
+        return nullptr;
+
+    file->handle = handle;
+    file->mode = mode;
+
+    return file;
+}
+
 File *argon::vm::io::FileNew(int fd, FileMode mode) {
     auto handle = (HANDLE) _get_osfhandle(fd);
     if (handle == INVALID_HANDLE_VALUE) {

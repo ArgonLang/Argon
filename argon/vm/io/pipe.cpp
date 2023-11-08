@@ -7,6 +7,9 @@
 #include <argon/vm/datatype/error.h>
 
 #ifdef _ARGON_PLATFORM_WINDOWS
+
+#include <windows.h>
+
 #else
 
 #include <unistd.h>
@@ -20,6 +23,29 @@
 using namespace argon::vm::datatype;
 using namespace argon::vm::io;
 
+#ifdef _ARGON_PLATFORM_WINDOWS
+
+bool argon::vm::io::MakePipe(IOHandle *read, IOHandle *write, int flags) {
+    SECURITY_ATTRIBUTES secattr{};
+
+    secattr.nLength = sizeof(SECURITY_ATTRIBUTES);
+    secattr.lpSecurityDescriptor = nullptr;
+
+    secattr.bInheritHandle = true;
+
+    if (flags & O_CLOEXEC)
+        secattr.bInheritHandle = false;
+
+    if (CreatePipe(read, write, &secattr, 0) == 0) {
+        ErrorFromWinErr();
+
+        return false;
+    }
+
+    return true;
+}
+
+#else
 bool argon::vm::io::MakePipe(IOHandle *read, IOHandle *write, int flags) {
     IOHandle pipefd[2]{};
 
@@ -52,6 +78,7 @@ bool argon::vm::io::MakePipe(IOHandle *read, IOHandle *write, int flags) {
 
     return true;
 }
+#endif
 
 void argon::vm::io::ClosePipe(IOHandle pipe) {
 #ifdef _ARGON_PLATFORM_WINDOWS

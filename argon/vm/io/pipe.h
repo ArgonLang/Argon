@@ -12,6 +12,12 @@
 #include <argon/vm/io/io.h>
 
 namespace argon::vm::io {
+#ifdef _ARGON_PLATFORM_WINDOWS
+#ifndef O_CLOEXEC
+#define O_CLOEXEC 02000000
+#endif
+#endif
+
     _ARGONAPI bool MakePipe(IOHandle *read, IOHandle *write, int flags);
 
     _ARGONAPI void ClosePipe(IOHandle pipe);

@@ -66,6 +66,10 @@ namespace argon::vm::io {
 
     File *FileNew(const char *path, FileMode mode);
 
+#ifdef _ARGON_PLATFORM_WINDOWS
+    File *FileNew(IOHandle handle, FileMode mode);
+#endif
+
     File *FileNew(int fd, FileMode mode);
 
 } // namespace argon::vm::io
