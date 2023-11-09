@@ -8,8 +8,12 @@
 
 #include <direct.h>
 #include <process.h>
+#include <windows.h>
 
 #include <argon/vm/support/nt/nt.h>
+
+#undef CONST
+#undef ERROR
 
 #else
 
@@ -85,8 +89,6 @@ ARGON_FUNCTION(os_exit, exit,
                "i: status", false, false) {
     exit((int) ((Integer *) args[0])->sint);
 }
-
-#ifndef _ARGON_PLATFORM_WINDOWS
 
 bool Dict2Env(Dict *object, char ***out) {
     ArObject *cursor;
@@ -290,7 +292,11 @@ ARGON_FUNCTION(os_execve, execve,
     if (!Dict2Env(envs, &exec_env))
         goto ERROR;
 
+#ifndef _ARGON_PLATFORM_WINDOWS
     execve((const char *) ARGON_RAW_STRING((String *) args[0]), exec_args, exec_env);
+#else
+    _execve((const char *) ARGON_RAW_STRING((String *) args[0]), exec_args, exec_env);
+#endif
 
     ErrorFromErrno(errno);
 
@@ -310,6 +316,8 @@ ARGON_FUNCTION(os_execve, execve,
 
     return nullptr;
 }
+
+#ifndef _ARGON_PLATFORM_WINDOWS
 
 ARGON_FUNCTION(os_fork, fork,
                "Creates a new process by duplicating the calling process.\n"
@@ -520,8 +528,8 @@ ARGON_FUNCTION(os_unsetenv, unsetenv,
 const ModuleEntry os_entries[] = {
         MODULE_EXPORT_FUNCTION(os_chdir),
         MODULE_EXPORT_FUNCTION(os_exit),
-#ifndef _ARGON_PLATFORM_WINDOWS
         MODULE_EXPORT_FUNCTION(os_execve),
+#ifndef _ARGON_PLATFORM_WINDOWS
         MODULE_EXPORT_FUNCTION(os_fork),
 #endif
         MODULE_EXPORT_FUNCTION(os_getenv),
