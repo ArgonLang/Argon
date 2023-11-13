@@ -312,6 +312,33 @@ ARGON_METHOD(str_replace, replace,
                                       (String *) args[1], ((Integer *) args[2])->sint);
 }
 
+ARGON_METHOD(str_reverse, reverse,
+             "Create a new string by reversing all characters.\n"
+             "\n"
+             "- Returns: Reversed string.\n",
+             nullptr, false, false) {
+    const auto *self = (String *) _self;
+    unsigned char *buffer;
+    ArSize index = 0;
+
+    if ((buffer = (unsigned char *) argon::vm::memory::Alloc(STR_LEN(self) + 1)) == nullptr)
+        return nullptr;
+
+    for (ArSize i = STR_LEN(self); i > 0; i--)
+        buffer[index++] = STR_BUF(self)[i - 1];
+
+    buffer[index] = '\0';
+
+    auto *ret = StringNewHoldBuffer(buffer, index);
+    if (ret == nullptr) {
+        argon::vm::memory::Free(buffer);
+
+        return nullptr;
+    }
+
+    return (ArObject *) ret;
+}
+
 ARGON_METHOD(str_rfind, rfind,
              "Searches the string for a specified value and returns the last position of where it was found.\n"
              "\n"
@@ -550,6 +577,7 @@ const FunctionDef string_methods[] = {
         str_ltrim,
         str_ord,
         str_replace,
+        str_reverse,
         str_rfind,
         str_join,
         str_split,
@@ -1013,9 +1041,9 @@ String *argon::vm::datatype::StringFormat(const char *format, ...) {
     va_list args;
     String *str;
 
-    va_start(args, format);
+            va_start(args, format);
     str = StringFormat(format, args);
-    va_end(args);
+            va_end(args);
 
     return str;
 }
@@ -1027,7 +1055,7 @@ String *argon::vm::datatype::StringFormat(const char *format, va_list args) {
 
     va_copy(vargs2, args);
     sz = vsnprintf(nullptr, 0, format, vargs2) + 1; // +1 is for '\0'
-    va_end(vargs2);
+            va_end(vargs2);
 
     if ((str = StringInit(sz - 1, true)) == nullptr)
         return nullptr;
@@ -1036,7 +1064,7 @@ String *argon::vm::datatype::StringFormat(const char *format, va_list args) {
 
     va_copy(vargs2, args);
     vsnprintf((char *) STR_BUF(str), sz, format, vargs2);
-    va_end(vargs2);
+            va_end(vargs2);
 
     return str;
 }

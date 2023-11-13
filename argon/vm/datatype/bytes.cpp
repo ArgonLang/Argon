@@ -591,6 +591,38 @@ ARGON_METHOD(bytes_replace, replace,
                                      (Bytes *) args[1], ((Integer *) args[2])->sint);
 }
 
+ARGON_METHOD(bytes_reverse, reverse,
+             "Create a new bytes string by reversing all bytes.\n"
+             "\n"
+             "- Returns: Reversed bytes string.\n",
+             nullptr, false, false) {
+    auto *self = (Bytes *) _self;
+    unsigned char *buffer;
+    ArSize index = 0;
+
+    SHARED_LOCK(self);
+
+    if ((buffer = (unsigned char *) argon::vm::memory::Alloc(BUFFER_LEN(self))) == nullptr){
+        SHARED_UNLOCK(self);
+
+        return nullptr;
+    }
+
+    for (ArSize i = BUFFER_LEN(self); i > 0; i--)
+        buffer[index++] = BUFFER_GET(self)[i - 1];
+
+    SHARED_UNLOCK(self);
+
+    auto *ret = BytesNewHoldBuffer(buffer, BUFFER_LEN(self), BUFFER_LEN(self), false);
+    if (ret == nullptr) {
+        argon::vm::memory::Free(buffer);
+
+        return nullptr;
+    }
+
+    return (ArObject *) ret;
+}
+
 ARGON_METHOD(bytes_rfind, rfind,
              "Searches the bytes string for a specified value and returns the last position of where it was found.\n"
              "\n"
@@ -929,6 +961,7 @@ const FunctionDef bytes_method[] = {
         bytes_tohex,
         bytes_tostr,
         bytes_replace,
+        bytes_reverse,
         bytes_rfind,
         bytes_rmpostfix,
         bytes_rmprefix,
