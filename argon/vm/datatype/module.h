@@ -78,6 +78,8 @@ namespace argon::vm::datatype {
 
     bool ModuleAddObject(Module *mod, const char *key, ArObject *object, AttributeFlag flags);
 
+    bool ModuleAddUIntConstant(Module *mod, const char *key, ArSize value);
+
     Module *ModuleNew(const ModuleInit *init);
 
     Module *ModuleNew(String *name, String *doc);

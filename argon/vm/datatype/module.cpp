@@ -295,6 +295,18 @@ bool argon::vm::datatype::ModuleAddObject(Module *mod, const char *key, ArObject
     return ok;
 }
 
+bool argon::vm::datatype::ModuleAddUIntConstant(Module *mod, const char *key, ArSize value) {
+    auto *avalue = UIntNew(value);
+    bool ok = false;
+
+    if (avalue != nullptr) {
+        ok = ModuleAddObject(mod, key, (ArObject *) avalue, MODULE_ATTRIBUTE_DEFAULT);
+        Release(avalue);
+    }
+
+    return ok;
+}
+
 Module *argon::vm::datatype::ModuleNew(const ModuleInit *init) {
     auto *mod = ModuleNew(init->name, init->doc);
 
