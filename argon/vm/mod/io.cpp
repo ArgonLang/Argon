@@ -68,7 +68,7 @@ ARGON_FUNCTION(io_mkpipe, mkpipe,
                nullptr, false, true) {
     IntegerUnderlying flags;
 
-    if (!KParamLookupInt((Dict *) kwargs, "flags", &flags, O_CLOEXEC))
+    if (!KParamLookupInt((Dict *) kwargs, "flags", &flags, 0))
         return nullptr;
 
     IOHandle read;
