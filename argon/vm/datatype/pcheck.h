@@ -30,6 +30,8 @@ namespace argon::vm::datatype {
     bool VariadicCheckPositional(const char *name, unsigned int nargs, unsigned int min, unsigned int max);
 
     // KWParameters utilities
+    _ARGONAPI bool KParamLookup(Dict *kwargs, const char *key, const TypeInfo *type, ArObject **out, ArObject *_default);
+
     _ARGONAPI bool KParamLookupBool(Dict *kwargs, const char *key, bool *out, bool _default);
 
     _ARGONAPI bool KParamLookupInt(Dict *kwargs, const char *key, IntegerUnderlying *out, IntegerUnderlying _default);
