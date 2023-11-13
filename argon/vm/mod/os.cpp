@@ -8,8 +8,9 @@
 
 #include <direct.h>
 #include <process.h>
-#include <windows.h>
+#include <Windows.h>
 
+#include <argon/vm/io/fio.h>
 #include <argon/vm/support/nt/nt.h>
 
 #undef CONST
@@ -90,6 +91,227 @@ ARGON_FUNCTION(os_exit, exit,
     exit((int) ((Integer *) args[0])->sint);
 }
 
+#ifdef _ARGON_PLATFORM_WINDOWS
+
+bool Dict2StringEnv(Dict *object, char **out) {
+    char *envs = nullptr;
+
+    ArSize length = 0;
+    ArSize index = 0;
+
+    *out = nullptr;
+
+    if (IsNull((ArObject *) object))
+        return true;
+
+    auto *iter = IteratorGet((ArObject *) object, false);
+    if (iter == nullptr) {
+        memory::Free(envs);
+
+        return false;
+    }
+
+    ArObject *cursor;
+    bool first = true;
+    while ((cursor = IteratorNext(iter)) != nullptr) {
+        const auto *kv = (Tuple *) cursor;
+
+        auto *key = (String *) Str(kv->objects[0]);
+        auto *value = (String *) Str(kv->objects[1]);
+
+        if (key == nullptr || value == nullptr) {
+            Release(key);
+            Release(value);
+
+            goto ERROR;
+        }
+
+        auto required = ARGON_RAW_STRING_LENGTH(key) + ARGON_RAW_STRING_LENGTH(value) + 1;
+
+        if (first) {
+            length = (required * 2) + 1;
+
+            envs = (char *) memory::Alloc(length);
+            if (envs == nullptr) {
+                Release(key);
+                Release(value);
+
+                goto ERROR;
+            }
+        } else if (required >= (length - 1) - index) {
+            length += (required * 2);
+
+            auto *tmp = (char *) memory::Realloc(envs, length);
+            if (tmp == nullptr) {
+                Release(key);
+                Release(value);
+
+                goto ERROR;
+            }
+
+            envs = tmp;
+        }
+
+        memory::MemoryCopy(envs + index, ARGON_RAW_STRING(key), ARGON_RAW_STRING_LENGTH(key));
+
+        index += ARGON_RAW_STRING_LENGTH(key);
+
+        envs[index++] = '=';
+
+        memory::MemoryCopy(envs + index, ARGON_RAW_STRING(value), ARGON_RAW_STRING_LENGTH(value));
+
+        index += ARGON_RAW_STRING_LENGTH(value);
+
+        envs[index++] = '\0';
+
+        Release(cursor);
+        first = false;
+    }
+
+    Release(iter);
+
+    if (first) {
+        envs = (char *) memory::Alloc(2);
+        if(envs == nullptr)
+            return false;
+
+        envs[index++] = '\0';
+    }
+
+    envs[index] = '\0';
+
+    *out = envs;
+
+    return true;
+
+    ERROR:
+    Release(cursor);
+    Release(iter);
+
+    memory::Free(envs);
+
+    return false;
+}
+
+ARGON_FUNCTION(os_createprocess, createprocess,
+               "- Parameters:\n"
+               "  - file: Name or path of binary executable.\n"
+               "  - args: String passed to the new program as its command-line arguments.\n"
+               "- KWParameters:\n"
+               "  - envs: Dict of key/value string pairs passed to the new program as environment variables.\n"
+               "  - dwFlags: Flags that control the priority class and the creation of the process.\n"
+               "  - stdin: Standard input handle for the process.\n"
+               "  - stdout: Standard output handle for the process.\n"
+               "  - stderr: Standard error handle for the process.\n"
+               "  - lpTitle:For console processes, this is the title displayed in the title bar if a new console window is created.\n",
+               "sn: file, sn: argv", false, true) {
+    PROCESS_INFORMATION pinfo{};
+    STARTUPINFO sinfo{};
+
+    Dict *envs = nullptr;
+
+    const char *name = nullptr;
+    char *argv = nullptr;
+    char *exec_envs = nullptr;
+
+    String *lptitle = nullptr;
+
+    io::File *in = nullptr;
+    io::File *out = nullptr;
+    io::File *err = nullptr;
+
+    int ok = -255;
+    UIntegerUnderlying flags;
+
+    if (!IsNull(args[0]))
+        name = (const char *) ARGON_RAW_STRING((String *) args[0]);
+
+    if (!IsNull(args[1]) && !String2CString((String *) args[1], &argv))
+        return nullptr;
+
+    if (!KParamLookupUInt((Dict *) kwargs, "dwFlags", &flags, 0))
+        goto ERROR;
+
+    if (!KParamLookup((Dict *) kwargs, "stdin", io::type_file_, (ArObject **) &in, nullptr))
+        goto ERROR;
+
+    if (!KParamLookup((Dict *) kwargs, "stdout", io::type_file_, (ArObject **) &out, nullptr))
+        goto ERROR;
+
+    if (!KParamLookup((Dict *) kwargs, "stderr", io::type_file_, (ArObject **) &err, nullptr))
+        goto ERROR;
+
+    if (!KParamLookupStr((Dict *) kwargs, "lpTitle", &lptitle, nullptr, nullptr))
+        goto ERROR;
+
+    // Extract environments variables
+    if (kwargs != nullptr && !DictLookup((Dict *) kwargs, (const char *) "envs", (ArObject **) &envs))
+        goto ERROR;
+
+    if (envs != nullptr && !AR_TYPEOF(envs, type_dict_) && envs != (Dict *) Nil) {
+        ErrorFormat(kTypeError[0], "expected '%s' or nil, got '%s'", type_dict_->name, AR_TYPE_QNAME(envs));
+
+        goto ERROR;
+    }
+
+    if (!Dict2StringEnv(envs, &exec_envs))
+        goto ERROR;
+
+    // EOL
+
+    sinfo.cb = sizeof(STARTUPINFO);
+
+    if (lptitle != nullptr)
+        sinfo.lpTitle = (char *) ARGON_RAW_STRING(lptitle);
+
+    if (in != nullptr || out != nullptr || err != nullptr)
+        sinfo.dwFlags = STARTF_USESTDHANDLES;
+
+    sinfo.hStdInput = in == nullptr ? nullptr : in->handle;
+    sinfo.hStdOutput = out == nullptr ? nullptr : out->handle;
+    sinfo.hStdError = err == nullptr ? nullptr : err->handle;
+
+    ok = CreateProcess(
+            name,
+            argv,
+            nullptr,
+            nullptr,
+            true,
+            flags,
+            exec_envs,
+            nullptr,
+            &sinfo,
+            &pinfo
+    );
+
+    ERROR:
+
+    Release(envs);
+    Release(in);
+    Release(out);
+    Release(err);
+
+    memory::Free(argv);
+
+    argon::vm::memory::Free(exec_envs);
+
+    if (ok == -255)
+        return nullptr;
+
+    if (ok == 0) {
+        ErrorFromWinErr();
+
+        return nullptr;
+    }
+
+    CloseHandle(pinfo.hProcess);
+    CloseHandle(pinfo.hThread);
+
+    return (ArObject *) IncRef(Nil);
+}
+
+#endif
+
 bool Dict2Env(Dict *object, char ***out) {
     ArObject *cursor;
     char **envs;
@@ -97,18 +319,18 @@ bool Dict2Env(Dict *object, char ***out) {
     int length = 1;
     int index = 0;
 
+    *out = nullptr;
+
 #ifdef _ARGON_PLATFORM_DARWIN
     if (object == nullptr) {
-        *out = nullptr;
+        *out = *_NSGetEnviron();
 
-        return *_NSGetEnviron();
+        return true;
     }
 #endif
 
-    if (IsNull((ArObject *) object)) {
-        *out = nullptr;
+    if (IsNull((ArObject *) object))
         return true;
-    }
 
     length += (int) AR_SLOT_SUBSCRIPTABLE(object)->length((const ArObject *) object);
 
@@ -123,7 +345,7 @@ bool Dict2Env(Dict *object, char ***out) {
     }
 
     while ((index < length - 1) && (cursor = IteratorNext(iter)) != nullptr) {
-        auto *kv = (Tuple *) cursor;
+        const auto *kv = (Tuple *) cursor;
 
         auto *key = (String *) Str(kv->objects[0]);
         auto *value = (String *) Str(kv->objects[1]);
@@ -235,10 +457,8 @@ char **Subscript2Argv(ArObject *object, String *p_name) {
             return nullptr;
     }
 
-    if (p_name != nullptr) {
-        if (!String2CString(p_name, argv))
-            goto ERROR;
-    }
+    if (p_name != nullptr && !String2CString(p_name, argv))
+        goto ERROR;
 
     argv[index] = nullptr;
 
@@ -282,12 +502,17 @@ ARGON_FUNCTION(os_execve, execve,
     if (envs != nullptr && !AR_TYPEOF(envs, type_dict_) && envs != (Dict *) Nil) {
         ErrorFormat(kTypeError[0], "expected '%s' or nil, got '%s'", type_dict_->name, AR_TYPE_QNAME(envs));
 
+        Release(envs);
+
         return nullptr;
     }
 
     exec_args = Subscript2Argv(args[1], (String *) (p_name ? args[0] : nullptr));
-    if (exec_args == nullptr)
+    if (exec_args == nullptr) {
+        Release(envs);
+
         return nullptr;
+    }
 
     if (!Dict2Env(envs, &exec_env))
         goto ERROR;
@@ -307,12 +532,14 @@ ARGON_FUNCTION(os_execve, execve,
 
     argon::vm::memory::Free(exec_args);
 
-    if (!IsNull((ArObject *) envs)) {
+    if (!IsNull((ArObject *) envs) && exec_env != nullptr) {
         for (int i = 0; exec_env[i] != nullptr; i++)
             argon::vm::memory::Free(exec_env[i]);
 
         argon::vm::memory::Free(exec_env);
     }
+
+    Release(envs);
 
     return nullptr;
 }
@@ -527,6 +754,9 @@ ARGON_FUNCTION(os_unsetenv, unsetenv,
 
 const ModuleEntry os_entries[] = {
         MODULE_EXPORT_FUNCTION(os_chdir),
+#ifdef _ARGON_PLATFORM_WINDOWS
+        MODULE_EXPORT_FUNCTION(os_createprocess),
+#endif
         MODULE_EXPORT_FUNCTION(os_exit),
         MODULE_EXPORT_FUNCTION(os_execve),
 #ifndef _ARGON_PLATFORM_WINDOWS
@@ -549,8 +779,31 @@ bool OSInit(Module *self) {
     if(!ModuleAddIntConstant(self, #c, c))  \
         return false
 
+#define AddUIntConstant(c)                  \
+    if(!ModuleAddUIntConstant(self, #c, c)) \
+        return false
+
     bool ok;
     String *sep;
+
+#ifdef _ARGON_PLATFORM_WINDOWS
+    AddUIntConstant(CREATE_BREAKAWAY_FROM_JOB);
+    AddUIntConstant(CREATE_DEFAULT_ERROR_MODE);
+    AddUIntConstant(CREATE_NEW_CONSOLE);
+    AddUIntConstant(CREATE_NEW_PROCESS_GROUP);
+    AddUIntConstant(CREATE_NO_WINDOW);
+    AddUIntConstant(CREATE_PROTECTED_PROCESS);
+    AddUIntConstant(CREATE_PRESERVE_CODE_AUTHZ_LEVEL);
+    AddUIntConstant(CREATE_SECURE_PROCESS);
+    AddUIntConstant(CREATE_SEPARATE_WOW_VDM);
+    AddUIntConstant(CREATE_SUSPENDED);
+    AddUIntConstant(CREATE_UNICODE_ENVIRONMENT);
+    AddUIntConstant(DEBUG_ONLY_THIS_PROCESS);
+    AddUIntConstant(DEBUG_PROCESS);
+    AddUIntConstant(DETACHED_PROCESS);
+    AddUIntConstant(EXTENDED_STARTUPINFO_PRESENT);
+    AddUIntConstant(INHERIT_PARENT_AFFINITY);
+#endif
 
     AddIntConstant(EXIT_SUCCESS);
 
