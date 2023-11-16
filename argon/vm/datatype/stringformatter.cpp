@@ -2,6 +2,7 @@
 //
 // Licensed under the Apache License v2.0
 
+#include <cstdio>
 #include <cctype>
 
 #include <argon/vm/runtime.h>
