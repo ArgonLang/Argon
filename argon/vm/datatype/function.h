@@ -17,14 +17,16 @@
 
 namespace argon::vm::datatype {
     enum class FunctionFlags : unsigned short {
-        NATIVE = 1,
-        METHOD = 1u << 1,
-        CLOSURE = 1u << 2,
-        VARIADIC = 1u << 3,
-        KWARGS = 1u << 4,
-        DEFARGS = 1u << 5,
-        GENERATOR = 1u << 6,
-        ASYNC = 1u << 7,
+        ASYNC = 1,
+        DEFARGS = 1u << 1,
+        GENERATOR = 1u << 2,
+        KWARGS = 1u << 3,
+        METHOD = 1u << 4,
+        STATIC = 1u << 5,
+        VARIADIC = 1U << 6,
+
+        // Not usable at compile time
+        NATIVE = 1u << 7,
         RECOVERABLE = 1u << 8
     };
 }
