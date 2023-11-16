@@ -494,7 +494,6 @@ ArObject *argon::vm::Eval(Fiber *fiber) {
             &&LBL_MKDT,
             &&LBL_MKFN,
             &&LBL_MKLT,
-            &&LBL_MKNS,
             &&LBL_MKST,
             &&LBL_MKSTRUCT,
             &&LBL_MKTP,
@@ -504,7 +503,6 @@ ArObject *argon::vm::Eval(Fiber *fiber) {
             &&LBL_NEG,
             &&LBL_NGV,
             &&LBL_NOT,
-            &&LBL_NSTORE,
             &&LBL_NXT,
             &&LBL_PANIC,
             &&LBL_PBHEAD,
@@ -531,6 +529,7 @@ ArObject *argon::vm::Eval(Fiber *fiber) {
             &&LBL_SYNC,
             &&LBL_TEST,
             &&LBL_TRAP,
+            &&LBL_TSTORE,
             &&LBL_UNPACK,
             &&LBL_UNSYNC,
             &&LBL_YLD
@@ -1131,14 +1130,6 @@ ArObject *argon::vm::Eval(Fiber *fiber) {
                 PUSH((ArObject *) list);
                 DISPATCH();
             }
-            TARGET_OP(MKNS)
-            {
-                if ((ret = (ArObject *) NamespaceNew()) == nullptr)
-                    break;
-
-                PUSH(ret);
-                DISPATCH();
-            }
             TARGET_OP(MKST)
             {
                 auto args = I32Arg(cu_frame->instr_ptr);
@@ -1176,10 +1167,10 @@ ArObject *argon::vm::Eval(Fiber *fiber) {
                 auto trait_count = I32Arg(cu_frame->instr_ptr);
                 auto *stack_base = cu_frame->eval_stack - trait_count;
 
-                ret = StructTypeNew((String *) *(stack_base - 4),
-                                    (String *) *(stack_base - 3),
+                ret = StructTypeNew((String *) *(stack_base - 3),
                                     (String *) *(stack_base - 2),
-                                    (Namespace *) *(stack_base - 1),
+                                    (String *) *(stack_base - 1),
+                                    nullptr,
                                     (TypeInfo **) stack_base,
                                     trait_count);
 
@@ -1188,7 +1179,6 @@ ArObject *argon::vm::Eval(Fiber *fiber) {
 
                 STACK_REWIND(trait_count);
 
-                POP(); // namespace
                 POP(); // doc
                 POP(); // qname
 
@@ -1217,10 +1207,10 @@ ArObject *argon::vm::Eval(Fiber *fiber) {
                 auto trait_count = I32Arg(cu_frame->instr_ptr);
                 auto *stack_base = cu_frame->eval_stack - trait_count;
 
-                ret = TraitNew((const char *) ARGON_RAW_STRING((String *) *(stack_base - 4)),
-                               (const char *) ARGON_RAW_STRING((String *) *(stack_base - 3)),
+                ret = TraitNew((const char *) ARGON_RAW_STRING((String *) *(stack_base - 3)),
                                (const char *) ARGON_RAW_STRING((String *) *(stack_base - 2)),
-                               *(stack_base - 1),
+                               (const char *) ARGON_RAW_STRING((String *) *(stack_base - 1)),
+                               nullptr,
                                (TypeInfo **) stack_base,
                                trait_count);
 
@@ -1229,7 +1219,6 @@ ArObject *argon::vm::Eval(Fiber *fiber) {
 
                 STACK_REWIND(trait_count);
 
-                POP(); // namespace
                 POP(); // doc
                 POP(); // qname
 
@@ -1263,20 +1252,6 @@ ArObject *argon::vm::Eval(Fiber *fiber) {
             TARGET_OP(NOT)
             {
                 TOP_REPLACE(BoolToArBool(!IsTrue(TOP())));
-                DISPATCH();
-            }
-            TARGET_OP(NSTORE)
-            {
-                if (!AR_TYPEOF(PEEK2(), type_namespace_)) {
-                    ErrorFormat(kRuntimeError[0], "unexpected type in evaluation stack during NSTORE execution");
-                    break;
-                }
-
-                if (!NamespaceNewSymbol((Namespace *) PEEK2(), TOP(), PEEK1(),
-                                        (AttributeFlag) I16Arg(cu_frame->instr_ptr)))
-                    break;
-
-                STACK_REWIND(2);
                 DISPATCH();
             }
             TARGET_OP(NXT)
@@ -1580,6 +1555,23 @@ ArObject *argon::vm::Eval(Fiber *fiber) {
                 else
                     PUSH(ret);
 
+                DISPATCH();
+            }
+            TARGET_OP(TSTORE)
+            {
+                auto *base = (TypeInfo *) PEEK2();
+
+                if (AR_GET_TYPE(base) != type_type_) {
+                    ErrorFormat(kRuntimeError[0], "expected type in evaluation stack during TSTORE execution");
+                    break;
+                }
+
+                if (!NamespaceNewSymbol((Namespace *) base->tp_map, TOP(), PEEK1(),
+                                        (AttributeFlag) I16Arg(cu_frame->instr_ptr)))
+                    break;
+
+                POP();
+                POP();
                 DISPATCH();
             }
             TARGET_OP(UNPACK)

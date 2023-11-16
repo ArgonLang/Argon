@@ -671,10 +671,6 @@ void Compiler::CompileConstruct(const parser::Construct *construct) {
 
     this->LoadStatic(doc.Get(), false, true);
 
-    this->unit_->Emit(vm::OpCode::MKNS, nullptr);
-
-    this->CompileBlock(construct->body, false);
-
     if (construct->impls != nullptr) {
         ARC iter;
         ARC tmp;
@@ -693,7 +689,7 @@ void Compiler::CompileConstruct(const parser::Construct *construct) {
 
     this->unit_->Emit(opcode, impls, nullptr, &construct->loc);
 
-    this->unit_->DecrementStack(1);
+    this->CompileBlock(construct->body, false);
 
     this->TUScopeExit();
 
@@ -1051,8 +1047,6 @@ void Compiler::CompileFunctionLoadClosure(const Code *code, FunctionFlags &flags
     this->unit_->DecrementStack((int) code->enclosed->length);
 
     this->unit_->Emit(vm::OpCode::MKLT, (int) code->enclosed->length, nullptr, nullptr);
-
-    flags |= FunctionFlags::CLOSURE;
 }
 
 void Compiler::CompileFunctionParams(vm::datatype::List *params, unsigned short &p_count, FunctionFlags &flags) {
@@ -1923,7 +1917,7 @@ void Compiler::IdentifierNew(String *name, const scanner::Loc *loc, SymbolType t
 
     if (this->unit_->symt->type == SymbolType::STRUCT || this->unit_->symt->type == SymbolType::TRAIT) {
         this->LoadStatic((ArObject *) name, true, true);
-        this->unit_->Emit(vm::OpCode::NSTORE, (unsigned char) aflags, nullptr, loc);
+        this->unit_->Emit(vm::OpCode::TSTORE, (unsigned char) aflags, nullptr, loc);
         return;
     }
 
