@@ -291,7 +291,7 @@ bool argon::vm::datatype::VariadicCheckPositional(const char *name, unsigned int
 // KWParameters utilities
 
 bool argon::vm::datatype::KParamLookup(Dict *kwargs, const char *key, const TypeInfo *type,
-                                       ArObject **out, ArObject *_default) {
+                                       ArObject **out, ArObject *_default, bool nil_as_default) {
     ArObject *obj;
 
     if (kwargs == nullptr) {
@@ -312,9 +312,16 @@ bool argon::vm::datatype::KParamLookup(Dict *kwargs, const char *key, const Type
     }
 
     if (!AR_TYPEOF(obj, type)) {
-        ErrorFormat(kTypeError[0], kTypeError[2], type->qname, AR_TYPE_QNAME(obj));
-
         Release(obj);
+
+        if (obj == (ArObject*)Nil && nil_as_default) {
+            if (out != nullptr)
+                *out = _default;
+
+            return true;
+        }
+
+        ErrorFormat(kTypeError[0], kTypeError[2], type->qname, AR_TYPE_QNAME(obj));
         return false;
     }
 

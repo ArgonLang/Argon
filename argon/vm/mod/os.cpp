@@ -232,13 +232,13 @@ ARGON_FUNCTION(os_createprocess, createprocess,
     if (!KParamLookupUInt((Dict *) kwargs, "dwFlags", &flags, 0))
         goto ERROR;
 
-    if (!KParamLookup((Dict *) kwargs, "stdin", io::type_file_, (ArObject **) &in, nullptr))
+    if (!KParamLookup((Dict *) kwargs, "stdin", io::type_file_, (ArObject **) &in, nullptr, true))
         goto ERROR;
 
-    if (!KParamLookup((Dict *) kwargs, "stdout", io::type_file_, (ArObject **) &out, nullptr))
+    if (!KParamLookup((Dict *) kwargs, "stdout", io::type_file_, (ArObject **) &out, nullptr, true))
         goto ERROR;
 
-    if (!KParamLookup((Dict *) kwargs, "stderr", io::type_file_, (ArObject **) &err, nullptr))
+    if (!KParamLookup((Dict *) kwargs, "stderr", io::type_file_, (ArObject **) &err, nullptr, true))
         goto ERROR;
 
     if (!KParamLookupStr((Dict *) kwargs, "lpTitle", &lptitle, nullptr, nullptr))
