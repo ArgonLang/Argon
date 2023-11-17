@@ -38,6 +38,9 @@ ArObject *type_compare(const ArObject *self, const ArObject *other, CompareMode 
 ArObject *type_get_attr(const ArObject *self, ArObject *key, bool static_attr) {
     const auto *ancestor = AR_GET_TYPE(self);
 
+    if (ancestor == type_type_)
+        ancestor = (const TypeInfo *) self;
+
     if (static_attr && !AR_TYPEOF(self, type_type_)) {
         ErrorFormat(kTypeError[0], kTypeError[1], AR_TYPE_NAME(self));
         return nullptr;
@@ -50,7 +53,7 @@ ArObject *type_get_attr(const ArObject *self, ArObject *key, bool static_attr) {
     AttributeProperty aprop{};
 
     if (frame != nullptr)
-        instance = frame->instance;
+        instance = frame->base;
 
     if (!static_attr) {
         if (AR_HAVE_OBJECT_BEHAVIOUR(self) && AR_SLOT_OBJECT(self)->namespace_offset >= 0) {
@@ -159,7 +162,7 @@ bool type_set_attr(ArObject *self, ArObject *key, ArObject *value, bool static_a
     AttributeProperty aprop{};
 
     if (frame != nullptr)
-        instance = frame->instance;
+        instance = frame->base;
 
     if (!static_attr) {
         if (AR_SLOT_OBJECT(self)->namespace_offset >= 0) {
@@ -190,7 +193,7 @@ bool type_set_attr(ArObject *self, ArObject *key, ArObject *value, bool static_a
         return false;
     }
 
-    if (!aprop.IsPublic() && (instance == nullptr || !AR_SAME_TYPE(instance, self))) {
+    if (!aprop.IsPublic() && (instance == nullptr || !AR_TYPEOF(self, (TypeInfo *) instance))) {
         ErrorFormat(kAccessViolationError[0], kAccessViolationError[1],
                     ARGON_RAW_STRING((String *) key), AR_TYPE_NAME(self));
 
@@ -1065,6 +1068,8 @@ bool argon::vm::datatype::TraitIsImplemented(const ArObject *object, const TypeI
         return false;
 
     obj_type = AR_GET_TYPE(object);
+    if (obj_type == type_type_)
+        obj_type = (const TypeInfo *) object;
 
     if (obj_type == type)
         return true;

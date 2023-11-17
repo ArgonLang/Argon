@@ -933,6 +933,9 @@ void Compiler::CompileFunction(const parser::Function *func) {
     if (func->name == nullptr)
         fname = (ArObject *) this->MakeFname();
 
+    if (this->unit_->symt->type == SymbolType::STRUCT || this->unit_->symt->type == SymbolType::TRAIT)
+        flags = FunctionFlags::STATIC;
+
     this->TUScopeEnter((String *) fname.Get(), SymbolType::FUNC);
 
     this->CompileFunctionParams(func->params, p_count, flags);

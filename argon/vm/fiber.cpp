@@ -182,8 +182,7 @@ Frame *argon::vm::FrameNew(Fiber *fiber, Function *func, ArObject **argv, ArSize
     // Push enclosed (closure)
     frame->enclosed = IncRef(func->enclosed);
 
-    if (func->IsMethod())
-        frame->instance = *frame->locals;
+    frame->base = (ArObject *) func->base;
 
     if (func->IsVariadic())
         frame->locals[index_locals++] = NilOrValue((ArObject *) rest);

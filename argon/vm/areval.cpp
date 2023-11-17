@@ -1102,8 +1102,13 @@ ArObject *argon::vm::Eval(Fiber *fiber) {
             TARGET_OP(MKFN)
             {
                 auto flags = I32Flag<FunctionFlags>(cu_frame->instr_ptr);
+                TypeInfo *base = nullptr;
 
-                ret = (ArObject *) FunctionNew((Code *) TOP(), cu_frame->globals, (Tuple *) PEEK1(),
+                if (ENUMBITMASK_ISTRUE(flags, FunctionFlags::METHOD) ||
+                    ENUMBITMASK_ISTRUE(flags, FunctionFlags::STATIC))
+                    base = (TypeInfo *) PEEK3();
+
+                ret = (ArObject *) FunctionNew((Code *) TOP(), base, cu_frame->globals, (Tuple *) PEEK1(),
                                                (List *) PEEK2(), I16Arg(cu_frame->instr_ptr), flags);
                 if (ret == nullptr)
                     break;

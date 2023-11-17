@@ -134,8 +134,8 @@ namespace argon::vm::datatype {
 
     ArObject *FunctionInvokeNative(Function *func, ArObject **args, ArSize count, bool kwargs);
 
-    Function *FunctionNew(Code *code, Namespace *ns, Tuple *default_args, List *enclosed,
-                          unsigned short arity, FunctionFlags flags);
+    Function *FunctionNew(Code *code, TypeInfo *base, Namespace *ns, Tuple *default_args,
+                          List *enclosed, unsigned short arity, FunctionFlags flags);
 
     Function *FunctionNew(const Function *func, ArObject **args, ArSize nargs);
 

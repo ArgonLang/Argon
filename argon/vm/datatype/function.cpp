@@ -269,8 +269,8 @@ ArObject *argon::vm::datatype::FunctionInvokeNative(Function *func, ArObject **a
     return ret;
 }
 
-Function *argon::vm::datatype::FunctionNew(Code *code, Namespace *ns, Tuple *default_args, List *enclosed,
-                                           unsigned short arity, FunctionFlags flags) {
+Function *argon::vm::datatype::FunctionNew(Code *code, TypeInfo *base, Namespace *ns, Tuple *default_args,
+                                           List *enclosed, unsigned short arity, FunctionFlags flags) {
     auto *fn = ::FunctionNew(code->name, nullptr, arity, flags);
 
     if (fn != nullptr) {
@@ -278,6 +278,7 @@ Function *argon::vm::datatype::FunctionNew(Code *code, Namespace *ns, Tuple *def
         fn->doc = IncRef(code->doc);
         fn->default_args = IncRef(default_args);
         fn->enclosed = IncRef(enclosed);
+        fn->base = IncRef(base);
         fn->gns = IncRef(ns);
         fn->code = IncRef(code);
     }

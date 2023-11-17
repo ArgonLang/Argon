@@ -26,8 +26,9 @@ namespace argon::vm {
         /// Pointer to global namespace.
         datatype::Namespace *globals;
 
-        /// Pointer to instance object (if method).
-        datatype::ArObject *instance;
+        /// If the invoked function is a method or a static member of a Struct/Trait,
+        /// this pointer points to the type in which the function is defined.
+        datatype::ArObject *base;
 
         /// Pointer to the status variable of Function which contains the address of this frame (generator function).
         void **gen_status;
