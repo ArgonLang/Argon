@@ -295,21 +295,17 @@ bool argon::vm::datatype::TupleUnpack(const Tuple *tuple, const char *fmt, ...) 
     for (int i = 0; i < flen; i++) {
         obj = tuple->objects[i];
         switch (fmt[i]) {
-            case 'o':
-            case 'O':
-                *va_arg(args, ArObject**) = IncRef(tuple->objects[i]);
-                break;
-            case 's':
-                if (!AR_TYPEOF(obj, type_string_)) {
+            case 'b':
+                if (!AR_TYPEOF(obj, type_boolean_)) {
                     va_end(args);
 
                     ErrorFormat(kTypeError[0], "TupleUnpack: expected '%s' in index %d, not '%s'",
-                                type_string_->name, i, AR_TYPE_NAME(obj));
+                                type_boolean_->name, i, AR_TYPE_NAME(obj));
 
                     return false;
                 }
 
-                *va_arg(args, const char **) = (const char *) ARGON_RAW_STRING((String *) obj);
+                *va_arg(args, bool *) = (bool) ArBoolToBool((Boolean *) obj);
                 break;
             case 'd':
                 if (!AR_TYPEOF(obj, type_decimal_)) {
@@ -322,6 +318,18 @@ bool argon::vm::datatype::TupleUnpack(const Tuple *tuple, const char *fmt, ...) 
                 }
 
                 *va_arg(args, double *) = (double) ((Decimal *) obj)->decimal;
+                break;
+            case 'h':
+                if (!AR_TYPEOF(obj, type_int_)) {
+                    va_end(args);
+
+                    ErrorFormat(kTypeError[0], "TupleUnpack: expected '%s' in index %d, not '%s'",
+                                type_string_->name, i, AR_TYPE_NAME(obj));
+
+                    return false;
+                }
+
+                *va_arg(args, short *) = (short) ((Integer *) obj)->sint;
                 break;
             case 'i':
             case 'I':
@@ -346,10 +354,14 @@ bool argon::vm::datatype::TupleUnpack(const Tuple *tuple, const char *fmt, ...) 
                     return false;
                 }
 
-                *va_arg(args, long *) = ((Integer *) obj)->sint;
+                *va_arg(args, long long *) = ((Integer *) obj)->sint;
                 break;
-            case 'h':
-                if (!AR_TYPEOF(obj, type_int_)) {
+            case 'o':
+            case 'O':
+                *va_arg(args, ArObject**) = IncRef(tuple->objects[i]);
+                break;
+            case 's':
+                if (!AR_TYPEOF(obj, type_string_)) {
                     va_end(args);
 
                     ErrorFormat(kTypeError[0], "TupleUnpack: expected '%s' in index %d, not '%s'",
@@ -358,7 +370,7 @@ bool argon::vm::datatype::TupleUnpack(const Tuple *tuple, const char *fmt, ...) 
                     return false;
                 }
 
-                *va_arg(args, short *) = (short) ((Integer *) obj)->sint;
+                *va_arg(args, const char **) = (const char *) ARGON_RAW_STRING((String *) obj);
                 break;
             case 'u':
                 if (!AR_TYPEOF(obj, type_uint_)) {
@@ -535,20 +547,21 @@ Tuple *argon::vm::datatype::TupleNew(const char *fmt, ...) {
     if ((tuple = TupleNew(flen)) == nullptr)
         return nullptr;
 
-    va_start(args, fmt);
+            va_start(args, fmt);
 
     for (int i = 0; i < flen; i++) {
         switch (fmt[i]) {
-            case 'o':
-            case 'O':
-                obj = NilOrValue(IncRef(va_arg(args, ArObject*)));
-                break;
-            case 's':
-                tmp = va_arg(args, const char*);
-                obj = (ArObject *) (tmp == nullptr ? StringIntern("") : StringNew((const char *) tmp));
+            case 'b':
+                obj = (ArObject *) BoolToArBool(va_arg(args, bool));
                 break;
             case 'd':
                 obj = (ArObject *) DecimalNew(va_arg(args, DecimalUnderlying));
+                break;
+            case 'h':
+                obj = (ArObject *) IntNew((short) va_arg(args, ArSSize));
+                break;
+            case 'H':
+                obj = (ArObject *) IntNew((unsigned short) va_arg(args, ArSSize));
                 break;
             case 'i':
                 obj = (ArObject *) IntNew((int) va_arg(args, ArSSize));
@@ -559,11 +572,13 @@ Tuple *argon::vm::datatype::TupleNew(const char *fmt, ...) {
             case 'l':
                 obj = (ArObject *) IntNew(va_arg(args, ArSSize));
                 break;
-            case 'h':
-                obj = (ArObject *) IntNew((short) va_arg(args, ArSSize));
+            case 'o':
+            case 'O':
+                obj = NilOrValue(IncRef(va_arg(args, ArObject*)));
                 break;
-            case 'H':
-                obj = (ArObject *) IntNew((unsigned short) va_arg(args, ArSSize));
+            case 's':
+                tmp = va_arg(args, const char*);
+                obj = (ArObject *) (tmp == nullptr ? StringIntern("") : StringNew((const char *) tmp));
                 break;
             case 'u':
                 obj = (ArObject *) UIntNew(va_arg(args, ArSSize));
