@@ -11,6 +11,7 @@
 #include <Windows.h>
 
 #include <argon/vm/io/fio.h>
+#include <argon/vm/support/nt/handle.h>
 #include <argon/vm/support/nt/nt.h>
 
 #undef CONST
@@ -37,10 +38,10 @@
 #include <argon/vm/datatype/module.h>
 #include <argon/vm/datatype/namespace.h>
 #include <argon/vm/datatype/nil.h>
+#include <argon/vm/datatype/pcheck.h>
+#include <argon/vm/datatype/tuple.h>
 
 #include <argon/vm/mod/modules.h>
-#include "argon/vm/datatype/pcheck.h"
-#include "argon/vm/datatype/tuple.h"
 
 using namespace argon::vm;
 using namespace argon::vm::datatype;
@@ -172,7 +173,7 @@ bool Dict2StringEnv(Dict *object, char **out) {
 
     if (first) {
         envs = (char *) memory::Alloc(2);
-        if(envs == nullptr)
+        if (envs == nullptr)
             return false;
 
         envs[index++] = '\0';
@@ -207,6 +208,7 @@ ARGON_FUNCTION(os_createprocess, createprocess,
                "sn: file, sn: argv", false, true) {
     PROCESS_INFORMATION pinfo{};
     STARTUPINFO sinfo{};
+    argon::vm::support::nt::OSHandle *ohandle = nullptr;
 
     Dict *envs = nullptr;
 
@@ -259,6 +261,9 @@ ARGON_FUNCTION(os_createprocess, createprocess,
 
     // EOL
 
+    if ((ohandle = argon::vm::support::nt::OSHandleNew(INVALID_HANDLE_VALUE)) == nullptr)
+        goto ERROR;
+
     sinfo.cb = sizeof(STARTUPINFO);
 
     if (lptitle != nullptr)
@@ -295,19 +300,24 @@ ARGON_FUNCTION(os_createprocess, createprocess,
 
     argon::vm::memory::Free(exec_envs);
 
-    if (ok == -255)
+    if (ok == -255) {
+        Release(ohandle);
         return nullptr;
+    }
 
     if (ok == 0) {
+        Release(ohandle);
+
         ErrorFromWinErr();
 
         return nullptr;
     }
 
-    CloseHandle(pinfo.hProcess);
     CloseHandle(pinfo.hThread);
 
-    return (ArObject *) IncRef(Nil);
+    ohandle->handle = pinfo.hProcess;
+
+    return (ArObject *) ohandle;
 }
 
 #endif
@@ -623,6 +633,58 @@ ARGON_FUNCTION(os_getenv, getenv,
     return IncRef(args[1]);
 }
 
+ARGON_FUNCTION(os_getexitcode, getexitcode,
+               "Retrieves the termination status of the specified process.\n"
+               "\n"
+               "It returns a tuple with the first value the exit code of the process and the second value a boolean "
+               "indicating whether the process is finished or not. \n"
+               "If the process is not terminated, the first value does not correspond to the real exit code of the process.\n"
+               "\n"
+               "- Parameter handle: A handle object associated with a process.\n"
+               "- Returns: (exit code, still_active)\n"
+               "- Remarks: See Windows GetExitCodeProcess function for more details.\n",
+               "o: handle", false, false) {
+    Tuple *rt;
+
+#ifdef  _ARGON_PLATFORM_WINDOWS
+    rt = TupleNew("ub", 0, false);
+    if (rt == nullptr)
+        return nullptr;
+
+    auto *handle = (argon::vm::support::nt::OSHandle *) args[0];
+    unsigned long status;
+
+    if (!AR_TYPEOF(args[0], argon::vm::support::nt::type_oshandle_)) {
+        ErrorFormat(kTypeError[0],kTypeError[2], argon::vm::support::nt::type_oshandle_->name, AR_TYPE_QNAME(args[0]));
+
+        return nullptr;
+    }
+
+    auto wcode = WaitForSingleObject(handle->handle, 0);
+    if (wcode == WAIT_FAILED) {
+        Release(rt);
+
+        ErrorFromWinErr();
+        return nullptr;
+    } else if (wcode == WAIT_TIMEOUT)
+        return (ArObject *) rt;
+
+    if (GetExitCodeProcess(handle->handle, &status) == 0) {
+        ErrorFromWinErr();
+
+        return nullptr;
+    }
+
+    ((Integer *) rt->objects[0])->uint = status;
+
+    Replace(rt->objects + 1, (ArObject *) True);
+#else
+    assert(false);
+#endif
+
+    return (ArObject *) rt;
+}
+
 ARGON_FUNCTION(os_getlogin, getlogin,
                "Return the name of the user logged in on the controlling terminal of the process.\n"
                "\n"
@@ -753,6 +815,10 @@ ARGON_FUNCTION(os_unsetenv, unsetenv,
 }
 
 const ModuleEntry os_entries[] = {
+#ifdef _ARGON_PLATFORM_WINDOWS
+        MODULE_EXPORT_TYPE(argon::vm::support::nt::type_oshandle_),
+#endif
+
         MODULE_EXPORT_FUNCTION(os_chdir),
 #ifdef _ARGON_PLATFORM_WINDOWS
         MODULE_EXPORT_FUNCTION(os_createprocess),
@@ -763,6 +829,7 @@ const ModuleEntry os_entries[] = {
         MODULE_EXPORT_FUNCTION(os_fork),
 #endif
         MODULE_EXPORT_FUNCTION(os_getenv),
+        MODULE_EXPORT_FUNCTION(os_getexitcode),
         MODULE_EXPORT_FUNCTION(os_getcwd),
         MODULE_EXPORT_FUNCTION(os_getlogin),
         MODULE_EXPORT_FUNCTION(os_getpid),
@@ -770,7 +837,6 @@ const ModuleEntry os_entries[] = {
         MODULE_EXPORT_FUNCTION(os_rmdir),
         MODULE_EXPORT_FUNCTION(os_setenv),
         MODULE_EXPORT_FUNCTION(os_unsetenv),
-
         ARGON_MODULE_SENTINEL
 };
 
@@ -803,6 +869,10 @@ bool OSInit(Module *self) {
     AddUIntConstant(DETACHED_PROCESS);
     AddUIntConstant(EXTENDED_STARTUPINFO_PRESENT);
     AddUIntConstant(INHERIT_PARENT_AFFINITY);
+
+    AddUIntConstant((ArSize) INVALID_HANDLE_VALUE);
+
+    AddIntConstant(STILL_ACTIVE);
 #endif
 
     AddIntConstant(EXIT_SUCCESS);
