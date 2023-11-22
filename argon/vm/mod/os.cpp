@@ -950,6 +950,9 @@ bool OSInit(Module *self) {
     AddUIntConstant((ArSize) INVALID_HANDLE_VALUE);
 
     AddIntConstant(STILL_ACTIVE);
+
+    if (!ModuleAddIntConstant(self, "TIMEOUT_INFINITE", INFINITE))
+        return false;
 #endif
 
     AddIntConstant(EXIT_SUCCESS);
