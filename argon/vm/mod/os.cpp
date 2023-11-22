@@ -7,6 +7,7 @@
 #ifdef _ARGON_PLATFORM_WINDOWS
 
 #include <direct.h>
+#include <corecrt_io.h>
 #include <process.h>
 #include <Windows.h>
 
@@ -82,6 +83,52 @@ ARGON_FUNCTION(os_chdir, chdir,
 
     return (ArObject *) IncRef(Nil);
 }
+
+ARGON_FUNCTION(os_dup, dup,
+               "Duplicate or reassigns a file descriptor.\n"
+               "\n"
+               "- Parameter oldfd: File descriptor referring to open file.\n"
+               "- Returns: Returns a new file descriptor.\n",
+               "i: oldfd", false, true) {
+    IntegerUnderlying newfd;
+    int result;
+
+    auto oldfd = (int) ((Integer *) args[0])->sint;
+
+    if (!KParamLookupInt((Dict *) kwargs, "newfd", &newfd, -1))
+        return nullptr;
+
+    auto robj = IntNew(0);
+    if (robj == nullptr)
+        return nullptr;
+
+    if (newfd < 0) {
+#ifdef _ARGON_PLATFORM_WINDOWS
+        result = _dup(oldfd);
+#else
+        result = dup(oldfd);
+#endif
+    } else {
+#ifdef _ARGON_PLATFORM_WINDOWS
+        result = _dup2(oldfd, (int) newfd);
+#else
+        result = dup(oldfd, (int) newfd);
+#endif
+    }
+
+    if (result < 0) {
+        Release(robj);
+
+        ErrorFromErrno(errno);
+
+        return nullptr;
+    }
+
+    robj->sint = newfd < 0 ? result : newfd;
+
+    return (ArObject *) robj;
+}
+
 
 ARGON_FUNCTION(os_exit, exit,
                "Exit to the system with specified status, without normal exit processing.\n"
@@ -851,6 +898,7 @@ const ModuleEntry os_entries[] = {
 #ifdef _ARGON_PLATFORM_WINDOWS
         MODULE_EXPORT_FUNCTION(os_createprocess),
 #endif
+        MODULE_EXPORT_FUNCTION(os_dup),
         MODULE_EXPORT_FUNCTION(os_exit),
         MODULE_EXPORT_FUNCTION(os_execve),
 #ifndef _ARGON_PLATFORM_WINDOWS
