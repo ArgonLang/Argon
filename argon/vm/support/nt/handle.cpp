@@ -45,13 +45,13 @@ ARGON_METHOD(oshandle_waitobject, waitobject,
              "\n"
              "- Parameter handle: A handle to the object.\n"
              "- KWParameters:\n"
-             "  - wait: The time-out interval, in milliseconds.\n"
+             "  - timeout: The time-out interval, in milliseconds.\n"
              "- Remarks: See Windows WaitForSingleObject function for more details.\n",
              nullptr, false, true) {
     auto *self = (OSHandle *) _self;
     IntegerUnderlying millisecond = INFINITE;
 
-    if (!KParamLookupInt((Dict *) kwargs, "wait", &millisecond, INFINITE))
+    if (!KParamLookupInt((Dict *) kwargs, "timeout", &millisecond, INFINITE))
         return nullptr;
 
     auto ok = WaitForSingleObject(self->handle, millisecond);
