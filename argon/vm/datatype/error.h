@@ -103,6 +103,10 @@ namespace argon::vm::datatype {
             (const char *) "RuntimeExit",
     };
 
+    constexpr const char *kTimeoutError[] = {
+            (const char *) "TimeoutError"
+    };
+
     constexpr const char *kTypeError[] = {
             (const char *) "TypeError",
             (const char *) "a type is required, not an instance of %s",

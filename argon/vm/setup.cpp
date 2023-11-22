@@ -2,6 +2,8 @@
 //
 // Licensed under the Apache License v2.0
 
+#include <argon/util/macros.h>
+
 #include <argon/vm/datatype/arobject.h>
 #include <argon/vm/datatype/arstring.h>
 #include <argon/vm/datatype/atom.h>
@@ -28,6 +30,12 @@
 #include <argon/vm/io/io.h>
 
 #include <argon/vm/importer/import.h>
+
+#ifdef _ARGON_PLATFORM_WINDOWS
+
+#include <argon/vm/support/nt/handle.h>
+
+#endif
 
 #include <argon/vm/setup.h>
 
@@ -72,6 +80,10 @@ bool argon::vm::Setup() {
 
     INIT(importer::type_import_spec_);
     INIT(importer::type_import_);
+
+#ifdef _ARGON_PLATFORM_WINDOWS
+    INIT(support::nt::type_oshandle_);
+#endif
 
     return true;
 }
