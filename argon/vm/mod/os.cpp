@@ -655,7 +655,7 @@ ARGON_FUNCTION(os_getexitcode, getexitcode,
     unsigned long status;
 
     if (!AR_TYPEOF(args[0], argon::vm::support::nt::type_oshandle_)) {
-        ErrorFormat(kTypeError[0],kTypeError[2], argon::vm::support::nt::type_oshandle_->name, AR_TYPE_QNAME(args[0]));
+        ErrorFormat(kTypeError[0], kTypeError[2], argon::vm::support::nt::type_oshandle_->name, AR_TYPE_QNAME(args[0]));
 
         return nullptr;
     }
@@ -794,6 +794,34 @@ ARGON_FUNCTION(os_setenv, setenv,
     return BoolToArBool(ok);
 }
 
+ARGON_FUNCTION(os_terminateprocess, terminateprocess,
+               "Terminates the specified process.\n"
+               "\n"
+               "- Parameter handle: A handle object associated with a process.\n",
+               "o: handle", false, false) {
+#ifdef _ARGON_PLATFORM_WINDOWS
+    auto *handle = (argon::vm::support::nt::OSHandle *) args[0];
+
+    if (!AR_TYPEOF(args[0], argon::vm::support::nt::type_oshandle_)) {
+        ErrorFormat(kTypeError[0], kTypeError[2], argon::vm::support::nt::type_oshandle_->name, AR_TYPE_QNAME(args[0]));
+
+        return nullptr;
+    }
+
+    if (TerminateProcess(handle->handle, 0) == 0) {
+        ErrorFromWinErr();
+
+        return nullptr;
+    }
+
+    return (ArObject *) IncRef(Nil);
+#else
+    assert(false);
+#endif
+
+    return nullptr;
+}
+
 ARGON_FUNCTION(os_unsetenv, unsetenv,
                "Delete the environment variable named key.\n"
                "\n"
@@ -836,6 +864,7 @@ const ModuleEntry os_entries[] = {
         MODULE_EXPORT_FUNCTION(os_mkdir),
         MODULE_EXPORT_FUNCTION(os_rmdir),
         MODULE_EXPORT_FUNCTION(os_setenv),
+        MODULE_EXPORT_FUNCTION(os_terminateprocess),
         MODULE_EXPORT_FUNCTION(os_unsetenv),
         ARGON_MODULE_SENTINEL
 };
