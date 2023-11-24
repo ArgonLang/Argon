@@ -240,7 +240,7 @@ bool NewEntry(Namespace *ns, ArObject *key, ArObject *value, AttributeFlag aa) {
     NSEntry *entry = ns->ns.Lookup(key);
 
     if (entry != nullptr) {
-        entry->value.value.Store(value, ENUMBITMASK_ISTRUE(aa, AttributeFlag::WEAK));
+        entry->value.value.Store(value, ENUMBITMASK_ISFALSE(aa, AttributeFlag::WEAK));
         entry->value.properties.flags = aa;
         return true;
     }
