@@ -112,7 +112,7 @@ ARGON_FUNCTION(os_dup, dup,
 #ifdef _ARGON_PLATFORM_WINDOWS
         result = _dup2(oldfd, (int) newfd);
 #else
-        result = dup(oldfd, (int) newfd);
+        result = dup2(oldfd, (int) newfd);
 #endif
     }
 
