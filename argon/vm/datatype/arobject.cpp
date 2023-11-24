@@ -1290,7 +1290,7 @@ void RefStore::Release() {
     if (this->weak_)
         this->w_value.DecWeak();
     else
-        this->s_value->head_.ref_count_.DecStrong();
+        ::Release(this->s_value);
 
     this->s_value = nullptr;
 }
