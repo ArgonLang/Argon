@@ -8,6 +8,7 @@
 #include <argon/vm/datatype/arstring.h>
 #include <argon/vm/datatype/boolean.h>
 #include <argon/vm/datatype/function.h>
+#include <argon/vm/datatype/nil.h>
 
 using namespace argon::vm::datatype;
 
@@ -256,6 +257,9 @@ ArObject *argon::vm::datatype::FunctionInvokeNative(Function *func, ArObject **a
 
     if (kwargs && func->IsKWArgs()) {
         f_kwargs = f_args[f_count - 1];
+        if (f_kwargs == (ArObject *) Nil)
+            f_kwargs = nullptr;
+
         f_count--;
     }
 
