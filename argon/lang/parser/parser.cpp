@@ -806,8 +806,10 @@ Node *Parser::ParseDecls(ParserScope scope) {
             if (pub)
                 throw ParserException("expected declaration after 'pub' keyword");
 
-            if (scope == ParserScope::STRUCT || scope == ParserScope::TRAIT)
-                throw ParserException("unexpected statement here");
+            if (scope == ParserScope::STRUCT || scope == ParserScope::TRAIT) {
+                if (TKCUR_TYPE != TokenType::KW_IF)
+                    throw ParserException("unexpected statement here");
+            }
 
             stmt = (ArObject *) this->ParseStatement();
     }
@@ -1355,6 +1357,11 @@ Node *Parser::ParseIF() {
     ARC body;
     ARC orelse;
 
+    auto scope = ParserScope::IF;
+
+    if(this->scope_stack_->scope == ParserScope::STRUCT || this->scope_stack_->scope == ParserScope::TRAIT)
+        scope = this->scope_stack_->scope;
+
     Position start = this->tkcur_.loc.start;
     Position end{};
 
@@ -1362,7 +1369,7 @@ Node *Parser::ParseIF() {
 
     test = (ArObject *) this->ParseExpression(PeekPrecedence(scanner::TokenType::EQUAL));
 
-    body = (ArObject *) this->ParseBlock(ParserScope::IF);
+    body = (ArObject *) this->ParseBlock(scope);
 
     end = ((Node *) body.Get())->loc.end;
 
@@ -1370,7 +1377,7 @@ Node *Parser::ParseIF() {
         orelse = (ArObject *) this->ParseIF();
         end = ((Node *) orelse.Get())->loc.end;
     } else if (this->MatchEat(TokenType::KW_ELSE)) {
-        orelse = (ArObject *) this->ParseBlock(ParserScope::IF);
+        orelse = (ArObject *) this->ParseBlock(scope);
         end = ((Node *) orelse.Get())->loc.end;
     }
 
