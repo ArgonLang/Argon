@@ -20,8 +20,10 @@
 
 #else
 
-#include <unistd.h>
+#include <csignal>
 #include <sys/stat.h>
+#include <sys/wait.h>
+#include <unistd.h>
 
 #ifdef _ARGON_PLATFORM_DARWIN
 
@@ -680,6 +682,7 @@ ARGON_FUNCTION(os_getenv, getenv,
     return IncRef(args[1]);
 }
 
+#ifdef _ARGON_PLATFORM_WINDOWS
 ARGON_FUNCTION(os_getexitcode, getexitcode,
                "Retrieves the termination status of the specified process.\n"
                "\n"
@@ -693,7 +696,6 @@ ARGON_FUNCTION(os_getexitcode, getexitcode,
                "o: handle", false, false) {
     Tuple *rt;
 
-#ifdef  _ARGON_PLATFORM_WINDOWS
     rt = TupleNew("ub", 0, false);
     if (rt == nullptr)
         return nullptr;
@@ -725,12 +727,49 @@ ARGON_FUNCTION(os_getexitcode, getexitcode,
     ((Integer *) rt->objects[0])->uint = status;
 
     Replace(rt->objects + 1, (ArObject *) True);
-#else
-    assert(false);
-#endif
 
     return (ArObject *) rt;
 }
+#else
+
+ARGON_FUNCTION(os_getexitcode, getexitcode,
+               "Retrieves the termination status of the specified process.\n"
+               "\n"
+               "It returns a tuple with the first value the exit code of the process and the second value a boolean "
+               "indicating whether the process is finished or not. \n"
+               "If the process is not terminated, the first value does not correspond to the real exit code of the process.\n"
+               "\n"
+               "- Parameter pid: PID associated with a process.\n"
+               "- Returns: (exit code, still_active)\n",
+               "i: pid", false, false) {
+    Tuple *rt;
+    int status;
+    int pid;
+
+    rt = TupleNew("ub", 0, false);
+    if (rt == nullptr)
+        return nullptr;
+
+    if ((pid = waitpid((int) ((Integer *) args[0])->sint, &status, WNOHANG)) < 0) {
+        Release(rt);
+
+        ErrorFromErrno(errno);
+
+        return nullptr;
+    }
+
+    if (pid == 0)
+        return (ArObject *) rt;
+
+    if (WIFEXITED(status))
+        ((Integer *) rt->objects[0])->sint = WEXITSTATUS(status);
+
+    Replace(rt->objects + 1, (ArObject *) True);
+
+    return (ArObject *) rt;
+}
+
+#endif
 
 ARGON_FUNCTION(os_getlogin, getlogin,
                "Return the name of the user logged in on the controlling terminal of the process.\n"
@@ -758,6 +797,26 @@ ARGON_FUNCTION(os_getpid, getpid,
                nullptr, false, false) {
     return (ArObject *) IntNew(getpid());
 }
+
+#ifndef _ARGON_PLATFORM_WINDOWS
+
+ARGON_FUNCTION(os_kill, kill,
+               "Send signal to a process.\n"
+               "\n"
+               "- Parameters:\n"
+               "  - pid: PID associated with a process.\n"
+               "  - sig: Signal to send to the process.\n",
+               "i: pid, i: sig", false, false) {
+    if (kill((int) ((Integer *) args[0])->sint, (int) ((Integer *) args[1])->sint) != 0) {
+        ErrorFromErrno(errno);
+
+        return nullptr;
+    }
+
+    return (ArObject *) IncRef(Nil);
+}
+
+#endif
 
 ARGON_FUNCTION(os_mkdir, mkdir,
                "Creates a new directory with the specified name and permission bits.\n"
@@ -841,12 +900,12 @@ ARGON_FUNCTION(os_setenv, setenv,
     return BoolToArBool(ok);
 }
 
+#ifdef _ARGON_PLATFORM_WINDOWS
 ARGON_FUNCTION(os_terminateprocess, terminateprocess,
                "Terminates the specified process.\n"
                "\n"
                "- Parameter handle: A handle object associated with a process.\n",
                "o: handle", false, false) {
-#ifdef _ARGON_PLATFORM_WINDOWS
     auto *handle = (argon::vm::support::nt::OSHandle *) args[0];
 
     if (!AR_TYPEOF(args[0], argon::vm::support::nt::type_oshandle_)) {
@@ -862,12 +921,24 @@ ARGON_FUNCTION(os_terminateprocess, terminateprocess,
     }
 
     return (ArObject *) IncRef(Nil);
-#else
-    assert(false);
-#endif
-
-    return nullptr;
 }
+#else
+
+ARGON_FUNCTION(os_terminateprocess, terminateprocess,
+               "Terminates the specified process.\n"
+               "\n"
+               "- Parameter pid: PID associated with a process.\n",
+               "i: pid", false, false) {
+    if (kill((int) ((Integer *) args[0])->sint, SIGTERM) != 0) {
+        ErrorFromErrno(errno);
+
+        return nullptr;
+    }
+
+    return (ArObject *) IncRef(Nil);
+}
+
+#endif
 
 ARGON_FUNCTION(os_unsetenv, unsetenv,
                "Delete the environment variable named key.\n"
@@ -909,6 +980,7 @@ const ModuleEntry os_entries[] = {
         MODULE_EXPORT_FUNCTION(os_getcwd),
         MODULE_EXPORT_FUNCTION(os_getlogin),
         MODULE_EXPORT_FUNCTION(os_getpid),
+        MODULE_EXPORT_FUNCTION(os_kill),
         MODULE_EXPORT_FUNCTION(os_mkdir),
         MODULE_EXPORT_FUNCTION(os_rmdir),
         MODULE_EXPORT_FUNCTION(os_setenv),
@@ -953,6 +1025,45 @@ bool OSInit(Module *self) {
 
     if (!ModuleAddIntConstant(self, "TIMEOUT_INFINITE", INFINITE))
         return false;
+#else
+    AddIntConstant(SIGHUP);
+    AddIntConstant(SIGINT);
+    AddIntConstant(SIGQUIT);
+    AddIntConstant(SIGILL);
+    AddIntConstant(SIGTRAP);
+    AddIntConstant(SIGABRT);
+    AddIntConstant(SIGIOT);
+    AddIntConstant(SIGBUS);
+    //AddIntConstant(SIGEMT);
+    AddIntConstant(SIGFPE);
+    AddIntConstant(SIGKILL);
+    AddIntConstant(SIGUSR1);
+    AddIntConstant(SIGSEGV);
+    AddIntConstant(SIGUSR2);
+    AddIntConstant(SIGPIPE);
+    AddIntConstant(SIGALRM);
+    AddIntConstant(SIGTERM);
+    //AddIntConstant(SIGSTKFLT);
+    AddIntConstant(SIGCHLD);
+    //AddIntConstant(SIGCLD);
+    AddIntConstant(SIGCONT);
+    AddIntConstant(SIGSTOP);
+    AddIntConstant(SIGTSTP);
+    AddIntConstant(SIGTTIN);
+    AddIntConstant(SIGTTOU);
+    AddIntConstant(SIGURG);
+    AddIntConstant(SIGXCPU);
+    AddIntConstant(SIGXFSZ);
+    AddIntConstant(SIGVTALRM);
+    AddIntConstant(SIGPROF);
+    AddIntConstant(SIGWINCH);
+    AddIntConstant(SIGIO);
+    //AddIntConstant(SIGPOLL);
+    //AddIntConstant(SIGPWR);
+    //AddIntConstant(SIGINFO);
+    //AddIntConstant(SIGLOST);
+    AddIntConstant(SIGSYS);
+    //AddIntConstant(SIGUNUSED);
 #endif
 
     AddIntConstant(EXIT_SUCCESS);
