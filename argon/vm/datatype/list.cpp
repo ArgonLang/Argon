@@ -796,6 +796,8 @@ List *argon::vm::datatype::ListNew(ArObject *iterable) {
         for (ArSize i = 0; i < tuple->length; i++)
             ret->objects[i] = IncRef(tuple->objects[i]);
 
+        ret->length = tuple->length;
+
         return ret;
     }
 
