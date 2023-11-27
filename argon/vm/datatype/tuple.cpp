@@ -547,12 +547,12 @@ Tuple *argon::vm::datatype::TupleNew(const char *fmt, ...) {
     if ((tuple = TupleNew(flen)) == nullptr)
         return nullptr;
 
-            va_start(args, fmt);
+    va_start(args, fmt);
 
     for (int i = 0; i < flen; i++) {
         switch (fmt[i]) {
             case 'b':
-                obj = (ArObject *) BoolToArBool(va_arg(args, bool));
+                obj = (ArObject *) BoolToArBool((bool) va_arg(args, int));
                 break;
             case 'd':
                 obj = (ArObject *) DecimalNew(va_arg(args, DecimalUnderlying));
