@@ -2,6 +2,8 @@
 //
 // Licensed under the Apache License v2.0
 
+#include <chrono>
+
 #include <argon/vm/loop/evloop.h>
 
 #undef CONST
@@ -41,7 +43,19 @@ ARGON_FUNCTION(chrono_sleep, sleep,
     return nullptr;
 }
 
+ARGON_FUNCTION(chrono_monotonic, monotonic,
+               "Return the value (in milliseconds) of a monotonic clock.\n"
+               "\n"
+               "- Returns: Monotonic time in milliseconds (Int).\n",
+               nullptr, false, false) {
+    auto clock = std::chrono::steady_clock::now();
+    auto msClock = std::chrono::time_point_cast<std::chrono::milliseconds>(clock);
+
+    return (ArObject *) IntNew(msClock.time_since_epoch().count());
+}
+
 const ModuleEntry chrono_entries[] = {
+        MODULE_EXPORT_FUNCTION(chrono_monotonic),
         MODULE_EXPORT_FUNCTION(chrono_sleep),
         ARGON_MODULE_SENTINEL
 };
