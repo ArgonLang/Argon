@@ -8,6 +8,8 @@ pub let NotImplementedError = Error(@NotImplementedError)
 
 pub let OverflowError = Error(@OverflowError)
 
+pub let TimeoutError = Error(@TimeoutError)
+
 pub let TypeError = Error(@TypeError)
 
 pub let UnhashableError = Error(@UnhashableError)
