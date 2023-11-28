@@ -44,6 +44,8 @@
 #include <argon/vm/datatype/pcheck.h>
 #include <argon/vm/datatype/tuple.h>
 
+#include <argon/vm/io/fio.h>
+
 #include <argon/vm/mod/modules.h>
 
 using namespace argon::vm;
@@ -91,14 +93,43 @@ ARGON_FUNCTION(os_dup, dup,
                "\n"
                "- Parameter oldfd: File descriptor referring to open file.\n"
                "- Returns: Returns a new file descriptor.\n",
-               "i: oldfd", false, true) {
-    IntegerUnderlying newfd;
+               ": oldfd", false, true) {
+    ArObject *tmp;
+
+    IntegerUnderlying newfd = 0;
     int result;
+    int oldfd;
 
-    auto oldfd = (int) ((Integer *) args[0])->sint;
+    if (AR_TYPEOF(args[0], type_int_))
+        oldfd = (int) ((Integer *) args[0])->sint;
+    else if (AR_TYPEOF(args[0], io::type_file_))
+        oldfd = ((io::File *) args[0])->handle;
+    else {
+        ErrorFormat(kTypeError[0], "expected '%s' or '%s' got '%s'", type_int_->name,
+                    io::type_file_->name, AR_TYPE_QNAME(args[0]));
 
-    if (!KParamLookupInt((Dict *) kwargs, "newfd", &newfd, -1))
         return nullptr;
+    }
+
+    if (!KParamLookup((Dict *) kwargs, "newfd", nullptr, &tmp, nullptr, true))
+        return nullptr;
+
+    if (tmp != nullptr) {
+        if (AR_TYPEOF(tmp, type_int_))
+            newfd = (int) ((Integer *) tmp)->sint;
+        else if (AR_TYPEOF(tmp, io::type_file_))
+            newfd = ((io::File *) tmp)->handle;
+        else {
+            Release(tmp);
+
+            ErrorFormat(kTypeError[0], "expected '%s' or '%s' got '%s'", type_int_->name,
+                        io::type_file_->name, AR_TYPE_QNAME(tmp));
+
+            return nullptr;
+        }
+
+        Release(tmp);
+    }
 
     auto robj = IntNew(0);
     if (robj == nullptr)
@@ -107,12 +138,14 @@ ARGON_FUNCTION(os_dup, dup,
     if (newfd < 0) {
 #ifdef _ARGON_PLATFORM_WINDOWS
         result = _dup(oldfd);
+        // TODO: DuplicateHandle
 #else
         result = dup(oldfd);
 #endif
     } else {
 #ifdef _ARGON_PLATFORM_WINDOWS
         result = _dup2(oldfd, (int) newfd);
+        // TODO: DuplicateHandle
 #else
         result = dup2(oldfd, (int) newfd);
 #endif
@@ -960,6 +993,73 @@ ARGON_FUNCTION(os_unsetenv, unsetenv,
     return BoolToArBool(success == 0);
 }
 
+#ifndef _ARGON_PLATFORM_WINDOWS
+
+ARGON_FUNCTION(os_waitpid, waitpid,
+               "Wait for process to change state.\n"
+               "\n"
+               "- Parameters:\n"
+               "  - pid: PID associated with a process.\n"
+               "  - options: waitpid options.\n"
+               "- Returns: (pid, status).\n",
+               "i: pid, i: options", false, false) {
+    Tuple *rt;
+    int status;
+    int pid;
+
+    rt = TupleNew("ii", 0, false);
+    if (rt == nullptr)
+        return nullptr;
+
+    if ((pid = waitpid((int) ((Integer *) args[0])->sint, &status, (int) ((Integer *) args[1])->sint)) < 0) {
+        Release(rt);
+
+        ErrorFromErrno(errno);
+
+        return nullptr;
+    }
+
+    ((Integer *) rt->objects[0])->sint = pid;
+    ((Integer *) rt->objects[1])->sint = status;
+
+    return (ArObject *) rt;
+}
+
+ARGON_FUNCTION(os_wpstatus, wpstatus,
+               "Wait for process to change state.\n"
+               "\n"
+               "- Parameters:\n"
+               "  - pid: PID associated with a process.\n"
+               "  - options: waitpid options.\n"
+               "- Returns: (pid, status).\n",
+               "a: operation, i: status", false, false) {
+    auto *atom = (Atom *) args[0];
+    auto status = (int) ((Integer *) args[1])->sint;
+
+    if (AtomCompareID(atom, "WIFEXITED"))
+        return BoolToArBool(WIFEXITED(status));
+    else if (AtomCompareID(atom, "WEXITSTATUS"))
+        return (ArObject *) IntNew(WEXITSTATUS(status));
+    else if (AtomCompareID(atom, "WIFSIGNALED"))
+        return BoolToArBool(WIFSIGNALED(status));
+    else if (AtomCompareID(atom, "WTERMSIG"))
+        return (ArObject *) IntNew(WTERMSIG(status));
+    else if (AtomCompareID(atom, "WCOREDUMP"))
+        return BoolToArBool(WCOREDUMP(status));
+    else if (AtomCompareID(atom, "WIFSTOPPED"))
+        return BoolToArBool(WIFSTOPPED(status));
+    else if (AtomCompareID(atom, "WSTOPSIG"))
+        return (ArObject *) IntNew(WSTOPSIG(status));
+    else if (AtomCompareID(atom, "WIFCONTINUED"))
+        return BoolToArBool(WIFCONTINUED(status));
+
+    ErrorFormat(kValueError[0], "'%s' unknown operation", (ArObject*)atom->value);
+
+    return nullptr;
+}
+
+#endif
+
 const ModuleEntry os_entries[] = {
 #ifdef _ARGON_PLATFORM_WINDOWS
         MODULE_EXPORT_TYPE(argon::vm::support::nt::type_oshandle_),
@@ -986,6 +1086,10 @@ const ModuleEntry os_entries[] = {
         MODULE_EXPORT_FUNCTION(os_setenv),
         MODULE_EXPORT_FUNCTION(os_terminateprocess),
         MODULE_EXPORT_FUNCTION(os_unsetenv),
+#ifndef _ARGON_PLATFORM_WINDOWS
+        MODULE_EXPORT_FUNCTION(os_waitpid),
+        MODULE_EXPORT_FUNCTION(os_wpstatus),
+#endif
         ARGON_MODULE_SENTINEL
 };
 
@@ -1026,6 +1130,7 @@ bool OSInit(Module *self) {
     if (!ModuleAddIntConstant(self, "TIMEOUT_INFINITE", INFINITE))
         return false;
 #else
+    // SIGNALS
     AddIntConstant(SIGHUP);
     AddIntConstant(SIGINT);
     AddIntConstant(SIGQUIT);
@@ -1064,6 +1169,11 @@ bool OSInit(Module *self) {
     //AddIntConstant(SIGLOST);
     AddIntConstant(SIGSYS);
     //AddIntConstant(SIGUNUSED);
+
+    // WAITPID OPTIONS
+    AddIntConstant(WNOHANG);
+    AddIntConstant(WUNTRACED);
+    AddIntConstant(WCONTINUED);
 #endif
 
     AddIntConstant(EXIT_SUCCESS);
