@@ -763,45 +763,6 @@ ARGON_FUNCTION(os_getexitcode, getexitcode,
 
     return (ArObject *) rt;
 }
-#else
-
-ARGON_FUNCTION(os_getexitcode, getexitcode,
-               "Retrieves the termination status of the specified process.\n"
-               "\n"
-               "It returns a tuple with the first value the exit code of the process and the second value a boolean "
-               "indicating whether the process is finished or not. \n"
-               "If the process is not terminated, the first value does not correspond to the real exit code of the process.\n"
-               "\n"
-               "- Parameter pid: PID associated with a process.\n"
-               "- Returns: (exit code, still_active)\n",
-               "i: pid", false, false) {
-    Tuple *rt;
-    int status;
-    int pid;
-
-    rt = TupleNew("ub", 0, false);
-    if (rt == nullptr)
-        return nullptr;
-
-    if ((pid = waitpid((int) ((Integer *) args[0])->sint, &status, WNOHANG)) < 0) {
-        Release(rt);
-
-        ErrorFromErrno(errno);
-
-        return nullptr;
-    }
-
-    if (pid == 0)
-        return (ArObject *) rt;
-
-    if (WIFEXITED(status))
-        ((Integer *) rt->objects[0])->sint = WEXITSTATUS(status);
-
-    Replace(rt->objects + 1, (ArObject *) True);
-
-    return (ArObject *) rt;
-}
-
 #endif
 
 ARGON_FUNCTION(os_getlogin, getlogin,
@@ -1076,7 +1037,6 @@ const ModuleEntry os_entries[] = {
         MODULE_EXPORT_FUNCTION(os_fork),
 #endif
         MODULE_EXPORT_FUNCTION(os_getenv),
-        MODULE_EXPORT_FUNCTION(os_getexitcode),
         MODULE_EXPORT_FUNCTION(os_getcwd),
         MODULE_EXPORT_FUNCTION(os_getlogin),
         MODULE_EXPORT_FUNCTION(os_getpid),
