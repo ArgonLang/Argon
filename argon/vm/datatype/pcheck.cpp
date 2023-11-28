@@ -311,10 +311,10 @@ bool argon::vm::datatype::KParamLookup(Dict *kwargs, const char *key, const Type
         return true;
     }
 
-    if (!AR_TYPEOF(obj, type)) {
+    if (type != nullptr && !AR_TYPEOF(obj, type)) {
         Release(obj);
 
-        if (obj == (ArObject*)Nil && nil_as_default) {
+        if (obj == (ArObject *) Nil && nil_as_default) {
             if (out != nullptr)
                 *out = _default;
 
