@@ -968,7 +968,7 @@ ARGON_FUNCTION(os_waitpid, waitpid,
     int status;
     int pid;
 
-    rt = TupleNew("ii", 0, false);
+    rt = TupleNew("ii", 0, 0);
     if (rt == nullptr)
         return nullptr;
 
