@@ -54,7 +54,7 @@ namespace argon::vm::io {
 
     bool FileClose(File *file);
 
-    bool GetFileSize(const File *file, datatype::ArSize *out_size);
+    bool GetFileSize(const File *file, datatype::ArSize *out_size, bool *known_size);
 
     bool Isatty(const File *file);
 

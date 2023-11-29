@@ -21,6 +21,7 @@
 #else
 
 #include <sys/fcntl.h>
+#include <sys/ioctl.h>
 #include <sys/stat.h>
 #include <unistd.h>
 
@@ -88,18 +89,10 @@ ARGON_METHOD_INHERITED(file_read, read) {
     ArSize blksize = ((Integer *) *args)->sint;
     Bytes *ret;
 
-    bool known_len = true;
+    bool known_len = false;
 
-    if (((Integer *) *args)->sint < 0) {
-        if (!Isatty(self)) {
-            if (!GetFileSize(self, &blksize)) {
-                return nullptr;
-            }
-        } else {
-            known_len = false;
-            blksize = 4096;
-        }
-    }
+    if (((Integer *) *args)->sint < 0 && !GetFileSize(self, &blksize, &known_len))
+        return nullptr;
 
     if (blksize == 0)
         return (ArObject *) BytesNew(0, true, false, true);
@@ -699,18 +692,37 @@ bool argon::vm::io::FileClose(File *file) {
     return false;
 }
 
-bool argon::vm::io::GetFileSize(const File *file, datatype::ArSize *out_size) {
+bool argon::vm::io::GetFileSize(const File *file, datatype::ArSize *out_size, bool *known_size) {
     struct stat st{};
 
-    if (Isatty(file))
-        return false;
+    *out_size = 0;
+    *known_size = false;
 
-    if (fstat(file->handle, &st) >= 0) {
-        *out_size = st.st_size;
-        return true;
+    if (!Isatty(file)) {
+        if (fstat(file->handle, &st) < 0)
+            return false;
+
+        if (S_ISREG(st.st_mode) || S_ISLNK(st.st_mode)) {
+            *out_size = st.st_size;
+            *known_size = true;
+
+            return true;
+        }
+
+        if (S_ISFIFO(st.st_mode) || S_ISSOCK(st.st_mode)) {
+            if (ioctl(file->handle, FIONREAD, out_size) >= 0) {
+                *known_size = true;
+                return true;
+            }
+
+            // Ignore error and use default size
+            errno = 0;
+        }
     }
 
-    return false;
+    *out_size = 4096;
+
+    return true;
 }
 
 bool argon::vm::io::Isatty(const File *file) {
