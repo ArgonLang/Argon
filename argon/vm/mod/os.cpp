@@ -143,6 +143,47 @@ ARGON_FUNCTION(os_exit, exit,
 
 #ifdef _ARGON_PLATFORM_WINDOWS
 
+ARGON_FUNCTION(os_expandvar, expandvar,
+               "Expands environment-variable strings and replaces them with the values defined for the current user.\n"
+               "\n"
+               "- Parameter path: A buffer that contains one or more environment-variable strings in the form: %variableName%.\n"
+               "- Returns: String object containing the expanded environment variables.\n"
+               "- Remarks: See Windows ExpandEnvironmentStrings function for more details.\n",
+               "sb: path", false, false) {
+    ArBuffer buffer{};
+    int chars;
+
+    if (!BufferGet(args[0], &buffer, BufferFlags::READ))
+        return nullptr;
+
+    if ((chars = ExpandEnvironmentStrings((LPCSTR) buffer.buffer, nullptr, 0)) == 0) {
+        ErrorFromWinErr();
+
+        return nullptr;
+    }
+
+    auto *output = (char *) memory::Alloc(chars);
+    if (output == nullptr)
+        return nullptr;
+
+    if ((chars = ExpandEnvironmentStrings((LPCSTR) buffer.buffer, output, chars)) == 0) {
+        memory::Free(output);
+
+        ErrorFromWinErr();
+
+        return nullptr;
+    }
+
+    auto *ret = StringNewHoldBuffer((unsigned char *) output, chars);
+    if (ret == nullptr) {
+        memory::Free(output);
+
+        return nullptr;
+    }
+
+    return (ArObject *) ret;
+}
+
 bool Dict2StringEnv(Dict *object, char **out) {
     char *envs = nullptr;
 
@@ -1004,11 +1045,16 @@ const ModuleEntry os_entries[] = {
         MODULE_EXPORT_FUNCTION(os_dup),
         MODULE_EXPORT_FUNCTION(os_exit),
         MODULE_EXPORT_FUNCTION(os_execve),
-#ifndef _ARGON_PLATFORM_WINDOWS
+#ifdef _ARGON_PLATFORM_WINDOWS
+        MODULE_EXPORT_FUNCTION(os_expandvar),
+#else
         MODULE_EXPORT_FUNCTION(os_fork),
 #endif
-        MODULE_EXPORT_FUNCTION(os_getenv),
         MODULE_EXPORT_FUNCTION(os_getcwd),
+        MODULE_EXPORT_FUNCTION(os_getenv),
+#ifdef _ARGON_PLATFORM_WINDOWS
+        MODULE_EXPORT_FUNCTION(os_getexitcode),
+#endif
         MODULE_EXPORT_FUNCTION(os_getlogin),
         MODULE_EXPORT_FUNCTION(os_getpid),
 #ifndef _ARGON_PLATFORM_WINDOWS
