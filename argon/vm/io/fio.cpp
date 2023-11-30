@@ -41,14 +41,16 @@ ARGON_METHOD(file_close, close,
     return (ArObject *) IncRef(Nil);
 }
 
+#ifndef _ARGON_PLATFORM_WINDOWS
 ARGON_METHOD(file_getfd, getfd,
              "Return the underlying file descriptor.\n"
              "\n"
-             "- Returns: File descriptor (UInt).\n",
+             "- Returns: File descriptor.\n",
              nullptr, false, false) {
     auto fd = GetFd((File *) _self);
-    return (ArObject *) UIntNew(fd);
+    return (ArObject *) IntNew(fd);
 }
+#endif
 
 ARGON_METHOD(file_isatty, isatty,
              "Test whether a file descriptor refers to a terminal.\n"
@@ -257,7 +259,9 @@ ARGON_METHOD(file_writestr, writestr,
 
 const FunctionDef file_methods[] = {
         file_close,
+#ifndef _ARGON_PLATFORM_WINDOWS
         file_getfd,
+#endif
         file_isatty,
         file_isclosed,
         file_isseekable,
@@ -521,7 +525,7 @@ bool argon::vm::io::FileClose(File *file) {
     return false;
 }
 
-bool argon::vm::io::GetFileSize(const File *file, datatype::ArSize *out_size) {
+bool argon::vm::io::GetFileSize(const File *file, datatype::ArSize *out_size, bool *known_size) {
     BY_HANDLE_FILE_INFORMATION finfo{};
 
     if (!GetFileInformationByHandle(file->handle, &finfo)) {
@@ -529,6 +533,7 @@ bool argon::vm::io::GetFileSize(const File *file, datatype::ArSize *out_size) {
         return false;
     }
 
+    *known_size = true;
     *out_size = finfo.nFileSizeLow;
 
     return true;
