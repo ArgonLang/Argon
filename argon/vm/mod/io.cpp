@@ -15,6 +15,9 @@
 
 #include <stdio.h>
 
+#include <argon/vm/datatype/error.h>
+#include <argon/vm/support/nt/handle.h>
+
 #else
 
 #include <unistd.h>
@@ -58,6 +61,34 @@ ARGON_FUNCTION(io_openfile, openfile,
     return (ArObject *) FileNew((const char *) ARGON_RAW_STRING((String *) *args),
                                 (FileMode) ((Integer *) args[1])->sint);
 }
+
+#ifdef _ARGON_PLATFORM_WINDOWS
+
+ARGON_FUNCTION(io_openhandle, openhandle,
+               "Create a new File object associated with the given Windows HANDLE.\n"
+               "\n"
+               "- Parameters:\n"
+               "  - HANDLE: Handle representing a file descriptor.\n"
+               "  - mode: Opening mode.\n"
+               "- Returns: New File object.\n",
+               ": handle, i: mode", false, false) {
+    IOHandle handle;
+
+    if (AR_TYPEOF(args[0], type_uint_))
+        handle = (IOHandle) ((Integer *) args[0])->uint;
+    else if (AR_TYPEOF(args[0], argon::vm::support::nt::type_oshandle_))
+        handle = ((argon::vm::support::nt::OSHandle *) args[0])->handle;
+    else {
+        ErrorFormat(kTypeError[0], "expected '%s' or '%s, got '%s'", type_uint_->name,
+                    argon::vm::support::nt::type_oshandle_->name, AR_TYPE_QNAME(args[0]));
+
+        return nullptr;
+    }
+
+    return (ArObject *) FileNew(handle, (FileMode) ((Integer *) args[1])->sint);
+}
+
+#endif
 
 ARGON_FUNCTION(io_mkpipe, mkpipe,
                "Creates a pipe, a unidirectional data channel that can be used for interprocess communication.\n"
@@ -115,9 +146,9 @@ bool IOInit(Module *self) {
     ADD_CONSTANT("SEEK_END", (int) FileWhence::END);
 
 #ifdef _ARGON_PLATFORM_WINDOWS
-        ADD_CONSTANT("STDIN_NO", _fileno(stdin));
-        ADD_CONSTANT("STDOUT_NO", _fileno(stdout));
-        ADD_CONSTANT("STDERR_NO", _fileno(stderr));
+    ADD_CONSTANT("STDIN_NO", _fileno(stdin));
+    ADD_CONSTANT("STDOUT_NO", _fileno(stdout));
+    ADD_CONSTANT("STDERR_NO", _fileno(stderr));
 #else
     ADD_CONSTANT("STDIN_NO", STDIN_FILENO);
     ADD_CONSTANT("STDOUT_NO", STDOUT_FILENO);
@@ -137,6 +168,9 @@ const ModuleEntry io_entries[] = {
         MODULE_EXPORT_FUNCTION(io_open),
         MODULE_EXPORT_FUNCTION(io_openfd),
         MODULE_EXPORT_FUNCTION(io_openfile),
+#ifdef _ARGON_PLATFORM_WINDOWS
+        MODULE_EXPORT_FUNCTION(io_openhandle),
+#endif
         MODULE_EXPORT_FUNCTION(io_mkpipe),
         ARGON_MODULE_SENTINEL
 };
