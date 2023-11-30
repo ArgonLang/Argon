@@ -9,6 +9,8 @@
 
 #include <argon/vm/datatype/arobject.h>
 
+#undef CONST
+
 namespace argon::vm::support::nt {
     struct OSHandle {
         AROBJ_HEAD;

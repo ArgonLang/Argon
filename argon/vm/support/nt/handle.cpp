@@ -38,6 +38,70 @@ ARGON_FUNCTION(oshandle_handle, Handle,
     return (ArObject *) OSHandleNew(handle);
 }
 
+ARGON_METHOD(oshandle_dup, dup,
+             "Duplicates an object handle.\n"
+             "\n"
+             "- KWParameters:\n"
+             "  - targetProcess: A handle to the process that is to receive the duplicated handle.\n"
+             "  - desiredAccess: The access requested for the new handle.\n"
+             "  - inherit: A variable that indicates whether the handle is inheritable.\n"
+             "  - options: Optional actions.\n"
+             "- Returns: Handle object.\n"
+             "- Remarks: See Windows DuplicateHandle function for more details.\n",
+             nullptr, false, true) {
+    auto *self = (OSHandle *) _self;
+    OSHandle *rHandle;
+
+    HANDLE tHandle;
+    HANDLE out;
+
+    IntegerUnderlying dwDesiredAccess;
+    IntegerUnderlying dwOptions;
+    bool inherit;
+
+    if (!KParamLookup((Dict *) kwargs, "targetProcess", type_oshandle_, (ArObject **) &rHandle, nullptr, true))
+        return nullptr;
+
+    if (rHandle != nullptr)
+        tHandle = rHandle->handle;
+    else
+        tHandle = GetCurrentProcess();
+
+    if (!KParamLookupInt((Dict *) kwargs, "desiredAccess", &dwDesiredAccess, 0))
+        return nullptr;
+
+    if (!KParamLookupBool((Dict *) kwargs, "inherit", &inherit, true))
+        return nullptr;
+
+    if (!KParamLookupInt((Dict *) kwargs, "options", &dwOptions, DUPLICATE_SAME_ACCESS))
+        return nullptr;
+
+    auto ok = DuplicateHandle(
+            GetCurrentProcess(),
+            self->handle,
+            tHandle,
+            &out,
+            dwDesiredAccess,
+            inherit,
+            dwOptions);
+
+    Release(rHandle);
+
+    if (ok == 0) {
+        ErrorFromWinErr();
+
+        return nullptr;
+    }
+
+    if ((rHandle = OSHandleNew(out)) == nullptr) {
+        CloseHandle(out);
+
+        return nullptr;
+    }
+
+    return (ArObject *) rHandle;
+}
+
 ARGON_METHOD(oshandle_waitobject, waitobject,
              "Waits until the specified object is in the signaled state or the time-out interval elapses.\n"
              "\n"
@@ -72,6 +136,7 @@ ARGON_METHOD(oshandle_waitobject, waitobject,
 const FunctionDef oshandle_methods[] = {
         oshandle_handle,
 
+        oshandle_dup,
         oshandle_waitobject,
         ARGON_METHOD_SENTINEL
 };
