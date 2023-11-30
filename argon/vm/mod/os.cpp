@@ -93,43 +93,13 @@ ARGON_FUNCTION(os_dup, dup,
                "\n"
                "- Parameter oldfd: File descriptor referring to open file.\n"
                "- Returns: Returns a new file descriptor.\n",
-               ": oldfd", false, true) {
-    ArObject *tmp;
-
+               "i: oldfd", false, true) {
     IntegerUnderlying newfd = 0;
+    int oldfd = (int) ((Integer *) args[0])->sint;
     int result;
-    int oldfd;
 
-    if (AR_TYPEOF(args[0], type_int_))
-        oldfd = (int) ((Integer *) args[0])->sint;
-    else if (AR_TYPEOF(args[0], io::type_file_))
-        oldfd = ((io::File *) args[0])->handle;
-    else {
-        ErrorFormat(kTypeError[0], "expected '%s' or '%s' got '%s'", type_int_->name,
-                    io::type_file_->name, AR_TYPE_QNAME(args[0]));
-
+    if (!KParamLookupInt((Dict *) kwargs, "newfd", &newfd, -1))
         return nullptr;
-    }
-
-    if (!KParamLookup((Dict *) kwargs, "newfd", nullptr, &tmp, nullptr, true))
-        return nullptr;
-
-    if (tmp != nullptr) {
-        if (AR_TYPEOF(tmp, type_int_))
-            newfd = (int) ((Integer *) tmp)->sint;
-        else if (AR_TYPEOF(tmp, io::type_file_))
-            newfd = ((io::File *) tmp)->handle;
-        else {
-            Release(tmp);
-
-            ErrorFormat(kTypeError[0], "expected '%s' or '%s' got '%s'", type_int_->name,
-                        io::type_file_->name, AR_TYPE_QNAME(tmp));
-
-            return nullptr;
-        }
-
-        Release(tmp);
-    }
 
     auto robj = IntNew(0);
     if (robj == nullptr)
@@ -138,14 +108,12 @@ ARGON_FUNCTION(os_dup, dup,
     if (newfd < 0) {
 #ifdef _ARGON_PLATFORM_WINDOWS
         result = _dup(oldfd);
-        // TODO: DuplicateHandle
 #else
         result = dup(oldfd);
 #endif
     } else {
 #ifdef _ARGON_PLATFORM_WINDOWS
         result = _dup2(oldfd, (int) newfd);
-        // TODO: DuplicateHandle
 #else
         result = dup2(oldfd, (int) newfd);
 #endif
@@ -163,7 +131,6 @@ ARGON_FUNCTION(os_dup, dup,
 
     return (ArObject *) robj;
 }
-
 
 ARGON_FUNCTION(os_exit, exit,
                "Exit to the system with specified status, without normal exit processing.\n"
@@ -716,6 +683,7 @@ ARGON_FUNCTION(os_getenv, getenv,
 }
 
 #ifdef _ARGON_PLATFORM_WINDOWS
+
 ARGON_FUNCTION(os_getexitcode, getexitcode,
                "Retrieves the termination status of the specified process.\n"
                "\n"
@@ -763,6 +731,7 @@ ARGON_FUNCTION(os_getexitcode, getexitcode,
 
     return (ArObject *) rt;
 }
+
 #endif
 
 ARGON_FUNCTION(os_getlogin, getlogin,
@@ -895,6 +864,7 @@ ARGON_FUNCTION(os_setenv, setenv,
 }
 
 #ifdef _ARGON_PLATFORM_WINDOWS
+
 ARGON_FUNCTION(os_terminateprocess, terminateprocess,
                "Terminates the specified process.\n"
                "\n"
@@ -916,6 +886,7 @@ ARGON_FUNCTION(os_terminateprocess, terminateprocess,
 
     return (ArObject *) IncRef(Nil);
 }
+
 #else
 
 ARGON_FUNCTION(os_terminateprocess, terminateprocess,
@@ -1040,7 +1011,9 @@ const ModuleEntry os_entries[] = {
         MODULE_EXPORT_FUNCTION(os_getcwd),
         MODULE_EXPORT_FUNCTION(os_getlogin),
         MODULE_EXPORT_FUNCTION(os_getpid),
+#ifndef _ARGON_PLATFORM_WINDOWS
         MODULE_EXPORT_FUNCTION(os_kill),
+#endif
         MODULE_EXPORT_FUNCTION(os_mkdir),
         MODULE_EXPORT_FUNCTION(os_rmdir),
         MODULE_EXPORT_FUNCTION(os_setenv),
@@ -1090,50 +1063,50 @@ bool OSInit(Module *self) {
     if (!ModuleAddIntConstant(self, "TIMEOUT_INFINITE", INFINITE))
         return false;
 #else
-    // SIGNALS
-    AddIntConstant(SIGHUP);
-    AddIntConstant(SIGINT);
-    AddIntConstant(SIGQUIT);
-    AddIntConstant(SIGILL);
-    AddIntConstant(SIGTRAP);
-    AddIntConstant(SIGABRT);
-    AddIntConstant(SIGIOT);
-    AddIntConstant(SIGBUS);
-    //AddIntConstant(SIGEMT);
-    AddIntConstant(SIGFPE);
-    AddIntConstant(SIGKILL);
-    AddIntConstant(SIGUSR1);
-    AddIntConstant(SIGSEGV);
-    AddIntConstant(SIGUSR2);
-    AddIntConstant(SIGPIPE);
-    AddIntConstant(SIGALRM);
-    AddIntConstant(SIGTERM);
-    //AddIntConstant(SIGSTKFLT);
-    AddIntConstant(SIGCHLD);
-    //AddIntConstant(SIGCLD);
-    AddIntConstant(SIGCONT);
-    AddIntConstant(SIGSTOP);
-    AddIntConstant(SIGTSTP);
-    AddIntConstant(SIGTTIN);
-    AddIntConstant(SIGTTOU);
-    AddIntConstant(SIGURG);
-    AddIntConstant(SIGXCPU);
-    AddIntConstant(SIGXFSZ);
-    AddIntConstant(SIGVTALRM);
-    AddIntConstant(SIGPROF);
-    AddIntConstant(SIGWINCH);
-    AddIntConstant(SIGIO);
-    //AddIntConstant(SIGPOLL);
-    //AddIntConstant(SIGPWR);
-    //AddIntConstant(SIGINFO);
-    //AddIntConstant(SIGLOST);
-    AddIntConstant(SIGSYS);
-    //AddIntConstant(SIGUNUSED);
+        // SIGNALS
+        AddIntConstant(SIGHUP);
+        AddIntConstant(SIGINT);
+        AddIntConstant(SIGQUIT);
+        AddIntConstant(SIGILL);
+        AddIntConstant(SIGTRAP);
+        AddIntConstant(SIGABRT);
+        AddIntConstant(SIGIOT);
+        AddIntConstant(SIGBUS);
+        //AddIntConstant(SIGEMT);
+        AddIntConstant(SIGFPE);
+        AddIntConstant(SIGKILL);
+        AddIntConstant(SIGUSR1);
+        AddIntConstant(SIGSEGV);
+        AddIntConstant(SIGUSR2);
+        AddIntConstant(SIGPIPE);
+        AddIntConstant(SIGALRM);
+        AddIntConstant(SIGTERM);
+        //AddIntConstant(SIGSTKFLT);
+        AddIntConstant(SIGCHLD);
+        //AddIntConstant(SIGCLD);
+        AddIntConstant(SIGCONT);
+        AddIntConstant(SIGSTOP);
+        AddIntConstant(SIGTSTP);
+        AddIntConstant(SIGTTIN);
+        AddIntConstant(SIGTTOU);
+        AddIntConstant(SIGURG);
+        AddIntConstant(SIGXCPU);
+        AddIntConstant(SIGXFSZ);
+        AddIntConstant(SIGVTALRM);
+        AddIntConstant(SIGPROF);
+        AddIntConstant(SIGWINCH);
+        AddIntConstant(SIGIO);
+        //AddIntConstant(SIGPOLL);
+        //AddIntConstant(SIGPWR);
+        //AddIntConstant(SIGINFO);
+        //AddIntConstant(SIGLOST);
+        AddIntConstant(SIGSYS);
+        //AddIntConstant(SIGUNUSED);
 
-    // WAITPID OPTIONS
-    AddIntConstant(WNOHANG);
-    AddIntConstant(WUNTRACED);
-    AddIntConstant(WCONTINUED);
+        // WAITPID OPTIONS
+        AddIntConstant(WNOHANG);
+        AddIntConstant(WUNTRACED);
+        AddIntConstant(WCONTINUED);
 #endif
 
     AddIntConstant(EXIT_SUCCESS);
