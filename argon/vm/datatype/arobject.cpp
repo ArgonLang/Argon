@@ -35,29 +35,26 @@ ArObject *type_compare(const ArObject *self, const ArObject *other, CompareMode 
     return BoolToArBool(self == other);
 }
 
-ArObject *type_get_attr(const ArObject *self, ArObject *key, bool static_attr) {
-    const auto *ancestor = AR_GET_TYPE(self);
+ArObject *type_get_attr(const ArObject *instance, ArObject *key, bool static_attr) {
+    const auto *ancestor = AR_GET_TYPE(instance);
 
-    if (ancestor == type_type_)
-        ancestor = (const TypeInfo *) self;
-
-    if (static_attr && !AR_TYPEOF(self, type_type_)) {
-        ErrorFormat(kTypeError[0], kTypeError[1], AR_TYPE_NAME(self));
+    if (static_attr && !AR_TYPEOF(instance, type_type_)) {
+        ErrorFormat(kTypeError[0], kTypeError[1], AR_TYPE_NAME(instance));
         return nullptr;
     }
 
     const auto *frame = argon::vm::GetFrame();
-    const ArObject *instance = nullptr;
+    const TypeInfo *base = nullptr;
     ArObject *ret = nullptr;
 
     AttributeProperty aprop{};
 
     if (frame != nullptr)
-        instance = frame->base;
+        base = (const TypeInfo *) frame->base;
 
     if (!static_attr) {
-        if (AR_HAVE_OBJECT_BEHAVIOUR(self) && AR_SLOT_OBJECT(self)->namespace_offset >= 0) {
-            auto ns = *((Namespace **) AR_GET_NSOFFSET(self));
+        if (AR_HAVE_OBJECT_BEHAVIOUR(instance) && AR_SLOT_OBJECT(instance)->namespace_offset >= 0) {
+            auto ns = *((Namespace **) AR_GET_NSOFFSET(instance));
             ret = NamespaceLookup(ns, key, &aprop);
         }
 
@@ -69,7 +66,7 @@ ArObject *type_get_attr(const ArObject *self, ArObject *key, bool static_attr) {
                 ret = MROSearch(ancestor, key, &aprop);
         }
     } else
-        ret = NamespaceLookup((Namespace *) ((const TypeInfo *) self)->tp_map, key, &aprop);
+        ret = NamespaceLookup((Namespace *) ((const TypeInfo *) instance)->tp_map, key, &aprop);
 
     if (ret == nullptr) {
         ErrorFormat(kAttributeError[0], kAttributeError[3], ARGON_RAW_STRING((String *) key), ancestor->name);
@@ -85,7 +82,7 @@ ArObject *type_get_attr(const ArObject *self, ArObject *key, bool static_attr) {
         return nullptr;
     }
 
-    if (!aprop.IsPublic() && !TraitIsImplemented(instance, ancestor)) {
+    if (!aprop.IsPublic() && !TraitIsImplemented(instance, base)) {
         ErrorFormat(kAccessViolationError[0], kAccessViolationError[1],
                     ARGON_RAW_STRING((String *) key), ancestor->name);
 
@@ -97,12 +94,12 @@ ArObject *type_get_attr(const ArObject *self, ArObject *key, bool static_attr) {
     if (AR_TYPEOF(ret, type_native_wrapper_)) {
         if (static_attr) {
             ErrorFormat(kAccessViolationError[0], kAccessViolationError[2],
-                        ARGON_RAW_STRING((String *) key), ((TypeInfo *) self)->name);
+                        ARGON_RAW_STRING((String *) key), ((TypeInfo *) instance)->name);
 
             return nullptr;
         }
 
-        auto *value = NativeWrapperGet((NativeWrapper *) ret, self);
+        auto *value = NativeWrapperGet((NativeWrapper *) ret, instance);
 
         Release(ret);
 
@@ -142,31 +139,31 @@ bool type_dtor(TypeInfo *self) {
     return true;
 }
 
-bool type_set_attr(ArObject *self, ArObject *key, ArObject *value, bool static_attr) {
-    if (!AR_HAVE_OBJECT_BEHAVIOUR(self)) {
-        ErrorFormat(kAttributeError[0], static_attr ? kAttributeError[2] : kAttributeError[1], AR_TYPE_NAME(self));
+bool type_set_attr(ArObject *instance, ArObject *key, ArObject *value, bool static_attr) {
+    if (!AR_HAVE_OBJECT_BEHAVIOUR(instance)) {
+        ErrorFormat(kAttributeError[0], static_attr ? kAttributeError[2] : kAttributeError[1], AR_TYPE_NAME(instance));
         return false;
     }
 
-    if (static_attr && !AR_TYPEOF(self, type_type_)) {
-        ErrorFormat(kTypeError[0], kTypeError[1], AR_TYPE_NAME(self));
+    if (static_attr && !AR_TYPEOF(instance, type_type_)) {
+        ErrorFormat(kTypeError[0], kTypeError[1], AR_TYPE_NAME(instance));
         return false;
     }
 
-    const auto *ancestor = AR_GET_TYPE(self);
+    const auto *ancestor = AR_GET_TYPE(instance);
     const auto *frame = argon::vm::GetFrame();
-    const ArObject *instance = nullptr;
+    const ArObject *base = nullptr;
     ArObject *current = nullptr;
     Namespace *ns;
 
     AttributeProperty aprop{};
 
     if (frame != nullptr)
-        instance = frame->base;
+        base = frame->base;
 
     if (!static_attr) {
-        if (AR_SLOT_OBJECT(self)->namespace_offset >= 0) {
-            ns = *((Namespace **) AR_GET_NSOFFSET(self));
+        if (AR_SLOT_OBJECT(instance)->namespace_offset >= 0) {
+            ns = *((Namespace **) AR_GET_NSOFFSET(instance));
             current = NamespaceLookup(ns, key, &aprop);
         }
 
@@ -175,27 +172,27 @@ bool type_set_attr(ArObject *self, ArObject *key, ArObject *value, bool static_a
             ns = nullptr;
         }
     } else {
-        ns = (Namespace *) ((const TypeInfo *) self)->tp_map;
+        ns = (Namespace *) ((const TypeInfo *) instance)->tp_map;
         current = NamespaceLookup(ns, key, &aprop);
     }
 
     if (current == nullptr) {
-        ErrorFormat(kAttributeError[0], kAttributeError[3], ARGON_RAW_STRING((String *) key), AR_TYPE_NAME(self));
+        ErrorFormat(kAttributeError[0], kAttributeError[3], ARGON_RAW_STRING((String *) key), AR_TYPE_NAME(instance));
         return false;
     }
 
     if (static_attr && !aprop.IsConstant()) {
         ErrorFormat(kAccessViolationError[0], kAccessViolationError[2],
-                    ARGON_RAW_STRING((String *) key), AR_TYPE_QNAME(self));
+                    ARGON_RAW_STRING((String *) key), AR_TYPE_QNAME(instance));
 
         Release(current);
 
         return false;
     }
 
-    if (!aprop.IsPublic() && (instance == nullptr || !AR_TYPEOF(self, (TypeInfo *) instance))) {
+    if (!aprop.IsPublic() && (base == nullptr || !AR_TYPEOF(instance, (TypeInfo *) base))) {
         ErrorFormat(kAccessViolationError[0], kAccessViolationError[1],
-                    ARGON_RAW_STRING((String *) key), AR_TYPE_NAME(self));
+                    ARGON_RAW_STRING((String *) key), AR_TYPE_NAME(instance));
 
         Release(current);
         return false;
@@ -204,12 +201,12 @@ bool type_set_attr(ArObject *self, ArObject *key, ArObject *value, bool static_a
     if (AR_TYPEOF(current, type_native_wrapper_)) {
         if (static_attr) {
             ErrorFormat(kAccessViolationError[0], kAccessViolationError[2],
-                        ARGON_RAW_STRING((String *) key), ((TypeInfo *) self)->name);
+                        ARGON_RAW_STRING((String *) key), ((TypeInfo *) instance)->name);
 
             return false;
         }
 
-        auto ok = NativeWrapperSet((NativeWrapper *) current, self, value);
+        auto ok = NativeWrapperSet((NativeWrapper *) current, instance, value);
 
         Release(current);
 
@@ -220,7 +217,7 @@ bool type_set_attr(ArObject *self, ArObject *key, ArObject *value, bool static_a
 
     if (ns == nullptr || aprop.IsConstant()) {
         ErrorFormat(kUnassignableError[0], kUnassignableError[2],
-                    AR_TYPE_QNAME(self), ARGON_RAW_STRING((String *) key));
+                    AR_TYPE_QNAME(instance), ARGON_RAW_STRING((String *) key));
 
         return false;
     }
@@ -1068,8 +1065,6 @@ bool argon::vm::datatype::TraitIsImplemented(const ArObject *object, const TypeI
         return false;
 
     obj_type = AR_GET_TYPE(object);
-    if (obj_type == type_type_)
-        obj_type = (const TypeInfo *) object;
 
     if (obj_type == type)
         return true;
