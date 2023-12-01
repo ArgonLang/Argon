@@ -732,6 +732,7 @@ bool Scanner::NextToken(Token *out_token) noexcept {
 
         this->peeked.type = TokenType::TK_NULL;
         this->peeked.buffer = nullptr;
+        this->peeked.length = 0;
 
         return true;
     }

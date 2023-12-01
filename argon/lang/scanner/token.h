@@ -187,6 +187,7 @@ namespace argon::lang::scanner {
             this->loc = other.loc;
 
             other.buffer = nullptr;
+            other.length = 0;
 
             return *this;
         }
