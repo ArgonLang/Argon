@@ -1064,8 +1064,10 @@ bool argon::vm::datatype::TraitIsImplemented(const ArObject *object, const TypeI
     if (object == nullptr || type == nullptr)
         return false;
 
-    obj_type = AR_GET_TYPE(object);
+    if((const TypeInfo *) object == type)
+        return true;
 
+    obj_type = AR_GET_TYPE(object);
     if (obj_type == type)
         return true;
 
