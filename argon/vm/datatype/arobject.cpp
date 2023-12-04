@@ -1175,10 +1175,7 @@ void argon::vm::datatype::BufferRelease(ArBuffer *buffer) {
 }
 
 void argon::vm::datatype::MonitorDestroy(ArObject *object) {
-    assert(AR_GET_RC(object).GetStrongCount() == 0);
-
     auto *monitor = AR_GET_MON(object).load(std::memory_order_consume);
-
     if (monitor == nullptr)
         return;
 
