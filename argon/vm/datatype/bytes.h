@@ -20,7 +20,26 @@ namespace argon::vm::datatype {
         ArSize hash;
 
         bool frozen;
+
+        void lock() const {
+            this->view.shared->rwlock.lock();
+        }
+
+        void lock_shared() const {
+            if (!this->frozen)
+                this->view.shared->rwlock.lock_shared();
+        }
+
+        void unlock() const {
+            this->view.shared->rwlock.unlock();
+        }
+
+        void unlock_shared() const {
+            if (!this->frozen)
+                this->view.shared->rwlock.unlock_shared();
+        }
     };
+
     _ARGONAPI extern const TypeInfo *type_bytes_;
 
     using BytesIterator = Iterator<Bytes>;

@@ -20,20 +20,7 @@
 
 #define BUFFER_GET(bs)              ((bs)->view.buffer)
 #define BUFFER_LEN(bs)              ((bs)->view.length)
-#define BUFFER_MAXLEN(left, right)  (BUFFER_LEN(left) > BUFFER_LEN(right) ? BUFFER_LEN(right) : BUFFER_LEN(self))
 #define VIEW_GET(bs)                ((bs)->view)
-
-#define SHARED_LOCK(bs)                         \
-    do {                                        \
-        if(!(bs)->frozen)                       \
-            VIEW_GET(bs).ReadableBufferLock();  \
-    } while(0)
-
-#define SHARED_UNLOCK(bs)                       \
-    do {                                        \
-        if(!(bs)->frozen)                       \
-            VIEW_GET(bs).ReadableRelease();     \
-    } while(0)
 
 using namespace argon::vm::datatype;
 
@@ -56,7 +43,7 @@ ArObject *trim(Bytes *self, Dict *kwargs, bool left, bool right) {
                 return nullptr;
             }
 
-            SHARED_LOCK(tmp);
+            tmp->lock();
 
             trim_buffer = BUFFER_GET(tmp);
             trim_length = BUFFER_LEN(tmp);
@@ -66,7 +53,7 @@ ArObject *trim(Bytes *self, Dict *kwargs, bool left, bool right) {
     auto *ret = BytesTrim(self, trim_buffer, trim_length, left, right);
 
     if (tmp != nullptr) {
-        SHARED_UNLOCK(tmp);
+        tmp->unlock();
 
         Release(tmp);
     }
@@ -111,18 +98,13 @@ ARGON_METHOD(bytes_capitalize, capitalize,
     auto *self = (Bytes *) _self;
     Bytes *ret;
 
-    SHARED_LOCK(self);
+    std::shared_lock _(*self);
 
-    if (BUFFER_LEN(self) == 0 || toupper(*BUFFER_GET(self)) == *BUFFER_GET(self)) {
-        SHARED_UNLOCK(self);
-
+    if (BUFFER_LEN(self) == 0 || toupper(*BUFFER_GET(self)) == *BUFFER_GET(self))
         return (ArObject *) IncRef(self);
-    }
 
     if ((ret = BytesNew(BUFFER_GET(self), BUFFER_LEN(self), self->frozen)) == nullptr)
         return nullptr;
-
-    SHARED_UNLOCK(self);
 
     BUFFER_GET(ret)[0] = (unsigned char) toupper(*BUFFER_GET(ret));
 
@@ -167,24 +149,31 @@ ARGON_METHOD(bytes_copy, copy,
         return nullptr;
     }
 
-    if (!BufferGet(src, &buffer, BufferFlags::READ))
-        return nullptr;
+    std::unique_lock _(*self);
 
-    if (_self != src)
-        VIEW_GET(self).WritableBufferLock();
+    const auto *raw = BUFFER_GET(self);
+    auto length = BUFFER_LEN(self);
+
+    if (_self != src) {
+        if (!BufferGet(src, &buffer, BufferFlags::READ))
+            return nullptr;
+
+        raw = buffer.buffer;
+        length = buffer.length;
+    }
 
     if (cplen > BUFFER_LEN(self) - doff)
         cplen = BUFFER_LEN(self) - doff;
 
-    if (cplen > buffer.length - soff)
-        cplen = buffer.length - soff;
+    if (cplen > length - soff)
+        cplen = length - soff;
 
-    argon::vm::memory::MemoryCopy(BUFFER_GET(self) + doff, buffer.buffer + soff, cplen);
+    argon::vm::memory::MemoryCopy(BUFFER_GET(self) + doff, raw + soff, cplen);
 
     if (_self != src)
-        VIEW_GET(self).WritableRelease();
+        BufferRelease(&buffer);
 
-    BufferRelease(&buffer);
+    _.unlock();
 
     return (ArObject *) IntNew((IntegerUnderlying) cplen);
 }
@@ -205,12 +194,10 @@ ARGON_METHOD(bytes_count, count,
     if (!BufferGet(args[0], &buffer, BufferFlags::READ))
         return nullptr;
 
-    SHARED_LOCK(self);
+    std::shared_lock _(*self);
 
     count = BUFFER_LEN(self) > buffer.length ? buffer.length : BUFFER_LEN(self);
     count = stratum::util::MemoryCompare(BUFFER_GET(self) + (BUFFER_LEN(self) - count), buffer.buffer, count);
-
-    SHARED_UNLOCK(self);
 
     BufferRelease(&buffer);
 
@@ -244,12 +231,10 @@ ARGON_METHOD(bytes_endswith, endswith,
     if (!BufferGet(args[0], &buffer, BufferFlags::READ))
         return nullptr;
 
-    SHARED_LOCK(self);
+    std::shared_lock _(*self);
 
     res = BUFFER_LEN(self) > buffer.length ? buffer.length : BUFFER_LEN(self);
     res = stratum::util::MemoryCompare(BUFFER_GET(self) + (BUFFER_LEN(self) - res), buffer.buffer, res);
-
-    SHARED_UNLOCK(self);
 
     BufferRelease(&buffer);
 
@@ -275,11 +260,9 @@ ARGON_METHOD(bytes_find, find,
     if (!BufferGet(args[0], &buffer, BufferFlags::READ))
         return nullptr;
 
-    SHARED_LOCK(self);
+    std::shared_lock _(*self);
 
     index = support::Find(BUFFER_GET(self), BUFFER_LEN(self), buffer.buffer, buffer.length);
-
-    SHARED_UNLOCK(self);
 
     BufferRelease(&buffer);
 
@@ -304,16 +287,12 @@ ARGON_METHOD(bytes_findbyte, findbyte,
         return nullptr;
     }
 
-    SHARED_LOCK(self);
+    std::shared_lock _(*self);
 
     for (ArSize i = start; i < BUFFER_LEN(self); i++) {
-        if (BUFFER_GET(self)[i] == pattern) {
-            SHARED_UNLOCK(self);
+        if (BUFFER_GET(self)[i] == pattern)
             return (ArObject *) IntNew((IntegerUnderlying) (i - start));
-        }
     }
-
-    SHARED_UNLOCK(self);
 
     return (ArObject *) IntNew(-1);
 }
@@ -342,17 +321,12 @@ ARGON_METHOD(bytes_isalnum, isalnum,
              nullptr, false, false) {
     auto *self = (Bytes *) _self;
 
-    SHARED_LOCK(self);
+    std::shared_lock _(*self);
 
     for (ArSize i = 0; i < BUFFER_LEN(self); i++) {
-        if (!std::isalnum(BUFFER_GET(self)[i])) {
-            SHARED_UNLOCK(self);
-
+        if (!std::isalnum(BUFFER_GET(self)[i]))
             return BoolToArBool(false);
-        }
     }
-
-    SHARED_UNLOCK(self);
 
     return BoolToArBool(true);
 }
@@ -370,17 +344,12 @@ ARGON_METHOD(bytes_isalpha, isalpha,
              nullptr, false, false) {
     auto *self = (Bytes *) _self;
 
-    SHARED_LOCK(self);
+    std::shared_lock _(*self);
 
     for (ArSize i = 0; i < BUFFER_LEN(self); i++) {
-        if (!std::isalpha(BUFFER_GET(self)[i])) {
-            SHARED_UNLOCK(self);
-
+        if (!std::isalpha(BUFFER_GET(self)[i]))
             return BoolToArBool(false);
-        }
     }
-
-    SHARED_UNLOCK(self);
 
     return BoolToArBool(true);
 }
@@ -398,17 +367,12 @@ ARGON_METHOD(bytes_isascii, isascii,
              nullptr, false, false) {
     auto *self = (Bytes *) _self;
 
-    SHARED_LOCK(self);
+    std::shared_lock _(*self);
 
     for (ArSize i = 0; i < BUFFER_LEN(self); i++) {
-        if (BUFFER_GET(self)[i] > 0x7F) {
-            SHARED_UNLOCK(self);
-
+        if (BUFFER_GET(self)[i] > 0x7F)
             return BoolToArBool(false);
-        }
     }
-
-    SHARED_UNLOCK(self);
 
     return BoolToArBool(true);
 }
@@ -426,17 +390,12 @@ ARGON_METHOD(bytes_isdigit, isdigit,
              nullptr, false, false) {
     auto *self = (Bytes *) _self;
 
-    SHARED_LOCK(self);
+    std::shared_lock _(*self);
 
     for (ArSize i = 0; i < BUFFER_LEN(self); i++) {
-        if (!std::isdigit(BUFFER_GET(self)[i])) {
-            SHARED_UNLOCK(self);
-
+        if (!std::isdigit(BUFFER_GET(self)[i]))
             return BoolToArBool(false);
-        }
     }
-
-    SHARED_UNLOCK(self);
 
     return BoolToArBool(true);
 }
@@ -454,17 +413,12 @@ ARGON_METHOD(bytes_isxdigit, isxdigit,
              nullptr, false, false) {
     auto *self = (Bytes *) _self;
 
-    SHARED_LOCK(self);
+    std::shared_lock _(*self);
 
     for (ArSize i = 0; i < BUFFER_LEN(self); i++) {
-        if (!std::isdigit(BUFFER_GET(self)[i])) {
-            SHARED_UNLOCK(self);
-
+        if (!std::isdigit(BUFFER_GET(self)[i]))
             return BoolToArBool(false);
-        }
     }
-
-    SHARED_UNLOCK(self);
 
     return BoolToArBool(true);
 }
@@ -500,7 +454,7 @@ ARGON_METHOD(bytes_join, join,
         return nullptr;
     }
 
-    SHARED_LOCK(self);
+    std::shared_lock _(*self);
 
     while ((item = IteratorNext(iter)) != nullptr) {
         const unsigned char *item_buf = BUFFER_GET(self);
@@ -514,18 +468,11 @@ ARGON_METHOD(bytes_join, join,
             len = buffer.length;
         }
 
-        if (!BufferViewEnlarge(&ret->view, idx > 0 ? len + BUFFER_LEN(self) : len)) {
-            BufferRelease(&buffer);
+        if (idx > 0 && !BufferViewAppendData(&ret->view, BUFFER_GET(self), BUFFER_LEN(self)))
             goto ERROR;
-        }
 
-        if (idx > 0) {
-            argon::vm::memory::MemoryCopy(BUFFER_GET(ret) + BUFFER_LEN(ret), BUFFER_GET(self), BUFFER_LEN(self));
-            BUFFER_LEN(ret) += BUFFER_LEN(self);
-        }
-
-        argon::vm::memory::MemoryCopy(BUFFER_GET(ret) + BUFFER_LEN(ret), item_buf, len);
-        BUFFER_LEN(ret) += len;
+        if (!BufferViewAppendData(&ret->view, item_buf, len))
+            goto ERROR;
 
         if (item != _self)
             BufferRelease(&buffer);
@@ -535,14 +482,12 @@ ARGON_METHOD(bytes_join, join,
         idx++;
     }
 
-    SHARED_UNLOCK(self);
-
     Release(iter);
 
     return (ArObject *) ret;
 
     ERROR:
-    SHARED_UNLOCK(self);
+    _.unlock();
 
     Release(item);
     Release(iter);
@@ -600,18 +545,15 @@ ARGON_METHOD(bytes_reverse, reverse,
     unsigned char *buffer;
     ArSize index = 0;
 
-    SHARED_LOCK(self);
+    std::shared_lock _(*self);
 
-    if ((buffer = (unsigned char *) argon::vm::memory::Alloc(BUFFER_LEN(self))) == nullptr){
-        SHARED_UNLOCK(self);
-
+    if ((buffer = (unsigned char *) argon::vm::memory::Alloc(BUFFER_LEN(self))) == nullptr)
         return nullptr;
-    }
 
     for (ArSize i = BUFFER_LEN(self); i > 0; i--)
         buffer[index++] = BUFFER_GET(self)[i - 1];
 
-    SHARED_UNLOCK(self);
+    _.unlock();
 
     auto *ret = BytesNewHoldBuffer(buffer, BUFFER_LEN(self), BUFFER_LEN(self), false);
     if (ret == nullptr) {
@@ -642,11 +584,9 @@ ARGON_METHOD(bytes_rfind, rfind,
     if (!BufferGet(args[0], &buffer, BufferFlags::READ))
         return nullptr;
 
-    SHARED_LOCK(self);
+    std::shared_lock _(*self);
 
     index = support::Find(BUFFER_GET(self), BUFFER_LEN(self), buffer.buffer, buffer.length, true);
-
-    SHARED_UNLOCK(self);
 
     BufferRelease(&buffer);
 
@@ -673,7 +613,7 @@ ARGON_METHOD(bytes_rmpostfix, rmpostfix,
     if (!BufferGet(args[0], &buffer, BufferFlags::READ))
         return nullptr;
 
-    SHARED_LOCK(self);
+    std::shared_lock _(*self);
 
     len = BUFFER_LEN(self) > buffer.length ? buffer.length : BUFFER_LEN(self);
 
@@ -681,15 +621,8 @@ ARGON_METHOD(bytes_rmpostfix, rmpostfix,
 
     BufferRelease(&buffer);
 
-    if (compare == 0) {
-        auto *ret = BytesNew(BUFFER_GET(self), BUFFER_LEN(self) - len, self->frozen);
-
-        SHARED_UNLOCK(self);
-
-        return (ArObject *) ret;
-    }
-
-    SHARED_UNLOCK(self);
+    if (compare == 0)
+        return (ArObject *) BytesNew(BUFFER_GET(self), BUFFER_LEN(self) - len, self->frozen);
 
     return (ArObject *) IncRef(self);
 }
@@ -714,7 +647,7 @@ ARGON_METHOD(bytes_rmprefix, rmprefix,
     if (!BufferGet(args[0], &buffer, BufferFlags::READ))
         return nullptr;
 
-    SHARED_LOCK(self);
+    std::shared_lock _(*self);
 
     len = BUFFER_LEN(self) > buffer.length ? buffer.length : BUFFER_LEN(self);
 
@@ -722,15 +655,8 @@ ARGON_METHOD(bytes_rmprefix, rmprefix,
 
     BufferRelease(&buffer);
 
-    if (compare == 0) {
-        auto *ret = BytesNew(BUFFER_GET(self) + len, BUFFER_LEN(self) - len, self->frozen);
-
-        SHARED_UNLOCK(self);
-
-        return (ArObject *) ret;
-    }
-
-    SHARED_UNLOCK(self);
+    if (compare == 0)
+        return (ArObject *) BytesNew(BUFFER_GET(self) + len, BUFFER_LEN(self) - len, self->frozen);
 
     return (ArObject *) IncRef(self);
 }
@@ -777,12 +703,10 @@ ARGON_METHOD(bytes_split, split,
         }
     }
 
-    SHARED_LOCK((Bytes *) _self);
+    std::shared_lock _(*((Bytes *) _self));
 
     ret = support::Split(BUFFER_GET((Bytes *) _self), pattern, (support::SplitChunkNewFn<Bytes>) BytesNew,
                          BUFFER_LEN((Bytes *) _self), plen, ((Integer *) args[1])->sint);
-
-    SHARED_UNLOCK((Bytes *) _self);
 
     BufferRelease(&buffer);
 
@@ -795,19 +719,13 @@ ARGON_METHOD(bytes_splitlines, splitlines,
              "- Parameters: maxsplit: Specifies how many splits to do.\n"
              "- Returns: New list of bytes string.\n",
              "i: maxsplit", false, false) {
-    ArObject *ret;
+    std::shared_lock _(*((Bytes *) _self));
 
-    SHARED_LOCK((Bytes *) _self);
-
-    ret = support::SplitLines(
+    return support::SplitLines(
             BUFFER_GET((Bytes *) _self),
             (support::SplitChunkNewFn<Bytes>) BytesNew,
             BUFFER_LEN((Bytes *) _self),
             ((Integer *) args[0])->sint);
-
-    SHARED_UNLOCK((Bytes *) _self);
-
-    return ret;
 }
 
 ARGON_METHOD(bytes_splitws, splitws,
@@ -816,16 +734,14 @@ ARGON_METHOD(bytes_splitws, splitws,
              "- Parameters: maxsplit: Specifies how many splits to do.\n"
              "- Returns: New list of bytes string.\n",
              "i: maxsplit", false, false) {
-    ArObject *ret;
+    std::shared_lock _(*((Bytes *) _self));
 
-    SHARED_LOCK((Bytes *) _self);
-
-    ret = support::Split(BUFFER_GET((Bytes *) _self), nullptr, (support::SplitChunkNewFn<Bytes>) BytesNew,
-                         BUFFER_LEN((Bytes *) _self), 0, ((Integer *) args[0])->sint);
-
-    SHARED_UNLOCK((Bytes *) _self);
-
-    return ret;
+    return support::Split(BUFFER_GET((Bytes *) _self),
+                          nullptr,
+                          (support::SplitChunkNewFn<Bytes>) BytesNew,
+                          BUFFER_LEN((Bytes *) _self),
+                          0,
+                          ((Integer *) args[0])->sint);
 }
 
 ARGON_METHOD(bytes_startswith, startswith,
@@ -847,12 +763,12 @@ ARGON_METHOD(bytes_startswith, startswith,
     if (!BufferGet(args[0], &buffer, BufferFlags::READ))
         return nullptr;
 
-    SHARED_LOCK(self);
+    std::shared_lock _(*self);
 
     res = BUFFER_LEN(self) > buffer.length ? buffer.length : BUFFER_LEN(self);
     res = stratum::util::MemoryCompare(BUFFER_GET(self), buffer.buffer, res);
 
-    SHARED_UNLOCK(self);
+    _.unlock();
 
     BufferRelease(&buffer);
 
@@ -868,11 +784,11 @@ ARGON_METHOD(bytes_tohex, tohex,
     auto *self = (Bytes *) _self;
     ArObject *ret = nullptr;
 
-    SHARED_LOCK(self);
+    std::shared_lock _(*self);
 
     builder.WriteHex(BUFFER_GET(self), BUFFER_LEN(self));
 
-    SHARED_UNLOCK(self);
+    _.unlock();
 
     if ((ret = (ArObject *) builder.BuildString()) == nullptr) {
         ret = (ArObject *) builder.GetError();
@@ -894,11 +810,11 @@ ARGON_METHOD(bytes_tostr, tostr,
     auto *self = (Bytes *) _self;
     ArObject *ret;
 
-    SHARED_LOCK(self);
+    std::shared_lock _(*self);
 
     builder.Write(BUFFER_GET(self), BUFFER_LEN(self), 0);
 
-    SHARED_UNLOCK(self);
+    _.unlock();
 
     if ((ret = (ArObject *) builder.BuildString()) == nullptr) {
         ret = (ArObject *) builder.GetError();
@@ -995,7 +911,7 @@ ArObject *bytes_get_item(Bytes *self, ArObject *index) {
 
     idx = ((Integer *) index)->sint;
 
-    SHARED_LOCK(self);
+    std::shared_lock _(*self);
 
     if (idx < 0)
         idx = BUFFER_LEN(self) + idx;
@@ -1003,10 +919,8 @@ ArObject *bytes_get_item(Bytes *self, ArObject *index) {
     if (idx < BUFFER_LEN(self))
         ret = (ArObject *) IntNew(BUFFER_GET(self)[idx]);
     else
-        ErrorFormat(kOverflowError[0], "bytes index out of range (index: %d, length: %d)",
-                    idx, BUFFER_LEN(self));
-
-    SHARED_UNLOCK(self);
+        ErrorFormat(kOverflowError[0], "%s index out of range (index: %d, length: %d)",
+                    type_bytes_->name, idx, BUFFER_LEN(self));
 
     return ret;
 }
@@ -1024,7 +938,7 @@ ArObject *bytes_get_slice(Bytes *self, Bounds *bounds) {
         return nullptr;
     }
 
-    SHARED_LOCK(self);
+    std::shared_lock _(*self);
 
     slice_len = BoundsIndex(bounds, BUFFER_LEN(self), &start, &stop, &step);
 
@@ -1036,8 +950,6 @@ ArObject *bytes_get_slice(Bytes *self, Bounds *bounds) {
             BUFFER_GET(ret)[i++] = BUFFER_GET(self)[start];
     } else
         ret = BytesNew(self, start, slice_len);
-
-    SHARED_UNLOCK(self);
 
     return (ArObject *) ret;
 }
@@ -1059,6 +971,8 @@ ArObject *bytes_item_in(Bytes *self, ArObject *value) {
     if (self == (Bytes *) value)
         return BoolToArBool(true);
 
+    std::shared_lock _(*self);
+
     if (AR_TYPEOF(value, type_int_) || AR_TYPEOF(value, type_uint_)) {
         ArSize byte = ((Integer *) value)->sint;
 
@@ -1068,15 +982,10 @@ ArObject *bytes_item_in(Bytes *self, ArObject *value) {
             return nullptr;
         }
 
-        SHARED_LOCK(self);
         for (ArSize i = 0; i < BUFFER_LEN(self); i++) {
-            if (BUFFER_GET(self)[i] == byte) {
-                SHARED_UNLOCK(self);
-
+            if (BUFFER_GET(self)[i] == byte)
                 return BoolToArBool(true);
-            }
         }
-        SHARED_UNLOCK(self);
 
         return BoolToArBool(false);
     }
@@ -1084,11 +993,7 @@ ArObject *bytes_item_in(Bytes *self, ArObject *value) {
     if (!BufferGet(value, &buffer, BufferFlags::READ))
         return nullptr;
 
-    SHARED_LOCK(self);
-
     index = support::Find(BUFFER_GET(self), BUFFER_LEN(self), buffer.buffer, buffer.length);
-
-    SHARED_UNLOCK(self);
 
     BufferRelease(&buffer);
 
@@ -1104,7 +1009,7 @@ bool bytes_set_item(Bytes *self, ArObject *index, ArObject *value) {
     ArSize rvalue;
 
     if (self->frozen) {
-        ErrorFormat(kTypeError[0], "unable to set item to frozen bytes object");
+        ErrorFormat(kTypeError[0], "unable to set item to frozen %s object", type_bytes_->name);
         return false;
     }
 
@@ -1120,19 +1025,15 @@ bool bytes_set_item(Bytes *self, ArObject *index, ArObject *value) {
     else if (AR_TYPEOF(value, type_bytes_)) {
         auto *other = (Bytes *) value;
 
-        SHARED_LOCK(other);
+        std::shared_lock _(*other);
 
         if (BUFFER_LEN(other) > 1) {
             ErrorFormat(kValueError[0], "expected %s of length 1 not %d", type_bytes_->name, BUFFER_LEN(other));
-
-            SHARED_UNLOCK(other);
 
             return false;
         }
 
         rvalue = BUFFER_GET(other)[0];
-
-        SHARED_UNLOCK(other);
     } else {
         ErrorFormat(kTypeError[0], "expected %s or %s, found '%s'", type_uint_->name, type_bytes_->name,
                     AR_TYPE_NAME(index));
@@ -1146,7 +1047,7 @@ bool bytes_set_item(Bytes *self, ArObject *index, ArObject *value) {
         return false;
     }
 
-    VIEW_GET(self).WritableBufferLock();
+    std::unique_lock _(*self);
 
     if (idx < 0)
         idx = BUFFER_LEN(self) + idx;
@@ -1154,10 +1055,7 @@ bool bytes_set_item(Bytes *self, ArObject *index, ArObject *value) {
     if (idx < BUFFER_LEN(self))
         BUFFER_GET(self)[idx] = (unsigned char) rvalue;
     else
-        ErrorFormat(kOverflowError[0], "bytes index out of range (index: %d, length: %d)",
-                    idx, BUFFER_LEN(self));
-
-    VIEW_GET(self).WritableRelease();
+        ErrorFormat(kOverflowError[0], "bytes index out of range (index: %d, length: %d)", idx, BUFFER_LEN(self));
 
     return true;
 }
@@ -1172,27 +1070,23 @@ const SubscriptSlots bytes_subscript = {
 };
 
 bool bytes_get_buffer(Bytes *self, ArBuffer *buffer, BufferFlags flags) {
-    /*
-     * Write lock is needed to allow recursive use by the same thread!
-     * See bytes_mod for more information.
-     */
-
+    bool shared = ENUMBITMASK_ISFALSE(flags, BufferFlags::WRITE);
     bool ok;
 
-    VIEW_GET(self).WritableBufferLock();
+    shared ? self->lock_shared() : self->lock();
 
     ok = BufferSimpleFill((ArObject *) self, buffer, flags, BUFFER_GET(self), 1, BUFFER_LEN(self), !self->frozen);
 
     if (!ok)
-        VIEW_GET(self).WritableRelease();
+        shared ? self->unlock_shared() : self->unlock();
 
     return ok;
 }
 
 void bytes_rel_buffer(ArBuffer *buffer) {
-    auto *self = (Bytes *) buffer->object;
+    const auto *self = (Bytes *) buffer->object;
 
-    VIEW_GET(self).WritableRelease();
+    ENUMBITMASK_ISTRUE(buffer->flags, BufferFlags::WRITE) ? self->unlock() : self->unlock_shared();
 }
 
 const BufferSlots bytes_buffer = {
@@ -1204,25 +1098,41 @@ ArObject *bytes_add(Bytes *left, Bytes *right) {
     if (AR_TYPEOF(left, type_bytes_) && AR_SAME_TYPE(left, right))
         return (ArObject *) BytesConcat(left, right);
 
-    return nullptr;
+    if (!AR_TYPEOF(right, type_int_) && !AR_TYPEOF(right, type_uint_))
+        return nullptr;
+
+    const auto *integer = (Integer *) right;
+
+    if (integer->uint > 255) {
+        ErrorFormat(kValueError[0], "byte must be in range(0, 255)");
+
+        return nullptr;
+    }
+
+    std::shared_lock _(*left);
+
+    Bytes *ret;
+    if ((ret = BytesNew(BUFFER_LEN(left) + 1, false, false, false)) != nullptr) {
+        if (BUFFER_GET(left) != nullptr) {
+            argon::vm::memory::MemoryCopy(BUFFER_GET(ret), BUFFER_GET(left), BUFFER_LEN(left));
+            BUFFER_LEN(ret) = BUFFER_LEN(left);
+        }
+
+        *(BUFFER_GET(ret) + BUFFER_LEN(ret)) = (char) integer->sint;
+        BUFFER_LEN(ret)++;
+    }
+
+    return (ArObject *) ret;
 }
 
 ArObject *bytes_mod(Bytes *left, ArObject *args) {
-    /*
-     * To avoid the following scenario:
-     *
-     *      var b = "hello %s"
-     *      var result = b % b
-     *
-     * The mutex in write mode is used since it is the only mode that supports recursive blocking by the same thread!
-     */
     unsigned char *buffer;
     Bytes *ret;
 
     ArSize out_length;
     ArSize out_cap;
 
-    VIEW_GET(left).WritableBufferLock();
+    std::shared_lock _(*left);
 
     StringFormatter fmt((const char *) BUFFER_GET(left), BUFFER_LEN(left), args, true);
 
@@ -1233,12 +1143,10 @@ ArObject *bytes_mod(Bytes *left, ArObject *args) {
 
         Release(err);
 
-        VIEW_GET(left).WritableRelease();
-
         return nullptr;
     }
 
-    VIEW_GET(left).WritableRelease();
+    _.unlock();
 
     if ((ret = BytesNew(0, false, false, false)) != nullptr) {
         BUFFER_GET(ret) = buffer;
@@ -1252,14 +1160,13 @@ ArObject *bytes_mod(Bytes *left, ArObject *args) {
     return (ArObject *) ret;
 }
 
-ArObject *bytes_mul(Bytes *left, const ArObject *right) {
-    auto *l = left;
-    Bytes *ret = nullptr;
+ArObject *bytes_mul(const Bytes *left, const ArObject *right) {
+    const auto *l = left;
     UIntegerUnderlying times;
 
     // int * bytes -> bytes * int
     if (!AR_TYPEOF(left, type_bytes_)) {
-        l = (Bytes *) right;
+        l = (const Bytes *) right;
         right = (const ArObject *) left;
     }
 
@@ -1277,16 +1184,45 @@ ArObject *bytes_mul(Bytes *left, const ArObject *right) {
         times = ((const Integer *) right)->sint;
     }
 
-    SHARED_LOCK(l);
+    std::shared_lock _(*l);
 
+    Bytes *ret;
     if ((ret = BytesNew(BUFFER_LEN(l) * times, true, false, false)) != nullptr) {
         while (times--)
             argon::vm::memory::MemoryCopy(BUFFER_GET(ret) + (BUFFER_LEN(l) * times), BUFFER_GET(l), BUFFER_LEN(l));
     }
 
-    SHARED_UNLOCK(l);
-
     return (ArObject *) ret;
+}
+
+ArObject *bytes_inp_add(Bytes *self, ArObject *right) {
+    if (!AR_TYPEOF(self, type_bytes_))
+        return nullptr;
+
+    if (self->frozen)
+        return bytes_add(self, (Bytes *) right);
+
+    if (AR_TYPEOF(right, type_int_) || AR_TYPEOF(right, type_uint_)) {
+        const auto *integer = (Integer *) right;
+        auto byte = (unsigned char) 0;
+
+        if (integer->uint > 255) {
+            ErrorFormat(kValueError[0], "byte must be in range(0, 255)");
+
+            return nullptr;
+        }
+
+        byte = (unsigned char) integer->sint;
+
+        if (!BufferViewAppendData(&VIEW_GET(self), &byte, 1))
+            return nullptr;
+    } else if (AR_TYPEOF(right, type_bytes_)) {
+        if (!BufferViewAppendData(&VIEW_GET(self), &VIEW_GET((Bytes *) right)))
+            return nullptr;
+    } else
+        return nullptr;
+
+    return (ArObject *) IncRef(self);
 }
 
 const OpSlots bytes_ops = {
@@ -1304,7 +1240,7 @@ const OpSlots bytes_ops = {
         nullptr,
         nullptr,
         nullptr,
-        (BinaryOp) bytes_add,
+        (BinaryOp) bytes_inp_add,
         nullptr,
         nullptr,
         nullptr
@@ -1323,8 +1259,8 @@ ArObject *bytes_compare(Bytes *self, ArObject *other, CompareMode mode) {
     if (!AR_SAME_TYPE(self, o))
         return nullptr;
 
-    SHARED_LOCK(self);
-    SHARED_LOCK(o);
+    std::shared_lock l_self(*self);
+    std::shared_lock l_o(*o);
 
     if (BUFFER_LEN(self) < BUFFER_LEN(o))
         left = -1;
@@ -1337,9 +1273,6 @@ ArObject *bytes_compare(Bytes *self, ArObject *other, CompareMode mode) {
         else if (res > 0)
             right = -1;
     }
-
-    SHARED_UNLOCK(self);
-    SHARED_UNLOCK(o);
 
     ARGON_RICH_COMPARE_CASES(left, right, mode);
 }
@@ -1362,13 +1295,11 @@ ArObject *bytes_repr(Bytes *self) {
     StringBuilder builder{};
     ArObject *ret = nullptr;
 
-    SHARED_LOCK(self);
+    std::shared_lock _(*self);
 
     builder.Write((const unsigned char *) "b\"", 2, BUFFER_LEN(self) + 1);
     builder.WriteEscaped(BUFFER_GET(self), BUFFER_LEN(self), 1);
     builder.Write((const unsigned char *) "\"", 1, 0);
-
-    SHARED_UNLOCK(self);
 
     if ((ret = (ArObject *) builder.BuildString()) == nullptr) {
         ret = (ArObject *) builder.GetError();
@@ -1383,7 +1314,7 @@ ArObject *bytes_repr(Bytes *self) {
 
 ArSize bytes_hash(Bytes *self) {
     if (!self->frozen) {
-        ErrorFormat(kUnhashableError[0], "unable to hash unfrozen bytes object");
+        ErrorFormat(kUnhashableError[0], "unable to hash unfrozen %s object", type_bytes_->name);
         return 0;
     }
 
@@ -1431,22 +1362,15 @@ TypeInfo BytesType = {
 const TypeInfo *argon::vm::datatype::type_bytes_ = &BytesType;
 
 Bytes *argon::vm::datatype::BytesConcat(Bytes *left, Bytes *right) {
+    std::shared_lock l_left(*left);
+    std::shared_lock l_right(*right);
+
     Bytes *ret;
-
-    SHARED_LOCK(left);
-
-    if (left != right)
-        SHARED_LOCK(right);
 
     if ((ret = BytesNew(BUFFER_LEN(left) + BUFFER_LEN(right), true, false, false)) != nullptr) {
         memory::MemoryCopy(BUFFER_GET(ret), BUFFER_GET(left), BUFFER_LEN(left));
         memory::MemoryCopy(BUFFER_GET(ret) + BUFFER_LEN(left), BUFFER_GET(right), BUFFER_LEN(right));
     }
-
-    SHARED_UNLOCK(left);
-
-    if (left != right)
-        SHARED_UNLOCK(right);
 
     return ret;
 }
@@ -1457,12 +1381,9 @@ Bytes *argon::vm::datatype::BytesFreeze(Bytes *bytes) {
     if (bytes->frozen)
         return IncRef(bytes);
 
-    SHARED_LOCK(bytes);
+    std::shared_lock _(*bytes);
 
     ret = BytesNew(bytes, 0, BUFFER_LEN(bytes));
-
-    SHARED_UNLOCK(bytes);
-
     if (ret == nullptr)
         return nullptr;
 
@@ -1549,44 +1470,30 @@ Bytes *argon::vm::datatype::BytesNewHoldBuffer(unsigned char *buffer, ArSize cap
 }
 
 Bytes *argon::vm::datatype::BytesReplace(Bytes *bytes, Bytes *old, Bytes *nval, ArSSize n) {
+    std::shared_lock l_bytes(*bytes);
+    std::shared_lock l_old(*old);
+
     unsigned char *buffer;
     unsigned char *cursor;
 
     ArSize idx = 0;
     ArSize newsz;
 
-    SHARED_LOCK(bytes);
-    SHARED_LOCK(old);
-
-    if (Equal((const ArObject *) bytes, (const ArObject *) old) || n == 0) {
-        SHARED_UNLOCK(bytes);
-        SHARED_UNLOCK(old);
-
+    if (Equal((const ArObject *) bytes, (const ArObject *) old) || n == 0)
         return IncRef(bytes);
-    }
 
     // Compute replacements
     n = support::Count(BUFFER_GET(bytes), BUFFER_LEN(bytes), BUFFER_GET(old), BUFFER_LEN(old), n);
-
-    if (n == 0) {
-        SHARED_UNLOCK(bytes);
-        SHARED_UNLOCK(old);
-
+    if (n == 0)
         return IncRef(bytes);
-    }
 
-    SHARED_LOCK(nval);
+    std::shared_lock l_nval(*nval);
 
     newsz = (BUFFER_LEN(bytes) + n * (BUFFER_LEN(nval) - BUFFER_LEN(old)));
 
     // Allocate buffer
-    if ((buffer = (unsigned char *) argon::vm::memory::Alloc(newsz)) == nullptr) {
-        SHARED_UNLOCK(bytes);
-        SHARED_UNLOCK(old);
-        SHARED_UNLOCK(nval);
-
+    if ((buffer = (unsigned char *) argon::vm::memory::Alloc(newsz)) == nullptr)
         return nullptr;
-    }
 
     cursor = buffer;
 
@@ -1608,10 +1515,6 @@ Bytes *argon::vm::datatype::BytesReplace(Bytes *bytes, Bytes *old, Bytes *nval, 
 
     argon::vm::memory::MemoryCopy(cursor, BUFFER_GET(bytes) + idx, BUFFER_LEN(bytes) - idx);
 
-    SHARED_UNLOCK(bytes);
-    SHARED_UNLOCK(old);
-    SHARED_UNLOCK(nval);
-
     auto *ret = BytesNewHoldBuffer(buffer, newsz, newsz, true);
     if (ret == nullptr)
         argon::vm::memory::Free(buffer);
@@ -1626,7 +1529,7 @@ Bytes *argon::vm::datatype::BytesTrim(Bytes *bytes, const unsigned char *buffer,
     ArSize end;
     ArSize i;
 
-    SHARED_LOCK(bytes);
+    std::shared_lock _(*bytes);
 
     end = BUFFER_LEN(bytes);
 
@@ -1649,11 +1552,8 @@ Bytes *argon::vm::datatype::BytesTrim(Bytes *bytes, const unsigned char *buffer,
         i++;
     }
 
-    if (start == end) {
-        SHARED_UNLOCK(bytes);
-
+    if (start == end)
         return BytesNew(0, true, false, true);
-    }
 
     i = 0;
     while (right && i < trim_length && end > 0) {
@@ -1669,17 +1569,10 @@ Bytes *argon::vm::datatype::BytesTrim(Bytes *bytes, const unsigned char *buffer,
         i++;
     }
 
-    if (start == 0 && end == BUFFER_LEN(bytes)) {
-        SHARED_UNLOCK(bytes);
-
+    if (start == 0 && end == BUFFER_LEN(bytes))
         return IncRef(bytes);
-    }
 
-    auto *ret = BytesNew(bytes, start, end - start);
-
-    SHARED_UNLOCK(bytes);
-
-    return ret;
+    return BytesNew(bytes, start, end - start);
 }
 
 // BYTES ITERATOR
@@ -1689,33 +1582,24 @@ ArObject *bytesiterator_iter_next(BytesIterator *self) {
 
     std::unique_lock iter_lock(self->lock);
 
-    SHARED_LOCK(self->iterable);
+    std::shared_lock _(*self->iterable);
 
     if (!self->reverse) {
         if (self->index < BUFFER_LEN(self->iterable)) {
             byte = *(BUFFER_GET(self->iterable) + self->index);
-
-            SHARED_UNLOCK(self->iterable);
 
             self->index++;
 
             return (ArObject *) IntNew(byte);
         }
 
-        SHARED_UNLOCK(self->iterable);
-
         return nullptr;
     }
 
-    if (BUFFER_LEN(self->iterable) - self->index == 0) {
-        SHARED_UNLOCK(self->iterable);
-
+    if (BUFFER_LEN(self->iterable) - self->index == 0)
         return nullptr;
-    }
 
     byte = *(BUFFER_GET(self->iterable) + (BUFFER_LEN(self->iterable) - self->index));
-
-    SHARED_UNLOCK(self->iterable);
 
     self->index++;
 

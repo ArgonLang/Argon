@@ -42,16 +42,73 @@ void SharedBufferRelease(SharedBuffer *shared) {
 }
 
 bool ViewEnlargeNew(BufferView *view, ArSize count) {
+    SharedBuffer *old = view->shared;
     SharedBuffer *tmp;
 
     if ((tmp = SharedBufferNew(view->length + count)) == nullptr)
         return false;
 
+    // Acquire WriteLock on new SharedBuffer
+    tmp->rwlock.lock();
+
     MemoryCopy(tmp->buffer, view->buffer, view->length);
+
+    view->shared = tmp;
     view->buffer = tmp->buffer;
 
-    SharedBufferRelease(view->shared);
-    view->shared = tmp;
+    // Release WriteLock on SharedBuffer
+    old->rwlock.unlock();
+
+    SharedBufferRelease(old);
+
+    return true;
+}
+
+bool argon::vm::datatype::BufferViewAppendData(BufferView *view, const BufferView *other) {
+    std::unique_lock view_lock(view->lock);
+
+    view->shared->rwlock.lock();
+
+    if (view != other)
+        view->shared->rwlock.lock_shared();
+
+    if (!BufferViewEnlarge(view, other->length)) {
+        view->shared->rwlock.unlock();
+
+        if (view != other)
+            view->shared->rwlock.unlock_shared();
+
+        return false;
+    }
+
+    memory::MemoryCopy(view->buffer + view->length, other->buffer, other->length);
+
+    view->length += other->length;
+
+    if (view != other)
+        view->shared->rwlock.unlock_shared();
+
+    view->shared->rwlock.unlock();
+
+    return true;
+}
+
+bool argon::vm::datatype::BufferViewAppendData(BufferView *view, const unsigned char *buffer, ArSize length) {
+    std::unique_lock view_lock(view->lock);
+
+    view->shared->rwlock.lock();
+
+    if (!BufferViewEnlarge(view, length)) {
+        view->shared->rwlock.unlock();
+
+        return false;
+    }
+
+    memory::MemoryCopy(view->buffer + view->length, buffer, length);
+
+    view->length += length;
+
+    view->shared->rwlock.unlock();
 
     return true;
 }
@@ -94,6 +151,8 @@ bool argon::vm::datatype::BufferViewHoldBuffer(BufferView *view, unsigned char *
     view->shared->buffer = buffer;
     view->shared->capacity = cap;
 
+    new(&view->lock)std::mutex();
+
     view->buffer = buffer;
     view->length = len;
 
@@ -104,33 +163,26 @@ bool argon::vm::datatype::BufferViewInit(BufferView *view, ArSize capacity) {
     if ((view->shared = SharedBufferNew(capacity)) == nullptr)
         return false;
 
+    new(&view->lock)std::mutex();
     view->buffer = view->shared->buffer;
     view->length = 0;
 
     return true;
 }
 
-bool argon::vm::datatype::BufferViewInit(BufferView *view, unsigned char *buffer, ArSize length, ArSize capacity) {
-    if ((view->shared = SharedBufferNew(0)) == nullptr)
-        return false;
-
-    view->shared->buffer = buffer;
-    view->shared->capacity = capacity;
-
-    view->buffer = buffer;
-    view->length = length;
-
-    return true;
-}
-
 void argon::vm::datatype::BufferViewDetach(BufferView *view) {
     SharedBufferRelease(view->shared);
+
+    view->lock.~mutex();
     view->buffer = nullptr;
     view->length = 0;
 }
 
 void argon::vm::datatype::BufferViewInit(BufferView *dst, BufferView *src, ArSize start, ArSize length) {
     src->shared->Acquire();
+
+    new(&dst->lock)std::mutex();
+
     dst->shared = src->shared;
     dst->buffer = src->buffer + start;
     dst->length = length;

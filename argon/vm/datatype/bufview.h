@@ -6,6 +6,7 @@
 #define ARGON_VM_DATATYPE_BUFVIEW_H_
 
 #include <atomic>
+#include <shared_mutex>
 
 #include <argon/vm/sync/rsm.h>
 
@@ -20,7 +21,7 @@ namespace argon::vm::datatype {
         unsigned char *buffer;
         ArSize capacity;
 
-        bool IsWritable() const {
+        [[nodiscard]] bool IsWritable() const {
             return this->counter == 1;
         }
 
@@ -29,41 +30,31 @@ namespace argon::vm::datatype {
         }
 
         void Acquire() {
+            // It is used to verify that no one has started writing operations!
+            std::shared_lock _(this->rwlock);
+
             this->counter++;
         }
     };
 
     struct BufferView {
+        std::mutex lock;
+
         SharedBuffer *shared;
+
         unsigned char *buffer;
         ArSize length;
-
-        unsigned char *ReadableBufferLock() {
-            this->shared->rwlock.lock_shared();
-            return this->buffer;
-        }
-
-        unsigned char *WritableBufferLock() {
-            this->shared->rwlock.lock();
-            return this->buffer;
-        }
-
-        void ReadableRelease() {
-            this->shared->rwlock.unlock_shared();
-        }
-
-        void WritableRelease() {
-            this->shared->rwlock.unlock();
-        }
     };
+
+    bool BufferViewAppendData(BufferView *view, const BufferView *other);
+
+    bool BufferViewAppendData(BufferView *view, const unsigned char *buffer, ArSize length);
 
     bool BufferViewEnlarge(BufferView *view, ArSize count);
 
     bool BufferViewHoldBuffer(BufferView *view, unsigned char *buffer, ArSize len, ArSize cap);
 
     bool BufferViewInit(BufferView *view, ArSize capacity);
-
-    bool BufferViewInit(BufferView *view, unsigned char *buffer, ArSize length, ArSize capacity);
 
     void BufferViewDetach(BufferView *view);
 
