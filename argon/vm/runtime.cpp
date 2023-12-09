@@ -803,7 +803,7 @@ argon::vm::datatype::String *argon::vm::GetExecutableName() {
 #endif
 
     if (size != -1)
-        path = StringNew(path_buf);
+        path = StringNew(path_buf, size);
     else
         path = StringIntern("");
 
