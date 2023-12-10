@@ -802,9 +802,13 @@ argon::vm::datatype::String *argon::vm::GetExecutableName() {
 
 #endif
 
-    if (size != -1)
+    if (size != -1) {
+#ifdef _ARGON_PLATFORM_LINUX
         path = StringNew(path_buf, size);
-    else
+#else
+        path = StringNew(path_buf);
+#endif
+    } else
         path = StringIntern("");
 
     memory::Free(path_buf);
