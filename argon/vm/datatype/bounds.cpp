@@ -87,8 +87,12 @@ ArSSize argon::vm::datatype::BoundsIndex(Bounds *bound, ArSize length, ArSSize *
     ArSSize low;
     ArSSize high;
 
-    *out_step = IsNull(bound->step) ? 1 : ((Integer *) bound->step)->sint;
-    if (*out_step < 0) {
+    ArSSize start;
+    ArSSize stop;
+    ArSSize step;
+
+    step = IsNull(bound->step) ? 1 : ((Integer *) bound->step)->sint;
+    if (step < 0) {
         low = -1;
         high = (ArSSize) length + low;
     } else {
@@ -96,33 +100,37 @@ ArSSize argon::vm::datatype::BoundsIndex(Bounds *bound, ArSize length, ArSSize *
         high = (ArSSize) length;
     }
 
-    *out_start = *out_step < 0 ? high : low;
-    *out_stop = *out_step < 0 ? low : high;
+    start = step < 0 ? high : low;
+    stop = step < 0 ? low : high;
 
     if (!IsNull(bound->start)) {
-        *out_start = ((Integer *) bound->start)->sint;
-        if (*out_start < 0) {
-            if ((*out_start = *out_start + (ArSSize) length) < low)
-                *out_start = low;
-        } else if (*out_start > high)
-            *out_start = high;
+        start = ((Integer *) bound->start)->sint;
+        if (start < 0) {
+            if ((start = start + (ArSSize) length) < low)
+                start = low;
+        } else if (start > high)
+            start = high;
     }
 
     if (!IsNull(bound->stop)) {
-        *out_stop = ((Integer *) bound->stop)->sint;
-        if (*out_stop < 0) {
-            if ((*out_stop = *out_stop + (ArSSize) length) < low)
-                *out_stop = low;
-        } else if (*out_stop > high)
-            *out_stop = high;
+        stop = ((Integer *) bound->stop)->sint;
+        if (stop < 0) {
+            if ((stop = stop + (ArSSize) length) < low)
+                stop = low;
+        } else if (stop > high)
+            stop = high;
     }
 
+    *out_start = start;
+    *out_stop = stop;
+    *out_step = step;
+
     // LENGTH
-    if (*out_step < 0) {
-        if (*out_stop < *out_start)
-            return (*out_start - *out_stop - 1) / (-*out_step) + 1;
-    } else if (*out_start < *out_stop)
-        return (*out_stop - *out_start - 1) / *out_step + 1;
+    if (step < 0) {
+        if (stop < start)
+            return (start - stop - 1) / (-step) + 1;
+    } else if (start < stop)
+        return (stop - start - 1) / step + 1;
 
     return 0;
 }
