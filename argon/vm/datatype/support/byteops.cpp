@@ -2,6 +2,7 @@
 //
 // Licensed under the Apache License v2.0
 
+#include <algorithm>
 #include <cctype>
 
 #include <argon/vm/datatype/support/byteops.h>
@@ -29,7 +30,7 @@ ArSSize DoSearch(int *table, const unsigned char *buf, ArSize blen, const unsign
     while (cursor < blen) {
         for (i = 0; i < plen; i++) {
             if (buf[cursor - i] != pattern[(plen - 1) - i]) {
-                cursor = (cursor - i) + table[buf[cursor - i]];
+                cursor += std::max(1, table[buf[cursor - i]]);
                 break;
             }
         }
@@ -50,7 +51,7 @@ ArSSize DoRSearch(int *table, const unsigned char *buf, ArSize blen, const unsig
     while (cursor >= 0) {
         for (i = 0; i < plen; i++) {
             if (buf[cursor + i] != pattern[i]) {
-                cursor = cursor - table[buf[cursor - i]];
+                cursor -= std::max(1, table[buf[cursor - i]]);
                 break;
             }
         }
