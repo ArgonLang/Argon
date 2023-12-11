@@ -53,6 +53,7 @@ void RecursiveSharedMutex::lock_shared_slow(std::thread::id id) {
 
     do {
         while (current.is_ulocked() && this->_id != id) {
+            this->_pending++;
             OS_WAIT(&this->_lock, current.value());
 
             current = this->_lock.load(std::memory_order_relaxed);
@@ -71,6 +72,7 @@ void RecursiveSharedMutex::lock_slow() {
     desired.acquire_unique();
 
     while (!this->_lock.compare_exchange_strong(current, desired)) {
+        this->_pending++;
         OS_WAIT(&this->_lock, current.value());
 
         current = MutexBits{};
@@ -141,7 +143,10 @@ void RecursiveSharedMutex::unlock() {
         desired.release_unique();
     } while (!this->_lock.compare_exchange_strong(current, desired));
 
-    OS_WAKE(&this->_lock);
+    if (this->_pending > 0) {
+        this->_pending--;
+        OS_WAKE(&this->_lock);
+    }
 }
 
 void RecursiveSharedMutex::unlock_shared() {
@@ -154,5 +159,8 @@ void RecursiveSharedMutex::unlock_shared() {
         desired.dec_shared();
     } while (!this->_lock.compare_exchange_strong(current, desired));
 
-    OS_WAKE(&this->_lock);
+    if (this->_pending > 0) {
+        this->_pending--;
+        OS_WAKE(&this->_lock);
+    }
 }

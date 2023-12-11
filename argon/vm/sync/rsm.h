@@ -63,6 +63,7 @@ namespace argon::vm::sync {
      */
     class RecursiveSharedMutex {
         std::atomic<MutexBits> _lock{};
+        std::atomic<MutexWord> _pending{};
 
         std::thread::id _id{};
 
