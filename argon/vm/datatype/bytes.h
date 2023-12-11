@@ -19,14 +19,12 @@ namespace argon::vm::datatype {
 
         ArSize hash;
 
-        bool frozen;
-
         void lock() const {
             this->view.shared->rwlock.lock();
         }
 
         void lock_shared() const {
-            if (!this->frozen)
+            if (!this->view.shared->IsFrozen())
                 this->view.shared->rwlock.lock_shared();
         }
 
@@ -35,7 +33,7 @@ namespace argon::vm::datatype {
         }
 
         void unlock_shared() const {
-            if (!this->frozen)
+            if (!this->view.shared->IsFrozen())
                 this->view.shared->rwlock.unlock_shared();
         }
     };

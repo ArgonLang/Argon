@@ -18,6 +18,7 @@
 
 #include <argon/vm/datatype/bytes.h>
 
+#define BUFFER_FROZEN(bs)           ((bs)->view.shared->IsFrozen())
 #define BUFFER_GET(bs)              ((bs)->view.buffer)
 #define BUFFER_LEN(bs)              ((bs)->view.length)
 #define VIEW_GET(bs)                ((bs)->view)
@@ -103,7 +104,7 @@ ARGON_METHOD(bytes_capitalize, capitalize,
     if (BUFFER_LEN(self) == 0 || toupper(*BUFFER_GET(self)) == *BUFFER_GET(self))
         return (ArObject *) IncRef(self);
 
-    if ((ret = BytesNew(BUFFER_GET(self), BUFFER_LEN(self), self->frozen)) == nullptr)
+    if ((ret = BytesNew(BUFFER_GET(self), BUFFER_LEN(self), BUFFER_FROZEN(self))) == nullptr)
         return nullptr;
 
     BUFFER_GET(ret)[0] = (unsigned char) toupper(*BUFFER_GET(ret));
@@ -144,7 +145,7 @@ ARGON_METHOD(bytes_copy, copy,
         return nullptr;
     }
 
-    if (self->frozen) {
+    if (BUFFER_FROZEN(self)) {
         ErrorFormat(kValueError[0], "frozen Bytes object cannot be used as destination for copy");
         return nullptr;
     }
@@ -428,7 +429,7 @@ ARGON_METHOD(bytes_isfrozen, isfrozen,
              "\n"
              "- Returns: True if it is frozen, false otherwise.\n",
              nullptr, false, false) {
-    return BoolToArBool(((Bytes *) _self)->frozen);
+    return BoolToArBool(BUFFER_FROZEN((Bytes *) _self));
 }
 
 ARGON_METHOD(bytes_join, join,
@@ -500,14 +501,16 @@ ARGON_METHOD(bytes_lower, lower,
              "\n"
              "- Returns: New bytes string with all characters converted to lowercase.\n",
              nullptr, false, false) {
+    auto *self = (Bytes *) _self;
     Bytes *ret;
 
-    if ((ret = BytesNew(_self)) != nullptr) {
-        for (ArSize i = 0; i < BUFFER_LEN(ret); i++)
-            BUFFER_GET(ret)[i] = (unsigned char) tolower(BUFFER_GET(ret)[i]);
+    std::shared_lock _(*self);
 
-        ret->frozen = ((Bytes *) _self)->frozen;
-    }
+    if ((ret = BytesNew(BUFFER_GET(self), BUFFER_LEN(self), BUFFER_FROZEN(self))) == nullptr)
+        return nullptr;
+
+    for (ArSize i = 0; i < BUFFER_LEN(ret); i++)
+        BUFFER_GET(ret)[i] = (unsigned char) tolower(BUFFER_GET(ret)[i]);
 
     return (ArObject *) ret;
 }
@@ -622,7 +625,7 @@ ARGON_METHOD(bytes_rmpostfix, rmpostfix,
     BufferRelease(&buffer);
 
     if (compare == 0)
-        return (ArObject *) BytesNew(BUFFER_GET(self), BUFFER_LEN(self) - len, self->frozen);
+        return (ArObject *) BytesNew(BUFFER_GET(self), BUFFER_LEN(self) - len, BUFFER_FROZEN(self));
 
     return (ArObject *) IncRef(self);
 }
@@ -656,7 +659,7 @@ ARGON_METHOD(bytes_rmprefix, rmprefix,
     BufferRelease(&buffer);
 
     if (compare == 0)
-        return (ArObject *) BytesNew(BUFFER_GET(self) + len, BUFFER_LEN(self) - len, self->frozen);
+        return (ArObject *) BytesNew(BUFFER_GET(self) + len, BUFFER_LEN(self) - len, BUFFER_FROZEN(self));
 
     return (ArObject *) IncRef(self);
 }
@@ -842,14 +845,16 @@ ARGON_METHOD(bytes_upper, upper,
              "\n"
              "- Returns: New bytes string with all characters converted to uppercase.\n",
              nullptr, false, false) {
+    auto *self = (Bytes *) _self;
     Bytes *ret;
 
-    if ((ret = BytesNew(_self)) != nullptr) {
-        for (ArSize i = 0; i < BUFFER_LEN(ret); i++)
-            BUFFER_GET(ret)[i] = (unsigned char) toupper(BUFFER_GET(ret)[i]);
+    std::shared_lock _(*self);
 
-        ret->frozen = ((Bytes *) _self)->frozen;
-    }
+    if ((ret = BytesNew(BUFFER_GET(self), BUFFER_LEN(self), BUFFER_FROZEN(self))) == nullptr)
+        return nullptr;
+
+    for (ArSize i = 0; i < BUFFER_LEN(ret); i++)
+        BUFFER_GET(ret)[i] = (unsigned char) toupper(BUFFER_GET(ret)[i]);
 
     return (ArObject *) ret;
 }
@@ -943,7 +948,7 @@ ArObject *bytes_get_slice(Bytes *self, Bounds *bounds) {
     slice_len = BoundsIndex(bounds, BUFFER_LEN(self), &start, &stop, &step);
 
     if (step < 0) {
-        if ((ret = BytesNew(slice_len, true, false, self->frozen)) == nullptr)
+        if ((ret = BytesNew(slice_len, true, false, BUFFER_FROZEN(self))) == nullptr)
             return nullptr;
 
         for (ArSize i = 0; stop < start; start += step)
@@ -1008,7 +1013,7 @@ bool bytes_set_item(Bytes *self, ArObject *index, ArObject *value) {
     IntegerUnderlying idx;
     ArSize rvalue;
 
-    if (self->frozen) {
+    if (BUFFER_FROZEN(self)) {
         ErrorFormat(kTypeError[0], "unable to set item to frozen %s object", type_bytes_->name);
         return false;
     }
@@ -1075,7 +1080,7 @@ bool bytes_get_buffer(Bytes *self, ArBuffer *buffer, BufferFlags flags) {
 
     shared ? self->lock_shared() : self->lock();
 
-    ok = BufferSimpleFill((ArObject *) self, buffer, flags, BUFFER_GET(self), 1, BUFFER_LEN(self), !self->frozen);
+    ok = BufferSimpleFill((ArObject *) self, buffer, flags, BUFFER_GET(self), 1, BUFFER_LEN(self), !BUFFER_FROZEN(self));
 
     if (!ok)
         shared ? self->unlock_shared() : self->unlock();
@@ -1199,7 +1204,7 @@ ArObject *bytes_inp_add(Bytes *self, ArObject *right) {
     if (!AR_TYPEOF(self, type_bytes_))
         return nullptr;
 
-    if (self->frozen)
+    if (BUFFER_FROZEN(self))
         return bytes_add(self, (Bytes *) right);
 
     if (AR_TYPEOF(right, type_int_) || AR_TYPEOF(right, type_uint_)) {
@@ -1313,7 +1318,7 @@ ArObject *bytes_repr(Bytes *self) {
 }
 
 ArSize bytes_hash(Bytes *self) {
-    if (!self->frozen) {
+    if (!BUFFER_FROZEN(self)) {
         ErrorFormat(kUnhashableError[0], "unable to hash unfrozen %s object", type_bytes_->name);
         return 0;
     }
@@ -1378,18 +1383,15 @@ Bytes *argon::vm::datatype::BytesConcat(Bytes *left, Bytes *right) {
 Bytes *argon::vm::datatype::BytesFreeze(Bytes *bytes) {
     Bytes *ret;
 
-    if (bytes->frozen)
+    if (BUFFER_FROZEN(bytes))
         return IncRef(bytes);
 
     std::shared_lock _(*bytes);
 
-    ret = BytesNew(bytes, 0, BUFFER_LEN(bytes));
-    if (ret == nullptr)
+    if ((ret = BytesNew(BUFFER_GET(bytes), BUFFER_LEN(bytes), true)) == nullptr)
         return nullptr;
 
-    ret->frozen = true;
-
-    Hash((ArObject *) ret, &ret->hash);
+    bytes_hash(bytes);
 
     return ret;
 }
@@ -1413,7 +1415,7 @@ Bytes *argon::vm::datatype::BytesNew(ArSize cap, bool same_len, bool fill_zero, 
     auto *bs = MakeObject<Bytes>(&BytesType);
 
     if (bs != nullptr) {
-        if (!BufferViewInit(&bs->view, cap)) {
+        if (!BufferViewInit(&bs->view, cap, frozen)) {
             Release(bs);
             return nullptr;
         }
@@ -1425,7 +1427,6 @@ Bytes *argon::vm::datatype::BytesNew(ArSize cap, bool same_len, bool fill_zero, 
             memory::MemoryZero(BUFFER_GET(bs), cap);
 
         bs->hash = 0;
-        bs->frozen = frozen;
     }
 
     return bs;
@@ -1447,7 +1448,6 @@ Bytes *argon::vm::datatype::BytesNew(Bytes *bytes, ArSize start, ArSize length) 
         BufferViewInit(&bs->view, &bytes->view, start, length);
 
         bs->hash = 0;
-        bs->frozen = bytes->frozen;
     }
 
     return bs;
@@ -1457,13 +1457,12 @@ Bytes *argon::vm::datatype::BytesNewHoldBuffer(unsigned char *buffer, ArSize cap
     auto *bs = MakeObject<Bytes>(type_bytes_);
 
     if (bs != nullptr) {
-        if (!BufferViewHoldBuffer(&bs->view, buffer, len, cap)) {
+        if (!BufferViewHoldBuffer(&bs->view, buffer, len, cap, frozen)) {
             Release(bs);
             return nullptr;
         }
 
         bs->hash = 0;
-        bs->frozen = frozen;
     }
 
     return bs;

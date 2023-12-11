@@ -9,11 +9,14 @@
 using namespace argon::vm::datatype;
 using namespace argon::vm::memory;
 
-SharedBuffer *SharedBufferNew(ArSize cap) {
+SharedBuffer *SharedBufferNew(ArSize cap, bool frozen) {
     auto *shared = (SharedBuffer *) Alloc(sizeof(SharedBuffer));
 
     if (shared != nullptr) {
         shared->counter = 1;
+
+        if (frozen)
+            shared->flags = SharedBufferFlags::FROZEN;
 
         shared->buffer = nullptr;
         shared->capacity = cap;
@@ -45,7 +48,7 @@ bool ViewEnlargeNew(BufferView *view, ArSize count) {
     SharedBuffer *old = view->shared;
     SharedBuffer *tmp;
 
-    if ((tmp = SharedBufferNew(view->length + count)) == nullptr)
+    if ((tmp = SharedBufferNew(view->length + count, false)) == nullptr)
         return false;
 
     // Acquire WriteLock on new SharedBuffer
@@ -139,8 +142,9 @@ bool argon::vm::datatype::BufferViewEnlarge(BufferView *view, ArSize count) {
     return true;
 }
 
-bool argon::vm::datatype::BufferViewHoldBuffer(BufferView *view, unsigned char *buffer, ArSize len, ArSize cap) {
-    if ((view->shared = SharedBufferNew(0)) == nullptr)
+bool argon::vm::datatype::BufferViewHoldBuffer(BufferView *view, unsigned char *buffer, ArSize len,
+                                               ArSize cap, bool frozen) {
+    if ((view->shared = SharedBufferNew(0, frozen)) == nullptr)
         return false;
 
     if (buffer == nullptr) {
@@ -159,8 +163,8 @@ bool argon::vm::datatype::BufferViewHoldBuffer(BufferView *view, unsigned char *
     return true;
 }
 
-bool argon::vm::datatype::BufferViewInit(BufferView *view, ArSize capacity) {
-    if ((view->shared = SharedBufferNew(capacity)) == nullptr)
+bool argon::vm::datatype::BufferViewInit(BufferView *view, ArSize capacity, bool frozen) {
+    if ((view->shared = SharedBufferNew(capacity, frozen)) == nullptr)
         return false;
 
     new(&view->lock)std::mutex();

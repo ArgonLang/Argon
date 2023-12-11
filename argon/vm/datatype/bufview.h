@@ -13,25 +13,37 @@
 #include <argon/vm/datatype/objectdef.h>
 
 namespace argon::vm::datatype {
+    enum class SharedBufferFlags : unsigned int {
+        FROZEN
+    };
+
     struct SharedBuffer {
         sync::RecursiveSharedMutex rwlock;
 
-        std::atomic_long counter;
+        std::atomic_uint counter;
+
+        SharedBufferFlags flags;
 
         unsigned char *buffer;
         ArSize capacity;
+
+        [[nodiscard]] bool IsFrozen() const {
+            return this->flags == SharedBufferFlags::FROZEN;
+        }
 
         [[nodiscard]] bool IsWritable() const {
             return this->counter == 1;
         }
 
-        bool Release() {
+        [[nodiscard]] bool Release() {
             return this->counter.fetch_sub(1) == 1;
         }
 
         void Acquire() {
-            // It is used to verify that no one has started writing operations!
-            std::shared_lock _(this->rwlock);
+            if (this->flags != SharedBufferFlags::FROZEN) {
+                // It is used to verify that no one has started writing operations!
+                std::shared_lock _(this->rwlock);
+            }
 
             this->counter++;
         }
@@ -52,9 +64,9 @@ namespace argon::vm::datatype {
 
     bool BufferViewEnlarge(BufferView *view, ArSize count);
 
-    bool BufferViewHoldBuffer(BufferView *view, unsigned char *buffer, ArSize len, ArSize cap);
+    bool BufferViewHoldBuffer(BufferView *view, unsigned char *buffer, ArSize len, ArSize cap, bool frozen);
 
-    bool BufferViewInit(BufferView *view, ArSize capacity);
+    bool BufferViewInit(BufferView *view, ArSize capacity, bool frozen);
 
     void BufferViewDetach(BufferView *view);
 
