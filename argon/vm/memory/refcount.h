@@ -191,7 +191,7 @@ namespace argon::vm::memory {
          * @return True if the object is managed by the GC, false otherwise.
          */
         bool IsGcObject() const {
-            return this->bits_.load(std::memory_order_relaxed).IsGcObject();
+            return this->bits_.load(std::memory_order_seq_cst).IsGcObject();
         }
 
         /**
@@ -199,7 +199,7 @@ namespace argon::vm::memory {
          * @return True if the object is immortal, false otherwise.
          */
         bool IsStatic() const {
-            return this->bits_.load(std::memory_order_relaxed).IsStatic();
+            return this->bits_.load(std::memory_order_seq_cst).IsStatic();
         }
 
         /**

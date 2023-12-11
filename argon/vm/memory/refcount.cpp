@@ -18,7 +18,7 @@ RCObject RefCount::GetObjectBase() {
 }
 
 SideTable *RefCount::AllocOrGetSideTable() {
-    RefBits current = this->bits_.load(std::memory_order_consume);
+    RefBits current = this->bits_.load(std::memory_order_seq_cst);
     SideTable *side;
 
     assert(!current.IsStatic());
@@ -47,13 +47,14 @@ SideTable *RefCount::AllocOrGetSideTable() {
 
         side->strong.store(current.GetStrong());
 
-    } while (!this->bits_.compare_exchange_weak(current, desired, std::memory_order_release,
-                                                std::memory_order_relaxed));
+    } while (!this->bits_.compare_exchange_weak(current, desired,
+                                                std::memory_order_release,
+                                                std::memory_order_acquire));
     return side;
 }
 
 bool RefCount::DecStrong() {
-    RefBits current = this->bits_.load(std::memory_order_consume);
+    RefBits current = this->bits_.load(std::memory_order_acquire);
     RefBits desired = {};
     bool release;
 
@@ -78,13 +79,15 @@ bool RefCount::DecStrong() {
         }
 
         release = desired.Decrement();
-    } while (!this->bits_.compare_exchange_weak(current, desired, std::memory_order_relaxed));
+    } while (!this->bits_.compare_exchange_weak(current, desired,
+                                                std::memory_order_release,
+                                                std::memory_order_acquire));
 
     return release;
 }
 
 bool RefCount::DecWeak() const {
-    RefBits current = this->bits_.load(std::memory_order_consume);
+    RefBits current = this->bits_.load(std::memory_order_relaxed);
     assert(!current.IsInlineCounter());
 
     auto side = current.GetSideTable();
@@ -102,7 +105,7 @@ bool RefCount::HaveSideTable() const {
 }
 
 bool RefCount::IncStrong() {
-    RefBits current = this->bits_.load(std::memory_order_consume);
+    RefBits current = this->bits_.load(std::memory_order_acquire);
     RefBits desired = {};
 
     if (current.IsStatic())
@@ -127,7 +130,9 @@ bool RefCount::IncStrong() {
             side->strong++;
             return true;
         }
-    } while (!this->bits_.compare_exchange_weak(current, desired, std::memory_order_relaxed));
+    } while (!this->bits_.compare_exchange_weak(current, desired,
+                                                std::memory_order_release,
+                                                std::memory_order_acquire));
 
     return true;
 }
