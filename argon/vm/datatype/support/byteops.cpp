@@ -11,26 +11,30 @@ using namespace argon::vm::datatype;
 using namespace argon::vm::datatype::support;
 
 void FillBadCharTable(int *table, const unsigned char *pattern, ArSize len, bool reverse) {
-    // Reset table
-    for (int i = 0; i < 256; i++)
-        table[i] = (int) len;
-
     // Fill table
     // value = len(pattern) - index - 1
     for (int i = 0; i < len; i++)
-        table[pattern[i]] = reverse ? i : ((int) len) - i - 1;
+        table[pattern[i]] = reverse ? i : (((int) len) - 1) - i;
 }
 
 ArSSize DoSearch(int *table, const unsigned char *buf, ArSize blen, const unsigned char *pattern, ArSize plen) {
     auto cursor = (ArSSize) (plen - 1);
+    auto chr0 = *(pattern + cursor);
     ArSSize i;
 
     FillBadCharTable(table, pattern, plen, false);
 
     while (cursor < blen) {
         for (i = 0; i < plen; i++) {
-            if (buf[cursor - i] != pattern[(plen - 1) - i]) {
-                cursor += std::max(1, table[buf[cursor - i]]);
+            auto current = buf[cursor - i];
+            if (current != pattern[(plen - 1) - i]) {
+                auto inc = table[buf[cursor - i]];
+
+                if (inc == 0)
+                    cursor += (current == chr0) ? 1 : (int) plen-1;
+                else
+                    cursor += inc;
+
                 break;
             }
         }
@@ -44,14 +48,22 @@ ArSSize DoSearch(int *table, const unsigned char *buf, ArSize blen, const unsign
 
 ArSSize DoRSearch(int *table, const unsigned char *buf, ArSize blen, const unsigned char *pattern, ArSize plen) {
     auto cursor = (ArSSize) (blen - plen);
+    auto chr0 = *pattern;
     ArSSize i;
 
     FillBadCharTable(table, pattern, plen, true);
 
     while (cursor >= 0) {
         for (i = 0; i < plen; i++) {
-            if (buf[cursor + i] != pattern[i]) {
-                cursor -= std::max(1, table[buf[cursor - i]]);
+            auto current = buf[cursor + i];
+            if (current != pattern[i]) {
+                auto dec = table[buf[cursor - i]];
+
+                if (dec == 0)
+                    cursor -= (current == chr0) ? 1 : (int) plen;
+                else
+                    cursor -= dec;
+
                 break;
             }
         }
@@ -154,16 +166,16 @@ ArSSize argon::vm::datatype::support::FindNewLine(const unsigned char *buf, ArSi
     while (index < *inout_len) {
         if (universal && buf[index] == '\r') {
             if (index + 1 < *inout_len && buf[index + 1] == '\n') {
-                *inout_len = (index+2)-index;
+                *inout_len = (index + 2) - index;
                 return (ArSSize) index;
             }
 
-            *inout_len = (index+1)-index;
+            *inout_len = (index + 1) - index;
             return (ArSSize) index;
         }
 
         if (buf[index] == '\n') {
-            *inout_len = (index+1)-index;
+            *inout_len = (index + 1) - index;
             return (ArSSize) index;
         }
 
