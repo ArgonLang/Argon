@@ -25,7 +25,7 @@ namespace stratum {
         std::mutex m_arenas_;
 
         /* Memory pools organized by size-class */
-        support::LinkedList<Pool> pools_[kStratumClasses];
+        Pool *pools_[kStratumClasses];
         std::mutex m_pools_[kStratumClasses];
 
         Arena *FindOrCreateArena();
@@ -33,6 +33,8 @@ namespace stratum {
         Pool *AllocatePool(size_t clazz);
 
         Pool *GetPool(size_t clazz);
+
+        void *AllocateBlockFromPool(size_t clazz);
 
         void TryReleaseMemory(Pool *pool, size_t clazz);
 
