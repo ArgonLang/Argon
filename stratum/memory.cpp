@@ -4,10 +4,30 @@
 
 #include <cassert>
 #include <cstdlib>
-#include <mutex>
 
 #include <stratum/memutil.h>
 #include <stratum/memory.h>
+
+#define POP_FROM_LIST(node)                 \
+    do {                                    \
+        if(node->next != nullptr)           \
+            node->next->prev = node->prev;  \
+                                            \
+        *(node->prev) = node->next;         \
+    } while(0)                              \
+
+#define PUSH_TO_LIST(list, node)            \
+    do{                                     \
+        auto *current = list;               \
+                                            \
+        node->next = current;               \
+        pool->prev = &list;                 \
+                                            \
+        if(current != nullptr)              \
+            current->prev = &node->next;    \
+                                            \
+        list = node;                        \
+    } while(0)
 
 using namespace stratum;
 
@@ -30,7 +50,7 @@ Arena *Memory::FindOrCreateArena() {
 }
 
 bool Memory::Initialize() {
-    std::scoped_lock lck(this->m_arenas_);
+    std::unique_lock lck(this->m_arenas_);
 
     if (this->arenas_.Count() > 0)
         return true;
@@ -39,9 +59,9 @@ bool Memory::Initialize() {
         auto *arena = AllocArena();
 
         if (arena == nullptr) {
-            if (i > 0) {
+            if (i > 0)
                 this->Finalize();
-            }
+
             return false;
         }
 
@@ -52,26 +72,60 @@ bool Memory::Initialize() {
 }
 
 Pool *Memory::AllocatePool(size_t clazz) {
-    std::scoped_lock alck(this->m_arenas_);
+    this->m_arenas_.lock();
 
     auto *arena = this->FindOrCreateArena();
-    if (arena == nullptr)
-        return nullptr;
+    if (arena == nullptr) {
+        this->m_arenas_.unlock();
 
-    return AllocPool(arena, clazz);
+        return nullptr;
+    }
+
+    auto *pool = AllocPool(arena, clazz);
+
+    this->m_arenas_.unlock();
+
+    return pool;
 }
 
 Pool *Memory::GetPool(size_t clazz) {
-    Pool *pool = this->pools_[clazz].FindFree();
+    Pool *pool = this->pools_[clazz];
 
     if (pool == nullptr) {
         if ((pool = this->AllocatePool(clazz)) == nullptr)
             return nullptr;
 
-        this->pools_[clazz].Insert(pool);
+        pool->prev = this->pools_ + clazz;
+        this->pools_[clazz] = pool;
     }
 
     return pool;
+}
+
+void *Memory::AllocateBlockFromPool(size_t clazz) {
+    auto *m_pool = this->m_pools_ + clazz;
+
+    m_pool->lock();
+
+    auto *pool = GetPool(clazz);
+    if (pool == nullptr) {
+        m_pool->unlock();
+
+        return nullptr;
+    }
+
+    auto *block = AllocBlock(pool);
+
+    if (pool->free == 0) {
+        POP_FROM_LIST(pool);
+
+        pool->next = nullptr;
+        pool->prev = nullptr;
+    }
+
+    m_pool->unlock();
+
+    return block;
 }
 
 void *Memory::Alloc(size_t size) {
@@ -79,14 +133,8 @@ void *Memory::Alloc(size_t size) {
 
     assert(size > 0);
 
-    if (size <= STRATUM_BLOCK_MAX_SIZE) {
-        std::scoped_lock lck(this->m_pools_[clazz]);
-        auto *pool = GetPool(clazz);
-        if (pool == nullptr)
-            return nullptr;
-
-        return AllocBlock(pool);
-    }
+    if (size <= STRATUM_BLOCK_MAX_SIZE)
+        return this->AllocateBlockFromPool(clazz);
 
     unsigned char *ptr;
     if ((ptr = (unsigned char *) malloc(size + sizeof(Emb) + STRATUM_QUANTUM)) == nullptr)
@@ -120,9 +168,8 @@ void *Memory::Calloc(size_t num, size_t size) {
 void Memory::Finalize() {
     Arena *arena;
 
-    while ((arena = this->arenas_.Pop()) != nullptr) {
+    while ((arena = this->arenas_.Pop()) != nullptr)
         FreeArena(arena);
-    }
 }
 
 void Memory::Free(void *ptr) {
@@ -133,11 +180,15 @@ void Memory::Free(void *ptr) {
 
     if (AddressInArenas(ptr)) {
         size_t clazz = SizeToPoolClass(pool->blocksz);
+        auto *m_pool = this->m_pools_ + clazz;
 
-        std::scoped_lock lck(this->m_pools_[clazz]);
+        m_pool->lock();
 
         FreeBlock(pool, ptr);
         this->TryReleaseMemory(pool, clazz);
+
+        m_pool->unlock();
+
         return;
     }
 
@@ -182,8 +233,10 @@ void Memory::TryReleaseMemory(Pool *pool, size_t clazz) {
     Arena *arena = pool->arena;
 
     if (pool->free == pool->blocks) {
-        std::scoped_lock lck(this->m_arenas_);
-        this->pools_[clazz].Remove(pool);
+        this->m_arenas_.lock();
+
+        if (pool->prev != nullptr)
+            POP_FROM_LIST(pool);
 
         FreePool(pool);
 
@@ -194,10 +247,13 @@ void Memory::TryReleaseMemory(Pool *pool, size_t clazz) {
             FreeArena(arena);
         }
 
+        this->m_arenas_.unlock();
+
         return;
     }
 
-    this->pools_[clazz].Sort(pool);
+    if (pool->prev == nullptr)
+        PUSH_TO_LIST(this->pools_[clazz], pool);
 }
 
 // DEFAULT ALLOCATOR
