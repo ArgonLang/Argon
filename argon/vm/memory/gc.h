@@ -9,6 +9,8 @@
 
 #include <argon/vm/memory/memory.h>
 
+#define GC_GET_HEAD(ptr) ((argon::vm::memory::GCHead *) (((unsigned char *) ptr) - sizeof(argon::vm::memory::GCHead)))
+
 namespace argon::vm::memory {
     constexpr const unsigned short kGCGenerations = 3;
 

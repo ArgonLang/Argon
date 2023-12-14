@@ -53,7 +53,7 @@ SideTable *RefCount::AllocOrGetSideTable() {
     return side;
 }
 
-bool RefCount::DecStrong() {
+bool RefCount::DecStrong(RefBits *out) {
     RefBits current = this->bits_.load(std::memory_order_acquire);
     RefBits desired = {};
     bool release;
@@ -66,6 +66,9 @@ bool RefCount::DecStrong() {
 
         if (!desired.IsInlineCounter()) {
             auto side = desired.GetSideTable();
+
+            if (out != nullptr)
+                *out = desired;
 
             if (side->strong.fetch_sub(1) == 1) {
                 // ArObject can be destroyed
@@ -82,6 +85,9 @@ bool RefCount::DecStrong() {
     } while (!this->bits_.compare_exchange_weak(current, desired,
                                                 std::memory_order_release,
                                                 std::memory_order_acquire));
+
+    if (out != nullptr)
+        *out = desired;
 
     return release;
 }

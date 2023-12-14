@@ -1064,7 +1064,7 @@ bool argon::vm::datatype::TraitIsImplemented(const ArObject *object, const TypeI
     if (object == nullptr || type == nullptr)
         return false;
 
-    if((const TypeInfo *) object == type)
+    if ((const TypeInfo *) object == type)
         return true;
 
     obj_type = AR_GET_TYPE(object);
@@ -1201,21 +1201,28 @@ void argon::vm::datatype::MonitorRelease(ArObject *object) {
 }
 
 void argon::vm::datatype::Release(ArObject *object) {
+    argon::vm::memory::RefBits bits{};
+
     if (object == nullptr)
         return;
 
-    if (AR_GET_RC(object).IsGcObject()) {
-        memory::GCFree(object);
-        return;
-    }
+    if (AR_GET_RC(object).DecStrong(&bits)) {
+        void *target = object;
 
-    if (AR_GET_RC(object).DecStrong()) {
+        if (bits.IsGcObject()) {
+            auto *head = GC_GET_HEAD(object);
+            if (head->IsTracked())
+                return;
+
+            target = head;
+        }
+
         if (AR_GET_TYPE(object)->dtor != nullptr)
             AR_GET_TYPE(object)->dtor(object);
 
         MonitorDestroy(object);
 
-        argon::vm::memory::Free(object);
+        argon::vm::memory::Free(target);
     }
 }
 

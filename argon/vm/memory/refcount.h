@@ -162,7 +162,7 @@ namespace argon::vm::memory {
          * @brief Release a strong reference.
          * @return True if the object no longer has strong references, false otherwise.
          */
-        bool DecStrong();
+        bool DecStrong(RefBits *out);
 
         /**
          * @brief Release a weak reference.

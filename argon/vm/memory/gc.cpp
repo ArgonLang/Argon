@@ -241,7 +241,7 @@ GCHead *argon::vm::memory::GCGetHead(datatype::ArObject *object) {
     if (object == nullptr || !AR_GET_RC(object).IsGcObject())
         return nullptr;
 
-    return (GCHead *) (((unsigned char *) object) - sizeof(GCHead));
+    return GC_GET_HEAD(object);
 }
 
 void argon::vm::memory::GCFree(datatype::ArObject *object) {
@@ -251,11 +251,11 @@ void argon::vm::memory::GCFree(datatype::ArObject *object) {
         return;
 
     if(head->IsTracked()) {
-        AR_GET_RC(object).DecStrong();
+        AR_GET_RC(object).DecStrong(nullptr);
         return;
     }
 
-    if (AR_GET_RC(object).DecStrong()) {
+    if (AR_GET_RC(object).DecStrong(nullptr)) {
         if (AR_GET_TYPE(object)->dtor != nullptr)
             AR_GET_TYPE(object)->dtor(object);
 
