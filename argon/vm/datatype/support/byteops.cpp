@@ -19,7 +19,6 @@ void FillBadCharTable(int *table, const unsigned char *pattern, ArSize len, bool
 
 ArSSize DoSearch(int *table, const unsigned char *buf, ArSize blen, const unsigned char *pattern, ArSize plen) {
     auto cursor = (ArSSize) (plen - 1);
-    auto chr0 = *(pattern + cursor);
     ArSSize i;
 
     FillBadCharTable(table, pattern, plen, false);
@@ -28,13 +27,7 @@ ArSSize DoSearch(int *table, const unsigned char *buf, ArSize blen, const unsign
         for (i = 0; i < plen; i++) {
             auto current = buf[cursor - i];
             if (current != pattern[(plen - 1) - i]) {
-                auto inc = table[buf[cursor - i]];
-
-                if (inc == 0)
-                    cursor += (current == chr0) ? 1 : (int) plen-1;
-                else
-                    cursor += inc;
-
+                cursor += std::max(1, table[buf[cursor - i]]);
                 break;
             }
         }
@@ -48,7 +41,6 @@ ArSSize DoSearch(int *table, const unsigned char *buf, ArSize blen, const unsign
 
 ArSSize DoRSearch(int *table, const unsigned char *buf, ArSize blen, const unsigned char *pattern, ArSize plen) {
     auto cursor = (ArSSize) (blen - plen);
-    auto chr0 = *pattern;
     ArSSize i;
 
     FillBadCharTable(table, pattern, plen, true);
@@ -57,13 +49,7 @@ ArSSize DoRSearch(int *table, const unsigned char *buf, ArSize blen, const unsig
         for (i = 0; i < plen; i++) {
             auto current = buf[cursor + i];
             if (current != pattern[i]) {
-                auto dec = table[buf[cursor - i]];
-
-                if (dec == 0)
-                    cursor -= (current == chr0) ? 1 : (int) plen;
-                else
-                    cursor -= dec;
-
+                cursor -= std::max(1, table[buf[cursor - i]]);
                 break;
             }
         }
