@@ -324,7 +324,7 @@ ArObject *list_add(ArObject *left, ArObject *right) {
 
 ArObject *list_inp_add(ArObject *left, ArObject *right) {
     if (AR_SAME_TYPE(left, right) && ListExtend((List *) left, right))
-        return IncRef(left);
+        return left;
 
     return nullptr;
 }

@@ -537,13 +537,18 @@ ArObject *argon::vm::Eval(Fiber *fiber) {
 #endif
 
 // STACK MANIPULATION MACRO
-#define DISPATCH()                                              \
-    cu_frame->instr_ptr += OpCodeOffset[*cu_frame->instr_ptr];  \
+#define DISPATCH()                                                  \
+    cu_frame->instr_ptr += OpCodeOffset[*cu_frame->instr_ptr];      \
     CGOTO
 
 #define DISPATCH_YIELD()                                            \
     cu_frame->instr_ptr += OpCodeOffset[*cu_frame->instr_ptr];      \
     if(GetFiberStatus() != FiberStatus::RUNNING) return nullptr;    \
+    CGOTO
+
+#define DISPATCH_SKIP_NEXT()                                        \
+    cu_frame->instr_ptr += OpCodeOffset[*cu_frame->instr_ptr];      \
+    cu_frame->instr_ptr += OpCodeOffset[*cu_frame->instr_ptr];      \
     CGOTO
 
 #define JUMPADDR(offset) (unsigned char *) (cu_code->instr + (offset))
@@ -571,6 +576,13 @@ ArObject *argon::vm::Eval(Fiber *fiber) {
     *(cu_frame->eval_stack - 1) = obj;      \
     } while(0)
 
+#define BINARY_OP4(first, second, op, opchar)                                                                       \
+        if ((ret = Binary(first, second, offsetof(OpSlots, op))) == nullptr) {                                      \
+        if (!IsPanickingFrame()) {                                                                                  \
+            ErrorFormat(kRuntimeError[0], kRuntimeError[2], #opchar, AR_TYPE_NAME(first), AR_TYPE_NAME(second));    \
+        }                                                                                                           \
+        break; }                                                                                                    \
+
 #define BINARY_OP(op, opchar)                                                                                       \
     if ((ret = Binary(PEEK1(), TOP(), offsetof(OpSlots, op))) == nullptr) {                                         \
         if (!IsPanickingFrame()) {                                                                                  \
@@ -581,14 +593,14 @@ ArObject *argon::vm::Eval(Fiber *fiber) {
     TOP_REPLACE(ret);                                                                                               \
     DISPATCH()
 
-#define UNARY_OP(op, opchar)                                                                                    \
-    ret = TOP();                                                                                                \
-    if(AR_GET_TYPE(ret)->ops == nullptr || AR_GET_TYPE(ret)->ops->op == nullptr) {                              \
-        ErrorFormat(kRuntimeError[0], kRuntimeError[1], #opchar, AR_TYPE_NAME(ret));                            \
-        break; }                                                                                                \
-    if((ret = AR_GET_TYPE(ret)->ops->op(ret)) == nullptr)                                                       \
-        break;                                                                                                  \
-    TOP_REPLACE(ret);                                                                                           \
+#define UNARY_OP(op, opchar)                                                                                        \
+    ret = TOP();                                                                                                    \
+    if(AR_GET_TYPE(ret)->ops == nullptr || AR_GET_TYPE(ret)->ops->op == nullptr) {                                  \
+        ErrorFormat(kRuntimeError[0], kRuntimeError[1], #opchar, AR_TYPE_NAME(ret));                                \
+        break; }                                                                                                    \
+    if((ret = AR_GET_TYPE(ret)->ops->op(ret)) == nullptr)                                                           \
+        break;                                                                                                      \
+    TOP_REPLACE(ret);                                                                                               \
     DISPATCH()
 
     Frame *cu_frame = fiber->frame;
@@ -827,11 +839,35 @@ ArObject *argon::vm::Eval(Fiber *fiber) {
             }
             TARGET_OP(IPADD)
             {
-                BINARY_OP(inp_add, +=);
+                auto *actual = PEEK1();
+
+                BINARY_OP4(actual, TOP(), inp_add, +=)
+
+                POP();
+
+                if (actual == ret) {
+                    POP();
+                    DISPATCH_SKIP_NEXT(); // Skip next STORE operation
+                }
+
+                TOP_REPLACE(ret);
+                DISPATCH();
             }
             TARGET_OP(IPSUB)
             {
-                BINARY_OP(inp_sub, -=);
+                auto *actual = PEEK1();
+
+                BINARY_OP4(actual, TOP(), inp_sub, -=)
+
+                POP();
+
+                if (actual == ret) {
+                    POP();
+                    DISPATCH_SKIP_NEXT(); // Skip next STORE operation
+                }
+
+                TOP_REPLACE(ret);
+                DISPATCH();
             }
             TARGET_OP(JEX)
             {

@@ -1227,7 +1227,7 @@ ArObject *bytes_inp_add(Bytes *self, ArObject *right) {
     } else
         return nullptr;
 
-    return (ArObject *) IncRef(self);
+    return (ArObject *) self;
 }
 
 const OpSlots bytes_ops = {
