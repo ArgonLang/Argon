@@ -86,9 +86,9 @@ namespace argon::vm::datatype {
         if (ret == nullptr)
             return nullptr;
 
-        AR_GET_RC(ret) = memory::RCType::INLINE;
+        AR_UNSAFE_GET_RC(ret) = (ArSize) memory::RCType::INLINE;
         AR_GET_TYPE(ret) = type;
-        AR_GET_MON(ret) = nullptr;
+        AR_UNSAFE_GET_MON(ret) = nullptr;
 
         return (T *) ret;
     }
@@ -109,9 +109,9 @@ namespace argon::vm::datatype {
         // including the one currently allocating a new object.
         auto *ret = memory::GCNew(type->size, track);
 
-        AR_GET_RC(ret) = memory::RCType::GC;
+        AR_UNSAFE_GET_RC(ret) = (ArSize) memory::RCType::GC;
         AR_GET_TYPE(ret) = type;
-        AR_GET_MON(ret) = nullptr;
+        AR_UNSAFE_GET_MON(ret) = nullptr;
 
         return (T *) ret;
     }

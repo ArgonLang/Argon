@@ -1175,7 +1175,7 @@ void argon::vm::datatype::BufferRelease(ArBuffer *buffer) {
 }
 
 void argon::vm::datatype::MonitorDestroy(ArObject *object) {
-    auto *monitor = AR_GET_MON(object).load(std::memory_order_consume);
+    auto *monitor = AR_UNSAFE_GET_MON(object);
     if (monitor == nullptr)
         return;
 

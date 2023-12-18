@@ -344,8 +344,10 @@ ArObject *name##_fn(ArObject *_func, ArObject *_self, ArObject **args, ArObject 
 
 #define AR_GET_HEAD(object)                 ((object)->head_)
 #define AR_GET_RC(object)                   (AR_GET_HEAD(object).ref_count_)
+#define AR_UNSAFE_GET_RC(object)            (*((ArSize *) &AR_GET_HEAD(object).ref_count_))
 #define AR_GET_TYPE(object)                 (AR_GET_HEAD(object).type_)
 #define AR_GET_MON(object)                  (AR_GET_HEAD(object).mon_)
+#define AR_UNSAFE_GET_MON(object)           (*((Monitor **) &AR_GET_HEAD(object).mon_))
 
 #define AR_SLOT_BUFFER(object)              ((AR_GET_TYPE(object))->buffer)
 #define AR_SLOT_NUMBER(object)              ((AR_GET_TYPE(object))->number)
