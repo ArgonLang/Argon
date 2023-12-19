@@ -179,7 +179,7 @@ ARGON_METHOD(number_tobytes, tobytes,
     String *byteorder = nullptr;
     bool big_endian = true;
 
-    if(!KParamLookupStr((Dict *) kwargs, "byteorder",&byteorder, "big",&big_endian))
+    if (!KParamLookupStr((Dict *) kwargs, "byteorder", &byteorder, "big", &big_endian))
         return nullptr;
 
     if (!big_endian && !StringEqual(byteorder, "little")) {
@@ -428,6 +428,76 @@ ArObject *integer_inv(const Integer *self) {
     return (ArObject *) IntNew(~self->sint);
 }
 
+ArObject *integer_inp_add(Integer *self, const Integer *other) {
+    if (AR_TYPEOF(self, type_int_)) {
+        if (!AR_TYPEOF(other, type_int_))
+            return nullptr;
+
+        if (AR_SAFE_TO_MUTATE(self)) {
+            self->sint += other->sint;
+
+            return (ArObject *) self;
+        }
+
+        return (ArObject *) IntNew(self->sint + other->sint);
+    }
+
+    if (AR_TYPEOF(other, type_int_)) {
+        if (AR_SAFE_TO_MUTATE(self)) {
+            self->uint += other->sint;
+
+            return (ArObject *) self;
+        }
+
+        return (ArObject *) UIntNew(self->uint + other->sint);
+    } else if (AR_TYPEOF(other, type_uint_)) {
+        if (AR_SAFE_TO_MUTATE(self)) {
+            self->uint += other->uint;
+
+            return (ArObject *) self;
+        }
+
+        return (ArObject *) UIntNew(self->uint + other->uint);
+    }
+
+    return nullptr;
+}
+
+ArObject *integer_inp_sub(Integer *self, const Integer *other) {
+    if (AR_TYPEOF(self, type_int_)) {
+        if (!AR_TYPEOF(other, type_int_))
+            return nullptr;
+
+        if (AR_SAFE_TO_MUTATE(self)) {
+            self->sint -= other->sint;
+
+            return (ArObject *) self;
+        }
+
+        return (ArObject *) IntNew(self->sint - other->sint);
+    }
+
+    if (AR_TYPEOF(other, type_int_)) {
+        if (AR_SAFE_TO_MUTATE(self)) {
+            self->uint -= other->sint;
+
+            return (ArObject *) self;
+        }
+
+        return (ArObject *) UIntNew(self->uint - other->sint);
+    } else if (AR_TYPEOF(other, type_uint_)) {
+        if (AR_SAFE_TO_MUTATE(self)) {
+            self->uint -= other->uint;
+
+            return (ArObject *) self;
+        }
+
+        return (ArObject *) UIntNew(self->uint - other->uint);
+    }
+
+    return nullptr;
+}
+
 ArObject *integer_inc(const Integer *self) {
     if (AR_TYPEOF(self, type_uint_))
         return (ArObject *) UIntNew(self->uint + 1);
@@ -457,8 +527,8 @@ const OpSlots integer_ops = {
         (BinaryOp) integer_shl,
         (BinaryOp) integer_shr,
         (UnaryOp) integer_inv,
-        (BinaryOp) integer_add,
-        (BinaryOp) integer_sub,
+        (BinaryOp) integer_inp_add,
+        (BinaryOp) integer_inp_sub,
         (UnaryOp) integer_inc,
         (UnaryOp) integer_dec
 };
