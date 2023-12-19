@@ -26,6 +26,21 @@
  * +----------------+ uintptr_t +----------------+
  */
 
+#define RC_GET_SIDETABLE(value)         ((SideTable *) (value & ~RCBitOffsets::GCMask))
+
+#define RC_HAVE_INLINE_COUNTER(value)   (value & RCBitOffsets::InlineMask)
+
+#define RC_INLINE_INC(value)            (value + (1 << RCBitOffsets::StrongShift))
+#define RC_INLINE_DEC(value)            (value - (1 << RCBitOffsets::StrongShift))
+#define RC_INLINE_GET_COUNT(value)      ((value & RCBitOffsets::StrongMask) >> RCBitOffsets::StrongShift)
+
+#define RC_CHECK_INLINE_OVERFLOW(value) (value & RCBitOffsets::StrongVFLAGMask)
+#define RC_CHECK_INLINE_ZERO(value)     ((value & RCBitOffsets::StrongMask) == 0)
+#define RC_CHECK_IS_GCOBJ(value)        (value & memory::RCBitOffsets::GCMask)
+#define RC_CHECK_IS_STATIC(value)       (value & RCBitOffsets::StaticMask)
+
+#define RC_SETBIT_GC(value)             (value | RCBitOffsets::GCMask)
+
 namespace argon::vm::memory {
     using RCObject = struct ArObject *;
 
@@ -139,22 +154,17 @@ namespace argon::vm::memory {
      * @brief This class represents the reference counter
      */
     class RefCount {
-        std::atomic<RefBits> bits_{};
+        std::atomic_uintptr_t bits_{};
 
         SideTable *AllocOrGetSideTable();
 
         RCObject GetObjectBase();
 
     public:
-        explicit constexpr RefCount(RCType status) noexcept: bits_(RefBits((unsigned char) status)) {};
+        explicit constexpr RefCount(RCType status) noexcept: bits_((uintptr_t)status) {};
 
-        RefCount &operator=(RCType type) {
-            this->bits_ = RefBits((uintptr_t) type);
-            return *this;
-        }
-
-        RefCount &operator=(RefBits bits) {
-            this->bits_ = bits;
+        RefCount &operator=(uintptr_t type) {
+            this->bits_ = type;
             return *this;
         }
 
@@ -162,7 +172,7 @@ namespace argon::vm::memory {
          * @brief Release a strong reference.
          * @return True if the object no longer has strong references, false otherwise.
          */
-        bool DecStrong(RefBits *out);
+        bool DecStrong(uintptr_t *out);
 
         /**
          * @brief Release a weak reference.
@@ -191,7 +201,7 @@ namespace argon::vm::memory {
          * @return True if the object is managed by the GC, false otherwise.
          */
         bool IsGcObject() const {
-            return this->bits_.load(std::memory_order_seq_cst).IsGcObject();
+            return RC_CHECK_IS_GCOBJ(this->bits_.load(std::memory_order_seq_cst));
         }
 
         /**
@@ -199,7 +209,7 @@ namespace argon::vm::memory {
          * @return True if the object is immortal, false otherwise.
          */
         bool IsStatic() const {
-            return this->bits_.load(std::memory_order_seq_cst).IsStatic();
+            return RC_CHECK_IS_STATIC(*((uintptr_t*) &this->bits_));
         }
 
         /**
@@ -219,7 +229,7 @@ namespace argon::vm::memory {
          *
          * @return An integer representing the pointer to SideTable in case of success, 0 otherwise.
          */
-        RefBits IncWeak();
+        uintptr_t IncWeak();
 
         /**
          * @brief Get strong references count.

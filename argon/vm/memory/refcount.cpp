@@ -18,54 +18,53 @@ RCObject RefCount::GetObjectBase() {
 }
 
 SideTable *RefCount::AllocOrGetSideTable() {
-    RefBits current = this->bits_.load(std::memory_order_seq_cst);
+    auto current = this->bits_.load(std::memory_order_seq_cst);
     SideTable *side;
 
-    assert(!current.IsStatic());
+    assert(!RC_CHECK_IS_STATIC(current));
 
-    if (!current.IsInlineCounter())
-        return current.GetSideTable();
+    if (!RC_HAVE_INLINE_COUNTER(current))
+        return RC_GET_SIDETABLE(current);
 
     if ((side = (SideTable *) Alloc(sizeof(SideTable))) == nullptr)
         return nullptr;
 
-    side->strong.store(current.GetStrong());
+    side->strong.store(RC_INLINE_GET_COUNT(current));
     side->weak.store(1);
     side->object = this->GetObjectBase();
 
-    RefBits desired((uintptr_t) side);
+    auto desired = ((uintptr_t) side);
 
-    if (current.IsGcObject())
-        desired.SetGCBit();
+    if (RC_CHECK_IS_GCOBJ(current))
+        desired = RC_SETBIT_GC(desired);
 
     do {
-        if (!current.IsInlineCounter()) {
+        if (!RC_HAVE_INLINE_COUNTER(current)) {
             Free(side);
-            side = current.GetSideTable();
+            side = RC_GET_SIDETABLE(current);
             break;
         }
 
-        side->strong.store(current.GetStrong());
-
+        side->strong = RC_INLINE_GET_COUNT(current);
     } while (!this->bits_.compare_exchange_weak(current, desired,
-                                                std::memory_order_release,
-                                                std::memory_order_acquire));
+                                                std::memory_order_seq_cst,
+                                                std::memory_order_seq_cst));
     return side;
 }
 
-bool RefCount::DecStrong(RefBits *out) {
-    RefBits current = this->bits_.load(std::memory_order_acquire);
-    RefBits desired = {};
+bool RefCount::DecStrong(uintptr_t *out) {
+    auto current = *((uintptr_t *) &this->bits_);
+    uintptr_t desired = {};
     bool release;
 
-    if (current.IsStatic())
+    if (RC_CHECK_IS_STATIC(current))
         return false;
 
     do {
         desired = current;
 
-        if (!desired.IsInlineCounter()) {
-            auto side = desired.GetSideTable();
+        if (!RC_HAVE_INLINE_COUNTER(desired)) {
+            auto side = RC_GET_SIDETABLE(desired);
 
             if (out != nullptr)
                 *out = desired;
@@ -81,10 +80,12 @@ bool RefCount::DecStrong(RefBits *out) {
             return false;
         }
 
-        release = desired.Decrement();
+        desired = RC_INLINE_DEC(desired);
     } while (!this->bits_.compare_exchange_weak(current, desired,
                                                 std::memory_order_release,
                                                 std::memory_order_acquire));
+
+    release = RC_CHECK_INLINE_ZERO(desired);
 
     if (out != nullptr)
         *out = desired;
@@ -93,10 +94,10 @@ bool RefCount::DecStrong(RefBits *out) {
 }
 
 bool RefCount::DecWeak() const {
-    RefBits current = this->bits_.load(std::memory_order_relaxed);
-    assert(!current.IsInlineCounter());
+    auto current = *((uintptr_t *) &this->bits_);
+    assert(!RC_HAVE_INLINE_COUNTER(current));
 
-    auto side = current.GetSideTable();
+    auto side = RC_GET_SIDETABLE(current);
     auto weak = side->weak.fetch_sub(1);
 
     if (weak == 1)
@@ -106,28 +107,30 @@ bool RefCount::DecWeak() const {
 }
 
 bool RefCount::HaveSideTable() const {
-    RefBits current = this->bits_.load(std::memory_order_relaxed);
-    return !current.IsStatic() && !current.IsInlineCounter();
+    auto current = *((uintptr_t *) &this->bits_);
+    return !RC_CHECK_IS_STATIC(current) && !RC_HAVE_INLINE_COUNTER(current);
 }
 
 bool RefCount::IncStrong() {
-    RefBits current = this->bits_.load(std::memory_order_acquire);
-    RefBits desired = {};
+    auto current = *((uintptr_t *) &this->bits_);
+    uintptr_t desired = {};
 
-    if (current.IsStatic())
+    if (RC_CHECK_IS_STATIC(current))
         return true;
 
     do {
         desired = current;
 
-        if (!desired.IsInlineCounter()) {
-            assert(desired.GetSideTable()->strong.fetch_add(1) != 0);
+        if (!RC_HAVE_INLINE_COUNTER(desired)) {
+            assert(RC_GET_SIDETABLE(desired)->strong.fetch_add(1) != 0);
             return true;
         }
 
-        assert(desired.GetStrong() > 0);
+        assert(RC_INLINE_GET_COUNT(desired) > 0);
 
-        if (desired.Increment()) {
+        desired = RC_INLINE_INC(desired);
+
+        if (RC_CHECK_INLINE_OVERFLOW(desired)) {
             // Inline counter overflow
             auto *side = this->AllocOrGetSideTable();
             if (side == nullptr)
@@ -144,50 +147,50 @@ bool RefCount::IncStrong() {
 }
 
 RCObject RefCount::GetObject() {
-    RefBits current = this->bits_.load(std::memory_order_consume);
+    auto current = this->bits_.load(std::memory_order_seq_cst);
 
-    if (current.IsInlineCounter()) {
+    if (RC_HAVE_INLINE_COUNTER(current)) {
         this->IncStrong();
         return this->GetObjectBase();
     }
 
-    auto side = current.GetSideTable();
-    uintptr_t strong = side->strong.load(std::memory_order_consume);
+    auto side = RC_GET_SIDETABLE(current);
+    auto strong = *((uintptr_t *) &side->strong);
     uintptr_t desired;
 
     do {
         desired = strong + 1;
         if (desired == 1)
             return nullptr;
-    } while (side->strong.compare_exchange_weak(strong, desired, std::memory_order_relaxed));
+    } while (side->strong.compare_exchange_weak(strong, desired, std::memory_order_seq_cst));
 
     return side->object;
 }
 
-RefBits RefCount::IncWeak() {
+uintptr_t RefCount::IncWeak() {
     auto side = this->AllocOrGetSideTable();
     if (side != nullptr) {
         side->weak++;
-        return RefBits((uintptr_t) side);
+        return (uintptr_t) side;
     }
 
-    return RefBits(0);
+    return 0;
 }
 
 uintptr_t RefCount::GetStrongCount() const {
-    RefBits current = this->bits_.load(std::memory_order_consume);
+    auto current = this->bits_.load(std::memory_order_seq_cst);
 
-    if (current.IsInlineCounter() || current.IsStatic())
-        return current.GetStrong();
+    if (RC_HAVE_INLINE_COUNTER(current) || RC_CHECK_IS_STATIC(current))
+        return RC_INLINE_GET_COUNT(current);
 
-    return current.GetSideTable()->strong;
+    return RC_GET_SIDETABLE(current)->strong;
 }
 
 uintptr_t RefCount::GetWeakCount() const {
-    RefBits current = this->bits_.load(std::memory_order_consume);
+    auto current = this->bits_.load(std::memory_order_seq_cst);
 
-    if (!current.IsStatic() && !current.IsInlineCounter())
-        return current.GetSideTable()->weak;
+    if (!RC_CHECK_IS_STATIC(current) && !RC_HAVE_INLINE_COUNTER(current))
+        return RC_GET_SIDETABLE(current)->weak;
 
     return 0;
 }

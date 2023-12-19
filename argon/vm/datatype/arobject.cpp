@@ -563,7 +563,7 @@ ArObject *argon::vm::datatype::TypeNew(const TypeInfo *type, const char *name, c
 
     memory::MemoryCopy(ret, type, sizeof(TypeInfo));
 
-    AR_GET_RC(ret) = memory::RCType::INLINE;
+    AR_UNSAFE_GET_RC(ret) = (ArSize) memory::RCType::INLINE;
     AR_GET_TYPE(ret) = IncRef((TypeInfo *) type_type_);
 
     if ((ret->name = (char *) memory::Alloc(name_len + 1)) == nullptr) {
@@ -1201,7 +1201,7 @@ void argon::vm::datatype::MonitorRelease(ArObject *object) {
 }
 
 void argon::vm::datatype::Release(ArObject *object) {
-    argon::vm::memory::RefBits bits{};
+    uintptr_t bits{};
 
     if (object == nullptr)
         return;
@@ -1209,7 +1209,7 @@ void argon::vm::datatype::Release(ArObject *object) {
     if (AR_GET_RC(object).DecStrong(&bits)) {
         void *target = object;
 
-        if (bits.IsGcObject()) {
+        if (RC_CHECK_IS_GCOBJ(bits)) {
             auto *head = GC_GET_HEAD(object);
             if (head->IsTracked())
                 return;
