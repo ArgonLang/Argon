@@ -25,16 +25,15 @@ using namespace argon::vm;
 using namespace argon::vm::datatype;
 
 ArObject *Binary(ArObject *l, ArObject *r, int offset) {
-#define GET_BINARY_OP(struct, offset) *((BinaryOp *) (((unsigned char *) (struct)) + (offset)))
     BinaryOp lop = nullptr;
     BinaryOp rop = nullptr;
     ArObject *result = nullptr;
 
     if (AR_GET_TYPE(l)->ops != nullptr)
-        lop = GET_BINARY_OP(AR_GET_TYPE(l)->ops, offset);
+        lop = AR_GET_BINARY_OP(AR_GET_TYPE(l)->ops, offset);
 
     if (AR_GET_TYPE(r)->ops != nullptr)
-        rop = GET_BINARY_OP(AR_GET_TYPE(r)->ops, offset);
+        rop = AR_GET_BINARY_OP(AR_GET_TYPE(r)->ops, offset);
 
     if (lop != nullptr)
         result = lop(l, r);
@@ -43,7 +42,19 @@ ArObject *Binary(ArObject *l, ArObject *r, int offset) {
         result = rop(l, r);
 
     return result;
-#undef GET_BINARY_OP
+}
+
+ArObject *BinaryOriented(ArObject *l, ArObject *r, int offset) {
+    ArObject *result = nullptr;
+    BinaryOp lop = nullptr;
+
+    if (AR_GET_TYPE(l)->ops != nullptr)
+        lop = AR_GET_BINARY_OP(AR_GET_TYPE(l)->ops, offset);
+
+    if (lop != nullptr)
+        result = lop(l, r);
+
+    return result;
 }
 
 ArObject *GetCallableFromType(ArObject **type) {
@@ -577,7 +588,7 @@ ArObject *argon::vm::Eval(Fiber *fiber) {
     } while(0)
 
 #define BINARY_OP4(first, second, op, opchar)                                                                       \
-        if ((ret = Binary(first, second, offsetof(OpSlots, op))) == nullptr) {                                      \
+        if ((ret = BinaryOriented(first, second, offsetof(OpSlots, op))) == nullptr) {                              \
         if (!IsPanickingFrame()) {                                                                                  \
             ErrorFormat(kRuntimeError[0], kRuntimeError[2], #opchar, AR_TYPE_NAME(first), AR_TYPE_NAME(second));    \
         }                                                                                                           \

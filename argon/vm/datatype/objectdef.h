@@ -255,6 +255,8 @@ ArObject *name##_fn(ArObject *_func, ArObject *_self, ArObject **args, ArObject 
         UnaryOp dec;
     };
 
+#define AR_GET_BINARY_OP(struct, offset) *((BinaryOp *) (((unsigned char *) (struct)) + (offset)))
+
     /**
      * @brief Models the behavior of the datatype that supports the subscript [] operator (e.g. list, dict, tuple).
      */
