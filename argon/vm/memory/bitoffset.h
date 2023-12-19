@@ -26,15 +26,15 @@ namespace argon::vm::memory {
         static const unsigned char InlineBits = 1;
         static const uintptr_t InlineMask = Mask(Inline);
 
-        static const unsigned char StaticShift = After(Inline);
-        static const unsigned char StaticBits = 1;
-        static const uintptr_t StaticMask = Mask(Static);
-
-        static const unsigned char GCShift = After(Static);
+        static const unsigned char GCShift = After(Inline);
         static const unsigned char GCBits = 1;
         static const uintptr_t GCMask = Mask(GC);
 
-        static const unsigned char StrongShift = After(GC);
+        static const unsigned char StaticShift = After(GC);
+        static const unsigned char StaticBits = 1;
+        static const uintptr_t StaticMask = Mask(Static);
+
+        static const unsigned char StrongShift = After(Static);
         static const unsigned char StrongBits = CounterBits(Static) - 2;
         static const uintptr_t StrongMask = Mask(Strong);
 

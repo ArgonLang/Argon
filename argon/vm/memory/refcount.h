@@ -14,9 +14,9 @@
  *      |
  *      |                Inline flag -------+
  *      |                                   |
- *      |                Static flag ---+   |
+ *      |                    GC flag ---+   |
  *      |                               |   |
- *      |                 GC flag --+   |   |
+ *      |             Static flag --+   |   |
  *      |                           |   |   |
  *      v                           v   v   v
  *    +-+-+-----------------------+-+-+-+-+-+-+
@@ -31,8 +31,8 @@ namespace argon::vm::memory {
 
     enum class RCType {
         INLINE = 0x08u | 0x01,
-        STATIC = 0x02,
-        GC = 0x08u | (0x04u | 0x01)
+        STATIC = 0x04,
+        GC = 0x08u | (0x02u | 0x01)
     };
 
     /**
