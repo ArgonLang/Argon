@@ -421,9 +421,7 @@ void Compiler::CompileAssignment(const parser::Binary *assign) {
         return;
     }
 
-    this->Expression(assign->right);
-
-    this->CompileStore(assign->left);
+    this->CompileStore(assign->left, assign->right);
 }
 
 void Compiler::CompileAugAssignment(const parser::Binary *assign) {
@@ -462,8 +460,6 @@ void Compiler::CompileAugAssignment(const parser::Binary *assign) {
 
             COMPILE_OP();
 
-            this->unit_->Emit(vm::OpCode::PBHEAD, 1, nullptr, nullptr);
-
             if (assign->left->token_type == scanner::TokenType::SCOPE) {
                 this->unit_->Emit(vm::OpCode::STSCOPE, idx, nullptr, &assign->loc);
                 break;
@@ -477,7 +473,6 @@ void Compiler::CompileAugAssignment(const parser::Binary *assign) {
 
             COMPILE_OP();
 
-            this->unit_->Emit(vm::OpCode::PBHEAD, 2, nullptr, nullptr);
             this->unit_->Emit(vm::OpCode::STSUBSCR, &assign->loc);
             break;
         default:
@@ -1412,11 +1407,16 @@ void Compiler::CompileSafe(const parser::Unary *unary) {
     }
 }
 
-void Compiler::CompileStore(const parser::Node *node) {
-    if (node->node_type == NodeType::IDENTIFIER)
+void Compiler::CompileStore(const parser::Node *node, const parser::Node *value) {
+    if (node->node_type == NodeType::IDENTIFIER) {
+        if (value != nullptr)
+            this->Expression(value);
         this->StoreVariable((String *) ((const parser::Unary *) node)->value, &node->loc);
-    else if (node->node_type == NodeType::SELECTOR) {
+    } else if (node->node_type == NodeType::SELECTOR) {
         auto idx = this->CompileSelector((const parser::Binary *) node, false, false);
+
+        if (value != nullptr)
+            this->Expression(value);
 
         if (node->token_type == scanner::TokenType::SCOPE) {
             this->unit_->Emit(vm::OpCode::STSCOPE, idx, nullptr, &node->loc);
@@ -1426,10 +1426,16 @@ void Compiler::CompileStore(const parser::Node *node) {
         this->unit_->Emit(vm::OpCode::STATTR, idx, nullptr, &node->loc);
     } else if (node->node_type == parser::NodeType::INDEX || node->node_type == parser::NodeType::SLICE) {
         this->CompileSubscr((const Subscript *) node, false, false);
+        if (value != nullptr)
+            this->Expression(value);
 
         this->unit_->Emit(vm::OpCode::STSUBSCR, &node->loc);
-    } else if (node->node_type == parser::NodeType::TUPLE)
+    } else if (node->node_type == parser::NodeType::TUPLE) {
+        if (value != nullptr)
+            this->Expression(value);
+
         this->CompileUnpack((List *) ((const Unary *) node)->value, &node->loc);
+    }
 }
 
 void Compiler::CompileSubscr(const parser::Subscript *subscr, bool dup, bool emit) {
@@ -1791,7 +1797,7 @@ void Compiler::CompileUnpack(List *list, const scanner::Loc *loc) {
 
         this->unit_->IncrementStack(1);
 
-        this->CompileStore(id);
+        this->CompileStore(id, nullptr);
 
         items++;
     }

@@ -1466,7 +1466,7 @@ ArObject *argon::vm::Eval(Fiber *fiber) {
                     break;
                 }
 
-                if (!AttributeSet(TOP(), key, PEEK1(), false)) {
+                if (!AttributeSet(PEEK1(), key, TOP(), false)) {
                     Release(key);
                     break;
                 }
@@ -1526,7 +1526,7 @@ ArObject *argon::vm::Eval(Fiber *fiber) {
                     break;
                 }
 
-                if (!AttributeSet(TOP(), key, PEEK1(), true)) {
+                if (!AttributeSet(PEEK1(), key, TOP(), true)) {
                     Release(key);
                     break;
                 }
@@ -1539,7 +1539,7 @@ ArObject *argon::vm::Eval(Fiber *fiber) {
             }
             TARGET_OP(STSUBSCR)
             {
-                if (!STSubscribe(PEEK1(), TOP(), PEEK2()))
+                if (!STSubscribe(PEEK2(), PEEK1(), TOP()))
                     break;
 
                 STACK_REWIND(3);

@@ -99,7 +99,7 @@ namespace argon::lang {
 
         void CompileSafe(const parser::Unary *unary);
 
-        void CompileStore(const parser::Node *node);
+        void CompileStore(const parser::Node *node, const parser::Node *value);
 
         void CompileSubscr(const parser::Subscript *subscr, bool dup, bool emit);
 
