@@ -856,13 +856,26 @@ ArObject *argon::vm::Eval(Fiber *fiber) {
 
                 POP();
 
-                if (actual == ret) {
-                    POP();
-                    DISPATCH_SKIP_NEXT(); // Skip next STORE operation
+                if (actual != ret) {
+                    TOP_REPLACE(ret);
+                    DISPATCH();
                 }
 
-                TOP_REPLACE(ret);
-                DISPATCH();
+                cu_frame->instr_ptr += OpCodeOffset[*cu_frame->instr_ptr];
+
+                auto nextI = (OpCode) *cu_frame->instr_ptr;
+
+                POP();
+
+                if (nextI == OpCode::STSUBSCR) {
+                    POP();
+                    POP();
+                } else if (nextI == OpCode::STSCOPE || nextI == OpCode::STATTR)
+                    POP();
+
+                cu_frame->instr_ptr += OpCodeOffset[*cu_frame->instr_ptr];
+
+                CGOTO; // Skip next STORE operation
             }
             TARGET_OP(IPSUB)
             {
@@ -872,13 +885,26 @@ ArObject *argon::vm::Eval(Fiber *fiber) {
 
                 POP();
 
-                if (actual == ret) {
-                    POP();
-                    DISPATCH_SKIP_NEXT(); // Skip next STORE operation
+                if (actual != ret) {
+                    TOP_REPLACE(ret);
+                    DISPATCH();
                 }
 
-                TOP_REPLACE(ret);
-                DISPATCH();
+                cu_frame->instr_ptr += OpCodeOffset[*cu_frame->instr_ptr];
+
+                auto nextI = (OpCode) *cu_frame->instr_ptr;
+
+                POP();
+
+                if (nextI == OpCode::STSUBSCR) {
+                    POP();
+                    POP();
+                } else if (nextI == OpCode::STSCOPE || nextI == OpCode::STATTR)
+                    POP();
+
+                cu_frame->instr_ptr += OpCodeOffset[*cu_frame->instr_ptr];
+
+                CGOTO; // Skip next STORE operation
             }
             TARGET_OP(JEX)
             {
