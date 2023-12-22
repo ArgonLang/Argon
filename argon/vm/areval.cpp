@@ -510,13 +510,13 @@ ArObject *argon::vm::Eval(Fiber *fiber) {
             &&LBL_MKTP,
             &&LBL_MKTRAIT,
             &&LBL_MOD,
+            &&LBL_MTH,
             &&LBL_MUL,
             &&LBL_NEG,
             &&LBL_NGV,
             &&LBL_NOT,
             &&LBL_NXT,
             &&LBL_PANIC,
-            &&LBL_PBHEAD,
             &&LBL_PLT,
             &&LBL_POP,
             &&LBL_POPC,
@@ -1307,6 +1307,21 @@ ArObject *argon::vm::Eval(Fiber *fiber) {
             {
                 BINARY_OP(mod, %);
             }
+            TARGET_OP(MTH)
+            {
+                auto len = I16Arg(cu_frame->instr_ptr);
+
+                ret = *(cu_frame->eval_stack - len - 1);
+
+                while (len > 0) {
+                    *(cu_frame->eval_stack - (len + 1)) = *(cu_frame->eval_stack - len);
+                    len--;
+                }
+
+                *(cu_frame->eval_stack - 1) = ret;
+
+                DISPATCH();
+            }
             TARGET_OP(MUL)
             {
                 BINARY_OP(mul, *);
@@ -1370,19 +1385,6 @@ ArObject *argon::vm::Eval(Fiber *fiber) {
                 POP();
 
                 break;
-            }
-            TARGET_OP(PBHEAD)
-            {
-                auto len = I16Arg(cu_frame->instr_ptr);
-
-                ret = TOP(); // Save TOP
-
-                for (ArSize i = 0; i < len; i++)
-                    *(cu_frame->eval_stack - i - 1) = *(cu_frame->eval_stack - i - 2);
-
-                *(cu_frame->eval_stack - (len + 1)) = ret;
-
-                DISPATCH();
             }
             TARGET_OP(PLT)
             {

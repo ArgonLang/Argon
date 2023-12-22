@@ -1411,12 +1411,15 @@ void Compiler::CompileStore(const parser::Node *node, const parser::Node *value)
     if (node->node_type == NodeType::IDENTIFIER) {
         if (value != nullptr)
             this->Expression(value);
+
         this->StoreVariable((String *) ((const parser::Unary *) node)->value, &node->loc);
     } else if (node->node_type == NodeType::SELECTOR) {
         auto idx = this->CompileSelector((const parser::Binary *) node, false, false);
 
         if (value != nullptr)
             this->Expression(value);
+        else
+            this->unit_->Emit(vm::OpCode::MTH, 1, nullptr, nullptr);
 
         if (node->token_type == scanner::TokenType::SCOPE) {
             this->unit_->Emit(vm::OpCode::STSCOPE, idx, nullptr, &node->loc);
@@ -1426,8 +1429,11 @@ void Compiler::CompileStore(const parser::Node *node, const parser::Node *value)
         this->unit_->Emit(vm::OpCode::STATTR, idx, nullptr, &node->loc);
     } else if (node->node_type == parser::NodeType::INDEX || node->node_type == parser::NodeType::SLICE) {
         this->CompileSubscr((const Subscript *) node, false, false);
+
         if (value != nullptr)
             this->Expression(value);
+        else
+            this->unit_->Emit(vm::OpCode::MTH, 2, nullptr, nullptr);
 
         this->unit_->Emit(vm::OpCode::STSUBSCR, &node->loc);
     } else if (node->node_type == parser::NodeType::TUPLE) {
@@ -1824,6 +1830,8 @@ void Compiler::CompileUpdate(const parser::Unary *update) {
         this->StoreVariable((String *) ((const Unary *) value)->value, &update->loc);
     else if (value->node_type == parser::NodeType::INDEX) {
         this->CompileSubscr((const Subscript *) value, false, false);
+
+        this->unit_->Emit(vm::OpCode::MTH, 2, nullptr, nullptr);
         this->unit_->Emit(vm::OpCode::STSUBSCR, &update->loc);
     } else if (value->node_type == parser::NodeType::SELECTOR) {
         auto code = vm::OpCode::STATTR;
@@ -1831,6 +1839,8 @@ void Compiler::CompileUpdate(const parser::Unary *update) {
             code = vm::OpCode::STSCOPE;
 
         auto idx = this->CompileSelector((const parser::Binary *) value, false, false);
+
+        this->unit_->Emit(vm::OpCode::MTH, 1, nullptr, nullptr);
 
         this->unit_->Emit(code, idx, nullptr, &update->loc);
     }
