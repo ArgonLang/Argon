@@ -638,9 +638,8 @@ ArObject *argon::vm::Eval(Fiber *fiber) {
             TARGET_OP(AWAIT)
             {
                 auto *future = (Future *) TOP();
-
                 if (!AR_TYPEOF(future, type_future_)) {
-                    ErrorFormat(kTypeError[0], kTypeError[2], type_future_->name, AR_TYPE_NAME(TOP()));
+                    ErrorFormat(kTypeError[0], kTypeError[2], type_future_->name, AR_TYPE_NAME(future));
                     break;
                 }
 
@@ -679,7 +678,7 @@ ArObject *argon::vm::Eval(Fiber *fiber) {
                 auto mode = (vm::OpCodeContainsMode) I16Arg(cu_frame->instr_ptr);
                 ret = TOP();
 
-                if (!AR_ISSUBSCRIPTABLE(ret) || AR_GET_TYPE(ret)->subscriptable->item_in == nullptr) {
+                if (!AR_ISSUBSCRIPTABLE(ret) || AR_SLOT_SUBSCRIPTABLE(ret)->item_in == nullptr) {
                     ErrorFormat(kRuntimeError[0],
                                 kRuntimeError[1],
                                 mode == OpCodeContainsMode::IN ? "in" : "not in",
@@ -688,7 +687,7 @@ ArObject *argon::vm::Eval(Fiber *fiber) {
                     break;
                 }
 
-                if ((ret = AR_GET_TYPE(ret)->subscriptable->item_in(TOP(), PEEK1())) == nullptr)
+                if ((ret = AR_SLOT_SUBSCRIPTABLE(ret)->item_in(ret, PEEK1())) == nullptr)
                     break;
 
                 POP();
@@ -760,8 +759,10 @@ ArObject *argon::vm::Eval(Fiber *fiber) {
             TARGET_OP(EQST)
             {
                 auto mode = (CompareMode) I16Arg(cu_frame->instr_ptr);
+                const auto *self = PEEK1();
+                const auto *other = TOP();
 
-                if (!AR_SAME_TYPE(PEEK1(), TOP())) {
+                if (!AR_SAME_TYPE(self, other)) {
                     ret = BoolToArBool(mode == CompareMode::NE);
 
                     POP();
@@ -769,7 +770,7 @@ ArObject *argon::vm::Eval(Fiber *fiber) {
                     DISPATCH2();
                 }
 
-                if ((ret = Compare(PEEK1(), TOP(), (CompareMode) I16Arg(cu_frame->instr_ptr))) == nullptr)
+                if ((ret = Compare(self, other, mode)) == nullptr)
                     break;
 
                 POP();
@@ -778,12 +779,14 @@ ArObject *argon::vm::Eval(Fiber *fiber) {
             }
             TARGET_OP(EXTD)
             {
-                if (!AR_TYPEOF(PEEK1(), type_list_)) {
+                ret = PEEK1();
+
+                if (!AR_TYPEOF(ret, type_list_)) {
                     ErrorFormat(kRuntimeError[0], "unexpected type in evaluation stack during EXTD execution");
                     break;
                 }
 
-                if (!ListExtend((List *) PEEK1(), TOP()))
+                if (!ListExtend((List *) ret, TOP()))
                     break;
 
                 POP();
@@ -823,15 +826,15 @@ ArObject *argon::vm::Eval(Fiber *fiber) {
 
                 Release(mod_name);
 
-                if (ret == nullptr) {
-                    if (GetFiberStatus() != FiberStatus::RUNNING)
-                        return nullptr;
-
-                    break;
+                if (ret != nullptr) {
+                    PUSH(ret);
+                    DISPATCH_YIELD(4);
                 }
 
-                PUSH(ret);
-                DISPATCH_YIELD(4);
+                if (GetFiberStatus() != FiberStatus::RUNNING)
+                    return nullptr;
+
+                break;
             }
             TARGET_OP(INC)
             {
@@ -915,9 +918,12 @@ ArObject *argon::vm::Eval(Fiber *fiber) {
             }
             TARGET_OP(JEX)
             {
-                if ((AR_TYPEOF(PEEK1(), type_function_) && ((Function *) PEEK1())->IsExhausted()) || TOP() == nullptr) {
+                const auto *peek = (Function *) PEEK1();
+
+                if (AR_TYPEOF(peek, type_function_) && peek->IsExhausted() || TOP() == nullptr) {
                     POP(); // POP nullptr value of an exhausted iterator, or the return value of a generator
                     POP(); // POP iterator/generator
+
                     JUMPTO(I32Arg(cu_frame->instr_ptr));
                 }
 
@@ -928,6 +934,7 @@ ArObject *argon::vm::Eval(Fiber *fiber) {
                 // JUMP IF FALSE
                 if (!IsTrue(TOP())) {
                     POP();
+
                     JUMPTO(I32Arg(cu_frame->instr_ptr));
                 }
 
@@ -939,6 +946,7 @@ ArObject *argon::vm::Eval(Fiber *fiber) {
                 // JUMP FALSE OR POP
                 if (IsTrue(TOP())) {
                     POP();
+
                     DISPATCH4();
                 }
 
@@ -971,6 +979,7 @@ ArObject *argon::vm::Eval(Fiber *fiber) {
                 // JUMP IF TRUE
                 if (IsTrue(TOP())) {
                     POP();
+
                     JUMPTO(I32Arg(cu_frame->instr_ptr));
                 }
 
@@ -982,6 +991,7 @@ ArObject *argon::vm::Eval(Fiber *fiber) {
                 // JUMP TRUE OR POP
                 if (!IsTrue(TOP())) {
                     POP();
+
                     DISPATCH4();
                 }
 
@@ -993,12 +1003,13 @@ ArObject *argon::vm::Eval(Fiber *fiber) {
             }
             TARGET_OP(LDATTR)
             {
-                auto *key = TupleGet(cu_code->statics, (ArSSize) I32Arg(cu_frame->instr_ptr));
+                auto index = (ArSSize) I32Arg(cu_frame->instr_ptr);
+
+                auto *key = TupleGet(cu_code->statics, index);
                 if (key == nullptr) {
                     DiscardLastPanic();
 
-                    ErrorFormat(kRuntimeError[0], kRuntimeError[3], I32Arg(cu_frame->instr_ptr),
-                                cu_code->statics->length);
+                    ErrorFormat(kRuntimeError[0], kRuntimeError[3], index, cu_code->statics->length);
 
                     break;
                 }
@@ -1043,17 +1054,19 @@ ArObject *argon::vm::Eval(Fiber *fiber) {
             }
             TARGET_OP(LDITER)
             {
-                if (AR_TYPEOF(TOP(), type_function_)) {
-                    if (((Function *) TOP())->IsRecoverable()) {
+                ret = TOP();
+
+                if (AR_TYPEOF(ret, type_function_)) {
+                    if (((Function *) ret)->IsRecoverable()) {
                         DISPATCH1();
                     }
 
                     ErrorFormat(kTypeError[0], "'%s' is not an instance of a generator",
-                                ARGON_RAW_STRING(((Function *) TOP())->qname));
+                                ARGON_RAW_STRING(((Function *) ret)->qname));
                     break;
                 }
 
-                if ((ret = IteratorGet(TOP(), false)) == nullptr)
+                if ((ret = IteratorGet(ret, false)) == nullptr)
                     break;
 
                 TOP_REPLACE(ret);
@@ -1066,14 +1079,14 @@ ArObject *argon::vm::Eval(Fiber *fiber) {
             }
             TARGET_OP(LDMETH)
             {
+                auto index = (ArSSize) I32Arg(cu_frame->instr_ptr);
                 auto *instance = TOP();
-                ArObject *key;
 
-                if ((key = TupleGet(cu_code->statics, (ArSSize) I32Arg(cu_frame->instr_ptr))) == nullptr) {
+                ArObject *key;
+                if ((key = TupleGet(cu_code->statics, index)) == nullptr) {
                     DiscardLastPanic();
 
-                    ErrorFormat(kRuntimeError[0], kRuntimeError[3], I32Arg(cu_frame->instr_ptr),
-                                cu_code->statics->length);
+                    ErrorFormat(kRuntimeError[0], kRuntimeError[3], index, cu_code->statics->length);
 
                     break;
                 }
@@ -1098,12 +1111,12 @@ ArObject *argon::vm::Eval(Fiber *fiber) {
             }
             TARGET_OP(LDSCOPE)
             {
-                auto *key = TupleGet(cu_code->statics, (ArSSize) I32Arg(cu_frame->instr_ptr));
+                auto index = (ArSSize) I32Arg(cu_frame->instr_ptr);
+                auto *key = TupleGet(cu_code->statics, index);
                 if (key == nullptr) {
                     DiscardLastPanic();
 
-                    ErrorFormat(kRuntimeError[0], kRuntimeError[2], I32Arg(cu_frame->instr_ptr),
-                                cu_code->statics->length);
+                    ErrorFormat(kRuntimeError[0], kRuntimeError[2], index, cu_code->statics->length);
 
                     break;
                 }
@@ -1202,7 +1215,6 @@ ArObject *argon::vm::Eval(Fiber *fiber) {
             {
                 auto args = I32Arg(cu_frame->instr_ptr);
                 auto list = ListNew(args);
-
                 if (list == nullptr)
                     break;
 
@@ -1341,8 +1353,7 @@ ArObject *argon::vm::Eval(Fiber *fiber) {
             {
                 ret = TupleGet(cu_code->names, I16Arg(cu_frame->instr_ptr));
 
-                if (!NamespaceNewSymbol(cu_frame->globals, ret, TOP(),
-                                        (AttributeFlag) (I32Arg(cu_frame->instr_ptr) >> 16u)))
+                if (!NamespaceNewSymbol(cu_frame->globals, ret, TOP(), (I32Flag<AttributeFlag>(cu_frame->instr_ptr))))
                     break;
 
                 Release(ret);
@@ -1395,12 +1406,14 @@ ArObject *argon::vm::Eval(Fiber *fiber) {
             }
             TARGET_OP(PLT)
             {
-                if (!AR_TYPEOF(PEEK1(), type_list_)) {
+                ret = PEEK1();
+
+                if (!AR_TYPEOF(ret, type_list_)) {
                     ErrorFormat(kRuntimeError[0], "unexpected type in evaluation stack during PLT execution");
                     break;
                 }
 
-                if (!ListAppend((List *) PEEK1(), TOP()))
+                if (!ListAppend((List *) ret, TOP()))
                     break;
 
                 POP();
@@ -1491,12 +1504,12 @@ ArObject *argon::vm::Eval(Fiber *fiber) {
             }
             TARGET_OP(STATTR)
             {
-                auto *key = TupleGet(cu_code->statics, (ArSSize) I32Arg(cu_frame->instr_ptr));
+                auto index = (ArSSize) I32Arg(cu_frame->instr_ptr);
+                auto *key = TupleGet(cu_code->statics, index);
                 if (key == nullptr) {
                     DiscardLastPanic();
 
-                    ErrorFormat(kRuntimeError[0], kRuntimeError[2], I32Arg(cu_frame->instr_ptr),
-                                cu_code->statics->length);
+                    ErrorFormat(kRuntimeError[0], kRuntimeError[2], index, cu_code->statics->length);
 
                     break;
                 }
@@ -1515,13 +1528,15 @@ ArObject *argon::vm::Eval(Fiber *fiber) {
             TARGET_OP(STENC)
             {
                 ListInsert(cu_frame->enclosed, TOP(), I16Arg(cu_frame->instr_ptr));
+
                 POP();
                 DISPATCH2();
             }
             TARGET_OP(STGBL)
             {
-                ret = TupleGet(cu_code->names, I16Arg(cu_frame->instr_ptr));
                 AttributeProperty aprop{};
+
+                ret = TupleGet(cu_code->names, I16Arg(cu_frame->instr_ptr));
 
                 if (!NamespaceContains(cu_frame->globals, ret, &aprop)) {
                     Release(ret);
@@ -1537,6 +1552,7 @@ ArObject *argon::vm::Eval(Fiber *fiber) {
                 NamespaceSet(cu_frame->globals, ret, TOP());
 
                 Release(ret);
+
                 POP();
                 DISPATCH4();
             }
@@ -1547,16 +1563,17 @@ ArObject *argon::vm::Eval(Fiber *fiber) {
                 Release(cu_frame->locals[idx]);
                 cu_frame->locals[idx] = TOP();
                 cu_frame->eval_stack--;
+
                 DISPATCH2();
             }
             TARGET_OP(STSCOPE)
             {
-                auto *key = TupleGet(cu_code->statics, (ArSSize) I32Arg(cu_frame->instr_ptr));
+                auto index = (ArSSize) I32Arg(cu_frame->instr_ptr);
+                auto *key = TupleGet(cu_code->statics, index);
                 if (key == nullptr) {
                     DiscardLastPanic();
 
-                    ErrorFormat(kRuntimeError[0], kRuntimeError[2], I32Arg(cu_frame->instr_ptr),
-                                cu_code->statics->length);
+                    ErrorFormat(kRuntimeError[0], kRuntimeError[2], index, cu_code->statics->length);
 
                     break;
                 }
@@ -1680,7 +1697,8 @@ ArObject *argon::vm::Eval(Fiber *fiber) {
             {
                 MonitorRelease(*(cu_frame->sync_keys - 1));
 
-                Release(--cu_frame->sync_keys);
+                cu_frame->sync_keys--;
+                Release(cu_frame->sync_keys);
 
                 DISPATCH1();
             }
