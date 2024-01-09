@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.15)
-project(Argon VERSION 0.4.1)
+project(Argon VERSION 0.4.2)
 
 set(AR_MAJOR ${PROJECT_VERSION_MAJOR})
 set(AR_MINOR ${PROJECT_VERSION_MINOR})
