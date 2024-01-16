@@ -168,10 +168,16 @@ void SearchRoots(GCGeneration *generation) {
 
 // PUBLIC
 
-argon::vm::datatype::ArObject *argon::vm::memory::GCNew(ArSize length, bool track) {
-    auto *head = (GCHead *) memory::Alloc(sizeof(GCHead) + length);
+argon::vm::datatype::ArObject *argon::vm::memory::GCNew(const datatype::TypeInfo *type, bool track) {
+    auto *head = (GCHead *) memory::Alloc(sizeof(GCHead) + type->size);
     if (head != nullptr) {
         memory::MemoryZero(head, sizeof(GCHead));
+
+        auto *ret = (argon::vm::datatype::ArObject *) (((unsigned char *) head) + sizeof(GCHead));
+
+        AR_UNSAFE_GET_RC(ret) = (ArSize) RCType::GC;
+        AR_GET_TYPE(ret) = type;
+        AR_UNSAFE_GET_MON(ret) = nullptr;
 
         if (track) {
             std::unique_lock lock(track_lock);
@@ -181,7 +187,7 @@ argon::vm::datatype::ArObject *argon::vm::memory::GCNew(ArSize length, bool trac
             allocations++;
         }
 
-        return (argon::vm::datatype::ArObject *) (((unsigned char *) head) + sizeof(GCHead));
+        return ret;
     }
 
     return nullptr;
@@ -247,10 +253,10 @@ GCHead *argon::vm::memory::GCGetHead(datatype::ArObject *object) {
 void argon::vm::memory::GCFree(datatype::ArObject *object) {
     auto *head = GCGetHead(object);
 
-    if(head == nullptr)
+    if (head == nullptr)
         return;
 
-    if(head->IsTracked()) {
+    if (head->IsTracked()) {
         AR_GET_RC(object).DecStrong(nullptr);
         return;
     }
@@ -311,7 +317,6 @@ void argon::vm::memory::ThresholdCollect() {
 
 void argon::vm::memory::Track(datatype::ArObject *object) {
     auto *head = GCGetHead(object);
-
     if (head == nullptr)
         return;
 

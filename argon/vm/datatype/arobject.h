@@ -104,21 +104,12 @@ namespace argon::vm::datatype {
 
     template<typename T>
     T *MakeGCObject(const TypeInfo *type, bool track) {
-        // N.B: It's risky to track an object before initializing its ReferenceCounter,
-        // but we can do it because the GC doesn't cycle until all worker threads have stopped,
-        // including the one currently allocating a new object.
-        auto *ret = memory::GCNew(type->size, track);
-
-        AR_UNSAFE_GET_RC(ret) = (ArSize) memory::RCType::GC;
-        AR_GET_TYPE(ret) = type;
-        AR_UNSAFE_GET_MON(ret) = nullptr;
-
-        return (T *) ret;
+        return (T*) memory::GCNew(type, track);
     }
 
     template<typename T>
     T *MakeGCObject(TypeInfo *type, bool track) {
-        auto *ret = MakeGCObject<T>((const TypeInfo *) type, track);
+        auto *ret = (T*) memory::GCNew(type, track);
         if (ret != nullptr)
             IncRef(type);
 

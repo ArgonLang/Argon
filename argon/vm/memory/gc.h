@@ -70,7 +70,7 @@ namespace argon::vm::memory {
         int times;
     };
 
-    datatype::ArObject *GCNew(datatype::ArSize length, bool track);
+    datatype::ArObject *GCNew(const datatype::TypeInfo *type, bool track);
 
     datatype::ArSize Collect(unsigned short generation);
 
