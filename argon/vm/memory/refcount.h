@@ -201,7 +201,7 @@ namespace argon::vm::memory {
          * @return True if the object is managed by the GC, false otherwise.
          */
         bool IsGcObject() const {
-            return RC_CHECK_IS_GCOBJ(this->bits_.load(std::memory_order_seq_cst));
+            return RC_CHECK_IS_GCOBJ(*((uintptr_t*) &this->bits_));
         }
 
         /**
