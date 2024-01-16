@@ -14,6 +14,7 @@
 
 namespace argon::vm::datatype {
     enum class SharedBufferFlags : unsigned int {
+        NONE,
         FROZEN
     };
 

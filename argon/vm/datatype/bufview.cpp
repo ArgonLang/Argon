@@ -15,6 +15,7 @@ SharedBuffer *SharedBufferNew(ArSize cap, bool frozen) {
     if (shared != nullptr) {
         shared->counter = 1;
 
+        shared->flags = SharedBufferFlags::NONE;
         if (frozen)
             shared->flags = SharedBufferFlags::FROZEN;
 
