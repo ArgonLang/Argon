@@ -21,10 +21,10 @@ jobs:
         run: |
           mkdir sonar
           cd sonar
-          wget https://binaries.sonarsource.com/Distribution/sonar-scanner-cli/sonar-scanner-cli-4.8.0.2856-linux.zip;
+          wget https://binaries.sonarsource.com/Distribution/sonar-scanner-cli/sonar-scanner-cli-5.0.1.3006-linux.zip;
           wget https://sonarcloud.io/static/cpp/build-wrapper-linux-x86.zip;
           unzip -j build-wrapper-linux-x86.zip;
-          unzip sonar-scanner-cli-4.8.0.2856-linux.zip
+          unzip sonar-scanner-cli-5.0.1.3006-linux.zip
       
       - name: Compiling
         run: | 
@@ -41,4 +41,4 @@ jobs:
            -Dsonar.host.url=https://sonarcloud.io
            -Dsonar.projectBaseDir=argon
            -Dsonar.cfamily.build-wrapper-output=wrapper_output 
-        run: sonar/sonar-scanner-4.8.0.2856-linux/bin/sonar-scanner ${SONAR_ARGS}
+        run: sonar/sonar-scanner-5.0.1.3006-linux/bin/sonar-scanner ${SONAR_ARGS}
