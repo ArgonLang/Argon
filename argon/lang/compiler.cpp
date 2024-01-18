@@ -1254,7 +1254,7 @@ void Compiler::CompileJump(const parser::Unary *jump) {
 
     if ((jb = this->unit_->FindJB(label, jump->token_type == scanner::TokenType::KW_BREAK, pops)) == nullptr) {
         ErrorFormat(kCompilerError[0], "unknown loop label, the loop '%s' cannot be %s",
-                    ARGON_RAW_STRING((String *) ((const Unary *) jump->value)->value),
+                    label != nullptr ? ARGON_RAW_STRING(label) : (unsigned char *) "",
                     jump->token_type == scanner::TokenType::KW_BREAK ? "breaked" : "continued");
 
         throw DatatypeException();
