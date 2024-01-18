@@ -12,7 +12,7 @@ const FunctionDef line_reader_methods[] = {
         ARGON_METHOD_STUB("readline",
                           "Read line from the stream and return them.\n"
                           "\n"
-                          "As a convenience, if size is -1, all bytes until EOL are returned.\n"
+                          "As a convenience, if size is -1, all bytes until newline or EOL are returned.\n"
                           "With size = -1, readline() may be using multiple calls to the stream.\n"
                           "\n"
                           "- Parameter size: Number of bytes to read from the stream or -1 to read entire line.\n"

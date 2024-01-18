@@ -194,7 +194,7 @@ ARGON_METHOD(str_expandtabs, expandtabs,
              "Returns a copy of the string where all tab characters were replaced by spaces.\n"
              "\n"
              "- KWParameters:\n"
-             " - tabsize: Size of the tab; default step is 4.\n"
+             "  - tabsize: Size of the tab; default step is 4.\n"
              "- Returns: A copy of the string where all tab characters were replaced by spaces.\n",
              nullptr, false, true) {
     IntegerUnderlying tabsize;
@@ -302,14 +302,20 @@ ARGON_METHOD(str_replace, replace,
              "Returns a string where a specified value is replaced with a specified value.\n"
              "\n"
              "- Parameters:\n"
-             " - old: String to search for.\n"
-             " - new: String to replace the old value with.\n"
-             " - count: Number specifying how many occurrences of the old value you want to replace.\n"
-             "          To replace all occurrence use -1.\n"
+             "  - old: String to search for.\n"
+             "  - new: String to replace the old value with.\n"
+             "- KWParameters:\n"
+             "  - count: Number specifying how many occurrences of the old value you want to replace. "
+             "To replace all occurrence use -1.\n"
              "- Returns: String where a specified value is replaced.\n",
-             "s: old, s: new, i: count", false, false) {
+             "s: old, s: new", false, true) {
+    IntegerUnderlying count;
+
+    if (!KParamLookupInt((Dict *) kwargs, "count", &count, -1))
+        return nullptr;
+
     return (ArObject *) StringReplace((String *) _self, (String *) args[0],
-                                      (String *) args[1], ((Integer *) args[2])->sint);
+                                      (String *) args[1], count);
 }
 
 ARGON_METHOD(str_reverse, reverse,
@@ -422,12 +428,15 @@ ARGON_METHOD(str_split, split,
              "Splits the string at the specified separator and returns a list.\n"
              "\n"
              "- Parameters:\n"
-             " - pattern: Specifies the separator to use when splitting the string.\n"
-             " - maxsplit: Specifies how many splits to do.\n"
+             "  - pattern: Specifies the separator to use when splitting the string.\n"
+             "- KWParameters:\n"
+             "  - splits: Specifies how many splits to do.\n"
              "- Returns: New list of string.\n",
-             "sn: pattern, i: maxsplit", false, false) {
+             "sn: pattern", false, true) {
     const unsigned char *pattern = nullptr;
     ArSize plen = 0;
+
+    IntegerUnderlying maxsplit;
 
     if (!IsNull(args[0])) {
         pattern = STR_BUF((String *) args[0]);
@@ -439,35 +448,50 @@ ARGON_METHOD(str_split, split,
         }
     }
 
+    if (!KParamLookupInt((Dict *) kwargs, "splits", &maxsplit, -1))
+        return nullptr;
+
     return support::Split(STR_BUF((String *) _self),
                           pattern,
                           (support::SplitChunkNewFn<String>) StringNew,
                           STR_LEN((String *) _self),
                           plen,
-                          ((Integer *) args[1])->sint);
+                          maxsplit);
 }
 
 ARGON_METHOD(str_splitlines, splitlines,
              "Splits the string at the new line and returns a list.\n"
              "\n"
-             "- Parameters: maxsplit: Specifies how many splits to do.\n"
+             "- KWParameters:\n"
+             "  - splits: Specifies how many splits to do.\n"
              "- Returns: New list of string.\n",
-             "i: maxsplit", false, false) {
-    return StringSplitLines((String *) _self, ((Integer *) args[0])->sint);
+             nullptr, false, true) {
+    IntegerUnderlying maxsplit;
+
+    if (!KParamLookupInt((Dict *) kwargs, "splits", &maxsplit, -1))
+        return nullptr;
+
+    return StringSplitLines((String *) _self, maxsplit);
 }
 
 ARGON_METHOD(str_splitws, splitws,
              "Splits the string at the whitespace and returns a list.\n"
              "\n"
-             "- Parameters: maxsplit: Specifies how many splits to do.\n"
+             "- KWParameters:\n"
+             "  - splits: Specifies how many splits to do.\n"
              "- Returns: New list of string.\n",
-             "i: maxsplit", false, false) {
+             nullptr, false, true) {
+    IntegerUnderlying maxsplit;
+
+    if (!KParamLookupInt((Dict *) kwargs, "splits", &maxsplit, -1))
+        return nullptr;
+
     return support::Split(STR_BUF((String *) _self),
                           nullptr,
                           (support::SplitChunkNewFn<String>) StringNew,
                           STR_LEN((String *) _self),
                           0,
-                          ((Integer *) args[0])->sint);
+                          maxsplit);
 }
 
 ARGON_METHOD(str_startswith, startswith,
@@ -1041,9 +1065,9 @@ String *argon::vm::datatype::StringFormat(const char *format, ...) {
     va_list args;
     String *str;
 
-            va_start(args, format);
+    va_start(args, format);
     str = StringFormat(format, args);
-            va_end(args);
+    va_end(args);
 
     return str;
 }
@@ -1055,7 +1079,7 @@ String *argon::vm::datatype::StringFormat(const char *format, va_list args) {
 
     va_copy(vargs2, args);
     sz = vsnprintf(nullptr, 0, format, vargs2) + 1; // +1 is for '\0'
-            va_end(vargs2);
+    va_end(vargs2);
 
     if ((str = StringInit(sz - 1, true)) == nullptr)
         return nullptr;
@@ -1064,7 +1088,7 @@ String *argon::vm::datatype::StringFormat(const char *format, va_list args) {
 
     va_copy(vargs2, args);
     vsnprintf((char *) STR_BUF(str), sz, format, vargs2);
-            va_end(vargs2);
+    va_end(vargs2);
 
     return str;
 }

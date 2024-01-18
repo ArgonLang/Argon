@@ -529,14 +529,20 @@ ARGON_METHOD(bytes_replace, replace,
              "Returns new bytes string where a specified value is replaced with a specified value.\n"
              "\n"
              "- Parameters:\n"
-             " - old: Bytes string to search for.\n"
-             " - new: Bytes string to replace the old value with.\n"
-             " - count: Number specifying how many occurrences of the old value you want to replace.\n"
-             "          To replace all occurrence use -1.\n"
+             "  - old: Bytes string to search for.\n"
+             "  - new: Bytes string to replace the old value with.\n"
+             "- KWParameters:\n"
+             "  - count: Number specifying how many occurrences of the old value you want to replace. "
+             "To replace all occurrence use -1.\n"
              "- Returns: Bytes string where a specified value is replaced.\n",
-             "x: old, x: new, i: count", false, false) {
+             "x: old, x: new", false, true) {
+    IntegerUnderlying count;
+
+    if (!KParamLookupInt((Dict *) kwargs, "count", &count, -1))
+        return nullptr;
+
     return (ArObject *) BytesReplace((Bytes *) _self, (Bytes *) args[0],
-                                     (Bytes *) args[1], ((Integer *) args[2])->sint);
+                                     (Bytes *) args[1], count);
 }
 
 ARGON_METHOD(bytes_reverse, reverse,
@@ -678,15 +684,17 @@ ARGON_METHOD(bytes_split, split,
              "Splits the bytes string at the specified separator and returns a list.\n"
              "\n"
              "- Parameters:\n"
-             " - pattern: Specifies the separator to use when splitting the bytes string.\n"
-             " - maxsplit: Specifies how many splits to do.\n"
+             "  - pattern: Specifies the separator to use when splitting the bytes string.\n"
+             "- KWParameters:\n"
+             "  - splits: Specifies how many splits to do.\n"
              "- Returns: New list of bytes string.\n",
-             ": pattern, i: maxsplit", false, false) {
+             ": pattern", false, true) {
     ArBuffer buffer{};
     const unsigned char *pattern = nullptr;
     ArObject *ret;
 
     ArSize plen = 0;
+    IntegerUnderlying maxsplit;
 
     if (_self == args[0]) {
         ErrorFormat(kValueError[0], "cannot use the object to be split as a pattern");
@@ -701,15 +709,27 @@ ARGON_METHOD(bytes_split, split,
         plen = buffer.length;
 
         if (plen == 0) {
+            BufferRelease(&buffer);
+
             ErrorFormat(kValueError[0], "empty separator");
             return nullptr;
         }
     }
 
+    if (!KParamLookupInt((Dict *) kwargs, "splits", &maxsplit, -1)) {
+        BufferRelease(&buffer);
+
+        return nullptr;
+    }
+
     std::shared_lock _(*((Bytes *) _self));
 
-    ret = support::Split(BUFFER_GET((Bytes *) _self), pattern, (support::SplitChunkNewFn<Bytes>) BytesNew,
-                         BUFFER_LEN((Bytes *) _self), plen, ((Integer *) args[1])->sint);
+    ret = support::Split(BUFFER_GET((Bytes *) _self),
+                         pattern,
+                         (support::SplitChunkNewFn<Bytes>) BytesNew,
+                         BUFFER_LEN((Bytes *) _self),
+                         plen,
+                         maxsplit);
 
     BufferRelease(&buffer);
 
@@ -719,24 +739,36 @@ ARGON_METHOD(bytes_split, split,
 ARGON_METHOD(bytes_splitlines, splitlines,
              "Splits the bytes string at the new line and returns a list.\n"
              "\n"
-             "- Parameters: maxsplit: Specifies how many splits to do.\n"
+             "- KWParameters:\n"
+             "  - splits: Specifies how many splits to do.\n"
              "- Returns: New list of bytes string.\n",
-             "i: maxsplit", false, false) {
+             nullptr, false, true) {
+    IntegerUnderlying maxsplit;
+
+    if (!KParamLookupInt((Dict *) kwargs, "splits", &maxsplit, -1))
+        return nullptr;
+
     std::shared_lock _(*((Bytes *) _self));
 
     return support::SplitLines(
             BUFFER_GET((Bytes *) _self),
             (support::SplitChunkNewFn<Bytes>) BytesNew,
             BUFFER_LEN((Bytes *) _self),
-            ((Integer *) args[0])->sint);
+            maxsplit);
 }
 
 ARGON_METHOD(bytes_splitws, splitws,
              "Splits the bytes string at the whitespace and returns a list.\n"
              "\n"
-             "- Parameters: maxsplit: Specifies how many splits to do.\n"
+             "- KWParameters:\n"
+             "  - splits: Specifies how many splits to do.\n"
              "- Returns: New list of bytes string.\n",
-             "i: maxsplit", false, false) {
+             nullptr, false, true) {
+    IntegerUnderlying maxsplit;
+
+    if (!KParamLookupInt((Dict *) kwargs, "splits", &maxsplit, -1))
+        return nullptr;
+
     std::shared_lock _(*((Bytes *) _self));
 
     return support::Split(BUFFER_GET((Bytes *) _self),
@@ -744,7 +776,7 @@ ARGON_METHOD(bytes_splitws, splitws,
                           (support::SplitChunkNewFn<Bytes>) BytesNew,
                           BUFFER_LEN((Bytes *) _self),
                           0,
-                          ((Integer *) args[0])->sint);
+                          maxsplit);
 }
 
 ARGON_METHOD(bytes_startswith, startswith,
@@ -1080,7 +1112,8 @@ bool bytes_get_buffer(Bytes *self, ArBuffer *buffer, BufferFlags flags) {
 
     shared ? self->lock_shared() : self->lock();
 
-    ok = BufferSimpleFill((ArObject *) self, buffer, flags, BUFFER_GET(self), 1, BUFFER_LEN(self), !BUFFER_FROZEN(self));
+    ok = BufferSimpleFill((ArObject *) self, buffer, flags, BUFFER_GET(self), 1, BUFFER_LEN(self),
+                          !BUFFER_FROZEN(self));
 
     if (!ok)
         shared ? self->unlock_shared() : self->unlock();
