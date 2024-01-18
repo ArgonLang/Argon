@@ -205,6 +205,10 @@ pub struct BufferedWriter impl Writer {
         var length = len(buffer)
 
         if length >= self.capacity {
+            if !typeof(buffer, Bytes) {
+                buffer = Bytes(buffer)
+            }
+
             self.flush()
 
             return self.stream.write(buffer)
