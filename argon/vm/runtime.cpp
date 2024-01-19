@@ -721,6 +721,8 @@ Result *argon::vm::Eval(Context *context, Code *code, Namespace *ns) {
 
     FutureWait(future);
 
+    SetFiberStatus(FiberStatus::RUNNING);
+
     auto *result = FutureResult(future);
 
     Release(future);
@@ -734,6 +736,8 @@ argon::vm::datatype::Result *argon::vm::Eval(Function *func, ArObject **argv, Ar
     ON_ARGON_CONTEXT Yield();
 
     FutureWait(future);
+
+    SetFiberStatus(FiberStatus::RUNNING);
 
     auto *result = FutureResult(future);
 
