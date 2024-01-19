@@ -464,7 +464,9 @@ ArObject *argon::vm::datatype::Repr(const ArObject *object) {
         return (ArObject *) StringFormat("<object %s @%p>", AR_TYPE_NAME(object), object);
     }
 
-    auto *result = EvalRaiseError((Function *) rfunc, args, 1, OpCodeCallMode::FASTCALL);
+    args[0] = (ArObject *) object;
+
+    auto *result = EvalRaiseError(rfunc, args, 1, OpCodeCallMode::FASTCALL);
 
     Release(rfunc);
 
@@ -516,7 +518,9 @@ ArObject *argon::vm::datatype::Str(ArObject *object) {
         return Repr(object);
     }
 
-    auto *result = EvalRaiseError((Function *) sfunc, args, 1, OpCodeCallMode::FASTCALL);
+    args[0] = (ArObject *) object;
+
+    auto *result = EvalRaiseError(sfunc, args, 1, OpCodeCallMode::FASTCALL);
 
     Release(sfunc);
 
