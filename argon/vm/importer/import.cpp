@@ -685,19 +685,22 @@ String *FindSource(const Import *imp, String *package_path, String *mod_path, St
 
     std::ifstream infile;
 
-    if (!StringEndswith(package_path, imp->path_sep)) {
-        if ((ret = StringConcat(package_path, imp->path_sep)) == nullptr)
+    if (package_path != nullptr) {
+        if (!StringEndswith(package_path, imp->path_sep)) {
+            if ((ret = StringConcat(package_path, imp->path_sep)) == nullptr)
+                return nullptr;
+        } else
+            ret = IncRef(package_path);
+
+        if ((path = StringConcat(ret, mod_path)) == nullptr) {
+            Release(ret);
+
             return nullptr;
+        }
+
+        Release((ArObject **) &ret);
     } else
-        ret = IncRef(package_path);
-
-    if ((path = StringConcat(ret, mod_path)) == nullptr) {
-        Release(ret);
-
-        return nullptr;
-    }
-
-    Release((ArObject **) &ret);
+        path = IncRef(mod_path);
 
     for (auto *ext: kExtension) {
         if ((ret = StringConcat(path, ext, strlen(ext))) == nullptr) {
@@ -773,6 +776,10 @@ String *FindSourceInit(const Import *imp, String *path, String *mod_name) {
 String *FindSourceInPaths(const Import *imp, String *mod_path, String *mod_name) {
     String *file = nullptr;
     String *path;
+
+    file = FindSource(imp, nullptr, mod_path, mod_name);
+    if (file != nullptr)
+        return file;
 
     ArObject *iter;
     if ((iter = IteratorGet((ArObject *) imp->paths, false)) == nullptr)
