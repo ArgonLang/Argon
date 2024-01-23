@@ -223,10 +223,52 @@ ARGON_METHOD(str_find, find,
     return (ArObject *) IntNew(StringFind((String *) _self, (String *) args[0]));
 }
 
+ARGON_METHOD(str_isalnum, isalnum,
+             "Check if all characters in the string are alphanumeric (either alphabets or numbers).\n"
+             "\n"
+             "- Returns: True if all characters are alphanumeric, false otherwise.\n"
+             "\n"
+             "# SEE\n"
+             "- isalpha\n"
+             "- isdigit\n",
+             nullptr, false, false) {
+    const auto *self = (String *) _self;
+
+    for (ArSize i = 0; i < STR_LEN(self); i++) {
+        if (!std::isalnum(STR_BUF(self)[i]))
+            return BoolToArBool(false);
+    }
+
+    return BoolToArBool(true);
+}
+
+ARGON_METHOD(str_isalpha, isalpha,
+             "Check if all characters in the string are alphabets.\n"
+             "\n"
+             "- Returns: True if all characters are alphabets, false otherwise.\n"
+             "\n"
+             "# SEE\n"
+             "- isalnum\n"
+             "- isdigit\n",
+             nullptr, false, false) {
+    const auto *self = (String *) _self;
+
+    for (ArSize i = 0; i < STR_LEN(self); i++) {
+        if (!std::isalpha(STR_BUF(self)[i]))
+            return BoolToArBool(false);
+    }
+
+    return BoolToArBool(true);
+}
+
 ARGON_METHOD(str_isdigit, isdigit,
              "Check if all characters in the string are digits.\n"
              "\n"
-             "- Returns: True if all characters are digits, false otherwise.\n",
+             "- Returns: True if all characters are digits, false otherwise.\n"
+             "\n"
+             "# SEE\n"
+             "- isalnum\n"
+             "- isalpha\n",
              nullptr, false, false) {
     auto *self = (const String *) _self;
 
@@ -596,6 +638,8 @@ const FunctionDef string_methods[] = {
         str_endswith,
         str_expandtabs,
         str_find,
+        str_isalnum,
+        str_isalpha,
         str_isdigit,
         str_lower,
         str_ltrim,
