@@ -836,10 +836,29 @@ ARGON_FUNCTION(os_listdir, listdir,
         return nullptr;
 
 #ifdef _ARGON_PLATFORM_WINDOWS
+    unsigned char *buffer = ARGON_RAW_STRING(path);
+    ArSize buflen = ARGON_RAW_STRING_LENGTH(path);
+
     WIN32_FIND_DATA entry;
 
-    HANDLE hFind = FindFirstFile((LPCSTR) ARGON_RAW_STRING(path), &entry);
-    if(hFind == INVALID_HANDLE_VALUE) {
+    if (!StringEndswith(path, "\\*")) {
+        if ((buffer = (unsigned char *) memory::Alloc(buflen + 3)) == nullptr) {
+            Release(ldir);
+
+            return nullptr;
+        }
+
+        auto *next = (unsigned char *) memory::MemoryCopy(buffer, ARGON_RAW_STRING(path), buflen);
+        *next++ = '\\';
+        *next++ = '*';
+        *next = '\0';
+    }
+
+    HANDLE hFind = FindFirstFile((LPCSTR) buffer, &entry);
+    if (hFind == INVALID_HANDLE_VALUE) {
+        if(ARGON_RAW_STRING(path) != buffer)
+            memory::Free(buffer);
+
         Release(ldir);
 
         ErrorFromWinErr();
@@ -862,9 +881,12 @@ ARGON_FUNCTION(os_listdir, listdir,
         }
 
         Release(name);
-    } while(FindNextFile(hFind, &entry) != 0);
+    } while (FindNextFile(hFind, &entry) != 0);
 
     FindClose(hFind);
+
+    if(ARGON_RAW_STRING(path) != buffer)
+        memory::Free(buffer);
 #else
     auto *dir = opendir((const char *) ARGON_RAW_STRING(path));
     if (dir == nullptr) {
@@ -1189,50 +1211,50 @@ bool OSInit(Module *self) {
     if (!ModuleAddIntConstant(self, "TIMEOUT_INFINITE", INFINITE))
         return false;
 #else
-    // SIGNALS
-    AddIntConstant(SIGHUP);
-    AddIntConstant(SIGINT);
-    AddIntConstant(SIGQUIT);
-    AddIntConstant(SIGILL);
-    AddIntConstant(SIGTRAP);
-    AddIntConstant(SIGABRT);
-    AddIntConstant(SIGIOT);
-    AddIntConstant(SIGBUS);
-    //AddIntConstant(SIGEMT);
-    AddIntConstant(SIGFPE);
-    AddIntConstant(SIGKILL);
-    AddIntConstant(SIGUSR1);
-    AddIntConstant(SIGSEGV);
-    AddIntConstant(SIGUSR2);
-    AddIntConstant(SIGPIPE);
-    AddIntConstant(SIGALRM);
-    AddIntConstant(SIGTERM);
-    //AddIntConstant(SIGSTKFLT);
-    AddIntConstant(SIGCHLD);
-    //AddIntConstant(SIGCLD);
-    AddIntConstant(SIGCONT);
-    AddIntConstant(SIGSTOP);
-    AddIntConstant(SIGTSTP);
-    AddIntConstant(SIGTTIN);
-    AddIntConstant(SIGTTOU);
-    AddIntConstant(SIGURG);
-    AddIntConstant(SIGXCPU);
-    AddIntConstant(SIGXFSZ);
-    AddIntConstant(SIGVTALRM);
-    AddIntConstant(SIGPROF);
-    AddIntConstant(SIGWINCH);
-    AddIntConstant(SIGIO);
-    //AddIntConstant(SIGPOLL);
-    //AddIntConstant(SIGPWR);
-    //AddIntConstant(SIGINFO);
-    //AddIntConstant(SIGLOST);
-    AddIntConstant(SIGSYS);
-    //AddIntConstant(SIGUNUSED);
+        // SIGNALS
+        AddIntConstant(SIGHUP);
+        AddIntConstant(SIGINT);
+        AddIntConstant(SIGQUIT);
+        AddIntConstant(SIGILL);
+        AddIntConstant(SIGTRAP);
+        AddIntConstant(SIGABRT);
+        AddIntConstant(SIGIOT);
+        AddIntConstant(SIGBUS);
+        //AddIntConstant(SIGEMT);
+        AddIntConstant(SIGFPE);
+        AddIntConstant(SIGKILL);
+        AddIntConstant(SIGUSR1);
+        AddIntConstant(SIGSEGV);
+        AddIntConstant(SIGUSR2);
+        AddIntConstant(SIGPIPE);
+        AddIntConstant(SIGALRM);
+        AddIntConstant(SIGTERM);
+        //AddIntConstant(SIGSTKFLT);
+        AddIntConstant(SIGCHLD);
+        //AddIntConstant(SIGCLD);
+        AddIntConstant(SIGCONT);
+        AddIntConstant(SIGSTOP);
+        AddIntConstant(SIGTSTP);
+        AddIntConstant(SIGTTIN);
+        AddIntConstant(SIGTTOU);
+        AddIntConstant(SIGURG);
+        AddIntConstant(SIGXCPU);
+        AddIntConstant(SIGXFSZ);
+        AddIntConstant(SIGVTALRM);
+        AddIntConstant(SIGPROF);
+        AddIntConstant(SIGWINCH);
+        AddIntConstant(SIGIO);
+        //AddIntConstant(SIGPOLL);
+        //AddIntConstant(SIGPWR);
+        //AddIntConstant(SIGINFO);
+        //AddIntConstant(SIGLOST);
+        AddIntConstant(SIGSYS);
+        //AddIntConstant(SIGUNUSED);
 
-    // WAITPID OPTIONS
-    AddIntConstant(WNOHANG);
-    AddIntConstant(WUNTRACED);
-    AddIntConstant(WCONTINUED);
+        // WAITPID OPTIONS
+        AddIntConstant(WNOHANG);
+        AddIntConstant(WUNTRACED);
+        AddIntConstant(WCONTINUED);
 #endif
 
     AddIntConstant(EXIT_SUCCESS);
