@@ -21,6 +21,7 @@
 #else
 
 #include <csignal>
+#include <dirent.h>
 #include <sys/stat.h>
 #include <sys/wait.h>
 #include <unistd.h>
@@ -822,6 +823,84 @@ ARGON_FUNCTION(os_kill, kill,
 
 #endif
 
+ARGON_FUNCTION(os_listdir, listdir,
+               "Get the list of all files and directories in the specified path.\n"
+               "\n"
+               "- Parameter path: Path of the directory.\n"
+               "- Returns: List of files and directories.\n",
+               "s: path", false, false) {
+    const auto *path = (String *) args[0];
+
+    List *ldir = ListNew();
+    if (ldir == nullptr)
+        return nullptr;
+
+#ifdef _ARGON_PLATFORM_WINDOWS
+    WIN32_FIND_DATA entry;
+
+    HANDLE hFind = FindFirstFile((LPCSTR) ARGON_RAW_STRING(path), &entry);
+    if(hFind == INVALID_HANDLE_VALUE) {
+        Release(ldir);
+
+        ErrorFromWinErr();
+
+        return nullptr;
+    }
+
+    do {
+        auto *name = (ArObject *) StringNew(entry.cFileName);
+        if (name == nullptr) {
+            Release(&ldir);
+            break;
+        }
+
+        if (!ListAppend(ldir, name)) {
+            Release(name);
+            Release(&ldir);
+
+            break;
+        }
+
+        Release(name);
+    } while(FindNextFile(hFind, &entry) != 0);
+
+    FindClose(hFind);
+#else
+    auto *dir = opendir((const char *) ARGON_RAW_STRING(path));
+    if (dir == nullptr) {
+        Release(ldir);
+
+        ErrorFromErrno(errno);
+
+        return nullptr;
+    }
+
+    const dirent *entry;
+
+    while ((entry = readdir(dir)) != nullptr) {
+        auto *name = (ArObject *) StringNew(entry->d_name);
+        if (name == nullptr) {
+            Release(&ldir);
+            break;
+        }
+
+
+        if (!ListAppend(ldir, name)) {
+            Release(name);
+            Release(&ldir);
+
+            break;
+        }
+
+        Release(name);
+    }
+
+    closedir(dir);
+#endif
+
+    return (ArObject *) ldir;
+}
+
 ARGON_FUNCTION(os_mkdir, mkdir,
                "Creates a new directory with the specified name and permission bits.\n"
                "\n"
@@ -1026,7 +1105,7 @@ ARGON_FUNCTION(os_wpstatus, wpstatus,
     else if (AtomCompareID(atom, "WIFCONTINUED"))
         return BoolToArBool(WIFCONTINUED(status));
 
-    ErrorFormat(kValueError[0], "'%s' unknown operation", (ArObject*)atom->value);
+    ErrorFormat(kValueError[0], "'%s' unknown operation", (ArObject *) atom->value);
 
     return nullptr;
 }
@@ -1060,6 +1139,7 @@ const ModuleEntry os_entries[] = {
 #ifndef _ARGON_PLATFORM_WINDOWS
         MODULE_EXPORT_FUNCTION(os_kill),
 #endif
+        MODULE_EXPORT_FUNCTION(os_listdir),
         MODULE_EXPORT_FUNCTION(os_mkdir),
         MODULE_EXPORT_FUNCTION(os_rmdir),
         MODULE_EXPORT_FUNCTION(os_setenv),
@@ -1109,50 +1189,50 @@ bool OSInit(Module *self) {
     if (!ModuleAddIntConstant(self, "TIMEOUT_INFINITE", INFINITE))
         return false;
 #else
-        // SIGNALS
-        AddIntConstant(SIGHUP);
-        AddIntConstant(SIGINT);
-        AddIntConstant(SIGQUIT);
-        AddIntConstant(SIGILL);
-        AddIntConstant(SIGTRAP);
-        AddIntConstant(SIGABRT);
-        AddIntConstant(SIGIOT);
-        AddIntConstant(SIGBUS);
-        //AddIntConstant(SIGEMT);
-        AddIntConstant(SIGFPE);
-        AddIntConstant(SIGKILL);
-        AddIntConstant(SIGUSR1);
-        AddIntConstant(SIGSEGV);
-        AddIntConstant(SIGUSR2);
-        AddIntConstant(SIGPIPE);
-        AddIntConstant(SIGALRM);
-        AddIntConstant(SIGTERM);
-        //AddIntConstant(SIGSTKFLT);
-        AddIntConstant(SIGCHLD);
-        //AddIntConstant(SIGCLD);
-        AddIntConstant(SIGCONT);
-        AddIntConstant(SIGSTOP);
-        AddIntConstant(SIGTSTP);
-        AddIntConstant(SIGTTIN);
-        AddIntConstant(SIGTTOU);
-        AddIntConstant(SIGURG);
-        AddIntConstant(SIGXCPU);
-        AddIntConstant(SIGXFSZ);
-        AddIntConstant(SIGVTALRM);
-        AddIntConstant(SIGPROF);
-        AddIntConstant(SIGWINCH);
-        AddIntConstant(SIGIO);
-        //AddIntConstant(SIGPOLL);
-        //AddIntConstant(SIGPWR);
-        //AddIntConstant(SIGINFO);
-        //AddIntConstant(SIGLOST);
-        AddIntConstant(SIGSYS);
-        //AddIntConstant(SIGUNUSED);
+    // SIGNALS
+    AddIntConstant(SIGHUP);
+    AddIntConstant(SIGINT);
+    AddIntConstant(SIGQUIT);
+    AddIntConstant(SIGILL);
+    AddIntConstant(SIGTRAP);
+    AddIntConstant(SIGABRT);
+    AddIntConstant(SIGIOT);
+    AddIntConstant(SIGBUS);
+    //AddIntConstant(SIGEMT);
+    AddIntConstant(SIGFPE);
+    AddIntConstant(SIGKILL);
+    AddIntConstant(SIGUSR1);
+    AddIntConstant(SIGSEGV);
+    AddIntConstant(SIGUSR2);
+    AddIntConstant(SIGPIPE);
+    AddIntConstant(SIGALRM);
+    AddIntConstant(SIGTERM);
+    //AddIntConstant(SIGSTKFLT);
+    AddIntConstant(SIGCHLD);
+    //AddIntConstant(SIGCLD);
+    AddIntConstant(SIGCONT);
+    AddIntConstant(SIGSTOP);
+    AddIntConstant(SIGTSTP);
+    AddIntConstant(SIGTTIN);
+    AddIntConstant(SIGTTOU);
+    AddIntConstant(SIGURG);
+    AddIntConstant(SIGXCPU);
+    AddIntConstant(SIGXFSZ);
+    AddIntConstant(SIGVTALRM);
+    AddIntConstant(SIGPROF);
+    AddIntConstant(SIGWINCH);
+    AddIntConstant(SIGIO);
+    //AddIntConstant(SIGPOLL);
+    //AddIntConstant(SIGPWR);
+    //AddIntConstant(SIGINFO);
+    //AddIntConstant(SIGLOST);
+    AddIntConstant(SIGSYS);
+    //AddIntConstant(SIGUNUSED);
 
-        // WAITPID OPTIONS
-        AddIntConstant(WNOHANG);
-        AddIntConstant(WUNTRACED);
-        AddIntConstant(WCONTINUED);
+    // WAITPID OPTIONS
+    AddIntConstant(WNOHANG);
+    AddIntConstant(WUNTRACED);
+    AddIntConstant(WCONTINUED);
 #endif
 
     AddIntConstant(EXIT_SUCCESS);
