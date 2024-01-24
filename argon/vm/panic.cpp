@@ -23,7 +23,10 @@ void argon::vm::PanicFill(Panic *panic, Panic *prev, Frame *frame, ArObject *obj
     panic->frame = frame;
     panic->object = IncRef(object);
     panic->recovered = false;
-    panic->aborted = prev != nullptr;
+    panic->aborted = false;
+
+    if (prev != nullptr)
+        prev->aborted = true;
 
     if (panic->frame != nullptr)
         panic->frame->counter++;

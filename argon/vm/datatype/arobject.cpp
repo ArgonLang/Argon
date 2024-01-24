@@ -375,9 +375,12 @@ ArObject *argon::vm::datatype::Compare(const ArObject *self, const ArObject *oth
         result = rc(other, self, reverse[(int) mode]);
 
     if (result == nullptr) {
-        if (mode != CompareMode::EQ) {
-            ErrorFormat(kNotImplementedError[0], kNotImplementedError[2], str_mode[(int) mode],
-                        AR_TYPE_NAME(self), AR_TYPE_NAME(other));
+        if (mode != CompareMode::EQ && !IsPanickingFrame()) {
+            ErrorFormat(kNotImplementedError[0],
+                        kNotImplementedError[2],
+                        str_mode[(int) mode],
+                        AR_TYPE_NAME(self),
+                        AR_TYPE_NAME(other));
             return nullptr;
         }
 
@@ -857,8 +860,6 @@ bool ExportDefaultMethod(TypeInfo *type) {
     } while(0)
 
     FunctionDef fdef{};
-
-    ArObject *tmp;
 
     bool exists;
 
