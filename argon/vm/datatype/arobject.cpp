@@ -371,7 +371,7 @@ ArObject *argon::vm::datatype::Compare(const ArObject *self, const ArObject *oth
     if (lc != nullptr)
         result = lc(self, other, mode);
 
-    if (result == nullptr && rc != nullptr)
+    if (result == nullptr && rc != nullptr && lc != rc)
         result = rc(other, self, reverse[(int) mode]);
 
     if (result == nullptr) {

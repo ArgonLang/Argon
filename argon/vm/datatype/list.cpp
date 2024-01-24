@@ -426,26 +426,43 @@ bool CheckSize(List *list, ArSize count) {
 ArObject *list_compare(List *self, ArObject *other, CompareMode mode) {
     auto *o = (List *) other;
 
-    if (!AR_SAME_TYPE(self, other) || mode != CompareMode::EQ)
+    if (!AR_SAME_TYPE(self, other))
         return nullptr;
 
     if (self == o)
         return BoolToArBool(true);
 
-    // *** WARNING ***
-    // Why std::unique_lock? See vm/sync/rsm.h
-    std::unique_lock self_lock(self->rwlock);
-    std::unique_lock other_lock(o->rwlock);
+    std::shared_lock self_lock(self->rwlock);
+    std::shared_lock other_lock(o->rwlock);
 
-    if (self->length != o->length)
+    if (self->length != o->length && mode == CompareMode::EQ)
         return BoolToArBool(false);
 
-    for (ArSize i = 0; i < self->length; i++) {
-        if (!Equal(self->objects[i], o->objects[i]))
-            return BoolToArBool(false);
+    ArSize idx;
+    for (idx = 0; idx < self->length && idx < o->length; idx++) {
+        const auto *so = self->objects[idx];
+        const auto *oo = o->objects[idx];
+
+        if (so == oo)
+            continue;
+
+        auto *cmp = Compare(so, oo, CompareMode::EQ);
+        if (cmp == nullptr)
+            return nullptr;
+
+        Release(cmp);
+
+        if (cmp == (ArObject *) False)
+            break;
     }
 
-    return BoolToArBool(true);
+    if (idx >= self->length || idx >= o->length)
+        ARGON_RICH_COMPARE_CASES(self->length, o->length, mode);
+
+    if (mode == CompareMode::EQ)
+        return BoolToArBool(false);
+
+    return Compare(self->objects[idx], o->objects[idx], mode);
 }
 
 ArObject *list_iter(List *self, bool reverse) {
