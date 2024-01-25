@@ -149,7 +149,7 @@ namespace argon::vm::datatype::support {
         ArObject *ret = *list;
 
         for (ArSize i = 1; i < length; i++) {
-            auto *res = Compare(ret, list[i], mode);
+            const auto *res = Compare(ret, list[i], mode);
             if (res == nullptr)
                 return false;
 

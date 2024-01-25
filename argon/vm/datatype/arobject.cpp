@@ -436,7 +436,7 @@ ArObject *MROSearch(const TypeInfo *type, ArObject *key, AttributeProperty *apro
     return nullptr;
 }
 
-ArObject *argon::vm::datatype::Repr(const ArObject *object) {
+ArObject *argon::vm::datatype::Repr(ArObject *object) {
     ArObject *args[1]{};
 
     auto repr = AR_GET_TYPE(object)->repr;
@@ -467,7 +467,7 @@ ArObject *argon::vm::datatype::Repr(const ArObject *object) {
         return (ArObject *) StringFormat("<object %s @%p>", AR_TYPE_NAME(object), object);
     }
 
-    args[0] = (ArObject *) object;
+    args[0] = object;
 
     auto *result = EvalRaiseError(rfunc, args, 1, OpCodeCallMode::FASTCALL);
 
@@ -521,7 +521,7 @@ ArObject *argon::vm::datatype::Str(ArObject *object) {
         return Repr(object);
     }
 
-    args[0] = (ArObject *) object;
+    args[0] = object;
 
     auto *result = EvalRaiseError(sfunc, args, 1, OpCodeCallMode::FASTCALL);
 

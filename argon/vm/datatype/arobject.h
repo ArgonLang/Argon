@@ -28,7 +28,7 @@ namespace argon::vm::datatype {
 
     ArObject *IteratorNext(ArObject *iterator);
 
-    ArObject *Repr(const ArObject *object);
+    ArObject *Repr(ArObject *object);
 
     ArObject *Str(ArObject *object);
 
