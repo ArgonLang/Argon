@@ -6,6 +6,7 @@
 #define ARGON_VM_DATATYPE_SUPPORT_COMMON_H_
 
 #include <argon/vm/datatype/arobject.h>
+#include <argon/vm/datatype/boolean.h>
 #include <argon/vm/datatype/list.h>
 
 #include <argon/vm/datatype/support/byteops.h>
@@ -133,6 +134,32 @@ namespace argon::vm::datatype::support {
         }
 
         return (ArObject *) ret;
+    }
+
+    inline bool MaxMin(ArObject **list, ArObject **out, ArSize length, bool min) {
+        auto mode = min ? CompareMode::LE : CompareMode::GR;
+        *out = nullptr;
+
+        if (length == 0) {
+            ErrorFormat(kValueError[0], "%s on empty sequence", min ? "min" : "max");
+
+            return false;
+        }
+
+        ArObject *ret = *list;
+
+        for (ArSize i = 1; i < length; i++) {
+            auto *res = Compare(ret, list[i], mode);
+            if (res == nullptr)
+                return false;
+
+            if (res == (ArObject *) False)
+                ret = list[i];
+        }
+
+        *out = IncRef(ret);
+
+        return true;
     }
 }
 

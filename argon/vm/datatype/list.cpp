@@ -6,6 +6,8 @@
 
 #include <argon/vm/runtime.h>
 
+#include <argon/vm/datatype/support/common.h>
+
 #include <argon/vm/datatype/boolean.h>
 #include <argon/vm/datatype/bounds.h>
 #include <argon/vm/datatype/option.h>
@@ -114,6 +116,42 @@ ARGON_METHOD(list_insert, insert,
     return ok ? (ArObject *) IncRef(self) : nullptr;
 }
 
+ARGON_METHOD(list_max, max,
+             "Returns the item with the highest value.\n"
+             "\n"
+             "- Returns: Highest value.\n"
+             "\n"
+             "# SEE\n"
+             "- min\n",
+             nullptr, false, false) {
+    auto *self = (List *) _self;
+    ArObject *max = nullptr;
+
+    std::shared_lock _(self->rwlock);
+
+    support::MaxMin(self->objects, &max, self->length, false);
+
+    return max;
+}
+
+ARGON_METHOD(list_min, min,
+             "Returns the item with the lowest value.\n"
+             "\n"
+             "- Returns: Lowest value.\n"
+             "\n"
+             "# SEE\n"
+             "- max\n",
+             nullptr, false, false) {
+    auto *self = (List *) _self;
+    ArObject *min = nullptr;
+
+    std::shared_lock _(self->rwlock);
+
+    support::MaxMin(self->objects, &min, self->length, true);
+
+    return min;
+}
+
 ARGON_METHOD(list_pop, pop,
              "Remove and returns the item at the end of the list.\n"
              "\n"
@@ -193,6 +231,8 @@ const FunctionDef list_methods[] = {
         list_extend,
         list_find,
         list_insert,
+        list_max,
+        list_min,
         list_pop,
         list_remove,
         list_reverse,

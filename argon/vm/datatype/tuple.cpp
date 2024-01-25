@@ -4,6 +4,8 @@
 
 #include <argon/vm/runtime.h>
 
+#include <argon/vm/datatype/support/common.h>
+
 #include <argon/vm/datatype/boolean.h>
 #include <argon/vm/datatype/bounds.h>
 #include <argon/vm/datatype/decimal.h>
@@ -47,10 +49,44 @@ ARGON_METHOD(tuple_find, find,
     return (ArObject *) IntNew(-1);
 }
 
+ARGON_METHOD(tuple_max, max,
+             "Returns the item with the highest value.\n"
+             "\n"
+             "- Returns: Highest value.\n"
+             "\n"
+             "# SEE\n"
+             "- min\n",
+             nullptr, false, false) {
+    auto *self = (Tuple *) _self;
+    ArObject *max = nullptr;
+
+    support::MaxMin(self->objects, &max, self->length, false);
+
+    return max;
+}
+
+ARGON_METHOD(tuple_min, min,
+             "Returns the item with the lowest value.\n"
+             "\n"
+             "- Returns: Lowest value.\n"
+             "\n"
+             "# SEE\n"
+             "- max\n",
+             nullptr, false, false) {
+    auto *self = (Tuple *) _self;
+    ArObject *min = nullptr;
+
+    support::MaxMin(self->objects, &min, self->length, true);
+
+    return min;
+}
+
 const FunctionDef tuple_methods[] = {
         tuple_tuple,
 
         tuple_find,
+        tuple_max,
+        tuple_min,
         ARGON_METHOD_SENTINEL
 };
 
