@@ -1,0 +1,9 @@
+// This source file is part of the Argon project.
+//
+// Licensed under the Apache License v2.0
+
+#include <argon/lang/parser2/node/node.h>
+
+using namespace argon::lang::parser2::node;
+
+NODE_NEW(Unary, node::type_ast_identifier_, Identifier, nullptr, unary_dtor, nullptr);

@@ -104,12 +104,12 @@ namespace argon::vm::datatype {
 
     template<typename T>
     T *MakeGCObject(const TypeInfo *type, bool track) {
-        return (T*) memory::GCNew(type, track);
+        return (T *) memory::GCNew(type, track);
     }
 
     template<typename T>
     T *MakeGCObject(TypeInfo *type, bool track) {
-        auto *ret = (T*) memory::GCNew(type, track);
+        auto *ret = (T *) memory::GCNew(type, track);
         if (ret != nullptr)
             IncRef(type);
 
@@ -156,10 +156,11 @@ namespace argon::vm::datatype {
             Release(this->object_);
         }
 
-        ARC &operator=(ArObject *object) {
+        template<typename T>
+        ARC &operator=(T *object) {
             Release(this->object_);
 
-            this->object_ = object;
+            this->object_ = (ArObject *) object;
 
             return *this;
         }

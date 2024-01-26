@@ -23,6 +23,8 @@ namespace argon::lang::parser2::node {
     argon::lang::scanner::Loc loc
 
     enum class NodeType {
+        ASSIGNMENT,
+        IDENTIFIER,
         MODULE
     };
 
@@ -57,6 +59,19 @@ const argon::vm::datatype::TypeInfo *argon::lang::parser2::ExtName = &StructName
         NODEOBJ_HEAD;
     };
 
+    struct Assignment {
+        NODEOBJ_HEAD;
+
+        bool constant;
+        bool multi;
+        bool pub;
+        bool weak;
+
+        ArObject *name;
+        ArObject *value;
+    };
+    _ARGONAPI extern const vm::datatype::TypeInfo *type_ast_assignment_;
+
     struct Module {
         NODEOBJ_HEAD;
 
@@ -66,6 +81,19 @@ const argon::vm::datatype::TypeInfo *argon::lang::parser2::ExtName = &StructName
         List *statements;
     };
     _ARGONAPI extern const TypeInfo *type_ast_module_;
+
+    struct Unary {
+        NODEOBJ_HEAD;
+
+        ArObject *value;
+    };
+    _ARGONAPI extern const TypeInfo *type_ast_identifier_;
+    _ARGONAPI extern const TypeInfo *type_ast_unary_;
+
+    inline bool unary_dtor(Unary *self) {
+        Release(self->value);
+        return true;
+    }
 
     template<typename T>
     T *NewNode(const TypeInfo *t_info, bool gc, NodeType node_type) {

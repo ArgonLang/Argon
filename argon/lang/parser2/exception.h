@@ -14,6 +14,9 @@
 namespace argon::lang::parser2 {
     using namespace argon::vm::datatype;
 
+    class DatatypeException : public std::exception {
+    };
+
     class ParserException : public std::exception {
         String *str_ = nullptr;
 

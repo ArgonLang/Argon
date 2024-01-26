@@ -9,17 +9,27 @@
 
 #include <argon/lang/parser2/node/node.h>
 
+#include <argon/lang/parser2/exception.h>
 #include <argon/lang/parser2/context.h>
 
 namespace argon::lang::parser2 {
+    constexpr const char *kStandardError[] = {
+            "invalid syntax",
+            "'var' keyword cannot be used within a trait",
+            "'weak' keyword is only allowed within the context of a struct",
+            "after 'weak' the 'var' keyword is required",
+            "expected identifier after '%s'",
+            "expected = after identifier(s) in let declaration"
+    };
+
     class Parser {
         scanner::Token tkcur_;
 
         scanner::Scanner &scanner_;
 
-        Context *context_{};
-
         const char *filename_;
+
+        static ArObject *ParseIdentifierSimple(const scanner::Token *token);
 
         [[nodiscard]] bool CheckScope(Context *context, ContextType type) {
             return context->type == type;
@@ -45,6 +55,9 @@ namespace argon::lang::parser2 {
         }
 
         bool MatchEat(scanner::TokenType type, bool ignore_nl) {
+            if (ignore_nl && this->tkcur_.type == scanner::TokenType::END_OF_LINE)
+                this->Eat(true);
+
             if (this->Match(type)) {
                 this->Eat(ignore_nl);
                 return true;
@@ -59,7 +72,46 @@ namespace argon::lang::parser2 {
 
         node::Node *ParseDecls(Context *context);
 
+        static node::Node *ParseIdentifier(scanner::Token *token);
+
+        node::Node *ParseVarDecl(Context *context, scanner::Position start, bool constant, bool pub, bool weak);
+
+        node::Node *ParseVarDecls(const scanner::Token &token);
+
         void Eat(bool ignore_nl);
+
+        void EatNL();
+
+        void IgnoreNewLineIF(scanner::TokenType type) {
+            const scanner::Token *peek;
+
+            if (this->tkcur_.type != scanner::TokenType::END_OF_LINE)
+                return;
+
+            if (!this->scanner_.PeekToken(&peek))
+                throw ScannerException();
+
+            if (peek->type == type)
+                this->Eat(true);
+        }
+
+        template<typename ...TokenTypes>
+        void IgnoreNewLineIF(scanner::TokenType type, TokenTypes... types) {
+            const scanner::Token *peek;
+
+            if (this->tkcur_.type != scanner::TokenType::END_OF_LINE)
+                return;
+
+            if (!this->scanner_.PeekToken(&peek))
+                throw ScannerException();
+
+            if (peek->type != type) {
+                this->IgnoreNewLineIF(types...);
+                return;
+            }
+
+            this->Eat(true);
+        }
 
     public:
         /**
@@ -69,7 +121,7 @@ namespace argon::lang::parser2 {
          * @param scanner Reference to Scanner.
          */
         Parser(const char *filename, scanner::Scanner &scanner) noexcept: scanner_(scanner),
-                                                                           filename_(filename) {}
+                                                                          filename_(filename) {}
 
         /**
          * @brief Parses the source code.
