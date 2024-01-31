@@ -24,12 +24,18 @@ namespace argon::lang::parser2::node {
 
     enum class NodeType {
         ASSIGNMENT,
+        BLOCK,
+        FUNCTION,
         IDENTIFIER,
-        MODULE
+        LITERAL,
+        MODULE,
+        KWPARAM,
+        PARAMETER,
+        REST
     };
 
 #define NODE_NEW(StructName, ExtName, alias, doc, dtor, compare)    \
-TypeInfo StructName##AstType = {               \
+TypeInfo alias##AstType = {               \
         AROBJ_HEAD_INIT_TYPE,                                       \
         #alias,                                                     \
         nullptr,                                                    \
@@ -53,7 +59,7 @@ TypeInfo StructName##AstType = {               \
         nullptr,                                                    \
         nullptr,                                                    \
         nullptr };                                                  \
-const argon::vm::datatype::TypeInfo *argon::lang::parser2::ExtName = &StructName##AstType
+const argon::vm::datatype::TypeInfo *argon::lang::parser2::ExtName = &alias##AstType
 
     struct Node {
         NODEOBJ_HEAD;
@@ -62,15 +68,29 @@ const argon::vm::datatype::TypeInfo *argon::lang::parser2::ExtName = &StructName
     struct Assignment {
         NODEOBJ_HEAD;
 
+        ArObject *name;
+        ArObject *value;
+
         bool constant;
         bool multi;
         bool pub;
         bool weak;
-
-        ArObject *name;
-        ArObject *value;
     };
     _ARGONAPI extern const vm::datatype::TypeInfo *type_ast_assignment_;
+
+    struct Function {
+        NODEOBJ_HEAD;
+
+        String *name;
+        String *doc;
+
+        List *params;
+        Node *body;
+
+        bool async;
+        bool pub;
+    };
+    _ARGONAPI extern const vm::datatype::TypeInfo *type_ast_function_;
 
     struct Module {
         NODEOBJ_HEAD;
@@ -82,12 +102,21 @@ const argon::vm::datatype::TypeInfo *argon::lang::parser2::ExtName = &StructName
     };
     _ARGONAPI extern const TypeInfo *type_ast_module_;
 
+    struct Parameter {
+        NODEOBJ_HEAD;
+
+        String *id;
+        Node *value;
+    };
+    _ARGONAPI extern const vm::datatype::TypeInfo *type_ast_parameter_;
+
     struct Unary {
         NODEOBJ_HEAD;
 
         ArObject *value;
     };
     _ARGONAPI extern const TypeInfo *type_ast_identifier_;
+    _ARGONAPI extern const TypeInfo *type_ast_literal_;
     _ARGONAPI extern const TypeInfo *type_ast_unary_;
 
     inline bool unary_dtor(Unary *self) {

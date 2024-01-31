@@ -2,23 +2,163 @@
 //
 // Licensed under the Apache License v2.0
 
+#include <argon/vm/datatype/stringbuilder.h>
+
 #include <argon/lang/parser2/parser2.h>
+#include "argon/vm/datatype/nil.h"
 
 using namespace argon::lang::scanner;
 using namespace argon::lang::parser2;
 using namespace argon::lang::parser2::node;
 
-#define TKCUR_LOC this->tkcur_.loc
-#define TKCUR_TYPE this->tkcur_.type
+#define TKCUR_LOC   this->tkcur_.loc
+#define TKCUR_TYPE  this->tkcur_.type
 #define TKCUR_START this->tkcur_.loc.start
-#define TKCUR_END this->tkcur_.loc.end
+#define TKCUR_END   this->tkcur_.loc.end
 
-ArObject *Parser::ParseIdentifierSimple(const scanner::Token *token) {
-    auto *id = StringNew((const char *) token->buffer, token->length);
-    if (id == nullptr)
+bool Parser::CheckIDExt() {
+    return this->Match(scanner::TokenType::IDENTIFIER);
+}
+
+List *Parser::ParseFnParams() {
+    ARC ret;
+
+    Position start{};
+
+    auto *params = (List *) ListNew();
+    if (params == nullptr)
         throw DatatypeException();
 
-    return (ArObject *) id;
+    ret = params;
+
+    ArObject *tmp;
+
+    int mode = 0;
+
+    do {
+        if (this->Match(TokenType::RIGHT_ROUND))
+            break;
+
+        if (this->Match(TokenType::AMPERSAND)) {
+            if (mode > 2)
+                throw ParserException(TKCUR_LOC, kStandardError[10]);
+
+            mode = 3;
+
+            start = this->tkcur_.loc.start;
+
+            this->Eat(false);
+
+            if (!this->CheckIDExt())
+                throw ParserException(TKCUR_LOC, kStandardError[4], "&");
+
+            tmp = (ArObject *) this->ParseFuncParam(start, NodeType::KWPARAM);
+        } else if (this->Match(TokenType::ELLIPSIS)) {
+            if (mode > 1)
+                throw ParserException(TKCUR_LOC, kStandardError[11]);
+
+            mode = 2;
+
+            start = TKCUR_START;
+
+            this->Eat(false);
+
+            if (!this->CheckIDExt())
+                throw ParserException(TKCUR_LOC, kStandardError[4], "...");
+
+            tmp = (ArObject *) this->ParseFuncParam(start, NodeType::REST);
+        } else {
+            if (mode > 1)
+                throw ParserException(TKCUR_LOC, kStandardError[12]);
+
+            tmp = (ArObject *) this->ParseFuncNameParam(false);
+
+            if (mode > 0 && ((Parameter *) tmp)->value == nullptr) {
+                Release(tmp);
+
+                throw ParserException(((Parameter *) tmp)->loc, "unexpected non keyword parameter");
+            }
+
+            if (((Parameter *) tmp)->node_type == NodeType::PARAMETER && ((Parameter *) tmp)->value != nullptr)
+                mode = 1;
+        }
+
+        if (!ListAppend(params, tmp)) {
+            Release(tmp);
+
+            throw DatatypeException();
+        }
+
+        Release(tmp);
+    } while (this->MatchEat(TokenType::COMMA, true));
+
+    ret.Unwrap();
+
+    return params;
+}
+
+Node *Parser::ParseAsync(Context *context, Position &start, bool pub) {
+    this->Eat(true);
+
+    auto *func = (Function *) this->ParseFunc(context, start, pub);
+    func->async = true;
+
+    return (Node *) func;
+}
+
+Node *Parser::ParseBlock(Context *context) {
+    ARC stmts;
+
+    Position start = TKCUR_START;
+
+    this->EatNL();
+
+    if (!this->Match(TokenType::LEFT_BRACES))
+        throw ParserException(TKCUR_LOC, kStandardError[7]);
+
+    List *list = ListNew();
+    if (list == nullptr)
+        throw DatatypeException();
+
+    stmts = list;
+
+    // +++ Parse doc strings
+    if (context->type == ContextType::FUNC
+        || context->type == ContextType::STRUCT
+        || context->type == ContextType::TRAIT)
+        context->doc = this->ParseDoc();
+    else
+        this->Eat(true);
+    // ---
+
+    while (!this->Match(TokenType::RIGHT_BRACES)) {
+        auto *stmt = this->ParseDecls(context);
+
+        if (!ListAppend(list, (ArObject *) stmt)) {
+            Release(stmt);
+
+            throw DatatypeException();
+        }
+
+        Release(stmt);
+
+        this->EatNL();
+    }
+
+    auto *block = NewNode<Unary>(type_ast_unary_, false, NodeType::BLOCK);
+    if (block == nullptr)
+        throw DatatypeException();
+
+    block->loc.start = start;
+    block->loc.end = TKCUR_END;
+
+    block->value = (ArObject *) list;
+
+    stmts.Unwrap();
+
+    this->Eat(false);
+
+    return (Node *) block;
 }
 
 Node *Parser::ParseDecls(Context *context) {
@@ -39,8 +179,13 @@ Node *Parser::ParseDecls(Context *context) {
 
     switch (TKCUR_TYPE) {
         case TokenType::KW_ASYNC:
+            decl = this->ParseAsync(context, start, pub);
+            break;
         case TokenType::KW_FROM:
+            break;
         case TokenType::KW_FUNC:
+            decl = this->ParseFunc(context, start, pub);
+            break;
         case TokenType::KW_IMPORT:
             break;
         case TokenType::KW_LET:
@@ -53,8 +198,11 @@ Node *Parser::ParseDecls(Context *context) {
             decl = this->ParseVarDecl(context, start, false, pub, false);
             break;
         case TokenType::KW_STRUCT:
+            break;
         case TokenType::KW_SYNC:
+            break;
         case TokenType::KW_TRAIT:
+            break;
         case TokenType::KW_WEAK:
             if (!this->CheckScope(context, ContextType::STRUCT))
                 throw ParserException(TKCUR_LOC, kStandardError[2]);
@@ -70,7 +218,130 @@ Node *Parser::ParseDecls(Context *context) {
             break;
     }
 
-    return nullptr;
+    return (Node *) decl.Unwrap();
+}
+
+Node *Parser::ParseFunc(Context *context, Position start, bool pub) {
+    ARC name;
+    ARC params;
+    ARC body;
+
+    Context f_ctx(context, ContextType::FUNC);
+
+    this->Eat(true);
+
+    if (!this->CheckIDExt())
+        throw ParserException(TKCUR_LOC, kStandardError[4], "func");
+
+    name = Parser::ParseIdentifierSimple(&this->tkcur_);
+
+    this->Eat(true);
+
+    if (this->MatchEat(TokenType::LEFT_ROUND, true)) {
+        params = this->ParseFnParams();
+
+        this->EatNL();
+
+        if (!this->MatchEat(TokenType::RIGHT_ROUND, true))
+            throw ParserException(TKCUR_LOC, kStandardError[6]);
+    }
+
+    if (!CheckScope(context, ContextType::TRAIT) || this->Match(scanner::TokenType::LEFT_BRACES))
+        body = this->ParseBlock(&f_ctx);
+
+    auto *func = NewNode<Function>(type_ast_function_, false, NodeType::FUNCTION);
+    if (func == nullptr)
+        throw DatatypeException();
+
+    func->loc.start = start;
+
+    func->name = (String *) name.Unwrap();
+    func->doc = context->doc;
+
+    func->params = (List *) params.Unwrap();
+    func->body = (Node *) body.Unwrap();
+
+    func->async = false;
+    func->pub = pub;
+
+    return (Node *) func;
+}
+
+node::Node *Parser::ParseFuncNameParam(bool parse_pexpr) {
+    ARC id;
+    ARC value;
+
+    Loc loc{};
+
+    bool identifier = false;
+
+    if (parse_pexpr) {
+        // TODO: id = (ArObject *) this->ParseExpression(PeekPrecedence(scanner::TokenType::COMMA));
+    } else if (this->CheckIDExt()) {
+        id = Parser::ParseIdentifierSimple(&this->tkcur_);
+        identifier = true;
+
+        this->Eat(true);
+    } else
+        throw ParserException(TKCUR_LOC, kStandardError[9]);
+
+    this->EatNL();
+
+    loc = TKCUR_LOC;
+
+    if (this->MatchEat(TokenType::EQUAL, true)) {
+        if (!identifier)
+            throw ParserException(loc, kStandardError[8]);
+
+        if (this->Match(TokenType::COMMA, TokenType::RIGHT_ROUND)) {
+            auto *literal = NewNode<Unary>(type_ast_literal_, false, NodeType::LITERAL);
+            if (literal == nullptr)
+                throw DatatypeException();
+
+            literal->loc = loc;
+
+            value = literal;
+        } else {
+            // TODO: (ArObject *) this->ParseExpression(PeekPrecedence(scanner::TokenType::COMMA));
+        }
+    }
+
+    if (identifier) {
+        auto *param = NewNode<Parameter>(type_ast_parameter_, false, NodeType::PARAMETER);
+        if (param == nullptr)
+            throw DatatypeException();
+
+        param->loc = loc;
+
+        param->id = (String *) id.Unwrap();
+        param->value = (Node *) value.Unwrap();
+
+        return (Node *) param;
+    }
+
+    return (Node *) id.Unwrap();
+}
+
+Node *Parser::ParseFuncParam(Position start, NodeType type) {
+    auto *id = Parser::ParseIdentifierSimple(&this->tkcur_);
+
+    assert(type == NodeType::REST || type == NodeType::KWPARAM);
+
+    auto *parameter = NewNode<Parameter>(type_ast_parameter_, false, type);
+    if (parameter == nullptr) {
+        Release(id);
+
+        throw DatatypeException();
+    }
+
+    parameter->loc.start = start;
+    parameter->loc.end = TKCUR_END;
+
+    parameter->id = id;
+
+    this->Eat(true);
+
+    return (Node *) parameter;
 }
 
 node::Node *Parser::ParseIdentifier(scanner::Token *token) {
@@ -98,7 +369,7 @@ node::Node *Parser::ParseVarDecl(Context *context, Position start, bool constant
 
     this->Eat(true);
 
-    if (!this->Match(TokenType::IDENTIFIER))
+    if (!this->CheckIDExt())
         throw ParserException(TKCUR_LOC, kStandardError[4], constant ? "let" : "var");
 
     identifier = std::move(this->tkcur_);
@@ -153,7 +424,7 @@ node::Node *Parser::ParseVarDecls(const Token &token) {
     if (ids == nullptr)
         throw DatatypeException();
 
-    auto *id = Parser::ParseIdentifierSimple(&token);
+    auto *id = (ArObject *) Parser::ParseIdentifierSimple(&token);
     if (!ListAppend(ids, id)) {
         Release(id);
 
@@ -165,7 +436,7 @@ node::Node *Parser::ParseVarDecls(const Token &token) {
     do {
         this->EatNL();
 
-        id = Parser::ParseIdentifierSimple(&this->tkcur_);
+        id = (ArObject *) Parser::ParseIdentifierSimple(&this->tkcur_);
         if (!ListAppend(ids, id)) {
             Release(id);
 
@@ -191,6 +462,39 @@ node::Node *Parser::ParseVarDecls(const Token &token) {
     assignment->name = (ArObject *) ids;
 
     return (Node *) assignment;
+}
+
+String *Parser::ParseDoc() {
+    StringBuilder builder{};
+
+    do {
+        if (!this->scanner_.NextToken(&this->tkcur_))
+            assert(false);
+    } while (this->Match(TokenType::END_OF_LINE));
+
+    while (this->TokenInRange(TokenType::COMMENT_BEGIN, TokenType::COMMENT_END)) {
+        if (!builder.Write(this->tkcur_.buffer, this->tkcur_.length, 0))
+            throw DatatypeException();
+
+        do {
+            if (!this->scanner_.NextToken(&this->tkcur_))
+                assert(false);
+        } while (this->Match(TokenType::END_OF_LINE));
+    }
+
+    auto *ret = builder.BuildString();
+    if (ret == nullptr)
+        throw DatatypeException();
+
+    return ret;
+}
+
+String *Parser::ParseIdentifierSimple(const scanner::Token *token) {
+    auto *id = StringNew((const char *) token->buffer, token->length);
+    if (id == nullptr)
+        throw DatatypeException();
+
+    return id;
 }
 
 void Parser::Eat(bool ignore_nl) {

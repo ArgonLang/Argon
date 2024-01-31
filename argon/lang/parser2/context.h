@@ -5,26 +5,36 @@
 #ifndef ARGON_LANG_PARSER2_CONTEXT_H_
 #define ARGON_LANG_PARSER2_CONTEXT_H_
 
+#include <argon/vm/datatype/list.h>
+
 namespace argon::lang::parser2 {
     enum class ContextType {
+        FUNC,
         MODULE,
         STRUCT,
         TRAIT
     };
 
-    constexpr const char *kContextName[] = {"module",
+    constexpr const char *kContextName[] = {"function",
+                                            "module",
                                             "struct",
                                             "trait"
     };
 
     struct Context {
-        Context *prev;
+        Context *prev{};
+
+        String *doc{};
 
         ContextType type;
 
-        explicit Context(ContextType type) : prev(nullptr), type(type) {}
+        explicit Context(ContextType type) : type(type) {}
 
         Context(Context *current, ContextType type) : prev(current), type(type) {}
+
+        ~Context() {
+            Release(this->doc);
+        }
     };
 } // namespace argon::lang::parser2
 

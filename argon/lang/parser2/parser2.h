@@ -19,7 +19,14 @@ namespace argon::lang::parser2 {
             "'weak' keyword is only allowed within the context of a struct",
             "after 'weak' the 'var' keyword is required",
             "expected identifier after '%s'",
-            "expected = after identifier(s) in let declaration"
+            "expected '=' after identifier(s) in let declaration",
+            "expected ')' after function params",
+            "expected '{' to start a code block",
+            "expected identifier before '=' in named parameter declaration",
+            "expected identifier",
+            "only one &-param is allowed per function declaration",
+            "only one rest-param is allowed per function declaration",
+            "unexpected [named] param"
     };
 
     class Parser {
@@ -29,7 +36,7 @@ namespace argon::lang::parser2 {
 
         const char *filename_;
 
-        static ArObject *ParseIdentifierSimple(const scanner::Token *token);
+        [[nodiscard]] bool CheckIDExt();
 
         [[nodiscard]] bool CheckScope(Context *context, ContextType type) {
             return context->type == type;
@@ -70,13 +77,29 @@ namespace argon::lang::parser2 {
             return this->tkcur_.type > begin && this->tkcur_.type < end;
         }
 
+        List *ParseFnParams();
+
+        node::Node *ParseAsync(Context *context, scanner::Position &start, bool pub);
+
+        node::Node *ParseBlock(Context *context);
+
         node::Node *ParseDecls(Context *context);
+
+        node::Node *ParseFunc(Context *context, scanner::Position start, bool pub);
+
+        node::Node *ParseFuncNameParam(bool parse_pexpr);
+
+        node::Node *ParseFuncParam(scanner::Position start, node::NodeType type);
 
         static node::Node *ParseIdentifier(scanner::Token *token);
 
         node::Node *ParseVarDecl(Context *context, scanner::Position start, bool constant, bool pub, bool weak);
 
         node::Node *ParseVarDecls(const scanner::Token &token);
+
+        String *ParseDoc();
+
+        static String *ParseIdentifierSimple(const scanner::Token *token);
 
         void Eat(bool ignore_nl);
 
