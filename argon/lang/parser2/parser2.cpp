@@ -192,7 +192,7 @@ Node *Parser::ParseDecls(Context *context) {
             decl = this->ParseVarDecl(context, start, true, pub, false);
             break;
         case TokenType::KW_VAR:
-            if (this->CheckScope(context, ContextType::TRAIT))
+            if (Parser::CheckScope(context, ContextType::TRAIT))
                 throw ParserException(TKCUR_LOC, kStandardError[1]);
 
             decl = this->ParseVarDecl(context, start, false, pub, false);
@@ -200,11 +200,15 @@ Node *Parser::ParseDecls(Context *context) {
         case TokenType::KW_STRUCT:
             break;
         case TokenType::KW_SYNC:
+            if (Parser::CheckScope(context, ContextType::STRUCT, ContextType::TRAIT))
+                throw ParserException(TKCUR_LOC, kStandardError[13], "sync", kContextName[(int) context->type]);
+
+            decl = this->ParseSyncBlock(context);
             break;
         case TokenType::KW_TRAIT:
             break;
         case TokenType::KW_WEAK:
-            if (!this->CheckScope(context, ContextType::STRUCT))
+            if (!Parser::CheckScope(context, ContextType::STRUCT))
                 throw ParserException(TKCUR_LOC, kStandardError[2]);
 
             this->Eat(true);
@@ -260,6 +264,11 @@ Node *Parser::ParseFunc(Context *context, Position start, bool pub) {
 
     func->params = (List *) params.Unwrap();
     func->body = (Node *) body.Unwrap();
+
+    if (func->body != nullptr)
+        func->loc.end = func->body->loc.end;
+    else
+        func->loc.end = TKCUR_START;
 
     func->async = false;
     func->pub = pub;
@@ -359,6 +368,34 @@ node::Node *Parser::ParseIdentifier(scanner::Token *token) {
     node->value = (ArObject *) id;
 
     return (Node *) node;
+}
+
+node::Node *Parser::ParseSyncBlock(Context *context) {
+    ARC expr;
+    ARC body;
+
+    Position start = TKCUR_START;
+
+    this->Eat(true);
+
+    // TODO: expr = (ArObject *) this->ParseExpression(PeekPrecedence(TokenType::ASTERISK));
+
+    if (((Node *) expr.Get())->node_type == NodeType::LITERAL)
+        throw ParserException(((Node *) expr.Get())->loc, kStandardError[14]);
+
+    body = this->ParseBlock(context);
+
+    auto *sync = NewNode<Binary>(type_ast_sync_, false, NodeType::SYNC_BLOCK);
+    if (sync == nullptr)
+        throw DatatypeException();
+
+    sync->left = expr.Unwrap();
+    sync->right = body.Unwrap();
+
+    sync->loc.start = start;
+    sync->loc.end = ((Node *) (sync->right))->loc.end;
+
+    return (Node *) sync;
 }
 
 node::Node *Parser::ParseVarDecl(Context *context, Position start, bool constant, bool pub, bool weak) {

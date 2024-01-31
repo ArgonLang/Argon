@@ -26,7 +26,9 @@ namespace argon::lang::parser2 {
             "expected identifier",
             "only one &-param is allowed per function declaration",
             "only one rest-param is allowed per function declaration",
-            "unexpected [named] param"
+            "unexpected [named] param",
+            "'%s' not supported in '%s' context",
+            "sync block requires an object reference, not a literal"
     };
 
     class Parser {
@@ -38,16 +40,16 @@ namespace argon::lang::parser2 {
 
         [[nodiscard]] bool CheckIDExt();
 
-        [[nodiscard]] bool CheckScope(Context *context, ContextType type) {
+        [[nodiscard]] static bool CheckScope(Context *context, ContextType type) {
             return context->type == type;
         }
 
         template<typename ...ContextTypes>
-        [[nodiscard]] bool CheckScope(Context *context, ContextType type, ContextTypes... types) {
-            if (this->CheckScope(context, type))
+        [[nodiscard]] static bool CheckScope(Context *context, ContextType type, ContextTypes... types) {
+            if (Parser::CheckScope(context, type))
                 return true;
 
-            return this->CheckScope(context, types...);
+            return Parser::CheckScope(context, types...);
         }
 
         [[nodiscard]] bool Match(scanner::TokenType type) const {
@@ -92,6 +94,8 @@ namespace argon::lang::parser2 {
         node::Node *ParseFuncParam(scanner::Position start, node::NodeType type);
 
         static node::Node *ParseIdentifier(scanner::Token *token);
+
+        node::Node *ParseSyncBlock(Context *context);
 
         node::Node *ParseVarDecl(Context *context, scanner::Position start, bool constant, bool pub, bool weak);
 

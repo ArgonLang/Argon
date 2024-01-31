@@ -31,7 +31,8 @@ namespace argon::lang::parser2::node {
         MODULE,
         KWPARAM,
         PARAMETER,
-        REST
+        REST,
+        SYNC_BLOCK
     };
 
 #define NODE_NEW(StructName, ExtName, alias, doc, dtor, compare)    \
@@ -78,6 +79,14 @@ const argon::vm::datatype::TypeInfo *argon::lang::parser2::ExtName = &alias##Ast
     };
     _ARGONAPI extern const vm::datatype::TypeInfo *type_ast_assignment_;
 
+    struct Binary {
+        NODEOBJ_HEAD;
+
+        ArObject *left;
+        ArObject *right;
+    };
+    _ARGONAPI extern const TypeInfo *type_ast_sync_;
+
     struct Function {
         NODEOBJ_HEAD;
 
@@ -121,8 +130,17 @@ const argon::vm::datatype::TypeInfo *argon::lang::parser2::ExtName = &alias##Ast
 
     inline bool unary_dtor(Unary *self) {
         Release(self->value);
+
         return true;
     }
+
+    inline bool binary_dtor(Binary *self) {
+        Release(self->left);
+        Release(self->right);
+
+        return true;
+    }
+
 
     template<typename T>
     T *NewNode(const TypeInfo *t_info, bool gc, NodeType node_type) {
