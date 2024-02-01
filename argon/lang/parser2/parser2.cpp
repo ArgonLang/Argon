@@ -97,6 +97,30 @@ List *Parser::ParseFnParams() {
     return params;
 }
 
+List *Parser::ParseTraitList() {
+    ARC ret;
+
+    auto *list = ListNew();
+    if (list == nullptr)
+        throw DatatypeException();
+
+    ret = list;
+
+    do {
+        auto *scope = this->ParseScope();
+
+        if (!ListAppend(list, (ArObject *) scope)) {
+            Release(scope);
+
+            throw DatatypeException();
+        }
+
+        Release(scope);
+    } while (this->MatchEat(TokenType::COMMA, true));
+
+    return (List *) ret.Unwrap();
+}
+
 Node *Parser::ParseAsync(Context *context, Position &start, bool pub) {
     this->Eat(true);
 
@@ -198,6 +222,10 @@ Node *Parser::ParseDecls(Context *context) {
             decl = this->ParseVarDecl(context, start, false, pub, false);
             break;
         case TokenType::KW_STRUCT:
+            if (!Parser::CheckScope(context, ContextType::MODULE))
+                throw ParserException(TKCUR_LOC, kStandardError[13], "struct", kContextName[(int) context->type]);
+
+            decl = this->ParseStruct(context, pub);
             break;
         case TokenType::KW_SYNC:
             if (Parser::CheckScope(context, ContextType::STRUCT, ContextType::TRAIT))
@@ -206,6 +234,10 @@ Node *Parser::ParseDecls(Context *context) {
             decl = this->ParseSyncBlock(context);
             break;
         case TokenType::KW_TRAIT:
+            if (!Parser::CheckScope(context, ContextType::MODULE))
+                throw ParserException(TKCUR_LOC, kStandardError[13], "trait", kContextName[(int) context->type]);
+
+            decl = this->ParseTrait(context, pub);
             break;
         case TokenType::KW_WEAK:
             if (!Parser::CheckScope(context, ContextType::STRUCT))
@@ -260,7 +292,7 @@ Node *Parser::ParseFunc(Context *context, Position start, bool pub) {
     func->loc.start = start;
 
     func->name = (String *) name.Unwrap();
-    func->doc = context->doc;
+    func->doc = IncRef(context->doc);
 
     func->params = (List *) params.Unwrap();
     func->body = (Node *) body.Unwrap();
@@ -353,7 +385,7 @@ Node *Parser::ParseFuncParam(Position start, NodeType type) {
     return (Node *) parameter;
 }
 
-node::Node *Parser::ParseIdentifier(scanner::Token *token) {
+node::Node *Parser::ParseIdentifier(Token *token) {
     auto *id = StringNew((const char *) token->buffer, token->length);
     if (id == nullptr)
         throw DatatypeException();
@@ -368,6 +400,53 @@ node::Node *Parser::ParseIdentifier(scanner::Token *token) {
     node->value = (ArObject *) id;
 
     return (Node *) node;
+}
+
+node::Node *Parser::ParseScope() {
+    // TODO: parse selector
+    this->Eat(false);
+    return nullptr;
+}
+
+Node *Parser::ParseStruct(Context *context, bool pub) {
+    Context t_ctx(context, ContextType::STRUCT);
+
+    ARC name;
+    ARC impls;
+    ARC body;
+
+    Position start = TKCUR_START;
+
+    this->Eat(true);
+
+    if (!this->CheckIDExt())
+        throw ParserException(TKCUR_LOC, kStandardError[4], "struct");
+
+    name = Parser::ParseIdentifierSimple(&this->tkcur_);
+
+    this->Eat(true);
+
+    if (this->MatchEat(TokenType::KW_IMPL, true))
+        impls = this->ParseTraitList();
+
+    body = this->ParseBlock(&t_ctx);
+
+    auto *_struct = NewNode<Construct>(type_ast_struct_, false, NodeType::STRUCT);
+    if (_struct == nullptr)
+        throw DatatypeException();
+
+    _struct->loc.start = start;
+    _struct->loc.end = ((Node *) body.Get())->loc.end;
+
+    _struct->name = (String *) name.Unwrap();
+    _struct->doc = IncRef(context->doc);
+    _struct->impls = (List *) impls.Unwrap();
+
+    _struct->body = (Node *) body.Unwrap();
+
+    _struct->pub = pub;
+
+    return (Node *) _struct;
 }
 
 node::Node *Parser::ParseSyncBlock(Context *context) {
@@ -396,6 +475,47 @@ node::Node *Parser::ParseSyncBlock(Context *context) {
     sync->loc.end = ((Node *) (sync->right))->loc.end;
 
     return (Node *) sync;
+}
+
+node::Node *Parser::ParseTrait(Context *context, bool pub) {
+    Context t_ctx(context, ContextType::TRAIT);
+
+    ARC name;
+    ARC impls;
+    ARC body;
+
+    Position start = TKCUR_START;
+
+    this->Eat(true);
+
+    if (!this->CheckIDExt())
+        throw ParserException(TKCUR_LOC, kStandardError[4], "trait");
+
+    name = Parser::ParseIdentifierSimple(&this->tkcur_);
+
+    this->Eat(true);
+
+    if (this->MatchEat(TokenType::COLON, true))
+        impls = this->ParseTraitList();
+
+    body = this->ParseBlock(&t_ctx);
+
+    auto *trait = NewNode<Construct>(type_ast_trait_, false, NodeType::TRAIT);
+    if (trait == nullptr)
+        throw DatatypeException();
+
+    trait->loc.start = start;
+    trait->loc.end = ((Node *) body.Get())->loc.end;
+
+    trait->name = (String *) name.Unwrap();
+    trait->doc = IncRef(context->doc);
+    trait->impls = (List *) impls.Unwrap();
+
+    trait->body = (Node *) body.Unwrap();
+
+    trait->pub = pub;
+
+    return (Node *) trait;
 }
 
 node::Node *Parser::ParseVarDecl(Context *context, Position start, bool constant, bool pub, bool weak) {
@@ -560,13 +680,13 @@ Module *Parser::Parse() {
     ARC ret;
     ARC statements;
 
-    auto *module = NewNode<Module>(type_ast_module_, false, NodeType::MODULE);
-    if (module == nullptr)
+    auto *mod = NewNode<Module>(type_ast_module_, false, NodeType::MODULE);
+    if (mod == nullptr)
         return nullptr;
 
-    ret = module;
+    ret = mod;
 
-    if ((module->filename = StringNew(this->filename_)) == nullptr)
+    if ((mod->filename = StringNew(this->filename_)) == nullptr)
         return nullptr;
 
     auto *stmts = ListNew();
@@ -586,8 +706,8 @@ Module *Parser::Parse() {
         assert(e.what() != nullptr);
     }
 
-    module->docs = nullptr;
-    module->statements = stmts;
+    mod->docs = nullptr;
+    mod->statements = stmts;
 
     statements.Unwrap();
 

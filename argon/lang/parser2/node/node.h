@@ -32,7 +32,9 @@ namespace argon::lang::parser2::node {
         KWPARAM,
         PARAMETER,
         REST,
-        SYNC_BLOCK
+        STRUCT,
+        SYNC_BLOCK,
+        TRAIT
     };
 
 #define NODE_NEW(StructName, ExtName, alias, doc, dtor, compare)    \
@@ -86,6 +88,20 @@ const argon::vm::datatype::TypeInfo *argon::lang::parser2::ExtName = &alias##Ast
         ArObject *right;
     };
     _ARGONAPI extern const TypeInfo *type_ast_sync_;
+
+    struct Construct {
+        NODEOBJ_HEAD;
+
+        String *name;
+        String *doc;
+        List *impls;
+
+        Node *body;
+
+        bool pub;
+    };
+    _ARGONAPI extern const vm::datatype::TypeInfo *type_ast_struct_;
+    _ARGONAPI extern const vm::datatype::TypeInfo *type_ast_trait_;
 
     struct Function {
         NODEOBJ_HEAD;

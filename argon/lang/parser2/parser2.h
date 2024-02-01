@@ -81,6 +81,8 @@ namespace argon::lang::parser2 {
 
         List *ParseFnParams();
 
+        List *ParseTraitList();
+
         node::Node *ParseAsync(Context *context, scanner::Position &start, bool pub);
 
         node::Node *ParseBlock(Context *context);
@@ -95,7 +97,13 @@ namespace argon::lang::parser2 {
 
         static node::Node *ParseIdentifier(scanner::Token *token);
 
+        node::Node *ParseScope();
+
+        node::Node * ParseStruct(Context *context, bool pub);
+
         node::Node *ParseSyncBlock(Context *context);
+
+        node::Node *ParseTrait(Context *context, bool pub);
 
         node::Node *ParseVarDecl(Context *context, scanner::Position start, bool constant, bool pub, bool weak);
 
