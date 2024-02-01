@@ -193,6 +193,11 @@ namespace argon::vm::datatype {
         explicit operator bool() const {
             return this->object_ != nullptr;
         }
+
+        void Discard() {
+            Release(this->object_);
+            this->object_ = nullptr;
+        }
     };
 
     class RefStore {

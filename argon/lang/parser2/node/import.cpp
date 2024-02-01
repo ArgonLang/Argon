@@ -6,5 +6,11 @@
 
 using namespace argon::lang::parser2::node;
 
-NODE_NEW(Binary, node::type_ast_import_name_, ImportName, nullptr, binary_dtor, nullptr);
-NODE_NEW(Binary, node::type_ast_sync_, Sync, nullptr, binary_dtor, nullptr);
+bool import_dtor(Import *self){
+    Release(self->mod);
+    Release(self->names);
+
+    return true;
+}
+
+NODE_NEW(Import, node::type_ast_import_, Import, nullptr, import_dtor, nullptr);

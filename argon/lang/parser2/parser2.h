@@ -28,7 +28,10 @@ namespace argon::lang::parser2 {
             "only one rest-param is allowed per function declaration",
             "unexpected [named] param",
             "'%s' not supported in '%s' context",
-            "sync block requires an object reference, not a literal"
+            "sync block requires an object reference, not a literal",
+            "expected import path as string after '%s'",
+            "expected 'import' after module path",
+            "expected module name or '*'"
     };
 
     class Parser {
@@ -89,13 +92,19 @@ namespace argon::lang::parser2 {
 
         node::Node *ParseDecls(Context *context);
 
+        node::Node *ParseFromImport(bool pub);
+
         node::Node *ParseFunc(Context *context, scanner::Position start, bool pub);
+
+        node::Node * ParseImport(bool pub);
+
+        node::Node *ParseLiteral();
 
         node::Node *ParseFuncNameParam(bool parse_pexpr);
 
         node::Node *ParseFuncParam(scanner::Position start, node::NodeType type);
 
-        static node::Node *ParseIdentifier(scanner::Token *token);
+        static node::Node *ParseIdentifier(const scanner::Token *token);
 
         node::Node *ParseScope();
 

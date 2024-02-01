@@ -27,6 +27,8 @@ namespace argon::lang::parser2::node {
         BLOCK,
         FUNCTION,
         IDENTIFIER,
+        IMPORT,
+        IMPORT_NAME,
         LITERAL,
         MODULE,
         KWPARAM,
@@ -87,6 +89,7 @@ const argon::vm::datatype::TypeInfo *argon::lang::parser2::ExtName = &alias##Ast
         ArObject *left;
         ArObject *right;
     };
+    _ARGONAPI extern const TypeInfo *type_ast_import_name_;
     _ARGONAPI extern const TypeInfo *type_ast_sync_;
 
     struct Construct {
@@ -116,6 +119,16 @@ const argon::vm::datatype::TypeInfo *argon::lang::parser2::ExtName = &alias##Ast
         bool pub;
     };
     _ARGONAPI extern const vm::datatype::TypeInfo *type_ast_function_;
+
+    struct Import {
+        NODEOBJ_HEAD;
+
+        Node *mod;
+        ArObject *names;
+
+        bool pub;
+    };
+    _ARGONAPI extern const vm::datatype::TypeInfo *type_ast_import_;
 
     struct Module {
         NODEOBJ_HEAD;

@@ -2,6 +2,8 @@
 //
 // Licensed under the Apache License v2.0
 
+#include <argon/vm/datatype/boolean.h>
+#include <argon/vm/datatype/bytes.h>
 #include <argon/vm/datatype/stringbuilder.h>
 
 #include <argon/lang/parser2/parser2.h>
@@ -206,11 +208,19 @@ Node *Parser::ParseDecls(Context *context) {
             decl = this->ParseAsync(context, start, pub);
             break;
         case TokenType::KW_FROM:
+            if (!Parser::CheckScope(context, ContextType::MODULE))
+                throw ParserException(TKCUR_LOC, kStandardError[13], "from", kContextName[(int) context->type]);
+
+            decl = this->ParseFromImport(pub);
             break;
         case TokenType::KW_FUNC:
             decl = this->ParseFunc(context, start, pub);
             break;
         case TokenType::KW_IMPORT:
+            if (!Parser::CheckScope(context, ContextType::MODULE))
+                throw ParserException(TKCUR_LOC, kStandardError[13], "import", kContextName[(int) context->type]);
+
+            decl = this->ParseImport(pub);
             break;
         case TokenType::KW_LET:
             decl = this->ParseVarDecl(context, start, true, pub, false);
@@ -255,6 +265,103 @@ Node *Parser::ParseDecls(Context *context) {
     }
 
     return (Node *) decl.Unwrap();
+}
+
+Node *Parser::ParseFromImport(bool pub) {
+    // from "x/y/z" import xyz as x
+    ARC imp_list;
+
+    ARC m_name;
+    ARC id;
+    ARC alias;
+
+    Position start = TKCUR_START;
+    Position end{};
+
+    this->Eat(true);
+
+    auto *list = ListNew();
+    if (list == nullptr)
+        throw DatatypeException();
+
+    imp_list = list;
+
+    if (!this->Match(TokenType::STRING))
+        throw ParserException(TKCUR_LOC, kStandardError[15], "from");
+
+    m_name = this->ParseLiteral();
+
+    if (!this->MatchEat(TokenType::KW_IMPORT, true))
+        throw ParserException(TKCUR_LOC, kStandardError[16]);
+
+    do {
+        this->EatNL();
+
+        if (!this->CheckIDExt()) {
+            if (this->MatchEat(TokenType::ASTERISK, false)) {
+                imp_list.Discard();
+
+                break;
+            }
+
+            throw ParserException(TKCUR_LOC, kStandardError[17]);
+        }
+
+        id = Parser::ParseIdentifierSimple(&this->tkcur_);
+
+        end = TKCUR_END;
+
+        this->Eat(false);
+
+        this->IgnoreNewLineIF(TokenType::KW_AS);
+
+        if (this->MatchEat(TokenType::KW_AS, false)) {
+            this->EatNL();
+
+            if (!this->CheckIDExt())
+                throw ParserException(TKCUR_LOC, kStandardError[4], "as");
+
+            alias = Parser::ParseIdentifierSimple(&this->tkcur_);
+
+            end = TKCUR_END;
+
+            this->Eat(false);
+        }
+
+        auto *i_name = NewNode<Binary>(type_ast_import_name_, false, NodeType::IMPORT_NAME);
+        if (i_name == nullptr)
+            throw DatatypeException();
+
+        i_name->left = id.Unwrap();
+        i_name->right = alias.Unwrap();
+
+        i_name->loc.start = ((Node *) (i_name->left))->loc.start;
+        i_name->loc.end = end;
+
+        if (!ListAppend(list, (ArObject *) i_name)) {
+            Release(i_name);
+
+            throw DatatypeException();
+        }
+
+        Release(i_name);
+
+        this->IgnoreNewLineIF(TokenType::COMMA);
+    } while (this->MatchEat(TokenType::COMMA, false));
+
+    auto *imp = NewNode<Import>(type_ast_import_, false, NodeType::IMPORT);
+    if (imp == nullptr)
+        throw DatatypeException();
+
+    imp->loc.start = start;
+    imp->loc.end = end;
+
+    imp->mod = (Node *) m_name.Unwrap();
+    imp->names = imp_list.Unwrap();
+
+    imp->pub = pub;
+
+    return (Node *) imp;
 }
 
 Node *Parser::ParseFunc(Context *context, Position start, bool pub) {
@@ -308,11 +415,164 @@ Node *Parser::ParseFunc(Context *context, Position start, bool pub) {
     return (Node *) func;
 }
 
-node::Node *Parser::ParseFuncNameParam(bool parse_pexpr) {
+Node *Parser::ParseImport(bool pub) {
+    ARC path;
+    ARC ret;
+
+    Position start = TKCUR_START;
+    Position end{};
+
+    this->Eat(true);
+
+    auto *list = ListNew();
+    if (list == nullptr)
+        throw DatatypeException();
+
+    ret = list;
+
+    do {
+        String *id = nullptr;
+
+        this->EatNL();
+
+        if (!this->Match(TokenType::STRING))
+            throw ParserException(TKCUR_LOC, kStandardError[15], "import");
+
+        end = TKCUR_END;
+
+        path = this->ParseLiteral();
+
+        this->IgnoreNewLineIF(TokenType::KW_AS);
+
+        if (this->MatchEat(scanner::TokenType::KW_AS, false)) {
+            this->EatNL();
+
+            if (!this->CheckIDExt())
+                throw ParserException(TKCUR_LOC, kStandardError[4], "as");
+
+            id = Parser::ParseIdentifierSimple(&this->tkcur_);
+
+            end = TKCUR_END;
+
+            this->Eat(false);
+        }
+
+        auto *i_name = NewNode<Binary>(type_ast_import_name_, false, NodeType::IMPORT_NAME);
+        if (i_name == nullptr) {
+            Release(id);
+
+            throw DatatypeException();
+        }
+
+        i_name->left = path.Unwrap();
+        i_name->right = (ArObject *) id;
+
+        i_name->loc.start = ((Node *) (i_name->left))->loc.start;
+        i_name->loc.end = end;
+
+        if (!ListAppend(list, (ArObject *) i_name)) {
+            Release(i_name);
+
+            throw DatatypeException();
+        }
+
+        Release(i_name);
+
+        this->IgnoreNewLineIF(TokenType::COMMA);
+    } while (this->MatchEat(TokenType::COMMA, false));
+
+    auto *imp = NewNode<Import>(type_ast_import_, false, NodeType::IMPORT);
+    if (imp == nullptr)
+        throw DatatypeException();
+
+    imp->loc.start = start;
+    imp->loc.end = end;
+
+    imp->names = ret.Unwrap();
+
+    imp->pub = pub;
+
+    return (Node *) imp;
+}
+
+Node *Parser::ParseLiteral() {
+    ArObject *value;
+    switch (this->tkcur_.type) {
+        case TokenType::ATOM:
+            value = (ArObject *) AtomNew((const char *) this->tkcur_.buffer);
+            break;
+        case TokenType::NUMBER:
+            value = (ArObject *) IntNew((const char *) this->tkcur_.buffer, 10);
+            break;
+        case TokenType::U_NUMBER:
+            value = (ArObject *) UIntNew((const char *) this->tkcur_.buffer, 10);
+            break;
+        case TokenType::NUMBER_BIN:
+            value = (ArObject *) IntNew((const char *) this->tkcur_.buffer, 2);
+            break;
+        case TokenType::U_NUMBER_BIN:
+            value = (ArObject *) UIntNew((const char *) this->tkcur_.buffer, 2);
+            break;
+        case TokenType::NUMBER_OCT:
+            value = (ArObject *) IntNew((const char *) this->tkcur_.buffer, 8);
+            break;
+        case TokenType::U_NUMBER_OCT:
+            value = (ArObject *) UIntNew((const char *) this->tkcur_.buffer, 8);
+            break;
+        case TokenType::NUMBER_HEX:
+            value = (ArObject *) IntNew((const char *) this->tkcur_.buffer, 16);
+            break;
+        case TokenType::U_NUMBER_HEX:
+            value = (ArObject *) UIntNew((const char *) this->tkcur_.buffer, 16);
+            break;
+        case TokenType::DECIMAL:
+            value = (ArObject *) DecimalNew((const char *) this->tkcur_.buffer);
+            break;
+        case TokenType::NUMBER_CHR:
+            value = (ArObject *) UIntNew(StringUTF8ToInt((const unsigned char *) this->tkcur_.buffer));
+            break;
+        case TokenType::STRING:
+        case TokenType::RAW_STRING:
+            value = (ArObject *) StringNew((const char *) this->tkcur_.buffer, this->tkcur_.length);
+            break;
+        case TokenType::BYTE_STRING:
+            value = (ArObject *) BytesNew(this->tkcur_.buffer, this->tkcur_.length, true);
+            break;
+        case TokenType::FALSE:
+            value = (ArObject *) IncRef(False);
+            break;
+        case TokenType::TRUE:
+            value = (ArObject *) IncRef(True);
+            break;
+        case TokenType::NIL:
+            value = (ArObject *) IncRef(Nil);
+            break;
+        default:
+            assert(false); // Never get here!
+    }
+
+    if (value == nullptr)
+        throw DatatypeException();
+
+    auto *literal = NewNode<Unary>(type_ast_literal_, false, NodeType::LITERAL);
+    if (literal == nullptr) {
+        Release(value);
+
+        throw DatatypeException();
+    }
+
+    literal->loc = TKCUR_LOC;
+
+    literal->value = value;
+
+    this->Eat(false);
+
+    return (Node *) literal;
+}
+
+Node *Parser::ParseFuncNameParam(bool parse_pexpr) {
     ARC id;
     ARC value;
-
-    Loc loc{};
 
     bool identifier = false;
 
@@ -328,7 +588,7 @@ node::Node *Parser::ParseFuncNameParam(bool parse_pexpr) {
 
     this->EatNL();
 
-    loc = TKCUR_LOC;
+    Loc loc = TKCUR_LOC;
 
     if (this->MatchEat(TokenType::EQUAL, true)) {
         if (!identifier)
@@ -385,7 +645,7 @@ Node *Parser::ParseFuncParam(Position start, NodeType type) {
     return (Node *) parameter;
 }
 
-node::Node *Parser::ParseIdentifier(Token *token) {
+Node *Parser::ParseIdentifier(const Token *token) {
     auto *id = StringNew((const char *) token->buffer, token->length);
     if (id == nullptr)
         throw DatatypeException();
@@ -402,7 +662,7 @@ node::Node *Parser::ParseIdentifier(Token *token) {
     return (Node *) node;
 }
 
-node::Node *Parser::ParseScope() {
+Node *Parser::ParseScope() {
     // TODO: parse selector
     this->Eat(false);
     return nullptr;
@@ -449,7 +709,7 @@ Node *Parser::ParseStruct(Context *context, bool pub) {
     return (Node *) _struct;
 }
 
-node::Node *Parser::ParseSyncBlock(Context *context) {
+Node *Parser::ParseSyncBlock(Context *context) {
     ARC expr;
     ARC body;
 
@@ -477,7 +737,7 @@ node::Node *Parser::ParseSyncBlock(Context *context) {
     return (Node *) sync;
 }
 
-node::Node *Parser::ParseTrait(Context *context, bool pub) {
+Node *Parser::ParseTrait(Context *context, bool pub) {
     Context t_ctx(context, ContextType::TRAIT);
 
     ARC name;
@@ -518,7 +778,7 @@ node::Node *Parser::ParseTrait(Context *context, bool pub) {
     return (Node *) trait;
 }
 
-node::Node *Parser::ParseVarDecl(Context *context, Position start, bool constant, bool pub, bool weak) {
+Node *Parser::ParseVarDecl(Context *context, Position start, bool constant, bool pub, bool weak) {
     ARC ret;
     Token identifier;
 
@@ -572,7 +832,7 @@ node::Node *Parser::ParseVarDecl(Context *context, Position start, bool constant
     return (Node *) ret.Unwrap();
 }
 
-node::Node *Parser::ParseVarDecls(const Token &token) {
+Node *Parser::ParseVarDecls(const Token &token) {
     ARC list;
 
     Position end{};
