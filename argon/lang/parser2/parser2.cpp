@@ -22,6 +22,18 @@ bool Parser::CheckIDExt() {
     return this->Match(scanner::TokenType::IDENTIFIER);
 }
 
+int Parser::PeekPrecedence(TokenType type) {
+    switch (type) {
+        case TokenType::END_OF_LINE:
+        case TokenType::END_OF_FILE:
+            return -1;
+        default:
+            return 1000;
+    }
+
+    assert(false);
+}
+
 List *Parser::ParseFnParams() {
     ARC ret;
 
@@ -261,10 +273,34 @@ Node *Parser::ParseDecls(Context *context) {
             decl = this->ParseVarDecl(context, start, false, pub, true);
             break;
         default:
+            if (pub)
+                throw ParserException(TKCUR_LOC, kStandardError[17]);
+
+            decl = this->ParseStatement(context);
             break;
     }
 
     return (Node *) decl.Unwrap();
+}
+
+Node *Parser::ParseExpression(Context *context) {
+    Node *expr;
+
+    expr = this->ParseExpression(context, 0);
+
+    if (this->Match(TokenType::COLON)) {
+        if (expr->node_type != NodeType::IDENTIFIER) {
+            Release(expr);
+
+            throw ParserException(TKCUR_LOC, kStandardError[0]);
+        }
+
+        return expr;
+    }
+
+    // TODO: Safe Expr
+
+    return nullptr;
 }
 
 Node *Parser::ParseFromImport(bool pub) {
@@ -289,7 +325,7 @@ Node *Parser::ParseFromImport(bool pub) {
     if (!this->Match(TokenType::STRING))
         throw ParserException(TKCUR_LOC, kStandardError[15], "from");
 
-    m_name = this->ParseLiteral();
+    m_name = this->ParseLiteral(nullptr);
 
     if (!this->MatchEat(TokenType::KW_IMPORT, true))
         throw ParserException(TKCUR_LOC, kStandardError[16]);
@@ -440,7 +476,7 @@ Node *Parser::ParseImport(bool pub) {
 
         end = TKCUR_END;
 
-        path = this->ParseLiteral();
+        path = this->ParseLiteral(nullptr);
 
         this->IgnoreNewLineIF(TokenType::KW_AS);
 
@@ -495,7 +531,7 @@ Node *Parser::ParseImport(bool pub) {
     return (Node *) imp;
 }
 
-Node *Parser::ParseLiteral() {
+node::Node *Parser::ParseLiteral(Context *context) {
     ArObject *value;
     switch (this->tkcur_.type) {
         case TokenType::ATOM:
@@ -645,27 +681,41 @@ Node *Parser::ParseFuncParam(Position start, NodeType type) {
     return (Node *) parameter;
 }
 
-Node *Parser::ParseIdentifier(const Token *token) {
-    auto *id = StringNew((const char *) token->buffer, token->length);
-    if (id == nullptr)
-        throw DatatypeException();
-
-    auto *node = NewNode<Unary>(type_ast_identifier_, false, NodeType::IDENTIFIER);
-    if (node == nullptr) {
-        Release(id);
-
-        throw DatatypeException();
-    }
-
-    node->value = (ArObject *) id;
-
-    return (Node *) node;
-}
-
 Node *Parser::ParseScope() {
     // TODO: parse selector
     this->Eat(false);
     return nullptr;
+}
+
+Node *Parser::ParseStatement(Context *context) {
+    ARC expr;
+    ARC label;
+
+    do {
+        switch (TKCUR_TYPE) {
+            // TODO: STATEMENTS
+            default:
+                expr = this->ParseExpression(context);
+                break;
+        }
+
+        this->IgnoreNewLineIF(TokenType::COLON);
+
+        if (((Node *) expr.Get())->node_type != NodeType::IDENTIFIER
+            || !this->MatchEat(TokenType::COLON, false))
+            break;
+
+        this->Eat(true);
+
+        if (label)
+            throw ParserException(TKCUR_LOC, kStandardError[19]);
+
+        label = expr;
+    } while (true);
+
+    // TODO: label checks
+
+    return (Node *) expr.Unwrap();
 }
 
 Node *Parser::ParseStruct(Context *context, bool pub) {
@@ -935,6 +985,107 @@ void Parser::EatNL() {
     if (this->tkcur_.type == TokenType::END_OF_LINE)
         this->Eat(true);
 }
+
+// *********************************************************************************************************************
+// EXPRESSION-ZONE AFTER THIS POINT
+// *********************************************************************************************************************
+
+Parser::LedMeth Parser::LookupLED(TokenType token) {
+    if (token > TokenType::INFIX_BEGIN && token < TokenType::INFIX_END)
+        return &Parser::ParseInfix;
+
+    switch (token) {
+        default:
+            return nullptr;
+    }
+
+    assert(false);
+}
+
+Parser::NudMeth Parser::LookupNUD(TokenType token) {
+    if (token > TokenType::LITERAL_BEGIN && token < TokenType::LITERAL_END)
+        return &Parser::ParseLiteral;
+
+    switch (token) {
+        default:
+            return nullptr;
+    }
+
+    assert(false);
+}
+
+Node *Parser::ParseExpression(Context *context, int precedence) {
+    ARC left;
+
+    LedMeth led;
+    NudMeth nud;
+
+    if ((nud = Parser::LookupNUD(TKCUR_TYPE)) == nullptr) {
+        // As identifier!
+        left = this->ParseIdentifier(context);
+    } else
+        left = (this->*nud)(context);
+
+    auto tk_type = TKCUR_TYPE;
+    while (precedence < Parser::PeekPrecedence(tk_type)) {
+        if ((led = Parser::LookupLED(tk_type)) == nullptr)
+            break;
+
+        left = (this->*led)(context, ((Node *) left.Get()));
+
+        tk_type = TKCUR_TYPE;
+    }
+
+    // TODO: safe?!
+
+    return (Node *) left.Unwrap();
+}
+
+Node *Parser::ParseIdentifier(Context *context) {
+    auto *id = StringNew((const char *) this->tkcur_.buffer, this->tkcur_.length);
+    if (id == nullptr)
+        throw DatatypeException();
+
+    auto *node = NewNode<Unary>(type_ast_identifier_, false, NodeType::IDENTIFIER);
+    if (node == nullptr) {
+        Release(id);
+
+        throw DatatypeException();
+    }
+
+    node->value = (ArObject *) id;
+
+    this->Eat(false);
+
+    return (Node *) node;
+}
+
+Node *Parser::ParseInfix(Context *context, Node *left) {
+    TokenType type = TKCUR_TYPE;
+
+    this->Eat(true);
+
+    auto *right = this->ParseExpression(context, Parser::PeekPrecedence(type));
+
+    auto *infix = NewNode<Binary>(type_ast_infix_, false, NodeType::INFIX);
+    if (infix == nullptr) {
+        Release(right);
+
+        throw DatatypeException();
+    }
+
+    infix->loc.start = left->loc.start;
+    infix->loc.end = right->loc.end;
+
+    infix->left = (ArObject *) IncRef(left);
+    infix->right = (ArObject *) right;
+
+    return (Node *) infix;
+}
+
+// *********************************************************************************************************************
+// PUBLIC
+// *********************************************************************************************************************
 
 Module *Parser::Parse() {
     ARC ret;

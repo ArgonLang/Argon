@@ -31,10 +31,15 @@ namespace argon::lang::parser2 {
             "sync block requires an object reference, not a literal",
             "expected import path as string after '%s'",
             "expected 'import' after module path",
-            "expected module name or '*'"
+            "expected module name or '*'",
+            "expected declaration after 'pub' keyword",
+            "expected statement after label"
     };
 
     class Parser {
+        using LedMeth = node::Node *(Parser::*)(Context *context, node::Node *);
+        using NudMeth = node::Node *(Parser::*)(Context *context);
+
         scanner::Token tkcur_;
 
         scanner::Scanner &scanner_;
@@ -82,6 +87,8 @@ namespace argon::lang::parser2 {
             return this->tkcur_.type > begin && this->tkcur_.type < end;
         }
 
+        int PeekPrecedence(scanner::TokenType type);
+
         List *ParseFnParams();
 
         List *ParseTraitList();
@@ -92,23 +99,25 @@ namespace argon::lang::parser2 {
 
         node::Node *ParseDecls(Context *context);
 
+        node::Node *ParseExpression(Context *context);
+
         node::Node *ParseFromImport(bool pub);
 
         node::Node *ParseFunc(Context *context, scanner::Position start, bool pub);
 
-        node::Node * ParseImport(bool pub);
+        node::Node *ParseImport(bool pub);
 
-        node::Node *ParseLiteral();
+        node::Node *ParseLiteral(Context *context);
 
         node::Node *ParseFuncNameParam(bool parse_pexpr);
 
         node::Node *ParseFuncParam(scanner::Position start, node::NodeType type);
 
-        static node::Node *ParseIdentifier(const scanner::Token *token);
-
         node::Node *ParseScope();
 
-        node::Node * ParseStruct(Context *context, bool pub);
+        node::Node *ParseStatement(Context *context);
+
+        node::Node *ParseStruct(Context *context, bool pub);
 
         node::Node *ParseSyncBlock(Context *context);
 
@@ -156,6 +165,22 @@ namespace argon::lang::parser2 {
 
             this->Eat(true);
         }
+
+// *********************************************************************************************************************
+// EXPRESSION-ZONE AFTER THIS POINT
+// *********************************************************************************************************************
+
+        static LedMeth LookupLED(scanner::TokenType token);
+
+        node::Node *ParseExpression(Context *context, int precedence);
+
+        node::Node *ParseIdentifier(Context *context);
+
+        node::Node *ParseInfix(Context *context, node::Node *left);
+
+        node::Node *ParsePipeline(Context *context, node::Node *left);
+
+        static NudMeth LookupNUD(scanner::TokenType token);
 
     public:
         /**

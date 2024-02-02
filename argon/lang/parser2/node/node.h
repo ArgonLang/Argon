@@ -29,6 +29,7 @@ namespace argon::lang::parser2::node {
         IDENTIFIER,
         IMPORT,
         IMPORT_NAME,
+        INFIX,
         LITERAL,
         MODULE,
         KWPARAM,
@@ -90,6 +91,7 @@ const argon::vm::datatype::TypeInfo *argon::lang::parser2::ExtName = &alias##Ast
         ArObject *right;
     };
     _ARGONAPI extern const TypeInfo *type_ast_import_name_;
+    _ARGONAPI extern const TypeInfo *type_ast_infix_;
     _ARGONAPI extern const TypeInfo *type_ast_sync_;
 
     struct Construct {
