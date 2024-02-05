@@ -180,6 +180,8 @@ namespace argon::lang::parser2 {
 
         node::Node *ParsePipeline(Context *context, node::Node *left);
 
+        node::Node *ParsePrefix(Context *context);
+
         static NudMeth LookupNUD(scanner::TokenType token);
 
     public:

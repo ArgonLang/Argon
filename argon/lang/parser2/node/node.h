@@ -37,7 +37,8 @@ namespace argon::lang::parser2::node {
         REST,
         STRUCT,
         SYNC_BLOCK,
-        TRAIT
+        TRAIT,
+        UNARY
     };
 
 #define NODE_NEW(StructName, ExtName, alias, doc, dtor, compare)    \

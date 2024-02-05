@@ -300,7 +300,7 @@ Node *Parser::ParseExpression(Context *context) {
 
     // TODO: Safe Expr
 
-    return nullptr;
+    return expr;
 }
 
 Node *Parser::ParseFromImport(bool pub) {
@@ -1007,6 +1007,11 @@ Parser::NudMeth Parser::LookupNUD(TokenType token) {
         return &Parser::ParseLiteral;
 
     switch (token) {
+        case TokenType::PLUS:
+        case TokenType::MINUS:
+        case TokenType::EXCLAMATION:
+        case TokenType::TILDE:
+            return &Parser::ParsePrefix;
         default:
             return nullptr;
     }
@@ -1081,6 +1086,31 @@ Node *Parser::ParseInfix(Context *context, Node *left) {
     infix->right = (ArObject *) right;
 
     return (Node *) infix;
+}
+
+Node *Parser::ParsePrefix(Context *context) {
+    Position start = TKCUR_START;
+    TokenType kind = TKCUR_TYPE;
+
+    this->Eat(true);
+
+    auto *right = this->ParseExpression(context, PeekPrecedence(kind));
+
+    auto *unary = NewNode<Unary>(type_ast_unary_, false, NodeType::UNARY);
+    if (unary == nullptr) {
+        Release(right);
+
+        throw DatatypeException();
+    }
+
+    unary->loc.start = start;
+    unary->loc.end = unary->loc.end;
+
+    unary->token_type = kind;
+
+    unary->value = (ArObject *) unary;
+
+    return (Node *) unary;
 }
 
 // *********************************************************************************************************************
