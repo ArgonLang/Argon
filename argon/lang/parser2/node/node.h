@@ -24,7 +24,10 @@ namespace argon::lang::parser2::node {
 
     enum class NodeType {
         ASSIGNMENT,
+        AWAIT,
         BLOCK,
+        CHAN_IN,
+        CHAN_OUT,
         DICT,
         FUNCTION,
         IDENTIFIER,

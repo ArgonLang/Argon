@@ -1015,6 +1015,8 @@ Parser::NudMeth Parser::LookupNUD(TokenType token) {
         return &Parser::ParseLiteral;
 
     switch (token) {
+        case TokenType::ARROW_LEFT:
+            return &Parser::ParseChanOut;
         case TokenType::EXCLAMATION:
         case TokenType::MINUS:
         case TokenType::PLUS:
@@ -1026,6 +1028,8 @@ Parser::NudMeth Parser::LookupNUD(TokenType token) {
             return &Parser::ParseArrowOrTuple;
         case TokenType::LEFT_SQUARE:
             return &Parser::ParseList;
+        case TokenType::KW_AWAIT:
+            return &Parser::ParseAwait;
         case TokenType::KW_TRAP:
             return &Parser::ParseTrap;
         default:
@@ -1119,6 +1123,51 @@ Node *Parser::ParseArrowOrTuple(Context *context) {
     func->loc.end = func->body->loc.end;
 
     return (Node *) func;
+}
+
+Node *Parser::ParseAwait(Context *context) {
+    auto start = TKCUR_START;
+
+    this->Eat(true);
+
+    // TODO: Fix precedence
+    auto *expr = this->ParseExpression(context, 0);
+
+    auto *unary = NewNode<Unary>(type_ast_unary_, false, NodeType::AWAIT);
+    if (unary == nullptr) {
+        Release(expr);
+
+        throw DatatypeException();
+    }
+
+    unary->loc.start = start;
+    unary->loc.end = expr->loc.end;
+
+    unary->value = (ArObject *) expr;
+
+    return (Node *) unary;
+}
+
+Node *Parser::ParseChanOut(Context *context) {
+    Position start = TKCUR_START;
+
+    this->Eat(true);
+
+    auto expr = this->ParseExpression(context, PeekPrecedence(TokenType::ARROW_LEFT));
+
+    auto *unary = NewNode<Unary>(type_ast_unary_, false, NodeType::CHAN_OUT);
+    if (unary == nullptr) {
+        Release(expr);
+
+        throw DatatypeException();
+    }
+
+    unary->loc.start = start;
+    unary->loc.end = expr->loc.end;
+
+    unary->value = (ArObject *) expr;
+
+    return (Node *) unary;
 }
 
 Node *Parser::ParseDictSet(Context *context) {
@@ -1233,7 +1282,7 @@ Node *Parser::ParseExpression(Context *context, int precedence) {
     return (Node *) left.Unwrap();
 }
 
-Node *Parser::ParseIdentifier(Context *context) {
+Node *Parser::ParseIdentifier([[maybe_unused]]Context *context) {
     auto *id = StringNew((const char *) this->tkcur_.buffer, this->tkcur_.length);
     if (id == nullptr)
         throw DatatypeException();

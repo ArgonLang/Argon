@@ -179,6 +179,10 @@ namespace argon::lang::parser2 {
 
         node::Node *ParseArrowOrTuple(Context *context);
 
+        node::Node *ParseAwait(Context *context);
+
+        node::Node *ParseChanOut(Context *context);
+
         node::Node *ParseDictSet(Context *context);
 
         node::Node *ParseExpression(Context *context, int precedence);
