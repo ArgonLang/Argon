@@ -33,7 +33,12 @@ namespace argon::lang::parser2 {
             "expected 'import' after module path",
             "expected module name or '*'",
             "expected declaration after 'pub' keyword",
-            "expected statement after label"
+            "expected statement after label",
+            "expected ']' after list definition",
+            "you started defining a set, not a dict",
+            "you started defining a dict, not a set",
+            "expected '}' after %s definition",
+            "expected ')' after tuple/function definition"
     };
 
     class Parser {
@@ -89,7 +94,7 @@ namespace argon::lang::parser2 {
 
         int PeekPrecedence(scanner::TokenType type);
 
-        List *ParseFnParams();
+        List *ParseFnParams(Context *context, bool parse_pexpr);
 
         List *ParseTraitList();
 
@@ -109,7 +114,7 @@ namespace argon::lang::parser2 {
 
         node::Node *ParseLiteral(Context *context);
 
-        node::Node *ParseFuncNameParam(bool parse_pexpr);
+        node::Node *ParseFuncNameParam(Context *context, bool parse_pexpr);
 
         node::Node *ParseFuncParam(scanner::Position start, node::NodeType type);
 
@@ -172,11 +177,17 @@ namespace argon::lang::parser2 {
 
         static LedMeth LookupLED(scanner::TokenType token);
 
+        node::Node *ParseArrowOrTuple(Context *context);
+
+        node::Node *ParseDictSet(Context *context);
+
         node::Node *ParseExpression(Context *context, int precedence);
 
         node::Node *ParseIdentifier(Context *context);
 
         node::Node *ParseInfix(Context *context, node::Node *left);
+
+        node::Node *ParseList(Context *context);
 
         node::Node *ParsePipeline(Context *context, node::Node *left);
 

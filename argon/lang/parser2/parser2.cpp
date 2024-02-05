@@ -2,6 +2,7 @@
 //
 // Licensed under the Apache License v2.0
 
+#include <argon/vm/datatype/arstring.h>
 #include <argon/vm/datatype/boolean.h>
 #include <argon/vm/datatype/bytes.h>
 #include <argon/vm/datatype/stringbuilder.h>
@@ -34,12 +35,12 @@ int Parser::PeekPrecedence(TokenType type) {
     assert(false);
 }
 
-List *Parser::ParseFnParams() {
+List *Parser::ParseFnParams(Context *context, bool parse_pexpr) {
     ARC ret;
 
     Position start{};
 
-    auto *params = (List *) ListNew();
+    auto *params = ListNew();
     if (params == nullptr)
         throw DatatypeException();
 
@@ -85,7 +86,7 @@ List *Parser::ParseFnParams() {
             if (mode > 1)
                 throw ParserException(TKCUR_LOC, kStandardError[12]);
 
-            tmp = (ArObject *) this->ParseFuncNameParam(false);
+            tmp = (ArObject *) this->ParseFuncNameParam(context, parse_pexpr);
 
             if (mode > 0 && ((Parameter *) tmp)->value == nullptr) {
                 Release(tmp);
@@ -417,7 +418,7 @@ Node *Parser::ParseFunc(Context *context, Position start, bool pub) {
     this->Eat(true);
 
     if (this->MatchEat(TokenType::LEFT_ROUND, true)) {
-        params = this->ParseFnParams();
+        params = this->ParseFnParams(context, false);
 
         this->EatNL();
 
@@ -435,7 +436,7 @@ Node *Parser::ParseFunc(Context *context, Position start, bool pub) {
     func->loc.start = start;
 
     func->name = (String *) name.Unwrap();
-    func->doc = IncRef(context->doc);
+    func->doc = IncRef(f_ctx.doc);
 
     func->params = (List *) params.Unwrap();
     func->body = (Node *) body.Unwrap();
@@ -606,15 +607,15 @@ node::Node *Parser::ParseLiteral(Context *context) {
     return (Node *) literal;
 }
 
-Node *Parser::ParseFuncNameParam(bool parse_pexpr) {
+Node *Parser::ParseFuncNameParam(Context *context, bool parse_pexpr) {
     ARC id;
     ARC value;
 
     bool identifier = false;
 
-    if (parse_pexpr) {
-        // TODO: id = (ArObject *) this->ParseExpression(PeekPrecedence(scanner::TokenType::COMMA));
-    } else if (this->CheckIDExt()) {
+    if (parse_pexpr)
+        id = this->ParseExpression(context, PeekPrecedence(TokenType::COMMA));
+    else if (this->CheckIDExt()) {
         id = Parser::ParseIdentifierSimple(&this->tkcur_);
         identifier = true;
 
@@ -627,7 +628,7 @@ Node *Parser::ParseFuncNameParam(bool parse_pexpr) {
     Loc loc = TKCUR_LOC;
 
     if (this->MatchEat(TokenType::EQUAL, true)) {
-        if (!identifier)
+        if (!identifier && ((Node *) id.Get())->node_type != NodeType::IDENTIFIER)
             throw ParserException(loc, kStandardError[8]);
 
         if (this->Match(TokenType::COMMA, TokenType::RIGHT_ROUND)) {
@@ -638,19 +639,26 @@ Node *Parser::ParseFuncNameParam(bool parse_pexpr) {
             literal->loc = loc;
 
             value = literal;
-        } else {
-            // TODO: (ArObject *) this->ParseExpression(PeekPrecedence(scanner::TokenType::COMMA));
-        }
+        } else
+            value = this->ParseExpression(context, PeekPrecedence(scanner::TokenType::COMMA));
     }
 
-    if (identifier) {
+    if (identifier || value) {
         auto *param = NewNode<Parameter>(type_ast_parameter_, false, NodeType::PARAMETER);
         if (param == nullptr)
             throw DatatypeException();
 
         param->loc = loc;
 
-        param->id = (String *) id.Unwrap();
+        auto *r_id = id.Unwrap();
+
+        if (!AR_TYPEOF(r_id, vm::datatype::type_string_)) {
+            param->id = (String *) IncRef(((Unary *) r_id)->value);
+
+            Release(r_id);
+        } else
+            param->id = (String *) r_id;
+
         param->value = (Node *) value.Unwrap();
 
         return (Node *) param;
@@ -1007,11 +1015,17 @@ Parser::NudMeth Parser::LookupNUD(TokenType token) {
         return &Parser::ParseLiteral;
 
     switch (token) {
-        case TokenType::PLUS:
-        case TokenType::MINUS:
         case TokenType::EXCLAMATION:
+        case TokenType::MINUS:
+        case TokenType::PLUS:
         case TokenType::TILDE:
             return &Parser::ParsePrefix;
+        case TokenType::LEFT_BRACES:
+            return &Parser::ParseDictSet;
+        case TokenType::LEFT_ROUND:
+            return &Parser::ParseArrowOrTuple;
+        case TokenType::LEFT_SQUARE:
+            return &Parser::ParseList;
         case TokenType::KW_TRAP:
             return &Parser::ParseTrap;
         default:
@@ -1019,6 +1033,177 @@ Parser::NudMeth Parser::LookupNUD(TokenType token) {
     }
 
     assert(false);
+}
+
+Node *Parser::ParseArrowOrTuple(Context *context) {
+    ARC a_items;
+    ARC body;
+
+    Position start = TKCUR_START;
+
+    this->Eat(true);
+
+    auto *items = this->ParseFnParams(context, true);
+
+    a_items = items;
+
+    this->EatNL();
+
+    auto end = TKCUR_END;
+
+    if (!this->MatchEat(TokenType::RIGHT_ROUND, false))
+        throw ParserException(TKCUR_LOC, kStandardError[24]);
+
+    this->IgnoreNewLineIF(TokenType::FAT_ARROW);
+
+    if (!this->Match(TokenType::FAT_ARROW)) {
+        for (int i = 0; i < items->length; i++) {
+            if (AR_TYPEOF(items->objects[i], type_ast_parameter_))
+                throw ParserException(((Node *) items->objects[i])->loc, kStandardError[0]);
+        }
+
+        if (items->length == 1)
+            return (Node *) ListGet(items, 0);
+
+        auto *tuple = NewNode<Unary>(type_ast_unary_, false, NodeType::TUPLE);
+        if (tuple == nullptr)
+            throw DatatypeException();
+
+        tuple->loc.start = start;
+        tuple->loc.end = end;
+
+        tuple->value = a_items.Unwrap();
+
+        return (Node *) tuple;
+    }
+
+    this->Eat(true);
+
+    // Check param list
+    for (int i = 0; i < items->length; i++) {
+        if (AR_TYPEOF(items->objects[i], type_ast_identifier_)) {
+            // Convert Identifier to parameter
+            auto *identifier = (Unary *) items->objects[i];
+
+            auto *param = NewNode<Parameter>(type_ast_parameter_, false, NodeType::PARAMETER);
+            if (param == nullptr)
+                throw DatatypeException();
+
+            param->loc = identifier->loc;
+            param->id = (String *) IncRef(identifier->value);
+
+            Release(items->objects[i]);
+            items->objects[i] = (ArObject *) param;
+
+            continue;
+        }
+
+        if (!AR_TYPEOF(items->objects[i], type_ast_parameter_))
+            throw ParserException(((Node *) items->objects[i])->loc, kStandardError[0]);
+    }
+
+    Context f_ctx(context, ContextType::FUNC);
+
+    body = this->ParseBlock(&f_ctx);
+
+    auto *func = NewNode<Function>(type_ast_function_, false, NodeType::FUNCTION);
+    if (func == nullptr)
+        throw DatatypeException();
+
+    func->doc = IncRef(f_ctx.doc);
+
+    func->params = (List *) a_items.Unwrap();
+    func->body = (Node *) body.Unwrap();
+
+    func->loc.start = start;
+    func->loc.end = func->body->loc.end;
+
+    return (Node *) func;
+}
+
+Node *Parser::ParseDictSet(Context *context) {
+    ARC a_list;
+
+    Position start = TKCUR_START;
+
+    // It does not matter, it is a placeholder.
+    // The important thing is that it is not DICT or SET.
+    NodeType type = NodeType::ASSIGNMENT;
+
+    auto *list = ListNew();
+    if (list == nullptr)
+        throw DatatypeException();
+
+    a_list = list;
+
+    this->Eat(true);
+
+    if (this->Match(TokenType::RIGHT_BRACES)) {
+        auto *ret = NewNode<Unary>(type_ast_unary_, false, NodeType::DICT);
+        if (ret == nullptr)
+            throw DatatypeException();
+
+        ret->loc.start = start;
+        ret->loc.end = TKCUR_END;
+
+        this->Eat(false);
+
+        return (Node *) ret;
+    }
+
+    do {
+        auto *expr = this->ParseExpression(context, PeekPrecedence(TokenType::COMMA));
+
+        if (!ListAppend(list, (ArObject *) expr)) {
+            Release(expr);
+
+            throw DatatypeException();
+        }
+
+        Release(expr);
+
+        if (this->MatchEat(TokenType::COLON, true)) {
+            if (type == NodeType::SET)
+                throw ParserException(TKCUR_LOC, kStandardError[21]);
+
+            type = NodeType::DICT;
+
+            this->EatNL();
+
+            expr = this->ParseExpression(context, PeekPrecedence(TokenType::COMMA));
+
+            if (!ListAppend(list, (ArObject *) expr)) {
+                Release(expr);
+
+                throw DatatypeException();
+            }
+
+            Release(expr);
+
+            continue;
+        }
+
+        if (type == NodeType::DICT)
+            throw ParserException(TKCUR_LOC, kStandardError[22]);
+
+        type = NodeType::SET;
+    } while (this->MatchEat(TokenType::COMMA, true));
+
+    auto end = TKCUR_END;
+
+    if (!this->MatchEat(TokenType::RIGHT_BRACES, false))
+        throw ParserException(TKCUR_LOC, kStandardError[23], type == NodeType::DICT ? "dict" : "set");
+
+    auto *unary = NewNode<Unary>(type_ast_unary_, false, type);
+    if (unary == nullptr)
+        throw DatatypeException();
+
+    unary->loc.start = start;
+    unary->loc.end = end;
+
+    unary->value = a_list.Unwrap();
+
+    return (Node *) unary;
 }
 
 Node *Parser::ParseExpression(Context *context, int precedence) {
@@ -1084,10 +1269,58 @@ Node *Parser::ParseInfix(Context *context, Node *left) {
     infix->loc.start = left->loc.start;
     infix->loc.end = right->loc.end;
 
+    infix->token_type = type;
+
     infix->left = (ArObject *) IncRef(left);
     infix->right = (ArObject *) right;
 
     return (Node *) infix;
+}
+
+Node *Parser::ParseList(Context *context) {
+    ARC a_list;
+
+    Position start = TKCUR_START;
+
+    this->Eat(true);
+
+    auto *list = ListNew();
+    if (list == nullptr)
+        throw DatatypeException();
+
+    a_list = list;
+
+    if (!this->Match(TokenType::RIGHT_SQUARE)) {
+        do {
+            this->EatNL();
+
+            auto *itm = this->ParseExpression(context, PeekPrecedence(TokenType::COMMA));
+
+            if (!ListAppend(list, (ArObject *) itm)) {
+                Release(itm);
+
+                throw DatatypeException();
+            }
+
+            Release(itm);
+        } while (this->MatchEat(TokenType::COMMA, true));
+    }
+
+    auto end = TKCUR_END;
+
+    if (!this->MatchEat(TokenType::RIGHT_SQUARE, false))
+        throw ParserException(TKCUR_LOC, kStandardError[20]);
+
+    auto *unary = NewNode<Unary>(type_ast_unary_, false, NodeType::LIST);
+    if (unary == nullptr)
+        throw DatatypeException();
+
+    unary->loc.start = start;
+    unary->loc.end = end;
+
+    unary->value = a_list.Unwrap();
+
+    return (Node *) unary;
 }
 
 Node *Parser::ParsePrefix(Context *context) {
@@ -1098,7 +1331,7 @@ Node *Parser::ParsePrefix(Context *context) {
 
     auto *right = this->ParseExpression(context, PeekPrecedence(kind));
 
-    auto *unary = NewNode<Unary>(type_ast_unary_, false, NodeType::UNARY);
+    auto *unary = NewNode<Unary>(type_ast_prefix_, false, NodeType::PREFIX);
     if (unary == nullptr) {
         Release(right);
 

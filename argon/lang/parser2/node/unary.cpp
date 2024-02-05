@@ -8,4 +8,5 @@ using namespace argon::lang::parser2::node;
 
 NODE_NEW(Unary, node::type_ast_identifier_, Identifier, nullptr, unary_dtor, nullptr);
 NODE_NEW(Unary, node::type_ast_literal_, Literal, nullptr, unary_dtor, nullptr);
+NODE_NEW(Unary, node::type_ast_prefix_, Prefix, nullptr, unary_dtor, nullptr);
 NODE_NEW(Unary, node::type_ast_unary_, Unary, nullptr, unary_dtor, nullptr);

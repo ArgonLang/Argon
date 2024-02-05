@@ -25,20 +25,25 @@ namespace argon::lang::parser2::node {
     enum class NodeType {
         ASSIGNMENT,
         BLOCK,
+        DICT,
         FUNCTION,
         IDENTIFIER,
         IMPORT,
         IMPORT_NAME,
         INFIX,
+        LIST,
         LITERAL,
         MODULE,
         KWPARAM,
         PARAMETER,
+        PREFIX,
         REST,
+        SET,
         STRUCT,
         SYNC_BLOCK,
         TRAIT,
         TRAP,
+        TUPLE,
         UNARY
     };
 
@@ -159,6 +164,7 @@ const argon::vm::datatype::TypeInfo *argon::lang::parser2::ExtName = &alias##Ast
     };
     _ARGONAPI extern const TypeInfo *type_ast_identifier_;
     _ARGONAPI extern const TypeInfo *type_ast_literal_;
+    _ARGONAPI extern const TypeInfo *type_ast_prefix_;
     _ARGONAPI extern const TypeInfo *type_ast_unary_;
 
     inline bool unary_dtor(Unary *self) {
