@@ -1012,6 +1012,8 @@ Parser::NudMeth Parser::LookupNUD(TokenType token) {
         case TokenType::EXCLAMATION:
         case TokenType::TILDE:
             return &Parser::ParsePrefix;
+        case TokenType::KW_TRAP:
+            return &Parser::ParseTrap;
         default:
             return nullptr;
     }
@@ -1107,6 +1109,33 @@ Node *Parser::ParsePrefix(Context *context) {
     unary->loc.end = unary->loc.end;
 
     unary->token_type = kind;
+
+    unary->value = (ArObject *) unary;
+
+    return (Node *) unary;
+}
+
+Node *Parser::ParseTrap(Context *context) {
+    Position start = TKCUR_START;
+
+    this->Eat(true);
+
+    auto *right = this->ParseExpression(context);
+
+    // Expressions with multiple traps are useless,
+    // if the expression is already a trap, return it immediately
+    if (right->node_type == NodeType::TRAP)
+        return right;
+
+    auto *unary = NewNode<Unary>(type_ast_unary_, false, NodeType::TRAP);
+    if (unary == nullptr) {
+        Release(right);
+
+        throw DatatypeException();
+    }
+
+    unary->loc.start = start;
+    unary->loc.end = unary->loc.end;
 
     unary->value = (ArObject *) unary;
 

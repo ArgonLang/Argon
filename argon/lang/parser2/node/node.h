@@ -38,6 +38,7 @@ namespace argon::lang::parser2::node {
         STRUCT,
         SYNC_BLOCK,
         TRAIT,
+        TRAP,
         UNARY
     };
 

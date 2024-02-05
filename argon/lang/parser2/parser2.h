@@ -182,6 +182,8 @@ namespace argon::lang::parser2 {
 
         node::Node *ParsePrefix(Context *context);
 
+        node::Node *ParseTrap(Context *context);
+
         static NudMeth LookupNUD(scanner::TokenType token);
 
     public:
