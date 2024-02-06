@@ -33,15 +33,19 @@ namespace argon::lang::parser2::node {
         IDENTIFIER,
         IMPORT,
         IMPORT_NAME,
+        INDEX,
+        IN,
         INFIX,
         LIST,
         LITERAL,
         MODULE,
+        NOT_IN,
         KWPARAM,
         PARAMETER,
         PREFIX,
         REST,
         SET,
+        SLICE,
         STRUCT,
         SYNC_BLOCK,
         TRAIT,
@@ -100,6 +104,7 @@ const argon::vm::datatype::TypeInfo *argon::lang::parser2::ExtName = &alias##Ast
         ArObject *left;
         ArObject *right;
     };
+    _ARGONAPI extern const TypeInfo *type_ast_binary_;
     _ARGONAPI extern const TypeInfo *type_ast_import_name_;
     _ARGONAPI extern const TypeInfo *type_ast_infix_;
     _ARGONAPI extern const TypeInfo *type_ast_sync_;
@@ -159,6 +164,15 @@ const argon::vm::datatype::TypeInfo *argon::lang::parser2::ExtName = &alias##Ast
         Node *value;
     };
     _ARGONAPI extern const vm::datatype::TypeInfo *type_ast_parameter_;
+
+    struct Subscript {
+        NODEOBJ_HEAD;
+
+        Node *expression;
+        Node *start;
+        Node *stop;
+    };
+    _ARGONAPI extern const vm::datatype::TypeInfo *type_ast_subscript_;
 
     struct Unary {
         NODEOBJ_HEAD;

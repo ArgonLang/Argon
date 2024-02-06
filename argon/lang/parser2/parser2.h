@@ -34,11 +34,12 @@ namespace argon::lang::parser2 {
             "expected module name or '*'",
             "expected declaration after 'pub' keyword",
             "expected statement after label",
-            "expected ']' after list definition",
+            "expected ']' after %s definition",
             "you started defining a set, not a dict",
             "you started defining a dict, not a set",
             "expected '}' after %s definition",
-            "expected ')' after tuple/function definition"
+            "expected ')' after tuple/function definition",
+            "subscript definition (index | slice) cannot be empty"
     };
 
     class Parser {
@@ -175,7 +176,7 @@ namespace argon::lang::parser2 {
 // EXPRESSION-ZONE AFTER THIS POINT
 // *********************************************************************************************************************
 
-        static LedMeth LookupLED(scanner::TokenType token);
+        static LedMeth LookupLED(scanner::TokenType token, bool newline);
 
         node::Node *ParseArrowOrTuple(Context *context);
 
@@ -189,6 +190,8 @@ namespace argon::lang::parser2 {
 
         node::Node *ParseIdentifier(Context *context);
 
+        node::Node *ParseIn(Context *context, node::Node *left);
+
         node::Node *ParseInfix(Context *context, node::Node *left);
 
         node::Node *ParseList(Context *context);
@@ -196,6 +199,8 @@ namespace argon::lang::parser2 {
         node::Node *ParsePipeline(Context *context, node::Node *left);
 
         node::Node *ParsePrefix(Context *context);
+
+        node::Node *ParseSubscript(Context *context, node::Node *left);
 
         node::Node *ParseTrap(Context *context);
 

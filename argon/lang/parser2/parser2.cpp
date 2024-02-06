@@ -5,10 +5,10 @@
 #include <argon/vm/datatype/arstring.h>
 #include <argon/vm/datatype/boolean.h>
 #include <argon/vm/datatype/bytes.h>
+#include <argon/vm/datatype/nil.h>
 #include <argon/vm/datatype/stringbuilder.h>
 
 #include <argon/lang/parser2/parser2.h>
-#include "argon/vm/datatype/nil.h"
 
 using namespace argon::lang::scanner;
 using namespace argon::lang::parser2;
@@ -998,11 +998,24 @@ void Parser::EatNL() {
 // EXPRESSION-ZONE AFTER THIS POINT
 // *********************************************************************************************************************
 
-Parser::LedMeth Parser::LookupLED(TokenType token) {
+Parser::LedMeth Parser::LookupLED(TokenType token, bool newline) {
     if (token > TokenType::INFIX_BEGIN && token < TokenType::INFIX_END)
         return &Parser::ParseInfix;
 
+    if (!newline) {
+        // They must necessarily appear on the same line!
+        switch (token) {
+            case TokenType::LEFT_SQUARE:
+                return &Parser::ParseSubscript;
+            default:
+                break;
+        }
+    }
+
     switch (token) {
+        case TokenType::KW_IN:
+        case TokenType::KW_NOT:
+            return &Parser::ParseIn;
         default:
             return nullptr;
     }
@@ -1267,14 +1280,33 @@ Node *Parser::ParseExpression(Context *context, int precedence) {
     } else
         left = (this->*nud)(context);
 
-    auto tk_type = TKCUR_TYPE;
+    auto *token = (const Token *) &this->tkcur_;
+    auto nline = false;
+
+    if (this->Match(TokenType::END_OF_LINE)) {
+        if (!this->scanner_.PeekToken(&token))
+            throw ScannerException();
+
+        nline = true;
+    }
+
+    auto tk_type = token->type;
     while (precedence < Parser::PeekPrecedence(tk_type)) {
-        if ((led = Parser::LookupLED(tk_type)) == nullptr)
+        if ((led = Parser::LookupLED(tk_type, nline)) == nullptr)
             break;
+
+        nline = false;
 
         left = (this->*led)(context, ((Node *) left.Get()));
 
-        tk_type = TKCUR_TYPE;
+        if (this->Match(TokenType::END_OF_LINE)) {
+            if (!this->scanner_.PeekToken(&token))
+                throw ScannerException();
+
+            nline = true;
+        }
+
+        tk_type = token->type;
     }
 
     // TODO: safe?!
@@ -1299,6 +1331,35 @@ Node *Parser::ParseIdentifier([[maybe_unused]]Context *context) {
     this->Eat(false);
 
     return (Node *) node;
+}
+
+Node *Parser::ParseIn(Context *context, Node *left) {
+    auto kind = NodeType::IN;
+
+    if (TKCUR_TYPE == TokenType::KW_NOT) {
+        kind = NodeType::NOT_IN;
+
+        this->Eat(true);
+    }
+
+    this->Eat(true);
+
+    auto *expr = this->ParseExpression(context, PeekPrecedence(TokenType::KW_IN));
+
+    auto *in = NewNode<Binary>(type_ast_binary_, false, kind);
+    if (in == nullptr) {
+        Release(expr);
+
+        throw DatatypeException();
+    }
+
+    in->loc.start = left->loc.start;
+    in->loc.end = expr->loc.end;
+
+    in->left = (ArObject *) IncRef(left);
+    in->right = (ArObject *) expr;
+
+    return (Node *) in;
 }
 
 Node *Parser::ParseInfix(Context *context, Node *left) {
@@ -1358,7 +1419,7 @@ Node *Parser::ParseList(Context *context) {
     auto end = TKCUR_END;
 
     if (!this->MatchEat(TokenType::RIGHT_SQUARE, false))
-        throw ParserException(TKCUR_LOC, kStandardError[20]);
+        throw ParserException(TKCUR_LOC, kStandardError[20], "list");
 
     auto *unary = NewNode<Unary>(type_ast_unary_, false, NodeType::LIST);
     if (unary == nullptr)
@@ -1395,6 +1456,42 @@ Node *Parser::ParsePrefix(Context *context) {
     unary->value = (ArObject *) unary;
 
     return (Node *) unary;
+}
+
+Node *Parser::ParseSubscript(Context *context, Node *left) {
+    ARC start;
+    ARC stop;
+
+    this->Eat(true);
+
+    if (this->Match(TokenType::RIGHT_SQUARE))
+        throw ParserException(TKCUR_LOC, kStandardError[25]);
+
+    if (!this->Match(TokenType::COLON))
+        start = this->ParseExpression(context, 0);
+
+    if (this->MatchEat(TokenType::COLON, true) && !this->Match(TokenType::RIGHT_SQUARE))
+        stop = (ArObject *) this->ParseExpression(context, 0);
+
+    this->EatNL();
+
+    if (!this->Match(TokenType::RIGHT_SQUARE))
+        throw ParserException(TKCUR_LOC, kStandardError[20], stop ? "slice" : "index");
+
+    auto *slice = NewNode<Subscript>(type_ast_subscript_, false, stop ? NodeType::SLICE : NodeType::INDEX);
+    if (slice == nullptr)
+        throw DatatypeException();
+
+    slice->loc.start = left->loc.start;
+    slice->loc.end = TKCUR_END;
+
+    slice->expression = IncRef(left);
+    slice->start = (Node *) start.Unwrap();
+    slice->stop = (Node *) stop.Unwrap();
+
+    this->Eat(false);
+
+    return (Node *) slice;
 }
 
 Node *Parser::ParseTrap(Context *context) {
