@@ -10,3 +10,4 @@ NODE_NEW(Unary, node::type_ast_identifier_, Identifier, nullptr, unary_dtor, nul
 NODE_NEW(Unary, node::type_ast_literal_, Literal, nullptr, unary_dtor, nullptr);
 NODE_NEW(Unary, node::type_ast_prefix_, Prefix, nullptr, unary_dtor, nullptr);
 NODE_NEW(Unary, node::type_ast_unary_, Unary, nullptr, unary_dtor, nullptr);
+NODE_NEW(Unary, node::type_ast_update_, Update, nullptr, unary_dtor, nullptr);

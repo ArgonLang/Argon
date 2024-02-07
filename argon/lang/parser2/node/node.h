@@ -44,6 +44,7 @@ namespace argon::lang::parser2::node {
         PARAMETER,
         PREFIX,
         REST,
+        SELECTOR,
         SET,
         SLICE,
         STRUCT,
@@ -51,7 +52,8 @@ namespace argon::lang::parser2::node {
         TRAIT,
         TRAP,
         TUPLE,
-        UNARY
+        UNARY,
+        UPDATE
     };
 
 #define NODE_NEW(StructName, ExtName, alias, doc, dtor, compare)    \
@@ -107,6 +109,7 @@ const argon::vm::datatype::TypeInfo *argon::lang::parser2::ExtName = &alias##Ast
     _ARGONAPI extern const TypeInfo *type_ast_binary_;
     _ARGONAPI extern const TypeInfo *type_ast_import_name_;
     _ARGONAPI extern const TypeInfo *type_ast_infix_;
+    _ARGONAPI extern const TypeInfo *type_ast_selector_;
     _ARGONAPI extern const TypeInfo *type_ast_sync_;
 
     struct Construct {
@@ -183,6 +186,7 @@ const argon::vm::datatype::TypeInfo *argon::lang::parser2::ExtName = &alias##Ast
     _ARGONAPI extern const TypeInfo *type_ast_literal_;
     _ARGONAPI extern const TypeInfo *type_ast_prefix_;
     _ARGONAPI extern const TypeInfo *type_ast_unary_;
+    _ARGONAPI extern const TypeInfo *type_ast_update_;
 
     inline bool unary_dtor(Unary *self) {
         Release(self->value);

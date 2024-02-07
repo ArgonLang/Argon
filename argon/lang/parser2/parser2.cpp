@@ -181,6 +181,7 @@ Node *Parser::ParseBlock(Context *context) {
 
         Release(stmt);
 
+        // TODO: check NewLine or ;
         this->EatNL();
     }
 
@@ -1013,9 +1014,18 @@ Parser::LedMeth Parser::LookupLED(TokenType token, bool newline) {
     }
 
     switch (token) {
+        case TokenType::COMMA:
+            return &Parser::ParseExpressionList;
+        case TokenType::DOT:
+        case TokenType::QUESTION_DOT:
+        case TokenType::SCOPE:
+            return &Parser::ParseSelector;
         case TokenType::KW_IN:
         case TokenType::KW_NOT:
             return &Parser::ParseIn;
+        case TokenType::MINUS_MINUS:
+        case TokenType::PLUS_PLUS:
+            return &Parser::ParsePostInc;
         default:
             return nullptr;
     }
@@ -1295,23 +1305,75 @@ Node *Parser::ParseExpression(Context *context, int precedence) {
         if ((led = Parser::LookupLED(tk_type, nline)) == nullptr)
             break;
 
+        if (nline)
+            this->EatNL();
+
         nline = false;
 
         left = (this->*led)(context, ((Node *) left.Get()));
+
+        tk_type = TKCUR_TYPE;
 
         if (this->Match(TokenType::END_OF_LINE)) {
             if (!this->scanner_.PeekToken(&token))
                 throw ScannerException();
 
             nline = true;
+            tk_type = token->type;
         }
-
-        tk_type = token->type;
     }
 
     // TODO: safe?!
 
     return (Node *) left.Unwrap();
+}
+
+Node *Parser::ParseExpressionList(Context *context, Node *left) {
+    ARC a_list;
+
+    Position end{};
+
+    auto precedence = PeekPrecedence(TokenType::COMMA);
+
+    auto *list = ListNew();
+    if (list == nullptr)
+        throw DatatypeException();
+
+    a_list = list;
+
+    if (!ListAppend(list, (ArObject *) left))
+        throw DatatypeException();
+
+    this->Eat(false);
+
+    do {
+        this->EatNL();
+
+        auto *expr = this->ParseExpression(context, precedence);
+
+        if (!ListAppend(list, (ArObject *) expr)) {
+            Release(expr);
+
+            throw DatatypeException();
+        }
+
+        end = expr->loc.end;
+
+        Release(expr);
+
+        this->IgnoreNewLineIF(TokenType::COMMA);
+    } while (this->MatchEat(TokenType::COMMA, false));
+
+    auto *tuple = NewNode<Unary>(type_ast_unary_, false, NodeType::TUPLE);
+    if (tuple == nullptr)
+        throw DatatypeException();
+
+    tuple->loc.start = left->loc.start;
+    tuple->loc.end = end;
+
+    tuple->value = a_list.Unwrap();
+
+    return (Node *) tuple;
 }
 
 Node *Parser::ParseIdentifier([[maybe_unused]]Context *context) {
@@ -1433,6 +1495,24 @@ Node *Parser::ParseList(Context *context) {
     return (Node *) unary;
 }
 
+Node *Parser::ParsePostInc([[maybe_unused]]Context *context, Node *left) {
+    if (left->node_type != NodeType::IDENTIFIER
+        && left->node_type != NodeType::INDEX
+        && left->node_type != NodeType::SELECTOR)
+        throw ParserException(TKCUR_LOC, kStandardError[26]);
+
+    auto *unary = NewNode<Unary>(type_ast_update_, false, NodeType::UPDATE);
+    if (unary == nullptr)
+        throw DatatypeException();
+
+    unary->loc.start = left->loc.start;
+    unary->loc.end = TKCUR_END;
+
+    unary->value = (ArObject *) IncRef(left);
+
+    return (Node *) unary;
+}
+
 Node *Parser::ParsePrefix(Context *context) {
     Position start = TKCUR_START;
     TokenType kind = TKCUR_TYPE;
@@ -1453,9 +1533,46 @@ Node *Parser::ParsePrefix(Context *context) {
 
     unary->token_type = kind;
 
-    unary->value = (ArObject *) unary;
+    unary->value = (ArObject *) right;
 
     return (Node *) unary;
+}
+
+Node *Parser::ParseSelector([[maybe_unused]]Context *context, Node *left) {
+    auto kind = TKCUR_TYPE;
+
+    this->Eat(true);
+
+    if (!this->CheckIDExt())
+        throw ParserException(TKCUR_LOC, kStandardError[27],
+                              kind == TokenType::DOT
+                              ? "."
+                              : (kind == TokenType::QUESTION_DOT
+                                 ? "?."
+                                 : "::"
+                              )
+        );
+
+    auto *right = Parser::ParseIdentifierSimple(&this->tkcur_);
+
+    auto *selector = NewNode<Binary>(type_ast_selector_, false, NodeType::SELECTOR);
+    if (selector == nullptr) {
+        Release(right);
+
+        throw DatatypeException();
+    }
+
+    selector->loc.start = left->loc.start;
+    selector->loc.end = TKCUR_END;
+
+    selector->token_type = kind;
+
+    selector->left = (ArObject *) IncRef(left);
+    selector->right = (ArObject *) right;
+
+    this->Eat(false);
+
+    return (Node *) selector;
 }
 
 Node *Parser::ParseSubscript(Context *context, Node *left) {
@@ -1516,7 +1633,7 @@ Node *Parser::ParseTrap(Context *context) {
     unary->loc.start = start;
     unary->loc.end = unary->loc.end;
 
-    unary->value = (ArObject *) unary;
+    unary->value = (ArObject *) right;
 
     return (Node *) unary;
 }

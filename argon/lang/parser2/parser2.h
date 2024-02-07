@@ -39,7 +39,9 @@ namespace argon::lang::parser2 {
             "you started defining a dict, not a set",
             "expected '}' after %s definition",
             "expected ')' after tuple/function definition",
-            "subscript definition (index | slice) cannot be empty"
+            "subscript definition (index | slice) cannot be empty",
+            "unexpected update operator",
+            "expected identifier after '%s' operator"
     };
 
     class Parser {
@@ -188,6 +190,8 @@ namespace argon::lang::parser2 {
 
         node::Node *ParseExpression(Context *context, int precedence);
 
+        node::Node *ParseExpressionList(Context *context, node::Node *left);
+
         node::Node *ParseIdentifier(Context *context);
 
         node::Node *ParseIn(Context *context, node::Node *left);
@@ -198,7 +202,11 @@ namespace argon::lang::parser2 {
 
         node::Node *ParsePipeline(Context *context, node::Node *left);
 
+        node::Node *ParsePostInc(Context *context, node::Node *left);
+
         node::Node *ParsePrefix(Context *context);
+
+        node::Node *ParseSelector(Context *context, node::Node *left);
 
         node::Node *ParseSubscript(Context *context, node::Node *left);
 
