@@ -188,6 +188,8 @@ namespace argon::lang::parser2 {
 
         node::Node *ParseDictSet(Context *context);
 
+        node::Node *ParseElvis(Context *context, node::Node *left);
+
         node::Node *ParseExpression(Context *context, int precedence);
 
         node::Node *ParseExpressionList(Context *context, node::Node *left);
@@ -200,6 +202,8 @@ namespace argon::lang::parser2 {
 
         node::Node *ParseList(Context *context);
 
+        node::Node *ParseNullCoalescing(Context *context, node::Node *left);
+
         node::Node *ParsePipeline(Context *context, node::Node *left);
 
         node::Node *ParsePostInc(Context *context, node::Node *left);
@@ -209,6 +213,8 @@ namespace argon::lang::parser2 {
         node::Node *ParseSelector(Context *context, node::Node *left);
 
         node::Node *ParseSubscript(Context *context, node::Node *left);
+
+        node::Node *ParseTernary(Context *context, node::Node *left);
 
         node::Node *ParseTrap(Context *context);
 

@@ -29,6 +29,7 @@ namespace argon::lang::parser2::node {
         CHAN_IN,
         CHAN_OUT,
         DICT,
+        ELVIS,
         FUNCTION,
         IDENTIFIER,
         IMPORT,
@@ -49,6 +50,7 @@ namespace argon::lang::parser2::node {
         SLICE,
         STRUCT,
         SYNC_BLOCK,
+        TERNARY,
         TRAIT,
         TRAP,
         TUPLE,
@@ -111,6 +113,15 @@ const argon::vm::datatype::TypeInfo *argon::lang::parser2::ExtName = &alias##Ast
     _ARGONAPI extern const TypeInfo *type_ast_infix_;
     _ARGONAPI extern const TypeInfo *type_ast_selector_;
     _ARGONAPI extern const TypeInfo *type_ast_sync_;
+
+    struct Branch {
+        NODEOBJ_HEAD;
+
+        Node *test;
+        Node *body;
+        Node *orelse;
+    };
+    _ARGONAPI extern const vm::datatype::TypeInfo *type_ast_branch_;
 
     struct Construct {
         NODEOBJ_HEAD;

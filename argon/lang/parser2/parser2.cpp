@@ -1020,12 +1020,18 @@ Parser::LedMeth Parser::LookupLED(TokenType token, bool newline) {
         case TokenType::QUESTION_DOT:
         case TokenType::SCOPE:
             return &Parser::ParseSelector;
+        case TokenType::ELVIS:
+            return &Parser::ParseElvis;
         case TokenType::KW_IN:
         case TokenType::KW_NOT:
             return &Parser::ParseIn;
+        case TokenType::NULL_COALESCING:
+            return &Parser::ParseNullCoalescing;
         case TokenType::MINUS_MINUS:
         case TokenType::PLUS_PLUS:
             return &Parser::ParsePostInc;
+        case TokenType::QUESTION:
+            return &Parser::ParseTernary;
         default:
             return nullptr;
     }
@@ -1278,6 +1284,27 @@ Node *Parser::ParseDictSet(Context *context) {
     return (Node *) unary;
 }
 
+Node *Parser::ParseElvis(Context *context, Node *left) {
+    this->Eat(true);
+
+    auto *expr = this->ParseExpression(context, PeekPrecedence(TokenType::COMMA));
+
+    auto *elvis = NewNode<Binary>(type_ast_binary_, false, NodeType::ELVIS);
+    if (elvis == nullptr) {
+        Release(expr);
+
+        throw DatatypeException();
+    }
+
+    elvis->loc.start = left->loc.start;
+    elvis->loc.end = expr->loc.end;
+
+    elvis->left = (ArObject *) IncRef(left);
+    elvis->right = (ArObject *) expr;
+
+    return (Node *) elvis;
+}
+
 Node *Parser::ParseExpression(Context *context, int precedence) {
     ARC left;
 
@@ -1495,6 +1522,27 @@ Node *Parser::ParseList(Context *context) {
     return (Node *) unary;
 }
 
+Node *Parser::ParseNullCoalescing(Context *context, Node *left) {
+    this->Eat(true);
+
+    auto *expr = this->ParseExpression(context, PeekPrecedence(TokenType::NULL_COALESCING));
+
+    auto *n_coal = NewNode<Binary>(type_ast_binary_, false, NodeType::ELVIS);
+    if (n_coal == nullptr) {
+        Release(expr);
+
+        throw DatatypeException();
+    }
+
+    n_coal->loc.start = left->loc.start;
+    n_coal->loc.end = expr->loc.end;
+
+    n_coal->left = (ArObject *) IncRef(left);
+    n_coal->right = (ArObject *) expr;
+
+    return (Node *) n_coal;
+}
+
 Node *Parser::ParsePostInc([[maybe_unused]]Context *context, Node *left) {
     if (left->node_type != NodeType::IDENTIFIER
         && left->node_type != NodeType::INDEX
@@ -1609,6 +1657,36 @@ Node *Parser::ParseSubscript(Context *context, Node *left) {
     this->Eat(false);
 
     return (Node *) slice;
+}
+
+Node *Parser::ParseTernary(Context *context, Node *left) {
+    ARC body;
+    ARC orelse;
+
+    this->Eat(true);
+
+    body = (ArObject *) this->ParseExpression(context, PeekPrecedence(TokenType::COMMA));
+
+    this->IgnoreNewLineIF(TokenType::COLON);
+
+    if (this->MatchEat(TokenType::COLON, false)) {
+        this->EatNL();
+
+        orelse = (ArObject *) this->ParseExpression(context, PeekPrecedence(TokenType::COMMA));
+    }
+
+    auto *branch = NewNode<Branch>(type_ast_branch_, false, NodeType::TERNARY);
+    if (branch == nullptr)
+        throw DatatypeException();
+
+    branch->test = IncRef(left);
+    branch->body = (Node *) body.Unwrap();
+    branch->orelse = (Node *) orelse.Unwrap();
+
+    branch->loc.start = left->loc.start;
+    branch->loc.end = branch->orelse->loc.end;
+
+    return (Node *) branch;
 }
 
 Node *Parser::ParseTrap(Context *context) {
