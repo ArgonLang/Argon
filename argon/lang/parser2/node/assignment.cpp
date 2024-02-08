@@ -14,3 +14,4 @@ bool assignment_dtor(Assignment *self) {
 }
 
 NODE_NEW(Assignment, node::type_ast_assignment_, Assignment, nullptr, assignment_dtor, nullptr);
+NODE_NEW(Assignment, node::type_ast_vardecl_, VarDecl, nullptr, assignment_dtor, nullptr);

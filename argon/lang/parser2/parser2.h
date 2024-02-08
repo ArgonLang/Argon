@@ -41,7 +41,9 @@ namespace argon::lang::parser2 {
             "expected ')' after tuple/function definition",
             "subscript definition (index | slice) cannot be empty",
             "unexpected update operator",
-            "expected identifier after '%s' operator"
+            "expected identifier after '%s' operator",
+            "expression on the left cannot be used as a target for the assignment expression",
+            "expected identifiers before '%s'"
     };
 
     class Parser {
@@ -182,6 +184,8 @@ namespace argon::lang::parser2 {
 
         node::Node *ParseArrowOrTuple(Context *context);
 
+        node::Node *ParseAssignment(Context *context, node::Node *left);
+
         node::Node *ParseAwait(Context *context);
 
         node::Node *ParseChanOut(Context *context);
@@ -217,6 +221,8 @@ namespace argon::lang::parser2 {
         node::Node *ParseTernary(Context *context, node::Node *left);
 
         node::Node *ParseTrap(Context *context);
+
+        node::Node *ParseWalrus(Context *context, node::Node *left);
 
         static NudMeth LookupNUD(scanner::TokenType token);
 

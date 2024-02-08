@@ -55,7 +55,8 @@ namespace argon::lang::parser2::node {
         TRAP,
         TUPLE,
         UNARY,
-        UPDATE
+        UPDATE,
+        VARDECL
     };
 
 #define NODE_NEW(StructName, ExtName, alias, doc, dtor, compare)    \
@@ -101,6 +102,7 @@ const argon::vm::datatype::TypeInfo *argon::lang::parser2::ExtName = &alias##Ast
         bool weak;
     };
     _ARGONAPI extern const vm::datatype::TypeInfo *type_ast_assignment_;
+    _ARGONAPI extern const vm::datatype::TypeInfo *type_ast_vardecl_;
 
     struct Binary {
         NODEOBJ_HEAD;
