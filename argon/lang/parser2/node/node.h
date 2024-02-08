@@ -42,6 +42,7 @@ namespace argon::lang::parser2::node {
         LITERAL,
         MODULE,
         NOT_IN,
+        OBJ_INIT,
         KWPARAM,
         PARAMETER,
         PREFIX,
@@ -182,6 +183,16 @@ const argon::vm::datatype::TypeInfo *argon::lang::parser2::ExtName = &alias##Ast
         List *statements;
     };
     _ARGONAPI extern const TypeInfo *type_ast_module_;
+
+    struct ObjectInit {
+        NODEOBJ_HEAD;
+
+        Node *left;
+        ArObject *values;
+
+        bool as_map;
+    };
+    _ARGONAPI extern const vm::datatype::TypeInfo *type_ast_objinit_;
 
     struct Parameter {
         NODEOBJ_HEAD;

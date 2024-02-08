@@ -43,7 +43,9 @@ namespace argon::lang::parser2 {
             "unexpected update operator",
             "expected identifier after '%s' operator",
             "expression on the left cannot be used as a target for the assignment expression",
-            "expected identifiers before '%s'"
+            "expected identifiers before '%s'",
+            "can't mix field names with positional initialization",
+            "expected ')' after struct initialization",
     };
 
     class Parser {
@@ -203,6 +205,8 @@ namespace argon::lang::parser2 {
         node::Node *ParseIn(Context *context, node::Node *left);
 
         node::Node *ParseInfix(Context *context, node::Node *left);
+
+        node::Node *ParseInit(Context *context, node::Node *left);
 
         node::Node *ParseList(Context *context);
 

@@ -1006,6 +1006,8 @@ Parser::LedMeth Parser::LookupLED(TokenType token, bool newline) {
     if (!newline) {
         // They must necessarily appear on the same line!
         switch (token) {
+            case TokenType::LEFT_INIT:
+                return &Parser::ParseInit;
             case TokenType::LEFT_SQUARE:
                 return &Parser::ParseSubscript;
             default:
@@ -1526,6 +1528,97 @@ Node *Parser::ParseInfix(Context *context, Node *left) {
     infix->right = (ArObject *) right;
 
     return (Node *) infix;
+}
+
+Node *Parser::ParseInit(Context *context, Node *left) {
+    ARC a_list;
+
+    this->Eat(true);
+
+    if (this->Match(TokenType::RIGHT_ROUND)) {
+        auto *init = NewNode<ObjectInit>(type_ast_objinit_, false, NodeType::OBJ_INIT);
+        if (init == nullptr)
+            throw DatatypeException();
+
+        init->loc.start = left->loc.start;
+        init->loc.end = TKCUR_END;
+
+        init->left = IncRef(left);
+
+        this->Eat(false);
+
+        return (Node *) init;
+    }
+
+    auto *list = ListNew();
+    if (list == nullptr)
+        throw DatatypeException();
+
+    a_list = list;
+
+    int count = 0;
+    bool kwargs = false;
+
+    do {
+        auto *key = this->ParseExpression(context, PeekPrecedence(TokenType::COMMA));
+
+        if (!ListAppend(list, (ArObject *) key)) {
+            Release(key);
+
+            throw DatatypeException();
+        }
+
+        Release(key);
+
+        this->EatNL();
+
+        count++;
+        if (this->MatchEat(TokenType::EQUAL, true)) {
+            if (key->node_type != NodeType::IDENTIFIER)
+                throw ParserException(key->loc, kStandardError[0]);
+
+            if (--count != 0)
+                throw ParserException(TKCUR_LOC, kStandardError[30]);
+
+            auto *value = this->ParseExpression(context, PeekPrecedence(TokenType::COMMA));
+
+            if (!ListAppend(list, (ArObject *) value)) {
+                Release(value);
+
+                throw DatatypeException();
+            }
+
+            Release(value);
+
+            this->EatNL();
+
+            kwargs = true;
+
+            continue;
+        }
+
+        if (kwargs)
+            throw ParserException(TKCUR_LOC, kStandardError[30]);
+    } while (this->MatchEat(TokenType::COMMA, true));
+
+    if(!this->Match(TokenType::RIGHT_ROUND))
+        throw ParserException(TKCUR_LOC, kStandardError[31]);
+
+    auto *init = NewNode<ObjectInit>(type_ast_objinit_, false, NodeType::OBJ_INIT);
+    if (init == nullptr)
+        throw DatatypeException();
+
+    init->loc.start = left->loc.start;
+    init->loc.end = TKCUR_END;
+
+    init->left = IncRef(left);
+    init->values = a_list.Unwrap();
+
+    init->as_map = kwargs;
+
+    this->Eat(false);
+
+    return (Node *) init;
 }
 
 Node *Parser::ParseList(Context *context) {
