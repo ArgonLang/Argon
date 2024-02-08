@@ -1029,11 +1029,13 @@ Parser::LedMeth Parser::LookupLED(TokenType token, bool newline) {
         case TokenType::KW_IN:
         case TokenType::KW_NOT:
             return &Parser::ParseIn;
-        case TokenType::NULL_COALESCING:
-            return &Parser::ParseNullCoalescing;
         case TokenType::MINUS_MINUS:
         case TokenType::PLUS_PLUS:
             return &Parser::ParsePostInc;
+        case TokenType::NULL_COALESCING:
+            return &Parser::ParseNullCoalescing;
+        case TokenType::PIPELINE:
+            return &Parser::ParsePipeline;
         case TokenType::QUESTION:
             return &Parser::ParseTernary;
         case TokenType::WALRUS:
@@ -1591,6 +1593,55 @@ Node *Parser::ParseNullCoalescing(Context *context, Node *left) {
     n_coal->right = (ArObject *) expr;
 
     return (Node *) n_coal;
+}
+
+Node *Parser::ParsePipeline(Context *context, Node *left) {
+    this->Eat(true);
+
+    auto *right = this->ParseExpression(context, PeekPrecedence(TokenType::PIPELINE));
+    if (right->node_type == NodeType::CALL) {
+        auto *call = (Call *) right;
+
+        if (!ListPrepend((List *) call->args, (ArObject *) left)) {
+            Release(right);
+
+            throw DatatypeException();
+        }
+
+        right->loc.start = left->loc.start;
+
+        return (Node *) right;
+    }
+
+    auto *args = ListNew();
+    if (args == nullptr) {
+        Release(right);
+
+        throw DatatypeException();
+    }
+
+    if (!ListAppend(args, (ArObject *) left)) {
+        Release(args);
+        Release(right);
+
+        throw DatatypeException();
+    }
+
+    auto *call = NewNode<Call>(type_ast_call_, false, NodeType::CALL);
+    if (call == nullptr) {
+        Release(args);
+        Release(right);
+
+        throw DatatypeException();
+    }
+
+    call->loc.start = left->loc.start;
+    call->loc.end = right->loc.end;
+
+    call->left = IncRef(right);
+    call->args = (ArObject *) args;
+
+    return (Node *) call;
 }
 
 Node *Parser::ParsePostInc([[maybe_unused]]Context *context, Node *left) {

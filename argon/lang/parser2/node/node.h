@@ -26,6 +26,7 @@ namespace argon::lang::parser2::node {
         ASSIGNMENT,
         AWAIT,
         BLOCK,
+        CALL,
         CHAN_IN,
         CHAN_OUT,
         DICT,
@@ -124,6 +125,15 @@ const argon::vm::datatype::TypeInfo *argon::lang::parser2::ExtName = &alias##Ast
         Node *orelse;
     };
     _ARGONAPI extern const vm::datatype::TypeInfo *type_ast_branch_;
+
+    struct Call {
+        NODEOBJ_HEAD;
+
+        Node *left;
+        ArObject *args;
+        ArObject *kwargs;
+    };
+    _ARGONAPI extern const vm::datatype::TypeInfo *type_ast_call_;
 
     struct Construct {
         NODEOBJ_HEAD;
