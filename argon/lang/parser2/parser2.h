@@ -46,6 +46,9 @@ namespace argon::lang::parser2 {
             "expected identifiers before '%s'",
             "can't mix field names with positional initialization",
             "expected ')' after struct initialization",
+            "expected ')' after last argument of function call",
+            "function parameters must be passed in the order: [positional][, named param][, spread][, kwargs]",
+            "only identifiers are allowed before the '=' sign"
     };
 
     class Parser {
@@ -182,6 +185,12 @@ namespace argon::lang::parser2 {
 // EXPRESSION-ZONE AFTER THIS POINT
 // *********************************************************************************************************************
 
+        bool ParseFuncCallNamedArg(Context *context, ARC &k_args, node::Node *node, bool must_parse);
+
+        bool ParseFuncCallSpread(List *args, node::Node *node, bool must_parse);
+
+        bool ParseFuncCallUnpack(ARC &k_args, bool must_parse);
+
         static LedMeth LookupLED(scanner::TokenType token, bool newline);
 
         node::Node *ParseArrowOrTuple(Context *context);
@@ -199,6 +208,8 @@ namespace argon::lang::parser2 {
         node::Node *ParseExpression(Context *context, int precedence);
 
         node::Node *ParseExpressionList(Context *context, node::Node *left);
+
+        node::Node *ParseFuncCall(Context *context, node::Node *left);
 
         node::Node *ParseIdentifier(Context *context);
 

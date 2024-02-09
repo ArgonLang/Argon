@@ -13,4 +13,5 @@ bool parameter_dtor(Assignment *self) {
     return true;
 }
 
+NODE_NEW(Parameter, node::type_ast_argument_, Argument, nullptr, parameter_dtor, nullptr);
 NODE_NEW(Parameter, node::type_ast_parameter_, Parameter, nullptr, parameter_dtor, nullptr);

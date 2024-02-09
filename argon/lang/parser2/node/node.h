@@ -23,6 +23,7 @@ namespace argon::lang::parser2::node {
     argon::lang::scanner::Loc loc
 
     enum class NodeType {
+        ARGUMENT,
         ASSIGNMENT,
         AWAIT,
         BLOCK,
@@ -43,6 +44,7 @@ namespace argon::lang::parser2::node {
         MODULE,
         NOT_IN,
         OBJ_INIT,
+        KWARG,
         KWPARAM,
         PARAMETER,
         PREFIX,
@@ -50,6 +52,7 @@ namespace argon::lang::parser2::node {
         SELECTOR,
         SET,
         SLICE,
+        SPREAD,
         STRUCT,
         SYNC_BLOCK,
         TERNARY,
@@ -200,6 +203,7 @@ const argon::vm::datatype::TypeInfo *argon::lang::parser2::ExtName = &alias##Ast
         String *id;
         Node *value;
     };
+    _ARGONAPI extern const vm::datatype::TypeInfo *type_ast_argument_;
     _ARGONAPI extern const vm::datatype::TypeInfo *type_ast_parameter_;
 
     struct Subscript {
