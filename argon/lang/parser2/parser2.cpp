@@ -28,6 +28,65 @@ int Parser::PeekPrecedence(TokenType type) {
         case TokenType::END_OF_LINE:
         case TokenType::END_OF_FILE:
             return -1;
+
+        case TokenType::WALRUS:
+            return 10;
+        case TokenType::EQUAL:
+        case TokenType::ASSIGN_ADD:
+        case TokenType::ASSIGN_SUB:
+            return 20;
+        case TokenType::COMMA:
+            return 30;
+        case TokenType::ARROW_RIGHT:
+            return 40;
+        case TokenType::ELVIS:
+        case TokenType::QUESTION:
+        case TokenType::NULL_COALESCING:
+            return 50;
+        case TokenType::PIPELINE:
+            return 60;
+        case TokenType::OR:
+            return 70;
+        case TokenType::AND:
+            return 80;
+        case TokenType::PIPE:
+            return 90;
+        case TokenType::CARET:
+            return 100;
+        case TokenType::AMPERSAND:
+            return 110;
+        case TokenType::EQUAL_EQUAL:
+        case TokenType::EQUAL_STRICT:
+        case TokenType::KW_IN:
+        case TokenType::KW_NOT:
+        case TokenType::NOT_EQUAL:
+        case TokenType::NOT_EQUAL_STRICT:
+            return 120;
+        case TokenType::LESS:
+        case TokenType::LESS_EQ:
+        case TokenType::GREATER:
+        case TokenType::GREATER_EQ:
+            return 130;
+        case TokenType::SHL:
+        case TokenType::SHR:
+            return 140;
+        case TokenType::PLUS:
+        case TokenType::MINUS:
+            //  case TokenType::EXCLAMATION:
+            //  case TokenType::TILDE:
+            return 150;
+        case TokenType::ASTERISK:
+        case TokenType::SLASH:
+        case TokenType::SLASH_SLASH:
+        case TokenType::PERCENT:
+            return 160;
+        case TokenType::DOT:
+        case TokenType::QUESTION_DOT:
+        case TokenType::SCOPE:
+            return 170;
+        case TokenType::PLUS_PLUS:
+        case TokenType::MINUS_MINUS:
+            return 180;
         default:
             return 1000;
     }
@@ -691,9 +750,21 @@ Node *Parser::ParseFuncParam(Position start, NodeType type) {
 }
 
 Node *Parser::ParseScope() {
-    // TODO: parse selector
-    this->Eat(false);
-    return nullptr;
+    ARC ident;
+
+    if (!this->CheckIDExt())
+        throw ParserException(TKCUR_LOC, kStandardError[9]);
+
+    ident = this->ParseIdentifier(nullptr);
+
+    this->EatNL();
+    while (this->Match(TokenType::DOT, TokenType::SCOPE)) {
+        ident = this->ParseSelector(nullptr, (Node *) ident.Get());
+
+        this->EatNL();
+    }
+
+    return (Node *) ident.Unwrap();
 }
 
 Node *Parser::ParseStatement(Context *context) {
@@ -776,7 +847,7 @@ Node *Parser::ParseSyncBlock(Context *context) {
 
     this->Eat(true);
 
-    // TODO: expr = (ArObject *) this->ParseExpression(PeekPrecedence(TokenType::ASTERISK));
+    expr = (ArObject *) this->ParseExpression(context, PeekPrecedence(TokenType::ASTERISK));
 
     if (((Node *) expr.Get())->node_type == NodeType::LITERAL)
         throw ParserException(((Node *) expr.Get())->loc, kStandardError[14]);
@@ -876,9 +947,10 @@ Node *Parser::ParseVarDecl(Context *context, Position start, bool constant, bool
     if (this->MatchEat(TokenType::EQUAL, false)) {
         this->EatNL();
 
-        // TODO: auto *values = this->ParseExpression(PeekPrecedence(TokenType::EQUAL));
-        // TODO: vardecl->loc.end = values->loc.end;
-        // TODO: vardecl->value = (ArObject *) values;
+        auto *values = this->ParseExpression(context, PeekPrecedence(TokenType::EQUAL));
+
+        vardecl->loc.end = values->loc.end;
+        vardecl->value = (ArObject *) values;
     } else if (constant)
         throw ParserException(TKCUR_LOC, kStandardError[5]);
 
