@@ -72,8 +72,6 @@ int Parser::PeekPrecedence(TokenType type) {
             return 140;
         case TokenType::PLUS:
         case TokenType::MINUS:
-            //  case TokenType::EXCLAMATION:
-            //  case TokenType::TILDE:
             return 150;
         case TokenType::ASTERISK:
         case TokenType::SLASH:
@@ -202,6 +200,71 @@ Node *Parser::ParseAsync(Context *context, Position &start, bool pub) {
     func->async = true;
 
     return (Node *) func;
+}
+
+Node *Parser::ParseAssertion(Context *context) {
+    ARC expr;
+    ARC msg;
+
+    auto start = this->tkcur_.loc.start;
+
+    this->Eat(true);
+
+    expr = this->ParseExpression(context, Parser::PeekPrecedence(TokenType::COMMA));
+
+    this->IgnoreNewLineIF(TokenType::COMMA);
+
+    if (this->MatchEat(TokenType::COMMA, false)) {
+        this->EatNL();
+        msg = this->ParseExpression(context, Parser::PeekPrecedence(TokenType::EQUAL));
+    }
+
+    auto *asrt = NewNode<Binary>(type_ast_assertion_, false, NodeType::ASSERTION);
+    if (asrt == nullptr)
+        throw DatatypeException();
+
+    asrt->left = expr.Unwrap();
+    asrt->right = msg.Unwrap();
+
+    asrt->loc.start = start;
+    asrt->loc.end = ((Node *) (asrt->right != nullptr ? asrt->right : asrt->left))->loc.end;
+
+    return (Node *) asrt;
+}
+
+Node *Parser::ParseBCFStatement(Context *context) {
+    auto loc = TKCUR_LOC;
+    auto tk_type = TKCUR_TYPE;
+
+    ArObject *id = nullptr;
+
+    this->Eat(false);
+
+    if (this->Match(TokenType::IDENTIFIER)) {
+        if (tk_type == TokenType::KW_FALLTHROUGH)
+            throw ParserException(TKCUR_LOC, kStandardError[35]);
+
+        id = (ArObject *) Parser::ParseIdentifierSimple(&this->tkcur_);
+
+        loc.end = TKCUR_END;
+    }
+
+    auto *jmp = NewNode<Unary>(type_ast_jump_, false, NodeType::JUMP);
+    if (jmp == nullptr) {
+        Release(id);
+
+        throw DatatypeException();
+    }
+
+    jmp->loc = loc;
+
+    jmp->token_type = tk_type;
+
+    jmp->value = id;
+
+    this->Eat(false);
+
+    return (Node *) jmp;
 }
 
 Node *Parser::ParseBlock(Context *context) {
@@ -791,7 +854,22 @@ Node *Parser::ParseStatement(Context *context) {
 
     do {
         switch (TKCUR_TYPE) {
-            // TODO: STATEMENTS
+            case TokenType::KW_ASSERT:
+                expr = this->ParseAssertion(context);
+
+                break;
+            case TokenType::KW_BREAK:
+                if (!Parser::CheckScope(context, ContextType::LOOP, ContextType::SWITCH))
+                    throw ParserException(TKCUR_LOC, kStandardError[13], "break", kContextName[(int) context->type]);
+
+                expr = this->ParseBCFStatement(context);
+                break;
+            case TokenType::KW_CONTINUE:
+                if (!Parser::CheckScope(context, ContextType::LOOP))
+                    throw ParserException(TKCUR_LOC, kStandardError[13], "continue", kContextName[(int) context->type]);
+
+                expr = this->ParseBCFStatement(context);
+                break;
             default:
                 expr = this->ParseExpression(context);
                 break;

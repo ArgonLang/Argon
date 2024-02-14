@@ -24,6 +24,7 @@ namespace argon::lang::parser2::node {
 
     enum class NodeType {
         ARGUMENT,
+        ASSERTION,
         ASSIGNMENT,
         AWAIT,
         BLOCK,
@@ -39,6 +40,7 @@ namespace argon::lang::parser2::node {
         IMPORT_NAME,
         INDEX,
         IN,
+        JUMP,
         INFIX,
         LIST,
         LITERAL,
@@ -117,6 +119,7 @@ const argon::vm::datatype::TypeInfo *argon::lang::parser2::ExtName = &alias##Ast
         ArObject *left;
         ArObject *right;
     };
+    _ARGONAPI extern const TypeInfo *type_ast_assertion_;
     _ARGONAPI extern const TypeInfo *type_ast_binary_;
     _ARGONAPI extern const TypeInfo *type_ast_import_name_;
     _ARGONAPI extern const TypeInfo *type_ast_infix_;
@@ -223,6 +226,7 @@ const argon::vm::datatype::TypeInfo *argon::lang::parser2::ExtName = &alias##Ast
         ArObject *value;
     };
     _ARGONAPI extern const TypeInfo *type_ast_identifier_;
+    _ARGONAPI extern const TypeInfo *type_ast_jump_;
     _ARGONAPI extern const TypeInfo *type_ast_literal_;
     _ARGONAPI extern const TypeInfo *type_ast_prefix_;
     _ARGONAPI extern const TypeInfo *type_ast_unary_;

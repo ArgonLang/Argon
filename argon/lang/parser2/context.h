@@ -10,14 +10,18 @@
 namespace argon::lang::parser2 {
     enum class ContextType {
         FUNC,
+        LOOP,
         MODULE,
         STRUCT,
+        SWITCH,
         TRAIT
     };
 
     constexpr const char *kContextName[] = {"function",
+                                            "loop",
                                             "module",
                                             "struct",
+                                            "switch",
                                             "trait"
     };
 
