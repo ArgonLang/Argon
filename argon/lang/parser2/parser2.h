@@ -49,7 +49,8 @@ namespace argon::lang::parser2 {
             "expected ')' after last argument of function call",
             "function parameters must be passed in the order: [positional][, named param][, spread][, kwargs]",
             "only identifiers are allowed before the '=' sign",
-            "unexpected label after fallthrough"
+            "unexpected label after fallthrough",
+            "%s expected call expression"
     };
 
     class Parser {
@@ -128,6 +129,10 @@ namespace argon::lang::parser2 {
         node::Node *ParseImport(bool pub);
 
         node::Node *ParseLiteral(Context *context);
+
+        node::Node *ParseOOBCall(Context *context);
+
+        node::Node *ParsePRYStatement(Context *context, node::NodeType type);
 
         node::Node *ParseFuncNameParam(Context *context, bool parse_pexpr);
 

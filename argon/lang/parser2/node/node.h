@@ -31,6 +31,7 @@ namespace argon::lang::parser2::node {
         CALL,
         CHAN_IN,
         CHAN_OUT,
+        DEFER,
         DICT,
         ELVIS,
         EXPRESSION,
@@ -49,9 +50,11 @@ namespace argon::lang::parser2::node {
         OBJ_INIT,
         KWARG,
         KWPARAM,
+        PANIC,
         PARAMETER,
         PREFIX,
         REST,
+        RETURN,
         SAFE_EXPR,
         SELECTOR,
         SET,
@@ -65,7 +68,8 @@ namespace argon::lang::parser2::node {
         TUPLE,
         UNARY,
         UPDATE,
-        VARDECL
+        VARDECL,
+        YIELD
     };
 
 #define NODE_NEW(StructName, ExtName, alias, doc, dtor, compare)    \

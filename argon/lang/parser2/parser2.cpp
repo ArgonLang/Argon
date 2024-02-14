@@ -673,7 +673,7 @@ Node *Parser::ParseImport(bool pub) {
     return (Node *) imp;
 }
 
-node::Node *Parser::ParseLiteral(Context *context) {
+Node *Parser::ParseLiteral(Context *context) {
     ArObject *value;
     switch (this->tkcur_.type) {
         case TokenType::ATOM:
@@ -746,6 +746,62 @@ node::Node *Parser::ParseLiteral(Context *context) {
     this->Eat(false);
 
     return (Node *) literal;
+}
+
+Node *Parser::ParseOOBCall(Context *context) {
+    auto start = TKCUR_START;
+    auto tk_type = TKCUR_TYPE;
+
+    this->Eat(true);
+
+    auto *expr = this->ParseExpression(context, Parser::PeekPrecedence(TokenType::COMMA));
+
+    if (expr->node_type != NodeType::CALL) {
+        Release(expr);
+
+        throw ParserException(TKCUR_LOC, kStandardError[36], tk_type == TokenType::KW_DEFER ? "defer" : "spawn");
+    }
+
+    expr->loc.start = start;
+    expr->token_type = tk_type;
+
+    return expr;
+}
+
+Node *Parser::ParsePRYStatement(Context *context, node::NodeType type) {
+    auto loc = TKCUR_LOC;
+    auto tk_type = TKCUR_TYPE;
+    Node *expr;
+
+    const Token *token;
+
+    this->Eat(false);
+
+    if (tk_type == TokenType::KW_RETURN) {
+        if (this->Match(TokenType::END_OF_LINE, TokenType::SEMICOLON))
+            return nullptr;
+
+        expr = this->ParseExpression(context, Parser::PeekPrecedence(TokenType::EQUAL));
+    } else {
+        this->EatNL();
+        expr = this->ParseExpression(context, Parser::PeekPrecedence(TokenType::EQUAL));
+        if(expr == nullptr)
+            throw ParserException(TKCUR_LOC, kStandardError[0]);
+    }
+
+    auto *unary = NewNode<Unary>(type_ast_unary_, false, type);
+    if (unary == nullptr) {
+        Release(expr);
+
+        throw DatatypeException();
+    }
+
+    unary->loc.start = loc.start;
+    unary->loc.end = expr != nullptr ? expr->loc.end : loc.end;
+
+    unary->value = (ArObject *) expr;
+
+    return (Node *) unary;
 }
 
 Node *Parser::ParseFuncNameParam(Context *context, bool parse_pexpr) {
@@ -856,7 +912,6 @@ Node *Parser::ParseStatement(Context *context) {
         switch (TKCUR_TYPE) {
             case TokenType::KW_ASSERT:
                 expr = this->ParseAssertion(context);
-
                 break;
             case TokenType::KW_BREAK:
                 if (!Parser::CheckScope(context, ContextType::LOOP, ContextType::SWITCH))
@@ -869,6 +924,30 @@ Node *Parser::ParseStatement(Context *context) {
                     throw ParserException(TKCUR_LOC, kStandardError[13], "continue", kContextName[(int) context->type]);
 
                 expr = this->ParseBCFStatement(context);
+                break;
+            case TokenType::KW_DEFER:
+            case TokenType::KW_SPAWN:
+                expr = this->ParseOOBCall(context);
+                break;
+            case TokenType::KW_FALLTHROUGH:
+                if (!Parser::CheckScope(context, ContextType::SWITCH))
+                    throw ParserException(TKCUR_LOC, kStandardError[13], "fallthrough",
+                                          kContextName[(int) context->type]);
+
+                expr = this->ParseBCFStatement(context);
+                break;
+            case TokenType::KW_FOR:
+            case TokenType::KW_IF:
+            case TokenType::KW_LOOP:
+            case TokenType::KW_PANIC:
+                expr = this->ParsePRYStatement(context, NodeType::PANIC);
+                break;
+            case TokenType::KW_RETURN:
+                expr = this->ParsePRYStatement(context, NodeType::RETURN);
+                break;
+            case TokenType::KW_SWITCH:
+            case TokenType::KW_YIELD:
+                expr = this->ParsePRYStatement(context, NodeType::YIELD);
                 break;
             default:
                 expr = this->ParseExpression(context);
@@ -1542,9 +1621,12 @@ Node *Parser::ParseExpression(Context *context, int precedence) {
     LedMeth led;
     NudMeth nud;
 
-    if ((nud = Parser::LookupNUD(TKCUR_TYPE)) == nullptr)
+    if ((nud = Parser::LookupNUD(TKCUR_TYPE)) == nullptr) {
+        if (!this->CheckIDExt())
+            return nullptr;
+
         left = this->ParseIdentifier(context);
-    else
+    } else
         left = (this->*nud)(context);
 
     auto *token = (const Token *) &this->tkcur_;
