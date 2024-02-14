@@ -32,6 +32,7 @@ namespace argon::lang::parser2::node {
         CHAN_OUT,
         DICT,
         ELVIS,
+        EXPRESSION,
         FUNCTION,
         IDENTIFIER,
         IMPORT,
@@ -49,6 +50,7 @@ namespace argon::lang::parser2::node {
         PARAMETER,
         PREFIX,
         REST,
+        SAFE_EXPR,
         SELECTOR,
         SET,
         SLICE,
@@ -260,6 +262,9 @@ const argon::vm::datatype::TypeInfo *argon::lang::parser2::ExtName = &alias##Ast
 
         return node;
     }
+
+    Unary *SafeExprNew(Node *node);
+
 } // namespace argon::lang::parser2
 
 #endif // ARGON_LANG_PARSER2_NODE_NODE_H_

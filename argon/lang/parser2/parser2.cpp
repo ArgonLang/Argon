@@ -359,7 +359,25 @@ Node *Parser::ParseExpression(Context *context) {
         return expr;
     }
 
-    // TODO: Safe Expr
+    auto *inner = expr;
+
+    if (inner->node_type == NodeType::SAFE_EXPR)
+        inner = (Node *) ((Unary *) inner)->value;
+
+    if (inner->node_type != NodeType::ASSIGNMENT && inner->node_type != NodeType::VARDECL) {
+        auto *unary = NewNode<Unary>(type_ast_unary_, false, NodeType::EXPRESSION);
+        if (unary == nullptr) {
+            Release(expr);
+
+            throw DatatypeException();
+        }
+
+        unary->loc = expr->loc;
+
+        unary->value = (ArObject *) expr;
+
+        return (Node *) unary;
+    }
 
     return expr;
 }
@@ -1287,8 +1305,7 @@ Node *Parser::ParseAwait(Context *context) {
 
     this->Eat(true);
 
-    // TODO: Fix precedence
-    auto *expr = this->ParseExpression(context, 0);
+    auto *expr = this->ParseExpression(context, Parser::PeekPrecedence(TokenType::ARROW_RIGHT));
 
     auto *unary = NewNode<Unary>(type_ast_unary_, false, NodeType::AWAIT);
     if (unary == nullptr) {
@@ -1299,6 +1316,14 @@ Node *Parser::ParseAwait(Context *context) {
 
     unary->loc.start = start;
     unary->loc.end = expr->loc.end;
+
+    if (expr->node_type == NodeType::SAFE_EXPR) {
+        unary->value = ((Unary *) expr)->value;
+        ((Unary *) expr)->value = (ArObject *) unary;
+        ((Unary *) expr)->loc = unary->loc;
+
+        return expr;
+    }
 
     unary->value = (ArObject *) expr;
 
@@ -1439,14 +1464,14 @@ Node *Parser::ParseExpression(Context *context, int precedence) {
     LedMeth led;
     NudMeth nud;
 
-    if ((nud = Parser::LookupNUD(TKCUR_TYPE)) == nullptr) {
-        // As identifier!
+    if ((nud = Parser::LookupNUD(TKCUR_TYPE)) == nullptr)
         left = this->ParseIdentifier(context);
-    } else
+    else
         left = (this->*nud)(context);
 
     auto *token = (const Token *) &this->tkcur_;
     auto nline = false;
+    auto is_safe = false;
 
     if (this->Match(TokenType::END_OF_LINE)) {
         if (!this->scanner_.PeekToken(&token))
@@ -1465,6 +1490,9 @@ Node *Parser::ParseExpression(Context *context, int precedence) {
 
         nline = false;
 
+        if (tk_type == TokenType::QUESTION_DOT)
+            is_safe = true;
+
         left = (this->*led)(context, ((Node *) left.Get()));
 
         tk_type = TKCUR_TYPE;
@@ -1478,7 +1506,8 @@ Node *Parser::ParseExpression(Context *context, int precedence) {
         }
     }
 
-    // TODO: safe?!
+    if (is_safe)
+        return (Node *) SafeExprNew((Node *) left.Get());
 
     return (Node *) left.Unwrap();
 }
@@ -2149,11 +2178,13 @@ Node *Parser::ParseTrap(Context *context) {
 
     this->Eat(true);
 
-    auto *right = this->ParseExpression(context);
+    auto *right = this->ParseExpression(context, PeekPrecedence(TokenType::COMMA));
 
     // Expressions with multiple traps are useless,
     // if the expression is already a trap, return it immediately
-    if (right->node_type == NodeType::TRAP)
+    if (right->node_type == NodeType::TRAP
+        || (right->node_type == NodeType::SAFE_EXPR
+            && ((Node *) ((Unary *) right)->value)->node_type == NodeType::TRAP))
         return right;
 
     auto *unary = NewNode<Unary>(type_ast_unary_, false, NodeType::TRAP);
@@ -2165,6 +2196,15 @@ Node *Parser::ParseTrap(Context *context) {
 
     unary->loc.start = start;
     unary->loc.end = unary->loc.end;
+
+    if (right->node_type == NodeType::SAFE_EXPR) {
+        unary->value = ((Unary *) right)->value;
+
+        ((Unary *) right)->value = (ArObject *) unary;
+        ((Unary *) right)->loc = unary->loc;
+
+        return right;
+    }
 
     unary->value = (ArObject *) right;
 
@@ -2214,7 +2254,7 @@ Node *Parser::ParseWalrus(Context *context, node::Node *left) {
     vardecl->loc.start = left->loc.start;
     vardecl->loc.end = right->loc.end;
 
-    vardecl->name = (ArObject *) tmp.Unwrap();
+    vardecl->name = tmp.Unwrap();
     vardecl->value = (ArObject *) right;
 
     vardecl->multi = true;
