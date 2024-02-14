@@ -132,6 +132,8 @@ namespace argon::lang::parser2 {
 
         node::Node *ParseLiteral(Context *context);
 
+        node::Node *ParseLoop(Context *context);
+
         node::Node *ParseOOBCall(Context *context);
 
         node::Node *ParsePRYStatement(Context *context, node::NodeType type);

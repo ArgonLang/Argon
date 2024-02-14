@@ -789,6 +789,34 @@ Node *Parser::ParseLiteral(Context *context) {
     return (Node *) literal;
 }
 
+Node *Parser::ParseLoop(Context *context) {
+    Context ctx(context, ContextType::LOOP);
+
+    ARC test;
+    ARC body;
+
+    auto start = TKCUR_START;
+
+    this->Eat(true);
+
+    if (!this->Match(scanner::TokenType::LEFT_BRACES))
+        test = (ArObject *) this->ParseExpression(context, PeekPrecedence(scanner::TokenType::ARROW_RIGHT));
+
+    body = (ArObject *) this->ParseBlock(&ctx);
+
+    auto *loop = NewNode<Loop>(type_ast_loop_, false, NodeType::LOOP);
+    if (loop == nullptr)
+        throw DatatypeException();
+
+    loop->test = (Node *) test.Unwrap();
+    loop->body = (Node *) body.Unwrap();
+
+    loop->loc.start = start;
+    loop->loc.end = loop->body->loc.end;
+
+    return (Node *) loop;
+}
+
 Node *Parser::ParseOOBCall(Context *context) {
     auto start = TKCUR_START;
     auto tk_type = TKCUR_TYPE;
@@ -982,6 +1010,8 @@ Node *Parser::ParseStatement(Context *context) {
                 expr = this->ParseIf(context);
                 break;
             case TokenType::KW_LOOP:
+                expr = this->ParseLoop(context);
+                break;
             case TokenType::KW_PANIC:
                 expr = this->ParsePRYStatement(context, NodeType::PANIC);
                 break;

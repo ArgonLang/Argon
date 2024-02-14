@@ -46,6 +46,7 @@ namespace argon::lang::parser2::node {
         INFIX,
         LIST,
         LITERAL,
+        LOOP,
         MODULE,
         NOT_IN,
         OBJ_INIT,
@@ -186,6 +187,16 @@ const argon::vm::datatype::TypeInfo *argon::lang::parser2::ExtName = &alias##Ast
         bool pub;
     };
     _ARGONAPI extern const vm::datatype::TypeInfo *type_ast_import_;
+
+    struct Loop {
+        NODEOBJ_HEAD;
+
+        Node *init;
+        Node *test;
+        Node *inc;
+        Node *body;
+    };
+    _ARGONAPI extern const vm::datatype::TypeInfo *type_ast_loop_;
 
     struct Module {
         NODEOBJ_HEAD;
