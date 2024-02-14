@@ -593,6 +593,47 @@ Node *Parser::ParseFunc(Context *context, Position start, bool pub) {
     return (Node *) func;
 }
 
+Node *Parser::ParseIf(Context *context) {
+    ARC test;
+    ARC body;
+    ARC orelse;
+
+    auto start = TKCUR_START;
+    Position end{};
+
+    this->Eat(true);
+
+    test = this->ParseExpression(context, PeekPrecedence(TokenType::ARROW_RIGHT));
+
+    body = this->ParseBlock(context);
+
+    end = ((Node *) body.Get())->loc.end;
+
+    this->IgnoreNewLineIF(TokenType::KW_ELIF, TokenType::KW_ELSE);
+
+    if (this->Match(TokenType::KW_ELIF)) {
+        orelse = this->ParseIf(context);
+        end = ((Node *) orelse.Get())->loc.end;
+    } else if (this->MatchEat(TokenType::KW_ELSE, true)) {
+        orelse = (ArObject *) this->ParseBlock(context);
+        end = ((Node *) orelse.Get())->loc.end;
+    }
+
+    auto *branch = NewNode<Branch>(type_ast_branch_, false, NodeType::IF);
+    if (branch == nullptr)
+        throw DatatypeException();
+
+    branch->test = (Node *) test.Unwrap();
+    branch->body = (Node *) body.Unwrap();
+    branch->orelse = (Node *) orelse.Unwrap();
+
+    branch->loc.start = start;
+    branch->loc.end = end;
+
+    return (Node *) branch;
+
+}
+
 Node *Parser::ParseImport(bool pub) {
     ARC path;
     ARC ret;
@@ -785,7 +826,7 @@ Node *Parser::ParsePRYStatement(Context *context, node::NodeType type) {
     } else {
         this->EatNL();
         expr = this->ParseExpression(context, Parser::PeekPrecedence(TokenType::EQUAL));
-        if(expr == nullptr)
+        if (expr == nullptr)
             throw ParserException(TKCUR_LOC, kStandardError[0]);
     }
 
@@ -938,6 +979,8 @@ Node *Parser::ParseStatement(Context *context) {
                 break;
             case TokenType::KW_FOR:
             case TokenType::KW_IF:
+                expr = this->ParseIf(context);
+                break;
             case TokenType::KW_LOOP:
             case TokenType::KW_PANIC:
                 expr = this->ParsePRYStatement(context, NodeType::PANIC);

@@ -37,6 +37,7 @@ namespace argon::lang::parser2::node {
         EXPRESSION,
         FUNCTION,
         IDENTIFIER,
+        IF,
         IMPORT,
         IMPORT_NAME,
         INDEX,

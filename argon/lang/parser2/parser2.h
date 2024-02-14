@@ -126,6 +126,8 @@ namespace argon::lang::parser2 {
 
         node::Node *ParseFunc(Context *context, scanner::Position start, bool pub);
 
+        node::Node *ParseIf(Context *context);
+
         node::Node *ParseImport(bool pub);
 
         node::Node *ParseLiteral(Context *context);
