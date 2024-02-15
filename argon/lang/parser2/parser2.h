@@ -50,7 +50,11 @@ namespace argon::lang::parser2 {
             "function parameters must be passed in the order: [positional][, named param][, spread][, kwargs]",
             "only identifiers are allowed before the '=' sign",
             "unexpected label after fallthrough",
-            "%s expected call expression"
+            "%s expected call expression",
+            "expected var declaration, identifier or tuple before 'of' in foreach",
+            "unexpected initialization of var in foreach",
+            "expected ';' after for initialization",
+            "expected ';' after test"
     };
 
     class Parser {
@@ -122,6 +126,8 @@ namespace argon::lang::parser2 {
 
         node::Node *ParseExpression(Context *context);
 
+        node::Node *ParseForLoop(Context *context);
+
         node::Node *ParseFromImport(bool pub);
 
         node::Node *ParseFunc(Context *context, scanner::Position start, bool pub);
@@ -154,9 +160,13 @@ namespace argon::lang::parser2 {
 
         node::Node *ParseVarDecl(Context *context, scanner::Position start, bool constant, bool pub, bool weak);
 
-        node::Node *ParseVarDecls(const scanner::Token &token);
+        node::Node *ParseVarDecls(const scanner::Token &token, node::Assignment *vardecl);
 
         String *ParseDoc();
+
+        static node::Unary *AssignmentIDs2Tuple(const node::Assignment *assignment);
+
+        static node::Unary *String2Identifier(scanner::Position start, scanner::Position end, String *value);
 
         static String *ParseIdentifierSimple(const scanner::Token *token);
 

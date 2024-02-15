@@ -35,6 +35,8 @@ namespace argon::lang::parser2::node {
         DICT,
         ELVIS,
         EXPRESSION,
+        FOR,
+        FOREACH,
         FUNCTION,
         IDENTIFIER,
         IF,

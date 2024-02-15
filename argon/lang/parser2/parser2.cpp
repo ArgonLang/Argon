@@ -445,6 +445,87 @@ Node *Parser::ParseExpression(Context *context) {
     return expr;
 }
 
+Node *Parser::ParseForLoop(Context *context) {
+    Context ctx(context, ContextType::LOOP);
+    ARC init;
+    ARC test;
+    ARC inc;
+    ARC body;
+
+    auto start = TKCUR_START;
+    auto type = NodeType::FOR;
+
+    this->Eat(true);
+
+    if (!this->Match(TokenType::SEMICOLON)) {
+        if (this->Match(TokenType::KW_VAR))
+            init = this->ParseVarDecl(context, TKCUR_START, false, false, false);
+        else
+            init = this->ParseExpression(context, 0);
+    }
+
+    this->EatNL();
+
+    if (this->MatchEat(TokenType::KW_OF, true)) {
+        const auto *check = (Node *) init.Get();
+
+        if (check->node_type != NodeType::VARDECL
+            && check->node_type != NodeType::IDENTIFIER
+            && check->node_type != NodeType::TUPLE)
+            throw ParserException(check->loc, kStandardError[37]);
+
+        if (check->node_type == NodeType::VARDECL) {
+            const auto *vdecl = (Assignment *) init.Get();
+
+            if (vdecl->value != nullptr)
+                throw ParserException(vdecl->loc, kStandardError[38]);
+
+            if (vdecl->multi)
+                inc = Parser::AssignmentIDs2Tuple(vdecl);
+            else {
+                auto id_start = vdecl->loc.start;
+
+                id_start.column += 4; // len("var ")
+                id_start.offset += 4; // len("var ")
+                inc = Parser::String2Identifier(id_start, vdecl->loc.end, (String *) vdecl->name);
+            }
+        } else
+            inc = init.Unwrap();
+
+        type = NodeType::FOREACH;
+    } else if (!this->MatchEat(TokenType::SEMICOLON, true))
+        throw ParserException(TKCUR_LOC, kStandardError[39]);
+
+    this->EatNL();
+
+    if (type == NodeType::FOR) {
+        test = (ArObject *) this->ParseExpression(context, PeekPrecedence(scanner::TokenType::EQUAL));
+
+        if (!this->MatchEat(TokenType::SEMICOLON, true))
+            throw ParserException(TKCUR_LOC, kStandardError[40]);
+
+        if (!this->Match(TokenType::LEFT_BRACES))
+            inc = (ArObject *) this->ParseExpression(&ctx, PeekPrecedence(TokenType::WALRUS));
+    } else
+        test = (ArObject *) this->ParseExpression(context, PeekPrecedence(TokenType::EQUAL));
+
+    body = (ArObject *) this->ParseBlock(&ctx);
+
+    auto *loop = NewNode<Loop>(type_ast_loop_, false, type);
+    if (loop == nullptr)
+        throw DatatypeException();
+
+    loop->init = (Node *) init.Unwrap();
+    loop->test = (Node *) test.Unwrap();
+    loop->inc = (Node *) inc.Unwrap();
+    loop->body = (Node *) body.Unwrap();
+
+    loop->loc.start = start;
+    loop->loc.end = loop->body->loc.end;
+
+    return (Node *) loop;
+}
+
 Node *Parser::ParseFromImport(bool pub) {
     // from "x/y/z" import xyz as x
     ARC imp_list;
@@ -1006,6 +1087,8 @@ Node *Parser::ParseStatement(Context *context) {
                 expr = this->ParseBCFStatement(context);
                 break;
             case TokenType::KW_FOR:
+                expr = this->ParseForLoop(context);
+                break;
             case TokenType::KW_IF:
                 expr = this->ParseIf(context);
                 break;
@@ -1172,23 +1255,18 @@ Node *Parser::ParseVarDecl(Context *context, Position start, bool constant, bool
     this->Eat(false);
     this->IgnoreNewLineIF(TokenType::COMMA, TokenType::EQUAL);
 
-    if (this->Match(TokenType::EQUAL)) {
-        auto *id = Parser::ParseIdentifierSimple(&identifier);
-
-        if ((vardecl = NewNode<Assignment>(type_ast_vardecl_, false, NodeType::VARDECL)) == nullptr) {
-            Release(id);
-
-            throw DatatypeException();
-        }
-
-        vardecl->name = (ArObject *) id;
-    } else if (this->Match(TokenType::COMMA)) {
-        this->Eat(true);
-        vardecl = (Assignment *) this->ParseVarDecls(identifier);
-    } else
-        throw ParserException(TKCUR_LOC, kStandardError[0]);
+    if ((vardecl = NewNode<Assignment>(type_ast_vardecl_, false, NodeType::VARDECL)) == nullptr)
+        throw DatatypeException();
 
     ret = vardecl;
+
+    if (!this->Match(TokenType::COMMA)) {
+        vardecl->name = (ArObject *) Parser::ParseIdentifierSimple(&identifier);
+        vardecl->loc.end = identifier.loc.end;
+    } else {
+        this->Eat(true);
+        vardecl = (Assignment *) this->ParseVarDecls(identifier, vardecl);
+    }
 
     this->IgnoreNewLineIF(TokenType::EQUAL);
 
@@ -1211,14 +1289,15 @@ Node *Parser::ParseVarDecl(Context *context, Position start, bool constant, bool
     return (Node *) ret.Unwrap();
 }
 
-Node *Parser::ParseVarDecls(const Token &token) {
+Node *Parser::ParseVarDecls(const Token &token, Assignment *vardecl) {
     ARC list;
-
     Position end{};
 
     List *ids = ListNew();
     if (ids == nullptr)
         throw DatatypeException();
+
+    list = ids;
 
     auto *id = (ArObject *) Parser::ParseIdentifierSimple(&token);
     if (!ListAppend(ids, id)) {
@@ -1238,6 +1317,7 @@ Node *Parser::ParseVarDecls(const Token &token) {
 
             throw DatatypeException();
         }
+
         Release(id);
 
         end = TKCUR_END;
@@ -1245,10 +1325,6 @@ Node *Parser::ParseVarDecls(const Token &token) {
         this->Eat(false);
         this->IgnoreNewLineIF(scanner::TokenType::COMMA);
     } while (this->MatchEat(TokenType::COMMA, false));
-
-    auto *vardecl = NewNode<Assignment>(type_ast_vardecl_, false, NodeType::VARDECL);
-    if (vardecl == nullptr)
-        throw DatatypeException();
 
     list.Unwrap();
 
@@ -1285,12 +1361,75 @@ String *Parser::ParseDoc() {
     return ret;
 }
 
-String *Parser::ParseIdentifierSimple(const scanner::Token *token) {
+String *Parser::ParseIdentifierSimple(const Token *token) {
     auto *id = StringNew((const char *) token->buffer, token->length);
     if (id == nullptr)
         throw DatatypeException();
 
     return id;
+}
+
+Unary *Parser::AssignmentIDs2Tuple(const Assignment *assignment) {
+    Position start{};
+    Position curr = assignment->loc.start;
+
+    const auto *ids = (List *) assignment->name;
+
+    auto *items = ListNew(ids->length);
+    if (items == nullptr)
+        throw DatatypeException();
+
+    curr.column += 3;     // len("var")
+    curr.offset += 3;   // len("var")
+
+    auto o_start = curr;
+    o_start.column += 1;
+    o_start.offset += 1;
+
+    for (ArSize i = 0; i < ids->length; i++) {
+        auto *str = (String *) ids->objects[i];
+
+        curr.column += 1;
+        curr.offset += 1;
+
+        start = curr;
+
+        curr.column += str->length;
+        curr.offset += str->length;
+
+        auto *itm = (ArObject *) String2Identifier(start, curr, str);
+
+        ListAppend(items, itm);
+
+        Release(itm);
+    }
+
+    auto *tuple = NewNode<Unary>(type_ast_unary_, false, NodeType::TUPLE);
+    if (tuple == nullptr) {
+        Release(items);
+
+        throw DatatypeException();
+    }
+
+    tuple->loc.start = o_start;
+    tuple->loc.end = curr;
+
+    tuple->value = (ArObject *) items;
+
+    return tuple;
+}
+
+Unary *Parser::String2Identifier(Position start, Position end, String *value) {
+    auto *node = NewNode<Unary>(type_ast_identifier_, false, NodeType::IDENTIFIER);
+    if (node == nullptr)
+        throw DatatypeException();
+
+    node->loc.start = start;
+    node->loc.end = end;
+
+    node->value = (ArObject *) IncRef(value);
+
+    return node;
 }
 
 void Parser::Eat(bool ignore_nl) {
@@ -1992,6 +2131,8 @@ Node *Parser::ParseIdentifier([[maybe_unused]]Context *context) {
         throw DatatypeException();
     }
 
+    node->loc = this->tkcur_.loc;
+
     node->value = (ArObject *) id;
 
     this->Eat(false);
@@ -2274,6 +2415,8 @@ Node *Parser::ParsePostInc([[maybe_unused]]Context *context, Node *left) {
     unary->loc.end = TKCUR_END;
 
     unary->value = (ArObject *) IncRef(left);
+
+    this->Eat(false);
 
     return (Node *) unary;
 }
