@@ -4,21 +4,23 @@
 
 #include <argon/vm/datatype/error.h>
 
-#include <argon/lang/parser/parser.h>
+#include <argon/lang/compiler2/compiler2.h>
 
-#include <argon/lang/compiler.h>
+#include <argon/lang/parser2/parser2.h>
+
 #include <argon/lang/compiler_wrapper.h>
 
 using namespace argon::lang;
-using namespace argon::lang::parser;
+using namespace argon::lang::compiler2;
+using namespace argon::lang::parser2;
 using namespace argon::vm::datatype;
 
 Code *CompilerWrapper::Compile(const char *file_name, scanner::Scanner &scanner) {
-    Compiler compiler;
     Parser parser(file_name, scanner);
-    File *ast;
+    Compiler compiler;
 
-    if ((ast = parser.Parse()) == nullptr)
+    auto *ast = parser.Parse();
+    if (ast == nullptr)
         return nullptr;
 
     auto *code = compiler.Compile(ast);
