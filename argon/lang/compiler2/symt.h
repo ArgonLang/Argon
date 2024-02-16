@@ -68,4 +68,4 @@ namespace argon::lang::compiler2 {
 
 } // argon::lang::compiler2
 
-#endif // ARGON_LANG_COMPILER2_SYMT_H_
+#endif // !ARGON_LANG_COMPILER2_SYMT_H_

@@ -2,6 +2,8 @@
 //
 // Licensed under the Apache License v2.0
 
+#include <argon/lang/exception.h>
+
 #include <argon/lang/compiler2/transl_unit.h>
 
 using namespace argon::vm::datatype;
@@ -21,6 +23,29 @@ bool MakeQName(const TranslationUnit *prev, TranslationUnit *unit, String *name)
 
     unit->name = IncRef(name);
     return true;
+}
+
+BasicBlock *TranslationUnit::BlockAppend(BasicBlock *block) {
+    this->bbb.Append(block);
+    return block;
+}
+
+BasicBlock *TranslationUnit::BlockNew() {
+    auto *block = this->bbb.BlockNewAppend();
+    if (block == nullptr)
+        throw DatatypeException();
+
+    return block;
+}
+
+void TranslationUnit::Emit(vm::OpCode op, int arg, BasicBlock *dest, const scanner::Loc *loc) {
+    unsigned int lineno = 0;
+
+    if (loc != nullptr)
+        lineno = (unsigned int) loc->start.line;
+
+    if (this->bbb.AddInstr(dest, op, arg, lineno) == nullptr)
+        throw DatatypeException();
 }
 
 TranslationUnit *argon::lang::compiler2::TranslationUnitNew(TranslationUnit *prev, String *name, SymbolType type) {
