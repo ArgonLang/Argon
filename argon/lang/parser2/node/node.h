@@ -46,6 +46,7 @@ namespace argon::lang::parser2::node {
         IN,
         JUMP,
         INFIX,
+        LABEL,
         LIST,
         LITERAL,
         LOOP,
@@ -65,6 +66,8 @@ namespace argon::lang::parser2::node {
         SLICE,
         SPREAD,
         STRUCT,
+        SWITCH,
+        SWITCH_CASE,
         SYNC_BLOCK,
         TERNARY,
         TRAIT,
@@ -132,6 +135,7 @@ const argon::vm::datatype::TypeInfo *argon::lang::parser2::ExtName = &alias##Ast
     _ARGONAPI extern const TypeInfo *type_ast_import_name_;
     _ARGONAPI extern const TypeInfo *type_ast_infix_;
     _ARGONAPI extern const TypeInfo *type_ast_selector_;
+    _ARGONAPI extern const TypeInfo *type_ast_switchcase_;
     _ARGONAPI extern const TypeInfo *type_ast_sync_;
 
     struct Branch {

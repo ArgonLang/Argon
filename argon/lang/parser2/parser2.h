@@ -54,7 +54,12 @@ namespace argon::lang::parser2 {
             "expected var declaration, identifier or tuple before 'of' in foreach",
             "unexpected initialization of var in foreach",
             "expected ';' after for initialization",
-            "expected ';' after test"
+            "expected ';' after test",
+            "expected '{' after switch declaration",
+            "default case already defined",
+            "expected 'case' or 'default' label",
+            "expected ':' after '%s' label",
+            "expected for, foreach or loop after label"
     };
 
     class Parser {
@@ -67,7 +72,7 @@ namespace argon::lang::parser2 {
 
         const char *filename_;
 
-        [[nodiscard]] bool CheckIDExt();
+        [[nodiscard]] bool CheckIDExt() const;
 
         [[nodiscard]] static bool CheckScope(Context *context, ContextType type) {
             return context->type == type;
@@ -108,13 +113,13 @@ namespace argon::lang::parser2 {
             return this->tkcur_.type > begin && this->tkcur_.type < end;
         }
 
-        int PeekPrecedence(scanner::TokenType type);
+        static int PeekPrecedence(scanner::TokenType type);
 
         List *ParseFnParams(Context *context, bool parse_pexpr);
 
         List *ParseTraitList();
 
-        node::Node *ParseAsync(Context *context, scanner::Position &start, bool pub);
+        node::Node *ParseAsync(Context *context, const scanner::Position &start, bool pub);
 
         node::Node *ParseAssertion(Context *context);
 
@@ -130,7 +135,7 @@ namespace argon::lang::parser2 {
 
         node::Node *ParseFromImport(bool pub);
 
-        node::Node *ParseFunc(Context *context, scanner::Position start, bool pub);
+        node::Node *ParseFunc(Context *context, const scanner::Position &start, bool pub);
 
         node::Node *ParseIf(Context *context);
 
@@ -146,7 +151,7 @@ namespace argon::lang::parser2 {
 
         node::Node *ParseFuncNameParam(Context *context, bool parse_pexpr);
 
-        node::Node *ParseFuncParam(scanner::Position start, node::NodeType type);
+        node::Node *ParseFuncParam(const scanner::Position &start, node::NodeType type);
 
         node::Node *ParseScope();
 
@@ -156,9 +161,13 @@ namespace argon::lang::parser2 {
 
         node::Node *ParseSyncBlock(Context *context);
 
+        node::Node *ParseSwitch(Context *context);
+
+        node::Node *ParseSwitchCase(Context *context);
+
         node::Node *ParseTrait(Context *context, bool pub);
 
-        node::Node *ParseVarDecl(Context *context, scanner::Position start, bool constant, bool pub, bool weak);
+        node::Node *ParseVarDecl(Context *context, const scanner::Position &start, bool constant, bool pub, bool weak);
 
         node::Node *ParseVarDecls(const scanner::Token &token, node::Assignment *vardecl);
 
@@ -166,7 +175,7 @@ namespace argon::lang::parser2 {
 
         static node::Unary *AssignmentIDs2Tuple(const node::Assignment *assignment);
 
-        static node::Unary *String2Identifier(scanner::Position start, scanner::Position end, String *value);
+        static node::Unary *String2Identifier(const scanner::Position &start, const scanner::Position &end, String *value);
 
         static String *ParseIdentifierSimple(const scanner::Token *token);
 

@@ -5,6 +5,7 @@
 #include <argon/vm/datatype/arstring.h>
 #include <argon/vm/datatype/boolean.h>
 #include <argon/vm/datatype/bytes.h>
+#include <argon/vm/datatype/error.h>
 #include <argon/vm/datatype/nil.h>
 #include <argon/vm/datatype/stringbuilder.h>
 
@@ -19,7 +20,7 @@ using namespace argon::lang::parser2::node;
 #define TKCUR_START this->tkcur_.loc.start
 #define TKCUR_END   this->tkcur_.loc.end
 
-bool Parser::CheckIDExt() {
+bool Parser::CheckIDExt() const {
     return this->Match(scanner::TokenType::IDENTIFIER);
 }
 
@@ -193,7 +194,7 @@ List *Parser::ParseTraitList() {
     return (List *) ret.Unwrap();
 }
 
-Node *Parser::ParseAsync(Context *context, Position &start, bool pub) {
+Node *Parser::ParseAsync(Context *context, const Position &start, bool pub) {
     this->Eat(true);
 
     auto *func = (Function *) this->ParseFunc(context, start, pub);
@@ -232,7 +233,7 @@ Node *Parser::ParseAssertion(Context *context) {
     return (Node *) asrt;
 }
 
-Node *Parser::ParseBCFStatement(Context *context) {
+Node *Parser::ParseBCFStatement([[maybe_unused]]Context *context) {
     auto loc = TKCUR_LOC;
     auto tk_type = TKCUR_TYPE;
 
@@ -303,8 +304,10 @@ Node *Parser::ParseBlock(Context *context) {
 
         Release(stmt);
 
-        // TODO: check NewLine or ;
-        this->EatNL();
+        if (!this->Match(TokenType::END_OF_LINE, TokenType::SEMICOLON))
+            throw ParserException(TKCUR_LOC, kStandardError[0]);
+
+        while (this->MatchEat(TokenType::SEMICOLON, true));
     }
 
     auto *block = NewNode<Unary>(type_ast_unary_, false, NodeType::BLOCK);
@@ -331,10 +334,8 @@ Node *Parser::ParseDecls(Context *context) {
     if (this->MatchEat(TokenType::KW_PUB, true)) {
         pub = true;
 
-        if (!this->CheckScope(context, ContextType::MODULE, ContextType::STRUCT, ContextType::TRAIT))
-            throw ParserException(TKCUR_LOC,
-                                  "'pub' modifier not allowed in %s",
-                                  kContextName[(int) context->type]);
+        if (!Parser::CheckScope(context, ContextType::MODULE, ContextType::STRUCT, ContextType::TRAIT))
+            throw ParserException(TKCUR_LOC, "'pub' modifier not allowed in %s", kContextName[(int) context->type]);
     }
 
     this->EatNL();
@@ -623,7 +624,7 @@ Node *Parser::ParseFromImport(bool pub) {
     return (Node *) imp;
 }
 
-Node *Parser::ParseFunc(Context *context, Position start, bool pub) {
+Node *Parser::ParseFunc(Context *context, const Position &start, bool pub) {
     ARC name;
     ARC params;
     ARC body;
@@ -795,7 +796,7 @@ Node *Parser::ParseImport(bool pub) {
     return (Node *) imp;
 }
 
-Node *Parser::ParseLiteral(Context *context) {
+Node *Parser::ParseLiteral([[maybe_unused]]Context *context) {
     ArObject *value;
     switch (this->tkcur_.type) {
         case TokenType::ATOM:
@@ -923,8 +924,6 @@ Node *Parser::ParsePRYStatement(Context *context, node::NodeType type) {
     auto tk_type = TKCUR_TYPE;
     Node *expr;
 
-    const Token *token;
-
     this->Eat(false);
 
     if (tk_type == TokenType::KW_RETURN) {
@@ -1014,7 +1013,7 @@ Node *Parser::ParseFuncNameParam(Context *context, bool parse_pexpr) {
     return (Node *) id.Unwrap();
 }
 
-Node *Parser::ParseFuncParam(Position start, NodeType type) {
+Node *Parser::ParseFuncParam(const Position &start, NodeType type) {
     auto *id = Parser::ParseIdentifierSimple(&this->tkcur_);
 
     assert(type == NodeType::REST || type == NodeType::KWPARAM);
@@ -1102,6 +1101,8 @@ Node *Parser::ParseStatement(Context *context) {
                 expr = this->ParsePRYStatement(context, NodeType::RETURN);
                 break;
             case TokenType::KW_SWITCH:
+                expr = this->ParseSwitch(context);
+                break;
             case TokenType::KW_YIELD:
                 expr = this->ParsePRYStatement(context, NodeType::YIELD);
                 break;
@@ -1113,10 +1114,8 @@ Node *Parser::ParseStatement(Context *context) {
         this->IgnoreNewLineIF(TokenType::COLON);
 
         if (((Node *) expr.Get())->node_type != NodeType::IDENTIFIER
-            || !this->MatchEat(TokenType::COLON, false))
+            || !this->MatchEat(TokenType::COLON, true))
             break;
-
-        this->Eat(true);
 
         if (label)
             throw ParserException(TKCUR_LOC, kStandardError[19]);
@@ -1124,13 +1123,32 @@ Node *Parser::ParseStatement(Context *context) {
         label = expr;
     } while (true);
 
-    // TODO: label checks
+    if (label) {
+        const auto *check = (Node *) expr.Get();
+
+        if (check->node_type != NodeType::FOR
+            && check->node_type != NodeType::FOREACH
+            && check->node_type != NodeType::LOOP)
+            throw ParserException(TKCUR_LOC, kStandardError[45]);
+
+        auto *lbl = NewNode<Binary>(type_ast_binary_, false, NodeType::LABEL);
+        if (lbl == nullptr)
+            throw DatatypeException();
+
+        lbl->left = label.Unwrap();
+        lbl->right = expr.Unwrap();
+
+        lbl->loc.start = ((Node *) lbl->left)->loc.start;
+        lbl->loc.start = ((Node *) lbl->right)->loc.end;
+
+        return (Node *) lbl;
+    }
 
     return (Node *) expr.Unwrap();
 }
 
 Node *Parser::ParseStruct(Context *context, bool pub) {
-    Context t_ctx(context, ContextType::STRUCT);
+    Context s_ctx(context, ContextType::STRUCT);
 
     ARC name;
     ARC impls;
@@ -1150,7 +1168,7 @@ Node *Parser::ParseStruct(Context *context, bool pub) {
     if (this->MatchEat(TokenType::KW_IMPL, true))
         impls = this->ParseTraitList();
 
-    body = this->ParseBlock(&t_ctx);
+    body = this->ParseBlock(&s_ctx);
 
     auto *_struct = NewNode<Construct>(type_ast_struct_, false, NodeType::STRUCT);
     if (_struct == nullptr)
@@ -1198,6 +1216,138 @@ Node *Parser::ParseSyncBlock(Context *context) {
     return (Node *) sync;
 }
 
+Node *Parser::ParseSwitch(Context *context) {
+    ARC cases;
+    ARC test;
+
+    auto start = TKCUR_START;
+
+    this->Eat(true);
+
+    if (!this->Match(TokenType::LEFT_BRACES))
+        test = this->ParseExpression(context, PeekPrecedence(TokenType::ELVIS));
+
+    if (!this->MatchEat(TokenType::LEFT_BRACES, true))
+        throw ParserException(TKCUR_LOC, kStandardError[41]);
+
+    this->EatNL();
+
+    auto *c_list = ListNew();
+    if (!c_list)
+        throw DatatypeException();
+
+    cases = c_list;
+
+    bool def = false;
+    while (this->Match(scanner::TokenType::KW_CASE, TokenType::KW_DEFAULT)) {
+        if (this->Match(scanner::TokenType::KW_DEFAULT)) {
+            if (def)
+                throw ParserException(TKCUR_LOC, kStandardError[42]);
+
+            def = true;
+        }
+
+        auto *cs = this->ParseSwitchCase(context);
+
+        if (!ListAppend(c_list, (ArObject *) cs)) {
+            Release(cs);
+
+            throw DatatypeException();
+        }
+
+        Release(cs);
+
+        this->EatNL();
+    }
+
+    if (!this->Match(TokenType::RIGHT_BRACES))
+        throw ParserException(TKCUR_LOC, kStandardError[23], "switch");
+
+    auto *br = NewNode<Branch>(type_ast_branch_, false, NodeType::SWITCH);
+    if (br == nullptr)
+        throw DatatypeException();
+
+    br->loc.start = start;
+    br->loc.end = TKCUR_END;
+
+    br->test = (Node *) test.Unwrap();
+    br->body = (Node *) cases.Unwrap();
+
+    this->Eat(false);
+
+    return (Node *) br;
+}
+
+Node *Parser::ParseSwitchCase(Context *context) {
+    Context ctx(context, ContextType::SWITCH);
+
+    ARC body;
+    ARC conditions;
+
+    auto loc = TKCUR_LOC;
+
+    if (this->MatchEat(scanner::TokenType::KW_CASE, true)) {
+        conditions = (ArObject *) ListNew();
+        if (!conditions)
+            throw DatatypeException();
+
+        do {
+            this->EatNL();
+
+            auto *cond = (ArObject *) this->ParseExpression(context, PeekPrecedence(scanner::TokenType::ELVIS));
+
+            if (!ListAppend((List *) conditions.Get(), cond)) {
+                Release(cond);
+
+                throw DatatypeException();
+            }
+
+            Release(cond);
+        } while (this->MatchEat(scanner::TokenType::SEMICOLON, true));
+    } else if (!this->MatchEat(scanner::TokenType::KW_DEFAULT, true))
+        throw ParserException(TKCUR_LOC, kStandardError[43]);
+
+    if (!this->Match(scanner::TokenType::COLON))
+        throw ParserException(TKCUR_LOC, kStandardError[44], !conditions ? "default" : "case");
+
+    loc.end = TKCUR_END;
+
+    this->Eat(true);
+
+    while (!this->Match(TokenType::KW_CASE, TokenType::KW_DEFAULT, TokenType::RIGHT_BRACES)) {
+        if (!body) {
+            body = (ArObject *) ListNew();
+            if (!body)
+                throw DatatypeException();
+        }
+
+        auto *decl = this->ParseDecls(&ctx);
+
+        if (!ListAppend((List *) body.Get(), (ArObject *) decl)) {
+            Release(decl);
+
+            throw DatatypeException();
+        }
+
+        Release(decl);
+
+        loc.end = decl->loc.end;
+
+        this->EatNL();
+    }
+
+    auto *swcase = NewNode<Binary>(type_ast_switchcase_, false, NodeType::SWITCH_CASE);
+    if (swcase == nullptr)
+        throw DatatypeException();
+
+    swcase->loc = loc;
+
+    swcase->left = conditions.Unwrap();
+    swcase->right = body.Unwrap();
+
+    return (Node *) swcase;
+}
+
 Node *Parser::ParseTrait(Context *context, bool pub) {
     Context t_ctx(context, ContextType::TRAIT);
 
@@ -1239,7 +1389,7 @@ Node *Parser::ParseTrait(Context *context, bool pub) {
     return (Node *) trait;
 }
 
-Node *Parser::ParseVarDecl(Context *context, Position start, bool constant, bool pub, bool weak) {
+Node *Parser::ParseVarDecl(Context *context, const Position &start, bool constant, bool pub, bool weak) {
     ARC ret;
     Token identifier;
 
@@ -1341,7 +1491,7 @@ String *Parser::ParseDoc() {
 
     do {
         if (!this->scanner_.NextToken(&this->tkcur_))
-            assert(false);
+            throw ScannerException();
     } while (this->Match(TokenType::END_OF_LINE));
 
     while (this->TokenInRange(TokenType::COMMENT_BEGIN, TokenType::COMMENT_END)) {
@@ -1350,7 +1500,7 @@ String *Parser::ParseDoc() {
 
         do {
             if (!this->scanner_.NextToken(&this->tkcur_))
-                assert(false);
+                throw ScannerException();
         } while (this->Match(TokenType::END_OF_LINE));
     }
 
@@ -1419,7 +1569,7 @@ Unary *Parser::AssignmentIDs2Tuple(const Assignment *assignment) {
     return tuple;
 }
 
-Unary *Parser::String2Identifier(Position start, Position end, String *value) {
+Unary *Parser::String2Identifier(const Position &start, const Position &end, String *value) {
     auto *node = NewNode<Unary>(type_ast_identifier_, false, NodeType::IDENTIFIER);
     if (node == nullptr)
         throw DatatypeException();
@@ -1438,12 +1588,12 @@ void Parser::Eat(bool ignore_nl) {
 
     do {
         if (!this->scanner_.NextToken(&this->tkcur_))
-            return;
+            throw ScannerException();
 
         if (ignore_nl) {
             while (this->tkcur_.type == TokenType::END_OF_LINE) {
                 if (!this->scanner_.NextToken(&this->tkcur_))
-                    return;
+                    throw ScannerException();
             }
         }
     } while (this->TokenInRange(scanner::TokenType::COMMENT_BEGIN, scanner::TokenType::COMMENT_END));
@@ -1626,8 +1776,6 @@ Node *Parser::ParseArrowOrTuple(Context *context) {
 }
 
 Node *Parser::ParseAssignment(Context *context, Node *left) {
-    auto type = TKCUR_TYPE;
-
     this->Eat(true);
 
     if (left->node_type != NodeType::IDENTIFIER
@@ -1980,7 +2128,7 @@ Node *Parser::ParseFuncCall(Context *context, Node *left) {
     call->loc.end = TKCUR_END;
 
     call->left = IncRef(left);
-    call->args = (ArObject *) a_args.Unwrap();
+    call->args = a_args.Unwrap();
 
     this->Eat(false);
 
@@ -2367,7 +2515,7 @@ Node *Parser::ParsePipeline(Context *context, Node *left) {
 
         right->loc.start = left->loc.start;
 
-        return (Node *) right;
+        return right;
     }
 
     auto *args = ListNew();
@@ -2451,15 +2599,14 @@ Node *Parser::ParseSelector([[maybe_unused]]Context *context, Node *left) {
 
     this->Eat(true);
 
-    if (!this->CheckIDExt())
-        throw ParserException(TKCUR_LOC, kStandardError[27],
-                              kind == TokenType::DOT
-                              ? "."
-                              : (kind == TokenType::QUESTION_DOT
-                                 ? "?."
-                                 : "::"
-                              )
-        );
+    if (!this->CheckIDExt()) {
+        if (kind == TokenType::DOT)
+            throw ParserException(TKCUR_LOC, kStandardError[27], ".");
+        else if (kind == TokenType::QUESTION_DOT)
+            throw ParserException(TKCUR_LOC, kStandardError[27], "?.");
+        else
+            throw ParserException(TKCUR_LOC, kStandardError[27], "::");
+    }
 
     auto *right = Parser::ParseIdentifierSimple(&this->tkcur_);
 
@@ -2645,6 +2792,7 @@ Node *Parser::ParseWalrus(Context *context, node::Node *left) {
 Module *Parser::Parse() {
     ARC ret;
     ARC statements;
+    Loc loc{};
 
     auto *mod = NewNode<Module>(type_ast_module_, false, NodeType::MODULE);
     if (mod == nullptr)
@@ -2665,17 +2813,43 @@ Module *Parser::Parse() {
         Context context(ContextType::MODULE);
 
         // Init
-        this->Eat(true);
+        mod->docs = this->ParseDoc();
 
-        this->ParseDecls(&context);
-    } catch (ParserException &e) {
-        assert(e.what() != nullptr);
+        loc.start = TKCUR_START;
+
+        while (!this->Match(TokenType::END_OF_FILE)) {
+            auto *res = this->ParseDecls(&context);
+
+            if (!ListAppend(stmts, (ArObject *) res)) {
+                Release(res);
+
+                throw DatatypeException();
+            }
+
+            Release(res);
+
+            loc.end = TKCUR_END;
+
+            if (!this->Match(TokenType::END_OF_LINE, TokenType::SEMICOLON))
+                throw ParserException(TKCUR_LOC, kStandardError[0]);
+
+            while (this->MatchEat(TokenType::SEMICOLON, true));
+        }
+    } catch (const DatatypeException &) {
+        // This exception can be safely ignored!
+        return nullptr;
+    } catch (const ParserException &e) {
+        ErrorFormat("ParserError", "(column: %d, line: %d) %s",
+                    e.loc.start.column,
+                    e.loc.start.line,
+                    e.what());
+        return nullptr;
+    } catch (const ScannerException &) {
+        ErrorFormat("ParserError", "%s", this->scanner_.GetStatusMessage());
+        return nullptr;
     }
 
-    mod->docs = nullptr;
-    mod->statements = stmts;
-
-    statements.Unwrap();
+    mod->statements = (List *) statements.Unwrap();
 
     return (Module *) ret.Unwrap();
 }

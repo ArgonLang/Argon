@@ -24,7 +24,7 @@ namespace argon::lang::parser2 {
     public:
         const scanner::Loc loc;
 
-        explicit ParserException(scanner::Loc loc, const char *message, ...) : loc(loc) {
+        explicit ParserException(const scanner::Loc loc, const char *message, ...) : loc(loc) {
             va_list args;
 
             va_start(args, message);
