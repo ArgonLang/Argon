@@ -94,6 +94,7 @@ void Compiler::Expression(const node::Node *node) {
             break;
         case node::NodeType::INFIX:
             if (node->token_type == scanner::TokenType::AND || node->token_type == scanner::TokenType::OR) {
+                this->CompileTest((const node::Binary *) node);
                 break;
             }
 
@@ -215,6 +216,51 @@ void Compiler::CompilePrefix(const node::Unary *unary) {
     }
 }
 
+void Compiler::CompileTest(const node::Binary *binary) {
+    auto *cursor = binary;
+
+    CHECK_AST_NODE(node::type_ast_infix_, binary);
+
+    auto *end = BasicBlockNew();
+    if (end == nullptr)
+        throw DatatypeException();
+
+    int deep = 0;
+    while (((node::Node *) (cursor->left))->token_type == scanner::TokenType::AND
+           || ((node::Node *) (cursor->left))->token_type == scanner::TokenType::OR) {
+        cursor = (const node::Binary *) cursor->left;
+        deep++;
+    }
+
+    try {
+        this->Expression((node::Node *) cursor->left);
+
+        do {
+            if (cursor->token_type == scanner::TokenType::AND)
+                this->unit_->Emit(vm::OpCode::JFOP, 0, end, &cursor->loc);
+            else if (cursor->token_type == scanner::TokenType::OR)
+                this->unit_->Emit(vm::OpCode::JTOP, 0, end, &cursor->loc);
+            else
+                throw CompilerException(kCompilerErrors[2], (int) cursor->token_type, __FUNCTION__);
+
+            this->unit_->BlockNew();
+
+            this->Expression((node::Node *) cursor->right);
+
+            deep--;
+
+            cursor = binary;
+            for (int i = 0; i < deep; i++)
+                cursor = (const node::Binary *) cursor->left;
+        } while (deep >= 0);
+    } catch (...) {
+        BasicBlockDel(end);
+        throw;
+    }
+
+    this->unit_->BlockAppend(end);
+}
+
 // *********************************************************************************************************************
 // PRIVATE
 // *********************************************************************************************************************
@@ -261,7 +307,7 @@ Code *Compiler::Compile(node::Module *mod) {
         Release(decl);
 
         this->ExitScope();
-    } catch (...) {
+    } catch (CompilerException &e) {
         assert(false);
     }
 
