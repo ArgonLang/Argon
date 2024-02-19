@@ -14,12 +14,28 @@
 #include <argon/lang/parser2/parser2.h>
 
 namespace argon::lang::compiler2 {
+    constexpr const char *kCompilerErrors[] = {
+            "invalid AST node, expected '%s', got: '%s'"
+    };
+
     class Compiler {
         argon::vm::datatype::Dict *static_globals_;
 
         TranslationUnit *unit_;
 
+        int LoadStatic(const parser2::node::Unary *literal, bool store, bool emit);
+
         void Compile(const parser2::node::Node *node);
+
+// *********************************************************************************************************************
+// EXPRESSION-ZONE
+// *********************************************************************************************************************
+
+        void Expression(const parser2::node::Node *node);
+
+// *********************************************************************************************************************
+// PRIVATE
+// *********************************************************************************************************************
 
         void EnterScope(argon::vm::datatype::String *name, SymbolType type);
 

@@ -9,7 +9,7 @@
 
 #include <argon/lang/parser2/node/node.h>
 
-#include <argon/lang/parser2/exception.h>
+#include <argon/lang/exception.h>
 #include <argon/lang/parser2/context.h>
 
 namespace argon::lang::parser2 {
