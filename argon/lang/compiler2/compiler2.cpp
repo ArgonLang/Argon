@@ -91,6 +91,25 @@ int Compiler::LoadStatic(const node::Unary *literal, bool store, bool emit) {
 void Compiler::Expression(const node::Node *node) {
     switch (node->node_type) {
         case node::NodeType::AWAIT:
+            CHECK_AST_NODE(node::type_ast_unary_, node);
+
+            this->Expression((const node::Node *) ((const node::Unary *) node)->value);
+
+            this->unit_->Emit(vm::OpCode::AWAIT, &node->loc);
+            break;
+        case node::NodeType::IN:
+        case node::NodeType::NOT_IN:
+            CHECK_AST_NODE(node::type_ast_binary_, node);
+
+            this->Expression((const node::Node *) ((const node::Binary *) node)->left);
+            this->Expression((const node::Node *) ((const node::Binary *) node)->right);
+
+            this->unit_->Emit(vm::OpCode::CNT,
+                              (int) (node->node_type == node::NodeType::IN
+                                     ? vm::OpCodeContainsMode::IN
+                                     : vm::OpCodeContainsMode::NOT_IN),
+                              nullptr,
+                              &node->loc);
             break;
         case node::NodeType::INFIX:
             if (node->token_type == scanner::TokenType::AND || node->token_type == scanner::TokenType::OR) {
