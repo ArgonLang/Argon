@@ -2484,7 +2484,7 @@ Node *Parser::ParseNullCoalescing(Context *context, Node *left) {
 
     auto *expr = this->ParseExpression(context, PeekPrecedence(TokenType::NULL_COALESCING));
 
-    auto *n_coal = NewNode<Binary>(type_ast_binary_, false, NodeType::ELVIS);
+    auto *n_coal = NewNode<Binary>(type_ast_binary_, false, NodeType::NULL_COALESCING);
     if (n_coal == nullptr) {
         Release(expr);
 

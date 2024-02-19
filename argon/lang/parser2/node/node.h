@@ -52,6 +52,7 @@ namespace argon::lang::parser2::node {
         LOOP,
         MODULE,
         NOT_IN,
+        NULL_COALESCING,
         OBJ_INIT,
         KWARG,
         KWPARAM,

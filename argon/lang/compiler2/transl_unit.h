@@ -51,6 +51,10 @@ namespace argon::lang::compiler2 {
         void Emit(vm::OpCode op, const scanner::Loc *loc) {
             this->Emit(op, 0, nullptr, loc);
         }
+
+        void EmitPOP() {
+            this->Emit(vm::OpCode::POP, 0, nullptr, nullptr);
+        }
     };
 
     TranslationUnit *TranslationUnitNew(TranslationUnit *prev, vm::datatype::String *name, SymbolType type);

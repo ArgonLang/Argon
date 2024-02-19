@@ -97,6 +97,9 @@ void Compiler::Expression(const node::Node *node) {
 
             this->unit_->Emit(vm::OpCode::AWAIT, &node->loc);
             break;
+        case node::NodeType::ELVIS:
+            this->CompileElvis((const node::Binary *) node);
+            break;
         case node::NodeType::IN:
         case node::NodeType::NOT_IN:
             CHECK_AST_NODE(node::type_ast_binary_, node);
@@ -122,12 +125,36 @@ void Compiler::Expression(const node::Node *node) {
         case node::NodeType::LITERAL:
             this->LoadStatic((const node::Unary *) node, true, true);
             break;
+        case node::NodeType::NULL_COALESCING:
+            this->CompileNullCoalescing((const node::Binary *) node);
+            break;
         case node::NodeType::PREFIX:
             this->CompilePrefix((const node::Unary *) node);
             break;
         default:
             throw CompilerException(kCompilerErrors[1], (int) node->node_type, __FUNCTION__);
     }
+}
+
+void Compiler::CompileElvis(const node::Binary *binary) {
+    CHECK_AST_NODE(node::type_ast_binary_, binary);
+
+    this->Expression((node::Node *) binary->left);
+
+    auto *end = BasicBlockNew();
+    if (end == nullptr)
+        throw DatatypeException();
+
+    try {
+        this->unit_->Emit(vm::OpCode::JTOP, 0, end, &binary->loc);
+
+        this->Expression((node::Node *) binary->right);
+    } catch (...) {
+        BasicBlockDel(end);
+        throw;
+    }
+
+    this->unit_->BlockAppend(end);
 }
 
 void Compiler::CompileInfix(const node::Binary *binary) {
@@ -210,6 +237,28 @@ void Compiler::CompileInfix(const node::Binary *binary) {
         default:
             throw CompilerException(kCompilerErrors[2], (int) binary->token_type, __FUNCTION__);
     }
+}
+
+void Compiler::CompileNullCoalescing(const node::Binary *binary) {
+    CHECK_AST_NODE(node::type_ast_binary_, binary);
+
+    this->Expression((node::Node *) binary->left);
+
+    auto *end = BasicBlockNew();
+    if (end == nullptr)
+        throw DatatypeException();
+
+    try {
+        this->unit_->Emit(vm::OpCode::JNN, 0,end, &binary->loc);
+        this->unit_->EmitPOP();
+
+        this->Expression((node::Node *) binary->right);
+    } catch (...) {
+        BasicBlockDel(end);
+        throw;
+    }
+
+    this->unit_->BlockAppend(end);
 }
 
 void Compiler::CompilePrefix(const node::Unary *unary) {

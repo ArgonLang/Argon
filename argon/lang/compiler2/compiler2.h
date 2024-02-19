@@ -35,7 +35,11 @@ namespace argon::lang::compiler2 {
 
         void Expression(const parser2::node::Node *node);
 
+        void CompileElvis(const parser2::node::Binary *binary);
+
         void CompileInfix(const parser2::node::Binary *binary);
+
+        void CompileNullCoalescing(const parser2::node::Binary *binary);
 
         void CompilePrefix(const parser2::node::Unary *unary);
 
