@@ -46,6 +46,8 @@ void TranslationUnit::Emit(vm::OpCode op, int arg, BasicBlock *dest, const scann
 
     if (this->bbb.AddInstr(dest, op, arg, lineno) == nullptr)
         throw DatatypeException();
+
+    this->IncrementStack(vm::StackChange[(unsigned char) op]);
 }
 
 TranslationUnit *argon::lang::compiler2::TranslationUnitNew(TranslationUnit *prev, String *name, SymbolType type) {

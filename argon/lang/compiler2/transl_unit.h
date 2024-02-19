@@ -42,9 +42,19 @@ namespace argon::lang::compiler2 {
 
         BasicBlockSeq bbb; // It should be called 'bb', but this is a joke for M.G =)
 
+        struct {
+            unsigned int required;
+            unsigned int current;
+        } stack;
+
         BasicBlock *BlockNew();
 
         BasicBlock *BlockAppend(BasicBlock *block);
+
+        void DecrementStack(int size) {
+            this->stack.current -= size;
+            assert(this->stack.current < 0x00FFFFFF);
+        }
 
         void Emit(vm::OpCode op, int arg, BasicBlock *dest, const scanner::Loc *loc);
 
@@ -54,6 +64,13 @@ namespace argon::lang::compiler2 {
 
         void EmitPOP() {
             this->Emit(vm::OpCode::POP, 0, nullptr, nullptr);
+        }
+
+        void IncrementStack(int size) {
+            this->stack.current += size;
+
+            if (this->stack.current > this->stack.required)
+                this->stack.required = this->stack.current;
         }
     };
 

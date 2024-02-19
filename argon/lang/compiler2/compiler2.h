@@ -31,7 +31,11 @@ namespace argon::lang::compiler2 {
 // EXPRESSION-ZONE
 // *********************************************************************************************************************
 
+        int LoadStatic(ArObject *object, const scanner::Loc *loc, bool store, bool emit);
+
         int LoadStatic(const parser2::node::Unary *literal, bool store, bool emit);
+
+        int LoadStaticNil(const scanner::Loc *loc, bool emit);
 
         void Expression(const parser2::node::Node *node);
 
@@ -44,6 +48,8 @@ namespace argon::lang::compiler2 {
         void CompilePrefix(const parser2::node::Unary *unary);
 
         void CompileTest(const parser2::node::Binary *binary);
+
+        void CompileTernary(const parser2::node::Branch *branch);
 
 // *********************************************************************************************************************
 // PRIVATE

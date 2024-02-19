@@ -2,6 +2,8 @@
 //
 // Licensed under the Apache License v2.0
 
+#include <argon/vm/datatype/nil.h>
+
 #include <argon/lang/compiler2/compiler2.h>
 
 using namespace argon::vm::datatype;
@@ -28,10 +30,8 @@ void Compiler::Compile(const node::Node *node) {
 // EXPRESSION-ZONE
 // *********************************************************************************************************************
 
-int Compiler::LoadStatic(const node::Unary *literal, bool store, bool emit) {
-    CHECK_AST_NODE(node::type_ast_literal_, literal);
-
-    auto *value = IncRef(literal->value);
+int Compiler::LoadStatic(ArObject *object, const scanner::Loc *loc, bool store, bool emit) {
+    auto *value = IncRef(object);
     ArObject *tmp;
 
     int idx = -1;
@@ -83,9 +83,19 @@ int Compiler::LoadStatic(const node::Unary *literal, bool store, bool emit) {
     Release(value);
 
     if (emit)
-        this->unit_->Emit(vm::OpCode::LSTATIC, idx, nullptr, &literal->loc);
+        this->unit_->Emit(vm::OpCode::LSTATIC, idx, nullptr, loc);
 
     return idx;
+}
+
+int Compiler::LoadStatic(const node::Unary *literal, bool store, bool emit) {
+    CHECK_AST_NODE(node::type_ast_literal_, literal);
+
+    return this->LoadStatic(literal->value, &literal->loc, store, emit);
+}
+
+int Compiler::LoadStaticNil(const scanner::Loc *loc, bool emit) {
+    return this->LoadStatic((ArObject *) Nil, loc, true, emit);
 }
 
 void Compiler::Expression(const node::Node *node) {
@@ -130,6 +140,9 @@ void Compiler::Expression(const node::Node *node) {
             break;
         case node::NodeType::PREFIX:
             this->CompilePrefix((const node::Unary *) node);
+            break;
+        case node::NodeType::TERNARY:
+            this->CompileTernary((const node::Branch *) node);
             break;
         default:
             throw CompilerException(kCompilerErrors[1], (int) node->node_type, __FUNCTION__);
@@ -249,7 +262,7 @@ void Compiler::CompileNullCoalescing(const node::Binary *binary) {
         throw DatatypeException();
 
     try {
-        this->unit_->Emit(vm::OpCode::JNN, 0,end, &binary->loc);
+        this->unit_->Emit(vm::OpCode::JNN, 0, end, &binary->loc);
         this->unit_->EmitPOP();
 
         this->Expression((node::Node *) binary->right);
@@ -323,6 +336,48 @@ void Compiler::CompileTest(const node::Binary *binary) {
         } while (deep >= 0);
     } catch (...) {
         BasicBlockDel(end);
+        throw;
+    }
+
+    this->unit_->BlockAppend(end);
+}
+
+void Compiler::CompileTernary(const node::Branch *branch) {
+    BasicBlock *end;
+    BasicBlock *orelse;
+
+    CHECK_AST_NODE(node::type_ast_branch_, branch);
+
+    if ((end = BasicBlockNew()) == nullptr)
+        throw DatatypeException();
+
+    if ((orelse = BasicBlockNew()) == nullptr) {
+        BasicBlockDel(end);
+
+        throw DatatypeException();
+    }
+
+    try {
+        this->Expression(branch->test);
+
+        this->unit_->Emit(vm::OpCode::JF, 0, orelse, &branch->test->loc);
+
+        this->Expression(branch->body);
+
+        this->unit_->Emit(vm::OpCode::JMP, 0, end, nullptr);
+
+        this->unit_->DecrementStack(1);
+
+        this->unit_->BlockAppend(orelse);
+
+        if (branch->orelse != nullptr)
+            this->Expression(branch->orelse);
+        else
+            this->LoadStaticNil(&branch->loc, true);
+    } catch (...) {
+        BasicBlockDel(end);
+        BasicBlockDel(orelse);
+
         throw;
     }
 
