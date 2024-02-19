@@ -14,6 +14,20 @@ do {                                                                            
         throw CompilerException(kCompilerErrors[0], (expected)->name, AR_TYPE_NAME(chk));   \
 } while(0)
 
+void Compiler::Compile(const node::Node *node) {
+    switch (node->node_type) {
+        case node::NodeType::EXPRESSION:
+            this->Expression((const node::Node *) ((const node::Unary *) node)->value);
+            break;
+        default:
+            assert(false);
+    }
+}
+
+// *********************************************************************************************************************
+// EXPRESSION-ZONE
+// *********************************************************************************************************************
+
 int Compiler::LoadStatic(const node::Unary *literal, bool store, bool emit) {
     CHECK_AST_NODE(node::type_ast_literal_, literal);
 
@@ -74,28 +88,130 @@ int Compiler::LoadStatic(const node::Unary *literal, bool store, bool emit) {
     return idx;
 }
 
-void Compiler::Compile(const node::Node *node) {
-    switch (node->node_type) {
-        case node::NodeType::EXPRESSION:
-            break;
-        default:
-            assert(false);
-    }
-}
-
-// *********************************************************************************************************************
-// EXPRESSION-ZONE
-// *********************************************************************************************************************
-
 void Compiler::Expression(const node::Node *node) {
     switch (node->node_type) {
         case node::NodeType::AWAIT:
             break;
+        case node::NodeType::INFIX:
+            if (node->token_type == scanner::TokenType::AND || node->token_type == scanner::TokenType::OR) {
+                break;
+            }
+
+            this->CompileInfix((const node::Binary *) node);
+            break;
         case node::NodeType::LITERAL:
             this->LoadStatic((const node::Unary *) node, true, true);
             break;
+        case node::NodeType::PREFIX:
+            this->CompilePrefix((const node::Unary *) node);
+            break;
         default:
-            assert(false);
+            throw CompilerException(kCompilerErrors[1], (int) node->node_type, __FUNCTION__);
+    }
+}
+
+void Compiler::CompileInfix(const node::Binary *binary) {
+    CHECK_AST_NODE(node::type_ast_infix_, binary);
+
+    this->Expression((const node::Node *) binary->left);
+    this->Expression((const node::Node *) binary->right);
+
+    switch (binary->token_type) {
+        case scanner::TokenType::ARROW_RIGHT:
+            this->unit_->Emit(vm::OpCode::PSHC, &binary->loc);
+            break;
+
+            // Maths
+        case scanner::TokenType::PLUS:
+            this->unit_->Emit(vm::OpCode::ADD, &binary->loc);
+            break;
+        case scanner::TokenType::MINUS:
+            this->unit_->Emit(vm::OpCode::SUB, &binary->loc);
+            break;
+        case scanner::TokenType::ASTERISK:
+            this->unit_->Emit(vm::OpCode::MUL, &binary->loc);
+            break;
+        case scanner::TokenType::SLASH:
+            this->unit_->Emit(vm::OpCode::DIV, &binary->loc);
+            break;
+        case scanner::TokenType::SLASH_SLASH:
+            this->unit_->Emit(vm::OpCode::IDIV, &binary->loc);
+            break;
+        case scanner::TokenType::PERCENT:
+            this->unit_->Emit(vm::OpCode::MOD, &binary->loc);
+            break;
+
+            // SHIFT
+        case scanner::TokenType::SHL:
+            this->unit_->Emit(vm::OpCode::SHL, &binary->loc);
+            break;
+        case scanner::TokenType::SHR:
+            this->unit_->Emit(vm::OpCode::SHR, &binary->loc);
+            break;
+
+            // EQUALITY
+        case scanner::TokenType::EQUAL_EQUAL:
+            this->unit_->Emit(vm::OpCode::CMP, (int) CompareMode::EQ, nullptr, &binary->loc);
+            break;
+        case scanner::TokenType::EQUAL_STRICT:
+            this->unit_->Emit(vm::OpCode::EQST, (int) CompareMode::EQ, nullptr, &binary->loc);
+            break;
+        case scanner::TokenType::NOT_EQUAL:
+            this->unit_->Emit(vm::OpCode::CMP, (int) CompareMode::NE, nullptr, &binary->loc);
+            break;
+        case scanner::TokenType::NOT_EQUAL_STRICT:
+            this->unit_->Emit(vm::OpCode::EQST, (int) CompareMode::NE, nullptr, &binary->loc);
+            break;
+
+            // LOGICAL
+        case scanner::TokenType::AMPERSAND:
+            this->unit_->Emit(vm::OpCode::LAND, &binary->loc);
+            break;
+        case scanner::TokenType::PIPE:
+            this->unit_->Emit(vm::OpCode::LOR, &binary->loc);
+            break;
+        case scanner::TokenType::CARET:
+            this->unit_->Emit(vm::OpCode::LXOR, &binary->loc);
+            break;
+
+            // RELATIONAL
+        case scanner::TokenType::GREATER:
+            this->unit_->Emit(vm::OpCode::CMP, (int) CompareMode::GR, nullptr, &binary->loc);
+            break;
+        case scanner::TokenType::GREATER_EQ:
+            this->unit_->Emit(vm::OpCode::CMP, (int) CompareMode::GRQ, nullptr, &binary->loc);
+            break;
+        case scanner::TokenType::LESS:
+            this->unit_->Emit(vm::OpCode::CMP, (int) CompareMode::LE, nullptr, &binary->loc);
+            break;
+        case scanner::TokenType::LESS_EQ:
+            this->unit_->Emit(vm::OpCode::CMP, (int) CompareMode::LEQ, nullptr, &binary->loc);
+            break;
+        default:
+            throw CompilerException(kCompilerErrors[2], (int) binary->token_type, __FUNCTION__);
+    }
+}
+
+void Compiler::CompilePrefix(const node::Unary *unary) {
+    CHECK_AST_NODE(node::type_ast_prefix_, unary);
+
+    this->Expression((const node::Node *) unary->value);
+
+    switch (unary->token_type) {
+        case scanner::TokenType::EXCLAMATION:
+            this->unit_->Emit(vm::OpCode::NOT, &unary->loc);
+            break;
+        case scanner::TokenType::MINUS:
+            this->unit_->Emit(vm::OpCode::NEG, &unary->loc);
+            break;
+        case scanner::TokenType::PLUS:
+            this->unit_->Emit(vm::OpCode::POS, &unary->loc);
+            break;
+        case scanner::TokenType::TILDE:
+            this->unit_->Emit(vm::OpCode::INV, &unary->loc);
+            break;
+        default:
+            throw CompilerException(kCompilerErrors[2], (int) unary->token_type, __FUNCTION__);
     }
 }
 

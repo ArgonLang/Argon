@@ -15,15 +15,15 @@
 
 namespace argon::lang::compiler2 {
     constexpr const char *kCompilerErrors[] = {
-            "invalid AST node, expected '%s', got: '%s'"
+            "invalid AST node, expected '%s', got: '%s'",
+            "invalid NodeType(%d) for %s",
+            "invalid TokenType(%d) for %s"
     };
 
     class Compiler {
-        argon::vm::datatype::Dict *static_globals_;
+        argon::vm::datatype::Dict *static_globals_ = nullptr;
 
-        TranslationUnit *unit_;
-
-        int LoadStatic(const parser2::node::Unary *literal, bool store, bool emit);
+        TranslationUnit *unit_ = nullptr;
 
         void Compile(const parser2::node::Node *node);
 
@@ -31,7 +31,13 @@ namespace argon::lang::compiler2 {
 // EXPRESSION-ZONE
 // *********************************************************************************************************************
 
+        int LoadStatic(const parser2::node::Unary *literal, bool store, bool emit);
+
         void Expression(const parser2::node::Node *node);
+
+        void CompileInfix(const parser2::node::Binary *binary);
+
+        void CompilePrefix(const parser2::node::Unary *unary);
 
 // *********************************************************************************************************************
 // PRIVATE

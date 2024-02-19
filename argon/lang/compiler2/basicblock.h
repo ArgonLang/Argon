@@ -32,13 +32,13 @@ namespace argon::lang::compiler2 {
         Instr *AddInstr(vm::OpCode opcode, int arg, unsigned int lineno);
     };
 
-    struct BasicBlockSeq{
+    struct BasicBlockSeq {
         BasicBlock *begin;
         BasicBlock *current;
 
         BasicBlock *BlockNewAppend();
 
-        Instr *AddInstr(BasicBlock *dest, vm::OpCode opcode, int arg, unsigned int lineno) const;
+        Instr *AddInstr(BasicBlock *dest, vm::OpCode opcode, int arg, unsigned int lineno);
 
         void Append(BasicBlock *block);
     };

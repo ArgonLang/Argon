@@ -2,6 +2,8 @@
 //
 // Licensed under the Apache License v2.0
 
+#include <cassert>
+
 #include <argon/vm/memory/memory.h>
 
 #include <argon/lang/compiler2/basicblock.h>
@@ -66,7 +68,14 @@ BasicBlock *BasicBlockSeq::BlockNewAppend() {
     return block;
 }
 
-Instr *BasicBlockSeq::AddInstr(BasicBlock *dest, vm::OpCode opcode, int arg, unsigned int lineno) const {
+Instr *BasicBlockSeq::AddInstr(BasicBlock *dest, vm::OpCode opcode, int arg, unsigned int lineno) {
+    if (this->current == nullptr) {
+        assert(this->begin == nullptr);
+
+        if (this->BlockNewAppend() == nullptr)
+            return nullptr;
+    }
+
     auto *instr = this->current->AddInstr(opcode, arg, lineno);
     if (instr != nullptr)
         instr->jmp = dest;

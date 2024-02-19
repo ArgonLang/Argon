@@ -47,6 +47,10 @@ namespace argon::lang::compiler2 {
         BasicBlock *BlockAppend(BasicBlock *block);
 
         void Emit(vm::OpCode op, int arg, BasicBlock *dest, const scanner::Loc *loc);
+
+        void Emit(vm::OpCode op, const scanner::Loc *loc) {
+            this->Emit(op, 0, nullptr, loc);
+        }
     };
 
     TranslationUnit *TranslationUnitNew(TranslationUnit *prev, vm::datatype::String *name, SymbolType type);
