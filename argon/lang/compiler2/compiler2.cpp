@@ -16,6 +16,31 @@ do {                                                                            
         throw CompilerException(kCompilerErrors[0], (expected)->name, AR_TYPE_NAME(chk));   \
 } while(0)
 
+SymbolT *Compiler::IdentifierLookupOrCreate(String *id, argon::lang::compiler2::SymbolType type) {
+    auto *dst = this->unit_->names;
+
+    auto *sym = this->unit_->symt->SymbolLookup(id);
+    if (sym == nullptr) {
+        if ((sym = this->unit_->symt->SymbolInsert(id, type)) == nullptr)
+            throw DatatypeException();
+
+        if (this->unit_->IsFreeVar(id)) {
+            dst = this->unit_->enclosed;
+            sym->free = true;
+        }
+
+        sym->id = (short) dst->length;
+
+        if (!ListAppend(dst, (ArObject *) id)) {
+            Release(sym);
+
+            throw DatatypeException();
+        }
+    }
+
+    return sym;
+}
+
 void Compiler::Compile(const node::Node *node) {
     switch (node->node_type) {
         case node::NodeType::EXPRESSION:
@@ -98,55 +123,79 @@ int Compiler::LoadStaticNil(const scanner::Loc *loc, bool emit) {
     return this->LoadStatic((ArObject *) Nil, loc, true, emit);
 }
 
-void Compiler::Expression(const node::Node *node) {
-    switch (node->node_type) {
-        case node::NodeType::AWAIT:
-            CHECK_AST_NODE(node::type_ast_unary_, node);
+void Compiler::LoadIdentifier(String *identifier, const scanner::Loc *loc) {
+    // N.B. Unknown variable, by default does not raise an error,
+    // but tries to load it from the global namespace.
+    if (StringEqual(identifier, (const char *) "_"))
+        throw CompilerException(kCompilerErrors[3], identifier);
 
-            this->Expression((const node::Node *) ((const node::Unary *) node)->value);
+    auto *sym = this->IdentifierLookupOrCreate(identifier, SymbolType::VARIABLE);
 
-            this->unit_->Emit(vm::OpCode::AWAIT, &node->loc);
-            break;
-        case node::NodeType::ELVIS:
-            this->CompileElvis((const node::Binary *) node);
-            break;
-        case node::NodeType::IN:
-        case node::NodeType::NOT_IN:
-            CHECK_AST_NODE(node::type_ast_binary_, node);
+    auto sym_id = sym->id;
+    auto nested = sym->nested;
+    auto declared = sym->declared;
+    auto free = sym->free;
 
-            this->Expression((const node::Node *) ((const node::Binary *) node)->left);
-            this->Expression((const node::Node *) ((const node::Binary *) node)->right);
+    Release(sym);
 
-            this->unit_->Emit(vm::OpCode::CNT,
-                              (int) (node->node_type == node::NodeType::IN
-                                     ? vm::OpCodeContainsMode::IN
-                                     : vm::OpCodeContainsMode::NOT_IN),
-                              nullptr,
-                              &node->loc);
-            break;
-        case node::NodeType::INFIX:
-            if (node->token_type == scanner::TokenType::AND || node->token_type == scanner::TokenType::OR) {
-                this->CompileTest((const node::Binary *) node);
-                break;
-            }
+    auto scope = this->unit_->symt->type;
+    if (scope != SymbolType::STRUCT
+        && scope != SymbolType::TRAIT
+        && nested > 0) {
+        if (declared) {
+            this->unit_->Emit(vm::OpCode::LDLC, sym_id, nullptr, loc);
+            return;
+        } else if (free) {
+            this->unit_->Emit(vm::OpCode::LDENC, sym_id, nullptr, loc);
+            return;
+        }
+    }
 
-            this->CompileInfix((const node::Binary *) node);
+    this->unit_->Emit(vm::OpCode::LDGBL, sym_id, nullptr, loc);
+}
+
+void Compiler::LoadIdentifier(const node::Unary *identifier) {
+    CHECK_AST_NODE(node::type_ast_identifier_, identifier);
+
+    this->LoadIdentifier((String *) identifier->value, &identifier->loc);
+}
+
+void Compiler::CompileDLST(const node::Unary *unary) {
+    ARC iter;
+    ARC tmp;
+
+    vm::OpCode code;
+    int items = 0;
+
+    CHECK_AST_NODE(node::type_ast_unary_, unary);
+
+    iter = IteratorGet(unary->value, false);
+    if (!iter)
+        throw DatatypeException();
+
+    while ((tmp = IteratorNext(iter.Get()))) {
+        this->Expression((node::Node *) tmp.Get());
+        items++;
+    }
+
+    switch (unary->node_type) {
+        case node::NodeType::DICT:
+            code = vm::OpCode::MKDT;
             break;
-        case node::NodeType::LITERAL:
-            this->LoadStatic((const node::Unary *) node, true, true);
+        case node::NodeType::LIST:
+            code = vm::OpCode::MKLT;
             break;
-        case node::NodeType::NULL_COALESCING:
-            this->CompileNullCoalescing((const node::Binary *) node);
+        case node::NodeType::SET:
+            code = vm::OpCode::MKST;
             break;
-        case node::NodeType::PREFIX:
-            this->CompilePrefix((const node::Unary *) node);
-            break;
-        case node::NodeType::TERNARY:
-            this->CompileTernary((const node::Branch *) node);
+        case node::NodeType::TUPLE:
+            code = vm::OpCode::MKTP;
             break;
         default:
-            throw CompilerException(kCompilerErrors[1], (int) node->node_type, __FUNCTION__);
+            throw CompilerException(kCompilerErrors[2], (int) unary->token_type, __FUNCTION__);
     }
+
+    this->unit_->Emit(code, items, nullptr, &unary->loc);
 }
 
 void Compiler::CompileElvis(const node::Binary *binary) {
@@ -382,6 +431,91 @@ void Compiler::CompileTernary(const node::Branch *branch) {
     }
 
     this->unit_->BlockAppend(end);
+}
+
+void Compiler::Expression(const node::Node *node) {
+    switch (node->node_type) {
+        case node::NodeType::AWAIT:
+            CHECK_AST_NODE(node::type_ast_unary_, node);
+
+            this->Expression((const node::Node *) ((const node::Unary *) node)->value);
+
+            this->unit_->Emit(vm::OpCode::AWAIT, &node->loc);
+            break;
+        case node::NodeType::CALL:
+            // TODO CompileCall
+            assert(false);
+        case node::NodeType::DICT:
+        case node::NodeType::LIST:
+        case node::NodeType::SET:
+        case node::NodeType::TUPLE:
+            this->CompileDLST((const node::Unary *) node);
+            break;
+        case node::NodeType::ELVIS:
+            this->CompileElvis((const node::Binary *) node);
+            break;
+        case node::NodeType::FUNCTION:
+            // TODO CompileFunction
+            assert(false);
+        case node::NodeType::IDENTIFIER:
+            this->LoadIdentifier((const node::Unary *) node);
+            break;
+        case node::NodeType::IN:
+        case node::NodeType::NOT_IN:
+            CHECK_AST_NODE(node::type_ast_binary_, node);
+
+            this->Expression((const node::Node *) ((const node::Binary *) node)->left);
+            this->Expression((const node::Node *) ((const node::Binary *) node)->right);
+
+            this->unit_->Emit(vm::OpCode::CNT,
+                              (int) (node->node_type == node::NodeType::IN
+                                     ? vm::OpCodeContainsMode::IN
+                                     : vm::OpCodeContainsMode::NOT_IN),
+                              nullptr,
+                              &node->loc);
+            break;
+        case node::NodeType::INDEX:
+        case node::NodeType::SLICE:
+            // TODO CompileSubscr
+            assert(false);
+        case node::NodeType::INFIX:
+            if (node->token_type == scanner::TokenType::AND || node->token_type == scanner::TokenType::OR) {
+                this->CompileTest((const node::Binary *) node);
+                break;
+            }
+
+            this->CompileInfix((const node::Binary *) node);
+            break;
+        case node::NodeType::OBJ_INIT:
+            // TODO CompileINIT
+            assert(false);
+        case node::NodeType::LITERAL:
+            this->LoadStatic((const node::Unary *) node, true, true);
+            break;
+        case node::NodeType::NULL_COALESCING:
+            this->CompileNullCoalescing((const node::Binary *) node);
+            break;
+        case node::NodeType::PREFIX:
+            this->CompilePrefix((const node::Unary *) node);
+            break;
+        case node::NodeType::TERNARY:
+            this->CompileTernary((const node::Branch *) node);
+            break;
+        case node::NodeType::TRAP:
+            // TODO CompileTrap
+            assert(false);
+        case node::NodeType::SAFE_EXPR:
+            // TODO CompileSafeExpr
+            assert(false);
+        case node::NodeType::SELECTOR:
+            // TODO CompileSelector
+            assert(false);
+        case node::NodeType::UPDATE:
+            // TODO CompileUpdate
+            assert(false);
+        default:
+            throw CompilerException(kCompilerErrors[1], (int) node->node_type, __FUNCTION__);
+    }
 }
 
 // *********************************************************************************************************************

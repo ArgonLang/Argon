@@ -38,6 +38,34 @@ BasicBlock *TranslationUnit::BlockNew() {
     return block;
 }
 
+bool TranslationUnit::IsFreeVar(const String *id) {
+    // Look back in the TranslationUnits,
+    // if a variable with the same name exists and is declared or free
+    // in turn then this is a free variable
+    SymbolT *sym;
+
+    for (TranslationUnit *tu = this->prev; tu != nullptr; tu = tu->prev) {
+        if (tu->symt->type == SymbolType::STRUCT || tu->symt->type == SymbolType::TRAIT)
+            continue;
+
+        if ((sym = tu->symt->SymbolLookup(id)) != nullptr) {
+            // WARNING: sym->nested must be greater than 0,
+            // otherwise this is a global variable.
+            if (sym->type == SymbolType::VARIABLE
+                && sym->nested > 0
+                && (sym->declared || sym->free)) {
+                Release(sym);
+
+                return true;
+            }
+
+            Release(sym);
+        }
+    }
+
+    return false;
+}
+
 void TranslationUnit::Emit(vm::OpCode op, int arg, BasicBlock *dest, const scanner::Loc *loc) {
     unsigned int lineno = 0;
 
@@ -47,7 +75,16 @@ void TranslationUnit::Emit(vm::OpCode op, int arg, BasicBlock *dest, const scann
     if (this->bbb.AddInstr(dest, op, arg, lineno) == nullptr)
         throw DatatypeException();
 
-    this->IncrementStack(vm::StackChange[(unsigned char) op]);
+    switch (op) {
+        case vm::OpCode::MKDT:
+        case vm::OpCode::MKLT:
+        case vm::OpCode::MKST:
+        case vm::OpCode::MKTP:
+            this->DecrementStack(arg);
+            break;
+        default:
+            this->IncrementStack(vm::StackChange[(unsigned char) op]);
+    }
 }
 
 TranslationUnit *argon::lang::compiler2::TranslationUnitNew(TranslationUnit *prev, String *name, SymbolType type) {

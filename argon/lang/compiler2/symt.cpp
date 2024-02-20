@@ -100,7 +100,7 @@ SymbolT *SymbolT::SymbolInsert(String *s_name, SymbolType s_type) {
     return sym;
 }
 
-SymbolT *SymbolT::SymbolLookup(String *s_name) const {
+SymbolT *SymbolT::SymbolLookup(const String *s_name) const {
     SymbolT *sym;
 
     for (const SymbolT *cursor = this->stack; cursor != nullptr; cursor = cursor->back) {

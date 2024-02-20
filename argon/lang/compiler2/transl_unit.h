@@ -51,6 +51,8 @@ namespace argon::lang::compiler2 {
 
         BasicBlock *BlockAppend(BasicBlock *block);
 
+        bool IsFreeVar(const vm::datatype::String *id);
+
         void DecrementStack(int size) {
             this->stack.current -= size;
             assert(this->stack.current < 0x00FFFFFF);

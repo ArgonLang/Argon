@@ -17,13 +17,16 @@ namespace argon::lang::compiler2 {
     constexpr const char *kCompilerErrors[] = {
             "invalid AST node, expected '%s', got: '%s'",
             "invalid NodeType(%d) for %s",
-            "invalid TokenType(%d) for %s"
+            "invalid TokenType(%d) for %s",
+            "cannot use '%s' as identifier"
     };
 
     class Compiler {
         argon::vm::datatype::Dict *static_globals_ = nullptr;
 
         TranslationUnit *unit_ = nullptr;
+
+        SymbolT *IdentifierLookupOrCreate(String *id, SymbolType type);
 
         void Compile(const parser2::node::Node *node);
 
@@ -37,7 +40,11 @@ namespace argon::lang::compiler2 {
 
         int LoadStaticNil(const scanner::Loc *loc, bool emit);
 
-        void Expression(const parser2::node::Node *node);
+        void LoadIdentifier(String *identifier, const scanner::Loc *loc);
+
+        void LoadIdentifier(const parser2::node::Unary *identifier);
+
+        void CompileDLST(const parser2::node::Unary *unary);
 
         void CompileElvis(const parser2::node::Binary *binary);
 
@@ -50,6 +57,8 @@ namespace argon::lang::compiler2 {
         void CompileTest(const parser2::node::Binary *binary);
 
         void CompileTernary(const parser2::node::Branch *branch);
+
+        void Expression(const parser2::node::Node *node);
 
 // *********************************************************************************************************************
 // PRIVATE

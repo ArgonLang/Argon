@@ -58,7 +58,7 @@ namespace argon::lang::compiler2 {
 
         SymbolT *SymbolInsert(vm::datatype::String *s_name, SymbolType s_type);
 
-        SymbolT *SymbolLookup(vm::datatype::String *s_name) const;
+        SymbolT *SymbolLookup(const vm::datatype::String *s_name) const;
     };
     _ARGONAPI extern const argon::vm::datatype::TypeInfo *type_symbol_t_;
 
