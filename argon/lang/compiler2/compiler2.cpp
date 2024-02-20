@@ -346,6 +346,32 @@ void Compiler::CompilePrefix(const node::Unary *unary) {
     }
 }
 
+void Compiler::CompileSubscr(const node::Subscript *subscr, bool dup, bool emit) {
+    CHECK_AST_NODE(node::type_ast_subscript_, subscr);
+
+    this->Expression(subscr->expression);
+
+    if(subscr->start != nullptr)
+        this->Expression(subscr->start);
+    else
+        this->LoadStaticNil(&subscr->loc, true);
+
+    if(subscr->node_type == node::NodeType::SLICE){
+        if (subscr->stop != nullptr)
+            this->Expression(subscr->stop);
+        else
+            this->LoadStaticNil(&subscr->loc, true);
+
+        this->unit_->Emit(vm::OpCode::MKBND, &subscr->loc);
+    }
+
+    if(dup)
+        this->unit_->Emit(vm::OpCode::DUP, 2, nullptr, nullptr);
+
+    if(emit)
+        this->unit_->Emit(vm::OpCode::SUBSCR, &subscr->loc);
+}
+
 void Compiler::CompileTest(const node::Binary *binary) {
     auto *cursor = binary;
 
@@ -476,8 +502,8 @@ void Compiler::Expression(const node::Node *node) {
             break;
         case node::NodeType::INDEX:
         case node::NodeType::SLICE:
-            // TODO CompileSubscr
-            assert(false);
+            this->CompileSubscr((const node::Subscript *) node, false, true);
+            break;
         case node::NodeType::INFIX:
             if (node->token_type == scanner::TokenType::AND || node->token_type == scanner::TokenType::OR) {
                 this->CompileTest((const node::Binary *) node);

@@ -76,6 +76,9 @@ void TranslationUnit::Emit(vm::OpCode op, int arg, BasicBlock *dest, const scann
         throw DatatypeException();
 
     switch (op) {
+        case vm::OpCode::DUP:
+            this->IncrementStack(arg);
+            break;
         case vm::OpCode::MKDT:
         case vm::OpCode::MKLT:
         case vm::OpCode::MKST:
