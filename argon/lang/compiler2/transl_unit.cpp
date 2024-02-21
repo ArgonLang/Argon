@@ -38,7 +38,24 @@ BasicBlock *TranslationUnit::BlockNew() {
     return block;
 }
 
-bool TranslationUnit::IsFreeVar(const String *id) {
+JBlock *TranslationUnit::JBPush(String *label, BasicBlock *begin, BasicBlock *end, JBlockType type) {
+    auto j = JBlockNew(this->jblock, label, type);
+    if (j == nullptr)
+        throw DatatypeException();
+
+    j->begin = begin;
+    j->end = end;
+
+    this->jblock = j;
+
+    return j;
+}
+
+bool TranslationUnit::CheckBlock(JBlockType expected) const {
+    return this->jblock != nullptr && this->jblock->type == expected;
+}
+
+bool TranslationUnit::IsFreeVar(const String *id) const {
     // Look back in the TranslationUnits,
     // if a variable with the same name exists and is declared or free
     // in turn then this is a free variable
@@ -66,6 +83,10 @@ bool TranslationUnit::IsFreeVar(const String *id) {
     return false;
 }
 
+void TranslationUnit::JBPop() {
+    this->jblock = JBlockDel(this->jblock);
+}
+
 void TranslationUnit::Emit(vm::OpCode op, int arg, BasicBlock *dest, const scanner::Loc *loc) {
     unsigned int lineno = 0;
 
@@ -83,6 +104,7 @@ void TranslationUnit::Emit(vm::OpCode op, int arg, BasicBlock *dest, const scann
         case vm::OpCode::MKLT:
         case vm::OpCode::MKST:
         case vm::OpCode::MKTP:
+        case vm::OpCode::POPGT:
             this->DecrementStack(arg);
             break;
         default:

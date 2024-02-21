@@ -10,6 +10,7 @@
 #include <argon/lang/scanner/token.h>
 
 #include <argon/lang/compiler2/basicblock.h>
+#include <argon/lang/compiler2/jblock.h>
 #include <argon/lang/compiler2/symt.h>
 
 namespace argon::lang::compiler2 {
@@ -40,6 +41,8 @@ namespace argon::lang::compiler2 {
         /// Closure.
         vm::datatype::List *enclosed;
 
+        JBlock *jblock;
+
         BasicBlockSeq bbb; // It should be called 'bb', but this is a joke for M.G =)
 
         struct {
@@ -51,7 +54,13 @@ namespace argon::lang::compiler2 {
 
         BasicBlock *BlockAppend(BasicBlock *block);
 
-        bool IsFreeVar(const vm::datatype::String *id);
+        JBlock *JBPush(vm::datatype::String *label, BasicBlock *begin, BasicBlock *end, JBlockType type);
+
+        bool CheckBlock(JBlockType expected) const;
+
+        bool IsFreeVar(const vm::datatype::String *id) const;
+
+        void JBPop();
 
         void DecrementStack(int size) {
             this->stack.current -= size;

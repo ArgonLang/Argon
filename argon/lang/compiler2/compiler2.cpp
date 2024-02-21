@@ -346,17 +346,43 @@ void Compiler::CompilePrefix(const node::Unary *unary) {
     }
 }
 
+void Compiler::CompileSafe(const node::Unary *unary) {
+    auto *val = (const node::Node *) unary->value;
+    BasicBlock *end;
+
+    CHECK_AST_NODE(node::type_ast_unary_, unary);
+
+    if ((end = BasicBlockNew()) == nullptr)
+        throw DatatypeException();
+
+    try {
+        this->unit_->JBPush(nullptr, nullptr, end, JBlockType::SAFE);
+
+        if (val->node_type == node::NodeType::ASSIGNMENT)
+            this->Compile(val);
+        else
+            this->Expression(val);
+
+        this->unit_->JBPop();
+
+        this->unit_->BlockAppend(end);
+    } catch (...) {
+        BasicBlockDel(end);
+        throw;
+    }
+}
+
 void Compiler::CompileSubscr(const node::Subscript *subscr, bool dup, bool emit) {
     CHECK_AST_NODE(node::type_ast_subscript_, subscr);
 
     this->Expression(subscr->expression);
 
-    if(subscr->start != nullptr)
+    if (subscr->start != nullptr)
         this->Expression(subscr->start);
     else
         this->LoadStaticNil(&subscr->loc, true);
 
-    if(subscr->node_type == node::NodeType::SLICE){
+    if (subscr->node_type == node::NodeType::SLICE) {
         if (subscr->stop != nullptr)
             this->Expression(subscr->stop);
         else
@@ -365,10 +391,10 @@ void Compiler::CompileSubscr(const node::Subscript *subscr, bool dup, bool emit)
         this->unit_->Emit(vm::OpCode::MKBND, &subscr->loc);
     }
 
-    if(dup)
+    if (dup)
         this->unit_->Emit(vm::OpCode::DUP, 2, nullptr, nullptr);
 
-    if(emit)
+    if (emit)
         this->unit_->Emit(vm::OpCode::SUBSCR, &subscr->loc);
 }
 
@@ -459,6 +485,37 @@ void Compiler::CompileTernary(const node::Branch *branch) {
     this->unit_->BlockAppend(end);
 }
 
+void Compiler::CompileTrap(const node::Unary *unary) {
+    BasicBlock *end;
+
+    CHECK_AST_NODE(node::type_ast_unary_, unary);
+
+    if ((end = BasicBlockNew()) == nullptr)
+        throw DatatypeException();
+
+    try {
+        this->unit_->JBPush(nullptr, nullptr, end, JBlockType::TRAP);
+
+        this->unit_->Emit(vm::OpCode::ST, 0, end, &unary->loc);
+
+        this->Expression((const node::Node *) unary->value);
+    } catch (...) {
+        BasicBlockDel(end);
+        throw;
+    }
+
+    this->unit_->JBPop();
+
+    this->unit_->BlockAppend(end);
+
+    this->unit_->Emit(vm::OpCode::POPGT, (int) this->unit_->stack.current, nullptr, nullptr);
+
+    if (this->unit_->CheckBlock(JBlockType::TRAP))
+        this->unit_->Emit(vm::OpCode::TRAP, 0, this->unit_->jblock->end, nullptr);
+    else
+        this->unit_->Emit(vm::OpCode::TRAP, 0, nullptr, nullptr);
+}
+
 void Compiler::Expression(const node::Node *node) {
     switch (node->node_type) {
         case node::NodeType::AWAIT:
@@ -528,11 +585,11 @@ void Compiler::Expression(const node::Node *node) {
             this->CompileTernary((const node::Branch *) node);
             break;
         case node::NodeType::TRAP:
-            // TODO CompileTrap
-            assert(false);
+            this->CompileTrap((const node::Unary *) node);
+            break;
         case node::NodeType::SAFE_EXPR:
-            // TODO CompileSafeExpr
-            assert(false);
+            this->CompileSafe((const node::Unary *) node);
+            break;
         case node::NodeType::SELECTOR:
             // TODO CompileSelector
             assert(false);

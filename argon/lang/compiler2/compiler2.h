@@ -54,11 +54,15 @@ namespace argon::lang::compiler2 {
 
         void CompilePrefix(const parser2::node::Unary *unary);
 
+        void CompileSafe(const parser2::node::Unary *unary);
+
         void CompileSubscr(const parser2::node::Subscript *subscr, bool dup, bool emit);
 
         void CompileTest(const parser2::node::Binary *binary);
 
         void CompileTernary(const parser2::node::Branch *branch);
+
+        void CompileTrap(const parser2::node::Unary *unary);
 
         void Expression(const parser2::node::Node *node);
 
