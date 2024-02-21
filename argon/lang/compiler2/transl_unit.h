@@ -73,6 +73,11 @@ namespace argon::lang::compiler2 {
             this->Emit(op, 0, nullptr, loc);
         }
 
+        void Emit(vm::OpCode op, unsigned char flags, unsigned short arg, const scanner::Loc *loc) {
+            int combined = (flags << 16) | arg;
+            this->Emit(op, combined, nullptr, loc);
+        }
+
         void EmitPOP() {
             this->Emit(vm::OpCode::POP, 0, nullptr, nullptr);
         }

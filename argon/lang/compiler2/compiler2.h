@@ -54,6 +54,8 @@ namespace argon::lang::compiler2 {
 
         void CompileNullCoalescing(const parser2::node::Binary *binary);
 
+        void CompileObjInit(const parser2::node::ObjectInit *init);
+
         void CompilePrefix(const parser2::node::Unary *unary);
 
         void CompileSafe(const parser2::node::Unary *unary);

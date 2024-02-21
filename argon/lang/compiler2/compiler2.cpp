@@ -372,6 +372,49 @@ void Compiler::CompileNullCoalescing(const node::Binary *binary) {
     this->unit_->BlockAppend(end);
 }
 
+void Compiler::CompileObjInit(const node::ObjectInit *init) {
+    ARC iter;
+    ARC cursor;
+
+    CHECK_AST_NODE(node::type_ast_objinit_, init);
+
+    this->Expression(init->left);
+
+    if (init->values == nullptr) {
+        this->unit_->Emit(vm::OpCode::INIT, (unsigned char) vm::OpCodeInitMode::POSITIONAL, 0, &init->loc);
+
+        return;
+    }
+
+    iter = IteratorGet(init->values, false);
+    if (!iter)
+        throw DatatypeException();
+
+    unsigned char items = 0;
+    while ((cursor = IteratorNext(iter.Get()))) {
+        const auto *node = (const node::Node *) cursor.Get();
+
+        if (init->as_map) {
+            if (items++ & 0x01) {
+                this->Expression(node);
+                continue;
+            }
+
+            CHECK_AST_NODE(node::type_ast_identifier_, node);
+
+            this->LoadStatic((ArObject *) ((const node::Unary *) node)->value, &node->loc, true, true);
+        } else {
+            items++;
+
+            this->Expression(node);
+        }
+    }
+
+    this->unit_->Emit(vm::OpCode::INIT,
+                      (unsigned char) (init->as_map ? vm::OpCodeInitMode::KWARGS : vm::OpCodeInitMode::POSITIONAL),
+                      items, &init->loc);
+}
+
 void Compiler::CompilePrefix(const node::Unary *unary) {
     CHECK_AST_NODE(node::type_ast_prefix_, unary);
 
@@ -661,8 +704,8 @@ void Compiler::Expression(const node::Node *node) {
             this->CompileInfix((const node::Binary *) node);
             break;
         case node::NodeType::OBJ_INIT:
-            // TODO CompileINIT
-            assert(false);
+            this->CompileObjInit((const node::ObjectInit *) node);
+            break;
         case node::NodeType::LITERAL:
             this->LoadStatic((const node::Unary *) node, true, true);
             break;

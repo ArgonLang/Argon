@@ -100,6 +100,9 @@ void TranslationUnit::Emit(vm::OpCode op, int arg, BasicBlock *dest, const scann
         case vm::OpCode::DUP:
             this->IncrementStack(arg);
             break;
+        case vm::OpCode::INIT:
+            this->DecrementStack(arg & 0xFFFF);
+            break;
         case vm::OpCode::MKDT:
         case vm::OpCode::MKLT:
         case vm::OpCode::MKST:
