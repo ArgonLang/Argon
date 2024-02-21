@@ -55,6 +55,55 @@ void Compiler::Compile(const node::Node *node) {
 // EXPRESSION-ZONE
 // *********************************************************************************************************************
 
+int Compiler::CompileSelector(const node::Binary *binary, bool dup, bool emit) {
+    const auto *cursor = binary;
+    int idx;
+
+    CHECK_AST_NODE(node::type_ast_selector_, binary);
+
+    auto deep = 0;
+    while (((const node::Node *) cursor->left)->node_type == node::NodeType::SELECTOR) {
+        cursor = (const node::Binary *) cursor->left;
+        deep++;
+    }
+
+    this->Expression((const node::Node *) cursor->left);
+
+    do {
+        vm::OpCode code;
+
+        switch (cursor->token_type) {
+            case scanner::TokenType::SCOPE:
+                code = vm::OpCode::LDSCOPE;
+                break;
+            case scanner::TokenType::DOT:
+                code = vm::OpCode::LDATTR;
+                break;
+            case scanner::TokenType::QUESTION_DOT:
+                code = vm::OpCode::LDATTR;
+                this->unit_->Emit(vm::OpCode::JNIL, 0, this->unit_->jblock->end, &cursor->loc);
+                break;
+            default:
+                throw CompilerException(kCompilerErrors[2], cursor->token_type, __FUNCTION__);
+        }
+
+        idx = this->LoadStatic((node::ArObject *) cursor->right, &cursor->loc, true, false);
+
+        if (dup && deep == 0)
+            this->unit_->Emit(vm::OpCode::DUP, 1, nullptr, nullptr);
+
+        if (deep > 0 || emit)
+            this->unit_->Emit(code, idx, nullptr, &cursor->loc);
+
+        deep--;
+        cursor = binary;
+        for (int i = 0; i < deep; i++)
+            cursor = (const node::Binary *) cursor->left;
+    } while (deep >= 0);
+
+    return idx;
+}
+
 int Compiler::LoadStatic(ArObject *object, const scanner::Loc *loc, bool store, bool emit) {
     auto *value = IncRef(object);
     ArObject *tmp;
@@ -591,8 +640,8 @@ void Compiler::Expression(const node::Node *node) {
             this->CompileSafe((const node::Unary *) node);
             break;
         case node::NodeType::SELECTOR:
-            // TODO CompileSelector
-            assert(false);
+            this->CompileSelector((const node::Binary *) node, false, true);
+            break;
         case node::NodeType::UPDATE:
             // TODO CompileUpdate
             assert(false);

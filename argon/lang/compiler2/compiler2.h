@@ -34,6 +34,8 @@ namespace argon::lang::compiler2 {
 // EXPRESSION-ZONE
 // *********************************************************************************************************************
 
+        int CompileSelector(const parser2::node::Binary *binary, bool dup, bool emit);
+
         int LoadStatic(ArObject *object, const scanner::Loc *loc, bool store, bool emit);
 
         int LoadStatic(const parser2::node::Unary *literal, bool store, bool emit);
