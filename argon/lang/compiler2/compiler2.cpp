@@ -565,6 +565,48 @@ void Compiler::CompileTrap(const node::Unary *unary) {
         this->unit_->Emit(vm::OpCode::TRAP, 0, nullptr, nullptr);
 }
 
+void Compiler::CompileUpdate(const node::Unary *unary) {
+    CHECK_AST_NODE(node::type_ast_update_, unary);
+
+    this->Expression((const node::Node *) unary->value);
+
+    this->unit_->Emit(vm::OpCode::DUP, 1, nullptr, nullptr);
+
+    if (unary->token_type == scanner::TokenType::MINUS_MINUS)
+        this->unit_->Emit(vm::OpCode::DEC, &unary->loc);
+    else if (unary->token_type == scanner::TokenType::PLUS_PLUS)
+        this->unit_->Emit(vm::OpCode::INC, &unary->loc);
+    else
+        throw CompilerException(kCompilerErrors[2], (int) unary->token_type, __FUNCTION__);
+
+    auto *value = (const node::Unary *) unary->value;
+
+    switch (value->node_type) {
+        case node::NodeType::IDENTIFIER:
+            this->StoreVariable(value);
+            break;
+        case node::NodeType::INDEX:
+            this->CompileSubscr((const node::Subscript *) value, false, false);
+
+            this->unit_->Emit(vm::OpCode::MTH, 2, nullptr, nullptr);
+            this->unit_->Emit(vm::OpCode::STSUBSCR, &value->loc);
+            break;
+        case node::NodeType::SELECTOR: {
+            auto code = vm::OpCode::STATTR;
+            if (value->token_type == scanner::TokenType::SCOPE)
+                code = vm::OpCode::STSCOPE;
+
+            auto idx = this->CompileSelector((const node::Binary *) value, false, false);
+
+            this->unit_->Emit(vm::OpCode::MTH, 1, nullptr, nullptr);
+            this->unit_->Emit(code, idx, nullptr, &value->loc);
+            break;
+        }
+        default:
+            throw CompilerException(kCompilerErrors[1], (int) unary->node_type, __FUNCTION__);
+    }
+}
+
 void Compiler::Expression(const node::Node *node) {
     switch (node->node_type) {
         case node::NodeType::AWAIT:
@@ -643,11 +685,40 @@ void Compiler::Expression(const node::Node *node) {
             this->CompileSelector((const node::Binary *) node, false, true);
             break;
         case node::NodeType::UPDATE:
-            // TODO CompileUpdate
-            assert(false);
+            this->CompileUpdate((const node::Unary *) node);
+            break;
         default:
             throw CompilerException(kCompilerErrors[1], (int) node->node_type, __FUNCTION__);
     }
+}
+
+void Compiler::StoreVariable(String *id, const scanner::Loc *loc) {
+    vm::OpCode code = vm::OpCode::STGBL;
+
+    if (StringEqual(id, (const char *) "_")) {
+        this->unit_->Emit(vm::OpCode::POP, nullptr);
+
+        return;
+    }
+
+    auto *sym = this->IdentifierLookupOrCreate(id, SymbolType::VARIABLE);
+
+    if (sym->declared && (this->unit_->symt->type == SymbolType::FUNC || sym->nested > 0))
+        code = vm::OpCode::STLC;
+    else if (sym->free)
+        code = vm::OpCode::STENC;
+
+    auto sym_id = sym->id;
+
+    Release(sym);
+
+    this->unit_->Emit(code, sym_id, nullptr, loc);
+}
+
+void Compiler::StoreVariable(const node::Unary *identifier) {
+    CHECK_AST_NODE(node::type_ast_identifier_, identifier);
+
+    return this->StoreVariable((String *) identifier->value, &identifier->loc);
 }
 
 // *********************************************************************************************************************

@@ -66,7 +66,13 @@ namespace argon::lang::compiler2 {
 
         void CompileTrap(const parser2::node::Unary *unary);
 
+        void CompileUpdate(const parser2::node::Unary *unary);
+
         void Expression(const parser2::node::Node *node);
+
+        void StoreVariable(String *id, const scanner::Loc *loc);
+
+        void StoreVariable(const parser2::node::Unary *identifier);
 
 // *********************************************************************************************************************
 // PRIVATE

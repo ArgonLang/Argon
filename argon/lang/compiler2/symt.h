@@ -13,6 +13,7 @@
 namespace argon::lang::compiler2 {
     enum class SymbolType {
         CONSTANT,
+        FUNC,
         MODULE,
         NESTED,
         STRUCT,
@@ -23,6 +24,7 @@ namespace argon::lang::compiler2 {
 
     static const char *SymbolTypeName[] = {
             "let",
+            "function",
             "module",
             "",
             "struct",

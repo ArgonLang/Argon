@@ -2559,6 +2559,8 @@ Node *Parser::ParsePostInc([[maybe_unused]]Context *context, Node *left) {
     if (unary == nullptr)
         throw DatatypeException();
 
+    unary->token_type = TKCUR_TYPE;
+
     unary->loc.start = left->loc.start;
     unary->loc.end = TKCUR_END;
 
