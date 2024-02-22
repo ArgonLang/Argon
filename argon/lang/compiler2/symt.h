@@ -14,6 +14,7 @@ namespace argon::lang::compiler2 {
     enum class SymbolType {
         CONSTANT,
         FUNC,
+        GENERATOR,
         MODULE,
         NESTED,
         STRUCT,
@@ -25,6 +26,7 @@ namespace argon::lang::compiler2 {
     static const char *SymbolTypeName[] = {
             "let",
             "function",
+            "generator",
             "module",
             "",
             "struct",
@@ -67,6 +69,8 @@ namespace argon::lang::compiler2 {
     SymbolT *SymbolTableNew(SymbolT *prev, vm::datatype::String *name, SymbolType type);
 
     SymbolT *SymbolNew(vm::datatype::String *name, SymbolType type);
+
+    void SymbolExitNested(SymbolT *symt);
 
 } // argon::lang::compiler2
 

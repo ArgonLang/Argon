@@ -68,6 +68,11 @@ BasicBlock *BasicBlockSeq::BlockNewAppend() {
     return block;
 }
 
+bool BasicBlockSeq::CheckLastInstr(vm::OpCode opcode) {
+    return this->current->instr.tail != nullptr
+           && this->current->instr.tail->opcode == (unsigned char) opcode;
+}
+
 Instr *BasicBlockSeq::AddInstr(BasicBlock *dest, vm::OpCode opcode, int arg, unsigned int lineno) {
     if (this->current == nullptr) {
         assert(this->begin == nullptr);

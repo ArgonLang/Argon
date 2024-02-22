@@ -50,6 +50,8 @@ namespace argon::lang::compiler2 {
             unsigned int current;
         } stack;
 
+        unsigned int anon_count;
+
         BasicBlock *BlockNew();
 
         BasicBlock *BlockAppend(BasicBlock *block);

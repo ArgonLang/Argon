@@ -7,6 +7,7 @@
 
 #include <argon/vm/datatype/code.h>
 #include <argon/vm/datatype/dict.h>
+#include <argon/vm/datatype/function.h>
 
 #include <argon/lang/compiler2/transl_unit.h>
 #include <argon/lang/compiler2/symt.h>
@@ -18,7 +19,8 @@ namespace argon::lang::compiler2 {
             "invalid AST node, expected '%s', got: '%s'",
             "invalid NodeType(%d) for %s",
             "invalid TokenType(%d) for %s",
-            "cannot use '%s' as identifier"
+            "cannot use '%s' as identifier",
+            "unexpected non named parameter here"
     };
 
     class Compiler {
@@ -40,15 +42,35 @@ namespace argon::lang::compiler2 {
 
         int LoadStatic(const parser2::node::Unary *literal, bool store, bool emit);
 
+        int LoadStaticAtom(const char *key, const scanner::Loc *loc, bool emit);
+
         int LoadStaticNil(const scanner::Loc *loc, bool emit);
+
+        String *MakeFnName();
+
+        void IdentifierNew(String *name, const scanner::Loc *loc, SymbolType type, AttributeFlag aflags, bool emit);
+
+        void IdentifierNew(const parser2::node::Unary *id, SymbolType type, AttributeFlag aflags, bool emit);
 
         void LoadIdentifier(String *identifier, const scanner::Loc *loc);
 
         void LoadIdentifier(const parser2::node::Unary *identifier);
 
+        void CompileBlock(const parser2::node::Node *node, bool sub);
+
         void CompileDLST(const parser2::node::Unary *unary);
 
         void CompileElvis(const parser2::node::Binary *binary);
+
+        void CompileFunction(const parser2::node::Function *func);
+
+        void CompileFunctionClosure(const Code *code, const scanner::Loc *loc, FunctionFlags &flags);
+
+        void CompileFunctionDefArgs(List *params, const scanner::Loc *loc, FunctionFlags &flags);
+
+        void CompileFunctionDefBody(const parser2::node::Function *func, String *name);
+
+        void CompileFunctionParams(vm::datatype::List *params, unsigned short &count, FunctionFlags &flags);
 
         void CompileInfix(const parser2::node::Binary *binary);
 
@@ -80,14 +102,14 @@ namespace argon::lang::compiler2 {
 // PRIVATE
 // *********************************************************************************************************************
 
-        void EnterScope(argon::vm::datatype::String *name, SymbolType type);
+        void EnterScope(vm::datatype::String *name, SymbolType type);
 
         void ExitScope();
 
     public:
         Compiler() noexcept = default;
 
-        [[nodiscard]] argon::vm::datatype::Code *Compile(argon::lang::parser2::node::Module *mod);
+        [[nodiscard]] vm::datatype::Code *Compile(argon::lang::parser2::node::Module *mod);
     };
 } // argon::lang::compiler2
 

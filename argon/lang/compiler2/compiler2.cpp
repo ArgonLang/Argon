@@ -46,6 +46,9 @@ void Compiler::Compile(const node::Node *node) {
         case node::NodeType::EXPRESSION:
             this->Expression((const node::Node *) ((const node::Unary *) node)->value);
             break;
+        case node::NodeType::FUNCTION:
+            this->CompileFunction((const node::Function *) node);
+            break;
         default:
             assert(false);
     }
@@ -168,8 +171,93 @@ int Compiler::LoadStatic(const node::Unary *literal, bool store, bool emit) {
     return this->LoadStatic(literal->value, &literal->loc, store, emit);
 }
 
+int Compiler::LoadStaticAtom(const char *key, const scanner::Loc *loc, bool emit) {
+    ARC atom;
+
+    atom = AtomNew(key);
+    if (!atom)
+        throw DatatypeException();
+
+    return this->LoadStatic(atom.Get(), loc, false, emit);
+}
+
 int Compiler::LoadStaticNil(const scanner::Loc *loc, bool emit) {
     return this->LoadStatic((ArObject *) Nil, loc, true, emit);
+}
+
+String *Compiler::MakeFnName() {
+    String *name;
+
+    if (this->unit_->name != nullptr)
+        name = StringFormat("%s$%d", ARGON_RAW_STRING(this->unit_->name), this->unit_->anon_count++);
+    else
+        name = StringFormat("$%d", this->unit_->anon_count++);
+
+    if (name == nullptr)
+        throw DatatypeException();
+
+    return name;
+}
+
+void Compiler::IdentifierNew(String *name, const scanner::Loc *loc, SymbolType type, AttributeFlag aflags, bool emit) {
+    ARC sym;
+
+    if (StringEqual(name, "_"))
+        throw CompilerException(kCompilerErrors[3], "_");
+
+    sym = (ArObject *) this->unit_->symt->SymbolInsert(name, type);
+    if (!sym)
+        throw DatatypeException();
+
+    auto *dest = this->unit_->names;
+    auto *p_sym = (SymbolT *) sym.Get();
+
+    p_sym->declared = true;
+
+    if (this->unit_->symt->type == SymbolType::STRUCT || this->unit_->symt->type == SymbolType::TRAIT) {
+        this->LoadStatic((ArObject *) name, loc, true, true);
+
+        this->unit_->Emit(vm::OpCode::TSTORE, (unsigned char) aflags, nullptr, loc);
+        return;
+    }
+
+    if (p_sym->nested == 0) {
+        auto id = (unsigned short) (p_sym->id >= 0 ? p_sym->id : dest->length);
+
+        if (emit)
+            this->unit_->Emit(vm::OpCode::NGV, (unsigned char) aflags, id, loc);
+
+        if (p_sym->id >= 0)
+            return;
+    } else {
+        dest = this->unit_->locals;
+
+        if (emit)
+            this->unit_->Emit(vm::OpCode::STLC, (int) dest->length, nullptr, loc);
+    }
+
+    ArObject *arname;
+
+    if (p_sym->id >= 0)
+        arname = ListGet(!p_sym->free ? this->unit_->names : this->unit_->enclosed, p_sym->id);
+    else
+        arname = (ArObject *) IncRef(name);
+
+    p_sym->id = (short) dest->length;
+
+    if (!ListAppend(dest, arname)) {
+        Release(arname);
+
+        throw DatatypeException();
+    }
+
+    Release(arname);
+}
+
+void Compiler::IdentifierNew(const node::Unary *id, SymbolType type, AttributeFlag aflags, bool emit) {
+    CHECK_AST_NODE(node::type_ast_identifier_, id);
+
+    this->IdentifierNew((String *) id->value, &id->loc, type, aflags, emit);
 }
 
 void Compiler::LoadIdentifier(String *identifier, const scanner::Loc *loc) {
@@ -207,6 +295,26 @@ void Compiler::LoadIdentifier(const node::Unary *identifier) {
     CHECK_AST_NODE(node::type_ast_identifier_, identifier);
 
     this->LoadIdentifier((String *) identifier->value, &identifier->loc);
+}
+
+void Compiler::CompileBlock(const node::Node *node, bool sub) {
+    ARC iter;
+    ARC stmt;
+
+    CHECK_AST_NODE(node::type_ast_unary_, node);
+
+    iter = IteratorGet(((const node::Unary *) node)->value, false);
+    if (!iter)
+        throw DatatypeException();
+
+    if (sub && !this->unit_->symt->NewNestedTable())
+        throw DatatypeException();
+
+    while ((stmt = IteratorNext(iter.Get())))
+        this->Compile((const node::Node *) stmt.Get());
+
+    if (sub)
+        SymbolExitNested(this->unit_->symt);
 }
 
 void Compiler::CompileDLST(const node::Unary *unary) {
@@ -266,6 +374,181 @@ void Compiler::CompileElvis(const node::Binary *binary) {
     }
 
     this->unit_->BlockAppend(end);
+}
+
+void Compiler::CompileFunction(const node::Function *func) {
+    ARC code;
+    ARC fname;
+
+    FunctionFlags flags{};
+
+    CHECK_AST_NODE(node::type_ast_function_, func);
+
+    if (func->name != nullptr)
+        fname = func->name;
+    else
+        fname = this->MakeFnName();
+
+    if (this->unit_->symt->type == SymbolType::STRUCT
+        || this->unit_->symt->type == SymbolType::TRAIT)
+        flags = FunctionFlags::STATIC;
+
+    this->EnterScope((String *) fname.Get(), SymbolType::FUNC);
+
+    unsigned short p_count = 0;
+
+    this->CompileFunctionParams(func->params, p_count, flags);
+
+    if (func->body != nullptr)
+        this->CompileBlock(func->body, false);
+    else
+        this->CompileFunctionDefBody(func, (String *) fname.Get());
+
+    if (!this->unit_->bbb.CheckLastInstr(vm::OpCode::RET)) {
+        // If the function is empty or the last statement is not return,
+        // forcefully enter return as last statement
+
+        if (this->unit_->symt->type == SymbolType::GENERATOR)
+            this->LoadStaticAtom("stop", nullptr, true);
+        else
+            this->LoadStaticNil(nullptr, true);
+
+        this->unit_->Emit(vm::OpCode::RET, nullptr);
+    }
+
+    // Update function flags if is a generator
+    if (this->unit_->symt->type == SymbolType::GENERATOR)
+        flags |= FunctionFlags::GENERATOR;
+
+    // TODO assemble
+
+    this->ExitScope();
+
+    this->CompileFunctionClosure((const Code *) code.Get(), &func->loc, flags);
+
+    this->CompileFunctionDefArgs(func->params, &func->loc, flags);
+
+    this->LoadStatic(code.Get(), &func->loc, false, true);
+
+    if (func->async)
+        flags |= FunctionFlags::ASYNC;
+
+    this->unit_->Emit(vm::OpCode::MKFN, (unsigned char) flags, p_count, &func->loc);
+
+    if (func->name != nullptr) {
+        auto aflags = AttributeFlag::CONST;
+
+        if (func->pub)
+            aflags |= AttributeFlag::PUBLIC;
+
+        this->IdentifierNew(func->name, &func->loc, SymbolType::FUNC, aflags, true);
+    }
+}
+
+void Compiler::CompileFunctionClosure(const Code *code, const scanner::Loc *loc, FunctionFlags &flags) {
+    if (code->enclosed->length == 0) {
+        this->unit_->Emit(vm::OpCode::PSHN, loc);
+        return;
+    }
+
+    for (ArSize i = 0; i < code->enclosed->length; i++)
+        this->LoadIdentifier((String *) code->enclosed->objects[i], loc);
+
+    this->unit_->Emit(vm::OpCode::MKLT, (int) code->enclosed->length, nullptr, loc);
+}
+
+void Compiler::CompileFunctionDefArgs(List *params, const scanner::Loc *loc, FunctionFlags &flags) {
+    ARC iter;
+    ARC tmp;
+
+    unsigned short def_count = 0;
+
+    if (params == nullptr) {
+        this->unit_->Emit(vm::OpCode::PSHN, loc);
+
+        return;
+    }
+
+    iter = IteratorGet((ArObject *) params, false);
+    if (!iter)
+        throw DatatypeException();
+
+    while ((tmp = IteratorNext(iter.Get()))) {
+        const auto *param = (node::Parameter *) tmp.Get();
+
+        CHECK_AST_NODE(node::type_ast_parameter_, param);
+
+        if (param->value != nullptr) {
+            this->Expression(param->value);
+            def_count++;
+        }
+
+        // Sanity check
+        if (def_count > 0 && param->node_type == node::NodeType::ARGUMENT && param->value == nullptr)
+            throw CompilerException(kCompilerErrors[4]);
+    }
+
+    // Build default arguments tuple!
+    if (def_count > 0) {
+        this->unit_->Emit(vm::OpCode::MKTP, def_count, nullptr, loc);
+
+        flags |= FunctionFlags::DEFARGS;
+    } else
+        this->unit_->Emit(vm::OpCode::PSHN, nullptr);
+}
+
+void Compiler::CompileFunctionDefBody(const node::Function *func, String *name) {
+    ARC msg;
+
+    msg = (ArObject *) StringFormat(kNotImplementedError[1], ARGON_RAW_STRING(name));
+
+    this->LoadStatic((ArObject *) type_error_, &func->loc, true, true);
+
+    this->LoadStaticAtom(kNotImplementedError[0], &func->loc, true);
+
+    this->LoadStatic(msg.Get(), &func->loc, false, true);
+
+    this->unit_->Emit(vm::OpCode::CALL, (unsigned char) vm::OpCodeCallMode::FASTCALL, 2, &func->loc);
+
+    this->unit_->Emit(vm::OpCode::PANIC, &func->loc);
+}
+
+void Compiler::CompileFunctionParams(List *params, unsigned short &count, FunctionFlags &flags) {
+    ARC iter;
+    ARC a_param;
+
+    if (params == nullptr)
+        return;
+
+    iter = IteratorGet((ArObject *) params, false);
+    if (!iter)
+        throw DatatypeException();
+
+    while ((a_param = IteratorNext(iter.Get()))) {
+        const auto *param = (node::Parameter *) a_param.Get();
+
+        CHECK_AST_NODE(node::type_ast_parameter_, param);
+
+        if (count == 0 && this->unit_->prev != nullptr) {
+            auto pscope = this->unit_->prev->symt->type;
+            if ((pscope == SymbolType::STRUCT || pscope == SymbolType::TRAIT) && StringEqual(param->id, "self"))
+                flags |= FunctionFlags::METHOD;
+        }
+
+        this->IdentifierNew(param->id, &param->loc, SymbolType::VARIABLE, {}, false);
+
+        if (param->value == nullptr)
+            count++;
+
+        if (param->node_type == node::NodeType::REST) {
+            flags |= FunctionFlags::VARIADIC;
+            count--;
+        } else if (param->node_type == node::NodeType::KWARG) {
+            flags |= FunctionFlags::KWARGS;
+            count--;
+        } else if (param->node_type != node::NodeType::PARAMETER)
+            throw CompilerException(kCompilerErrors[1], (int) param->node_type, __FUNCTION__);
+    }
 }
 
 void Compiler::CompileInfix(const node::Binary *binary) {
@@ -672,8 +955,8 @@ void Compiler::Expression(const node::Node *node) {
             this->CompileElvis((const node::Binary *) node);
             break;
         case node::NodeType::FUNCTION:
-            // TODO CompileFunction
-            assert(false);
+            this->CompileFunction((const node::Function *) node);
+            break;
         case node::NodeType::IDENTIFIER:
             this->LoadIdentifier((const node::Unary *) node);
             break;
@@ -770,6 +1053,9 @@ void Compiler::StoreVariable(const node::Unary *identifier) {
 
 void Compiler::EnterScope(String *name, SymbolType type) {
     auto *unit = TranslationUnitNew(this->unit_, name, type);
+    if (unit == nullptr)
+        throw DatatypeException();
+
     this->unit_ = unit;
 }
 

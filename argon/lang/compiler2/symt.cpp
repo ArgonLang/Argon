@@ -148,3 +148,8 @@ SymbolT *argon::lang::compiler2::SymbolNew(String *name, SymbolType type) {
 
     return symt;
 }
+
+void argon::lang::compiler2::SymbolExitNested(SymbolT *symt) {
+    if (symt->stack != nullptr)
+        symt->stack = symt->stack->back;
+}

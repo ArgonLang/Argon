@@ -38,6 +38,8 @@ namespace argon::lang::compiler2 {
 
         BasicBlock *BlockNewAppend();
 
+        bool CheckLastInstr(vm::OpCode opcode);
+
         Instr *AddInstr(BasicBlock *dest, vm::OpCode opcode, int arg, unsigned int lineno);
 
         void Append(BasicBlock *block);
