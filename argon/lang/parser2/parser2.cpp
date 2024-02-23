@@ -2098,7 +2098,7 @@ Node *Parser::ParseFuncCall(Context *context, Node *left) {
         int mode = 0;
 
         do {
-            if (this->ParseFuncCallUnpack(k_args, mode >= 3)) {
+            if (this->ParseFuncCallUnpack(context,k_args, mode >= 3)) {
                 mode = 3;
 
                 break;
@@ -2128,7 +2128,8 @@ Node *Parser::ParseFuncCall(Context *context, Node *left) {
     call->loc.end = TKCUR_END;
 
     call->left = IncRef(left);
-    call->args = a_args.Unwrap();
+    call->args = (List *) a_args.Unwrap();
+    call->kwargs = (List *) k_args.Unwrap();
 
     this->Eat(false);
 
@@ -2136,6 +2137,8 @@ Node *Parser::ParseFuncCall(Context *context, Node *left) {
 }
 
 bool Parser::ParseFuncCallNamedArg(Context *context, ARC &k_args, Node *node, bool must_parse) {
+    auto end = node->loc.end;
+
     this->EatNL();
 
     if (!this->Match(TokenType::EQUAL)) {
@@ -2158,6 +2161,8 @@ bool Parser::ParseFuncCallNamedArg(Context *context, ARC &k_args, Node *node, bo
         throw DatatypeException();
 
     auto *value = this->ParseExpression(context, PeekPrecedence(TokenType::COMMA));
+    if(value != nullptr)
+        end = value->loc.end;
 
     auto *arg = NewNode<Parameter>(type_ast_argument_, false, NodeType::ARGUMENT);
     if (arg == nullptr) {
@@ -2167,7 +2172,7 @@ bool Parser::ParseFuncCallNamedArg(Context *context, ARC &k_args, Node *node, bo
     }
 
     arg->loc.start = node->loc.start;
-    arg->loc.end = value->loc.end;
+    arg->loc.end = end;
 
     arg->id = (String *) IncRef(((Unary *) node)->value);
     arg->value = value;
@@ -2216,7 +2221,7 @@ bool Parser::ParseFuncCallSpread(List *args, Node *node, bool must_parse) {
     return true;
 }
 
-bool Parser::ParseFuncCallUnpack(ARC &k_args, bool must_parse) {
+bool Parser::ParseFuncCallUnpack(Context *context, ARC &k_args, bool must_parse) {
     Position start = TKCUR_START;
 
     if (!this->Match(TokenType::AMPERSAND)) {
@@ -2228,41 +2233,35 @@ bool Parser::ParseFuncCallUnpack(ARC &k_args, bool must_parse) {
 
     this->Eat(true);
 
-    // Sanity check
-    if (!this->CheckIDExt())
-        throw ParserException(TKCUR_LOC, kStandardError[0]);
-
-    auto *id = Parser::ParseIdentifierSimple(&this->tkcur_);
+    auto *value = this->ParseExpression(context, Parser::PeekPrecedence(TokenType::COMMA));
 
     if (!k_args)
         k_args = (ArObject *) ListNew();
 
     if (!k_args) {
-        Release(id);
+        Release(value);
 
         throw DatatypeException();
     }
 
     auto *arg = NewNode<Parameter>(type_ast_argument_, false, NodeType::KWARG);
     if (arg == nullptr) {
-        Release(id);
+        Release(value);
 
         throw DatatypeException();
     }
 
     arg->loc.start = start;
-    arg->loc.end = TKCUR_END;
+    arg->loc.end = value->loc.end;
 
-    arg->id = id;
+    arg->value = value;
 
     if (!ListAppend((List *) k_args.Get(), (ArObject *) arg)) {
         Release(arg);
-        Release(id);
+        Release(value);
 
         throw DatatypeException();
     }
-
-    this->Eat(false);
 
     return true;
 }
@@ -2544,7 +2543,7 @@ Node *Parser::ParsePipeline(Context *context, Node *left) {
     call->loc.end = right->loc.end;
 
     call->left = IncRef(right);
-    call->args = (ArObject *) args;
+    call->args = (List *) args;
 
     return (Node *) call;
 }

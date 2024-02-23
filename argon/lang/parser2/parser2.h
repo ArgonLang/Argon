@@ -222,7 +222,7 @@ namespace argon::lang::parser2 {
 
         bool ParseFuncCallSpread(List *args, node::Node *node, bool must_parse);
 
-        bool ParseFuncCallUnpack(ARC &k_args, bool must_parse);
+        bool ParseFuncCallUnpack(Context *context, ARC &k_args, bool must_parse);
 
         static LedMeth LookupLED(scanner::TokenType token, bool newline);
 

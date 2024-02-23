@@ -98,7 +98,9 @@ void TranslationUnit::Emit(vm::OpCode op, int arg, BasicBlock *dest, const scann
 
     switch (op) {
         case vm::OpCode::CALL:
+        case vm::OpCode::DFR:
         case vm::OpCode::INIT:
+        case vm::OpCode::SPW:
             this->DecrementStack(arg & 0xFFFF);
             break;
         case vm::OpCode::DUP:

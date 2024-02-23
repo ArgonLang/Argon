@@ -58,6 +58,12 @@ namespace argon::lang::compiler2 {
 
         void CompileBlock(const parser2::node::Node *node, bool sub);
 
+        void CompileCall(const parser2::node::Call *call);
+
+        void CompileCallKWArgs(List *args, unsigned short &count, vm::OpCodeCallMode &mode);
+
+        void CompileCallPositional(List *args, unsigned short &count, vm::OpCodeCallMode &mode);
+
         void CompileDLST(const parser2::node::Unary *unary);
 
         void CompileElvis(const parser2::node::Binary *binary);

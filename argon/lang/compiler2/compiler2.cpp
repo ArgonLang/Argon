@@ -317,6 +317,136 @@ void Compiler::CompileBlock(const node::Node *node, bool sub) {
         SymbolExitNested(this->unit_->symt);
 }
 
+void Compiler::CompileCall(const node::Call *call) {
+    ARC iter;
+    ARC param;
+
+    unsigned short args = 0;
+
+    CHECK_AST_NODE(node::type_ast_call_, call);
+
+    if (call->left->node_type == node::NodeType::SELECTOR &&
+        call->left->token_type != scanner::TokenType::SCOPE) {
+        auto idx = this->CompileSelector((const node::Binary *) call->left, false, false);
+
+        this->unit_->Emit(vm::OpCode::LDMETH, idx, nullptr, &call->left->loc);
+
+        args = 1;
+    } else
+        this->Expression(call->left);
+
+    auto op = vm::OpCode::CALL;
+    auto mode = vm::OpCodeCallMode::FASTCALL;
+
+    if (call->args != nullptr)
+        this->CompileCallPositional(call->args, args, mode);
+
+    if (call->kwargs != nullptr)
+        this->CompileCallKWArgs(call->kwargs, args, mode);
+
+    if (call->token_type == scanner::TokenType::KW_DEFER)
+        op = vm::OpCode::DFR;
+    else if (call->token_type == scanner::TokenType::KW_SPAWN)
+        op = vm::OpCode::SPW;
+
+    this->unit_->Emit(op, (unsigned char) mode, args, &call->loc);
+}
+
+void Compiler::CompileCallKWArgs(List *args, unsigned short &count, vm::OpCodeCallMode &mode) {
+    ARC iter;
+    ARC arg;
+
+    iter = IteratorGet((ArObject *) args, false);
+    if (!iter)
+        throw DatatypeException();
+
+    bool dict_expansion = false;
+    int items = 0;
+
+    // key = value
+    while ((arg = IteratorNext(iter.Get()))) {
+        const auto *tmp = (const node::Parameter *) arg.Get();
+
+        if (tmp->node_type == node::NodeType::KWARG) {
+            dict_expansion = true;
+            continue;
+        }
+
+        this->LoadStatic((ArObject *) tmp->id, &tmp->loc, false, true);
+
+        if (tmp->value != nullptr)
+            this->Expression(tmp->value);
+        else
+            this->LoadStaticNil(&tmp->loc, true);
+
+        items += 2;
+    }
+
+    if (items > 0)
+        this->unit_->Emit(vm::OpCode::MKDT, items, nullptr, nullptr);
+
+    if (dict_expansion) {
+        iter = IteratorGet((ArObject *) args, false);
+        if (!iter)
+            throw DatatypeException();
+
+        // &kwargs
+        while ((arg = IteratorNext(iter.Get()))) {
+            const auto *tmp = (const node::Parameter *) arg.Get();
+
+            if (tmp->node_type != node::NodeType::KWARG)
+                continue;
+
+            this->Expression(tmp->value);
+
+            if (items > 0)
+                this->unit_->Emit(vm::OpCode::DTMERGE, nullptr);
+
+            items++;
+        }
+    }
+
+    mode |= vm::OpCodeCallMode::KW_PARAMS;
+
+    if (ENUMBITMASK_ISTRUE(mode, vm::OpCodeCallMode::REST_PARAMS)) {
+        this->unit_->Emit(vm::OpCode::PLT, nullptr);
+        return;
+    }
+
+    count++;
+}
+
+void Compiler::CompileCallPositional(List *args, unsigned short &count, vm::OpCodeCallMode &mode) {
+    ARC iter;
+    ARC arg;
+
+    iter = IteratorGet((ArObject *) args, false);
+    if (!iter)
+        throw DatatypeException();
+
+    while ((arg = IteratorNext(iter.Get()))) {
+        const auto *tmp = (const node::Unary *) arg.Get();
+
+        if (tmp->node_type == node::NodeType::SPREAD) {
+            if (ENUMBITMASK_ISFALSE(mode, vm::OpCodeCallMode::REST_PARAMS))
+                this->unit_->Emit(vm::OpCode::MKLT, count, nullptr, &tmp->loc);
+
+            this->Expression((const node::Node *) tmp->value);
+
+            this->unit_->Emit(vm::OpCode::EXTD, nullptr);
+
+            mode |= vm::OpCodeCallMode::REST_PARAMS;
+        } else {
+            this->Expression((const node::Node *) tmp);
+
+            if (ENUMBITMASK_ISTRUE(mode, vm::OpCodeCallMode::REST_PARAMS))
+                this->unit_->Emit(vm::OpCode::PLT, nullptr);
+        }
+
+        count++;
+    }
+}
+
 void Compiler::CompileDLST(const node::Unary *unary) {
     ARC iter;
     ARC tmp;
@@ -943,8 +1073,8 @@ void Compiler::Expression(const node::Node *node) {
             this->unit_->Emit(vm::OpCode::AWAIT, &node->loc);
             break;
         case node::NodeType::CALL:
-            // TODO CompileCall
-            assert(false);
+            this->CompileCall((const node::Call *) node);
+            break;
         case node::NodeType::DICT:
         case node::NodeType::LIST:
         case node::NodeType::SET:
