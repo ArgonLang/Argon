@@ -20,7 +20,8 @@ namespace argon::lang::compiler2 {
             "invalid NodeType(%d) for %s",
             "invalid TokenType(%d) for %s",
             "cannot use '%s' as identifier",
-            "unexpected non named parameter here"
+            "unexpected non named parameter here",
+            "unexpected use of 'yield'"
     };
 
     class Compiler {

@@ -43,14 +43,78 @@ SymbolT *Compiler::IdentifierLookupOrCreate(String *id, argon::lang::compiler2::
 
 void Compiler::Compile(const node::Node *node) {
     switch (node->node_type) {
+        case node::NodeType::ASSERTION:
+            assert(false);
+        case node::NodeType::ASSIGNMENT:
+            assert(false);
+        case node::NodeType::BLOCK:
+            assert(false);
+        case node::NodeType::CALL:
+            assert(false);
         case node::NodeType::EXPRESSION:
             this->Expression((const node::Node *) ((const node::Unary *) node)->value);
+            this->unit_->EmitPOP();
             break;
+        case node::NodeType::FOR:
+            assert(false);
+        case node::NodeType::FOREACH:
+            assert(false);
         case node::NodeType::FUNCTION:
             this->CompileFunction((const node::Function *) node);
             break;
-        default:
+        case node::NodeType::JUMP:
             assert(false);
+        case node::NodeType::IF:
+            assert(false);
+        case node::NodeType::IMPORT:
+            assert(false);
+        case node::NodeType::LABEL:
+            assert(false);
+        case node::NodeType::LOOP:
+            assert(false);
+        case node::NodeType::PANIC:
+            assert(false);
+        case node::NodeType::RETURN: {
+            auto *ret = (const node::Unary *) node;
+
+            CHECK_AST_NODE(node::type_ast_unary_, ret);
+
+            if (ret->value != nullptr)
+                this->Expression((const node::Node *) ret->value);
+            else
+                this->LoadStaticNil(&ret->loc, true);
+
+            this->unit_->Emit(vm::OpCode::RET, &ret->loc);
+
+            break;
+        }
+        case node::NodeType::SAFE_EXPR:
+            assert(false);
+        case node::NodeType::STRUCT:
+        case node::NodeType::TRAIT:
+            assert(false);
+        case node::NodeType::SWITCH:
+            assert(false);
+        case node::NodeType::SYNC_BLOCK:
+            assert(false);
+        case node::NodeType::VARDECL:
+            assert(false);
+        case node::NodeType::YIELD:
+            CHECK_AST_NODE(node::type_ast_unary_, node);
+
+            if (this->unit_->symt->type != SymbolType::FUNC
+                && this->unit_->symt->type != SymbolType::GENERATOR)
+                throw CompilerException(kStandardError[5]);
+
+            this->unit_->symt->type = SymbolType::GENERATOR;
+
+            this->Expression((const node::Node *) ((const node::Unary *) node)->value);
+
+            this->unit_->Emit(vm::OpCode::YLD, &node->loc);
+
+            break;
+        default:
+            throw CompilerException(kCompilerErrors[1], (int) node->node_type, __FUNCTION__);
     }
 }
 
