@@ -1135,7 +1135,7 @@ Node *Parser::ParseStatement(Context *context) {
         if (lbl == nullptr)
             throw DatatypeException();
 
-        lbl->left = label.Unwrap();
+        lbl->left = IncRef(((const node::Unary *) label.Get())->value);
         lbl->right = expr.Unwrap();
 
         lbl->loc.start = ((Node *) lbl->left)->loc.start;
@@ -2098,7 +2098,7 @@ Node *Parser::ParseFuncCall(Context *context, Node *left) {
         int mode = 0;
 
         do {
-            if (this->ParseFuncCallUnpack(context,k_args, mode >= 3)) {
+            if (this->ParseFuncCallUnpack(context, k_args, mode >= 3)) {
                 mode = 3;
 
                 break;
@@ -2161,7 +2161,7 @@ bool Parser::ParseFuncCallNamedArg(Context *context, ARC &k_args, Node *node, bo
         throw DatatypeException();
 
     auto *value = this->ParseExpression(context, PeekPrecedence(TokenType::COMMA));
-    if(value != nullptr)
+    if (value != nullptr)
         end = value->loc.end;
 
     auto *arg = NewNode<Parameter>(type_ast_argument_, false, NodeType::ARGUMENT);

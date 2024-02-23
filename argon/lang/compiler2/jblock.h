@@ -11,6 +11,8 @@
 
 namespace argon::lang::compiler2 {
     enum class JBlockType {
+        LABEL,
+        LOOP,
         SAFE,
         TRAP
     };

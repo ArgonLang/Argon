@@ -58,6 +58,10 @@ namespace argon::lang::compiler2 {
 
         JBlock *JBPush(vm::datatype::String *label, BasicBlock *begin, BasicBlock *end, JBlockType type);
 
+        JBlock *JBPush(vm::datatype::String *label, JBlockType type);
+
+        JBlock *JBPush(BasicBlock *begin, BasicBlock *end);
+
         bool CheckBlock(JBlockType expected) const;
 
         bool IsFreeVar(const vm::datatype::String *id) const;

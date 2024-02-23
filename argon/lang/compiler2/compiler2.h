@@ -33,6 +33,12 @@ namespace argon::lang::compiler2 {
 
         void Compile(const parser2::node::Node *node);
 
+        void CompileAssertion(const parser2::node::Binary *binary);
+
+        void CompileIF(const parser2::node::Branch *branch);
+
+        void CompileLoop(const parser2::node::Loop *loop);
+
 // *********************************************************************************************************************
 // EXPRESSION-ZONE
 // *********************************************************************************************************************

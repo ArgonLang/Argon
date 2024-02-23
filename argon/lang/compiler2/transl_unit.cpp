@@ -39,7 +39,7 @@ BasicBlock *TranslationUnit::BlockNew() {
 }
 
 JBlock *TranslationUnit::JBPush(String *label, BasicBlock *begin, BasicBlock *end, JBlockType type) {
-    auto j = JBlockNew(this->jblock, label, type);
+    auto *j = JBlockNew(this->jblock, label, type);
     if (j == nullptr)
         throw DatatypeException();
 
@@ -49,6 +49,40 @@ JBlock *TranslationUnit::JBPush(String *label, BasicBlock *begin, BasicBlock *en
     this->jblock = j;
 
     return j;
+}
+
+JBlock *TranslationUnit::JBPush(String *label, JBlockType type) {
+    auto *j = JBlockNew(this->jblock, label, type);
+    if (j == nullptr)
+        throw DatatypeException();
+
+    auto *begin = this->bbb.current;
+
+    if (begin == nullptr || begin->size > 0) {
+        begin = BasicBlockNew();
+        if (begin == nullptr) {
+            JBlockDel(j);
+
+            throw DatatypeException();
+        }
+
+        this->bbb.Append(begin);
+    }
+
+    j->begin = begin;
+
+    this->jblock = j;
+
+    return j;
+}
+
+JBlock *TranslationUnit::JBPush(BasicBlock *begin, BasicBlock *end) {
+    String *label = nullptr;
+
+    if (this->jblock != nullptr && this->jblock->type == JBlockType::LABEL)
+        label = this->jblock->label;
+
+    return this->JBPush(label, begin, end, JBlockType::LOOP);
 }
 
 bool TranslationUnit::CheckBlock(JBlockType expected) const {

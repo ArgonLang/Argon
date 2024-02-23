@@ -44,13 +44,16 @@ SymbolT *Compiler::IdentifierLookupOrCreate(String *id, argon::lang::compiler2::
 void Compiler::Compile(const node::Node *node) {
     switch (node->node_type) {
         case node::NodeType::ASSERTION:
-            assert(false);
+            this->CompileAssertion((const node::Binary *) node);
+            break;
         case node::NodeType::ASSIGNMENT:
             assert(false);
         case node::NodeType::BLOCK:
-            assert(false);
+            this->CompileBlock(node, true);
+            break;
         case node::NodeType::CALL:
-            assert(false);
+            this->CompileCall((const node::Call *) node);
+            break;
         case node::NodeType::EXPRESSION:
             this->Expression((const node::Node *) ((const node::Unary *) node)->value);
             this->unit_->EmitPOP();
@@ -65,15 +68,34 @@ void Compiler::Compile(const node::Node *node) {
         case node::NodeType::JUMP:
             assert(false);
         case node::NodeType::IF:
-            assert(false);
+            this->CompileIF((const node::Branch *) node);
+            break;
         case node::NodeType::IMPORT:
             assert(false);
-        case node::NodeType::LABEL:
-            assert(false);
+        case node::NodeType::LABEL: {
+            auto *label = (const node::Binary *) node;
+
+            CHECK_AST_NODE(node::type_ast_binary_, label);
+
+            this->unit_->JBPush((String *) label->left, JBlockType::LABEL);
+
+            this->Compile((const node::Node *) label->right);
+
+            this->unit_->JBPop();
+
+            break;
+        }
         case node::NodeType::LOOP:
-            assert(false);
+            this->CompileLoop((const node::Loop *) node);
+            break;
         case node::NodeType::PANIC:
-            assert(false);
+            CHECK_AST_NODE(node::type_ast_unary_, node);
+
+            this->Expression((const node::Node *) ((const node::Unary *) node)->value);
+
+            this->unit_->Emit(vm::OpCode::PANIC, &node->loc);
+
+            break;
         case node::NodeType::RETURN: {
             auto *ret = (const node::Unary *) node;
 
@@ -88,8 +110,6 @@ void Compiler::Compile(const node::Node *node) {
 
             break;
         }
-        case node::NodeType::SAFE_EXPR:
-            assert(false);
         case node::NodeType::STRUCT:
         case node::NodeType::TRAIT:
             assert(false);
@@ -116,6 +136,128 @@ void Compiler::Compile(const node::Node *node) {
         default:
             throw CompilerException(kCompilerErrors[1], (int) node->node_type, __FUNCTION__);
     }
+}
+
+void Compiler::CompileAssertion(const node::Binary *binary) {
+    ArObject *tmp = nullptr;
+    BasicBlock *end;
+
+    CHECK_AST_NODE(node::type_ast_assertion_, binary);
+
+    if ((end = BasicBlockNew()) == nullptr)
+        throw DatatypeException();
+
+    try {
+        this->Expression((const node::Node *) binary->left);
+
+        this->unit_->Emit(vm::OpCode::JT, 0, end, &binary->loc);
+
+        this->unit_->BlockNew();
+
+        // Assertion failed
+        this->LoadStatic((ArObject *) type_error_, &binary->loc, true, true);
+
+        this->LoadStaticAtom(kAssertionError[0], &binary->loc, true);
+
+        if (binary->right == nullptr) {
+            tmp = (ArObject *) StringIntern("");
+
+            this->LoadStatic(tmp, &binary->loc, true, true);
+
+            Release(tmp);
+        } else
+            this->Expression((const node::Node *) binary->right);
+
+        this->unit_->Emit(vm::OpCode::CALL, (unsigned char) vm::OpCodeCallMode::FASTCALL, 2, &binary->loc);
+
+        this->unit_->Emit(vm::OpCode::PANIC, &binary->loc);
+    } catch (...) {
+        Release(tmp);
+        BasicBlockDel(end);
+        throw;
+    }
+
+    this->unit_->BlockAppend(end);
+}
+
+void Compiler::CompileIF(const node::Branch *branch) {
+    BasicBlock *orelse;
+    BasicBlock *end;
+
+    CHECK_AST_NODE(node::type_ast_branch_, branch);
+
+    if ((end = BasicBlockNew()) == nullptr)
+        throw DatatypeException();
+
+    orelse = end;
+
+    try {
+        this->Expression(branch->test);
+
+        this->unit_->Emit(vm::OpCode::JF, 0, orelse, &branch->loc);
+
+        this->unit_->BlockNew();
+
+        this->CompileBlock(branch->body, this->unit_->symt->type != SymbolType::MODULE);
+
+        if (branch->orelse != nullptr) {
+            if ((end = BasicBlockNew()) == nullptr)
+                throw DatatypeException();
+
+            this->unit_->Emit(vm::OpCode::JMP, 0, end, nullptr);
+
+            this->unit_->BlockAppend(orelse);
+            orelse = nullptr; // Avoid releasing it in case of an exception.
+
+            this->Compile(branch->orelse);
+        }
+    } catch (...) {
+        if (orelse != end) {
+            BasicBlockDel(orelse);
+            BasicBlockDel(end);
+        } else
+            BasicBlockDel(end);
+
+        throw;
+    }
+
+    this->unit_->BlockAppend(end);
+}
+
+void Compiler::CompileLoop(const node::Loop *loop) {
+    BasicBlock *begin;
+    BasicBlock *end;
+
+    CHECK_AST_NODE(node::type_ast_loop_, loop);
+
+    if ((end = BasicBlockNew()) == nullptr)
+        throw DatatypeException();
+
+    if (!this->unit_->BlockNew())
+        throw DatatypeException();
+
+    begin = this->unit_->bbb.current;
+
+    try {
+        this->unit_->JBPush(begin, end);
+
+        if (loop->test != nullptr) {
+            this->Expression(loop->test);
+
+            this->unit_->Emit(vm::OpCode::JF, 0, end, &loop->test->loc);
+        }
+
+        this->CompileBlock(loop->body, true);
+
+        this->unit_->Emit(vm::OpCode::JMP, 0, begin, nullptr);
+    } catch (...) {
+        BasicBlockDel(end);
+        throw;
+    }
+
+    this->unit_->JBPop();
+
+    this->unit_->BlockAppend(end);
 }
 
 // *********************************************************************************************************************
