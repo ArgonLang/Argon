@@ -40,6 +40,10 @@ namespace argon::lang::compiler2 {
 
         void CompileAugAssignment(const parser2::node::Assignment *assignment);
 
+        void CompileFor(const parser2::node::Loop *loop);
+
+        void CompileForEach(const parser2::node::Loop *loop);
+
         void CompileIF(const parser2::node::Branch *branch);
 
         void CompileLoop(const parser2::node::Loop *loop);

@@ -60,9 +60,11 @@ void Compiler::Compile(const node::Node *node) {
             this->unit_->EmitPOP();
             break;
         case node::NodeType::FOR:
-            assert(false);
+            this->CompileFor((const node::Loop *) node);
+            break;
         case node::NodeType::FOREACH:
-            assert(false);
+            this->CompileForEach((const node::Loop *) node);
+            break;
         case node::NodeType::FUNCTION:
             this->CompileFunction((const node::Function *) node);
             break;
@@ -247,6 +249,120 @@ void Compiler::CompileAugAssignment(const node::Assignment *assignment) {
     }
 
 #undef COMPILE_OP
+}
+
+void Compiler::CompileFor(const node::Loop *loop) {
+    BasicBlock *begin;
+    BasicBlock *end;
+
+    CHECK_AST_NODE(node::type_ast_loop_, loop);
+
+    if (!this->unit_->symt->NewNestedTable())
+        throw DatatypeException();
+
+    if (loop->init != nullptr)
+        this->Compile(loop->init);
+
+    this->unit_->BlockNew();
+
+    begin = this->unit_->bbb.current;
+
+    if ((end = BasicBlockNew()) == nullptr)
+        throw DatatypeException();
+
+    try {
+        this->unit_->JBPush(begin, end);
+
+        this->Expression(loop->test);
+
+        this->unit_->Emit(vm::OpCode::JF, 0, end, &loop->test->loc);
+
+        this->unit_->BlockNew();
+
+        this->CompileBlock(loop->body, false);
+
+        if (loop->inc != nullptr) {
+            auto *inc = loop->inc;
+            switch (inc->node_type) {
+                case node::NodeType::ASSIGNMENT:
+                    this->CompileAssignment((const node::Assignment *) inc);
+                    break;
+                case node::NodeType::CALL:
+                    this->CompileCall((const node::Call *) inc);
+                    break;
+                case node::NodeType::UPDATE:
+                    this->CompileUpdate((const node::Unary *) inc);
+                    this->unit_->Emit(vm::OpCode::POP, nullptr);
+                    break;
+                default:
+                    throw CompilerException(kCompilerErrors[1], (int) inc->node_type, __FUNCTION__);
+            }
+        }
+
+        this->unit_->Emit(vm::OpCode::JMP, 0, begin, nullptr);
+    } catch (...) {
+        BasicBlockDel(end);
+        throw;
+    }
+
+    this->unit_->JBPop();
+
+    SymbolExitNested(this->unit_->symt);
+
+    this->unit_->BlockAppend(end);
+}
+
+void Compiler::CompileForEach(const node::Loop *loop) {
+    BasicBlock *begin;
+    BasicBlock *end;
+
+    CHECK_AST_NODE(node::type_ast_loop_, loop);
+
+    if (!this->unit_->symt->NewNestedTable())
+        throw DatatypeException();
+
+    if ((end = BasicBlockNew()) == nullptr)
+        throw DatatypeException();
+
+    try {
+        if (loop->init != nullptr)
+            this->Compile(loop->init);
+
+        this->Expression(loop->test);
+
+        this->unit_->Emit(vm::OpCode::LDITER, &loop->loc);
+
+        this->unit_->BlockNew();
+
+        begin = this->unit_->bbb.current;
+
+        this->unit_->JBPush(begin, end); // TODO count
+
+        this->unit_->Emit(vm::OpCode::NXT, nullptr);
+        this->unit_->Emit(vm::OpCode::JEX, 0, end, nullptr);
+
+        this->unit_->BlockNew();
+
+        if (loop->inc->node_type == node::NodeType::IDENTIFIER)
+            this->StoreVariable((const node::Unary *) loop->inc);
+        else if (loop->inc->node_type == node::NodeType::TUPLE)
+            this->CompileUnpack((List *) ((const node::Unary *) loop->inc)->value, &loop->inc->loc);
+
+        this->CompileBlock(loop->body, false);
+
+        this->unit_->Emit(vm::OpCode::JMP, 0, begin, nullptr);
+    } catch (...) {
+        BasicBlockDel(end);
+        throw;
+    }
+
+    this->unit_->JBPop();
+
+    SymbolExitNested(this->unit_->symt);
+
+    this->unit_->BlockAppend(end);
+
+    this->unit_->DecrementStack(1); // JEX remove iterator from eval stack
 }
 
 void Compiler::CompileIF(const node::Branch *branch) {
