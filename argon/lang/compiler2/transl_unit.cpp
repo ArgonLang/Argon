@@ -148,8 +148,10 @@ void TranslationUnit::Emit(vm::OpCode op, int arg, BasicBlock *dest, const scann
             this->DecrementStack(arg);
             break;
         default:
-            this->IncrementStack(vm::StackChange[(unsigned char) op]);
+            break;
     }
+
+    this->IncrementStack(vm::StackChange[(unsigned char) op]);
 }
 
 TranslationUnit *argon::lang::compiler2::TranslationUnitNew(TranslationUnit *prev, String *name, SymbolType type) {

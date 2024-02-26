@@ -47,7 +47,8 @@ void Compiler::Compile(const node::Node *node) {
             this->CompileAssertion((const node::Binary *) node);
             break;
         case node::NodeType::ASSIGNMENT:
-            assert(false);
+            this->CompileAssignment((const node::Assignment *) node);
+            break;
         case node::NodeType::BLOCK:
             this->CompileBlock(node, true);
             break;
@@ -180,6 +181,73 @@ void Compiler::CompileAssertion(const node::Binary *binary) {
     this->unit_->BlockAppend(end);
 }
 
+void Compiler::CompileAssignment(const node::Assignment *assignment) {
+    CHECK_AST_NODE(node::type_ast_assignment_, assignment);
+
+    if (assignment->token_type != scanner::TokenType::EQUAL) {
+        this->CompileAugAssignment(assignment);
+        return;
+    }
+
+    this->CompileStore((const node::Node *) assignment->name, (const node::Node *) assignment->value);
+}
+
+void Compiler::CompileAugAssignment(const node::Assignment *assignment) {
+    vm::OpCode opcode;
+
+    // Select opcode
+    switch (assignment->token_type) {
+        case scanner::TokenType::ASSIGN_ADD:
+            opcode = vm::OpCode::IPADD;
+            break;
+        case scanner::TokenType::ASSIGN_SUB:
+            opcode = vm::OpCode::IPSUB;
+            break;
+        default:
+            throw CompilerException(kCompilerErrors[6]);
+    }
+
+#define COMPILE_OP()                                            \
+    this->Expression((const node::Node*) assignment->value);    \
+    this->unit_->Emit(opcode, &assignment->loc)
+
+    auto *left = (const node::Node *) assignment->name;
+    switch (left->node_type) {
+        case node::NodeType::IDENTIFIER:
+            this->LoadIdentifier((const node::Unary *) left);
+
+            COMPILE_OP();
+
+            this->StoreVariable((String *) ((const node::Unary *) left)->value, &assignment->loc);
+            break;
+        case node::NodeType::INDEX:
+        case node::NodeType::SLICE:
+            this->CompileSubscr((const node::Subscript *) left, true, true);
+
+            COMPILE_OP();
+
+            this->unit_->Emit(vm::OpCode::STSUBSCR, &assignment->loc);
+            break;
+        case node::NodeType::SELECTOR: {
+            auto idx = this->CompileSelector((const node::Binary *) left, true, true);
+
+            COMPILE_OP();
+
+            if (left->token_type == scanner::TokenType::SCOPE) {
+                this->unit_->Emit(vm::OpCode::STSCOPE, idx, nullptr, &assignment->loc);
+                break;
+            }
+
+            this->unit_->Emit(vm::OpCode::STATTR, idx, nullptr, &assignment->loc);
+            break;
+        }
+        default:
+            throw CompilerException(kCompilerErrors[1], (int) left->node_type, __FUNCTION__);
+    }
+
+#undef COMPILE_OP
+}
+
 void Compiler::CompileIF(const node::Branch *branch) {
     BasicBlock *orelse;
     BasicBlock *end;
@@ -258,6 +326,79 @@ void Compiler::CompileLoop(const node::Loop *loop) {
     this->unit_->JBPop();
 
     this->unit_->BlockAppend(end);
+}
+
+void Compiler::CompileStore(const node::Node *node, const node::Node *value) {
+    switch (node->node_type) {
+        case node::NodeType::IDENTIFIER:
+            if (value != nullptr)
+                this->Expression(value);
+
+            this->StoreVariable(((const node::Unary *) node));
+            break;
+        case node::NodeType::INDEX:
+        case node::NodeType::SLICE:
+            this->CompileSubscr((const node::Subscript *) node, false, false);
+
+            if (value != nullptr)
+                this->Expression(value);
+            else
+                this->unit_->Emit(vm::OpCode::MTH, 2, nullptr, &value->loc);
+
+            this->unit_->Emit(vm::OpCode::STSUBSCR, &node->loc);
+            break;
+        case node::NodeType::SELECTOR: {
+            auto idx = this->CompileSelector((const node::Binary *) node, false, false);
+
+            if (value != nullptr)
+                this->Expression(value);
+            else
+                this->unit_->Emit(vm::OpCode::MTH, 1, nullptr, &value->loc);
+
+            if (node->token_type == scanner::TokenType::SCOPE) {
+                this->unit_->Emit(vm::OpCode::STSCOPE, idx, nullptr, &node->loc);
+                return;
+            }
+
+            this->unit_->Emit(vm::OpCode::STATTR, idx, nullptr, &node->loc);
+            break;
+        }
+        case node::NodeType::TUPLE:
+            if (value != nullptr)
+                this->Expression(value);
+
+            this->CompileUnpack((List *) ((const node::Unary *) node)->value, &node->loc);
+            break;
+        default:
+            throw CompilerException(kCompilerErrors[1], (int) node->node_type, __FUNCTION__);
+    }
+}
+
+void Compiler::CompileUnpack(List *list, const scanner::Loc *loc) {
+    ARC iter;
+    ARC tmp;
+
+    iter = IteratorGet((ArObject *) list, false);
+    if (!iter)
+        throw DatatypeException();
+
+    this->unit_->Emit(vm::OpCode::UNPACK, loc);
+
+    auto *instr = this->unit_->bbb.current->instr.tail;
+
+    auto items = 0;
+
+    while ((tmp = IteratorNext(iter.Get()))) {
+        auto *id = (const node::Node *) tmp.Get();
+
+        this->unit_->IncrementStack(1);
+
+        this->CompileStore(id, nullptr);
+
+        items++;
+    }
+
+    instr->oparg = (unsigned int) items;
 }
 
 // *********************************************************************************************************************

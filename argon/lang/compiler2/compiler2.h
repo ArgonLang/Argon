@@ -21,7 +21,8 @@ namespace argon::lang::compiler2 {
             "invalid TokenType(%d) for %s",
             "cannot use '%s' as identifier",
             "unexpected non named parameter here",
-            "unexpected use of 'yield'"
+            "unexpected use of 'yield'",
+            "invalid token for CompileAugAssignment"
     };
 
     class Compiler {
@@ -35,9 +36,17 @@ namespace argon::lang::compiler2 {
 
         void CompileAssertion(const parser2::node::Binary *binary);
 
+        void CompileAssignment(const parser2::node::Assignment *assignment);
+
+        void CompileAugAssignment(const parser2::node::Assignment *assignment);
+
         void CompileIF(const parser2::node::Branch *branch);
 
         void CompileLoop(const parser2::node::Loop *loop);
+
+        void CompileStore(const parser2::node::Node *node, const parser2::node::Node *value);
+
+        void CompileUnpack(List *list, const scanner::Loc *loc);
 
 // *********************************************************************************************************************
 // EXPRESSION-ZONE

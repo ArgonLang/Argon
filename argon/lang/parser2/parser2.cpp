@@ -1776,6 +1776,8 @@ Node *Parser::ParseArrowOrTuple(Context *context) {
 }
 
 Node *Parser::ParseAssignment(Context *context, Node *left) {
+    auto tk_type = TKCUR_TYPE;
+
     this->Eat(true);
 
     if (left->node_type != NodeType::IDENTIFIER
@@ -1801,7 +1803,7 @@ Node *Parser::ParseAssignment(Context *context, Node *left) {
 
     auto *expr = this->ParseExpression(context, PeekPrecedence(TokenType::EQUAL));
 
-    auto *assignment = NewNode<Assignment>(type_ast_vardecl_, false, NodeType::ASSIGNMENT);
+    auto *assignment = NewNode<Assignment>(type_ast_assignment_, false, NodeType::ASSIGNMENT);
     if (assignment == nullptr) {
         Release(expr);
 
@@ -1810,6 +1812,7 @@ Node *Parser::ParseAssignment(Context *context, Node *left) {
 
     assignment->loc.start = left->loc.start;
     assignment->loc.end = expr->loc.end;
+    assignment->token_type = tk_type;
 
     assignment->name = (ArObject *) IncRef(left);
     assignment->value = (ArObject *) expr;
