@@ -23,13 +23,16 @@ namespace argon::lang::compiler2 {
             "unexpected non named parameter here",
             "unexpected use of 'yield'",
             "invalid token for CompileAugAssignment",
-            "unknown loop label(%s), loop cannot be %s"
+            "unknown loop label(%s), loop cannot be %s",
+            "alias required for: %s"
     };
 
     class Compiler {
         argon::vm::datatype::Dict *static_globals_ = nullptr;
 
         TranslationUnit *unit_ = nullptr;
+
+        static String *MkImportName(const parser2::node::Unary *literal);
 
         SymbolT *IdentifierLookupOrCreate(String *id, SymbolType type);
 
@@ -48,6 +51,10 @@ namespace argon::lang::compiler2 {
         void CompileJump(const parser2::node::Unary *jump);
 
         void CompileIF(const parser2::node::Branch *branch);
+
+        void CompileImport(const parser2::node::Import *imp);
+
+        void CompileImportAlias(const parser2::node::Binary *binary, bool impfrm);
 
         void CompileLoop(const parser2::node::Loop *loop);
 

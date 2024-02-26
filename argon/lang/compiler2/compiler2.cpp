@@ -2,6 +2,8 @@
 //
 // Licensed under the Apache License v2.0
 
+#include <string>
+
 #include <argon/vm/datatype/nil.h>
 
 #include <argon/lang/compiler2/compiler2.h>
@@ -15,6 +17,28 @@ do {                                                                            
     if(!AR_TYPEOF(chk, expected))                                                           \
         throw CompilerException(kCompilerErrors[0], (expected)->name, AR_TYPE_NAME(chk));   \
 } while(0)
+
+String *Compiler::MkImportName(const node::Unary *literal) {
+    auto *mod_name = (String *) literal->value;
+
+    const unsigned char *end = ARGON_RAW_STRING(mod_name) + ARGON_RAW_STRING_LENGTH(mod_name);
+    unsigned int idx = 0;
+
+    while (idx < ARGON_RAW_STRING_LENGTH(mod_name) && std::isalnum(*((end - idx) - 1)))
+        idx++;
+
+    if (!std::isalpha(*(end - idx))) {
+        // TODO CompilerError[0]
+        ErrorFormat("CompilerError", kCompilerErrors[8], ARGON_RAW_STRING(mod_name));
+        throw DatatypeException();
+    }
+
+    auto *ret = StringNew((const char *) end - idx, idx);
+    if (ret == nullptr)
+        throw DatatypeException();
+
+    return ret;
+}
 
 SymbolT *Compiler::IdentifierLookupOrCreate(String *id, argon::lang::compiler2::SymbolType type) {
     auto *dst = this->unit_->names;
@@ -75,7 +99,8 @@ void Compiler::Compile(const node::Node *node) {
             this->CompileIF((const node::Branch *) node);
             break;
         case node::NodeType::IMPORT:
-            assert(false);
+            this->CompileImport((const node::Import *) node);
+            break;
         case node::NodeType::LABEL: {
             auto *label = (const node::Binary *) node;
 
@@ -419,6 +444,59 @@ void Compiler::CompileJump(const node::Unary *jump) {
     }
 
     this->unit_->Emit(vm::OpCode::JMP, 0, dst, nullptr);
+}
+
+void Compiler::CompileImport(const node::Import *imp) {
+    ARC iter;
+    ARC tmp;
+
+    CHECK_AST_NODE(node::type_ast_import_, imp);
+
+    if (imp->mod != nullptr) {
+        auto idx = this->LoadStatic((const node::Unary *) imp->mod, true, false);
+        this->unit_->Emit(vm::OpCode::IMPMOD, idx, nullptr, &imp->loc);
+    }
+
+    if (imp->names == nullptr) {
+        this->unit_->Emit(vm::OpCode::IMPALL, &imp->loc);
+        return;
+    }
+
+    iter = IteratorGet(imp->names, false);
+    if (!iter)
+        throw DatatypeException();
+
+    while ((tmp = IteratorNext(iter.Get())))
+        this->CompileImportAlias((const node::Binary *) tmp.Get(), imp->mod != nullptr);
+
+    if (imp->mod != nullptr)
+        this->unit_->EmitPOP();
+}
+
+void Compiler::CompileImportAlias(const node::Binary *binary, bool impfrm) {
+    ARC name;
+    int idx = 0;
+
+    CHECK_AST_NODE(node::type_ast_import_name_, binary);
+
+    if (impfrm)
+        idx = this->LoadStatic(binary->left, &((const node::Unary *) binary->left)->loc, true, false);
+    else
+        idx = this->LoadStatic((const node::Unary *) binary->left, true, false);
+
+    this->unit_->Emit(impfrm ? vm::OpCode::IMPFRM : vm::OpCode::IMPMOD, idx, nullptr, &binary->loc);
+
+    if (binary->right != nullptr)
+        name = binary->right;
+
+    if (!name) {
+        if (impfrm)
+            name = ((const node::Unary *) binary->left)->value;
+        else
+            name = Compiler::MkImportName((const node::Unary *) binary->left);
+    }
+
+    this->IdentifierNew((String *) name.Get(), &binary->loc, SymbolType::CONSTANT, AttributeFlag::CONST, true);
 }
 
 void Compiler::CompileIF(const node::Branch *branch) {
