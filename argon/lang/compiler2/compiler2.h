@@ -46,6 +46,8 @@ namespace argon::lang::compiler2 {
 
         void CompileStore(const parser2::node::Node *node, const parser2::node::Node *value);
 
+        void CompileSyncBlock(const parser2::node::Binary *binary);
+
         void CompileUnpack(List *list, const scanner::Loc *loc);
 
 // *********************************************************************************************************************

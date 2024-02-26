@@ -117,7 +117,8 @@ void Compiler::Compile(const node::Node *node) {
         case node::NodeType::SWITCH:
             assert(false);
         case node::NodeType::SYNC_BLOCK:
-            assert(false);
+            this->CompileSyncBlock((const node::Binary *) node);
+            break;
         case node::NodeType::VARDECL:
             assert(false);
         case node::NodeType::YIELD:
@@ -372,6 +373,22 @@ void Compiler::CompileStore(const node::Node *node, const node::Node *value) {
         default:
             throw CompilerException(kCompilerErrors[1], (int) node->node_type, __FUNCTION__);
     }
+}
+
+void Compiler::CompileSyncBlock(const node::Binary *binary) {
+    CHECK_AST_NODE(node::type_ast_sync_, binary);
+
+    this->Expression((const node::Node *) binary->left);
+
+    this->unit_->EnterSync(&((const node::Binary *) binary->left)->loc);
+
+    this->unit_->JBPush(nullptr, JBlockType::SYNC);
+
+    this->CompileBlock((const node::Node *) binary->right, true);
+
+    this->unit_->ExitSync();
+
+    this->unit_->JBPop();
 }
 
 void Compiler::CompileUnpack(List *list, const scanner::Loc *loc) {

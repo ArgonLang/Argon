@@ -50,6 +50,11 @@ namespace argon::lang::compiler2 {
             unsigned int current;
         } stack;
 
+        struct {
+            unsigned short required;
+            unsigned short current;
+        } sync_stack;
+
         unsigned int anon_count;
 
         BasicBlock *BlockNew();
@@ -80,12 +85,28 @@ namespace argon::lang::compiler2 {
         }
 
         void Emit(vm::OpCode op, unsigned char flags, unsigned short arg, const scanner::Loc *loc) {
-            int combined = (flags << 16) | arg;
+            int combined = (flags << 16u) | arg;
             this->Emit(op, combined, nullptr, loc);
         }
 
         void EmitPOP() {
             this->Emit(vm::OpCode::POP, 0, nullptr, nullptr);
+        }
+
+        void EnterSync(const scanner::Loc *loc) {
+            this->Emit(vm::OpCode::SYNC, loc);
+
+            this->sync_stack.current++;
+            if (this->sync_stack.current > this->sync_stack.required)
+                this->sync_stack.required = this->sync_stack.current;
+        }
+
+        void ExitSync() {
+            this->Emit(vm::OpCode::UNSYNC, nullptr);
+
+            this->sync_stack.current--;
+
+            assert(this->sync_stack.current < 0xFF);
         }
 
         void IncrementStack(int size) {
