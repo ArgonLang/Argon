@@ -69,7 +69,8 @@ void Compiler::Compile(const node::Node *node) {
             this->CompileFunction((const node::Function *) node);
             break;
         case node::NodeType::JUMP:
-            assert(false);
+            this->CompileJump((const node::Unary *) node);
+            break;
         case node::NodeType::IF:
             this->CompileIF((const node::Branch *) node);
             break;
@@ -336,7 +337,7 @@ void Compiler::CompileForEach(const node::Loop *loop) {
 
         begin = this->unit_->bbb.current;
 
-        this->unit_->JBPush(begin, end); // TODO count
+        this->unit_->JBPush(begin, end, 1);
 
         this->unit_->Emit(vm::OpCode::NXT, nullptr);
         this->unit_->Emit(vm::OpCode::JEX, 0, end, nullptr);
@@ -363,6 +364,61 @@ void Compiler::CompileForEach(const node::Loop *loop) {
     this->unit_->BlockAppend(end);
 
     this->unit_->DecrementStack(1); // JEX remove iterator from eval stack
+}
+
+void Compiler::CompileJump(const node::Unary *jump) {
+    auto *jb = this->unit_->jblock;
+    unsigned short pops = 0;
+
+    CHECK_AST_NODE(node::type_ast_jump_, jump);
+
+    if (jump->token_type != scanner::TokenType::KW_BREAK && jump->token_type != scanner::TokenType::KW_CONTINUE)
+        throw CompilerException(kCompilerErrors[2], (int) jump->token_type, __FUNCTION__);
+
+    if (jump->value != nullptr) {
+        jb = this->unit_->JBFindLabel((const String *) jump->value, pops);
+        if (jb == nullptr)
+            throw CompilerException(kCompilerErrors[7],
+                                    ARGON_RAW_STRING((String *) jump->value)),
+                    (jump->token_type == scanner::TokenType::KW_BREAK ? "breaked" : "continued");
+    }
+
+    auto *dst = jb->end;
+
+#define POPN(n)                 \
+    do{for(auto i=0;i<(n);i++)this->unit_->EmitPOP();}while(0)
+
+    if (jump->token_type == scanner::TokenType::KW_BREAK) {
+        POPN(pops);
+
+        // Don't decrease the stack size
+        this->unit_->IncrementStack(pops);
+    } else if (jump->token_type == scanner::TokenType::KW_CONTINUE) {
+        pops -= jb->pops;
+
+        POPN(pops);
+
+        // Don't decrease the stack size
+        this->unit_->IncrementStack(pops);
+
+        dst = jb->begin;
+    } else
+        throw CompilerException(kCompilerErrors[2], (int) jump->token_type, __FUNCTION__);
+
+#undef POPN
+
+    // If continue/break is inside a sync block, release the resource before executing continue/break
+    for (auto *cursor = this->unit_->jblock; cursor != jb; cursor = cursor->prev) {
+        if (cursor->type != JBlockType::SYNC)
+            continue;
+
+        this->unit_->ExitSync();
+
+        // Don't decrease sync_stack size
+        this->unit_->sync_stack.current++;
+    }
+
+    this->unit_->Emit(vm::OpCode::JMP, 0, dst, nullptr);
 }
 
 void Compiler::CompileIF(const node::Branch *branch) {

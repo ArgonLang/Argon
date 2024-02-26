@@ -27,6 +27,8 @@ namespace argon::lang::compiler2 {
         BasicBlock *end;
 
         JBlockType type;
+
+        unsigned short pops;
     };
 
     JBlock *JBlockNew( JBlock *prev, argon::vm::datatype::String *label, JBlockType type);

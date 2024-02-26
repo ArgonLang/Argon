@@ -61,11 +61,15 @@ namespace argon::lang::compiler2 {
 
         BasicBlock *BlockAppend(BasicBlock *block);
 
+        JBlock *JBFindLabel(const vm::datatype::String *label, unsigned short &out_pops) const;
+
         JBlock *JBPush(vm::datatype::String *label, BasicBlock *begin, BasicBlock *end, JBlockType type);
 
         JBlock *JBPush(vm::datatype::String *label, JBlockType type);
 
         JBlock *JBPush(BasicBlock *begin, BasicBlock *end);
+
+        JBlock *JBPush(BasicBlock *begin, BasicBlock *end, unsigned short pops);
 
         bool CheckBlock(JBlockType expected) const;
 

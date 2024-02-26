@@ -22,7 +22,8 @@ namespace argon::lang::compiler2 {
             "cannot use '%s' as identifier",
             "unexpected non named parameter here",
             "unexpected use of 'yield'",
-            "invalid token for CompileAugAssignment"
+            "invalid token for CompileAugAssignment",
+            "unknown loop label(%s), loop cannot be %s"
     };
 
     class Compiler {
@@ -43,6 +44,8 @@ namespace argon::lang::compiler2 {
         void CompileFor(const parser2::node::Loop *loop);
 
         void CompileForEach(const parser2::node::Loop *loop);
+
+        void CompileJump(const parser2::node::Unary *jump);
 
         void CompileIF(const parser2::node::Branch *branch);
 

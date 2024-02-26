@@ -38,6 +38,22 @@ BasicBlock *TranslationUnit::BlockNew() {
     return block;
 }
 
+JBlock *TranslationUnit::JBFindLabel(const String *label, unsigned short &out_pops) const {
+    out_pops = 0;
+
+    for (auto *block = this->jblock; block != nullptr; block = block->prev) {
+        out_pops += block->pops;
+
+        if (block->type != JBlockType::LOOP)
+            continue;
+
+        if (block->label != nullptr && StringCompare(block->label, label) == 0)
+            return block;
+    }
+
+    return nullptr;
+}
+
 JBlock *TranslationUnit::JBPush(String *label, BasicBlock *begin, BasicBlock *end, JBlockType type) {
     auto *j = JBlockNew(this->jblock, label, type);
     if (j == nullptr)
@@ -83,6 +99,14 @@ JBlock *TranslationUnit::JBPush(BasicBlock *begin, BasicBlock *end) {
         label = this->jblock->label;
 
     return this->JBPush(label, begin, end, JBlockType::LOOP);
+}
+
+JBlock *TranslationUnit::JBPush(BasicBlock *begin, BasicBlock *end, unsigned short pops) {
+    auto jb = this->JBPush(begin, end);
+
+    jb->pops = pops;
+
+    return jb;
 }
 
 bool TranslationUnit::CheckBlock(JBlockType expected) const {
