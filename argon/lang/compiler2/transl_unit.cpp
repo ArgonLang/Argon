@@ -38,6 +38,121 @@ BasicBlock *TranslationUnit::BlockNew() {
     return block;
 }
 
+Code *TranslationUnit::Assemble(String *docs) {
+    Code *code;
+
+    // Instructions buffer
+    unsigned char *instr_buf;
+    unsigned char *instr_cur;
+
+    // Line -> OpCode mapping
+    unsigned char *line_buf;
+    unsigned char *line_cur;
+
+    unsigned int instr_sz;
+    unsigned int line_sz;
+
+    unsigned int last_lineno = 0;
+    ArSize last_opoff = 0;
+
+    this->ComputeAssemblyLength(&instr_sz, &line_sz);
+
+    if (instr_sz == 0) {
+        if ((code = CodeNew(this->statics, this->names, this->locals, this->enclosed)) == nullptr)
+            throw DatatypeException();
+
+        return code->SetInfo(this->name, this->qname, docs);
+    }
+
+    if ((instr_buf = (unsigned char *) vm::memory::Alloc(instr_sz)) == nullptr)
+        throw DatatypeException();
+
+    line_buf = nullptr;
+    if (line_sz > 0) {
+        line_buf = (unsigned char *) vm::memory::Alloc(line_sz);
+        if (line_buf == nullptr) {
+            vm::memory::Free(instr_buf);
+
+            throw DatatypeException();
+        }
+    }
+
+    instr_cur = instr_buf;
+    line_cur = line_buf;
+
+    for (auto *cursor = this->bbb.begin; cursor != nullptr; cursor = cursor->next) {
+        for (auto *instr = cursor->instr.head; instr != nullptr; instr = instr->next) {
+            auto arg = instr->oparg & 0x00FFFFFF; // extract arg
+
+            if (instr->jmp != nullptr)
+                arg = instr->jmp->offset;
+
+            switch (vm::OpCodeOffset[instr->opcode]) {
+                case 4:
+                    *((argon::vm::Instr32 *) instr_cur) = arg << 8 | instr->opcode;
+                    instr_cur += 4;
+                    break;
+                case 2:
+                    *((argon::vm::Instr16 *) instr_cur) = (argon::vm::Instr16) (arg << 8 | instr->opcode);
+                    instr_cur += 2;
+                    break;
+                default:
+                    *instr_cur = instr->opcode;
+                    instr_cur++;
+            }
+
+            // Line -> OpCode mapping
+            // 2 Byte entry: OpCode Offset, Line Offset
+            // If Line Offset > 127:
+            // e.g. OpCode offset: 33, Line offset: 241
+            //      (33, 127), (0, 114)
+            // If Line Offset < 128:
+            // e.g. OpCode offset: 12, Line offset: -300
+            //      (12, -128), (0, -128), (0, -44)
+
+            if (line_sz > 0) {
+                auto ldiff = (int) instr->lineno - (int) last_lineno;
+
+                if (line_buf == nullptr || instr->lineno == 0 || ldiff == 0)
+                    continue;
+
+                *line_cur++ = (unsigned char) ((instr_cur - instr_buf) - last_opoff);
+
+                while (ldiff > 0) {
+                    *line_cur++ = ldiff > 127 ? 127 : (char) ldiff;
+                    ldiff -= ldiff > 127 ? 127 : ldiff;
+
+                    if (ldiff > 0)
+                        *line_cur++ = 0; // No OpCode offset
+                }
+
+                while (ldiff < 0) {
+                    *line_cur++ = ldiff < -128 ? -128 : (char) ldiff;
+                    ldiff += 128;
+
+                    if (ldiff < 0)
+                        *line_cur++ = 0; // No OpCode offset
+                }
+
+                last_opoff = instr_cur - instr_buf;
+                last_lineno = instr->lineno;
+            }
+        }
+    }
+
+    if ((code = CodeNew(this->statics, this->names, this->locals, this->enclosed)) == nullptr) {
+        vm::memory::Free(instr_buf);
+        vm::memory::Free(line_buf);
+
+        throw DatatypeException();
+    }
+
+    return code
+            ->SetInfo(this->name, this->qname, docs)
+            ->SetBytecode(instr_buf, instr_sz, this->stack.required, this->sync_stack.required)
+            ->SetTracingInfo(line_buf, line_sz);
+}
+
 JBlock *TranslationUnit::JBFindLabel(const String *label, unsigned short &out_pops) const {
     out_pops = 0;
 
@@ -179,6 +294,46 @@ void TranslationUnit::Emit(vm::OpCode op, int arg, BasicBlock *dest, const scann
 
     this->IncrementStack(vm::StackChange[(unsigned char) op]);
 }
+
+void TranslationUnit::ComputeAssemblyLength(unsigned int *instr_size, unsigned int *linfo_size) {
+    unsigned int isz = 0;
+    unsigned int lsz = 0;
+    unsigned int last_lineno = 0;
+
+    for (auto *cursor = this->bbb.begin; cursor != nullptr; cursor = cursor->next) {
+        for (auto *instr = cursor->instr.head; instr != nullptr; instr = instr->next) {
+            auto ldiff = (int) instr->lineno - (int) last_lineno;
+
+            if (instr->lineno == 0 || ldiff == 0)
+                continue;
+
+            while (ldiff > 0) {
+                ldiff = ldiff > 127 ? ldiff - 127 : 0;
+                lsz += 2;
+            }
+
+            while (ldiff < 0) {
+                ldiff += 128;
+                lsz += 2;
+            }
+
+            last_lineno = instr->lineno;
+        }
+
+        cursor->offset = isz;
+        isz += cursor->size;
+    }
+
+    if (instr_size != nullptr)
+        *instr_size = isz;
+
+    if (linfo_size != nullptr)
+        *linfo_size = lsz;
+}
+
+// *********************************************************************************************************************
+// FUNCTIONS
+// *********************************************************************************************************************
 
 TranslationUnit *argon::lang::compiler2::TranslationUnitNew(TranslationUnit *prev, String *name, SymbolType type) {
     auto *symt = SymbolTableNew(prev != nullptr ? prev->symt : nullptr, name, type);

@@ -428,7 +428,7 @@ void Compiler::CompileJump(const node::Unary *jump) {
         if (jb == nullptr)
             throw CompilerException(kCompilerErrors[7],
                                     ARGON_RAW_STRING((String *) jump->value),
-                    (jump->token_type == scanner::TokenType::KW_BREAK ? "breaked" : "continued"));
+                                    (jump->token_type == scanner::TokenType::KW_BREAK ? "breaked" : "continued"));
     }
 
     auto *dst = jb->end;
@@ -1470,7 +1470,7 @@ void Compiler::CompileFunction(const node::Function *func) {
     if (this->unit_->symt->type == SymbolType::GENERATOR)
         flags |= FunctionFlags::GENERATOR;
 
-    // TODO assemble
+    code = this->unit_->Assemble(func->doc);
 
     this->ExitScope();
 
@@ -2129,6 +2129,8 @@ Code *Compiler::Compile(node::Module *mod) {
             return nullptr;
     }
 
+    Code *code = nullptr;
+
     try {
         decl_iter = IteratorGet((ArObject *) mod->statements, false);
         if (!decl_iter)
@@ -2145,10 +2147,30 @@ Code *Compiler::Compile(node::Module *mod) {
 
         Release(decl);
 
+        /*
+         * If module is empty or last instruction is not a POP:
+         *      LSTATIC nil
+         *      RET
+         *
+         * If last instruction is POP:
+         *      replace POP with RET
+         *
+         * These changes allow to correctly manage the output in interactive mode!
+         */
+
+        if (!this->unit_->bbb.CheckLastInstr(vm::OpCode::POP)) {
+            this->LoadStaticNil(nullptr, true);
+            this->unit_->Emit(vm::OpCode::RET, &mod->loc);
+        } else
+            this->unit_->bbb.current->instr.tail->opcode = (unsigned char) vm::OpCode::RET;
+
+        code = this->unit_->Assemble(mod->docs);
+
         this->ExitScope();
     } catch (CompilerException &e) {
-        assert(false);
-    }
+        ErrorFormat("CompilerError", "%s", e.what());
+        return nullptr;
+    } catch (...) {}
 
-    return nullptr;
+    return code;
 }

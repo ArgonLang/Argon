@@ -6,6 +6,7 @@
 #define ARGON_LANG_COMPILER2_TRANSL_UNIT_H_
 
 #include <argon/vm/datatype/arstring.h>
+#include <argon/vm/datatype/code.h>
 
 #include <argon/lang/scanner/token.h>
 
@@ -61,6 +62,8 @@ namespace argon::lang::compiler2 {
 
         BasicBlock *BlockAppend(BasicBlock *block);
 
+        vm::datatype::Code *Assemble(vm::datatype::String *docs);
+
         JBlock *JBFindLabel(const vm::datatype::String *label, unsigned short &out_pops) const;
 
         JBlock *JBPush(vm::datatype::String *label, BasicBlock *begin, BasicBlock *end, JBlockType type);
@@ -75,7 +78,7 @@ namespace argon::lang::compiler2 {
 
         bool IsFreeVar(const vm::datatype::String *id) const;
 
-        void JBPop();
+        void ComputeAssemblyLength(unsigned int *instr_size, unsigned int *linfo_size);
 
         void DecrementStack(int size) {
             this->stack.current -= size;
@@ -124,6 +127,8 @@ namespace argon::lang::compiler2 {
             if (this->stack.current > this->stack.required)
                 this->stack.required = this->stack.current;
         }
+
+        void JBPop();
     };
 
     TranslationUnit *TranslationUnitNew(TranslationUnit *prev, vm::datatype::String *name, SymbolType type);

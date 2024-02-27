@@ -27,6 +27,7 @@ namespace argon::lang::compiler2 {
             Instr *tail;
         } instr;
 
+        unsigned int offset;
         unsigned int size;
 
         Instr *AddInstr(vm::OpCode opcode, int arg, unsigned int lineno);
