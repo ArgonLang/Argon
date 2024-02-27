@@ -148,7 +148,8 @@ void Compiler::Compile(const node::Node *node) {
             this->CompileSyncBlock((const node::Binary *) node);
             break;
         case node::NodeType::VARDECL:
-            assert(false);
+            this->CompileVarDecl((const node::Assignment *) node);
+            break;
         case node::NodeType::YIELD:
             CHECK_AST_NODE(node::type_ast_unary_, node);
 
@@ -666,6 +667,76 @@ void Compiler::CompileUnpack(List *list, const scanner::Loc *loc) {
     }
 
     instr->oparg = (unsigned int) items;
+}
+
+void Compiler::CompileVarDecl(const node::Assignment *assignment) {
+    SymbolType s_type = SymbolType::VARIABLE;
+    AttributeFlag a_flags{};
+
+    CHECK_AST_NODE(node::type_ast_vardecl_, assignment);
+
+    if (assignment->constant) {
+        s_type = SymbolType::CONSTANT;
+        a_flags = AttributeFlag::CONST;
+    }
+
+    if (assignment->pub)
+        a_flags |= AttributeFlag::PUBLIC;
+
+    if (assignment->weak) {
+        if (assignment->constant)
+            throw CompilerException(kCompilerErrors[9]);
+
+        a_flags |= AttributeFlag::WEAK;
+    }
+
+    if (!assignment->multi) {
+        if (assignment->value == nullptr) {
+            if (assignment->constant)
+                throw CompilerException(kCompilerErrors[10]);
+
+            this->LoadStaticNil(&assignment->loc, true);
+        } else
+            this->Expression((const node::Node *) assignment->value);
+
+        this->IdentifierNew((String *) assignment->name, &assignment->loc, s_type, a_flags, true);
+
+        return;
+    }
+
+    ARC iter;
+    ARC tmp;
+
+    Instr *unpack = nullptr;
+    unsigned short v_count = 0;
+
+    if (assignment->value != nullptr) {
+        this->Expression((const node::Node *) assignment->value);
+
+        this->unit_->Emit(vm::OpCode::UNPACK, 0, nullptr, &assignment->loc);
+
+        unpack = this->unit_->bbb.current->instr.tail;
+    }
+
+    iter = IteratorGet(assignment->name, false);
+    if (!iter)
+        throw DatatypeException();
+
+    while ((tmp = IteratorNext(iter.Get()))) {
+        if (assignment->value == nullptr)
+            this->LoadStaticNil(&assignment->loc, true);
+        else
+            this->unit_->IncrementStack(1);
+
+        this->IdentifierNew((String *) tmp.Get(), &assignment->loc, s_type, a_flags, true);
+
+        v_count++;
+    }
+
+    if (assignment->value != nullptr) {
+        this->unit_->IncrementRequiredStack(v_count);
+        unpack->oparg = v_count;
+    }
 }
 
 // *********************************************************************************************************************

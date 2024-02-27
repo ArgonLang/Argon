@@ -113,6 +113,11 @@ namespace argon::lang::compiler2 {
             assert(this->sync_stack.current < 0xFF);
         }
 
+        void IncrementRequiredStack(int size) {
+            if (this->stack.current + size > this->stack.required)
+                this->stack.required = this->stack.current + size;
+        }
+
         void IncrementStack(int size) {
             this->stack.current += size;
 

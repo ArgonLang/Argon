@@ -24,7 +24,9 @@ namespace argon::lang::compiler2 {
             "unexpected use of 'yield'",
             "invalid token for CompileAugAssignment",
             "unknown loop label(%s), loop cannot be %s",
-            "alias required for: %s"
+            "alias required for: %s",
+            "weak modifier cannot be used with a constant declaration",
+            "defining a constant requires a value"
     };
 
     class Compiler {
@@ -63,6 +65,8 @@ namespace argon::lang::compiler2 {
         void CompileSyncBlock(const parser2::node::Binary *binary);
 
         void CompileUnpack(List *list, const scanner::Loc *loc);
+
+        void CompileVarDecl(const parser2::node::Assignment *assignment);
 
 // *********************************************************************************************************************
 // EXPRESSION-ZONE
