@@ -21,7 +21,7 @@ using namespace argon::lang::parser2::node;
 #define TKCUR_END   this->tkcur_.loc.end
 
 bool Parser::CheckIDExt() const {
-    return this->Match(scanner::TokenType::IDENTIFIER);
+    return this->Match(scanner::TokenType::IDENTIFIER, scanner::TokenType::SELF);
 }
 
 int Parser::PeekPrecedence(TokenType type) {
@@ -258,12 +258,9 @@ Node *Parser::ParseBCFStatement([[maybe_unused]]Context *context) {
     }
 
     jmp->loc = loc;
-
     jmp->token_type = tk_type;
 
     jmp->value = id;
-
-    this->Eat(false);
 
     return (Node *) jmp;
 }
@@ -676,6 +673,7 @@ Node *Parser::ParseFunc(Context *context, const Position &start, bool pub) {
 }
 
 Node *Parser::ParseIf(Context *context) {
+    Context ctx(context, ContextType::IF);
     ARC test;
     ARC body;
     ARC orelse;
@@ -685,9 +683,9 @@ Node *Parser::ParseIf(Context *context) {
 
     this->Eat(true);
 
-    test = this->ParseExpression(context, PeekPrecedence(TokenType::ARROW_RIGHT));
+    test = this->ParseExpression(&ctx, PeekPrecedence(TokenType::ARROW_RIGHT));
 
-    body = this->ParseBlock(context);
+    body = this->ParseBlock(&ctx);
 
     end = ((Node *) body.Get())->loc.end;
 
@@ -696,8 +694,8 @@ Node *Parser::ParseIf(Context *context) {
     if (this->Match(TokenType::KW_ELIF)) {
         orelse = this->ParseIf(context);
         end = ((Node *) orelse.Get())->loc.end;
-    } else if (this->MatchEat(TokenType::KW_ELSE, true)) {
-        orelse = (ArObject *) this->ParseBlock(context);
+    } else if (this->MatchEat(TokenType::KW_ELSE, false)) {
+        orelse = (ArObject *) this->ParseBlock(&ctx);
         end = ((Node *) orelse.Get())->loc.end;
     }
 
@@ -927,8 +925,15 @@ Node *Parser::ParsePRYStatement(Context *context, node::NodeType type) {
     this->Eat(false);
 
     if (tk_type == TokenType::KW_RETURN) {
-        if (this->Match(TokenType::END_OF_LINE, TokenType::SEMICOLON))
-            return nullptr;
+        if (this->Match(TokenType::END_OF_LINE, TokenType::SEMICOLON)) {
+            auto *unary = NewNode<Unary>(type_ast_unary_, false, type);
+            if (unary == nullptr)
+                throw DatatypeException();
+
+            unary->loc = loc;
+
+            return (Node *) unary;
+        }
 
         expr = this->ParseExpression(context, Parser::PeekPrecedence(TokenType::EQUAL));
     } else {
@@ -1063,13 +1068,14 @@ Node *Parser::ParseStatement(Context *context) {
                 expr = this->ParseAssertion(context);
                 break;
             case TokenType::KW_BREAK:
-                if (!Parser::CheckScope(context, ContextType::LOOP, ContextType::SWITCH))
+                if (!Parser::CheckScope(context, ContextType::SWITCH)
+                    && !Parser::CheckScopeRecursive(context, ContextType::LOOP))
                     throw ParserException(TKCUR_LOC, kStandardError[13], "break", kContextName[(int) context->type]);
 
                 expr = this->ParseBCFStatement(context);
                 break;
             case TokenType::KW_CONTINUE:
-                if (!Parser::CheckScope(context, ContextType::LOOP))
+                if (!Parser::CheckScopeRecursive(context, ContextType::LOOP))
                     throw ParserException(TKCUR_LOC, kStandardError[13], "continue", kContextName[(int) context->type]);
 
                 expr = this->ParseBCFStatement(context);
@@ -2695,7 +2701,7 @@ Node *Parser::ParseTernary(Context *context, Node *left) {
     branch->orelse = (Node *) orelse.Unwrap();
 
     branch->loc.start = left->loc.start;
-    branch->loc.end = branch->orelse->loc.end;
+    branch->loc.end = branch->orelse != nullptr ? branch->orelse->loc.end : branch->body->loc.end;
 
     return (Node *) branch;
 }
@@ -2741,6 +2747,8 @@ Node *Parser::ParseTrap(Context *context) {
 Node *Parser::ParseWalrus(Context *context, node::Node *left) {
     ARC tmp;
 
+    bool multi = false;
+
     this->Eat(true);
 
     // Check left
@@ -2765,6 +2773,8 @@ Node *Parser::ParseWalrus(Context *context, node::Node *left) {
             ListAppend(list, (ArObject *) itm);
         }
 
+        multi = true;
+
         tmp = (ArObject *) list;
     } else
         throw ParserException(left->loc, kStandardError[0]);
@@ -2784,7 +2794,7 @@ Node *Parser::ParseWalrus(Context *context, node::Node *left) {
     vardecl->name = tmp.Unwrap();
     vardecl->value = (ArObject *) right;
 
-    vardecl->multi = true;
+    vardecl->multi = multi;
 
     return (Node *) vardecl;
 }
@@ -2834,7 +2844,7 @@ Module *Parser::Parse() {
 
             loc.end = TKCUR_END;
 
-            if (!this->Match(TokenType::END_OF_LINE, TokenType::SEMICOLON))
+            if (!this->Match(TokenType::END_OF_FILE, TokenType::END_OF_LINE, TokenType::SEMICOLON))
                 throw ParserException(TKCUR_LOC, kStandardError[0]);
 
             while (this->MatchEat(TokenType::SEMICOLON, true));
@@ -2843,7 +2853,8 @@ Module *Parser::Parse() {
         // This exception can be safely ignored!
         return nullptr;
     } catch (const ParserException &e) {
-        ErrorFormat("ParserError", "(column: %d, line: %d) %s",
+        ErrorFormat("ParserError", "%s - column: %d, line: %d: %s",
+                    this->filename_,
                     e.loc.start.column,
                     e.loc.start.line,
                     e.what());

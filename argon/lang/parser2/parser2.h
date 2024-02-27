@@ -86,6 +86,19 @@ namespace argon::lang::parser2 {
             return Parser::CheckScope(context, types...);
         }
 
+        [[nodiscard]] static bool CheckScopeRecursive(Context *context, ContextType type) {
+            bool ret = false;
+
+            while (context != nullptr) {
+                if ((ret = context->type == type))
+                    break;
+
+                context = context->prev;
+            }
+
+            return ret;
+        }
+
         [[nodiscard]] bool Match(scanner::TokenType type) const {
             return this->tkcur_.type == type;
         }
@@ -175,7 +188,8 @@ namespace argon::lang::parser2 {
 
         static node::Unary *AssignmentIDs2Tuple(const node::Assignment *assignment);
 
-        static node::Unary *String2Identifier(const scanner::Position &start, const scanner::Position &end, String *value);
+        static node::Unary *
+        String2Identifier(const scanner::Position &start, const scanner::Position &end, String *value);
 
         static String *ParseIdentifierSimple(const scanner::Token *token);
 
