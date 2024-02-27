@@ -167,7 +167,9 @@ void TranslationUnit::Emit(vm::OpCode op, int arg, BasicBlock *dest, const scann
         case vm::OpCode::MKDT:
         case vm::OpCode::MKLT:
         case vm::OpCode::MKST:
+        case vm::OpCode::MKSTRUCT:
         case vm::OpCode::MKTP:
+        case vm::OpCode::MKTRAIT:
         case vm::OpCode::POPGT:
             this->DecrementStack(arg);
             break;
@@ -195,22 +197,20 @@ TranslationUnit *argon::lang::compiler2::TranslationUnitNew(TranslationUnit *pre
             return nullptr;
         }
 
-        if (symt->type != SymbolType::STRUCT && symt->type != SymbolType::TRAIT) {
-            if ((tu->statics_map = DictNew()) == nullptr)
-                goto ERROR;
+        if ((tu->statics_map = DictNew()) == nullptr)
+            goto ERROR;
 
-            if ((tu->statics = ListNew()) == nullptr)
-                goto ERROR;
+        if ((tu->statics = ListNew()) == nullptr)
+            goto ERROR;
 
-            if ((tu->names = ListNew()) == nullptr)
-                goto ERROR;
+        if ((tu->names = ListNew()) == nullptr)
+            goto ERROR;
 
-            if ((tu->locals = ListNew()) == nullptr)
-                goto ERROR;
+        if ((tu->locals = ListNew()) == nullptr)
+            goto ERROR;
 
-            if ((tu->enclosed = ListNew()) == nullptr)
-                goto ERROR;
-        }
+        if ((tu->enclosed = ListNew()) == nullptr)
+            goto ERROR;
     }
 
     return tu;

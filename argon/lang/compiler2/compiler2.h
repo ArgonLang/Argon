@@ -34,7 +34,9 @@ namespace argon::lang::compiler2 {
 
         TranslationUnit *unit_ = nullptr;
 
-        static String *MkImportName(const parser2::node::Unary *literal);
+        static String *MakeImportName(const parser2::node::Unary *literal);
+
+        String *MakeQName(String *name);
 
         SymbolT *IdentifierLookupOrCreate(String *id, SymbolType type);
 
@@ -61,6 +63,8 @@ namespace argon::lang::compiler2 {
         void CompileLoop(const parser2::node::Loop *loop);
 
         void CompileStore(const parser2::node::Node *node, const parser2::node::Node *value);
+
+        void CompileSTType(const parser2::node::Construct *construct);
 
         void CompileSyncBlock(const parser2::node::Binary *binary);
 

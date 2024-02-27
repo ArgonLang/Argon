@@ -18,7 +18,7 @@ do {                                                                            
         throw CompilerException(kCompilerErrors[0], (expected)->name, AR_TYPE_NAME(chk));   \
 } while(0)
 
-String *Compiler::MkImportName(const node::Unary *literal) {
+String *Compiler::MakeImportName(const parser2::node::Unary *literal) {
     auto *mod_name = (String *) literal->value;
 
     const unsigned char *end = ARGON_RAW_STRING(mod_name) + ARGON_RAW_STRING_LENGTH(mod_name);
@@ -38,6 +38,26 @@ String *Compiler::MkImportName(const node::Unary *literal) {
         throw DatatypeException();
 
     return ret;
+}
+
+String *Compiler::MakeQName(String *name) {
+    const char *sep = "%s.%s";
+
+    String *qname;
+
+    assert(name != nullptr);
+
+    if (this->unit_->qname != nullptr) {
+        if (this->unit_->symt->type != SymbolType::MODULE)
+            sep = "%s::%s";
+
+        if ((qname = StringFormat(sep, ARGON_RAW_STRING(this->unit_->qname), ARGON_RAW_STRING(name))) == nullptr)
+            throw DatatypeException();
+
+        return qname;
+    }
+
+    return IncRef(name);
 }
 
 SymbolT *Compiler::IdentifierLookupOrCreate(String *id, argon::lang::compiler2::SymbolType type) {
@@ -141,7 +161,8 @@ void Compiler::Compile(const node::Node *node) {
         }
         case node::NodeType::STRUCT:
         case node::NodeType::TRAIT:
-            assert(false);
+            this->CompileSTType((const node::Construct *) node);
+            break;
         case node::NodeType::SWITCH:
             assert(false);
         case node::NodeType::SYNC_BLOCK:
@@ -494,7 +515,7 @@ void Compiler::CompileImportAlias(const node::Binary *binary, bool impfrm) {
         if (impfrm)
             name = ((const node::Unary *) binary->left)->value;
         else
-            name = Compiler::MkImportName((const node::Unary *) binary->left);
+            name = Compiler::MakeImportName((const node::Unary *) binary->left);
     }
 
     this->IdentifierNew((String *) name.Get(), &binary->loc, SymbolType::CONSTANT, AttributeFlag::CONST, true);
@@ -624,6 +645,65 @@ void Compiler::CompileStore(const node::Node *node, const node::Node *value) {
         default:
             throw CompilerException(kCompilerErrors[1], (int) node->node_type, __FUNCTION__);
     }
+}
+
+void Compiler::CompileSTType(const node::Construct *construct) {
+    auto opcode = vm::OpCode::MKSTRUCT;
+    auto s_type = SymbolType::STRUCT;
+    auto a_flags = AttributeFlag::CONST;
+
+    if (construct->node_type == node::NodeType::STRUCT)
+        CHECK_AST_NODE(node::type_ast_struct_, construct);
+    else if (construct->node_type == node::NodeType::TRAIT) {
+        CHECK_AST_NODE(node::type_ast_trait_, construct);
+        opcode = vm::OpCode::MKTRAIT;
+        s_type = SymbolType::TRAIT;
+    } else
+        throw CompilerException(kCompilerErrors[1], (int) construct->node_type, __FUNCTION__);
+
+    ARC qname;
+    ARC doc;
+
+    qname = this->MakeQName(construct->name);
+
+    doc = IncRef(construct->doc);
+    if (!doc)
+        doc = StringIntern("");
+
+    this->EnterScope(construct->name, s_type);
+
+    this->LoadStatic((ArObject *) construct->name, &construct->loc, true, true);
+    this->LoadStatic(qname.Get(), &construct->loc, false, true);
+    this->LoadStatic(doc.Get(), &construct->loc, false, true);
+
+    unsigned short impls = 0;
+
+    if (construct->impls != nullptr) {
+        ARC iter;
+        ARC tmp;
+
+        iter = IteratorGet((ArObject *) construct->impls, false);
+        if (!iter)
+            throw DatatypeException();
+
+        while ((tmp = IteratorNext(iter.Get()))) {
+            this->Expression((const node::Node *) tmp.Get());
+            impls++;
+        }
+    }
+
+    this->unit_->Emit(opcode, impls, nullptr, &construct->loc);
+
+    this->CompileBlock(construct->body, false);
+
+    this->ExitScope();
+
+    if (construct->pub)
+        a_flags |= AttributeFlag::PUBLIC;
+
+    this->unit_->IncrementStack(1);
+
+    this->IdentifierNew(construct->name, &construct->loc, s_type, a_flags, true);
 }
 
 void Compiler::CompileSyncBlock(const node::Binary *binary) {
