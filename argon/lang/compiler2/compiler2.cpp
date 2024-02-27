@@ -164,7 +164,8 @@ void Compiler::Compile(const node::Node *node) {
             this->CompileSTType((const node::Construct *) node);
             break;
         case node::NodeType::SWITCH:
-            assert(false);
+            this->CompileSwitch((const node::Branch *) node);
+            break;
         case node::NodeType::SYNC_BLOCK:
             this->CompileSyncBlock((const node::Binary *) node);
             break;
@@ -426,8 +427,8 @@ void Compiler::CompileJump(const node::Unary *jump) {
         jb = this->unit_->JBFindLabel((const String *) jump->value, pops);
         if (jb == nullptr)
             throw CompilerException(kCompilerErrors[7],
-                                    ARGON_RAW_STRING((String *) jump->value)),
-                    (jump->token_type == scanner::TokenType::KW_BREAK ? "breaked" : "continued");
+                                    ARGON_RAW_STRING((String *) jump->value),
+                    (jump->token_type == scanner::TokenType::KW_BREAK ? "breaked" : "continued"));
     }
 
     auto *dst = jb->end;
@@ -607,7 +608,7 @@ void Compiler::CompileStore(const node::Node *node, const node::Node *value) {
             if (value != nullptr)
                 this->Expression(value);
 
-            this->StoreVariable(((const node::Unary *) node));
+            this->StoreVariable((const node::Unary *) node);
             break;
         case node::NodeType::INDEX:
         case node::NodeType::SLICE:
@@ -704,6 +705,160 @@ void Compiler::CompileSTType(const node::Construct *construct) {
     this->unit_->IncrementStack(1);
 
     this->IdentifierNew(construct->name, &construct->loc, s_type, a_flags, true);
+}
+
+void Compiler::CompileSwitch(const node::Branch *branch) {
+    BasicBlock *ltest = nullptr;
+    BasicBlock *lbody = nullptr;
+    BasicBlock *_default = nullptr;
+    BasicBlock *bodies;
+    BasicBlock *end;
+    BasicBlock *tests;
+
+    CHECK_AST_NODE(node::type_ast_branch_, branch);
+
+    this->unit_->BlockNew();
+    tests = this->unit_->bbb.current;
+
+    if ((bodies = BasicBlockNew()) == nullptr)
+        throw DatatypeException();
+
+    if ((end = BasicBlockNew()) == nullptr) {
+        BasicBlockDel(bodies);
+        throw DatatypeException();
+    }
+
+    this->unit_->JBPush((String *) nullptr, nullptr, end, JBlockType::SWITCH);
+
+    try {
+        ARC iter;
+        ARC swcase;
+
+        auto as_if = false;
+
+        // Compile test expression (if any)
+        if (branch->test != nullptr) {
+            this->Expression(branch->test);
+            as_if = false;
+        }
+
+        iter = IteratorGet((ArObject *) branch->body, false);
+        if (!iter)
+            throw DatatypeException();
+
+        ltest = tests;
+        lbody = bodies;
+
+        while ((swcase = IteratorNext(iter.Get()))) {
+            this->CompileSwitchCase((const node::Binary *) swcase.Get(), &ltest, &lbody, &_default, end, as_if);
+
+            // Switch to test thread
+            this->unit_->bbb.current = ltest;
+        }
+
+        // End of test thread
+        if (!as_if)
+            this->unit_->EmitPOP();
+
+        this->unit_->Emit(vm::OpCode::JMP, 0, _default == nullptr ? end : _default, nullptr);
+    } catch (...) {
+        BasicBlockDel(bodies);
+        BasicBlockDel(end);
+        throw;
+    }
+
+    // *** Remove last useless jmp instruction ***
+    if (lbody != nullptr) {
+        for (Instr *cursor = lbody->instr.head; cursor != nullptr; cursor = cursor->next) {
+            if (cursor->next != nullptr && cursor->next->jmp == end) {
+                vm::memory::Free(cursor->next);
+                cursor->next = nullptr;
+                lbody->instr.tail = cursor;
+                lbody->size -= vm::OpCodeOffset[(int) vm::OpCode::JMP];
+                break;
+            }
+        }
+    }
+    // *********************************************
+
+    this->unit_->BlockAppend(bodies);
+    this->unit_->bbb.current = lbody;
+
+    this->unit_->JBPop();
+
+    this->unit_->BlockAppend(end);
+}
+
+void Compiler::CompileSwitchCase(const node::Binary *swcase, BasicBlock **ltest, BasicBlock **lbody,
+                                 BasicBlock **_default, BasicBlock *end, bool as_if) {
+    ARC iter;
+    ARC tmp;
+
+    CHECK_AST_NODE(node::type_ast_switchcase_, swcase);
+
+    if (!this->unit_->symt->NewNestedTable())
+        throw DatatypeException();
+
+    if ((*lbody)->size > 0) {
+        // Switch to bodies thread
+        this->unit_->bbb.current = *lbody;
+
+        this->unit_->BlockNew();
+        *lbody = this->unit_->bbb.current;
+
+        // Return to test thread
+        this->unit_->bbb.current = *ltest;
+    }
+
+    if (swcase->left != nullptr) {
+        iter = IteratorGet(swcase->left, false);
+        if (!iter)
+            throw DatatypeException();
+
+        while ((tmp = IteratorNext(iter.Get()))) {
+            this->Expression((const node::Node *) tmp.Get());
+
+            if (!as_if)
+                this->unit_->Emit(vm::OpCode::TEST, &swcase->loc);
+
+            this->unit_->Emit(vm::OpCode::JT, 0, *lbody, &swcase->loc);
+
+            // Save last test block
+            this->unit_->BlockNew();
+            *ltest = this->unit_->bbb.current;
+        }
+    }
+
+    // Switch to bodies thread
+    this->unit_->bbb.current = *lbody;
+
+    if (swcase->left == nullptr && *_default == nullptr)
+        *_default = this->unit_->bbb.current;
+
+    // Process body
+    bool fallthrough = false;
+    if (swcase->right) {
+        iter = IteratorGet(swcase->right, false);
+        if (!iter)
+            throw DatatypeException();
+
+        while ((tmp = IteratorNext(iter.Get()))) {
+            const auto *node = (const node::Node *) tmp.Get();
+
+            fallthrough = true;
+            if (node->token_type != scanner::TokenType::KW_FALLTHROUGH) {
+                fallthrough = false;
+                this->Compile(node);
+            }
+        }
+    }
+
+    if (!fallthrough)
+        this->unit_->Emit(vm::OpCode::JMP, 0, end, nullptr);
+
+    SymbolExitNested(this->unit_->symt);
+
+    *lbody = this->unit_->bbb.current;
 }
 
 void Compiler::CompileSyncBlock(const node::Binary *binary) {

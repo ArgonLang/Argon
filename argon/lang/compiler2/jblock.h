@@ -14,6 +14,7 @@ namespace argon::lang::compiler2 {
         LABEL,
         LOOP,
         SAFE,
+        SWITCH,
         SYNC,
         TRAP
     };

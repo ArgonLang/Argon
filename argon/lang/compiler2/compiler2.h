@@ -66,6 +66,11 @@ namespace argon::lang::compiler2 {
 
         void CompileSTType(const parser2::node::Construct *construct);
 
+        void CompileSwitch(const parser2::node::Branch *branch);
+
+        void CompileSwitchCase(const parser2::node::Binary *swcase, BasicBlock **ltest, BasicBlock **lbody,
+                               BasicBlock **_default, BasicBlock *end, bool as_if);
+
         void CompileSyncBlock(const parser2::node::Binary *binary);
 
         void CompileUnpack(List *list, const scanner::Loc *loc);
