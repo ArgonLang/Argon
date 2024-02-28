@@ -2585,7 +2585,7 @@ Node *Parser::ParsePrefix(Context *context) {
 
     this->Eat(true);
 
-    auto *right = this->ParseExpression(context, PeekPrecedence(kind));
+    auto *right = this->ParseExpression(context, PeekPrecedence(TokenType::ELVIS));
 
     auto *unary = NewNode<Unary>(type_ast_prefix_, false, NodeType::PREFIX);
     if (unary == nullptr) {
@@ -2644,6 +2644,8 @@ Node *Parser::ParseSubscript(Context *context, Node *left) {
     ARC start;
     ARC stop;
 
+    bool is_slice = false;
+
     this->Eat(true);
 
     if (this->Match(TokenType::RIGHT_SQUARE))
@@ -2652,15 +2654,20 @@ Node *Parser::ParseSubscript(Context *context, Node *left) {
     if (!this->Match(TokenType::COLON))
         start = this->ParseExpression(context, 0);
 
-    if (this->MatchEat(TokenType::COLON, true) && !this->Match(TokenType::RIGHT_SQUARE))
-        stop = (ArObject *) this->ParseExpression(context, 0);
+    if (this->MatchEat(TokenType::COLON, true)) {
+        is_slice = true;
+
+        if (!this->Match(TokenType::RIGHT_SQUARE))
+            stop = (ArObject *) this->ParseExpression(context, 0);
+    }
+
 
     this->EatNL();
 
     if (!this->Match(TokenType::RIGHT_SQUARE))
         throw ParserException(TKCUR_LOC, kStandardError[20], stop ? "slice" : "index");
 
-    auto *slice = NewNode<Subscript>(type_ast_subscript_, false, stop ? NodeType::SLICE : NodeType::INDEX);
+    auto *slice = NewNode<Subscript>(type_ast_subscript_, false, is_slice ? NodeType::SLICE : NodeType::INDEX);
     if (slice == nullptr)
         throw DatatypeException();
 
