@@ -514,7 +514,7 @@ void Compiler::CompileImportAlias(const node::Binary *binary, bool impfrm) {
 
     if (!name) {
         if (impfrm)
-            name = ((const node::Unary *) binary->left)->value;
+            name = ((const node::Unary *) binary->left);
         else
             name = Compiler::MakeImportName((const node::Unary *) binary->left);
     }
@@ -734,7 +734,7 @@ void Compiler::CompileSwitch(const node::Branch *branch) {
         ARC iter;
         ARC swcase;
 
-        auto as_if = false;
+        auto as_if = true;
 
         // Compile test expression (if any)
         if (branch->test != nullptr) {
@@ -1368,21 +1368,23 @@ void Compiler::CompileCallPositional(List *args, unsigned short &count, vm::OpCo
 }
 
 void Compiler::CompileDLST(const node::Unary *unary) {
-    ARC iter;
-    ARC tmp;
-
     vm::OpCode code;
     int items = 0;
 
     CHECK_AST_NODE(node::type_ast_unary_, unary);
 
-    iter = IteratorGet(unary->value, false);
-    if (!iter)
-        throw DatatypeException();
+    if(unary->value != nullptr) {
+        ARC iter;
+        ARC tmp;
 
-    while ((tmp = IteratorNext(iter.Get()))) {
-        this->Expression((node::Node *) tmp.Get());
-        items++;
+        iter = IteratorGet(unary->value, false);
+        if (!iter)
+            throw DatatypeException();
+
+        while ((tmp = IteratorNext(iter.Get()))) {
+            this->Expression((node::Node *) tmp.Get());
+            items++;
+        }
     }
 
     switch (unary->node_type) {

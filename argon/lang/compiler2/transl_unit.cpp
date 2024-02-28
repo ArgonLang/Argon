@@ -343,6 +343,9 @@ TranslationUnit *argon::lang::compiler2::TranslationUnitNew(TranslationUnit *pre
     auto *tu = (TranslationUnit *) argon::vm::memory::Calloc(sizeof(TranslationUnit));
 
     if (tu != nullptr) {
+        if (symt->type == SymbolType::STRUCT || symt->type == SymbolType::TRAIT)
+            vm::memory::MemoryCopy(tu, prev, sizeof(TranslationUnit));
+
         tu->prev = prev;
 
         tu->symt = symt;
@@ -352,20 +355,22 @@ TranslationUnit *argon::lang::compiler2::TranslationUnitNew(TranslationUnit *pre
             return nullptr;
         }
 
-        if ((tu->statics_map = DictNew()) == nullptr)
-            goto ERROR;
+        if (symt->type != SymbolType::STRUCT && symt->type != SymbolType::TRAIT) {
+            if ((tu->statics_map = DictNew()) == nullptr)
+                goto ERROR;
 
-        if ((tu->statics = ListNew()) == nullptr)
-            goto ERROR;
+            if ((tu->statics = ListNew()) == nullptr)
+                goto ERROR;
 
-        if ((tu->names = ListNew()) == nullptr)
-            goto ERROR;
+            if ((tu->names = ListNew()) == nullptr)
+                goto ERROR;
 
-        if ((tu->locals = ListNew()) == nullptr)
-            goto ERROR;
+            if ((tu->locals = ListNew()) == nullptr)
+                goto ERROR;
 
-        if ((tu->enclosed = ListNew()) == nullptr)
-            goto ERROR;
+            if ((tu->enclosed = ListNew()) == nullptr)
+                goto ERROR;
+        }
     }
 
     return tu;
@@ -387,6 +392,22 @@ TranslationUnit *argon::lang::compiler2::TranslationUnitNew(TranslationUnit *pre
 
 TranslationUnit *argon::lang::compiler2::TranslationUnitDel(TranslationUnit *unit) {
     auto *prev = unit->prev;
+
+    if (unit->symt->type == SymbolType::STRUCT || unit->symt->type == SymbolType::TRAIT) {
+        auto stack = unit->stack.required + prev->stack.current;
+
+        if (prev->bbb.begin == nullptr)
+            prev->bbb.begin = unit->bbb.begin;
+
+        prev->bbb.current = unit->bbb.current;
+
+        if (prev->stack.required < stack)
+            prev->stack.required = stack;
+
+        argon::vm::memory::Free(unit);
+
+        return prev;
+    }
 
     Release(unit->symt);
     Release(unit->name);

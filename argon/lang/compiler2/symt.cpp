@@ -50,6 +50,8 @@ bool SymbolT::NewNestedTable() {
     if (subt == nullptr)
         return false;
 
+    subt->nested = this->nested + 1;
+
     if (!ListAppend(this->subs, (ArObject *) subt)) {
         Release(subt);
 
