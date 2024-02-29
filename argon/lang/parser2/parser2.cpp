@@ -21,7 +21,7 @@ using namespace argon::lang::parser2::node;
 #define TKCUR_END   this->tkcur_.loc.end
 
 bool Parser::CheckIDExt() const {
-    return this->Match(scanner::TokenType::IDENTIFIER, scanner::TokenType::SELF);
+    return this->Match(scanner::TokenType::IDENTIFIER, scanner::TokenType::KW_DEFAULT, scanner::TokenType::SELF);
 }
 
 int Parser::PeekPrecedence(TokenType type) {
@@ -332,7 +332,7 @@ Node *Parser::ParseDecls(Context *context) {
         pub = true;
 
         if (!Parser::CheckScopeExt(context, ContextType::MODULE, ContextType::STRUCT, ContextType::TRAIT))
-                throw ParserException(TKCUR_LOC, "'pub' modifier not allowed in %s", kContextName[(int) context->type]);
+            throw ParserException(TKCUR_LOC, "'pub' modifier not allowed in %s", kContextName[(int) context->type]);
     }
 
     this->EatNL();
@@ -1070,8 +1070,7 @@ Node *Parser::ParseStatement(Context *context) {
                 expr = this->ParseAssertion(context);
                 break;
             case TokenType::KW_BREAK:
-                if (!Parser::CheckScope(context, ContextType::SWITCH)
-                    && !Parser::CheckScopeRecursive(context, ContextType::LOOP))
+                if (!Parser::CheckScopeRecursive(context, ContextType::LOOP, ContextType::SWITCH))
                     throw ParserException(TKCUR_LOC, kStandardError[13], "break", kContextName[(int) context->type]);
 
                 expr = this->ParseBCFStatement(context);
