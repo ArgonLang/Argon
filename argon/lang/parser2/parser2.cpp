@@ -2587,7 +2587,7 @@ Node *Parser::ParsePrefix(Context *context) {
 
     this->Eat(true);
 
-    auto *right = this->ParseExpression(context, PeekPrecedence(TokenType::ELVIS));
+    auto *right = this->ParseExpression(context, PeekPrecedence(TokenType::ASTERISK));
 
     auto *unary = NewNode<Unary>(type_ast_prefix_, false, NodeType::PREFIX);
     if (unary == nullptr) {
