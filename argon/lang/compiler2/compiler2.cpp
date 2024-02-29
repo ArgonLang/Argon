@@ -617,7 +617,7 @@ void Compiler::CompileStore(const node::Node *node, const node::Node *value) {
             if (value != nullptr)
                 this->Expression(value);
             else
-                this->unit_->Emit(vm::OpCode::MTH, 2, nullptr, &value->loc);
+                this->unit_->Emit(vm::OpCode::MTH, 2, nullptr, &node->loc);
 
             this->unit_->Emit(vm::OpCode::STSUBSCR, &node->loc);
             break;
@@ -627,7 +627,7 @@ void Compiler::CompileStore(const node::Node *node, const node::Node *value) {
             if (value != nullptr)
                 this->Expression(value);
             else
-                this->unit_->Emit(vm::OpCode::MTH, 1, nullptr, &value->loc);
+                this->unit_->Emit(vm::OpCode::MTH, 1, nullptr, &node->loc);
 
             if (node->token_type == scanner::TokenType::SCOPE) {
                 this->unit_->Emit(vm::OpCode::STSCOPE, idx, nullptr, &node->loc);
@@ -1086,9 +1086,16 @@ int Compiler::LoadStatic(ArObject *object, const scanner::Loc *loc, bool store, 
 }
 
 int Compiler::LoadStatic(const node::Unary *literal, bool store, bool emit) {
+    ARC value;
+
     CHECK_AST_NODE(node::type_ast_literal_, literal);
 
-    return this->LoadStatic(literal->value, &literal->loc, store, emit);
+    value = IncRef(literal->value);
+
+    if (literal->value == nullptr)
+        value = (ArObject *) IncRef(Nil);
+
+    return this->LoadStatic(value.Get(), &literal->loc, store, emit);
 }
 
 int Compiler::LoadStaticAtom(const char *key, const scanner::Loc *loc, bool emit) {
@@ -1365,6 +1372,9 @@ void Compiler::CompileCallPositional(List *args, unsigned short &count, vm::OpCo
 
         count++;
     }
+
+    if (ENUMBITMASK_ISTRUE(mode, vm::OpCodeCallMode::REST_PARAMS))
+        count = 1;
 }
 
 void Compiler::CompileDLST(const node::Unary *unary) {
@@ -1373,7 +1383,7 @@ void Compiler::CompileDLST(const node::Unary *unary) {
 
     CHECK_AST_NODE(node::type_ast_unary_, unary);
 
-    if(unary->value != nullptr) {
+    if (unary->value != nullptr) {
         ARC iter;
         ARC tmp;
 
@@ -1595,7 +1605,7 @@ void Compiler::CompileFunctionParams(List *params, unsigned short &count, Functi
         if (param->node_type == node::NodeType::REST) {
             flags |= FunctionFlags::VARIADIC;
             count--;
-        } else if (param->node_type == node::NodeType::KWARG) {
+        } else if (param->node_type == node::NodeType::KWPARAM) {
             flags |= FunctionFlags::KWARGS;
             count--;
         } else if (param->node_type != node::NodeType::PARAMETER)
@@ -2170,7 +2180,7 @@ Code *Compiler::Compile(node::Module *mod) {
 
         this->ExitScope();
     } catch (CompilerException &e) {
-        ErrorFormat("CompilerError", "%s", e.what());
+        ErrorFormat("CompilerError", "%s: %s", ARGON_RAW_STRING(this->unit_->qname), e.what());
         return nullptr;
     } catch (...) {}
 
