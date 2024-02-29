@@ -160,6 +160,8 @@ namespace argon::lang::compiler2 {
     public:
         Compiler() noexcept = default;
 
+        ~Compiler();
+
         [[nodiscard]] vm::datatype::Code *Compile(argon::lang::parser2::node::Module *mod);
     };
 } // argon::lang::compiler2

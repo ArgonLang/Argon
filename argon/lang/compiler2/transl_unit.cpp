@@ -391,6 +391,9 @@ TranslationUnit *argon::lang::compiler2::TranslationUnitNew(TranslationUnit *pre
 }
 
 TranslationUnit *argon::lang::compiler2::TranslationUnitDel(TranslationUnit *unit) {
+    if(unit == nullptr)
+        return nullptr;
+
     auto *prev = unit->prev;
 
     if (unit->symt->type == SymbolType::STRUCT || unit->symt->type == SymbolType::TRAIT) {
@@ -417,6 +420,14 @@ TranslationUnit *argon::lang::compiler2::TranslationUnitDel(TranslationUnit *uni
     Release(unit->names);
     Release(unit->locals);
     Release(unit->enclosed);
+
+    // Free all BasicBlock
+    BasicBlock *tmp = unit->bbb.begin;
+    while ((tmp = BasicBlockDel(tmp)) != nullptr);
+
+    // Free all JBlock
+    JBlock *jb = unit->jblock;
+    while ((jb = JBlockDel(jb)) != nullptr);
 
     argon::vm::memory::Free(unit);
 

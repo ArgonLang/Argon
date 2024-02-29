@@ -2129,6 +2129,13 @@ void Compiler::ExitScope() {
 // PUBLIC
 // *********************************************************************************************************************
 
+Compiler::~Compiler() {
+    while (this->unit_ != nullptr)
+        this->unit_ = TranslationUnitDel(this->unit_);
+
+    Release(this->static_globals_);
+}
+
 Code *Compiler::Compile(node::Module *mod) {
     ARC decl_iter;
     ArObject *decl;
