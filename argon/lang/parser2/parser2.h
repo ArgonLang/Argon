@@ -86,11 +86,34 @@ namespace argon::lang::parser2 {
             return Parser::CheckScope(context, types...);
         }
 
-        [[nodiscard]] static bool CheckScopeRecursive(Context *context, ContextType type) {
+        template<typename ...ContextTypes>
+        [[nodiscard]] static bool CheckScopeExt(Context *context, ContextTypes... types) {
+            bool ret = false;
+
+            if (Parser::CheckScope(context, types...))
+                return true;
+
+            if (context->type != ContextType::IF)
+                return false;
+
+            context = context->prev;
+
+            while (context != nullptr) {
+                if ((ret = CheckScope(context, types...)))
+                    break;
+
+                context = context->prev;
+            }
+
+            return ret;
+        }
+
+        template<typename ...ContextTypes>
+        [[nodiscard]] static bool CheckScopeRecursive(Context *context, ContextTypes... types) {
             bool ret = false;
 
             while (context != nullptr) {
-                if ((ret = context->type == type))
+                if ((ret = CheckScope(context, types...)))
                     break;
 
                 context = context->prev;

@@ -331,8 +331,8 @@ Node *Parser::ParseDecls(Context *context) {
     if (this->MatchEat(TokenType::KW_PUB, true)) {
         pub = true;
 
-        if (!Parser::CheckScope(context, ContextType::MODULE, ContextType::STRUCT, ContextType::TRAIT))
-            throw ParserException(TKCUR_LOC, "'pub' modifier not allowed in %s", kContextName[(int) context->type]);
+        if (!Parser::CheckScopeExt(context, ContextType::MODULE, ContextType::STRUCT, ContextType::TRAIT))
+                throw ParserException(TKCUR_LOC, "'pub' modifier not allowed in %s", kContextName[(int) context->type]);
     }
 
     this->EatNL();
@@ -366,7 +366,7 @@ Node *Parser::ParseDecls(Context *context) {
             decl = this->ParseVarDecl(context, start, false, pub, false);
             break;
         case TokenType::KW_STRUCT:
-            if (!Parser::CheckScope(context, ContextType::MODULE))
+            if (!Parser::CheckScopeExt(context, ContextType::MODULE))
                 throw ParserException(TKCUR_LOC, kStandardError[13], "struct", kContextName[(int) context->type]);
 
             decl = this->ParseStruct(context, pub);
@@ -378,7 +378,7 @@ Node *Parser::ParseDecls(Context *context) {
             decl = this->ParseSyncBlock(context);
             break;
         case TokenType::KW_TRAIT:
-            if (!Parser::CheckScope(context, ContextType::MODULE))
+            if (!Parser::CheckScopeExt(context, ContextType::MODULE))
                 throw ParserException(TKCUR_LOC, kStandardError[13], "trait", kContextName[(int) context->type]);
 
             decl = this->ParseTrait(context, pub);
@@ -642,9 +642,11 @@ Node *Parser::ParseFunc(Context *context, const Position &start, bool pub) {
 
         this->EatNL();
 
-        if (!this->MatchEat(TokenType::RIGHT_ROUND, true))
+        if (!this->MatchEat(TokenType::RIGHT_ROUND, false))
             throw ParserException(TKCUR_LOC, kStandardError[6]);
     }
+
+    this->IgnoreNewLineIF(TokenType::LEFT_BRACES);
 
     if (!CheckScope(context, ContextType::TRAIT) || this->Match(scanner::TokenType::LEFT_BRACES))
         body = this->ParseBlock(&f_ctx);
