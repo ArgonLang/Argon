@@ -551,7 +551,10 @@ void Compiler::CompileIF(const node::Branch *branch) {
             this->unit_->BlockAppend(orelse);
             orelse = nullptr; // Avoid releasing it in case of an exception.
 
-            this->Compile(branch->orelse);
+            if (AR_TYPEOF(branch->orelse, node::type_ast_branch_))
+                this->CompileIF((const node::Branch *) branch->orelse);
+            else
+                this->Compile(branch->orelse);
         }
     } catch (...) {
         if (orelse != end) {
