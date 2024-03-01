@@ -2327,11 +2327,14 @@ Node *Parser::ParseIn(Context *context, Node *left) {
 }
 
 Node *Parser::ParseInfix(Context *context, Node *left) {
+    auto loc = TKCUR_LOC;
     TokenType type = TKCUR_TYPE;
 
     this->Eat(true);
 
     auto *right = this->ParseExpression(context, Parser::PeekPrecedence(type));
+    if (right == nullptr)
+        throw ParserException(loc, kStandardError[0]);
 
     auto *infix = NewNode<Binary>(type_ast_infix_, false, NodeType::INFIX);
     if (infix == nullptr) {
