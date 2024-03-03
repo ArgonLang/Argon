@@ -119,6 +119,14 @@ namespace argon::vm::datatype {
     void ListClear(List *list);
 
     /**
+     * @brief Search (pointer match) and remove the item from the list.
+     *
+     * @param list Pointer to an instance of list.
+     * @param object Pointer to the object to be removed from the list.
+     */
+    void ListRemove(List *list, ArObject *object);
+
+    /**
      * @brief Remove an element from the list.
      *
      * @param list Pointer to an instance of list.

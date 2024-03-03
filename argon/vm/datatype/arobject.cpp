@@ -739,7 +739,7 @@ Tuple *CalculateMRO(const List *bases) {
             auto tail_list = ((List *) bases->objects[i]);
 
             if (bases_idx != i && head == tail_list->objects[0])
-                ListRemove(tail_list, 0);
+                ListRemove(tail_list, (ArSSize)0);
         }
 
         if (!ListAppend(output, head)) {
@@ -747,7 +747,7 @@ Tuple *CalculateMRO(const List *bases) {
             return nullptr;
         }
 
-        ListRemove(head_list, 0);
+        ListRemove(head_list, (ArSSize)0);
         bases_idx = 0;
     }
 

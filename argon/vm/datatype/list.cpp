@@ -885,6 +885,30 @@ void argon::vm::datatype::ListClear(List *list) {
     list->length = 0;
 }
 
+void argon::vm::datatype::ListRemove(List *list, ArObject *object) {
+    if (object == nullptr)
+        return;
+
+    std::unique_lock _(list->rwlock);
+
+    bool found = false;
+    for (ArSize i = 0; i < list->length; i++) {
+        if (!found && list->objects[i] == object) {
+            Release(list->objects[i]);
+
+            found = true;
+
+            continue;
+        }
+
+        if (found)
+            list->objects[i - 1] = list->objects[i];
+    }
+
+    if (found)
+        list->length--;
+}
+
 void argon::vm::datatype::ListRemove(List *list, ArSSize index) {
     std::unique_lock _(list->rwlock);
 
