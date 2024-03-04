@@ -1866,7 +1866,7 @@ Node *Parser::ParseChanOut(Context *context) {
 
     auto expr = this->ParseExpression(context, PeekPrecedence(TokenType::ARROW_LEFT));
 
-    auto *unary = NewNode<Unary>(type_ast_unary_, false, NodeType::CHAN_OUT);
+    auto *unary = NewNode<Unary>(type_ast_prefix_, false, NodeType::PREFIX);
     if (unary == nullptr) {
         Release(expr);
 
@@ -1875,6 +1875,7 @@ Node *Parser::ParseChanOut(Context *context) {
 
     unary->loc.start = start;
     unary->loc.end = expr->loc.end;
+    unary->token_type = TokenType::ARROW_LEFT;
 
     unary->value = (ArObject *) expr;
 
@@ -2783,7 +2784,7 @@ Node *Parser::ParseWalrus(Context *context, node::Node *left) {
                 throw ParserException(itm->loc, kStandardError[29], ":=");
             }
 
-            ListAppend(list, ((const node::Unary*) itm)->value);
+            ListAppend(list, ((const node::Unary *) itm)->value);
         }
 
         multi = true;

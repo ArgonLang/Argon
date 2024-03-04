@@ -29,9 +29,6 @@ namespace argon::lang::parser2::node {
         AWAIT,
         BLOCK,
         CALL,
-        CHAN_IN,
-        CHAN_OUT,
-        DEFER,
         DICT,
         ELVIS,
         EXPRESSION,
@@ -74,7 +71,6 @@ namespace argon::lang::parser2::node {
         TRAIT,
         TRAP,
         TUPLE,
-        UNARY,
         UPDATE,
         VARDECL,
         YIELD

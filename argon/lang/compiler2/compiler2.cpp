@@ -1789,6 +1789,9 @@ void Compiler::CompilePrefix(const node::Unary *unary) {
     this->Expression((const node::Node *) unary->value);
 
     switch (unary->token_type) {
+        case scanner::TokenType::ARROW_LEFT:
+            this->unit_->Emit(vm::OpCode::POPC, &unary->loc);
+            break;
         case scanner::TokenType::EXCLAMATION:
             this->unit_->Emit(vm::OpCode::NOT, &unary->loc);
             break;
