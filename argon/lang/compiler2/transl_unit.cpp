@@ -162,6 +162,9 @@ JBlock *TranslationUnit::JBFindLabel(const String *label, unsigned short &out_po
         if (block->type != JBlockType::LOOP)
             continue;
 
+        if (label == nullptr)
+            return block;
+
         if (block->label != nullptr && StringCompare(block->label, label) == 0)
             return block;
     }
@@ -238,7 +241,7 @@ bool TranslationUnit::IsFreeVar(const String *id) const {
         if (tu->symt->type == SymbolType::STRUCT || tu->symt->type == SymbolType::TRAIT)
             continue;
 
-        if ((sym = tu->symt->SymbolLookup(id)) != nullptr) {
+        if ((sym = tu->symt->SymbolLookup(id, false)) != nullptr) {
             // WARNING: sym->nested must be greater than 0,
             // otherwise this is a global variable.
             if (sym->type == SymbolType::VARIABLE
@@ -391,7 +394,7 @@ TranslationUnit *argon::lang::compiler2::TranslationUnitNew(TranslationUnit *pre
 }
 
 TranslationUnit *argon::lang::compiler2::TranslationUnitDel(TranslationUnit *unit) {
-    if(unit == nullptr)
+    if (unit == nullptr)
         return nullptr;
 
     auto *prev = unit->prev;

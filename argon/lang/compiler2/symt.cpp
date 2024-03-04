@@ -11,6 +11,14 @@
 using namespace argon::vm::datatype;
 using namespace argon::lang::compiler2;
 
+bool symt_dtor(SymbolT *self){
+    Release(self->name);
+    Release(self->symbols);
+    Release(self->subs);
+
+    return true;
+}
+
 const argon::vm::datatype::TypeInfo SymbolTType = {
         AROBJ_HEAD_INIT_TYPE,
         "SymbolT",
@@ -19,7 +27,7 @@ const argon::vm::datatype::TypeInfo SymbolTType = {
         sizeof(SymbolT),
         TypeInfoFlags::BASE,
         nullptr,
-        nullptr,
+        (Bool_UnaryOp) symt_dtor,
         nullptr,
         nullptr,
         nullptr,
@@ -37,6 +45,41 @@ const argon::vm::datatype::TypeInfo SymbolTType = {
         nullptr
 };
 const TypeInfo *argon::lang::compiler2::type_symbol_t_ = &SymbolTType;
+
+bool SymbolT::MergeNested() const {
+    SymbolT *tmp;
+
+    if (this->stack == nullptr)
+        return true;
+
+    for (auto *cursor = this->stack->symbols->hmap.iter_begin; cursor != nullptr; cursor = cursor->iter_next) {
+        const SymbolT *subt = (SymbolT *) cursor->value;
+
+        if ((tmp = (SymbolT *) DictLookup(this->symbols, cursor->key)) != nullptr) {
+            if (tmp->type != subt->type && tmp->type != SymbolType::UNKNOWN) {
+                ErrorFormat("SymbolError", "redeclaration of '%s' as '%s %s' previously known as '%s %s'",
+                            ARGON_RAW_STRING(subt->name),
+                            SymbolTypeName[(int) subt->type],
+                            ARGON_RAW_STRING(subt->name),
+                            SymbolTypeName[(int) tmp->type],
+                            ARGON_RAW_STRING(subt->name));
+
+                return false;
+            }
+
+            tmp->declared = subt->declared;
+            tmp->type = subt->type;
+
+            Release(tmp);
+            continue;
+        }
+
+        if (!DictInsert(this->symbols, cursor->key, cursor->value))
+            return false;
+    }
+
+    return true;
+}
 
 bool SymbolT::NewNestedTable() {
     if (this->subs == nullptr) {
@@ -66,7 +109,7 @@ bool SymbolT::NewNestedTable() {
 }
 
 SymbolT *SymbolT::SymbolInsert(String *s_name, SymbolType s_type) {
-    SymbolT *sym = SymbolLookup(s_name);
+    SymbolT *sym = SymbolLookup(s_name, true);
     SymbolT *target = this;
 
     if (this->stack != nullptr)
@@ -96,14 +139,23 @@ SymbolT *SymbolT::SymbolInsert(String *s_name, SymbolType s_type) {
         }
     }
 
-    sym->back = target;
+    //sym->back = target;
     sym->nested = target->nested;
 
     return sym;
 }
 
-SymbolT *SymbolT::SymbolLookup(const String *s_name) const {
+SymbolT *SymbolT::SymbolLookup(const String *s_name, bool local) const {
     SymbolT *sym;
+
+    if (local) {
+        if (this->stack != nullptr) {
+            sym = (SymbolT *) DictLookup(this->stack->symbols, (ArObject *) s_name);
+            return sym;
+        }
+
+        return (SymbolT *) DictLookup(this->symbols, (ArObject *) s_name);
+    }
 
     for (const SymbolT *cursor = this->stack; cursor != nullptr; cursor = cursor->back) {
         if ((sym = (SymbolT *) DictLookup(cursor->symbols, (ArObject *) s_name)) != nullptr)
@@ -151,7 +203,20 @@ SymbolT *argon::lang::compiler2::SymbolNew(String *name, SymbolType type) {
     return symt;
 }
 
-void argon::lang::compiler2::SymbolExitNested(SymbolT *symt) {
-    if (symt->stack != nullptr)
+void argon::lang::compiler2::SymbolExitNested(SymbolT *symt, bool merge){
+    if(symt->stack == nullptr)
+        return;
+
+    if(!merge){
         symt->stack = symt->stack->back;
+        return;
+    }
+
+    symt->MergeNested();
+
+    auto s_back = symt->stack->back;
+
+    ListRemove(symt->subs, (ArObject *) symt->stack);
+
+    symt->stack = s_back;
 }

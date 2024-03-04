@@ -63,7 +63,7 @@ String *Compiler::MakeQName(String *name) {
 SymbolT *Compiler::IdentifierLookupOrCreate(String *id, argon::lang::compiler2::SymbolType type) {
     auto *dst = this->unit_->names;
 
-    auto *sym = this->unit_->symt->SymbolLookup(id);
+    auto *sym = this->unit_->symt->SymbolLookup(id, false);
     if (sym == nullptr) {
         if ((sym = this->unit_->symt->SymbolInsert(id, type)) == nullptr)
             throw DatatypeException();
@@ -423,13 +423,11 @@ void Compiler::CompileJump(const node::Unary *jump) {
     if (jump->token_type != scanner::TokenType::KW_BREAK && jump->token_type != scanner::TokenType::KW_CONTINUE)
         throw CompilerException(kCompilerErrors[2], (int) jump->token_type, __FUNCTION__);
 
-    if (jump->value != nullptr) {
-        jb = this->unit_->JBFindLabel((const String *) jump->value, pops);
-        if (jb == nullptr)
-            throw CompilerException(kCompilerErrors[7],
-                                    ARGON_RAW_STRING((String *) jump->value),
-                                    (jump->token_type == scanner::TokenType::KW_BREAK ? "breaked" : "continued"));
-    }
+    jb = this->unit_->JBFindLabel((const String *) jump->value, pops);
+    if (jb == nullptr)
+        throw CompilerException(kCompilerErrors[7],
+                                ARGON_RAW_STRING((String *) jump->value),
+                                (jump->token_type == scanner::TokenType::KW_BREAK ? "breaked" : "continued"));
 
     auto *dst = jb->end;
 
@@ -498,7 +496,7 @@ void Compiler::CompileImport(const node::Import *imp) {
 
 void Compiler::CompileImportAlias(const node::Binary *binary, bool impfrm) {
     ARC name;
-    int idx = 0;
+    int idx;
 
     CHECK_AST_NODE(node::type_ast_import_name_, binary);
 
@@ -510,11 +508,11 @@ void Compiler::CompileImportAlias(const node::Binary *binary, bool impfrm) {
     this->unit_->Emit(impfrm ? vm::OpCode::IMPFRM : vm::OpCode::IMPMOD, idx, nullptr, &binary->loc);
 
     if (binary->right != nullptr)
-        name = binary->right;
+        name = IncRef(binary->right);
 
     if (!name) {
         if (impfrm)
-            name = ((const node::Unary *) binary->left);
+            name = IncRef(binary->left);
         else
             name = Compiler::MakeImportName((const node::Unary *) binary->left);
     }
@@ -523,8 +521,12 @@ void Compiler::CompileImportAlias(const node::Binary *binary, bool impfrm) {
 }
 
 void Compiler::CompileIF(const node::Branch *branch) {
+    const auto symt = this->unit_->symt;
     BasicBlock *orelse;
     BasicBlock *end;
+
+    bool merge = (symt->type == SymbolType::MODULE && (symt->stack == nullptr || symt->stack->nested == 0))
+                 || (symt->type == SymbolType::STRUCT || symt->type == SymbolType::TRAIT);
 
     CHECK_AST_NODE(node::type_ast_branch_, branch);
 
@@ -540,7 +542,13 @@ void Compiler::CompileIF(const node::Branch *branch) {
 
         this->unit_->BlockNew();
 
-        this->CompileBlock(branch->body, this->unit_->symt->type != SymbolType::MODULE);
+        if (!this->unit_->symt->NewNestedTable())
+            throw DatatypeException();
+
+        if (merge)
+            this->unit_->symt->stack->nested--;
+
+        this->CompileBlock(branch->body, false);
 
         if (branch->orelse != nullptr) {
             if ((end = BasicBlockNew()) == nullptr)
@@ -551,11 +559,23 @@ void Compiler::CompileIF(const node::Branch *branch) {
             this->unit_->BlockAppend(orelse);
             orelse = nullptr; // Avoid releasing it in case of an exception.
 
-            if (AR_TYPEOF(branch->orelse, node::type_ast_branch_))
+            if (AR_TYPEOF(branch->orelse, node::type_ast_unary_)) {
+                if (!this->unit_->symt->NewNestedTable())
+                    throw DatatypeException();
+
+                if (merge)
+                    this->unit_->symt->stack->nested--;
+
+                this->CompileBlock(branch->orelse, false);
+
+                SymbolExitNested(this->unit_->symt, merge);
+            } else if (AR_TYPEOF(branch->orelse, node::type_ast_branch_))
                 this->CompileIF((const node::Branch *) branch->orelse);
             else
-                this->Compile(branch->orelse);
+                throw CompilerException(kCompilerErrors[1], (int) branch->orelse->node_type, __FUNCTION__);
         }
+
+        SymbolExitNested(this->unit_->symt, merge);
     } catch (...) {
         if (orelse != end) {
             BasicBlockDel(orelse);
@@ -1450,7 +1470,7 @@ void Compiler::CompileFunction(const node::Function *func) {
     CHECK_AST_NODE(node::type_ast_function_, func);
 
     if (func->name != nullptr)
-        fname = func->name;
+        fname = IncRef(func->name);
     else
         fname = this->MakeFnName();
 

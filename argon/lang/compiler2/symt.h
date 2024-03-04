@@ -58,19 +58,26 @@ namespace argon::lang::compiler2 {
 
         bool free;
 
+        bool MergeNested() const;
+
         bool NewNestedTable();
 
         SymbolT *SymbolInsert(vm::datatype::String *s_name, SymbolType s_type);
 
-        SymbolT *SymbolLookup(const vm::datatype::String *s_name) const;
+        SymbolT *SymbolLookup(const vm::datatype::String *s_name, bool local) const;
     };
+
     _ARGONAPI extern const argon::vm::datatype::TypeInfo *type_symbol_t_;
 
     SymbolT *SymbolTableNew(SymbolT *prev, vm::datatype::String *name, SymbolType type);
 
     SymbolT *SymbolNew(vm::datatype::String *name, SymbolType type);
 
-    void SymbolExitNested(SymbolT *symt);
+    void SymbolExitNested(SymbolT *symt, bool merge);
+
+    inline void SymbolExitNested(SymbolT *symt) {
+        SymbolExitNested(symt, false);
+    }
 
 } // argon::lang::compiler2
 
