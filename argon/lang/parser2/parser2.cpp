@@ -248,6 +248,8 @@ Node *Parser::ParseBCFStatement([[maybe_unused]]Context *context) {
         id = (ArObject *) Parser::ParseIdentifierSimple(&this->tkcur_);
 
         loc.end = TKCUR_END;
+
+        this->Eat(false);
     }
 
     auto *jmp = NewNode<Unary>(type_ast_jump_, false, NodeType::JUMP);
