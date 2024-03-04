@@ -2783,7 +2783,7 @@ Node *Parser::ParseWalrus(Context *context, node::Node *left) {
                 throw ParserException(itm->loc, kStandardError[29], ":=");
             }
 
-            ListAppend(list, (ArObject *) itm);
+            ListAppend(list, ((const node::Unary*) itm)->value);
         }
 
         multi = true;
