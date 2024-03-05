@@ -85,21 +85,35 @@ ARGON_FUNCTION(builtins_eval, eval,
                "  - name: Input name.\n"
                "  - module: Module context in which to evaluate the argon code.\n"
                "  - src: Argon code.\n"
+               "- KWParameters:\n"
+               "  - optim: Set optimization level (0-3).\n"
                "- Returns: A result object that contains the result of the evaluation.\n",
-               "s: name, m: module, sx: src", false, false) {
+               "s: name, m: module, sx: src", false, true) {
     ArBuffer buffer{};
-    Result *result;
+    auto *f = argon::vm::GetFiber();
+    int optim_lvl = 0;
+
+    if (f != nullptr)
+        optim_lvl = f->context->global_config->optim_lvl;
+
+    optim_lvl = (int) DictLookupInt((Dict *) kwargs, "optim", optim_lvl);
+    if (optim_lvl < 0 || optim_lvl > 3) {
+        ErrorFormat(kValueError[0], "invalid optimization level. Expected a value between 0 and 3, got: %d", optim_lvl);
+        return nullptr;
+    }
 
     if (!BufferGet(args[2], &buffer, BufferFlags::READ))
         return nullptr;
 
-    argon::lang::CompilerWrapper c_wrapper;
+    argon::lang::CompilerWrapper c_wrapper(optim_lvl);
 
     auto *code = c_wrapper.Compile((const char *) ARGON_RAW_STRING((String *) args[0]),
                                    (const char *) buffer.buffer,
                                    buffer.length);
 
     BufferRelease(&buffer);
+
+    Result *result;
 
     if (code == nullptr) {
         auto *err = argon::vm::GetLastError();
