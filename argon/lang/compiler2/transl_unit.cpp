@@ -162,11 +162,11 @@ JBlock *TranslationUnit::JBFindLabel(const String *label, unsigned short &out_po
     for (auto *block = this->jblock; block != nullptr; block = block->prev) {
         out_pops += block->pops;
 
+        if (label == nullptr && (block->type == JBlockType::LOOP || block->type == JBlockType::SWITCH))
+            return block;
+
         if (block->type != JBlockType::LOOP)
             continue;
-
-        if (label == nullptr)
-            return block;
 
         if (block->label != nullptr && StringCompare(block->label, label) == 0)
             return block;
