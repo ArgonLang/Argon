@@ -24,6 +24,10 @@ namespace argon::vm::datatype {
 
     ArObject *Compare(const ArObject *self, const ArObject *other, CompareMode mode);
 
+    ArObject *ExecBinaryOp(ArObject *left, ArObject *right, int offset);
+
+    ArObject *ExecBinaryOpOriented(ArObject *left, ArObject *right, int offset);
+
     ArObject *IteratorGet(ArObject *object, bool reversed);
 
     ArObject *IteratorNext(ArObject *iterator);

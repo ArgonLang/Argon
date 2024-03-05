@@ -396,6 +396,39 @@ ArObject *argon::vm::datatype::Compare(const ArObject *self, const ArObject *oth
     return result;
 }
 
+ArObject *argon::vm::datatype::ExecBinaryOp(ArObject *left, ArObject *right, int offset) {
+    BinaryOp lop = nullptr;
+    BinaryOp rop = nullptr;
+    ArObject *result = nullptr;
+
+    if (AR_GET_TYPE(left)->ops != nullptr)
+        lop = AR_GET_BINARY_OP(AR_GET_TYPE(left)->ops, offset);
+
+    if (AR_GET_TYPE(right)->ops != nullptr)
+        rop = AR_GET_BINARY_OP(AR_GET_TYPE(right)->ops, offset);
+
+    if (lop != nullptr)
+        result = lop(left, right);
+
+    if (rop != nullptr && result == nullptr && !IsPanickingFrame())
+        result = rop(left, right);
+
+    return result;
+}
+
+ArObject *argon::vm::datatype::ExecBinaryOpOriented(ArObject *left, ArObject *right, int offset) {
+    ArObject *result = nullptr;
+    BinaryOp lop = nullptr;
+
+    if (AR_GET_TYPE(left)->ops != nullptr)
+        lop = AR_GET_BINARY_OP(AR_GET_TYPE(left)->ops, offset);
+
+    if (lop != nullptr)
+        result = lop(left, right);
+
+    return result;
+}
+
 ArObject *HashWrapper(ArObject *func, ArObject *self, ArObject **args, ArObject *kwargs, ArSize argc) {
     return (ArObject *) UIntNew(AR_GET_TYPE(self)->hash(self));
 }
@@ -739,7 +772,7 @@ Tuple *CalculateMRO(const List *bases) {
             auto tail_list = ((List *) bases->objects[i]);
 
             if (bases_idx != i && head == tail_list->objects[0])
-                ListRemove(tail_list, (ArSSize)0);
+                ListRemove(tail_list, (ArSSize) 0);
         }
 
         if (!ListAppend(output, head)) {
@@ -747,7 +780,7 @@ Tuple *CalculateMRO(const List *bases) {
             return nullptr;
         }
 
-        ListRemove(head_list, (ArSSize)0);
+        ListRemove(head_list, (ArSSize) 0);
         bases_idx = 0;
     }
 

@@ -24,39 +24,6 @@
 using namespace argon::vm;
 using namespace argon::vm::datatype;
 
-ArObject *Binary(ArObject *l, ArObject *r, int offset) {
-    BinaryOp lop = nullptr;
-    BinaryOp rop = nullptr;
-    ArObject *result = nullptr;
-
-    if (AR_GET_TYPE(l)->ops != nullptr)
-        lop = AR_GET_BINARY_OP(AR_GET_TYPE(l)->ops, offset);
-
-    if (AR_GET_TYPE(r)->ops != nullptr)
-        rop = AR_GET_BINARY_OP(AR_GET_TYPE(r)->ops, offset);
-
-    if (lop != nullptr)
-        result = lop(l, r);
-
-    if (rop != nullptr && result == nullptr && !IsPanickingFrame())
-        result = rop(l, r);
-
-    return result;
-}
-
-ArObject *BinaryOriented(ArObject *l, ArObject *r, int offset) {
-    ArObject *result = nullptr;
-    BinaryOp lop = nullptr;
-
-    if (AR_GET_TYPE(l)->ops != nullptr)
-        lop = AR_GET_BINARY_OP(AR_GET_TYPE(l)->ops, offset);
-
-    if (lop != nullptr)
-        result = lop(l, r);
-
-    return result;
-}
-
 ArObject *GetCallableFromType(ArObject **type) {
     String *key;
     ArObject *ret;
@@ -597,14 +564,14 @@ ArObject *argon::vm::Eval(Fiber *fiber) {
     } while(0)
 
 #define BINARY_OP4(first, second, op, opchar)                                                                       \
-        if ((ret = BinaryOriented(first, second, offsetof(OpSlots, op))) == nullptr) {                              \
+        if ((ret = ExecBinaryOpOriented(first, second, offsetof(OpSlots, op))) == nullptr) {                        \
         if (!IsPanickingFrame()) {                                                                                  \
             ErrorFormat(kRuntimeError[0], kRuntimeError[2], #opchar, AR_TYPE_NAME(first), AR_TYPE_NAME(second));    \
         }                                                                                                           \
         break; }                                                                                                    \
 
 #define BINARY_OP(op, opchar)                                                                                       \
-    if ((ret = Binary(PEEK1(), TOP(), offsetof(OpSlots, op))) == nullptr) {                                         \
+    if ((ret = ExecBinaryOp(PEEK1(), TOP(), offsetof(OpSlots, op))) == nullptr) {                                   \
         if (!IsPanickingFrame()) {                                                                                  \
             ErrorFormat(kRuntimeError[0], kRuntimeError[2], #opchar, AR_TYPE_NAME(PEEK1()), AR_TYPE_NAME(TOP()));   \
         }                                                                                                           \
