@@ -34,6 +34,8 @@ namespace argon::lang::compiler2 {
 
         TranslationUnit *unit_ = nullptr;
 
+        OptimizationLevel level_;
+
         static String *MakeImportName(const parser2::node::Unary *literal);
 
         String *MakeQName(String *name);
@@ -158,7 +160,7 @@ namespace argon::lang::compiler2 {
         void ExitScope();
 
     public:
-        Compiler() noexcept = default;
+        explicit Compiler(OptimizationLevel level) : level_(level) {};
 
         ~Compiler();
 

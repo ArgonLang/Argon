@@ -188,15 +188,20 @@ ARGON_FUNCTION(import_source_loader, source_loader,
                "   - spec: ImportSpec describing what to load.\n"
                "- Returns: New module.\n",
                ": import, : spec", false, false) {
-    argon::lang::CompilerWrapper compiler;
     auto *imp = (Import *) args[0];
     auto *spec = (ImportSpec *) args[1];
+    auto *fiber = argon::vm::GetFiber();
     Code *code;
     FILE *infile;
 
     if ((infile = fopen((const char *) ARGON_RAW_STRING(spec->origin), "r")) == nullptr)
         return nullptr;
 
+    auto optim_lvl = 0;
+    if (fiber != nullptr)
+        optim_lvl = fiber->context->global_config->optim_lvl;
+
+    argon::lang::CompilerWrapper compiler(optim_lvl);
     if ((code = compiler.Compile((const char *) ARGON_RAW_STRING(spec->name), infile)) == nullptr) {
         fclose(infile);
         return nullptr;

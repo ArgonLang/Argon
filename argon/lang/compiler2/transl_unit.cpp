@@ -38,7 +38,8 @@ BasicBlock *TranslationUnit::BlockNew() {
     return block;
 }
 
-Code *TranslationUnit::Assemble(String *docs) {
+Code *TranslationUnit::Assemble(String *docs, OptimizationLevel level) {
+    CodeOptimizer optim(level);
     Code *code;
 
     // Instructions buffer
@@ -54,6 +55,8 @@ Code *TranslationUnit::Assemble(String *docs) {
 
     unsigned int last_lineno = 0;
     ArSize last_opoff = 0;
+
+    optim.optimize(this->bbb);
 
     this->ComputeAssemblyLength(&instr_sz, &line_sz);
 

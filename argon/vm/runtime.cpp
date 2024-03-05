@@ -747,7 +747,7 @@ argon::vm::datatype::Result *argon::vm::Eval(Function *func, ArObject **argv, Ar
 }
 
 Result *argon::vm::EvalFile(Context *context, const char *name, const char *path, Namespace *ns) {
-    lang::CompilerWrapper c_wrapper;
+    lang::CompilerWrapper c_wrapper(context->global_config->optim_lvl);
     FILE *f;
 
     if ((f = fopen(path, "r")) == nullptr) {
@@ -770,7 +770,7 @@ Result *argon::vm::EvalFile(Context *context, const char *name, const char *path
 }
 
 Result *argon::vm::EvalString(Context *context, const char *name, const char *source, Namespace *ns) {
-    lang::CompilerWrapper c_wrapper;
+    lang::CompilerWrapper c_wrapper(context->global_config->optim_lvl);
 
     auto *code = c_wrapper.Compile(name, source);
     if (code == nullptr)

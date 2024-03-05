@@ -12,6 +12,7 @@
 
 #include <argon/lang/compiler2/basicblock.h>
 #include <argon/lang/compiler2/jblock.h>
+#include <argon/lang/compiler2/optimizer.h>
 #include <argon/lang/compiler2/symt.h>
 
 namespace argon::lang::compiler2 {
@@ -62,7 +63,7 @@ namespace argon::lang::compiler2 {
 
         BasicBlock *BlockAppend(BasicBlock *block);
 
-        vm::datatype::Code *Assemble(vm::datatype::String *docs);
+        vm::datatype::Code *Assemble(vm::datatype::String *docs, OptimizationLevel level);
 
         JBlock *JBFindLabel(const vm::datatype::String *label, unsigned short &out_pops) const;
 

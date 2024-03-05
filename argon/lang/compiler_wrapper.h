@@ -10,11 +10,18 @@
 #include <argon/vm/datatype/arstring.h>
 #include <argon/vm/datatype/code.h>
 
+#include <argon/lang/compiler2/optimizer.h>
 #include <argon/lang/scanner/scanner.h>
 
 namespace argon::lang {
     class CompilerWrapper {
+        compiler2::OptimizationLevel level_;
+
     public:
+        explicit CompilerWrapper(int level);
+
+        CompilerWrapper() : level_(compiler2::OptimizationLevel::OFF) {};
+
         vm::datatype::Code *Compile(const char *file_name, scanner::Scanner &scanner);
 
         vm::datatype::Code *Compile(const char *file_name, const char *code, unsigned long code_sz);

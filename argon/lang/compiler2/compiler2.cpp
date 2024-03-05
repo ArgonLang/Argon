@@ -1505,7 +1505,7 @@ void Compiler::CompileFunction(const node::Function *func) {
     if (this->unit_->symt->type == SymbolType::GENERATOR)
         flags |= FunctionFlags::GENERATOR;
 
-    code = this->unit_->Assemble(func->doc);
+    code = this->unit_->Assemble(func->doc, this->level_);
 
     this->ExitScope();
 
@@ -2209,7 +2209,7 @@ Code *Compiler::Compile(node::Module *mod) {
         } else
             this->unit_->bbb.current->instr.tail->opcode = (unsigned char) vm::OpCode::RET;
 
-        code = this->unit_->Assemble(mod->docs);
+        code = this->unit_->Assemble(mod->docs, this->level_);
 
         this->ExitScope();
     } catch (CompilerException &e) {

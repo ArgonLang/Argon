@@ -25,7 +25,8 @@ constexpr Config DefaultConfig = {
         0,
         -1,
         -1,
-        -1
+        -1,
+        1
 };
 const Config *argon::vm::kConfigDefault = &DefaultConfig;
 
@@ -40,6 +41,7 @@ static const char usage[] =
         "-h, --help     : print this help message and exit\n"
         "-i             : start interactive mode after running script\n"
         "--nogc         : disable garbage collector\n"
+        "-O             : set optimization level (0-3 -- 0: disabled, 3: hard)\n"
         "--pst          : print stacktrace\n"
         "-q             : don't print version messages on interactive startup\n"
         "-u             : force the stdout stream to be unbuffered\n"
@@ -165,7 +167,7 @@ bool argon::vm::ConfigInit(Config *config, int argc, char **argv) {
     status.argv = argv + 1;
     status.argc = argc - 1;
 
-    while (ret != -1 && (ret = ReadOp(&status, "c!hiquv", lopt, sizeof(lopt), '-')) != -1) {
+    while (ret != -1 && (ret = ReadOp(&status, "c!hiOquv", lopt, sizeof(lopt), '-')) != -1) {
         switch (ret) {
             case 0: // --nogc
                 config->nogc = true;
@@ -183,6 +185,18 @@ bool argon::vm::ConfigInit(Config *config, int argc, char **argv) {
             case 'i':
                 interactive = true;
                 break;
+            case 'O': {
+                auto lvl = *(status.argv[status.argc_cur]) - '0';
+
+                if (lvl < 0 || lvl > 3) {
+                    fprintf(stderr, "invalid optimization level. Expected a value between 0 and 3, got: %s\n",
+                            status.argv[status.argc_cur]);
+                    exit(EXIT_FAILURE);
+                }
+
+                config->optim_lvl = lvl;
+                break;
+            }
             case 'q':
                 config->quiet = true;
                 break;
