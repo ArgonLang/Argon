@@ -10,7 +10,8 @@
 #include <argon/vm/datatype/arstring.h>
 #include <argon/vm/datatype/code.h>
 
-#include <argon/lang/compiler2/optimizer.h>
+#include <argon/lang/compiler2/optimizer/optim_level.h>
+
 #include <argon/lang/scanner/scanner.h>
 
 namespace argon::lang {

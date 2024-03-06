@@ -2,12 +2,12 @@
 //
 // Licensed under the Apache License v2.0
 
-#include <argon/lang/compiler2/optimizer.h>
+#include <argon/lang/compiler2/optimizer/optimizer.h>
 
 using namespace argon::lang::compiler2;
 
-void CodeOptimizer::OptimizeJMP(BasicBlock *begin) {
-    for (auto *block = begin; block != nullptr; block = block->next) {
+void CodeOptimizer::OptimizeJMP() {
+    for (auto *block = this->unit_->bbb.begin; block != nullptr; block = block->next) {
         for (auto *instr = block->instr.head; instr != nullptr; instr = instr->next) {
             auto *jb = instr->jmp;
             auto opcode = (vm::OpCode) instr->opcode;
@@ -35,12 +35,12 @@ void CodeOptimizer::OptimizeJMP(BasicBlock *begin) {
     }
 }
 
-bool CodeOptimizer::optimize(BasicBlockSeq &seq) {
+bool CodeOptimizer::optimize() {
     switch (this->level_) {
         case OptimizationLevel::HARD:
         case OptimizationLevel::MEDIUM:
         case OptimizationLevel::SOFT:
-            this->OptimizeJMP(seq.begin);
+            this->OptimizeJMP();
             break;
         default:
             break;

@@ -4,6 +4,8 @@
 
 #include <argon/lang/exception.h>
 
+#include <argon/lang/compiler2/optimizer/optimizer.h>
+
 #include <argon/lang/compiler2/transl_unit.h>
 
 using namespace argon::vm::datatype;
@@ -39,7 +41,7 @@ BasicBlock *TranslationUnit::BlockNew() {
 }
 
 Code *TranslationUnit::Assemble(String *docs, OptimizationLevel level) {
-    CodeOptimizer optim(level);
+    CodeOptimizer optim(this, level);
     Code *code;
 
     // Instructions buffer
@@ -56,7 +58,7 @@ Code *TranslationUnit::Assemble(String *docs, OptimizationLevel level) {
     unsigned int last_lineno = 0;
     ArSize last_opoff = 0;
 
-    optim.optimize(this->bbb);
+    optim.optimize();
 
     this->ComputeAssemblyLength(&instr_sz, &line_sz);
 
