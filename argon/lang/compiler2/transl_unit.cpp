@@ -339,6 +339,22 @@ void TranslationUnit::ComputeAssemblyLength(unsigned int *instr_size, unsigned i
         *linfo_size = lsz;
 }
 
+void TranslationUnit::IncStaticUsage(int inc_index) {
+    if (inc_index >= this->statics_usg_length) {
+        auto *tmp = (int *) argon::vm::memory::Realloc(this->statics_usg_count, (this->statics_usg_length + 10) * sizeof(int));
+        if (tmp == nullptr)
+            throw DatatypeException();
+
+        for (auto i = this->statics_usg_length; i < this->statics_usg_length + 10; i++)
+            tmp[i] = 0;
+
+        this->statics_usg_count = tmp;
+        this->statics_usg_length += 10;
+    }
+
+    this->statics_usg_count[inc_index]++;
+}
+
 // *********************************************************************************************************************
 // FUNCTIONS
 // *********************************************************************************************************************
@@ -370,6 +386,10 @@ TranslationUnit *argon::lang::compiler2::TranslationUnitNew(TranslationUnit *pre
             if ((tu->statics = ListNew()) == nullptr)
                 goto ERROR;
 
+            tu->statics_usg_length = kListInitialCapacity;
+            if ((tu->statics_usg_count = (int *) vm::memory::Calloc(tu->statics_usg_length * sizeof(int))) == nullptr)
+                goto ERROR;
+
             if ((tu->names = ListNew()) == nullptr)
                 goto ERROR;
 
@@ -393,6 +413,7 @@ TranslationUnit *argon::lang::compiler2::TranslationUnitNew(TranslationUnit *pre
     Release(tu->names);
     Release(tu->locals);
 
+    argon::vm::memory::Free(tu->statics_usg_count);
     argon::vm::memory::Free(tu);
 
     return nullptr;
@@ -411,6 +432,8 @@ TranslationUnit *argon::lang::compiler2::TranslationUnitDel(TranslationUnit *uni
             prev->bbb.begin = unit->bbb.begin;
 
         prev->bbb.current = unit->bbb.current;
+        prev->statics_usg_count = unit->statics_usg_count;
+        prev->statics_usg_length = unit->statics_usg_length;
 
         if (prev->stack.required < stack)
             prev->stack.required = stack;
@@ -428,6 +451,8 @@ TranslationUnit *argon::lang::compiler2::TranslationUnitDel(TranslationUnit *uni
     Release(unit->names);
     Release(unit->locals);
     Release(unit->enclosed);
+
+    argon::vm::memory::Free(unit->statics_usg_count);
 
     // Free all BasicBlock
     BasicBlock *tmp = unit->bbb.begin;

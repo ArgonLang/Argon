@@ -14,6 +14,12 @@ namespace argon::lang::compiler2 {
         TranslationUnit *unit_;
         OptimizationLevel level_;
 
+        bool SimplifyConstOP(Instr *left, Instr *right, Instr *op, bool &must_update);
+
+        int LookupInsertConstant(ArObject *constant);
+
+        void OptimizeConstOP();
+
         void OptimizeJMP();
 
     public:
@@ -21,6 +27,7 @@ namespace argon::lang::compiler2 {
 
         bool optimize();
     };
-}
+
+} // namespace argon::lang::compiler2
 
 #endif // !ARGON_LANG_COMPILER2_OPTIMIZER_OPTIMIZER_H_

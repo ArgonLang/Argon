@@ -1102,6 +1102,8 @@ int Compiler::LoadStatic(ArObject *object, const scanner::Loc *loc, bool store, 
 
     Release(value);
 
+    this->unit_->IncStaticUsage(idx);
+
     if (emit)
         this->unit_->Emit(vm::OpCode::LSTATIC, idx, nullptr, loc);
 
@@ -2203,7 +2205,8 @@ Code *Compiler::Compile(node::Module *mod) {
          * These changes allow to correctly manage the output in interactive mode!
          */
 
-        if (!this->unit_->bbb.CheckLastInstr(vm::OpCode::POP)) {
+        if (!this->unit_->bbb.CheckLastInstr(vm::OpCode::POP)
+            && !this->unit_->bbb.CheckLastInstr(vm::OpCode::RET)) {
             this->LoadStaticNil(nullptr, true);
             this->unit_->Emit(vm::OpCode::RET, &mod->loc);
         } else

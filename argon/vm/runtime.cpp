@@ -906,7 +906,7 @@ bool argon::vm::IsPanickingFrame() {
         return ost_local->fiber->frame == ost_local->fiber->panic->frame;
     }
 
-    assert(false);
+    return panic_global != nullptr;
 }
 
 bool argon::vm::Shutdown() {

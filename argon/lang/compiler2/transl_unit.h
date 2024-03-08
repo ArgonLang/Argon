@@ -35,6 +35,9 @@ namespace argon::lang::compiler2 {
         /// Static resources.
         vm::datatype::List *statics;
 
+        /// Contains the usage count of each static resource.
+        int *statics_usg_count;
+
         /// External variables (global scope).
         vm::datatype::List *names;
 
@@ -59,6 +62,8 @@ namespace argon::lang::compiler2 {
         } sync_stack;
 
         unsigned int anon_count;
+
+        unsigned int statics_usg_length;
 
         BasicBlock *BlockNew();
 
@@ -129,6 +134,8 @@ namespace argon::lang::compiler2 {
             if (this->stack.current > this->stack.required)
                 this->stack.required = this->stack.current;
         }
+
+        void IncStaticUsage(int inc_index);
 
         void JBPop();
     };
