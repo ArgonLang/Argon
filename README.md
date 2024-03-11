@@ -1,8 +1,24 @@
-![](https://img.shields.io/badge/version-0.4.2--alpha-red)
-![https://www.apache.org/licenses/LICENSE-2.0](https://img.shields.io/badge/license-apache--2.0-blue)
-[![Maintainability Rating](https://sonarcloud.io/api/project_badges/measure?project=ArgonLang_Argon&metric=sqale_rating)](https://sonarcloud.io/summary/new_code?id=ArgonLang_Argon)
-[![Bugs](https://sonarcloud.io/api/project_badges/measure?project=ArgonLang_Argon&metric=bugs)](https://sonarcloud.io/summary/new_code?id=ArgonLang_Argon)
-[![Lines of Code](https://sonarcloud.io/api/project_badges/measure?project=ArgonLang_Argon&metric=ncloc)](https://sonarcloud.io/summary/new_code?id=ArgonLang_Argon)
+<p align="center">
+  <img alt="Argon Logo" height="250px" src="https://raw.githubusercontent.com/ArgonLang/argon-web/main/static/img/logo.svg">
+</p>
+
+<p align="center">
+    <a href="https://img.shields.io/badge/version-0.4.2--alpha-red">
+      <img src="https://img.shields.io/badge/version-0.4.2--alpha-red" alt="Version 0.4.2-alpha">
+    </a>
+    <a href="https://www.apache.org/licenses/LICENSE-2.0">
+      <img src="https://img.shields.io/badge/license-apache--2.0-blue" alt="Apache License 2.0">
+    </a>
+    <a href="https://sonarcloud.io/summary/new_code?id=ArgonLang_Argon">
+      <img src="https://sonarcloud.io/api/project_badges/measure?project=ArgonLang_Argon&metric=sqale_rating" alt="Maintainability Rating">
+    </a>
+    <a href="https://sonarcloud.io/summary/new_code?id=ArgonLang_Argon">
+      <img src="https://sonarcloud.io/api/project_badges/measure?project=ArgonLang_Argon&metric=bugs" alt="Bugs">
+    </a>
+    <a href="https://sonarcloud.io/summary/new_code?id=ArgonLang_Argon">
+      <img src="https://sonarcloud.io/api/project_badges/measure?project=ArgonLang_Argon&metric=ncloc" alt="Lines of Code">
+    </a>
+</p>
 
 # The Argon Programming Language
 This is the main repository for Argon language. It contains interpreter and builtins libraries.
