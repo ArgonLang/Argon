@@ -109,7 +109,7 @@ func RunDefaultRepl() {
 
     repl = Repl("Ar> ", "... ", module ? module.ok() : "__main")
 
-    io.print(runtime.version_ex)
+    !runtime.config["quiet"] ? io.print(runtime.version_ex)
 
     repl.interactive_loop()
 }
