@@ -184,6 +184,7 @@ bool argon::vm::ConfigInit(Config *config, int argc, char **argv) {
                 exit(EXIT_SUCCESS);
             case 'i':
                 interactive = true;
+                config->interactive = interactive;
                 break;
             case 'O': {
                 auto lvl = *(status.argv[status.argc_cur]) - '0';

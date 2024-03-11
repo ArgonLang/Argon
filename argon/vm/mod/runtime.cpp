@@ -6,6 +6,7 @@
 #include <argon/vm/runtime.h>
 #include <argon/vm/version.h>
 
+#include <argon/vm/datatype/boolean.h>
 #include <argon/vm/datatype/integer.h>
 #include <argon/vm/datatype/tuple.h>
 
@@ -16,6 +17,70 @@ using namespace argon::vm::datatype;
 Tuple *ParseCMDArgs(int argc, char **argv);
 
 // EOL
+
+bool ExposeConfig(Module *self) {
+#define PUT_BOOL(name, field)                                               \
+     if (!DictInsert(ret, #name, (ArObject *) (field ? True : False))) {    \
+        Release(ret);                                                       \
+        return false; }
+
+#define PUT_INT(name, field)                                                \
+     if((tmp = (ArObject *) IntNew(field)) == nullptr) {                    \
+        Release(ret);                                                       \
+        return false; }                                                     \
+                                                                            \
+     if (!DictInsert(ret, #name, tmp)) {                                    \
+        Release(tmp);                                                       \
+        Release(ret);                                                       \
+        return false; }                                                     \
+                                                                            \
+    Release(tmp);
+
+#define PUT_STR(name, field)                                                \
+     if((tmp = (ArObject *) StringNew(field)) == nullptr) {                 \
+        Release(ret);                                                       \
+        return false; }                                                     \
+                                                                            \
+     if (!DictInsert(ret, #name, tmp)) {                                    \
+        Release(tmp);                                                       \
+        Release(ret);                                                       \
+        return false; }                                                     \
+                                                                            \
+    Release(tmp);
+
+    auto *conf = argon::vm::GetFiber()->context->global_config;
+
+    auto *ret = DictNew();
+    if (ret == nullptr)
+        return false;
+
+    ArObject *tmp;
+
+    PUT_BOOL(interactive, conf->interactive)
+    PUT_BOOL(nogc, conf->nogc)
+    PUT_BOOL(quiet, conf->quiet)
+    PUT_BOOL(stack_trace, conf->stack_trace)
+    PUT_BOOL(unbuffered, conf->unbuffered)
+
+    PUT_INT(max_vc, conf->max_vc)
+    PUT_INT(max_ost, conf->max_ost)
+    PUT_INT(fiber_ss, conf->fiber_ss)
+    PUT_INT(fiber_pool, conf->fiber_pool)
+    PUT_INT(optim_lvl, conf->optim_lvl)
+
+    if (!ModuleAddObject(self, "config", (ArObject *) ret, MODULE_ATTRIBUTE_DEFAULT)) {
+        Release(ret);
+
+        return false;
+    }
+
+    Release(ret);
+
+    return true;
+#undef PUT_BOOL
+#undef PUT_INT
+#undef PUT_STR
+}
 
 bool SetAbout(Module *self) {
 #define ADD_INFO(macro, key)                                        \
@@ -114,6 +179,9 @@ bool SetOsName(Module *self) {
 }
 
 bool RuntimeInit(Module *self) {
+    if (!ExposeConfig(self))
+        return false;
+
     if (!SetAbout(self))
         return false;
 
