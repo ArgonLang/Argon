@@ -195,6 +195,7 @@ bool argon::vm::ConfigInit(Config *config, int argc, char **argv) {
                 }
 
                 config->optim_lvl = lvl;
+                status.argc_cur++;
                 break;
             }
             case 'q':
