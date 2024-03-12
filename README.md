@@ -105,19 +105,19 @@ through the play button(or press F5 key).
 
 # ‼️ Notes
 Argon is under active development, so many features are not yet active or available, a list (certainly not exhaustive) of the missing features is the following:
-* ~~No support for interactive mode.~~
-* ~~Lack of most of the built-in functionality for basic DataType (e.g. bytes::find, bytestream::split, ...).~~
-* ~~Garbage collector not enabled (currently the memory is managed only by the ARC).~~
-* ~~Limited I/O support.~~
-* ~~No multithreading support.~~
 * No debugging support.
 * Currently, all test cases are disabled ~~and out of date~~.
 
 # 🤝 Contributing
-There is currently no guide available to contribute to the development, but if you are interested you can contribute in several ways:
-* Argon core (C++)
-* Argon builtins libraries (C++ / Argon)
-* Writing documentation
+If you're interested, there are several ways you can contribute:
+
+- **Argon Core**: Help develop the Argon core (C++).
+- **Improving the Argon Standard Library**: Enhance the functionality of the [Argon Standard Library](https://github.com/argonlang/arlib).
+- **Writing/Improving Documentation**: Contribute by writing or improving documentation.
+- **Writing Examples**: Create examples to demonstrate Argon's capabilities.
+- **Sharing and Promotion**: Spread the word about the project and make it more widely known.
+
+For technical details, refer to the [contributing guidelines](CONTRIBUTING.md).
 
 # License
 Argon is primarily distributed under the terms of the Apache License (Version 2.0). 
