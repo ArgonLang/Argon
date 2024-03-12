@@ -21,7 +21,10 @@ using namespace argon::lang::parser2::node;
 #define TKCUR_END   this->tkcur_.loc.end
 
 bool Parser::CheckIDExt() const {
-    return this->Match(scanner::TokenType::IDENTIFIER, scanner::TokenType::KW_DEFAULT, scanner::TokenType::SELF);
+    return this->Match(scanner::TokenType::IDENTIFIER,
+                       scanner::TokenType::KW_DEFAULT,
+                       scanner::TokenType::SELF,
+                       scanner::TokenType::BLANK);
 }
 
 int Parser::PeekPrecedence(TokenType type) {
@@ -411,6 +414,8 @@ Node *Parser::ParseExpression(Context *context) {
     Node *expr;
 
     expr = this->ParseExpression(context, 0);
+    if(expr == nullptr)
+        throw ParserException(this->tkcur_.loc, kStandardError[0]);
 
     if (this->Match(TokenType::COLON)) {
         if (expr->node_type != NodeType::IDENTIFIER) {
@@ -2498,6 +2503,8 @@ Node *Parser::ParseNullCoalescing(Context *context, Node *left) {
     this->Eat(true);
 
     auto *expr = this->ParseExpression(context, PeekPrecedence(TokenType::NULL_COALESCING));
+    if (expr == nullptr)
+        throw ParserException(this->tkcur_.loc, kStandardError[0]);
 
     auto *n_coal = NewNode<Binary>(type_ast_binary_, false, NodeType::NULL_COALESCING);
     if (n_coal == nullptr) {
@@ -2519,6 +2526,9 @@ Node *Parser::ParsePipeline(Context *context, Node *left) {
     this->Eat(true);
 
     auto *right = this->ParseExpression(context, PeekPrecedence(TokenType::PIPELINE));
+    if (right == nullptr)
+        throw ParserException(this->tkcur_.loc, kStandardError[0]);
+
     if (right->node_type == NodeType::CALL) {
         auto *call = (Call *) right;
 
@@ -2696,7 +2706,9 @@ Node *Parser::ParseTernary(Context *context, Node *left) {
 
     this->Eat(true);
 
-    body = (ArObject *) this->ParseExpression(context, PeekPrecedence(TokenType::COMMA));
+    body = this->ParseExpression(context, PeekPrecedence(TokenType::COMMA));
+    if (!body)
+        throw ParserException(this->tkcur_.loc, kStandardError[0]);
 
     this->IgnoreNewLineIF(TokenType::COLON);
 
