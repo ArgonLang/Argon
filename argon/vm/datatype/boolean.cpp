@@ -12,6 +12,39 @@ constexpr int kTrueAsInt = 1;
 
 using namespace argon::vm::datatype;
 
+ArObject *bool_land(const Boolean *left, const ArObject *right) {
+    return BoolToArBool(left->value & IsTrue(right));
+}
+
+ArObject *bool_lor(const Boolean *left, const ArObject *right) {
+    return BoolToArBool(left->value | IsTrue(right));
+}
+
+ArObject *bool_lxor(const Boolean *left, const ArObject *right) {
+    return BoolToArBool(left->value ^ IsTrue(right));
+}
+
+const OpSlots bool_ops{
+        nullptr,
+        nullptr,
+        nullptr,
+        nullptr,
+        nullptr,
+        nullptr,
+        nullptr,
+        nullptr,
+        (BinaryOp)bool_land,
+        (BinaryOp)bool_lor,
+        (BinaryOp)bool_lxor,
+        nullptr,
+        nullptr,
+        nullptr,
+        nullptr,
+        nullptr,
+        nullptr,
+        nullptr
+};
+
 ArObject *boolean_compare(Boolean *self, ArObject *other, CompareMode mode) {
     IntegerUnderlying l = self->value;
     IntegerUnderlying r;
@@ -64,7 +97,7 @@ TypeInfo BooleanType = {
         nullptr,
         nullptr,
         nullptr,
-        nullptr,
+        &bool_ops,
         nullptr,
         nullptr
 };
