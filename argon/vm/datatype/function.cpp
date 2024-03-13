@@ -152,7 +152,10 @@ Function *FunctionClone(const Function *func) {
     auto *fn = MakeGCObject<Function>(type_function_, false);
 
     if (fn != nullptr) {
-        fn->native = func->native;
+        if (func->IsNative())
+            fn->native = func->native;
+        else
+            fn->code = IncRef(fn->code);
 
         fn->name = IncRef(func->name);
         fn->qname = IncRef(func->qname);
