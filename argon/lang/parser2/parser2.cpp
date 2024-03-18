@@ -71,24 +71,26 @@ int Parser::PeekPrecedence(TokenType type) {
         case TokenType::GREATER:
         case TokenType::GREATER_EQ:
             return 130;
+        case TokenType::ARROW_LEFT:
+            return 140;
         case TokenType::SHL:
         case TokenType::SHR:
-            return 140;
+            return 150;
         case TokenType::PLUS:
         case TokenType::MINUS:
-            return 150;
+            return 160;
         case TokenType::ASTERISK:
         case TokenType::SLASH:
         case TokenType::SLASH_SLASH:
         case TokenType::PERCENT:
-            return 160;
+            return 170;
         case TokenType::DOT:
         case TokenType::QUESTION_DOT:
         case TokenType::SCOPE:
-            return 170;
+            return 180;
         case TokenType::PLUS_PLUS:
         case TokenType::MINUS_MINUS:
-            return 180;
+            return 190;
         default:
             return 1000;
     }
