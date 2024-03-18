@@ -9,6 +9,23 @@
 using namespace argon::vm::datatype;
 using namespace argon::vm::importer;
 
+const MemberDef ispec_members[] = {
+        ARGON_MEMBER("name", MemberType::OBJECT, offsetof(ImportSpec, name), true),
+        ARGON_MEMBER("path", MemberType::OBJECT, offsetof(ImportSpec, path), true),
+        ARGON_MEMBER("origin", MemberType::OBJECT, offsetof(ImportSpec, origin), true),
+        ARGON_MEMBER("loader", MemberType::OBJECT, offsetof(ImportSpec, loader), true),
+        ARGON_MEMBER_SENTINEL
+};
+
+const ObjectSlots ispec_objslot = {
+        nullptr,
+        ispec_members,
+        nullptr,
+        nullptr,
+        nullptr,
+        -1
+};
+
 ArObject *import_spec_compare(ImportSpec *self, ArObject *other, CompareMode mode) {
     const auto *o = (ImportSpec *) other;
 
@@ -70,7 +87,7 @@ TypeInfo ImportSpecType = {
         nullptr,
         nullptr,
         nullptr,
-        nullptr,
+        &ispec_objslot,
         nullptr,
         nullptr,
         nullptr,
