@@ -306,7 +306,7 @@ Node *Parser::ParseBlock(Context *context) {
 
         Release(stmt);
 
-        if (!this->Match(TokenType::END_OF_LINE, TokenType::SEMICOLON))
+        if (!this->Match(TokenType::END_OF_LINE, TokenType::SEMICOLON, TokenType::RIGHT_BRACES))
             throw ParserException(TKCUR_LOC, kStandardError[0]);
 
         while (this->MatchEat(TokenType::SEMICOLON, true));
