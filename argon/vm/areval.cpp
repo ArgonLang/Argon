@@ -1402,8 +1402,12 @@ ArObject *argon::vm::Eval(Fiber *fiber) {
                     break;
                 }
 
-                if (!ChanRead((Chan *) ret, &ret))
-                    return nullptr;
+                if (!ChanRead((Chan *) ret, &ret)) {
+                    if (GetFiberStatus() != FiberStatus::RUNNING)
+                        return nullptr;
+
+                    break;
+                }
 
                 TOP_REPLACE(ret);
                 DISPATCH1();
@@ -1430,8 +1434,12 @@ ArObject *argon::vm::Eval(Fiber *fiber) {
                     break;
                 }
 
-                if (!ChanWrite((Chan *) ret, PEEK1()))
-                    return nullptr;
+                if (!ChanWrite((Chan *) ret, PEEK1())) {
+                    if (GetFiberStatus() != FiberStatus::RUNNING)
+                        return nullptr;
+
+                    break;
+                }
 
                 // POP only Chan, leave value on stack!
                 POP();

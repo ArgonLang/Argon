@@ -19,6 +19,8 @@ namespace argon::vm::datatype {
         sync::NotifyQueue r_queue;
         sync::NotifyQueue w_queue;
 
+        ArObject *defval;
+
         ArObject **queue;
 
         unsigned int read;
@@ -28,14 +30,16 @@ namespace argon::vm::datatype {
         unsigned int count;
 
         unsigned int length;
+
+        bool close;
     };
     _ARGONAPI extern const TypeInfo *type_chan_;
 
-    bool ChanRead(Chan *chan, ArObject **out_value);
+    bool ChanRead(Chan * chan, ArObject * *out_value);
 
-    bool ChanWrite(Chan *chan, ArObject *value);
+    bool ChanWrite(Chan * chan, ArObject * value);
 
-    Chan *ChanNew(unsigned int backlog);
+    Chan *ChanNew(ArObject *defval, unsigned int backlog);
 
 } // namespace argon::vm::datatype
 

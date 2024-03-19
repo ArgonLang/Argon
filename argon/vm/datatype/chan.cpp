@@ -10,6 +10,7 @@
 #include <argon/vm/datatype/error.h>
 #include <argon/vm/datatype/nil.h>
 #include <argon/vm/datatype/pcheck.h>
+#include <argon/vm/datatype/tuple.h>
 
 #include <argon/vm/datatype/chan.h>
 
@@ -22,20 +23,44 @@ ARGON_FUNCTION(chan_chan, Chan,
                "\n"
                "- KWParameters:\n"
                "  - backlog: Set the size of the backlog.\n"
+               "  - defval: Sets the value to be returned when a read operation is performed on a closed channel."
                "- returns: New Chan object.\n",
                nullptr, false, true) {
-    IntegerUnderlying  backlog;
+    ArObject *defval;
+
+    IntegerUnderlying backlog;
 
     if (!KParamLookupInt((Dict *) kwargs, "backlog", &backlog, 1))
         return nullptr;
 
-    if(backlog<0){
-        ErrorFormat(kValueError[0],"backlog value cannot be negative");
+    if (!KParamLookup((Dict *) kwargs, "defval", nullptr, &defval, nullptr, false))
+        return nullptr;
+
+    if (backlog < 0) {
+        ErrorFormat(kValueError[0], "backlog value cannot be negative");
 
         return nullptr;
     }
 
-    return (ArObject *) ChanNew(backlog);
+    return (ArObject *) ChanNew(defval, backlog);
+}
+
+ARGON_METHOD(chan_close, close,
+             "Close this channel.\n"
+             "\n"
+             "The sender should be the only one to close the channel; multiple closures of a channel are considered a non-op.\n"
+             "\n",
+             nullptr, false, false) {
+    auto self = (Chan *) _self;
+
+    std::unique_lock _(self->lock);
+
+    self->close = true;
+
+    self->r_queue.NotifyAll();
+    self->w_queue.NotifyAll();
+
+    return (ArObject *) IncRef(Nil);
 }
 
 ARGON_METHOD(chan_flush, flush,
@@ -58,10 +83,48 @@ ARGON_METHOD(chan_flush, flush,
     return (ArObject *) IncRef(Nil);
 }
 
+ARGON_METHOD(chan_isclosed, isclosed,
+             "Test if this channel is closed.\n"
+             "\n"
+             "- Returns: True if channel is closed, false otherwise.\n",
+             nullptr, false, false) {
+    auto self = (Chan *) _self;
+    return (ArObject *) BoolToArBool(self->close);
+}
+
+ARGON_METHOD(chan_read, read,
+             "Read data from channel.\n"
+             "\n"
+             "- Returns: Tuple containing the value and a state indicating whether the value is reliable or not. If the state is false, "
+             "the channel is closed, and the read value is invalid.",
+             nullptr, false, false) {
+    auto self = (Chan *) _self;
+
+    ArObject *value;
+    Tuple *ret;
+
+    std::unique_lock _(self->lock);
+
+    if (self->close && self->count == 0)
+        return (ArObject *) TupleNew("ob", self->defval, false);
+
+    if (!ChanRead(self, &value))
+        return nullptr;
+
+    ret = TupleNew("ob", value, true);
+
+    Release(value);
+
+    return (ArObject *) ret;
+}
+
 const FunctionDef chan_methods[] = {
         chan_chan,
 
+        chan_close,
         chan_flush,
+        chan_isclosed,
+        chan_read,
         ARGON_METHOD_SENTINEL
 };
 
@@ -82,7 +145,8 @@ ArObject *chan_compare(const ArObject *self, const ArObject *other, CompareMode 
 }
 
 ArObject *chan_repr(const Chan *self) {
-    return (ArObject *) StringFormat("<%s -- backlog: %d, count: %d>", type_chan_->name, self->length, self->count);
+    return (ArObject *) StringFormat("<%s -- backlog: %d, count: %d, closed: %s>", type_chan_->name, self->length,
+                                     self->count, self->close ? "true" : "false");
 }
 
 bool chan_dtor(Chan *self) {
@@ -149,6 +213,19 @@ bool argon::vm::datatype::ChanRead(Chan *chan, ArObject **out_value) {
     std::unique_lock _(chan->lock);
 
     if (chan->count == 0) {
+        if (chan->close) {
+
+            if (chan->defval == nullptr) {
+                ErrorFormat(kRuntimeError[0], "read from closed channel");
+
+                return false;
+            }
+
+            *out_value = IncRef(chan->defval);
+
+            return true;
+        }
+
         *out_value = nullptr;
 
         chan->r_queue.Wait(FiberStatus::BLOCKED_SUSPENDED);
@@ -170,6 +247,11 @@ bool argon::vm::datatype::ChanRead(Chan *chan, ArObject **out_value) {
 bool argon::vm::datatype::ChanWrite(Chan *chan, ArObject *value) {
     std::unique_lock _(chan->lock);
 
+    if (chan->close) {
+        ErrorFormat(kRuntimeError[0], "write on closed channel");
+        return false;
+    }
+
     if (chan->write == chan->read && chan->count > 0) {
         chan->w_queue.Wait(FiberStatus::BLOCKED_SUSPENDED);
 
@@ -187,7 +269,7 @@ bool argon::vm::datatype::ChanWrite(Chan *chan, ArObject *value) {
     return true;
 }
 
-Chan *argon::vm::datatype::ChanNew(unsigned int backlog) {
+Chan *argon::vm::datatype::ChanNew(ArObject *defval, unsigned int backlog) {
     auto *chan = MakeGCObject<Chan>(type_chan_, false);
 
     if (chan != nullptr) {
@@ -202,11 +284,15 @@ Chan *argon::vm::datatype::ChanNew(unsigned int backlog) {
         new(&chan->r_queue)sync::NotifyQueue();
         new(&chan->w_queue)sync::NotifyQueue();
 
+        chan->defval = IncRef(defval);
+
         chan->read = 0;
         chan->write = 0;
 
         chan->count = 0;
         chan->length = backlog;
+
+        chan->close = false;
     }
 
     return chan;
