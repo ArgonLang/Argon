@@ -70,7 +70,9 @@ namespace argon::vm::datatype {
 
     bool TypeInit(TypeInfo *type, ArObject *auxiliary);
 
-    bool TraitIsImplemented(const ArObject *object, const TypeInfo *type);
+    bool TraitIsImplemented(const TypeInfo *obj_type, const TypeInfo *type);
+
+    bool TypeOF(const ArObject *object, const TypeInfo *type);
 
     int MonitorAcquire(ArObject *object);
 

@@ -192,15 +192,25 @@ ARGON_FUNCTION(builtins_iscallable, iscallable,
 }
 
 ARGON_FUNCTION(builtins_implements, implements,
-               "Check if object implements all the indicated traits.\n"
+               "Check if type implements all the indicated traits.\n"
                "\n"
                "- Parameters:\n"
-               "  - obj: Object to check.\n"
+               "  - obj: Type to check.\n"
                "  - ...traits: Traits list.\n"
-               "- Returns: True if the object implements ALL indicated traits, false otherwise.",
+               "- Returns: True if type implements ALL indicated traits, false otherwise.",
                ": obj, : traits", true, false) {
+    if (!AR_TYPEOF(*args, type_type_)) {
+        ErrorFormat(kTypeError[0], kTypeError[1], AR_TYPE_QNAME(*args));
+        return nullptr;
+    }
+
     for (ArSize i = 1; i < argc; i++) {
-        if (!TraitIsImplemented(args[0], (TypeInfo *) args[i]))
+        if (!AR_TYPEOF(args[i], type_type_)) {
+            ErrorFormat(kTypeError[0], kTypeError[1], AR_TYPE_QNAME(args[i]));
+            return nullptr;
+        }
+
+        if (!TraitIsImplemented((const TypeInfo *) args[0], (TypeInfo *) args[i]))
             return BoolToArBool(false);
     }
 
@@ -241,8 +251,20 @@ ARGON_FUNCTION(builtins_require, require,
     Result *result;
 
     auto *fiber = argon::vm::GetFiber();
+    auto *path = (String *) *args;
 
-    auto *mod = LoadModule(fiber->context->imp, ((String *) *args), nullptr);
+    auto index = StringRFind(path, ".");
+    if (index > 0) {
+        path = StringSubs(path, 0, index);
+        if (path == nullptr)
+            return nullptr;
+    }
+
+    auto *mod = LoadModule(fiber->context->imp, path, nullptr);
+
+    if (index >= 0)
+        Release(path);
+
     if (mod != nullptr) {
         if ((result = ResultNew((ArObject *) mod, true)) == nullptr)
             Release(mod);
@@ -348,10 +370,7 @@ ARGON_FUNCTION(builtins_typeof, typeof,
     for (auto i = 1; i < argc; i++) {
         auto *tp = (const TypeInfo *) args[i];
 
-        if (!AR_TYPEOF(tp, type_type_))
-            tp = AR_GET_TYPE(tp);
-
-        if (AR_TYPEOF(base, tp))
+        if (TypeOF(base, tp))
             return BoolToArBool(true);
     }
 

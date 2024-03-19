@@ -82,7 +82,7 @@ ArObject *type_get_attr(const ArObject *instance, ArObject *key, bool static_att
         return nullptr;
     }
 
-    if (!aprop.IsPublic() && !TraitIsImplemented(instance, base)) {
+    if (!aprop.IsPublic() && !TraitIsImplemented(ancestor, base)) {
         ErrorFormat(kAccessViolationError[0], kAccessViolationError[1],
                     ARGON_RAW_STRING((String *) key), ancestor->name);
 
@@ -1096,16 +1096,10 @@ bool argon::vm::datatype::TypeInit(TypeInfo *type, ArObject *auxiliary) {
     return false;
 }
 
-bool argon::vm::datatype::TraitIsImplemented(const ArObject *object, const TypeInfo *type) {
-    const TypeInfo *obj_type;
-
-    if (object == nullptr || type == nullptr)
+bool argon::vm::datatype::TraitIsImplemented(const TypeInfo *obj_type, const TypeInfo *type) {
+    if (obj_type == nullptr || type == nullptr)
         return false;
 
-    if ((const TypeInfo *) object == type)
-        return true;
-
-    obj_type = AR_GET_TYPE(object);
     if (obj_type == type)
         return true;
 
@@ -1119,6 +1113,13 @@ bool argon::vm::datatype::TraitIsImplemented(const ArObject *object, const TypeI
     }
 
     return false;
+}
+
+bool argon::vm::datatype::TypeOF(const ArObject *object, const TypeInfo *type) {
+    if (AR_TYPEOF(object, type))
+        return true;
+
+    return TraitIsImplemented( AR_GET_TYPE(object), type);
 }
 
 int argon::vm::datatype::MonitorAcquire(ArObject *object) {

@@ -249,7 +249,7 @@ ArObject *argon::vm::datatype::FunctionInvokeNative(Function *func, ArObject **a
     if (f_count > 0 && func->IsMethod()) {
         instance = *f_args;
 
-        if (!TraitIsImplemented(instance, func->base)) {
+        if (!TraitIsImplemented(AR_GET_TYPE(instance), func->base)) {
             ErrorFormat(kTypeError[0], kTypeError[5], ARGON_RAW_STRING(func->qname), AR_TYPE_NAME(instance));
             goto ERROR;
         }
