@@ -110,7 +110,7 @@ namespace argon::vm {
     constexpr short StackChange[] = {
             -1,
             0,
-            1,
+            0,
             -1,
             -1,
             0,
@@ -186,7 +186,7 @@ namespace argon::vm {
             -1,
             -1,
             0,
-            1,
+            0,
             -2,
             -1,
             0,

@@ -293,7 +293,6 @@ void TranslationUnit::Emit(vm::OpCode op, int arg, BasicBlock *dest, const scann
         case vm::OpCode::MKSTRUCT:
         case vm::OpCode::MKTP:
         case vm::OpCode::MKTRAIT:
-        case vm::OpCode::POPGT:
             this->DecrementStack(arg);
             break;
         default:
