@@ -200,6 +200,26 @@ bool argon::vm::datatype::NamespaceNewSymbol(Namespace *ns, const char *key, ArO
     return ok;
 }
 
+bool argon::vm::datatype::NamespaceNewSymbol(Namespace *ns, const char *key, const char *value, AttributeFlag aa) {
+    auto *s_key = StringIntern(key);
+    if (s_key == nullptr)
+        return false;
+
+    auto *s_value = StringNew(value);
+    if (s_value == nullptr) {
+        Release(s_key);
+
+        return false;
+    }
+
+    auto ok = NamespaceNewSymbol(ns, (ArObject *) s_key, (ArObject *) s_value, aa);
+
+    Release(s_key);
+    Release(s_value);
+
+    return ok;
+}
+
 bool argon::vm::datatype::NamespaceSet(Namespace *ns, ArObject *key, ArObject *value) {
     NSEntry *entry;
 

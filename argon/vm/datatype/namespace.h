@@ -141,6 +141,17 @@ namespace argon::vm::datatype {
     bool NamespaceNewSymbol(Namespace *ns, const char *key, ArObject *value, AttributeFlag aa);
 
     /**
+     * @brief Add new string to namespace.
+     *
+     * @param ns Pointer to namespace.
+     * @param key Pointer to the C-string that represent the key.
+     * @param value Pointer to the C-string that represent the string value.
+     * @param aa AttributeFlag
+     * @return True on success, false otherwise.
+     */
+    bool NamespaceNewSymbol(Namespace *ns, const char *key, const char *value, AttributeFlag aa);
+
+    /**
      * @brief Replaces the value associated with a key.
      *
      * @param ns Pointer to namespace.

@@ -931,24 +931,14 @@ bool ExportDefaultMethod(TypeInfo *type) {
 bool InitMembers(TypeInfo *type) {
     auto *ns = (Namespace *) type->tp_map;
 
+    if (!NamespaceNewSymbol(ns, "__name", type->name, AttributeFlag::CONST | AttributeFlag::PUBLIC))
+        return false;
+
+    if (!NamespaceNewSymbol(ns, "__qname", type->qname, AttributeFlag::CONST | AttributeFlag::PUBLIC))
+        return false;
+
     if (type->object == nullptr)
         return true;
-
-    // Function/Method
-    if (type->object->methods != nullptr) {
-        for (const FunctionDef *cursor = type->object->methods; cursor->name != nullptr; cursor++) {
-            auto *fn = (ArObject *) FunctionNew(cursor, type, nullptr);
-            if (fn == nullptr)
-                return false;
-
-            if (!NamespaceNewSymbol(ns, cursor->name, fn, AttributeFlag::CONST | AttributeFlag::PUBLIC)) {
-                Release(fn);
-                return false;
-            }
-
-            Release(fn);
-        }
-    }
 
     // Members
     if (type->object->members != nullptr) {
@@ -963,6 +953,22 @@ bool InitMembers(TypeInfo *type) {
             }
 
             Release(nw);
+        }
+    }
+
+    // Function/Method
+    if (type->object->methods != nullptr) {
+        for (const FunctionDef *cursor = type->object->methods; cursor->name != nullptr; cursor++) {
+            auto *fn = (ArObject *) FunctionNew(cursor, type, nullptr);
+            if (fn == nullptr)
+                return false;
+
+            if (!NamespaceNewSymbol(ns, cursor->name, fn, AttributeFlag::CONST | AttributeFlag::PUBLIC)) {
+                Release(fn);
+                return false;
+            }
+
+            Release(fn);
         }
     }
 
@@ -1119,7 +1125,7 @@ bool argon::vm::datatype::TypeOF(const ArObject *object, const TypeInfo *type) {
     if (AR_TYPEOF(object, type))
         return true;
 
-    return TraitIsImplemented( AR_GET_TYPE(object), type);
+    return TraitIsImplemented(AR_GET_TYPE(object), type);
 }
 
 int argon::vm::datatype::MonitorAcquire(ArObject *object) {
