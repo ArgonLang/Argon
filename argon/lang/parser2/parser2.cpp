@@ -396,7 +396,7 @@ Node *Parser::ParseDecls(Context *context) {
 
             this->Eat(true);
 
-            if (!this->MatchEat(TokenType::KW_VAR, true))
+            if (!this->Match(TokenType::KW_VAR))
                 throw ParserException(TKCUR_LOC, kStandardError[3]);
 
             decl = this->ParseVarDecl(context, start, false, pub, true);
