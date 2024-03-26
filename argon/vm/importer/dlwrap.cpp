@@ -22,10 +22,11 @@ using namespace argon::vm::datatype;
 using namespace argon::vm::importer;
 
 DLHandle argon::vm::importer::OpenLibrary(const char *path, Error **out_error) {
-#ifdef _ARGON_PLATFORM_WINDOWS
-    HMODULE handle;
+    *out_error = nullptr;
 
-    if ((handle = LoadLibraryA(path)) == nullptr) {
+#ifdef _ARGON_PLATFORM_WINDOWS
+    auto handle = LoadLibraryEx(path, nullptr,  LOAD_LIBRARY_SEARCH_DLL_LOAD_DIR|LOAD_LIBRARY_SEARCH_DEFAULT_DIRS);
+    if (handle == nullptr) {
         auto *winerr = ErrorGetMsgFromWinErr();
 
         *out_error = ErrorNewFormat(kModuleImportError[0],
@@ -62,6 +63,8 @@ DLHandle argon::vm::importer::LoadSymbol(DLHandle handle, const char *sym_name) 
 }
 
 int argon::vm::importer::CloseLibrary(DLHandle handle, datatype::Error **out_error) {
+    *out_error = nullptr;
+
 #ifdef _ARGON_PLATFORM_WINDOWS
     if (FreeLibrary((HMODULE) handle) == 0) {
         auto *winerr = ErrorGetMsgFromWinErr();

@@ -38,6 +38,8 @@ String *FindSourceInPaths(const Import *imp, String *mod_path, String *mod_name)
 
 String *GetModuleName(String *path, const String *sep);
 
+String *SanitizeModulePath(String *name, const String *path_sep);
+
 void DelModuleFromCache(Import *imp, String *name);
 
 // EOF
@@ -645,24 +647,33 @@ Module *argon::vm::importer::LoadModule(Import *imp, const char *name, ImportSpe
 Module *argon::vm::importer::LoadModule(Import *imp, String *name, ImportSpec *hint) {
     ImportModuleCacheEntry *entry;
 
+    if ((name = SanitizeModulePath(name, imp->path_sep)) == nullptr)
+        return nullptr;
+
     std::unique_lock lock(imp->lock);
 
     if ((entry = imp->module_cache.Lookup(name)) != nullptr) {
         if (!AR_TYPEOF(entry->value, type_module_)) {
             ErrorFormat(kModuleImportError[0], kModuleImportError[2], ARGON_RAW_STRING(name));
+
+            Release(name);
             return nullptr;
         }
 
+        Release(name);
         return (Module *) IncRef(entry->value);
     }
 
     auto *spec = Locate(imp, name, hint);
     if (spec == nullptr) {
         ErrorFormat(kModuleImportError[0], kModuleImportError[0], ARGON_RAW_STRING(name));
+
+        Release(name);
         return nullptr;
     }
 
     if (!AddModule2Cache(imp, name, nullptr)) {
+        Release(name);
         Release(spec);
         return nullptr;
     }
@@ -675,11 +686,14 @@ Module *argon::vm::importer::LoadModule(Import *imp, String *name, ImportSpec *h
 
     if (mod != nullptr) {
         if (!AddModule2Cache(imp, name, mod)) {
+            Release(name);
             Release(mod);
             return nullptr;
         }
     } else
         DelModuleFromCache(imp, name);
+
+    Release(name);
 
     return mod;
 }
@@ -817,6 +831,25 @@ String *GetModuleName(String *path, const String *sep) {
         return StringSubs(path, last_sep + ARGON_RAW_STRING_LENGTH(sep), 0);
 
     return IncRef(path);
+}
+
+String *SanitizeModulePath(String *name, const String *path_sep) {
+    String *altsep;
+
+#ifdef _ARGON_PLATFORM_WINDOWS
+    altsep = StringIntern("/");
+#else
+    altsep = StringIntern("\\");
+#endif
+
+    if (altsep == nullptr)
+        return nullptr;
+
+    auto *res = StringReplace(name, altsep, path_sep, -1);
+
+    Release(altsep);
+
+    return res;
 }
 
 void DelModuleFromCache(Import *imp, String *name) {
