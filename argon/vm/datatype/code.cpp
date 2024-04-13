@@ -2,7 +2,6 @@
 //
 // Licensed under the Apache License v2.0
 
-#include <argon/vm/datatype/arstring.h>
 #include <argon/vm/datatype/boolean.h>
 #include <argon/vm/datatype/hash_magic.h>
 
@@ -53,7 +52,7 @@ bool code_dtor(Code *self) {
 
     Release(self->statics);
     Release(self->names);
-    Release(self->locals);
+    Release(self->lnames);
     Release(self->enclosed);
 
     argon::vm::memory::Free((void *) self->instr);
@@ -88,7 +87,7 @@ TypeInfo CodeType = {
 };
 const TypeInfo *argon::vm::datatype::type_code_ = &CodeType;
 
-Code *argon::vm::datatype::CodeNew(List *statics, List *names, List *locals, List *enclosed) {
+Code *argon::vm::datatype::CodeNew(List *statics, List *names, List *lnames, List *enclosed, unsigned short locals_sz) {
     auto *code = MakeObject<Code>(&CodeType);
 
     if (code != nullptr) {
@@ -103,6 +102,7 @@ Code *argon::vm::datatype::CodeNew(List *statics, List *names, List *locals, Lis
         code->instr_sz = 0;
         code->sstack_sz = 0;
         code->stack_sz = 0;
+        code->locals_sz = locals_sz;
         code->linfo_sz = 0;
 
         if ((code->statics = TupleNew((ArObject *) statics)) == nullptr) {
@@ -115,7 +115,7 @@ Code *argon::vm::datatype::CodeNew(List *statics, List *names, List *locals, Lis
             return nullptr;
         }
 
-        if ((code->locals = TupleNew((ArObject *) locals)) == nullptr) {
+        if ((code->lnames = TupleNew((ArObject *) lnames)) == nullptr) {
             Release(code);
             return nullptr;
         }
@@ -152,6 +152,8 @@ Code *argon::vm::datatype::CodeWrapFnCall(unsigned short argc, OpCodeCallMode mo
         code->instr_end = code->instr + instr_sz;
         code->instr_sz = instr_sz;
         code->stack_sz = argc + 1;
+        code->sstack_sz = 0;
+        code->locals_sz = 0;
 
         code->linfo = nullptr;
         code->linfo_sz = 0;
@@ -161,7 +163,7 @@ Code *argon::vm::datatype::CodeWrapFnCall(unsigned short argc, OpCodeCallMode mo
         code->doc = nullptr;
         code->statics = nullptr;
         code->names = nullptr;
-        code->locals = nullptr;
+        code->lnames = nullptr;
         code->enclosed = nullptr;
     }
 

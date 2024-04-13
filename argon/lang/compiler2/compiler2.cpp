@@ -306,8 +306,7 @@ void Compiler::CompileFor(const node::Loop *loop) {
 
     CHECK_AST_NODE(node::type_ast_loop_, loop);
 
-    if (!this->unit_->symt->NewNestedTable())
-        throw DatatypeException();
+    this->unit_->EnterSub();
 
     if (loop->init != nullptr)
         this->Compile(loop->init);
@@ -356,7 +355,7 @@ void Compiler::CompileFor(const node::Loop *loop) {
 
     this->unit_->JBPop();
 
-    SymbolExitNested(this->unit_->symt);
+    this->unit_->ExitSub(false);
 
     this->unit_->BlockAppend(end);
 }
@@ -367,8 +366,7 @@ void Compiler::CompileForEach(const node::Loop *loop) {
 
     CHECK_AST_NODE(node::type_ast_loop_, loop);
 
-    if (!this->unit_->symt->NewNestedTable())
-        throw DatatypeException();
+    this->unit_->EnterSub();
 
     if ((end = BasicBlockNew()) == nullptr)
         throw DatatypeException();
@@ -407,7 +405,7 @@ void Compiler::CompileForEach(const node::Loop *loop) {
 
     this->unit_->JBPop();
 
-    SymbolExitNested(this->unit_->symt);
+    this->unit_->ExitSub(false);
 
     this->unit_->BlockAppend(end);
 
@@ -542,8 +540,7 @@ void Compiler::CompileIF(const node::Branch *branch) {
 
         this->unit_->BlockNew();
 
-        if (!this->unit_->symt->NewNestedTable())
-            throw DatatypeException();
+        this->unit_->EnterSub();
 
         if (merge)
             this->unit_->symt->stack->nested--;
@@ -560,22 +557,21 @@ void Compiler::CompileIF(const node::Branch *branch) {
             orelse = nullptr; // Avoid releasing it in case of an exception.
 
             if (AR_TYPEOF(branch->orelse, node::type_ast_unary_)) {
-                if (!this->unit_->symt->NewNestedTable())
-                    throw DatatypeException();
+                this->unit_->EnterSub();
 
                 if (merge)
                     this->unit_->symt->stack->nested--;
 
                 this->CompileBlock(branch->orelse, false);
 
-                SymbolExitNested(this->unit_->symt, merge);
+                this->unit_->ExitSub(merge);
             } else if (AR_TYPEOF(branch->orelse, node::type_ast_branch_))
                 this->CompileIF((const node::Branch *) branch->orelse);
             else
                 throw CompilerException(kCompilerErrors[1], (int) branch->orelse->node_type, __FUNCTION__);
         }
 
-        SymbolExitNested(this->unit_->symt, merge);
+        this->unit_->ExitSub(merge);
     } catch (...) {
         if (orelse != end) {
             BasicBlockDel(orelse);
@@ -819,8 +815,7 @@ void Compiler::CompileSwitchCase(const node::Binary *swcase, BasicBlock **ltest,
 
     CHECK_AST_NODE(node::type_ast_switchcase_, swcase);
 
-    if (!this->unit_->symt->NewNestedTable())
-        throw DatatypeException();
+    this->unit_->EnterSub();
 
     if ((*lbody)->size > 0) {
         // Switch to bodies thread
@@ -879,7 +874,7 @@ void Compiler::CompileSwitchCase(const node::Binary *swcase, BasicBlock **ltest,
     if (!fallthrough)
         this->unit_->Emit(vm::OpCode::JMP, 0, end, nullptr);
 
-    SymbolExitNested(this->unit_->symt);
+    this->unit_->ExitSub(false);
 
     *lbody = this->unit_->bbb.current;
 }
@@ -1161,7 +1156,6 @@ void Compiler::IdentifierNew(String *name, const scanner::Loc *loc, SymbolType t
     if (!sym)
         throw DatatypeException();
 
-    auto *dest = this->unit_->names;
     auto *p_sym = (SymbolT *) sym.Get();
 
     p_sym->declared = true;
@@ -1174,36 +1168,33 @@ void Compiler::IdentifierNew(String *name, const scanner::Loc *loc, SymbolType t
     }
 
     if (p_sym->nested == 0) {
-        auto id = (unsigned short) (p_sym->id >= 0 ? p_sym->id : dest->length);
+        auto id = (unsigned short) (p_sym->id >= 0 ? p_sym->id : this->unit_->names->length);
 
         if (emit)
             this->unit_->Emit(vm::OpCode::NGV, (unsigned char) aflags, id, loc);
 
         if (p_sym->id >= 0)
             return;
-    } else {
-        dest = this->unit_->locals;
 
-        if (emit)
-            this->unit_->Emit(vm::OpCode::STLC, (int) dest->length, nullptr, loc);
+        p_sym->id = (short) this->unit_->names->length;
+
+        if (!ListAppend(this->unit_->names, (ArObject *) name))
+            throw DatatypeException();
+
+        return;
     }
 
-    ArObject *arname;
+    if (emit)
+        this->unit_->Emit(vm::OpCode::STLC, (int) this->unit_->local.current, nullptr, loc);
 
-    if (p_sym->id >= 0)
-        arname = ListGet(!p_sym->free ? this->unit_->names : this->unit_->enclosed, p_sym->id);
-    else
-        arname = (ArObject *) IncRef(name);
+    p_sym->id = (short) this->unit_->local.current;
 
-    p_sym->id = (short) dest->length;
+    this->unit_->local.current++;
+    if (this->unit_->local.required < this->unit_->local.current)
+        this->unit_->local.required++;
 
-    if (!ListAppend(dest, arname)) {
-        Release(arname);
-
+    if (!emit && !ListAppend(this->unit_->lnames, (ArObject *) name))
         throw DatatypeException();
-    }
-
-    Release(arname);
 }
 
 void Compiler::IdentifierNew(const node::Unary *id, SymbolType type, AttributeFlag aflags, bool emit) {
@@ -1259,14 +1250,14 @@ void Compiler::CompileBlock(const node::Node *node, bool sub) {
     if (!iter)
         throw DatatypeException();
 
-    if (sub && !this->unit_->symt->NewNestedTable())
-        throw DatatypeException();
+    if (sub)
+        this->unit_->EnterSub();
 
     while ((stmt = IteratorNext(iter.Get())))
         this->Compile((const node::Node *) stmt.Get());
 
     if (sub)
-        SymbolExitNested(this->unit_->symt);
+        this->unit_->ExitSub(false);
 }
 
 void Compiler::CompileCall(const node::Call *call) {

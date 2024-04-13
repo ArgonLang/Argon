@@ -8,6 +8,8 @@
 #include <argon/vm/datatype/arstring.h>
 #include <argon/vm/datatype/code.h>
 
+#include <argon/lang/exception.h>
+
 #include <argon/lang/scanner/token.h>
 
 #include <argon/lang/compiler2/basicblock.h>
@@ -41,8 +43,8 @@ namespace argon::lang::compiler2 {
         /// External variables (global scope).
         vm::datatype::List *names;
 
-        /// Local variables (function/cycle scope).
-        vm::datatype::List *locals;
+        /// Local variables names (function parameters)
+        vm::datatype::List *lnames;
 
         /// Closure.
         vm::datatype::List *enclosed;
@@ -55,6 +57,11 @@ namespace argon::lang::compiler2 {
             unsigned int required;
             unsigned int current;
         } stack;
+
+        struct {
+            unsigned short required;
+            unsigned short current;
+        } local;
 
         struct {
             unsigned short required;
@@ -107,12 +114,24 @@ namespace argon::lang::compiler2 {
             this->Emit(vm::OpCode::POP, 0, nullptr, nullptr);
         }
 
+        void EnterSub() const {
+            if (!this->symt->NewNestedTable())
+                throw DatatypeException();
+
+            this->symt->stack->id = (short) this->local.current;
+        }
+
         void EnterSync(const scanner::Loc *loc) {
             this->Emit(vm::OpCode::SYNC, loc);
 
             this->sync_stack.current++;
             if (this->sync_stack.current > this->sync_stack.required)
                 this->sync_stack.required = this->sync_stack.current;
+        }
+
+        void ExitSub(bool merge) {
+            this->local.current = this->symt->stack->id;
+            SymbolExitNested(this->symt, merge);
         }
 
         void ExitSync() {

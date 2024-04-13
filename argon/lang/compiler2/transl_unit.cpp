@@ -2,8 +2,6 @@
 //
 // Licensed under the Apache License v2.0
 
-#include <argon/lang/exception.h>
-
 #include <argon/lang/compiler2/optimizer/optimizer.h>
 
 #include <argon/lang/compiler2/transl_unit.h>
@@ -63,7 +61,7 @@ Code *TranslationUnit::Assemble(String *docs, OptimizationLevel level) {
     this->ComputeAssemblyLength(&instr_sz, &line_sz);
 
     if (instr_sz == 0) {
-        if ((code = CodeNew(this->statics, this->names, this->locals, this->enclosed)) == nullptr)
+        if ((code = CodeNew(this->statics, this->names, this->lnames, this->enclosed, this->local.required)) == nullptr)
             throw DatatypeException();
 
         return code->SetInfo(this->name, this->qname, docs);
@@ -145,7 +143,7 @@ Code *TranslationUnit::Assemble(String *docs, OptimizationLevel level) {
         }
     }
 
-    if ((code = CodeNew(this->statics, this->names, this->locals, this->enclosed)) == nullptr) {
+    if ((code = CodeNew(this->statics, this->names, this->lnames, this->enclosed, this->local.required)) == nullptr) {
         vm::memory::Free(instr_buf);
         vm::memory::Free(line_buf);
 
@@ -392,7 +390,7 @@ TranslationUnit *argon::lang::compiler2::TranslationUnitNew(TranslationUnit *pre
             if ((tu->names = ListNew()) == nullptr)
                 goto ERROR;
 
-            if ((tu->locals = ListNew()) == nullptr)
+            if ((tu->lnames = ListNew()) == nullptr)
                 goto ERROR;
 
             if ((tu->enclosed = ListNew()) == nullptr)
@@ -410,7 +408,7 @@ TranslationUnit *argon::lang::compiler2::TranslationUnitNew(TranslationUnit *pre
     Release(tu->statics_map);
     Release(tu->statics);
     Release(tu->names);
-    Release(tu->locals);
+    Release(tu->lnames);
 
     argon::vm::memory::Free(tu->statics_usg_count);
     argon::vm::memory::Free(tu);
@@ -448,7 +446,7 @@ TranslationUnit *argon::lang::compiler2::TranslationUnitDel(TranslationUnit *uni
     Release(unit->statics_map);
     Release(unit->statics);
     Release(unit->names);
-    Release(unit->locals);
+    Release(unit->lnames);
     Release(unit->enclosed);
 
     argon::vm::memory::Free(unit->statics_usg_count);

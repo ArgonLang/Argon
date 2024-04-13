@@ -31,8 +31,8 @@ namespace argon::vm::datatype {
         /// External variables (global scope).
         Tuple *names;
 
-        /// Local variables (function/cycle scope).
-        Tuple *locals;
+        /// Local variables names (function parameters)
+        Tuple *lnames;
 
         /// Closure.
         Tuple *enclosed;
@@ -49,14 +49,17 @@ namespace argon::vm::datatype {
         /// Length of instr.
         unsigned int instr_sz;
 
-        /// Maximum size required by sync stack.
-        unsigned int sstack_sz;
-
-        /// Maximum stack size required to run this code.
-        unsigned int stack_sz;
-
         /// Length of linfo
         unsigned int linfo_sz;
+
+        /// Maximum stack size required to run this code.
+        unsigned short stack_sz;
+
+        /// Maximum stack size reserved for local variables.
+        unsigned short locals_sz;
+
+        /// Maximum size required by sync stack.
+        unsigned short sstack_sz;
 
         /// Hash value computed on buffer instr.
         ArSize hash;
@@ -130,12 +133,13 @@ namespace argon::vm::datatype {
      *
      * @param statics List of static resources (Int, String, etc...).
      * @param names Global names.
-     * @param locals Local variables.
+     * @param lnames Local variables.
      * @param enclosed Enclosed variable names (If present, this code is associate to function closure).
+     * @param locals_sz Space reserved for local variables on the stack.
      * @return A pointer to an code object, otherwise nullptr.
      */
 
-    Code *CodeNew(List *statics, List *names, List *locals, List *enclosed);
+    Code *CodeNew(List *statics, List *names, List *lnames, List *enclosed, unsigned short locals_sz);
 
     /**
      * @brief Create a new code object to wrap native function.

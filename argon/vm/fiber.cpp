@@ -60,13 +60,7 @@ Fiber *argon::vm::FiberNew(Context *context, unsigned int stack_space) {
 }
 
 Frame *argon::vm::FrameNew(Fiber *fiber, Code *code, Namespace *globals, bool floating) {
-    auto slots = code->stack_sz + code->sstack_sz;
-    ArSize locals_sz = 0;
-
-    if (code->locals != nullptr) {
-        locals_sz = code->locals->length;
-        slots += locals_sz;
-    }
+    auto slots = code->stack_sz + code->sstack_sz + code->locals_sz;
 
     auto *frame = fiber->FrameAlloc(slots, floating);
     if (frame == nullptr)
@@ -83,7 +77,7 @@ Frame *argon::vm::FrameNew(Fiber *fiber, Code *code, Namespace *globals, bool fl
 
     frame->eval_stack = frame->extra;
     frame->locals = frame->extra + code->stack_sz;
-    frame->sync_keys = frame->locals + locals_sz;
+    frame->sync_keys = frame->locals + code->locals_sz;
 
     // Set locals slots to nullptr
     slots = (slots - code->stack_sz) - code->sstack_sz;
@@ -160,7 +154,7 @@ Frame *argon::vm::FrameNew(Fiber *fiber, Function *func, ArObject **argv, ArSize
             ArObject *value = nullptr;
 
             if (kwargs != nullptr)
-                value = DictLookup(kwargs, code->locals->objects[index_locals]);
+                value = DictLookup(kwargs, code->lnames->objects[index_locals]);
 
             if (value != nullptr)
                 frame->locals[index_locals++] = value;
@@ -212,11 +206,9 @@ void argon::vm::FrameDel(Frame *frame) {
     if (frame->back != nullptr)
         frame->back->counter--;
 
-    if (code->locals != nullptr) {
-        for (ArSize i = 0; i < code->locals->length; i++) {
-            Release(locals_end);
-            locals_end++;
-        }
+    for (ArSize i = 0; i < code->locals_sz; i++) {
+        Release(locals_end);
+        locals_end++;
     }
 
     while (frame->sync_keys != locals_end) {
