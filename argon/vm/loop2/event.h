@@ -70,6 +70,16 @@ namespace argon::vm::loop2 {
         int flags;
     };
 
+    inline bool EventLess(const Event *e1, const Event *e2) {
+        if (e1->timeout < e2->timeout)
+            return true;
+
+        if (e1->timeout == e2->timeout)
+            return e1->id < e2->id;
+
+        return false;
+    }
+
     class EventQueue {
         Event *head_ = nullptr;
         Event *tail_ = nullptr;

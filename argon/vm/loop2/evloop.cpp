@@ -20,7 +20,61 @@ unsigned long long argon::vm::loop2::TimeNow() {
 }
 
 void EvLoopDispatcher(EvLoop *loop) {
+    Event *event;
 
+    while (!loop->should_stop) {
+        if (loop->io_count == 0) {
+            std::unique_lock lock(loop->lock);
+
+            loop->cond.wait(lock, [loop]() {
+                return loop->should_stop || loop->io_count > 0;
+            });
+
+            lock.unlock();
+
+            if (loop->should_stop)
+                break;
+        }
+
+        auto loop_time = TimeNow();
+        auto timeout = (long) kEventTimeout;
+
+        loop->lock.lock();
+        event = loop->event_heap.PopMin();
+        loop->lock.unlock();
+
+        if (event != nullptr) {
+            timeout = (long) (event->timeout - loop_time);
+            if (timeout < 0)
+                timeout = 0;
+        }
+
+#ifndef _ARGON_PLATFORM_WINDOWS
+        // TODO: check ProcessOutQueue(loop);
+#endif
+
+        EvLoopIOPoll(loop, timeout);
+
+        while (event != nullptr) {
+            if (loop_time < event->timeout) {
+                loop->lock.lock();
+                loop->event_heap.Insert(event);
+                loop->lock.unlock();
+
+                break;
+            }
+
+            loop->io_count--;
+
+            argon::vm::Spawn(event->fiber);
+
+            EventDel(event);
+
+            loop->lock.lock();
+            event = loop->event_heap.PopMin();
+            loop->lock.unlock();
+        }
+    }
 }
 
 // PUBLIC
