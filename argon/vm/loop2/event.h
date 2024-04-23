@@ -13,6 +13,7 @@
 
 #endif
 
+#include <argon/vm/runtime.h>
 #include <argon/vm/datatype/arobject.h>
 
 namespace argon::vm::loop2 {
@@ -38,6 +39,8 @@ namespace argon::vm::loop2 {
             Event *left;
             Event *right;
         } heap;
+
+        Fiber *fiber;
 
         EventCB callback;
 
