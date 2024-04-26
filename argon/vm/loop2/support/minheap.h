@@ -2,8 +2,8 @@
 //
 // Licensed under the Apache License v2.0
 
-#ifndef ARGON_VM_LOOP_SUPPORT_MINHEAP_H_
-#define ARGON_VM_LOOP_SUPPORT_MINHEAP_H_
+#ifndef ARGON_VM_LOOP2_SUPPORT_MINHEAP_H_
+#define ARGON_VM_LOOP2_SUPPORT_MINHEAP_H_
 
 #include <cassert>
 
@@ -232,6 +232,6 @@ namespace argon::vm::loop2::support {
             this->HeapVerify(t);
         }
     };
-} // namespace argon::vm::loop::support
+} // namespace argon::vm::loop2::support
 
-#endif // !ARGON_VM_LOOP_SUPPORT_MINHEAP_H_
+#endif // !ARGON_VM_LOOP2_SUPPORT_MINHEAP_H_

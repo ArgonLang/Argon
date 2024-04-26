@@ -87,8 +87,6 @@ namespace argon::vm::loop2 {
 
     void EvLoopQueueDel(EvLoopQueue **ev_queue);
 
-    void EvLoopProcessOut(EvLoop *loop);
-
     void EvLoopProcessEvents(EvLoop *loop, EvLoopQueue *ev_queue, EvLoopQueueDirection direction);
 
 #endif

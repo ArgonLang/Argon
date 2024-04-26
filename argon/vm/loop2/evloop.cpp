@@ -49,10 +49,6 @@ void EvLoopDispatcher(EvLoop *loop) {
                 timeout = 0;
         }
 
-#ifndef _ARGON_PLATFORM_WINDOWS
-        // TODO: check ProcessOutQueue(loop);
-#endif
-
         EvLoopIOPoll(loop, timeout);
 
         while (event != nullptr) {
@@ -106,8 +102,6 @@ Event *argon::vm::loop2::EventNew(EvLoop *loop, ArObject *initiator) {
             return nullptr;
     }
 
-    // TODO: check event->loop = loop;
-
     event->initiator = IncRef(initiator);
 
     return event;
@@ -157,6 +151,8 @@ void argon::vm::loop2::EventDel(Event *event) {
 
 void argon::vm::loop2::EvLoopShutdown() {
     default_event_loop.should_stop = true;
+
+    default_event_loop.cond.notify_all();
 }
 
 #ifndef _ARGON_PLATFORM_WINDOWS
@@ -177,10 +173,6 @@ void argon::vm::loop2::EvLoopQueueDel(EvLoopQueue **ev_queue) {
     argon::vm::memory::Free(queue);
 
     *ev_queue = nullptr;
-}
-
-void argon::vm::loop2::EvLoopProcessOut(EvLoop *loop) {
-    // TODO: Check this
 }
 
 void argon::vm::loop2::EvLoopProcessEvents(EvLoop *loop, EvLoopQueue *ev_queue, EvLoopQueueDirection direction) {
