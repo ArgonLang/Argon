@@ -52,20 +52,31 @@ namespace argon::vm::loop2 {
 
         std::atomic_uint io_count;
 
+        std::atomic_uint timer_count;
+
         EvHandle handle;
+
+        unsigned int time_id;
 
         bool should_stop;
     };
 
     extern thread_local struct Fiber *evloop_cur_fiber;
 
-    bool EvLoopAddEvent(EvLoop *loop, EvLoopQueue *ev_queue, Event *event, EvLoopQueueDirection direction);
+    bool EvLoopAddEvent(EvLoop *loop, EvLoopQueue *ev_queue, Event *event, EvLoopQueueDirection direction,
+                        unsigned int timeout);
+
+    inline bool EvLoopAddEvent(EvLoop *loop, EvLoopQueue *ev_queue, Event *event, EvLoopQueueDirection direction) {
+        return EvLoopAddEvent(loop, ev_queue, event, direction, 0);
+    }
 
     bool EvLoopInitRun();
 
     bool EvLoopInit(EvLoop *loop);
 
     bool EvLoopIOPoll(EvLoop *loop, unsigned long timeout);
+
+    bool EvLoopSetTimeout(EvLoop *loop, unsigned long long timeout);
 
     Event *EventNew(EvLoop *loop, datatype::ArObject *initiator);
 

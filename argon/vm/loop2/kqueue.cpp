@@ -14,8 +14,11 @@
 
 using namespace argon::vm::loop2;
 
-bool argon::vm::loop2::EvLoopAddEvent(EvLoop *loop, EvLoopQueue *ev_queue, Event *event, EvLoopQueueDirection direction) {
+bool argon::vm::loop2::EvLoopAddEvent(EvLoop *loop, EvLoopQueue *ev_queue, Event *event, EvLoopQueueDirection direction,
+                                      unsigned int timeout) {
     struct kevent kev[2];
+
+    event->fiber = vm::GetFiber();
 
     std::unique_lock _(ev_queue->lock);
 
@@ -34,22 +37,25 @@ bool argon::vm::loop2::EvLoopAddEvent(EvLoop *loop, EvLoopQueue *ev_queue, Event
         }
     }
 
-    auto is_empty = ev_queue->out_events.Count() == 0;
+    if (timeout > 0) {
+        loop->lock.lock();
 
-    event->fiber = vm::GetFiber();
+        event->timeout = TimeNow() + timeout;
+        event->id = loop->time_id++;
+        event->discard_on_timeout = true;
+        event->refc++;
+
+        loop->event_heap.Insert(event);
+
+        loop->lock.unlock();
+
+        loop->timer_count++;
+    }
 
     if (direction == EvLoopQueueDirection::IN)
         ev_queue->in_events.Enqueue(event);
     else
         ev_queue->out_events.Enqueue(event);
-
-    if (direction == EvLoopQueueDirection::OUT && is_empty) {
-        // TODO
-        //std::unique_lock out_lock(loop->out_lock);
-
-        //queue->next = loop->out_queues;
-        //loop->out_queues = queue;
-    }
 
     vm::SetFiberStatus(FiberStatus::BLOCKED);
 
@@ -68,7 +74,6 @@ bool argon::vm::loop2::EvLoopInit(EvLoop *loop) {
     }
 
     new(&loop->lock)std::mutex();
-    // TODO: check new(&evl->out_lock)std::mutex();
     new(&loop->cond)std::condition_variable();
 
     return true;

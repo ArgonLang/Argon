@@ -23,11 +23,11 @@ void EvLoopDispatcher(EvLoop *loop) {
     Event *event;
 
     while (!loop->should_stop) {
-        if (loop->io_count == 0) {
+        if (loop->io_count == 0 && loop->timer_count == 0) {
             std::unique_lock lock(loop->lock);
 
             loop->cond.wait(lock, [loop]() {
-                return loop->should_stop || loop->io_count > 0;
+                return loop->should_stop || loop->io_count > 0 || loop->timer_count > 0;
             });
 
             lock.unlock();
@@ -52,17 +52,33 @@ void EvLoopDispatcher(EvLoop *loop) {
         EvLoopIOPoll(loop, timeout);
 
         while (event != nullptr) {
-            if (loop_time < event->timeout) {
-                loop->lock.lock();
-                loop->event_heap.Insert(event);
-                loop->lock.unlock();
+            std::unique_lock elck(event->lock);
 
-                break;
+            if (event->timeout > 0) {
+                if (loop_time < event->timeout) {
+                    elck.unlock();
+
+                    loop->lock.lock();
+                    loop->event_heap.Insert(event);
+                    loop->lock.unlock();
+
+                    break;
+                }
+
+                if (event->discard_on_timeout) {
+                    evloop_cur_fiber = event->fiber;
+                    ErrorFormat(kTimeoutError[0], "IO operation on '%s' did not complete within the required time",
+                                event->initiator);
+
+                    event->timeout = 0;
+                }
+
+                argon::vm::Spawn(event->fiber);
+
+                loop->timer_count--;
             }
 
-            loop->io_count--;
-
-            argon::vm::Spawn(event->fiber);
+            elck.unlock();
 
             EventDel(event);
 
@@ -80,6 +96,39 @@ bool argon::vm::loop2::EvLoopInitRun() {
         return false;
 
     std::thread(EvLoopDispatcher, &default_event_loop).detach();
+
+    return true;
+}
+
+bool argon::vm::loop2::EvLoopSetTimeout(EvLoop *loop, unsigned long long timeout) {
+    auto now = TimeNow();
+
+    auto *event = EventNew(loop, nullptr);
+    if (event == nullptr)
+        return false;
+
+    vm::SetFiberStatus(FiberStatus::BLOCKED);
+
+    event->fiber = vm::GetFiber();
+    /*
+    event->callback = [](Event *event) -> CallbackStatus {
+        vm::FiberSetAsyncResult(event->fiber, nullptr);
+        return CallbackStatus::SUCCESS;
+    };
+     */
+    event->timeout = now + timeout;
+
+    loop->lock.lock();
+
+    event->id = loop->time_id++;
+
+    loop->event_heap.Insert(event);
+
+    loop->lock.unlock();
+
+    loop->timer_count++;
+
+    loop->cond.notify_one();
 
     return true;
 }
@@ -102,7 +151,11 @@ Event *argon::vm::loop2::EventNew(EvLoop *loop, ArObject *initiator) {
             return nullptr;
     }
 
+    new(&event->lock)std::mutex();
+
     event->initiator = IncRef(initiator);
+
+    event->refc = 1;
 
     return event;
 }
@@ -131,6 +184,9 @@ EvLoopQueue *argon::vm::loop2::EvLoopQueueNew(EvHandle handle) {
 void argon::vm::loop2::EventDel(Event *event) {
     auto *loop = &default_event_loop;
 
+    if (event->refc.fetch_sub(1) > 1)
+        return;
+
     Release(event->aux);
     Release(event->initiator);
 
@@ -145,6 +201,8 @@ void argon::vm::loop2::EventDel(Event *event) {
     }
 
     _.unlock();
+
+    event->lock.~mutex();
 
     argon::vm::memory::Free(event);
 }
@@ -192,19 +250,28 @@ void argon::vm::loop2::EvLoopProcessEvents(EvLoop *loop, EvLoopQueue *ev_queue, 
         if (event == nullptr)
             break;
 
-        evloop_cur_fiber = event->fiber;
+        std::unique_lock elck(event->lock);
 
-        status = event->callback(event);
-        if (status == CallbackStatus::RETRY) {
-            qlck.lock();
+        status = CallbackStatus::SUCCESS;
+        if (!event->discard_on_timeout || event->timeout > 0) {
+            evloop_cur_fiber = event->fiber;
 
-            queue->Enqueue(event);
+            status = event->callback(event);
+            if (status == CallbackStatus::RETRY) {
+                qlck.lock();
 
-            return;
+                queue->Enqueue(event);
+
+                return;
+            }
+
+            if (status != CallbackStatus::CONTINUE)
+                Spawn(event->fiber);
+
+            event->timeout = 0;
         }
 
-        if (status != CallbackStatus::CONTINUE)
-            Spawn(event->fiber);
+        elck.unlock();
 
         loop->io_count--;
 

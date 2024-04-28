@@ -33,6 +33,8 @@ namespace argon::vm::loop2 {
 #else
     struct Event {
 #endif
+        std::mutex lock;
+
         struct {
             Event *parent;
 
@@ -40,11 +42,11 @@ namespace argon::vm::loop2 {
             Event *right;
         } heap;
 
-        Fiber *fiber;
-
         EventCB callback;
 
         UserCB user_callback;
+
+        Fiber *fiber;
 
         datatype::ArObject *aux;
 
@@ -65,9 +67,13 @@ namespace argon::vm::loop2 {
 
         datatype::ArSize timeout;
 
+        std::atomic_uint refc;
+
         unsigned int id;
 
         int flags;
+
+        bool discard_on_timeout;
     };
 
     inline bool EventLess(const Event *e1, const Event *e2) {
