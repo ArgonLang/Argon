@@ -6,8 +6,6 @@
 
 #ifndef _ARGON_PLATFORM_WINDOWS
 #include <sys/un.h>
-
-#include <argon/vm/loop/evloop.h>
 #endif
 
 #include <argon/vm/runtime.h>
@@ -335,7 +333,7 @@ bool socket_dtor(Socket *self) {
     }
 
 #ifndef _ARGON_PLATFORM_WINDOWS
-    argon::vm::loop::EventQueueDel(&self->queue);
+    argon::vm::loop2::EvLoopQueueDel(&self->queue);
 #endif
 
     return true;

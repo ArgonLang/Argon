@@ -65,20 +65,23 @@ void EvLoopDispatcher(EvLoop *loop) {
                     break;
                 }
 
+                loop->timer_count--;
+
                 if (event->discard_on_timeout) {
                     evloop_cur_fiber = event->fiber;
                     ErrorFormat(kTimeoutError[0], "IO operation on '%s' did not complete within the required time",
                                 event->initiator);
 
                     event->timeout = 0;
+
+                    if (event->user_callback != nullptr)
+                        event->user_callback(event, event->aux, ETIMEDOUT);
                 }
 
+                elck.unlock();
+
                 argon::vm::Spawn(event->fiber);
-
-                loop->timer_count--;
             }
-
-            elck.unlock();
 
             EventDel(event);
 

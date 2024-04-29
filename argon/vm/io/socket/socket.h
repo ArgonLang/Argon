@@ -21,8 +21,7 @@
 #include <netinet/in.h>
 #include <sys/socket.h>
 
-#include <argon/vm/loop/event.h>
-#include <argon/vm/loop/evloop.h>
+#include <argon/vm/loop2/evloop.h>
 
 #endif
 
@@ -68,7 +67,7 @@ namespace argon::vm::io::socket {
         LPFN_ACCEPTEX AcceptEx;
         LPFN_CONNECTEX ConnectEx;
 #else
-        loop::EventQueue *queue;
+        loop2::EvLoopQueue *queue;
 #endif
     };
 
@@ -94,7 +93,7 @@ namespace argon::vm::io::socket {
 
     bool RecvAll(Socket *sock, int flags);
 
-    bool RecvCB(Socket *sock, datatype::ArObject * user_data, loop::UserCB callback,
+    bool RecvCB(Socket *sock, datatype::ArObject * user_data, loop2::UserCB callback,
                 unsigned char *buffer, size_t len, int flags);
 
     bool RecvInto(Socket *sock, datatype::ArObject *buffer, int offset, int flags);
@@ -105,10 +104,10 @@ namespace argon::vm::io::socket {
 
     bool Send(Socket *sock, unsigned char *buffer, long size, int flags);
 
-    bool SendCB(Socket * sock, datatype::ArObject * user_data, loop::UserCB callback,
+    bool SendCB(Socket * sock, datatype::ArObject * user_data, loop2::UserCB callback,
                 unsigned char *buffer, size_t len, int flags);
 
-    bool SendRecvCB(Socket *sock, datatype::ArObject *user_data, loop::UserCB recv_cb,
+    bool SendRecvCB(Socket *sock, datatype::ArObject *user_data, loop2::UserCB recv_cb,
                     unsigned char *buffer, size_t len, size_t capacity);
 
     bool SendTo(Socket *sock, datatype::ArObject *dest, datatype::ArObject *buffer, long size, int flags);

@@ -4,7 +4,7 @@
 
 #include <chrono>
 
-#include <argon/vm/loop/evloop.h>
+#include <argon/vm/loop2/evloop.h>
 
 #undef CONST
 
@@ -38,7 +38,7 @@ ARGON_FUNCTION(chrono_sleep, sleep,
     if (timeout == 0)
         return (ArObject *) IncRef(Nil);
 
-    argon::vm::loop::EventLoopSetTimeout(argon::vm::loop::GetEventLoop(), timeout);
+    argon::vm::loop2::EvLoopSetTimeout(argon::vm::loop2::EvLoopGet(), timeout);
 
     return nullptr;
 }

@@ -28,7 +28,7 @@
 #include <argon/vm/datatype/error.h>
 #include <argon/vm/datatype/future.h>
 
-#include <argon/vm/loop/evloop.h>
+#include <argon/vm/loop2/evloop.h>
 
 #include <argon/vm/setup.h>
 
@@ -127,7 +127,7 @@ void VCoreRelease(OSThread *);
     if (ost_local != nullptr)
 
 #define ON_EVENT_DISPATCHER \
-    if(loop::evloop_cur_fiber != nullptr)
+    if(loop2::evloop_cur_fiber != nullptr)
 
 #define PUSH_LCQUEUE(vcore, fiber)          \
     do {                                    \
@@ -634,8 +634,8 @@ ArObject *argon::vm::GetLastError() {
 
     if (ost_local != nullptr)
         fiber = ost_local->fiber;
-    else if (loop::evloop_cur_fiber != nullptr)
-        fiber = loop::evloop_cur_fiber;
+    else if (loop2::evloop_cur_fiber != nullptr)
+        fiber = loop2::evloop_cur_fiber;
 
     if (fiber != nullptr) {
         if (fiber->panic == nullptr)
@@ -847,8 +847,8 @@ bool argon::vm::CheckLastPanic(const char *id) {
 
     if (ost_local != nullptr)
         last = &ost_local->fiber->panic;
-    else if (loop::evloop_cur_fiber != nullptr)
-        last = &loop::evloop_cur_fiber->panic;
+    else if (loop2::evloop_cur_fiber != nullptr)
+        last = &loop2::evloop_cur_fiber->panic;
 
     if (last == nullptr || !AR_TYPEOF((*last)->object, type_error_))
         return false;
@@ -882,7 +882,7 @@ bool argon::vm::Initialize(const Config *config) {
     if (!Setup())
         return false;
 
-    if (!loop::EventLoopInit())
+    if (!loop2::EvLoopInitRun())
         return false;
 
     // TODO: panic_oom
@@ -893,7 +893,7 @@ bool argon::vm::Initialize(const Config *config) {
 bool argon::vm::IsPanicking() {
     ON_ARGON_CONTEXT return ost_local->fiber->panic != nullptr;
 
-    ON_EVENT_DISPATCHER return loop::evloop_cur_fiber->panic != nullptr;
+    ON_EVENT_DISPATCHER return loop2::evloop_cur_fiber->panic != nullptr;
 
     return panic_global != nullptr;
 }
@@ -912,7 +912,7 @@ bool argon::vm::IsPanickingFrame() {
 bool argon::vm::Shutdown() {
     short attempt = 10;
 
-    loop::EventLoopShutdown();
+    loop2::EvLoopShutdown();
 
     should_stop = true;
     ost_cond.notify_all();
@@ -952,7 +952,7 @@ bool argon::vm::Spawn(Function *func, ArObject **argv, ArSize argc, OpCodeCallMo
 Fiber *argon::vm::GetFiber() {
     ON_ARGON_CONTEXT return ost_local->fiber;
 
-    ON_EVENT_DISPATCHER return loop::evloop_cur_fiber;
+    ON_EVENT_DISPATCHER return loop2::evloop_cur_fiber;
 
     return nullptr;
 }
@@ -960,7 +960,7 @@ Fiber *argon::vm::GetFiber() {
 FiberStatus argon::vm::GetFiberStatus() {
     ON_ARGON_CONTEXT return ost_local->fiber_status;
 
-    ON_EVENT_DISPATCHER return loop::evloop_cur_fiber->status;
+    ON_EVENT_DISPATCHER return loop2::evloop_cur_fiber->status;
 
     assert(false);
 }
@@ -968,7 +968,7 @@ FiberStatus argon::vm::GetFiberStatus() {
 Frame *argon::vm::GetFrame() {
     ON_ARGON_CONTEXT return ost_local->fiber->frame;
 
-    ON_EVENT_DISPATCHER return loop::evloop_cur_fiber->frame;
+    ON_EVENT_DISPATCHER return loop2::evloop_cur_fiber->frame;
 
     return nullptr;
 }
@@ -989,7 +989,7 @@ void argon::vm::DiscardLastPanic() {
     }
 
     ON_EVENT_DISPATCHER {
-        PanicCleanup(&loop::evloop_cur_fiber->panic);
+        PanicCleanup(&loop2::evloop_cur_fiber->panic);
         return;
     }
 
@@ -1002,8 +1002,8 @@ void argon::vm::Panic(datatype::ArObject *panic) {
 
     if (ost_local != nullptr)
         fiber = ost_local->fiber;
-    else if (loop::evloop_cur_fiber != nullptr)
-        fiber = loop::evloop_cur_fiber;
+    else if (loop2::evloop_cur_fiber != nullptr)
+        fiber = loop2::evloop_cur_fiber;
 
     if (fiber != nullptr) {
         if ((fiber->panic = PanicNew(fiber->panic, fiber->frame, panic)) == nullptr)
@@ -1024,7 +1024,7 @@ void argon::vm::SetFiberStatus(FiberStatus status) {
         return;
     }
 
-    ON_EVENT_DISPATCHER loop::evloop_cur_fiber->status = status;
+    ON_EVENT_DISPATCHER loop2::evloop_cur_fiber->status = status;
 }
 
 void argon::vm::Spawn(argon::vm::Fiber *fiber) {
