@@ -38,7 +38,7 @@ ARGON_FUNCTION(chrono_sleep, sleep,
     if (timeout == 0)
         return (ArObject *) IncRef(Nil);
 
-    argon::vm::loop2::EvLoopSetTimeout(argon::vm::loop2::EvLoopGet(), timeout);
+    argon::vm::loop2::SetTimeout(argon::vm::loop2::EvLoopGet(), timeout);
 
     return nullptr;
 }

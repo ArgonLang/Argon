@@ -49,7 +49,7 @@ void EvLoopDispatcher(EvLoop *loop) {
                 timeout = 0;
         }
 
-        EvLoopIOPoll(loop, timeout);
+        IOPoll(loop, timeout);
 
         while (event != nullptr) {
             std::unique_lock elck(event->lock);
@@ -103,7 +103,7 @@ bool argon::vm::loop2::EvLoopInitRun() {
     return true;
 }
 
-bool argon::vm::loop2::EvLoopSetTimeout(EvLoop *loop, unsigned long long timeout) {
+bool argon::vm::loop2::SetTimeout(EvLoop *loop, unsigned long long timeout) {
     auto now = TimeNow();
 
     auto *event = EventNew(loop, nullptr);
@@ -169,7 +169,7 @@ EvLoop *argon::vm::loop2::EvLoopGet() {
 
 #ifndef _ARGON_PLATFORM_WINDOWS
 
-EvLoopQueue *argon::vm::loop2::EvLoopQueueNew(EvHandle handle) {
+EvLoopQueue *argon::vm::loop2::QueueNew(EvHandle handle) {
     EvLoopQueue *evLoopQueue;
 
     if ((evLoopQueue = (EvLoopQueue *) argon::vm::memory::Calloc(sizeof(EvLoopQueue))) == nullptr)
@@ -210,7 +210,7 @@ void argon::vm::loop2::EventDel(Event *event) {
     argon::vm::memory::Free(event);
 }
 
-void argon::vm::loop2::EvLoopShutdown() {
+void argon::vm::loop2::Shutdown() {
     default_event_loop.should_stop = true;
 
     default_event_loop.cond.notify_all();
@@ -218,7 +218,7 @@ void argon::vm::loop2::EvLoopShutdown() {
 
 #ifndef _ARGON_PLATFORM_WINDOWS
 
-void argon::vm::loop2::EvLoopQueueDel(EvLoopQueue **ev_queue) {
+void argon::vm::loop2::QueueDel(EvLoopQueue **ev_queue) {
     auto *queue = *ev_queue;
 
     Event *event;
@@ -236,7 +236,7 @@ void argon::vm::loop2::EvLoopQueueDel(EvLoopQueue **ev_queue) {
     *ev_queue = nullptr;
 }
 
-void argon::vm::loop2::EvLoopProcessEvents(EvLoop *loop, EvLoopQueue *ev_queue, EvLoopQueueDirection direction) {
+void argon::vm::loop2::ProcessEvents(EvLoop *loop, EvLoopQueue *ev_queue, EvLoopQueueDirection direction) {
     auto *queue = &ev_queue->in_events;
     CallbackStatus status;
 

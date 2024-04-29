@@ -14,8 +14,8 @@
 
 using namespace argon::vm::loop2;
 
-bool argon::vm::loop2::EvLoopAddEvent(EvLoop *loop, EvLoopQueue *ev_queue, Event *event, EvLoopQueueDirection direction,
-                                      unsigned int timeout) {
+bool argon::vm::loop2::AddEvent(EvLoop *loop, EvLoopQueue *ev_queue, Event *event, EvLoopQueueDirection direction,
+                                unsigned int timeout) {
     struct kevent kev[2];
 
     event->fiber = vm::GetFiber();
@@ -81,7 +81,7 @@ bool argon::vm::loop2::EvLoopInit(EvLoop *loop) {
     return true;
 }
 
-bool argon::vm::loop2::EvLoopIOPoll(EvLoop *loop, unsigned long timeout) {
+bool argon::vm::loop2::IOPoll(EvLoop *loop, unsigned long timeout) {
     struct kevent events[kMaxEvents];
     struct kevent kev[2];
     timespec ts{};
@@ -102,9 +102,9 @@ bool argon::vm::loop2::EvLoopIOPoll(EvLoop *loop, unsigned long timeout) {
         auto *ev_queue = (EvLoopQueue *) events[i].udata;
 
         if (events[i].filter == EVFILT_READ)
-            EvLoopProcessEvents(loop, ev_queue, EvLoopQueueDirection::IN);
+            ProcessEvents(loop, ev_queue, EvLoopQueueDirection::IN);
         else if (events[i].filter == EVFILT_WRITE)
-            EvLoopProcessEvents(loop, ev_queue, EvLoopQueueDirection::OUT);
+            ProcessEvents(loop, ev_queue, EvLoopQueueDirection::OUT);
 
         std::unique_lock _(ev_queue->lock);
 

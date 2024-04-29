@@ -14,7 +14,7 @@
 
 using namespace argon::vm::loop2;
 
-bool argon::vm::loop2::EvLoopAddEvent(EvLoop *loop, EvLoopQueue *ev_queue, Event *event, EvLoopQueueDirection direction,
+bool argon::vm::loop2::AddEvent(EvLoop *loop, EvLoopQueue *ev_queue, Event *event, EvLoopQueueDirection direction,
                                       unsigned int timeout) {
     epoll_event ep_event{};
 
@@ -81,7 +81,7 @@ bool argon::vm::loop2::EvLoopInit(EvLoop *loop) {
     return true;
 }
 
-bool argon::vm::loop2::EvLoopIOPoll(EvLoop *loop, unsigned long timeout) {
+bool argon::vm::loop2::IOPoll(EvLoop *loop, unsigned long timeout) {
     epoll_event events[kMaxEvents];
 
     auto ret = epoll_wait(loop->handle, events, kMaxEvents, (int) timeout);
@@ -97,10 +97,10 @@ bool argon::vm::loop2::EvLoopIOPoll(EvLoop *loop, unsigned long timeout) {
         auto *ev_queue = (EvLoopQueue *) events[i].data.ptr;
 
         if (events[i].events & EPOLLIN)
-            EvLoopProcessEvents(loop, ev_queue, EvLoopQueueDirection::IN);
+            ProcessEvents(loop, ev_queue, EvLoopQueueDirection::IN);
 
         if (events[i].events & EPOLLOUT)
-            EvLoopProcessEvents(loop, ev_queue, EvLoopQueueDirection::OUT);
+            ProcessEvents(loop, ev_queue, EvLoopQueueDirection::OUT);
 
         std::unique_lock _(ev_queue->lock);
 

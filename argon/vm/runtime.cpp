@@ -912,7 +912,7 @@ bool argon::vm::IsPanickingFrame() {
 bool argon::vm::Shutdown() {
     short attempt = 10;
 
-    loop2::EvLoopShutdown();
+    loop2::Shutdown();
 
     should_stop = true;
     ost_cond.notify_all();

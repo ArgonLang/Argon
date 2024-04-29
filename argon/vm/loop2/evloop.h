@@ -11,7 +11,6 @@
 namespace argon::vm::loop2 {
     constexpr const unsigned int kEventTimeout = 24;    // millisecond
     constexpr const unsigned int kMaxFreeEvents = 1024;
-    constexpr const unsigned int kMaxFreeTasks = 128;
 
 #ifdef _ARGON_PLATFORM_WINDOWS
 
@@ -63,20 +62,20 @@ namespace argon::vm::loop2 {
 
     extern thread_local struct Fiber *evloop_cur_fiber;
 
-    bool EvLoopAddEvent(EvLoop *loop, EvLoopQueue *ev_queue, Event *event, EvLoopQueueDirection direction,
-                        unsigned int timeout);
+    bool AddEvent(EvLoop *loop, EvLoopQueue *ev_queue, Event *event, EvLoopQueueDirection direction,
+                  unsigned int timeout);
 
-    inline bool EvLoopAddEvent(EvLoop *loop, EvLoopQueue *ev_queue, Event *event, EvLoopQueueDirection direction) {
-        return EvLoopAddEvent(loop, ev_queue, event, direction, 0);
+    inline bool AddEvent(EvLoop *loop, EvLoopQueue *ev_queue, Event *event, EvLoopQueueDirection direction) {
+        return AddEvent(loop, ev_queue, event, direction, 0);
     }
 
     bool EvLoopInitRun();
 
     bool EvLoopInit(EvLoop *loop);
 
-    bool EvLoopIOPoll(EvLoop *loop, unsigned long timeout);
+    bool IOPoll(EvLoop *loop, unsigned long timeout);
 
-    bool EvLoopSetTimeout(EvLoop *loop, unsigned long long timeout);
+    bool SetTimeout(EvLoop *loop, unsigned long long timeout);
 
     Event *EventNew(EvLoop *loop, datatype::ArObject *initiator);
 
@@ -84,7 +83,7 @@ namespace argon::vm::loop2 {
 
 #ifndef _ARGON_PLATFORM_WINDOWS
 
-    EvLoopQueue *EvLoopQueueNew(EvHandle handle);
+    EvLoopQueue *QueueNew(EvHandle handle);
 
 #endif
 
@@ -92,13 +91,13 @@ namespace argon::vm::loop2 {
 
     void EventDel(Event *event);
 
-    void EvLoopShutdown();
+    void Shutdown();
 
 #ifndef _ARGON_PLATFORM_WINDOWS
 
-    void EvLoopQueueDel(EvLoopQueue **ev_queue);
+    void QueueDel(EvLoopQueue **ev_queue);
 
-    void EvLoopProcessEvents(EvLoop *loop, EvLoopQueue *ev_queue, EvLoopQueueDirection direction);
+    void ProcessEvents(EvLoop *loop, EvLoopQueue *ev_queue, EvLoopQueueDirection direction);
 
 #endif
 
