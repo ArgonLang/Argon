@@ -4,9 +4,9 @@
 
 #include <argon/util/macros.h>
 
-#ifdef _ARGON_PLATFORM_DARWIN
+#ifdef _ARGON_PLATFORM_LINUX
 
-#include <sys/event.h>
+#include <sys/epoll.h>
 
 #include <argon/vm/runtime.h>
 
@@ -16,17 +16,17 @@ using namespace argon::vm::loop2;
 
 bool argon::vm::loop2::EvLoopAddEvent(EvLoop *loop, EvLoopQueue *ev_queue, Event *event, EvLoopQueueDirection direction,
                                       unsigned int timeout) {
-    struct kevent kev[2];
+    epoll_event ep_event{};
 
     event->fiber = vm::GetFiber();
 
     std::unique_lock _(ev_queue->lock);
 
     if (ev_queue->in_events.Count() == 0 && ev_queue->out_events.Count() == 0) {
-        EV_SET(kev, ev_queue->handle, EVFILT_READ, EV_ADD | EV_CLEAR, 0, 0, ev_queue);
-        EV_SET(kev + 1, ev_queue->handle, EVFILT_WRITE, EV_ADD | EV_CLEAR, 0, 0, ev_queue);
+        ep_event.events = EPOLLOUT | EPOLLIN | EPOLLET;
+        ep_event.data.ptr = ev_queue;
 
-        if (kevent(loop->handle, kev, 2, nullptr, 0, nullptr) < 0) {
+        if (epoll_ctl(loop->handle, EPOLL_CTL_ADD, ev_queue->handle, &ep_event) < 0) {
             _.unlock();
 
             vm::SetFiberStatus(FiberStatus::RUNNING);
@@ -69,7 +69,7 @@ bool argon::vm::loop2::EvLoopAddEvent(EvLoop *loop, EvLoopQueue *ev_queue, Event
 }
 
 bool argon::vm::loop2::EvLoopInit(EvLoop *loop) {
-    if ((loop->handle = kqueue()) < 0) {
+    if ((loop->handle = epoll_create1(EPOLL_CLOEXEC)) < 0) {
         datatype::ErrorFromErrno(errno);
 
         return false;
@@ -82,14 +82,9 @@ bool argon::vm::loop2::EvLoopInit(EvLoop *loop) {
 }
 
 bool argon::vm::loop2::EvLoopIOPoll(EvLoop *loop, unsigned long timeout) {
-    struct kevent events[kMaxEvents];
-    struct kevent kev[2];
-    timespec ts{};
+    epoll_event events[kMaxEvents];
 
-    ts.tv_sec = (long) timeout / 1000;
-    ts.tv_nsec = (long) ((timeout % 1000) * 1000000);
-
-    auto ret = kevent(loop->handle, nullptr, 0, events, kMaxEvents, &ts);
+    auto ret = epoll_wait(loop->handle, events, kMaxEvents, (int) timeout);
     if (ret < 0) {
         if (errno == EINTR)
             return false; // Try again
@@ -99,22 +94,19 @@ bool argon::vm::loop2::EvLoopIOPoll(EvLoop *loop, unsigned long timeout) {
     }
 
     for (int i = 0; i < ret; i++) {
-        auto *ev_queue = (EvLoopQueue *) events[i].udata;
+        auto *ev_queue = (EvLoopQueue *) events[i].data.ptr;
 
-        if (events[i].filter == EVFILT_READ)
+        if (events[i].events & EPOLLIN)
             EvLoopProcessEvents(loop, ev_queue, EvLoopQueueDirection::IN);
-        else if (events[i].filter == EVFILT_WRITE)
+
+        if (events[i].events & EPOLLOUT)
             EvLoopProcessEvents(loop, ev_queue, EvLoopQueueDirection::OUT);
 
         std::unique_lock _(ev_queue->lock);
 
-        if (ev_queue->in_events.Count() == 0 && ev_queue->out_events.Count() == 0) {
-            EV_SET(kev, ev_queue->handle, EVFILT_READ, EV_DELETE, 0, 0, nullptr);
-            EV_SET(kev + 1, ev_queue->handle, EVFILT_WRITE, EV_DELETE, 0, 0, nullptr);
-
-            if (kevent(loop->handle, kev, 2, nullptr, 0, nullptr) < 0)
-                assert(false); // Never get here!
-        }
+        if (ev_queue->in_events.Count() == 0 && ev_queue->out_events.Count() == 0 &&
+            epoll_ctl(loop->handle, EPOLL_CTL_DEL, ev_queue->handle, nullptr) < 0)
+            assert(false); // Never get here!
     }
 
     return true;
