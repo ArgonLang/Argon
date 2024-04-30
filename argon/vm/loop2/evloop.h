@@ -5,6 +5,8 @@
 #ifndef ARGON_VM_LOOP2_EVLOOP_H_
 #define ARGON_VM_LOOP2_EVLOOP_H_
 
+#include <condition_variable>
+
 #include <argon/util/macros.h>
 
 #include <argon/vm/loop2/support/minheap.h>

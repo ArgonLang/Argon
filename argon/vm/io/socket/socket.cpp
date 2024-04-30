@@ -5,7 +5,9 @@
 #include <argon/util/macros.h>
 
 #ifndef _ARGON_PLATFORM_WINDOWS
+
 #include <sys/un.h>
+
 #endif
 
 #include <argon/vm/runtime.h>
@@ -132,7 +134,7 @@ ARGON_METHOD(socket_listen, listen,
              "i: backlog", false, false) {
     const auto *self = (Socket *) _self;
 
-    if (!Listen(self, (int)((Integer *) *args)->sint))
+    if (!Listen(self, (int) ((Integer *) *args)->sint))
         return nullptr;
 
     return IncRef(_self);
@@ -146,7 +148,7 @@ ARGON_METHOD_INHERITED(socket_read, read) {
     if (bufsize < 0)
         RecvAll(self, 0);
     else
-        Recv(self, bufsize, 0);
+        Recv(self, bufsize, 0, 0);
 
     return nullptr;
 }
@@ -159,7 +161,7 @@ ARGON_METHOD_INHERITED(socket_readinto, readinto) {
     if (offset < 0)
         offset = 0;
 
-    RecvInto(self, args[0], (int) offset, 0);
+    RecvInto(self, args[0], (int) offset, 0, 0);
 
     return nullptr;
 }
@@ -170,16 +172,21 @@ ARGON_METHOD(socket_recv, recv,
              "- Parameters:\n"
              "  - size: Buffer size.\n"
              "  - flags: Flags.\n"
+             "- KWParameters:\n"
+             "  - timeout: Maximum time(ms) to wait for incoming data on the socket.\n"
              "- Returns: Bytes object.\n",
-             "i: size, i: flags", false, false) {
+             "i: size, i: flags", false, true) {
     auto *self = (Socket *) _self;
+    auto bufsize = ((Integer *) args[0])->sint;
 
-    IntegerUnderlying bufsize = ((Integer *) args[0])->sint;
+    auto timeout = (int) DictLookupInt((Dict *) kwargs, "timeout", 0);
+    if (timeout < 0)
+        timeout = 0;
 
     if (bufsize < 0)
         ErrorFormat(kValueError[0], "size cannot be less than zero");
     else
-        Recv(self, bufsize, (int) ((Integer *) args[1])->sint);
+        Recv(self, bufsize, (int) ((Integer *) args[1])->sint, timeout);
 
     return nullptr;
 }
@@ -190,16 +197,42 @@ ARGON_METHOD(socket_recvfrom, recvfrom,
              "- Parameters:\n"
              "  - size: Buffer size.\n"
              "  - flags: Flags.\n"
+             "- KWParameters:\n"
+             "  - timeout: Maximum time(ms) to wait for incoming data on the socket.\n"
              "- Returns: Bytes object.\n",
-             "i: size, i: flags", false, false) {
+             "i: size, i: flags", false, true) {
     auto *self = (Socket *) _self;
+    auto bufsize = ((Integer *) args[0])->sint;
 
-    IntegerUnderlying bufsize = ((Integer *) args[0])->sint;
+    auto timeout = (int) DictLookupInt((Dict *) kwargs, "timeout", 0);
+    if (timeout < 0)
+        timeout = 0;
 
     if (bufsize < 0)
         ErrorFormat(kValueError[0], "size cannot be less than zero");
     else
-        RecvFrom(self, bufsize, (int) ((Integer *) args[1])->sint);
+        RecvFrom(self, bufsize, (int) ((Integer *) args[1])->sint, timeout);
+
+    return nullptr;
+}
+
+ARGON_METHOD(socket_recvinto, recvinto,
+             "Receive data from socket into a pre-allocated, writable bytes-like object.\n"
+             "\n"
+             "- Parameters:\n"
+             "  - obj: Bytes-like writable object.\n"
+             "  - flags: Flags.\n"
+             "- KWParameters:\n"
+             "  - timeout: Maximum time(ms) to wait for incoming data on the socket.\n"
+             "- Returns: Bytes object.\n",
+             ": obj, i: flags", false, true) {
+    auto *self = (Socket *) _self;
+
+    auto timeout = (int) DictLookupInt((Dict *) kwargs, "timeout", 0);
+    if (timeout < 0)
+        timeout = 0;
+
+    RecvInto(self, args[0], 0, (int) ((Integer *) args[1])->sint, timeout);
 
     return nullptr;
 }
@@ -211,11 +244,16 @@ ARGON_METHOD(socket_send, send,
              "  - buffer: Bytes-like object.\n"
              "  - nbytes: Maximum number of bytes to send, if omitted the value is equal to the length of the buffer.\n"
              "  - flags: Flags.\n"
+             "- KWParameters:\n"
+             "  - timeout: Maximum time(ms) allowed for data transmission over the socket.\n"
              "- Returns: Bytes sent.\n",
-             ": obj, i: nbytes, i: flags", false, false) {
+             ": obj, i: nbytes, i: flags", false, true) {
     auto *self = (Socket *) _self;
+    auto timeout = (int) DictLookupInt((Dict *) kwargs, "timeout", 0);
+    if (timeout < 0)
+        timeout = 0;
 
-    Send(self, *args, ((Integer *) args[2])->sint, (int) ((Integer *) args[2])->sint);
+    Send(self, *args, ((Integer *) args[2])->sint, (int) ((Integer *) args[2])->sint, timeout);
 
     return nullptr;
 }
@@ -228,11 +266,16 @@ ARGON_METHOD(socket_sendto, sendto,
              "  - buffer: Bytes-like object.\n"
              "  - nbytes: Maximum number of bytes to send, if omitted the value is equal to the length of the buffer.\n"
              "  - flags: Flags.\n"
+             "- KWParameters:\n"
+             "  - timeout: Maximum time(ms) allowed for data transmission over the socket.\n"
              "- Returns: Bytes sent.\n",
-             " : dest, : obj, i: nbytes, i: flags", false, false) {
+             " : dest, : obj, i: nbytes, i: flags", false, true) {
     auto *self = (Socket *) _self;
+    auto timeout = (int) DictLookupInt((Dict *) kwargs, "timeout", 0);
+    if (timeout < 0)
+        timeout = 0;
 
-    SendTo(self, args[0], args[1], ((Integer *) args[2])->sint, (int) ((Integer *) args[3])->sint);
+    SendTo(self, args[0], args[1], ((Integer *) args[2])->sint, (int) ((Integer *) args[3])->sint, timeout);
 
     return nullptr;
 }
@@ -240,17 +283,37 @@ ARGON_METHOD(socket_sendto, sendto,
 ARGON_METHOD(socket_setinheritable, setinherit,
              "Set the inheritable flag of the socket.\n"
              "\n"
-             "- Parameters:\n"
-             "  - inheritable: Set inheritable mode (true|false).\n",
+             "- Parameter inheritable: Set inheritable mode (true|false).\n",
              "b: inheritable", false, false) {
-    return (ArObject *) SetInheritable(((Socket *) *args), ArBoolToBool((Boolean *) args[1]));
+    if (!SetInheritable(((Socket *) *args), ArBoolToBool((Boolean *) args[1])))
+        return nullptr;
+
+    return (ArObject *) IncRef(Nil);
+}
+
+ARGON_METHOD(socket_settimeout, settimeout,
+             "Set a timeout value in ms for socket operations.\n"
+             "\n"
+             "To remove timeout settings, use a negative number or zero."
+             "\n"
+             "- Parameters timeout: Maximum time(ms) before returning with a timeout panic.\n",
+             "i: timeout", false, false) {
+    auto *self = (Socket *) _self;
+    auto timeout = (int) ((Integer *) args[0])->sint;
+
+    if (timeout < 0)
+        timeout = 0;
+
+    self->timeout = timeout;
+
+    return (ArObject *) IncRef(Nil);
 }
 
 // Inherited from Writer trait
 ARGON_METHOD_INHERITED(socket_write, write) {
     auto *self = (Socket *) _self;
 
-    Send(self, *args, -1, 0);
+    Send(self, *args, -1, 0, 0);
 
     return nullptr;
 }
@@ -269,9 +332,11 @@ const FunctionDef sock_methods[] = {
         socket_readinto,
         socket_recv,
         socket_recvfrom,
+        socket_recvinto,
         socket_send,
         socket_sendto,
         socket_setinheritable,
+        socket_settimeout,
         socket_write,
         ARGON_METHOD_SENTINEL
 };
@@ -289,6 +354,8 @@ ArObject *sock_member_get_sockname(const Socket *sock) {
 }
 
 const MemberDef sock_members[] = {
+        ARGON_MEMBER("timeout", MemberType::INT, offsetof(Socket, timeout), true),
+
         ARGON_MEMBER_GETSET("inheritable", (MemberGetFn) sock_member_get_inheritable, nullptr),
         ARGON_MEMBER_GETSET("peername", (MemberGetFn) sock_member_get_peername, nullptr),
         ARGON_MEMBER_GETSET("sockname", (MemberGetFn) sock_member_get_sockname, nullptr),
@@ -333,7 +400,7 @@ bool socket_dtor(Socket *self) {
     }
 
 #ifndef _ARGON_PLATFORM_WINDOWS
-    argon::vm::loop2::EvLoopQueueDel(&self->queue);
+    argon::vm::loop2::QueueDel(&self->queue);
 #endif
 
     return true;
@@ -386,8 +453,8 @@ ArObject *argon::vm::io::socket::SockAddrToAddr(sockaddr_storage *storage, int f
                                          ntohs(addr->sin6_scope_id));
         }
 #ifndef _ARGON_PLATFORM_WINDOWS
-            case AF_UNIX:
-                return (ArObject *) StringNew(((sockaddr_un *) storage)->sun_path);
+        case AF_UNIX:
+            return (ArObject *) StringNew(((sockaddr_un *) storage)->sun_path);
 #endif
         default:
             ErrorFormat(kOSError[0], "unsupported address family");

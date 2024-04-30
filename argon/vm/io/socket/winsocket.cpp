@@ -574,8 +574,11 @@ bool argon::vm::io::socket::Listen(const Socket *sock, int backlog) {
     return listen(sock->sock, backlog) == 0;
 }
 
-bool argon::vm::io::socket::Recv(Socket *sock, size_t len, int flags) {
+bool argon::vm::io::socket::Recv(Socket *sock, size_t len, int flags, int timeout) {
     Event *ovr;
+
+    if (timeout == 0)
+        timeout = sock->timeout;
 
     if ((ovr = EventNew(EvLoopGet(), (ArObject *) sock)) == nullptr)
         return false;
@@ -593,7 +596,7 @@ bool argon::vm::io::socket::Recv(Socket *sock, size_t len, int flags) {
 
     ovr->flags = flags;
 
-    return AddEvent(EvLoopGet(), ovr);
+    return AddEvent(EvLoopGet(), ovr, timeout);
 }
 
 bool argon::vm::io::socket::RecvAll(Socket *sock, int flags) {
@@ -642,8 +645,11 @@ bool argon::vm::io::socket::RecvCB(Socket *sock, ArObject *user_data, loop2::Use
     return AddEvent(EvLoopGet(), ovr);
 }
 
-bool argon::vm::io::socket::RecvFrom(Socket *sock, size_t len, int flags) {
+bool argon::vm::io::socket::RecvFrom(Socket *sock, size_t len, int flags, int timeout) {
     Event *ovr;
+
+    if (timeout == 0)
+        timeout = sock->timeout;
 
     if ((ovr = EventNew(EvLoopGet(), (ArObject *) sock)) == nullptr)
         return false;
@@ -670,13 +676,16 @@ bool argon::vm::io::socket::RecvFrom(Socket *sock, size_t len, int flags) {
 
     ovr->flags = flags;
 
-    return AddEvent(EvLoopGet(), ovr);
+    return AddEvent(EvLoopGet(), ovr, timeout);
 }
 
-bool argon::vm::io::socket::RecvInto(Socket *sock, datatype::ArObject *buffer, int offset, int flags) {
+bool argon::vm::io::socket::RecvInto(Socket *sock, datatype::ArObject *buffer, int offset, int flags, int timeout) {
     Event *ovr = EventNew(EvLoopGet(), (ArObject *) sock);
     if (ovr == nullptr)
         return false;
+
+    if (timeout == 0)
+        timeout = sock->timeout;
 
     if (!BufferGet(buffer, &ovr->buffer.arbuf, BufferFlags::WRITE)) {
         EventDel(ovr);
@@ -701,11 +710,14 @@ bool argon::vm::io::socket::RecvInto(Socket *sock, datatype::ArObject *buffer, i
 
     ovr->flags = flags;
 
-    return AddEvent(EvLoopGet(), ovr);
+    return AddEvent(EvLoopGet(), ovr, timeout);
 }
 
-bool argon::vm::io::socket::Send(Socket *sock, datatype::ArObject *buffer, long size, int flags) {
+bool argon::vm::io::socket::Send(Socket *sock, datatype::ArObject *buffer, long size, int flags, int timeout) {
     Event *ovr;
+
+    if (timeout == 0)
+        timeout = sock->timeout;
 
     if ((ovr = EventNew(EvLoopGet(), (ArObject *) sock)) == nullptr)
         return false;
@@ -725,7 +737,7 @@ bool argon::vm::io::socket::Send(Socket *sock, datatype::ArObject *buffer, long 
     ovr->callback = SendStarter;
     ovr->flags = flags;
 
-    return AddEvent(EvLoopGet(), ovr);
+    return AddEvent(EvLoopGet(), ovr, timeout);
 }
 
 bool argon::vm::io::socket::Send(Socket *sock, unsigned char *buffer, long size, int flags) {
@@ -782,8 +794,11 @@ bool argon::vm::io::socket::SendRecvCB(Socket *sock, ArObject *user_data, UserCB
 }
 
 bool argon::vm::io::socket::SendTo(Socket *sock, datatype::ArObject *dest, datatype::ArObject *buffer, long size,
-                                   int flags) {
+                                   int flags, int timeout) {
     Event *ovr;
+
+    if (timeout == 0)
+        timeout = sock->timeout;
 
     if ((ovr = EventNew(EvLoopGet(), (ArObject *) sock)) == nullptr)
         return false;
@@ -824,7 +839,7 @@ bool argon::vm::io::socket::SendTo(Socket *sock, datatype::ArObject *dest, datat
 
     ovr->flags = flags;
 
-    return AddEvent(EvLoopGet(), ovr);
+    return AddEvent(EvLoopGet(), ovr, timeout);
 }
 
 bool argon::vm::io::socket::SetInheritable(const Socket *sock, bool inheritable) {
@@ -977,6 +992,7 @@ Socket *argon::vm::io::socket::SocketNew(int domain, int type, int protocol, Soc
     sock->family = domain;
     sock->type = type;
     sock->protocol = protocol;
+    sock->timeout = 0;
 
     sock->AcceptEx = nullptr;
     sock->ConnectEx = nullptr;

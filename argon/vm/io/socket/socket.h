@@ -58,6 +58,8 @@ namespace argon::vm::io::socket {
         int type;
         int protocol;
 
+        int timeout;
+
 #ifdef _ARGON_PLATFORM_WINDOWS
         sockaddr_storage addr;
         socklen_t addrlen;
@@ -71,7 +73,11 @@ namespace argon::vm::io::socket {
 
     _ARGONAPI const extern datatype::TypeInfo *type_socket_;
 
+    datatype::ArObject *PeerName(const Socket *sock);
+
     datatype::ArObject *SockAddrToAddr(sockaddr_storage *storage, int family);
+
+    datatype::ArObject *SockName(const Socket *sock);
 
     bool Accept(Socket *sock);
 
@@ -87,18 +93,18 @@ namespace argon::vm::io::socket {
 
     bool Listen(const Socket *sock, int backlog);
 
-    bool Recv(Socket *sock, size_t len, int flags);
+    bool Recv(Socket *sock, size_t len, int flags, int timeout);
 
     bool RecvAll(Socket *sock, int flags);
 
     bool RecvCB(Socket *sock, datatype::ArObject * user_data, loop2::UserCB callback,
                 unsigned char *buffer, size_t len, int flags);
 
-    bool RecvInto(Socket *sock, datatype::ArObject *buffer, int offset, int flags);
+    bool RecvInto(Socket *sock, datatype::ArObject *buffer, int offset, int flags, int timeout);
 
-    bool RecvFrom(Socket *sock, size_t len, int flags);
+    bool RecvFrom(Socket *sock, size_t len, int flags, int timeout);
 
-    bool Send(Socket *sock, datatype::ArObject *buffer, long size, int flags);
+    bool Send(Socket *sock, datatype::ArObject *buffer, long size, int flags, int timeout);
 
     bool Send(Socket *sock, unsigned char *buffer, long size, int flags);
 
@@ -108,7 +114,7 @@ namespace argon::vm::io::socket {
     bool SendRecvCB(Socket *sock, datatype::ArObject *user_data, loop2::UserCB recv_cb,
                     unsigned char *buffer, size_t len, size_t capacity);
 
-    bool SendTo(Socket *sock, datatype::ArObject *dest, datatype::ArObject *buffer, long size, int flags);
+    bool SendTo(Socket *sock, datatype::ArObject *dest, datatype::ArObject *buffer, long size, int flags, int timeout);
 
     bool SetInheritable(const Socket *sock, bool inheritable);
 
@@ -123,10 +129,6 @@ namespace argon::vm::io::socket {
     Socket *SocketNew(int domain, int type, int protocol, SockHandle handle);
 
     SockHandle Detach(Socket *sock);
-
-    datatype::ArObject *PeerName(const Socket *sock);
-
-    datatype::ArObject *SockName(const Socket *sock);
 
     void ErrorFromSocket();
 
