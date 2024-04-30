@@ -9,8 +9,6 @@
 
 #ifdef _ARGON_PLATFORM_WINDOWS
 
-#include <argon/vm/loop/event.h>
-
 #include <winsock2.h>
 #include <ws2tcpip.h>
 #include <mswsock.h>
@@ -21,9 +19,9 @@
 #include <netinet/in.h>
 #include <sys/socket.h>
 
-#include <argon/vm/loop2/evloop.h>
-
 #endif
+
+#include <argon/vm/loop2/evloop.h>
 
 #include <argon/vm/datatype/arobject.h>
 #include <argon/vm/datatype/bytes.h>

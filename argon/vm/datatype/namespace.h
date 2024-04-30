@@ -13,6 +13,11 @@
 #include <argon/vm/datatype/hashmap.h>
 #include <argon/vm/datatype/list.h>
 
+
+#undef CONST
+#undef PUBLIC
+#undef WEAK
+
 namespace argon::vm::datatype {
     enum class AttributeFlag {
         // Behaviour

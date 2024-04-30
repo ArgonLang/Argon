@@ -65,8 +65,6 @@ void EvLoopDispatcher(EvLoop *loop) {
                     break;
                 }
 
-                loop->timer_count--;
-
                 if (event->discard_on_timeout) {
                     evloop_cur_fiber = event->fiber;
                     ErrorFormat(kTimeoutError[0], "IO operation on '%s' did not complete within the required time",
@@ -82,6 +80,8 @@ void EvLoopDispatcher(EvLoop *loop) {
 
                 argon::vm::Spawn(event->fiber);
             }
+
+            loop->timer_count--;
 
             EventDel(event);
 

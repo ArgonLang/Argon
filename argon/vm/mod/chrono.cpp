@@ -6,8 +6,6 @@
 
 #include <argon/vm/loop2/evloop.h>
 
-#undef CONST
-
 #include <argon/vm/datatype/error.h>
 #include <argon/vm/datatype/integer.h>
 #include <argon/vm/datatype/nil.h>

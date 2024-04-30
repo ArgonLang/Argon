@@ -11,6 +11,10 @@
 
 #include <winsock2.h>
 
+#undef IN
+#undef OUT
+#undef Yield
+
 #endif
 
 #include <argon/vm/runtime.h>

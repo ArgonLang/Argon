@@ -8,14 +8,14 @@
 
 #include <argon/vm/runtime.h>
 
-#include <argon/vm/loop/evloop.h>
-
 #include <argon/vm/datatype/dict.h>
 #include <argon/vm/datatype/integer.h>
 
 #include <argon/vm/io/socket/socket.h>
 
-using namespace argon::vm::loop;
+#include <argon/vm/loop2/evloop.h>
+
+using namespace argon::vm::loop2;
 using namespace argon::vm::datatype;
 using namespace argon::vm::io::socket;
 
@@ -173,7 +173,7 @@ CallbackStatus RecvAllCallBack(Event *event) {
     event->buffer.wsa.buf = (char *) (tmp + event->buffer.length);
     event->buffer.wsa.len = event->buffer.allocated - event->buffer.length;
 
-    if(RecvAllStarter(event) != CallbackStatus::SUCCESS){
+    if (RecvAllStarter(event) != CallbackStatus::SUCCESS) {
         argon::vm::memory::Free(event->buffer.data);
 
         return CallbackStatus::FAILURE;
@@ -488,7 +488,7 @@ bool argon::vm::io::socket::Accept(Socket *sock) {
     if ((remote = SocketNew(sock->family, sock->type, sock->protocol)) == nullptr)
         return false;
 
-    auto *ovr = EventNew(GetEventLoop(), (ArObject *) sock);
+    auto *ovr = EventNew(EvLoopGet(), (ArObject *) sock);
     if (ovr == nullptr)
         return false;
 
@@ -496,7 +496,7 @@ bool argon::vm::io::socket::Accept(Socket *sock) {
 
     ovr->aux = (ArObject *) remote;
 
-    return vm::loop::EventLoopAddEvent(GetEventLoop(), ovr);
+    return AddEvent(EvLoopGet(), ovr);
 }
 
 bool argon::vm::io::socket::Bind(const Socket *sock, const struct sockaddr *addr, socklen_t addrlen) {
@@ -523,7 +523,7 @@ bool argon::vm::io::socket::Connect(Socket *sock, const sockaddr *addr, socklen_
     if (!Bind(sock, (const struct sockaddr *) &local, sizeof(sockaddr_in)))
         return false;
 
-    auto *ovr = EventNew(GetEventLoop(), (ArObject *) sock);
+    auto *ovr = EventNew(EvLoopGet(), (ArObject *) sock);
     if (ovr == nullptr)
         return false;
 
@@ -537,7 +537,7 @@ bool argon::vm::io::socket::Connect(Socket *sock, const sockaddr *addr, socklen_
 
     ovr->callback = ConnectStarter;
 
-    return vm::loop::EventLoopAddEvent(GetEventLoop(), ovr);
+    return AddEvent(EvLoopGet(), ovr);
 }
 
 bool argon::vm::io::socket::Close(Socket *sock) {
@@ -577,7 +577,7 @@ bool argon::vm::io::socket::Listen(const Socket *sock, int backlog) {
 bool argon::vm::io::socket::Recv(Socket *sock, size_t len, int flags) {
     Event *ovr;
 
-    if ((ovr = EventNew(GetEventLoop(), (ArObject *) sock)) == nullptr)
+    if ((ovr = EventNew(EvLoopGet(), (ArObject *) sock)) == nullptr)
         return false;
 
     if ((ovr->buffer.wsa.buf = (char *) memory::Alloc(len)) == nullptr) {
@@ -593,13 +593,13 @@ bool argon::vm::io::socket::Recv(Socket *sock, size_t len, int flags) {
 
     ovr->flags = flags;
 
-    return vm::loop::EventLoopAddEvent(GetEventLoop(), ovr);
+    return AddEvent(EvLoopGet(), ovr);
 }
 
 bool argon::vm::io::socket::RecvAll(Socket *sock, int flags) {
     Event *ovr;
 
-    if ((ovr = EventNew(GetEventLoop(), (ArObject *) sock)) == nullptr)
+    if ((ovr = EventNew(EvLoopGet(), (ArObject *) sock)) == nullptr)
         return false;
 
     if ((ovr->buffer.wsa.buf = (char *) memory::Alloc(kRecvAllStartSize)) == nullptr) {
@@ -619,14 +619,14 @@ bool argon::vm::io::socket::RecvAll(Socket *sock, int flags) {
 
     ovr->flags = flags;
 
-    return vm::loop::EventLoopAddEvent(GetEventLoop(), ovr);
+    return AddEvent(EvLoopGet(), ovr);
 }
 
-bool argon::vm::io::socket::RecvCB(Socket *sock, ArObject *user_data, loop::UserCB callback,
+bool argon::vm::io::socket::RecvCB(Socket *sock, ArObject *user_data, loop2::UserCB callback,
                                    unsigned char *buffer, size_t len, int flags) {
     Event *ovr;
 
-    if ((ovr = EventNew(GetEventLoop(), (ArObject *) sock)) == nullptr)
+    if ((ovr = EventNew(EvLoopGet(), (ArObject *) sock)) == nullptr)
         return false;
 
     ovr->buffer.wsa.buf = (char *) buffer;
@@ -639,13 +639,13 @@ bool argon::vm::io::socket::RecvCB(Socket *sock, ArObject *user_data, loop::User
 
     ovr->flags = flags;
 
-    return vm::loop::EventLoopAddEvent(GetEventLoop(), ovr);
+    return AddEvent(EvLoopGet(), ovr);
 }
 
 bool argon::vm::io::socket::RecvFrom(Socket *sock, size_t len, int flags) {
     Event *ovr;
 
-    if ((ovr = EventNew(GetEventLoop(), (ArObject *) sock)) == nullptr)
+    if ((ovr = EventNew(EvLoopGet(), (ArObject *) sock)) == nullptr)
         return false;
 
     if ((ovr->buffer.wsa.buf = (char *) memory::Alloc(len)) == nullptr) {
@@ -670,11 +670,11 @@ bool argon::vm::io::socket::RecvFrom(Socket *sock, size_t len, int flags) {
 
     ovr->flags = flags;
 
-    return vm::loop::EventLoopAddEvent(GetEventLoop(), ovr);
+    return AddEvent(EvLoopGet(), ovr);
 }
 
 bool argon::vm::io::socket::RecvInto(Socket *sock, datatype::ArObject *buffer, int offset, int flags) {
-    Event *ovr = EventNew(GetEventLoop(), (ArObject *) sock);
+    Event *ovr = EventNew(EvLoopGet(), (ArObject *) sock);
     if (ovr == nullptr)
         return false;
 
@@ -701,13 +701,13 @@ bool argon::vm::io::socket::RecvInto(Socket *sock, datatype::ArObject *buffer, i
 
     ovr->flags = flags;
 
-    return vm::loop::EventLoopAddEvent(GetEventLoop(), ovr);
+    return AddEvent(EvLoopGet(), ovr);
 }
 
 bool argon::vm::io::socket::Send(Socket *sock, datatype::ArObject *buffer, long size, int flags) {
     Event *ovr;
 
-    if ((ovr = EventNew(GetEventLoop(), (ArObject *) sock)) == nullptr)
+    if ((ovr = EventNew(EvLoopGet(), (ArObject *) sock)) == nullptr)
         return false;
 
     if (!BufferGet(buffer, &ovr->buffer.arbuf, BufferFlags::READ)) {
@@ -725,13 +725,13 @@ bool argon::vm::io::socket::Send(Socket *sock, datatype::ArObject *buffer, long 
     ovr->callback = SendStarter;
     ovr->flags = flags;
 
-    return vm::loop::EventLoopAddEvent(GetEventLoop(), ovr);
+    return AddEvent(EvLoopGet(), ovr);
 }
 
 bool argon::vm::io::socket::Send(Socket *sock, unsigned char *buffer, long size, int flags) {
     Event *ovr;
 
-    if ((ovr = EventNew(GetEventLoop(), (ArObject *) sock)) == nullptr)
+    if ((ovr = EventNew(EvLoopGet(), (ArObject *) sock)) == nullptr)
         return false;
 
     ovr->buffer.wsa.buf = (char *) buffer;
@@ -740,14 +740,14 @@ bool argon::vm::io::socket::Send(Socket *sock, unsigned char *buffer, long size,
     ovr->callback = SendStarter;
     ovr->flags = flags;
 
-    return vm::loop::EventLoopAddEvent(GetEventLoop(), ovr);
+    return AddEvent(EvLoopGet(), ovr);
 }
 
-bool argon::vm::io::socket::SendCB(Socket *sock, ArObject *user_data, loop::UserCB callback,
+bool argon::vm::io::socket::SendCB(Socket *sock, ArObject *user_data, loop2::UserCB callback,
                                    unsigned char *buffer, size_t len, int flags) {
     Event *ovr;
 
-    if ((ovr = EventNew(GetEventLoop(), (ArObject *) sock)) == nullptr)
+    if ((ovr = EventNew(EvLoopGet(), (ArObject *) sock)) == nullptr)
         return false;
 
     ovr->buffer.wsa.buf = (char *) buffer;
@@ -759,14 +759,14 @@ bool argon::vm::io::socket::SendCB(Socket *sock, ArObject *user_data, loop::User
     ovr->callback = SendCBStarter;
     ovr->flags = flags;
 
-    return vm::loop::EventLoopAddEvent(GetEventLoop(), ovr);
+    return AddEvent(EvLoopGet(), ovr);
 }
 
 bool argon::vm::io::socket::SendRecvCB(Socket *sock, ArObject *user_data, UserCB recv_cb,
                                        unsigned char *buffer, size_t len, size_t capacity) {
     Event *ovr;
 
-    if ((ovr = EventNew(GetEventLoop(), (ArObject *) sock)) == nullptr)
+    if ((ovr = EventNew(EvLoopGet(), (ArObject *) sock)) == nullptr)
         return false;
 
     ovr->buffer.wsa.buf = (char *) buffer;
@@ -778,14 +778,14 @@ bool argon::vm::io::socket::SendRecvCB(Socket *sock, ArObject *user_data, UserCB
 
     ovr->callback = SendRecvStarter;
 
-    return vm::loop::EventLoopAddEvent(GetEventLoop(), ovr);
+    return AddEvent(EvLoopGet(), ovr);
 }
 
 bool argon::vm::io::socket::SendTo(Socket *sock, datatype::ArObject *dest, datatype::ArObject *buffer, long size,
                                    int flags) {
     Event *ovr;
 
-    if ((ovr = EventNew(GetEventLoop(), (ArObject *) sock)) == nullptr)
+    if ((ovr = EventNew(EvLoopGet(), (ArObject *) sock)) == nullptr)
         return false;
 
     if (!BufferGet(buffer, &ovr->buffer.arbuf, BufferFlags::READ)) {
@@ -824,7 +824,7 @@ bool argon::vm::io::socket::SendTo(Socket *sock, datatype::ArObject *dest, datat
 
     ovr->flags = flags;
 
-    return vm::loop::EventLoopAddEvent(GetEventLoop(), ovr);
+    return AddEvent(EvLoopGet(), ovr);
 }
 
 bool argon::vm::io::socket::SetInheritable(const Socket *sock, bool inheritable) {
@@ -962,7 +962,7 @@ Socket *argon::vm::io::socket::SocketNew(int domain, int type, int protocol) {
 Socket *argon::vm::io::socket::SocketNew(int domain, int type, int protocol, SockHandle handle) {
     Socket *sock;
 
-    if (!EventLoopAddHandle(GetEventLoop(), (EvHandle) handle)) {
+    if (!AddHandle(EvLoopGet(), (EvHandle) handle)) {
         closesocket(handle);
         return nullptr;
     }

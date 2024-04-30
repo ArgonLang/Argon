@@ -5,6 +5,8 @@
 #ifndef ARGON_VM_LOOP2_EVLOOP_H_
 #define ARGON_VM_LOOP2_EVLOOP_H_
 
+#include <argon/util/macros.h>
+
 #include <argon/vm/loop2/support/minheap.h>
 #include <argon/vm/loop2/event.h>
 
@@ -21,11 +23,6 @@ namespace argon::vm::loop2 {
 
     using EvHandle = int;
 
-    enum class EvLoopQueueDirection {
-        IN,
-        OUT
-    };
-
     struct EvLoopQueue {
         std::mutex lock;
 
@@ -36,6 +33,11 @@ namespace argon::vm::loop2 {
         EventQueue out_events;
 
         EvHandle handle;
+    };
+
+    enum class EvLoopQueueDirection {
+        IN,
+        OUT
     };
 
 #endif
@@ -62,12 +64,24 @@ namespace argon::vm::loop2 {
 
     extern thread_local struct Fiber *evloop_cur_fiber;
 
+#ifndef _ARGON_PLATFORM_WINDOWS
     bool AddEvent(EvLoop *loop, EvLoopQueue *ev_queue, Event *event, EvLoopQueueDirection direction,
                   unsigned int timeout);
 
     inline bool AddEvent(EvLoop *loop, EvLoopQueue *ev_queue, Event *event, EvLoopQueueDirection direction) {
         return AddEvent(loop, ev_queue, event, direction, 0);
     }
+#else
+
+    bool AddEvent(EvLoop *loop, Event *event, unsigned int timeout);
+
+    inline bool AddEvent(EvLoop *loop, Event *event) {
+        return AddEvent(loop, event, 0);
+    }
+
+    bool AddHandle(EvLoop *loop, EvHandle handle);
+
+#endif
 
     bool EvLoopInitRun();
 
