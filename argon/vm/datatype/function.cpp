@@ -155,7 +155,7 @@ Function *FunctionClone(const Function *func) {
         if (func->IsNative())
             fn->native = func->native;
         else
-            fn->code = IncRef(fn->code);
+            fn->code = IncRef(func->code);
 
         fn->name = IncRef(func->name);
         fn->qname = IncRef(func->qname);
