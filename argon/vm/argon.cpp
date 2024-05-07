@@ -6,6 +6,7 @@
 
 #include <argon/vm/config.h>
 #include <argon/vm/runtime.h>
+#include <argon/vm/signal.h>
 
 #include <argon/vm/argon.h>
 
@@ -87,6 +88,9 @@ int argon::vm::ArgonMain(int argc, char **argv) {
         return EXIT_FAILURE;
 
     if ((context = ContextNew(&config)) == nullptr)
+        return EXIT_FAILURE;
+
+    if(!SignalInit(context))
         return EXIT_FAILURE;
 
     if (!SetupImportPaths(context->imp))

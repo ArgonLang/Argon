@@ -258,6 +258,7 @@ ARGON_FUNCTION(import_builtins_locator, builtins_locator,
             argon::vm::mod::module_limits_,
             argon::vm::mod::module_os_,
             argon::vm::mod::module_runtime_,
+            argon::vm::mod::module_signal_,
             argon::vm::mod::module_socket_
     };
     ImportSpec *spec = nullptr;

@@ -27,7 +27,7 @@ namespace argon::vm {
 
     argon::vm::datatype::ArObject *GetLastError();
 
-    argon::vm::datatype::Future *EvalAsync(datatype::Function *func, datatype::ArObject **argv,
+    argon::vm::datatype::Future *EvalAsync(Context *context, datatype::Function *func, datatype::ArObject **argv,
                                            datatype::ArSize argc, OpCodeCallMode mode);
 
     argon::vm::datatype::Result *Eval(Context *context, datatype::Code *code, datatype::Namespace *ns);
@@ -63,6 +63,11 @@ namespace argon::vm {
     bool Spawn(datatype::Function *func, datatype::ArObject **argv, datatype::ArSize argc, OpCodeCallMode mode);
 
     Fiber *GetFiber();
+
+    inline argon::vm::datatype::Future *EvalAsync(datatype::Function *func, datatype::ArObject **argv,
+                                                  datatype::ArSize argc, OpCodeCallMode mode) {
+        return EvalAsync(GetFiber()->context, func, argv, argc, mode);
+    }
 
     FiberStatus GetFiberStatus();
 

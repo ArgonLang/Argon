@@ -36,6 +36,7 @@
 #include <argon/vm/fiber.h>
 #include <argon/vm/fqueue.h>
 #include <argon/vm/runtime.h>
+#include <argon/vm/signal.h>
 #include <argon/vm/traceback.h>
 
 using namespace argon::vm;
@@ -658,12 +659,9 @@ ArObject *argon::vm::GetLastError() {
     return error;
 }
 
-Future *argon::vm::EvalAsync(Function *func, ArObject **argv, ArSize argc, OpCodeCallMode mode) {
-    Fiber *fiber;
-
-    assert(ost_local != nullptr);
-
-    fiber = AllocFiber(GetFiber()->context);
+Future *argon::vm::EvalAsync(Context *context, datatype::Function *func, datatype::ArObject **argv,
+                             datatype::ArSize argc, argon::vm::OpCodeCallMode mode) {
+    auto *fiber = AllocFiber(context);
     if (fiber == nullptr)
         return nullptr;
 
@@ -884,6 +882,8 @@ bool argon::vm::Initialize(const Config *config) {
 
     if (!loop2::EvLoopInitRun())
         return false;
+
+    SignalProcMask();
 
     // TODO: panic_oom
 
