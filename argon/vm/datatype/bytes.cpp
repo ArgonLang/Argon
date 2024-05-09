@@ -1424,7 +1424,7 @@ Bytes *argon::vm::datatype::BytesFreeze(Bytes *bytes) {
     if ((ret = BytesNew(BUFFER_GET(bytes), BUFFER_LEN(bytes), true)) == nullptr)
         return nullptr;
 
-    bytes_hash(bytes);
+    bytes_hash(ret);
 
     return ret;
 }
