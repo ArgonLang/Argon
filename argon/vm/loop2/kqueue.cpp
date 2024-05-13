@@ -17,16 +17,40 @@ using namespace argon::vm::loop2;
 bool argon::vm::loop2::AddEvent(EvLoop *loop, EvLoopQueue *ev_queue, Event *event, EvLoopQueueDirection direction,
                                 unsigned int timeout) {
     struct kevent kev[2];
+    int changes = 0;
+
+    bool in_selected = false;
 
     event->fiber = vm::GetFiber();
 
     std::unique_lock _(ev_queue->lock);
 
-    if (ev_queue->in_events.Count() == 0 && ev_queue->out_events.Count() == 0) {
+    if (direction == EvLoopQueueDirection::IN && !ev_queue->in_set) {
         EV_SET(kev, ev_queue->handle, EVFILT_READ, EV_ADD | EV_CLEAR, 0, 0, ev_queue);
-        EV_SET(kev + 1, ev_queue->handle, EVFILT_WRITE, EV_ADD | EV_CLEAR, 0, 0, ev_queue);
+        ev_queue->in_set = true;
+        in_selected = true;
+        changes++;
+    }
 
-        if (kevent(loop->handle, kev, 2, nullptr, 0, nullptr) < 0) {
+    if (direction == EvLoopQueueDirection::OUT && !ev_queue->out_set) {
+        EV_SET(kev + changes, ev_queue->handle, EVFILT_WRITE, EV_ADD | EV_CLEAR, 0, 0, ev_queue);
+        ev_queue->out_set = true;
+        changes++;
+    }
+
+    if (changes > 0) {
+        auto res = kevent(loop->handle, kev, changes, nullptr, 0, nullptr);
+        if (res < 0) {
+            if (changes > 1) {
+                ev_queue->in_set = false;
+                ev_queue->out_set = false;
+            } else {
+                if (in_selected)
+                    ev_queue->in_set = false;
+                else
+                    ev_queue->out_set = false;
+            }
+
             _.unlock();
 
             vm::SetFiberStatus(FiberStatus::RUNNING);
@@ -84,8 +108,8 @@ bool argon::vm::loop2::EvLoopInit(EvLoop *loop) {
 bool argon::vm::loop2::IOPoll(EvLoop *loop, unsigned long timeout) {
     struct kevent events[kMaxEvents];
     struct kevent kev[2];
-    timespec ts{};
 
+    timespec ts{};
     ts.tv_sec = (long) timeout / 1000;
     ts.tv_nsec = (long) ((timeout % 1000) * 1000000);
 
@@ -108,13 +132,21 @@ bool argon::vm::loop2::IOPoll(EvLoop *loop, unsigned long timeout) {
 
         std::unique_lock _(ev_queue->lock);
 
-        if (ev_queue->in_events.Count() == 0 && ev_queue->out_events.Count() == 0) {
+        int changes = 0;
+        if (events[i].filter == EVFILT_READ && ev_queue->in_events.Count() == 0) {
             EV_SET(kev, ev_queue->handle, EVFILT_READ, EV_DELETE, 0, 0, nullptr);
-            EV_SET(kev + 1, ev_queue->handle, EVFILT_WRITE, EV_DELETE, 0, 0, nullptr);
-
-            if (kevent(loop->handle, kev, 2, nullptr, 0, nullptr) < 0)
-                assert(false); // Never get here!
+            ev_queue->in_set = false;
+            changes++;
         }
+
+        if (events[i].filter == EVFILT_WRITE && ev_queue->out_events.Count() == 0) {
+            EV_SET(kev + changes, ev_queue->handle, EVFILT_WRITE, EV_DELETE, 0, 0, nullptr);
+            ev_queue->out_set = false;
+            changes++;
+        }
+
+        if (changes > 0 && kevent(loop->handle, kev, changes, nullptr, 0, nullptr) < 0)
+            assert(false); // Never get here!
     }
 
     return true;

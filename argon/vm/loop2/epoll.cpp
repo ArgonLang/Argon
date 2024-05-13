@@ -15,14 +15,14 @@
 using namespace argon::vm::loop2;
 
 bool argon::vm::loop2::AddEvent(EvLoop *loop, EvLoopQueue *ev_queue, Event *event, EvLoopQueueDirection direction,
-                                      unsigned int timeout) {
+                                unsigned int timeout) {
     epoll_event ep_event{};
 
     event->fiber = vm::GetFiber();
 
     std::unique_lock _(ev_queue->lock);
 
-    if (ev_queue->in_events.Count() == 0 && ev_queue->out_events.Count() == 0) {
+    if (!ev_queue->in_set && !ev_queue->out_set) {
         ep_event.events = EPOLLOUT | EPOLLIN | EPOLLET;
         ep_event.data.ptr = ev_queue;
 
@@ -35,6 +35,9 @@ bool argon::vm::loop2::AddEvent(EvLoop *loop, EvLoopQueue *ev_queue, Event *even
 
             return false;
         }
+
+        ev_queue->in_set = true;
+        ev_queue->out_set = true;
     }
 
     if (timeout > 0) {
@@ -104,9 +107,13 @@ bool argon::vm::loop2::IOPoll(EvLoop *loop, unsigned long timeout) {
 
         std::unique_lock _(ev_queue->lock);
 
-        if (ev_queue->in_events.Count() == 0 && ev_queue->out_events.Count() == 0 &&
-            epoll_ctl(loop->handle, EPOLL_CTL_DEL, ev_queue->handle, nullptr) < 0)
-            assert(false); // Never get here!
+        if (ev_queue->in_events.Count() == 0 && ev_queue->out_events.Count() == 0) {
+            if (epoll_ctl(loop->handle, EPOLL_CTL_DEL, ev_queue->handle, nullptr) < 0)
+                assert(false); // Never get here!
+
+            ev_queue->in_set = false;
+            ev_queue->out_set = false;
+        }
     }
 
     return true;

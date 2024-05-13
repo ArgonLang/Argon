@@ -34,6 +34,10 @@ namespace argon::vm::loop2 {
 
         EventQueue out_events;
 
+        bool in_set;
+
+        bool out_set;
+
         EvHandle handle;
     };
 

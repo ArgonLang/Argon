@@ -152,9 +152,9 @@ Event *argon::vm::loop2::EventNew(EvLoop *loop, ArObject *initiator) {
         event = (Event *) memory::Calloc(sizeof(Event));
         if (event == nullptr)
             return nullptr;
-    }
 
-    new(&event->lock)std::mutex();
+        new(&event->lock)std::mutex();
+    }
 
     event->initiator = IncRef(initiator);
 
@@ -198,6 +198,16 @@ void argon::vm::loop2::EventDel(Event *event) {
     std::unique_lock _(loop->lock);
 
     if (loop->free_events.Count() + 1 <= kMaxFreeEvents) {
+        event->callback = nullptr;
+        event->user_callback = nullptr;
+
+        event->aux = nullptr;
+        event->initiator = nullptr;
+
+        event->timeout = 0;
+        event->id = 0;
+        event->discard_on_timeout = false;
+
         loop->free_events.Push(event);
 
         return;
@@ -228,6 +238,8 @@ void argon::vm::loop2::QueueDel(EvLoopQueue **ev_queue) {
 
     while ((event = queue->out_events.Dequeue()) != nullptr)
         EventDel(event);
+
+    printf("Chiusa coda: %d\n", (*ev_queue)->handle);
 
     queue->lock.~mutex();
 
