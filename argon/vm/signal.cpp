@@ -33,7 +33,7 @@ ARGON_FUNCTION(signal_default_sigint, default_sigint, "", "i: signum", false, fa
 
 bool argon::vm::SignalInit(Context *context) {
     static const DefaultHandler def_handlers[] = {
-            //{&signal_default_sigint, SIGINT}
+            {nullptr, SIGINT}
     };
 
     if (default_handlers != nullptr)
@@ -45,6 +45,9 @@ bool argon::vm::SignalInit(Context *context) {
         return false;
 
     for (auto handler: def_handlers) {
+        if (handler.handler == nullptr)
+            continue;
+
         if ((default_handlers[handler.signum] = FunctionNew(handler.handler, nullptr, nullptr)) == nullptr)
             goto ERROR;
     }
@@ -106,6 +109,7 @@ void argon::vm::SignalResetHandlers() {
         SignalAddHandler(i, default_handlers[i]);
 }
 
+#ifndef _ARGON_PLATFORM_WINDOWS
 void argon::vm::SignalProcMask() {
     sigset_t mask{};
 
@@ -113,6 +117,7 @@ void argon::vm::SignalProcMask() {
 
     pthread_sigmask(SIG_SETMASK, &mask, nullptr);
 }
+#endif
 
 void signal_handler(int signum) {
     ArObject *argv[1];
@@ -120,6 +125,10 @@ void signal_handler(int signum) {
     auto *handler = handlers + signum;
 
     std::unique_lock lock(handler->lock);
+
+#ifdef _ARGON_PLATFORM_WINDOWS
+    signal(signum, signal_handler);
+#endif
 
     auto *func = IncRef(handler->handler);
 
