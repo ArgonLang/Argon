@@ -263,7 +263,7 @@ ArSize tuple_hash(Tuple *self) {
         result = 31 * result + hash;
     }
 
-    self->hash = result;
+    self->hash = AR_NORMALIZE_HASH(result);
 
     return self->hash;
 }

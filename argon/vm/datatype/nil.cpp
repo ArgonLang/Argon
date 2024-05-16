@@ -25,7 +25,7 @@ bool nil_is_true(const ArObject *) {
 }
 
 ArSize nil_hash(const ArObject *) {
-    return 0;
+    return 0x6E696C;
 }
 
 TypeInfo NilType = {

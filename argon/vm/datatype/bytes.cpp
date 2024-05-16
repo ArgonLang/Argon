@@ -1356,8 +1356,10 @@ ArSize bytes_hash(Bytes *self) {
         return 0;
     }
 
-    if (self->hash == 0)
+    if (self->hash == 0) {
         self->hash = HashBytes(BUFFER_GET(self), BUFFER_LEN(self));
+        self->hash = AR_NORMALIZE_HASH(self->hash);
+    }
 
     return self->hash;
 }

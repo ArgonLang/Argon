@@ -265,10 +265,7 @@ ArSize decimal_hash(const Decimal *self) {
 
     hash = hash * sign;
 
-    if (hash == -1)
-        hash = -2;
-
-    return hash;
+    return AR_NORMALIZE_HASH(hash);
 }
 
 bool decimal_is_true(const Decimal *self) {

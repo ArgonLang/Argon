@@ -268,7 +268,7 @@ ArObject *integer_compare(const Integer *self, const Integer *other, CompareMode
 }
 
 ArSize number_hash(const Integer *self) {
-    return self->uint;
+    return AR_NORMALIZE_HASH(self->uint);
 }
 
 ArObject *integer_add(const Integer *left, const Integer *right) {

@@ -20,6 +20,8 @@ namespace argon::vm::datatype {
 
     ArObject *AttributeLoadMethod(const ArObject *object, ArObject *key, bool *is_method);
 
+    ArObject *AttributeLoadMethod(const ArObject *object, const char *key);
+
     ArObject *ComputeMRO(TypeInfo *type, TypeInfo **bases, unsigned int length);
 
     ArObject *Compare(const ArObject *self, const ArObject *other, CompareMode mode);

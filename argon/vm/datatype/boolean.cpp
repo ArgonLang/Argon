@@ -33,9 +33,9 @@ const OpSlots bool_ops{
         nullptr,
         nullptr,
         nullptr,
-        (BinaryOp)bool_land,
-        (BinaryOp)bool_lor,
-        (BinaryOp)bool_lxor,
+        (BinaryOp) bool_land,
+        (BinaryOp) bool_lor,
+        (BinaryOp) bool_lxor,
         nullptr,
         nullptr,
         nullptr,
@@ -69,7 +69,7 @@ ArObject *boolean_repr(const Boolean *self) {
 }
 
 ArSize boolean_hash(const Boolean *self) {
-    return self->value ? kTrueAsInt : kFalseAsInt;
+    return self->value ? kTrueAsInt + 1 : kFalseAsInt + 1;
 }
 
 bool boolean_is_true(const Boolean *self) {

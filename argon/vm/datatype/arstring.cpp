@@ -894,8 +894,10 @@ ArObject *string_repr(const String *self) {
 }
 
 ArSize string_hash(String *self) {
-    if (self->hash == 0)
+    if (self->hash == 0) {
         self->hash = HashBytes(STR_BUF(self), STR_LEN(self));
+        self->hash = AR_NORMALIZE_HASH(self->hash);
+    }
 
     return self->hash;
 }

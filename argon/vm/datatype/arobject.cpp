@@ -310,6 +310,29 @@ ArObject *argon::vm::datatype::AttributeLoadMethod(const ArObject *object, ArObj
     return aload;
 }
 
+ArObject *argon::vm::datatype::AttributeLoadMethod(const ArObject *object, const char *key) {
+    auto *skey = StringIntern(key);
+    if (skey == nullptr)
+        return nullptr;
+
+    auto *meth = (Function *) AttributeLoad(object, (ArObject *) skey, false);
+
+    Release(skey);
+
+    if(meth == nullptr){
+        vm::DiscardLastPanic();
+
+        return nullptr;
+    }
+
+    if (AR_TYPEOF(meth, type_function_) && meth->IsMethod())
+        return (ArObject *) meth;
+
+    Release(meth);
+
+    return nullptr;
+}
+
 ArObject *argon::vm::datatype::ComputeMRO(TypeInfo *type, TypeInfo **bases, unsigned int length) {
     const auto *mro = (const Tuple *) type->mro;
     TypeInfo **merge = nullptr;
@@ -430,7 +453,18 @@ ArObject *argon::vm::datatype::ExecBinaryOpOriented(ArObject *left, ArObject *ri
 }
 
 ArObject *HashWrapper(ArObject *func, ArObject *self, ArObject **args, ArObject *kwargs, ArSize argc) {
-    return (ArObject *) UIntNew(AR_GET_TYPE(self)->hash(self));
+    auto *hash = AR_GET_TYPE(self)->hash;
+    if (hash == nullptr) {
+        ErrorFormat(kUnhashableError[0], kUnhashableError[1], AR_TYPE_QNAME(self));
+
+        return nullptr;
+    }
+
+    auto digest = hash(self);
+    if (digest == 0)
+        return nullptr;
+
+    return (ArObject *) UIntNew(digest);
 }
 
 ArObject *argon::vm::datatype::IteratorGet(ArObject *object, bool reversed) {
@@ -847,20 +881,47 @@ bool argon::vm::datatype::Equal(const ArObject *self, const ArObject *other) {
 }
 
 bool argon::vm::datatype::Hash(ArObject *object, ArSize *out_hash) {
+    ArObject *args[1];
+    ArSize digest;
+
     auto hash = AR_GET_TYPE(object)->hash;
+    if (hash == nullptr) {
+        auto *hfunc = (Function *) AttributeLoadMethod(object, "__hash");
+        if (hfunc == nullptr) {
+            ErrorFormat(kUnhashableError[0], kUnhashableError[1], AR_TYPE_QNAME(object));
 
-    if (hash != nullptr) {
-        if (out_hash != nullptr) {
-            *out_hash = hash(object);
-
-            if (vm::IsPanicking())
-                return false;
+            return false;
         }
 
-        return true;
+        args[0] = object;
+
+        auto *result = EvalRaiseError(hfunc, args, 1, OpCodeCallMode::FASTCALL);
+
+        Release(hfunc);
+
+        if (result == nullptr)
+            return false;
+
+        if (AR_GET_TYPE(result) != type_uint_) {
+            Release(result);
+
+            ErrorFormat(kTypeError[0], "__hash must return %s type", type_uint_->name);
+            return false;
+        }
+
+        digest = ((Integer *) result)->uint;
+
+        Release(result);
+    } else {
+        digest = hash(object);
+        if (digest == 0)
+            return false;
     }
 
-    return false;
+    if (out_hash != nullptr)
+        *out_hash = digest;
+
+    return true;
 }
 
 bool argon::vm::datatype::IsNull(const ArObject *object) {
@@ -898,8 +959,11 @@ bool ExportDefaultMethod(TypeInfo *type) {
 
     fdef.method = true;
 
-    if (type->hash != nullptr) {
-        fdef.name = "__hash";
+    fdef.name = "__hash";
+    if (!NamespaceContains((Namespace *) type->tp_map, fdef.name, nullptr, &exists))
+        return false;
+
+    if (!exists) {
         fdef.func = HashWrapper;
 
         PUSH_METHOD(fdef);

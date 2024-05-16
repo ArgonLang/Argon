@@ -368,6 +368,8 @@ ArObject *name##_fn(ArObject *_func, ArObject *_self, ArObject **args, ArObject 
 #define AR_TYPE_QNAME(object)               (AR_GET_TYPE(object)->qname)
 #define AR_TYPEOF(object, type)             (AR_GET_TYPE(object) == (type))
 
+#define AR_NORMALIZE_HASH(digest)           ((digest) == 0 ? 1 : digest)
+
 #define AR_GET_NSOFFSET(object)             (AR_HAVE_OBJECT_BEHAVIOUR(object) && AR_SLOT_OBJECT(object)->namespace_offset >= 0 ?  \
     ((ArObject **) (((unsigned char *) (object)) + AR_SLOT_OBJECT(object)->namespace_offset)) : nullptr)
 } // namespace argon::vm::datatype

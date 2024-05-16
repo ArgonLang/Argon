@@ -19,7 +19,7 @@
 #define ARGON_OBJECT_HASH_PRIME 2305843009213693951 // pow(2, 61) - 1
 #endif
 
-#define ARGON_OBJECT_HASH_NAN   0x0
+#define ARGON_OBJECT_HASH_NAN   0x4E414E
 #define ARGON_OBJECT_HASH_INF   0x4CB2F
 
 namespace argon::vm::datatype {

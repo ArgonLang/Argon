@@ -39,8 +39,10 @@ ArObject *code_compare(const Code *self, const ArObject *other, CompareMode mode
 }
 
 ArSize code_hash(Code *self) {
-    if (self->hash == 0)
+    if (self->hash == 0) {
         self->hash = HashBytes(self->instr, self->instr_sz);
+        self->hash = AR_NORMALIZE_HASH(self->hash);
+    }
 
     return self->hash;
 }
