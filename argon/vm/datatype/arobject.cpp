@@ -323,9 +323,9 @@ ArObject *argon::vm::datatype::AttributeLoadMethod(const ArObject *object, const
         if (AR_TYPEOF(meth, type_function_) && meth->IsMethod())
             return (ArObject *) meth;
 
-        Release(meth);
+        ErrorFormat(kTypeError[0], kTypeError[11], ARGON_RAW_STRING(meth->qname));
 
-        ErrorFormat(kTypeError[0], "expected method '%s', got function", key);
+        Release(meth);
     }
 
     return nullptr;

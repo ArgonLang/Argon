@@ -61,7 +61,11 @@ const ObjectSlots error_objslot = {
 };
 
 ArObject *error_get_item(const Error *self, ArObject *key) {
-    auto *entry = self->detail.Lookup(key);
+    ErrorEntry *entry;
+
+    if (!self->detail.Lookup(key, &entry))
+        return nullptr;
+
     if (entry == nullptr) {
         ErrorFormat(kKeyError[0], kKeyError[1], key);
 
@@ -72,7 +76,12 @@ ArObject *error_get_item(const Error *self, ArObject *key) {
 }
 
 ArObject *error_item_in(const Error *self, ArObject *key) {
-    return BoolToArBool(self->detail.Lookup(key) != nullptr);
+    ErrorEntry *entry;
+
+    if (!self->detail.Lookup(key, &entry))
+        return nullptr;
+
+    return BoolToArBool(entry != nullptr);
 }
 
 ArSize error_length(const Error *self) {
@@ -101,7 +110,9 @@ ArObject *error_compare(Error *self, ArObject *other, CompareMode mode) {
         return BoolToArBool(false);
 
     for (auto *cursor = self->detail.iter_begin; cursor != nullptr; cursor = cursor->iter_next) {
-        const auto *other_entry = o->detail.Lookup(cursor->key);
+        ErrorEntry *other_entry;
+
+        o->detail.Lookup(cursor->key, &other_entry);
 
         if (other_entry == nullptr)
             return BoolToArBool(false);

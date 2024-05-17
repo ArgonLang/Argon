@@ -118,7 +118,8 @@ namespace argon::vm::datatype {
             (const char *) "%s does not support %s (generator function)",
             (const char *) "no viable conversion from '%s' to %s",
             (const char *) "'%s' is not callable",
-            (const char *) "'%s' is not iterable"
+            (const char *) "'%s' is not iterable",
+            (const char *) "expected '%s' as method, got function"
     };
 
     constexpr const char *kUnassignableError[] = {
@@ -151,6 +152,8 @@ namespace argon::vm::datatype {
     constexpr const char *kValueError[] = {
             (const char *) "ValueError"
     };
+
+    using ErrorEntry = HEntry<ArObject, ArObject *>;
 
     struct Error {
         AROBJ_HEAD;

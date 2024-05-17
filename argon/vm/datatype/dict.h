@@ -16,6 +16,8 @@
 #include <argon/vm/datatype/hashmap.h>
 
 namespace argon::vm::datatype {
+    using DictEntry = HEntry<ArObject, ArObject*>;
+
     struct Dict {
         AROBJ_HEAD;
 

@@ -139,10 +139,12 @@ ARGON_METHOD(dict_pop, pop,
              "- Returns: Option<?>.\n",
              ": key", false, false) {
     auto *self = (Dict *) _self;
+    DictEntry *item;
 
     std::shared_lock _(self->rwlock);
 
-    auto *item = self->hmap.Remove(args[0]);
+    if (!self->hmap.Remove(args[0], &item))
+        return nullptr;
 
     if (item == nullptr)
         return (ArObject *) OptionNew();
@@ -205,9 +207,13 @@ const ObjectSlots dict_objslot = {
 };
 
 ArObject *dict_get_item(Dict *self, ArObject *key) {
+    DictEntry *entry;
+
     std::shared_lock _(self->rwlock);
 
-    auto *entry = self->hmap.Lookup(key);
+    if (!self->hmap.Lookup(key, &entry))
+        return nullptr;
+
     if (entry == nullptr) {
         _.unlock();
 
@@ -220,9 +226,12 @@ ArObject *dict_get_item(Dict *self, ArObject *key) {
 }
 
 ArObject *dict_item_in(Dict *self, ArObject *key) {
+    DictEntry *entry;
+
     std::shared_lock _(self->rwlock);
 
-    const auto *entry = self->hmap.Lookup(key);
+    if (!self->hmap.Lookup(key, &entry))
+        return nullptr;
 
     _.unlock();
 
@@ -263,7 +272,9 @@ ArObject *dict_compare(Dict *self, ArObject *other, CompareMode mode) {
         return BoolToArBool(false);
 
     for (auto *cursor = self->hmap.iter_begin; cursor != nullptr; cursor = cursor->iter_next) {
-        const auto *other_entry = o->hmap.Lookup(cursor->key);
+        DictEntry *other_entry;
+
+        o->hmap.Lookup(cursor->key, &other_entry);
 
         if (other_entry == nullptr)
             return BoolToArBool(false);
@@ -409,11 +420,13 @@ TypeInfo DictType = {
 const TypeInfo *argon::vm::datatype::type_dict_ = &DictType;
 
 ArObject *argon::vm::datatype::DictLookup(Dict *dict, ArObject *key) {
-    CHECK_HASHABLE(key, nullptr);
+    DictEntry *entry;
 
     std::shared_lock _(dict->rwlock);
 
-    auto entry = dict->hmap.Lookup(key);
+    if (!dict->hmap.Lookup(key, &entry))
+        return nullptr;
+
     if (entry == nullptr)
         return nullptr;
 
@@ -432,13 +445,14 @@ ArObject *argon::vm::datatype::DictLookup(Dict *dict, const char *key, ArSize le
 }
 
 bool argon::vm::datatype::DictInsert(Dict *dict, ArObject *key, ArObject *value) {
-    HEntry<ArObject, ArObject *> *entry;
-
-    CHECK_HASHABLE(key, false);
+    DictEntry *entry;
 
     std::unique_lock _(dict->rwlock);
 
-    if ((entry = dict->hmap.Lookup(key)) != nullptr) {
+    if (!dict->hmap.Lookup(key, &entry))
+        return false;
+
+    if (entry != nullptr) {
         Release(entry->value);
         entry->value = IncRef(value);
 
@@ -505,11 +519,13 @@ bool argon::vm::datatype::DictLookupIsTrue(argon::vm::datatype::Dict *dict, cons
 }
 
 bool argon::vm::datatype::DictRemove(Dict *dict, ArObject *key) {
-    CHECK_HASHABLE(key, false);
+    DictEntry *entry;
 
     std::unique_lock _(dict->rwlock);
 
-    auto *entry = dict->hmap.Remove(key);
+    if (!dict->hmap.Remove(key, &entry))
+        return false;
+
     if (entry == nullptr)
         return false;
 
@@ -557,7 +573,7 @@ Dict *argon::vm::datatype::DictMerge(Dict *dict1, Dict *dict2, bool clone) {
     if ((merge = DictNew(merge_sz)) == nullptr)
         return nullptr;
 
-    HEntry<ArObject, ArObject *> *entry;
+    DictEntry *entry;
 
     for (auto *cursor = dict1->hmap.iter_begin; cursor != nullptr; cursor = cursor->iter_next) {
         if ((entry = merge->hmap.AllocHEntry()) == nullptr) {
@@ -584,7 +600,9 @@ Dict *argon::vm::datatype::DictMerge(Dict *dict1, Dict *dict2, bool clone) {
     d1.unlock();
 
     for (auto *cursor = dict2->hmap.iter_begin; cursor != nullptr; cursor = cursor->iter_next) {
-        if (merge->hmap.Lookup(cursor->key) != nullptr) {
+        merge->hmap.Lookup(cursor->key, &entry);
+
+        if (entry != nullptr) {
             ErrorFormat(kValueError[0], "got multiple values for key '%s'", cursor->key);
 
             Release(merge);

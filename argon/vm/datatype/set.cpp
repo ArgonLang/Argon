@@ -99,8 +99,12 @@ ARGON_METHOD(set_diff, diff,
         for (SetEntry *cursor = self->set.iter_begin; cursor != nullptr; cursor = tmp) {
             tmp = cursor->iter_next;
 
-            if (other->set.Lookup(cursor->key)) {
-                auto *entry = self->set.Remove(cursor->key);
+            SetEntry *entry;
+
+            other->set.Lookup(cursor->key, &entry);
+
+            if (entry != nullptr) {
+                self->set.Remove(cursor->key, &entry);
 
                 Release(entry->key);
 
@@ -135,7 +139,9 @@ ARGON_METHOD(set_discard, discard,
         if (_self == args[i])
             continue;
 
-        if ((tmp = self->set.Remove(args[i])) != nullptr) {
+        self->set.Remove(args[i], &tmp);
+
+        if (tmp != nullptr) {
             Release(tmp->key);
 
             self->set.FreeHEntry(tmp);
@@ -176,8 +182,12 @@ ARGON_METHOD(set_intersect, intersect,
         for (auto *cursor = self->set.iter_begin; cursor != nullptr; cursor = tmp) {
             tmp = cursor->iter_next;
 
-            if (other->set.Lookup(cursor->key) == nullptr) {
-                auto *entry = self->set.Remove(cursor->key);
+            SetEntry *entry;
+
+            other->set.Lookup(cursor->key, &entry);
+
+            if (entry == nullptr) {
+                self->set.Remove(cursor->key, &entry);
 
                 Release(entry->key);
 
@@ -197,6 +207,7 @@ ARGON_METHOD(set_symdiff, symdiff,
              "S: set", false, false) {
     auto *self = (Set *) _self;
     auto *other = (Set *) *args;
+
     SetEntry *tmp;
 
     if (_self == *args) {
@@ -208,21 +219,18 @@ ARGON_METHOD(set_symdiff, symdiff,
     std::unique_lock _(self->rwlock);
     std::shared_lock other_lcok(other->rwlock);
 
-    for (auto *cursor = self->set.iter_begin; cursor != nullptr; cursor = tmp) {
+    for (auto *cursor = other->set.iter_begin; cursor != nullptr; cursor = tmp) {
         tmp = cursor->iter_next;
 
-        if (other->set.Lookup(cursor->key) != nullptr) {
-            auto *entry = self->set.Remove(cursor->key);
+        SetEntry *entry;
+        self->set.Remove(cursor->key, &entry);
 
+        if (entry != nullptr) {
             Release(entry->key);
 
             self->set.FreeHEntry(entry);
-        }
-    }
-
-    for (auto *cursor = other->set.iter_begin; cursor != nullptr; cursor = tmp) {
-        if (self->set.Lookup(cursor->key) == nullptr && !SetAddNoLock(self, cursor->key))
-            return nullptr;
+        } else
+            SetAddNoLock(self, cursor->key);
     }
 
     return IncRef(_self);
@@ -338,9 +346,12 @@ const OpSlots set_ops = {
 };
 
 ArObject *set_item_in(Set *self, ArObject *key) {
+    SetEntry *entry;
+
     std::shared_lock _(self->rwlock);
 
-    const auto *entry = self->set.Lookup(key);
+    if (!self->set.Lookup(key, &entry))
+        return nullptr;
 
     _.unlock();
 
@@ -378,7 +389,11 @@ ArObject *set_compare(Set *self, ArObject *other, CompareMode mode) {
         return BoolToArBool(false);
 
     for (auto *cursor = self->set.iter_begin; cursor != nullptr; cursor = cursor->iter_next) {
-        if (o->set.Lookup(cursor->key) == nullptr)
+        SetEntry *entry;
+
+        o->set.Lookup(cursor->key, &entry);
+
+        if (entry == nullptr)
             return BoolToArBool(false);
     }
 
@@ -494,25 +509,23 @@ bool argon::vm::datatype::SetAdd(Set *set, ArObject *object) {
 }
 
 bool argon::vm::datatype::SetContains(Set *set, ArObject *object) {
-    if (!Hash(object, nullptr)) {
-        ErrorFormat(kUnhashableError[0], kUnhashableError[1], AR_TYPE_NAME(object));
-        return false;
-    }
+    SetEntry *entry;
 
     std::shared_lock _(set->rwlock);
 
-    return set->set.Lookup(object) != nullptr;
+    if (!set->set.Lookup(object, &entry))
+        return false;
+
+    return entry != nullptr;
 }
 
 bool SetAddNoLock(Set *set, ArObject *object) {
     SetEntry *entry;
 
-    if (!Hash(object, nullptr)) {
-        ErrorFormat(kUnhashableError[0], kUnhashableError[1], AR_TYPE_NAME(object));
+    if (!set->set.Lookup(object, &entry))
         return false;
-    }
 
-    if (set->set.Lookup(object) != nullptr)
+    if (entry != nullptr)
         return true;
 
     if ((entry = set->set.AllocHEntry()) == nullptr)
@@ -544,7 +557,11 @@ Set *argon::vm::datatype::SetDifference(Set *left, Set *right) {
         return nullptr;
 
     for (const auto *cursor = left->set.iter_begin; cursor != nullptr; cursor = cursor->iter_next) {
-        if (right->set.Lookup(cursor->key) == nullptr && !SetAddNoLock(ret, cursor->key)) {
+        SetEntry *entry;
+
+        right->set.Lookup(cursor->key, &entry);
+
+        if (entry == nullptr && !SetAddNoLock(ret, cursor->key)) {
             Release(ret);
 
             return nullptr;
@@ -567,7 +584,11 @@ Set *argon::vm::datatype::SetIntersection(Set *left, Set *right) {
         return nullptr;
 
     for (const auto *cursor = left->set.iter_begin; cursor != nullptr; cursor = cursor->iter_next) {
-        if (right->set.Lookup(cursor->key) != nullptr && !SetAddNoLock(ret, cursor->key)) {
+        SetEntry *entry;
+
+        right->set.Lookup(cursor->key, &entry);
+
+        if (entry != nullptr && !SetAddNoLock(ret, cursor->key)) {
             Release(ret);
 
             return nullptr;
@@ -643,6 +664,7 @@ Set *argon::vm::datatype::SetNew() {
 
 Set *argon::vm::datatype::SetSymmetricDifference(Set *left, Set *right) {
     Set *ret;
+    SetEntry *entry;
 
     if (left == right)
         return SetNew();
@@ -654,7 +676,9 @@ Set *argon::vm::datatype::SetSymmetricDifference(Set *left, Set *right) {
         return nullptr;
 
     for (const auto *cursor = left->set.iter_begin; cursor != nullptr; cursor = cursor->iter_next) {
-        if (right->set.Lookup(cursor->key) == nullptr && !SetAddNoLock(ret, cursor->key)) {
+        right->set.Lookup(cursor->key, &entry);
+
+        if (entry == nullptr && !SetAddNoLock(ret, cursor->key)) {
             Release(ret);
 
             return nullptr;
@@ -662,7 +686,9 @@ Set *argon::vm::datatype::SetSymmetricDifference(Set *left, Set *right) {
     }
 
     for (const auto *cursor = right->set.iter_begin; cursor != nullptr; cursor = cursor->iter_next) {
-        if (left->set.Lookup(cursor->key) == nullptr && !SetAddNoLock(ret, cursor->key)) {
+        left->set.Lookup(cursor->key, &entry);
+
+        if (entry == nullptr && !SetAddNoLock(ret, cursor->key)) {
             Release(ret);
 
             return nullptr;

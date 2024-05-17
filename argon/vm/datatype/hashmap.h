@@ -21,6 +21,7 @@ namespace argon::vm::datatype {
         std::atomic_int ref;
 
         HEntry *next;
+        HEntry **prev;
 
         HEntry *iter_next;
         HEntry *iter_prev;
@@ -72,15 +73,74 @@ namespace argon::vm::datatype {
             if (!this->Resize())
                 return false;
 
-            Hash((ArObject *) entry->key, &index);
+            if (!Hash((ArObject *) entry->key, &index))
+                return false;
 
             index %= this->capacity;
 
-            entry->next = this->map[index];
+            auto *slot = this->map[index];
+
+            entry->next = slot;
+            entry->prev = this->map + index;
+
+            if (slot != nullptr)
+                slot->prev = &entry->next;
+
             this->map[index] = entry;
             this->length++;
 
             this->AppendIterItem(entry);
+
+            return true;
+        }
+
+        bool Lookup(K *key, HEntry<K, V> **entry) const {
+            ArSize index;
+
+            *entry = nullptr;
+
+            if (!Hash((ArObject *) key, &index))
+                return false;
+
+            index %= this->capacity;
+
+            for (HEntry<K, V> *cur = this->map[index]; cur != nullptr; cur = cur->next) {
+                if (EqualStrict((const ArObject *) key, (const ArObject *) cur->key)) {
+                    *entry = cur;
+
+                    break;
+                }
+            }
+
+            return true;
+        }
+
+        bool Remove(K *key, HEntry<K, V> **entry) {
+            ArSize index;
+
+            *entry = nullptr;
+
+            if (!Hash((ArObject *) key, &index))
+                return false;
+
+            index %= this->capacity;
+
+            for (HEntry<K, V> *cur = this->map[index]; cur != nullptr; cur = cur->next) {
+                if (EqualStrict((ArObject *) key, (ArObject *) cur->key)) {
+                    (*cur->prev) = cur->next;
+
+                    if (cur->next != nullptr)
+                        cur->next->prev = cur->prev;
+
+                    this->length--;
+
+                    this->RemoveIterItem(cur);
+
+                    *entry = cur;
+
+                    break;
+                }
+            }
 
             return true;
         }
@@ -144,41 +204,6 @@ namespace argon::vm::datatype {
             ret->ref = 1;
 
             return ret;
-        }
-
-        HEntry<K, V> *Lookup(K *key) const {
-            ArSize index;
-
-            Hash((ArObject *) key, &index);
-
-            index %= this->capacity;
-
-            for (HEntry<K, V> *cur = this->map[index]; cur != nullptr; cur = cur->next)
-                if (EqualStrict((const ArObject *) key, (const ArObject *) cur->key))
-                    return cur;
-
-            return nullptr;
-        }
-
-        HEntry<K, V> *Remove(K *key) {
-            ArSize index;
-
-            Hash((ArObject *) key, &index);
-
-            index %= this->capacity;
-
-            for (HEntry<K, V> *cur = this->map[index]; cur != nullptr; cur = cur->next) {
-                if (EqualStrict((ArObject *) key, (ArObject *) cur->key)) {
-                    this->map[index] = cur->next;
-                    this->length--;
-
-                    this->RemoveIterItem(cur);
-
-                    return cur;
-                }
-            }
-
-            return nullptr;
         }
 
         void AppendIterItem(HEntry<K, V> *entry) {

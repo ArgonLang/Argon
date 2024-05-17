@@ -35,7 +35,9 @@ ArObject *namespace_compare(Namespace *self, ArObject *other, CompareMode mode) 
         return BoolToArBool(false);
 
     for (auto *cursor = self->ns.iter_begin; cursor != nullptr; cursor = cursor->iter_next) {
-        auto *other_entry = o->ns.Lookup(cursor->key);
+        NSEntry *other_entry;
+
+        o->ns.Lookup(cursor->key, &other_entry);
 
         if (other_entry == nullptr)
             return BoolToArBool(false);
@@ -111,9 +113,12 @@ TypeInfo NamespaceType = {
 const TypeInfo *argon::vm::datatype::type_namespace_ = &NamespaceType;
 
 ArObject *argon::vm::datatype::NamespaceLookup(Namespace *ns, ArObject *key, AttributeProperty *out_aprop) {
+    NSEntry *entry;
+
     std::shared_lock _(ns->rwlock);
 
-    NSEntry *entry = ns->ns.Lookup(key);
+    if (!ns->ns.Lookup(key, &entry))
+        return nullptr;
 
     if (entry != nullptr) {
         if (out_aprop != nullptr)
@@ -137,13 +142,17 @@ ArObject *argon::vm::datatype::NamespaceLookup(Namespace *ns, const char *key, A
 }
 
 bool argon::vm::datatype::NamespaceContains(Namespace *ns, ArObject *key, AttributeProperty *out_aprop) {
+    NSEntry *entry;
+
     std::shared_lock _(ns->rwlock);
 
-    const NSEntry *entry = ns->ns.Lookup(key);
+    if (!ns->ns.Lookup(key, &entry))
+        return false;
 
     if (entry != nullptr) {
         if (out_aprop != nullptr)
             *out_aprop = entry->value.properties;
+
         return true;
     }
 
@@ -227,7 +236,10 @@ bool argon::vm::datatype::NamespaceSet(Namespace *ns, ArObject *key, ArObject *v
 
     std::unique_lock _(ns->rwlock);
 
-    if ((entry = ns->ns.Lookup(key)) != nullptr) {
+    if (!ns->ns.Lookup(key, &entry))
+        return false;
+
+    if (entry != nullptr) {
         entry->value.value.Store(value, !entry->value.properties.IsWeak());
         return true;
     }
@@ -257,7 +269,10 @@ bool argon::vm::datatype::NamespaceSetPositional(Namespace *ns, ArObject **value
 }
 
 bool NewEntry(Namespace *ns, ArObject *key, ArObject *value, AttributeFlag aa) {
-    NSEntry *entry = ns->ns.Lookup(key);
+    NSEntry *entry;
+
+    if (!ns->ns.Lookup(key, &entry))
+        return false;
 
     if (entry != nullptr) {
         entry->value.value.Store(value, ENUMBITMASK_ISFALSE(aa, AttributeFlag::WEAK));

@@ -357,7 +357,9 @@ bool AddModule2Cache(Import *imp, String *name, Module *mod) {
     if (mod == nullptr)
         value = IncRef((ArObject *) Nil);
 
-    if ((entry = imp->module_cache.Lookup(name)) != nullptr) {
+    imp->module_cache.Lookup(name, &entry);
+
+    if (entry != nullptr) {
         Release(entry->value);
         entry->value = IncRef(value);
 
@@ -583,7 +585,9 @@ Module *argon::vm::importer::ImportAdd(Import *imp, const char *name) {
 
     std::unique_lock _(imp->lock);
 
-    if ((entry = imp->module_cache.Lookup(ar_name)) != nullptr) {
+    imp->module_cache.Lookup(ar_name, &entry);
+
+    if (entry != nullptr) {
         assert(entry->value != nullptr);
 
         Release(ar_name);
@@ -653,7 +657,9 @@ Module *argon::vm::importer::LoadModule(Import *imp, String *name, ImportSpec *h
 
     std::unique_lock lock(imp->lock);
 
-    if ((entry = imp->module_cache.Lookup(name)) != nullptr) {
+    imp->module_cache.Lookup(name, &entry);
+
+    if (entry != nullptr) {
         if (!AR_TYPEOF(entry->value, type_module_)) {
             ErrorFormat(kModuleImportError[0], kModuleImportError[2], ARGON_RAW_STRING(name));
 
@@ -854,7 +860,9 @@ String *SanitizeModulePath(String *name, const String *path_sep) {
 }
 
 void DelModuleFromCache(Import *imp, String *name) {
-    auto *entry = imp->module_cache.Remove(name);
+    ImportModuleCacheEntry *entry;
+
+    imp->module_cache.Remove(name, &entry);
 
     Release(entry->key);
     Release(entry->value);
