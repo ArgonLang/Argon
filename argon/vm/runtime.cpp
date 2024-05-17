@@ -453,8 +453,14 @@ void PanicOOM(Fiber *fiber, struct Panic **panic, ArObject *object) {
 }
 
 void PublishResult(Fiber *fiber, ArObject *result) {
-    if (result == nullptr && fiber->context->global_config->stack_trace)
-        TBPrintPanics(stderr);
+    if (result == nullptr && fiber->context->global_config->stack_trace) {
+        auto *err = fiber->panic->object;
+
+        if (fiber->panic->panic != nullptr
+            || !AR_TYPEOF(err, type_error_)
+            || !AtomCompareID(((Error *) err)->id, kRuntimeExitError[0]))
+            TBPrintPanics(stderr);
+    }
 
     if (fiber->future != nullptr) {
         if (result == nullptr) {

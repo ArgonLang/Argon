@@ -158,6 +158,9 @@ void PrintRaw(ArObject *object) {
 
     assert(object != nullptr);
 
+    if(AR_TYPEOF(object, type_error_) && AtomCompareID(((Error*)object)->id, kRuntimeExitError[0]))
+        return;
+
     str = (String *) Str(object);
 
     Release(object);
