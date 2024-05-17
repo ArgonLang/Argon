@@ -319,16 +319,14 @@ ArObject *argon::vm::datatype::AttributeLoadMethod(const ArObject *object, const
 
     Release(skey);
 
-    if(meth == nullptr){
-        vm::DiscardLastPanic();
+    if (meth != nullptr) {
+        if (AR_TYPEOF(meth, type_function_) && meth->IsMethod())
+            return (ArObject *) meth;
 
-        return nullptr;
+        Release(meth);
+
+        ErrorFormat(kTypeError[0], "expected method '%s', got function", key);
     }
-
-    if (AR_TYPEOF(meth, type_function_) && meth->IsMethod())
-        return (ArObject *) meth;
-
-    Release(meth);
 
     return nullptr;
 }
@@ -510,25 +508,10 @@ ArObject *argon::vm::datatype::Repr(ArObject *object) {
     if (repr != nullptr)
         return repr(object);
 
-    auto *key = StringIntern("__repr");
-    if (key == nullptr)
-        return nullptr;
+    auto *rfunc = (Function *) AttributeLoadMethod(object, "__repr");
+    if (rfunc == nullptr || rfunc->IsNative()) {
+        vm::DiscardLastPanic();
 
-    auto *rfunc = (Function *) AttributeLoad(object, (ArObject *) key, false);
-
-    Release(key);
-
-    if (rfunc == nullptr)
-        return nullptr;
-
-    if (AR_GET_TYPE(rfunc) != type_function_) {
-        ErrorFormat(kTypeError[0], "__repr must be a function, not type %s", AR_TYPE_NAME(rfunc));
-
-        Release(rfunc);
-        return nullptr;
-    }
-
-    if (rfunc->IsNative()) {
         Release(rfunc);
 
         return (ArObject *) StringFormat("<object %s @%p>", AR_TYPE_NAME(object), object);
@@ -564,23 +547,9 @@ ArObject *argon::vm::datatype::Str(ArObject *object) {
     if (str != nullptr)
         return str(object);
 
-    auto *key = StringIntern("__str");
-    if (key == nullptr)
-        return nullptr;
-
-    auto *sfunc = (Function *) AttributeLoad(object, (ArObject *) key, false);
-
-    Release(key);
-
+    auto *sfunc = (Function *) AttributeLoadMethod(object, "__str");
     if (sfunc == nullptr)
         return nullptr;
-
-    if (AR_GET_TYPE(sfunc) != type_function_) {
-        ErrorFormat(kTypeError[0], "__str must be a function, not type %s", AR_TYPE_NAME(sfunc));
-
-        Release(sfunc);
-        return nullptr;
-    }
 
     if (sfunc->IsNative()) {
         Release(sfunc);
@@ -888,6 +857,8 @@ bool argon::vm::datatype::Hash(ArObject *object, ArSize *out_hash) {
     if (hash == nullptr) {
         auto *hfunc = (Function *) AttributeLoadMethod(object, "__hash");
         if (hfunc == nullptr) {
+            vm::DiscardLastPanic();
+
             ErrorFormat(kUnhashableError[0], kUnhashableError[1], AR_TYPE_QNAME(object));
 
             return false;
