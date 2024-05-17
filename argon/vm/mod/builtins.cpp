@@ -431,6 +431,22 @@ pub func exit() {
     panic Error(@RuntimeExit, "")
 }
 
+pub func hash(obj) {
+    /*
+        Return hash value of an object if it has one.
+
+        - Parameter obj: Object which we need to convert into hash.
+        - Returns: Returns the hashed value if possible.
+    */
+
+    meth := obj.__hash
+    if !meth.__method {
+        panic(Error(@TypeError, "expected '%s' as method, got function" % meth.__qname))
+    }
+
+    return meth(obj)
+}
+
 pub func str(obj) {
     /*
         Return a string version of an object.
@@ -439,7 +455,12 @@ pub func str(obj) {
         - Returns: String version of object.
     */
 
-    return obj.__str()
+    meth := obj.__str
+    if !meth.__method {
+        panic(Error(@TypeError, "expected '%s' as method, got function" % meth.__qname))
+    }
+
+    return meth(obj)
 }
 
 pub func repr(obj) {
@@ -450,7 +471,12 @@ pub func repr(obj) {
         - Returns: String version of object.
     */
 
-    return obj.__repr()
+    meth := obj.__repr
+    if !meth.__method {
+        panic(Error(@TypeError, "expected '%s' as method, got function" % meth.__qname))
+    }
+
+    return meth(obj)
 }
 
 )";
