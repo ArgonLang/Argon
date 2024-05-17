@@ -12,7 +12,44 @@
 
 using namespace argon::vm::datatype;
 
+ArObject *function_member_get_isasync(const Function *self) {
+    return BoolToArBool(self->IsAsync());
+}
+
+ArObject *function_member_get_iskwargs(const Function *self) {
+    return BoolToArBool(self->IsKWArgs());
+}
+
+ArObject *function_member_get_isgenerator(const Function *self) {
+    return BoolToArBool(self->IsGenerator());
+}
+
+ArObject *function_member_get_ismethod(const Function *self) {
+    return BoolToArBool(self->IsMethod());
+}
+
+ArObject *function_member_get_isnative(const Function *self) {
+    return BoolToArBool(self->IsNative());
+}
+
+ArObject *function_member_get_isrecoverable(const Function *self) {
+    return BoolToArBool(self->IsRecoverable());
+}
+
+ArObject *function_member_get_isvariadic(const Function *self) {
+    return BoolToArBool(self->IsVariadic());
+}
+
 const MemberDef function_members[] = {
+        ARGON_MEMBER_GETSET("__async", (MemberGetFn) function_member_get_isasync, nullptr),
+        ARGON_MEMBER_GETSET("__kwargs", (MemberGetFn) function_member_get_iskwargs, nullptr),
+        ARGON_MEMBER_GETSET("__generator", (MemberGetFn) function_member_get_isgenerator, nullptr),
+        ARGON_MEMBER_GETSET("__method", (MemberGetFn) function_member_get_ismethod, nullptr),
+        ARGON_MEMBER_GETSET("__native", (MemberGetFn) function_member_get_isnative, nullptr),
+        ARGON_MEMBER_GETSET("__recoverable", (MemberGetFn) function_member_get_isrecoverable, nullptr),
+        ARGON_MEMBER_GETSET("__variadic", (MemberGetFn) function_member_get_isvariadic, nullptr),
+
+
         ARGON_MEMBER("__arity", MemberType::SHORT, offsetof(Function, arity), true),
         ARGON_MEMBER("__base", MemberType::OBJECT, offsetof(Function, base), true),
         ARGON_MEMBER("__doc", MemberType::OBJECT, offsetof(Function, doc), true),
