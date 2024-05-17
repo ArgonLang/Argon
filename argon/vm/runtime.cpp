@@ -611,6 +611,9 @@ void VCoreRelease(OSThread *ost) {
 // Public
 
 ArObject *argon::vm::EvalRaiseError(Function *func, ArObject **argv, ArSize argc, OpCodeCallMode mode) {
+    if (func->IsNative())
+        return FunctionInvokeNative(func, argv, argc, ENUMBITMASK_ISTRUE(mode, OpCodeCallMode::KW_PARAMS));
+
     auto *result = Eval(func, argv, argc, mode);
     if (result == nullptr)
         return nullptr;
@@ -999,6 +1002,9 @@ void argon::vm::DiscardLastPanic() {
 
 void argon::vm::Panic(datatype::ArObject *panic) {
     Fiber *fiber = nullptr;
+
+    if (panic == nullptr)
+        return;
 
     if (ost_local != nullptr)
         fiber = ost_local->fiber;
