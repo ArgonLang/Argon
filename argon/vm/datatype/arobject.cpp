@@ -537,7 +537,11 @@ ArObject *argon::vm::datatype::Repr(ArObject *object) {
 }
 
 ArObject *ReprWrapper(ArObject *func, ArObject *self, ArObject **args, ArObject *kwargs, ArSize argc) {
-    return Repr(self);
+    auto repr = AR_GET_TYPE(self)->repr;
+    if (repr != nullptr)
+        return repr(self);
+
+    return (ArObject *) StringFormat("<object %s @%p>", AR_TYPE_NAME(self), self);
 }
 
 ArObject *argon::vm::datatype::Str(ArObject *object) {
@@ -577,7 +581,11 @@ ArObject *argon::vm::datatype::Str(ArObject *object) {
 }
 
 ArObject *StrWrapper(ArObject *func, ArObject *self, ArObject **args, ArObject *kwargs, ArSize argc) {
-    return Str(self);
+    auto str = AR_GET_TYPE(self)->str;
+    if (str != nullptr)
+        return str(self);
+
+    return Repr(self);
 }
 
 ArObject *argon::vm::datatype::TraitNew(const char *name, const char *qname, const char *doc, ArObject *ns,
