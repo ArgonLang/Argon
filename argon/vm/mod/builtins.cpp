@@ -289,28 +289,29 @@ ARGON_FUNCTION(builtins_show, show,
                "- Parameter ...obj: object whose instance attributes you want to know.\n"
                "- Returns: List with attributes if any, otherwise an empty list.\n",
                "", true, false) {
+    const auto *ancestor = (TypeInfo *) *args;
+    Set *target = nullptr;
+    Set *aux = nullptr;
+
+    List *ret;
+
     if (!VariadicCheckPositional(builtins_show.name, (unsigned int) argc, 0, 1))
         return nullptr;
 
     if (argc == 0)
         return (ArObject *) NamespaceKeysToList(argon::vm::GetFiber()->frame->globals, {});
 
-    List *target = nullptr;
-    List *aux = nullptr;
-
-    const auto *ancestor = (TypeInfo *) *args;
-
     if (AR_GET_TYPE(ancestor) != type_type_)
         ancestor = AR_GET_TYPE(ancestor);
 
     if (ancestor->tp_map != nullptr) {
-        target = NamespaceKeysToList((Namespace *) ancestor->tp_map, AttributeFlag::CONST | AttributeFlag::PUBLIC);
+        target = NamespaceKeysToSet((Namespace *) ancestor->tp_map, AttributeFlag::CONST | AttributeFlag::PUBLIC);
         if (target == nullptr)
             return nullptr;
     }
 
     if (AR_HAVE_OBJECT_BEHAVIOUR(*args) && AR_SLOT_OBJECT(*args)->namespace_offset >= 0) {
-        aux = NamespaceKeysToList(*((Namespace **) AR_GET_NSOFFSET(*args)), AttributeFlag::PUBLIC);
+        aux = NamespaceKeysToSet(*((Namespace **) AR_GET_NSOFFSET(*args)), AttributeFlag::PUBLIC);
         if (aux == nullptr) {
             Release(target);
 
@@ -321,17 +322,28 @@ ARGON_FUNCTION(builtins_show, show,
     if (target == nullptr && aux == nullptr)
         return (ArObject *) ListNew();
 
-    if (target == nullptr)
-        return (ArObject *) aux;
+    if (target == nullptr) {
+        ret = ListNew((ArObject *) aux);
 
-    if (!ListExtend(target, (ArObject *) aux)) {
-        Release(target);
+        Release(aux);
+
+        return (ArObject *) ret;
+    }
+
+    if (aux != nullptr) {
+        if (!SetMerge(target, aux)) {
+            Release(target);
+            Release(aux);
+        }
+
         Release(aux);
     }
 
-    Release(aux);
+    ret = ListNew((ArObject*)target);
 
-    return (ArObject *) target;
+    Release(target);
+
+    return (ArObject *) ret;
 }
 
 /*

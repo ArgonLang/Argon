@@ -519,6 +519,18 @@ bool argon::vm::datatype::SetContains(Set *set, ArObject *object) {
     return entry != nullptr;
 }
 
+bool argon::vm::datatype::SetMerge(Set *set, Set *other) {
+    std::unique_lock _(set->rwlock);
+    std::shared_lock right_lock(other->rwlock);
+
+    for(auto *cur = other->set.iter_begin;cur != nullptr; cur=cur->iter_next){
+        if(!SetAdd(set, cur->key))
+            return false;
+    }
+
+    return true;
+}
+
 bool SetAddNoLock(Set *set, ArObject *object) {
     SetEntry *entry;
 

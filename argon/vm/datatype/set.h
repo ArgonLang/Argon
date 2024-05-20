@@ -44,6 +44,8 @@ namespace argon::vm::datatype {
      */
     bool SetContains(Set *set, ArObject *object);
 
+    bool SetMerge(Set *set, Set *other);
+
     /**
      * @brief Calculate the difference between two sets.
      *

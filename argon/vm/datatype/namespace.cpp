@@ -358,6 +358,25 @@ Namespace *argon::vm::datatype::NamespaceNew(Namespace *ns, AttributeFlag ignore
     return ret;
 }
 
+Set *argon::vm::datatype::NamespaceKeysToSet(Namespace *ns, AttributeFlag match) {
+    auto *set = SetNew();
+
+    std::unique_lock dst_lck(ns->rwlock);
+
+    for (auto *cursor = ns->ns.iter_begin; cursor != nullptr; cursor = cursor->iter_next) {
+        if ((int) match == 0 || (cursor->value.properties.flags & match) == match) {
+            bool ok = SetAdd(set, cursor->key);
+            if (!ok) {
+                Release(set);
+
+                return nullptr;
+            }
+        }
+    }
+
+    return set;
+}
+
 [[maybe_unused]] void argon::vm::datatype::NamespaceClear(Namespace *ns) {
     std::unique_lock _(ns->rwlock);
 

@@ -12,7 +12,7 @@
 #include <argon/vm/datatype/arobject.h>
 #include <argon/vm/datatype/hashmap.h>
 #include <argon/vm/datatype/list.h>
-
+#include <argon/vm/datatype/set.h>
 
 #undef CONST
 #undef PUBLIC
@@ -200,6 +200,15 @@ namespace argon::vm::datatype {
      * @return A pointer to new namespace, otherwise nullptr.
      */
     Namespace *NamespaceNew(Namespace *ns, AttributeFlag ignore);
+
+    /**
+     * @brief Create a Set of namespace keys.
+     *
+     * @param ns Pointer to namespace.
+     * @param match Filters the keys by specifying which attributes they must have in order to be exported.
+     * @return Set of namespace keys.
+     */
+    Set *NamespaceKeysToSet(Namespace *ns, AttributeFlag match);
 
     /**
      * @brief Cleans the namespace.
