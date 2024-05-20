@@ -257,7 +257,7 @@ ArSize tuple_hash(Tuple *self) {
         return 0;
 
     for (ArSize i = 0; i < self->length; i++) {
-        if (Hash(self->objects[i], &hash))
+        if (!Hash(self->objects[i], &hash))
             return 0;
 
         result = 31 * result + hash;
