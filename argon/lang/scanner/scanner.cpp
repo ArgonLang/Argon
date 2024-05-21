@@ -552,6 +552,8 @@ bool Scanner::TokenizeRawString(Token *out_token) {
                 this->status_ = ScannerStatus::NOMEM;
                 return false;
             }
+
+            continue;
         }
 
         if (!this->sbuf_.PutChar((unsigned char) this->Next())) {
