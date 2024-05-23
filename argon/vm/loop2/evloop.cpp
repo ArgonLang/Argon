@@ -239,8 +239,6 @@ void argon::vm::loop2::QueueDel(EvLoopQueue **ev_queue) {
     while ((event = queue->out_events.Dequeue()) != nullptr)
         EventDel(event);
 
-    printf("Chiusa coda: %d\n", (*ev_queue)->handle);
-
     queue->lock.~mutex();
 
     argon::vm::memory::Free(queue);
