@@ -2,8 +2,11 @@
 //
 // Licensed under the Apache License v2.0
 
+#include <argon/vm/runtime.h>
+
 #include <argon/vm/memory/gc.h>
 
+#include <argon/vm/datatype/boolean.h>
 #include <argon/vm/datatype/error.h>
 #include <argon/vm/datatype/struct.h>
 
@@ -17,6 +20,65 @@ const ObjectSlots struct_objslot = {
         nullptr,
         offsetof(Struct, ns)
 };
+
+ArObject *struct_compare(Struct *self, ArObject *other, CompareMode mode) {
+    const char *m_name;
+
+    switch (mode) {
+        case CompareMode::EQ:
+            m_name = "__eq";
+            break;
+        case CompareMode::GR:
+            m_name = "__gr";
+            break;
+        case CompareMode::GRQ:
+            m_name = "__grq";
+            break;
+        case CompareMode::LE:
+            m_name = "__le";
+            break;
+        case CompareMode::LEQ:
+            m_name = "__leq";
+            break;
+        default:
+            assert(false);
+    }
+
+    ArObject *args[2];
+
+    auto *meth = (Function *) AttributeLoadMethod((ArObject *) self, m_name);
+    if (meth == nullptr) {
+        argon::vm::DiscardLastPanic();
+
+        if (mode == CompareMode::EQ)
+            return BoolToArBool((ArObject *) self == other);
+
+        return nullptr;
+    }
+
+    args[0] = (ArObject *) self;
+    args[1] = other;
+
+    auto *res = argon::vm::EvalRaiseError(meth, args, 2, argon::vm::OpCodeCallMode::FASTCALL);
+
+    Release(meth);
+
+    if (IsNull(res)) {
+        Release(res);
+
+        return nullptr;
+    }
+
+    if (!AR_TYPEOF(res, type_boolean_)) {
+        ErrorFormat(kTypeError[0], kTypeError[12], m_name, type_boolean_->name, AR_TYPE_QNAME(res));
+
+        Release(res);
+
+        return nullptr;
+    }
+
+    return res;
+}
 
 bool struct_dtor(Struct *self) {
     Release(self->ns);
@@ -40,7 +102,7 @@ const TypeInfo StructType = {
         (TraceOp) struct_trace,
         nullptr,
         nullptr,
-        nullptr,
+        (CompareOp) struct_compare,
         nullptr,
         nullptr,
         nullptr,

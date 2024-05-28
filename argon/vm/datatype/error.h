@@ -119,7 +119,8 @@ namespace argon::vm::datatype {
             (const char *) "no viable conversion from '%s' to %s",
             (const char *) "'%s' is not callable",
             (const char *) "'%s' is not iterable",
-            (const char *) "expected '%s' as method, got function"
+            (const char *) "expected '%s' as method, got function",
+            (const char *) "%s should return %s, got %s"
     };
 
     constexpr const char *kUnassignableError[] = {
