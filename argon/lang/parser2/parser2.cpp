@@ -416,7 +416,7 @@ Node *Parser::ParseExpression(Context *context) {
     Node *expr;
 
     expr = this->ParseExpression(context, 0);
-    if(expr == nullptr)
+    if (expr == nullptr)
         throw ParserException(this->tkcur_.loc, kStandardError[0]);
 
     if (this->Match(TokenType::COLON)) {
@@ -1694,6 +1694,8 @@ Parser::NudMeth Parser::LookupNUD(TokenType token) {
             return &Parser::ParseArrowOrTuple;
         case TokenType::LEFT_SQUARE:
             return &Parser::ParseList;
+        case TokenType::KW_ASYNC:
+            return &Parser::ParseAsyncExpr;
         case TokenType::KW_AWAIT:
             return &Parser::ParseAwait;
         case TokenType::KW_TRAP:
@@ -1836,12 +1838,29 @@ Node *Parser::ParseAssignment(Context *context, Node *left) {
     return (Node *) assignment;
 }
 
+Node *Parser::ParseAsyncExpr(Context *context) {
+    this->Eat(true);
+
+    auto *expr = this->ParseArrowOrTuple(context);
+    if (expr->node_type != NodeType::FUNCTION) {
+        Release(expr);
+
+        throw ParserException(this->tkcur_.loc, kStandardError[0]);
+    }
+
+    ((Function *) expr)->async = true;
+
+    return expr;
+}
+
 Node *Parser::ParseAwait(Context *context) {
     auto start = TKCUR_START;
 
     this->Eat(true);
 
     auto *expr = this->ParseExpression(context, Parser::PeekPrecedence(TokenType::ARROW_RIGHT));
+    if (expr == nullptr)
+        throw ParserException(this->tkcur_.loc, kStandardError[0]);
 
     auto *unary = NewNode<Unary>(type_ast_unary_, false, NodeType::AWAIT);
     if (unary == nullptr) {
@@ -2533,6 +2552,15 @@ Node *Parser::ParsePipeline(Context *context, Node *left) {
 
     if (right->node_type == NodeType::CALL) {
         auto *call = (Call *) right;
+
+        if (call->args == nullptr) {
+            call->args = ListNew();
+            if (call->args == nullptr) {
+                Release(right);
+
+                return nullptr;
+            }
+        }
 
         if (!ListPrepend((List *) call->args, (ArObject *) left)) {
             Release(right);

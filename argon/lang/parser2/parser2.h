@@ -267,6 +267,8 @@ namespace argon::lang::parser2 {
 
         node::Node *ParseAssignment(Context *context, node::Node *left);
 
+        node::Node *ParseAsyncExpr(Context *context);
+
         node::Node *ParseAwait(Context *context);
 
         node::Node *ParseChanOut(Context *context);
