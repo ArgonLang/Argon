@@ -640,12 +640,16 @@ bool argon::vm::datatype::ListAppend(List *list, ArObject *object) {
 
     list->objects[list->length++] = IncRef(object);
 
+    _.unlock();
+
     argon::vm::memory::TrackIf((ArObject *) list, object);
 
     return true;
 }
 
 bool argon::vm::datatype::ListExtend(List *list, ArObject *iterator) {
+    bool need_tracking = false;
+
     if (iterator == nullptr)
         return true;
 
@@ -673,13 +677,19 @@ bool argon::vm::datatype::ListExtend(List *list, ArObject *iterator) {
 
             list->objects[list->length + i] = object;
 
-            argon::vm::memory::TrackIf((ArObject *) list, object);
+            if (memory::GCGetHead(object) != nullptr)
+                need_tracking = true;
         }
 
         list->length += right->length;
 
         if (list != right)
             right->rwlock.unlock_shared();
+
+        _.unlock();
+
+        if (need_tracking)
+            memory::Track((ArObject *) list);
 
         return true;
     } else if (AR_TYPEOF(iterator, type_tuple_)) {
@@ -694,10 +704,16 @@ bool argon::vm::datatype::ListExtend(List *list, ArObject *iterator) {
 
             list->objects[list->length + i] = object;
 
-            argon::vm::memory::TrackIf((ArObject *) list, object);
+            if (memory::GCGetHead(object) != nullptr)
+                need_tracking = true;
         }
 
         list->length += right->length;
+
+        _.unlock();
+
+        if (need_tracking)
+            memory::Track((ArObject *) list);
 
         return true;
     }
@@ -706,6 +722,8 @@ bool argon::vm::datatype::ListExtend(List *list, ArObject *iterator) {
 }
 
 bool argon::vm::datatype::ListExtend(List *list, ArObject **object, ArSize count) {
+    bool need_tracking = false;
+
     std::unique_lock _(list->rwlock);
 
     if (!CheckSize(list, count))
@@ -716,10 +734,16 @@ bool argon::vm::datatype::ListExtend(List *list, ArObject **object, ArSize count
 
         list->objects[list->length + i] = IncRef(obj);
 
-        argon::vm::memory::TrackIf((ArObject *) list, obj);
+        if (memory::GCGetHead(obj) != nullptr)
+            need_tracking = true;
     }
 
     list->length += count;
+
+    _.unlock();
+
+    if (need_tracking)
+        memory::Track((ArObject *) list);
 
     return true;
 }
@@ -736,6 +760,8 @@ bool argon::vm::datatype::ListInsert(List *list, ArObject *object, ArSSize index
 
         list->objects[list->length++] = IncRef(object);
 
+        _.unlock();
+
         argon::vm::memory::TrackIf((ArObject *) list, object);
 
         return true;
@@ -743,6 +769,8 @@ bool argon::vm::datatype::ListInsert(List *list, ArObject *object, ArSSize index
 
     Release(list->objects[index]);
     list->objects[index] = IncRef(object);
+
+    _.unlock();
 
     argon::vm::memory::TrackIf((ArObject *) list, object);
 

@@ -456,7 +456,10 @@ bool argon::vm::datatype::DictInsert(Dict *dict, ArObject *key, ArObject *value)
         Release(entry->value);
         entry->value = IncRef(value);
 
+        _.unlock();
+
         memory::TrackIf((ArObject *) dict, value);
+
         return true;
     }
 
@@ -475,7 +478,10 @@ bool argon::vm::datatype::DictInsert(Dict *dict, ArObject *key, ArObject *value)
         return false;
     }
 
+    _.unlock();
+
     memory::TrackIf((ArObject *) dict, value);
+
     return true;
 }
 
