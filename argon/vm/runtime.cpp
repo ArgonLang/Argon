@@ -62,6 +62,7 @@ struct OSThread {
     VCore *current;
     VCore *old;
 
+    bool idle;
     bool spinning;
 
     std::thread self;
@@ -109,6 +110,8 @@ FiberQueue fiber_pool;
 bool WireVCore(OSThread *, VCore *);
 
 Fiber *StealWork(OSThread *);
+
+void OSTActive2Idle(OSThread *);
 
 void OSTIdle2Active(OSThread *);
 
@@ -280,8 +283,10 @@ Fiber *StealWork(OSThread *ost) {
 OSThread *AllocOST() {
     auto *ost = (OSThread *) memory::Calloc(sizeof(OSThread));
 
-    if (ost != nullptr)
+    if (ost != nullptr) {
+        ost->idle = true;
         new(&ost->self) std::thread();
+    }
 
     return ost;
 }
@@ -303,36 +308,9 @@ void AcquireOrSuspend(OSThread *ost, Fiber **last) {
         }
 
         lock.unlock();
+        OSTActive2Idle(ost);
         OSTSleep();
         lock.lock();
-    }
-}
-
-void FindExecutable(Fiber **out_fiber, unsigned int *tick, bool lq_last) {
-    auto *current = ost_local->current;
-
-    *out_fiber = nullptr;
-
-    if (should_stop)
-        return;
-
-    if (!lq_last) {
-        *out_fiber = current->queue.Dequeue();
-        if (*out_fiber != nullptr)
-            return;
-    }
-
-    // Check from global queue
-    if ((*out_fiber = fiber_global.Dequeue()) != nullptr)
-        return;
-
-    if ((*out_fiber = StealWork(ost_local)) != nullptr)
-        return;
-
-    if (lq_last) {
-        *tick = 0;
-
-        *out_fiber = current->queue.Dequeue();
     }
 }
 
@@ -351,6 +329,9 @@ void FreeOSThread(OSThread *ost) {
 }
 
 void OSTActive2Idle(OSThread *ost) {
+    if (ost->idle)
+        return;
+
     std::unique_lock lock(ost_lock);
 
     if (ost->current != nullptr)
@@ -358,15 +339,22 @@ void OSTActive2Idle(OSThread *ost) {
 
     OSTRemove(ost);
     PushOSThread(&ost_idle, ost);
+    ost->idle = true;
+
     ost_idle_count++;
     ost_worker_count--;
 }
 
 void OSTIdle2Active(OSThread *ost) {
+    if (!ost->idle)
+        return;
+
     std::unique_lock lock(ost_lock);
 
     OSTRemove(ost);
     PushOSThread(&ost_active, ost);
+    ost->idle = false;
+
     ost_idle_count--;
     ost_worker_count++;
 }
@@ -417,8 +405,10 @@ void OSTWakeRun() {
     if (!acquired) {
         PushOSThread(&ost_idle, ost);
         ost_idle_count++;
-    } else
+    } else {
+        ost->idle = false;
         PushOSThread(&ost_active, ost);
+    }
 
     ost->self = std::thread(Scheduler, ost);
 }
