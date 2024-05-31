@@ -1281,7 +1281,9 @@ ArObject *argon::vm::Eval(Fiber *fiber) {
                 DISPATCH4();
             }
             TARGET_OP(NOT) {
-                TOP_REPLACE(BoolToArBool(!IsTrue(TOP())));
+                ret = BoolToArBool(!IsTrue(TOP()));
+
+                TOP_REPLACE(ret);
                 DISPATCH1();
             }
             TARGET_OP(NXT) {
