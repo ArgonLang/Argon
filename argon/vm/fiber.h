@@ -10,6 +10,7 @@
 #include <argon/vm/datatype/function.h>
 #include <argon/vm/datatype/namespace.h>
 
+#include <argon/vm/sync/mcond.h>
 #include <argon/vm/sync/sync.h>
 
 #include <argon/vm/context.h>
@@ -29,6 +30,9 @@ namespace argon::vm {
     struct Fiber {
         /// Routine status.
         FiberStatus status;
+
+        /// Pointer to a stack allocated MCond object (see EvalSync).
+        sync::MCond *sync_cv;
 
         sync::NotifyQueueTicket ticket;
 
@@ -54,6 +58,9 @@ namespace argon::vm {
 
         /// Raw pointer to the OSThread running this fiber (only used to check if the fiber is already running on an OSThread).
         void *active_ost;
+
+        /// Pointer to the frame allocated by the last EvalSync call.
+        void *unwind_limit;
 
         void *stack_cur;
 

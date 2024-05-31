@@ -519,7 +519,7 @@ ArObject *argon::vm::datatype::Repr(ArObject *object) {
 
     args[0] = object;
 
-    auto *result = EvalRaiseError(rfunc, args, 1, OpCodeCallMode::FASTCALL);
+    auto *result = EvalSync(rfunc, args, 1, OpCodeCallMode::FASTCALL);
 
     Release(rfunc);
 
@@ -563,7 +563,7 @@ ArObject *argon::vm::datatype::Str(ArObject *object) {
 
     args[0] = object;
 
-    auto *result = EvalRaiseError(sfunc, args, 1, OpCodeCallMode::FASTCALL);
+    auto *result = EvalSync(sfunc, args, 1, OpCodeCallMode::FASTCALL);
 
     Release(sfunc);
 
@@ -874,7 +874,7 @@ bool argon::vm::datatype::Hash(ArObject *object, ArSize *out_hash) {
 
         args[0] = object;
 
-        auto *result = EvalRaiseError(hfunc, args, 1, OpCodeCallMode::FASTCALL);
+        auto *result = EvalSync(hfunc, args, 1, OpCodeCallMode::FASTCALL);
 
         Release(hfunc);
 

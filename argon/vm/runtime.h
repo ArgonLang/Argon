@@ -22,29 +22,42 @@ namespace argon::vm {
     constexpr const unsigned short kVCoreDefault = 4;
     constexpr const unsigned short kVCoreQueueLengthMax = 256;
 
-    argon::vm::datatype::ArObject *EvalRaiseError(datatype::Function *func, datatype::ArObject **argv,
-                                                  datatype::ArSize argc, OpCodeCallMode mode);
+    argon::vm::datatype::ArObject *EvalRaiseError(datatype::Function *func,
+                                                  datatype::ArObject **argv,
+                                                  datatype::ArSize argc,
+                                                  OpCodeCallMode mode);
+
+    argon::vm::datatype::ArObject *EvalSync(datatype::Function *func,
+                                            datatype::ArObject **argv,
+                                            datatype::ArSize argc,
+                                            OpCodeCallMode mode);
 
     argon::vm::datatype::ArObject *GetLastError();
 
-    argon::vm::datatype::Future *EvalAsync(Context *context, datatype::Function *func, datatype::ArObject **argv,
-                                           datatype::ArSize argc, OpCodeCallMode mode);
+    argon::vm::datatype::Future *EvalAsync(Context *context,
+                                           datatype::Function *func,
+                                           datatype::ArObject **argv,
+                                           datatype::ArSize argc,
+                                           OpCodeCallMode mode);
 
     argon::vm::datatype::Result *Eval(Context *context, datatype::Code *code, datatype::Namespace *ns);
 
-    argon::vm::datatype::Result *Eval(datatype::Function *func, datatype::ArObject **argv,
-                                      datatype::ArSize argc, OpCodeCallMode mode);
+    argon::vm::datatype::Result *Eval(datatype::Function *func,
+                                      datatype::ArObject **argv,
+                                      datatype::ArSize argc,
+                                      OpCodeCallMode mode);
 
-    inline argon::vm::datatype::Result *
-    Eval(datatype::Function *func, datatype::ArObject **argv, datatype::ArSize argc) {
+    inline argon::vm::datatype::Result *Eval(datatype::Function *func,
+                                             datatype::ArObject **argv,
+                                             datatype::ArSize argc) {
         return Eval(func, argv, argc, OpCodeCallMode::FASTCALL);
     }
 
-    argon::vm::datatype::Result *EvalFile(Context *context, const char *name,
-                                          const char *path, datatype::Namespace *ns);
+    argon::vm::datatype::Result *EvalFile(Context *context, const char *name, const char *path,
+                                          datatype::Namespace *ns);
 
-    argon::vm::datatype::Result *EvalString(Context *context, const char *name,
-                                            const char *source, datatype::Namespace *ns);
+    argon::vm::datatype::Result *EvalString(Context *context, const char *name, const char *source,
+                                            datatype::Namespace *ns);
 
     argon::vm::datatype::String *GetExecutableName();
 

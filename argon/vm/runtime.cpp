@@ -29,6 +29,7 @@
 #include <argon/vm/datatype/future.h>
 
 #include <argon/vm/loop2/evloop.h>
+#include <argon/vm/sync/mcond.h>
 
 #include <argon/vm/setup.h>
 
@@ -582,7 +583,7 @@ void Scheduler(OSThread *self) {
 void VCoreRelease(OSThread *ost) {
     auto *current = ost->current;
 
-    if (ost->current == nullptr)
+    if (current == nullptr)
         return;
 
     ost->old = ost->current;
@@ -626,6 +627,45 @@ ArObject *argon::vm::EvalRaiseError(Function *func, ArObject **argv, ArSize argc
     Release(result);
 
     return tmp;
+}
+
+argon::vm::datatype::ArObject *argon::vm::EvalSync(Function *func, ArObject **argv, ArSize argc, OpCodeCallMode mode) {
+    if (func->IsNative())
+        return FunctionInvokeNative(func, argv, argc, ENUMBITMASK_ISTRUE(mode, OpCodeCallMode::KW_PARAMS));
+
+    auto *fiber = GetFiber();
+
+    assert(fiber != nullptr);
+
+    auto *prev_cond = fiber->sync_cv;
+    auto *prev_limit = fiber->unwind_limit;
+
+    auto *frame = FrameNew(fiber, func, argv, argc, mode);
+    if (frame == nullptr)
+        return nullptr;
+
+    sync::MCond cond{};
+
+    FiberPushFrame(fiber, frame);
+
+    fiber->sync_cv = &cond;
+    fiber->unwind_limit = frame;
+
+    auto *res = Eval(fiber);
+    while (res == nullptr && GetFiberStatus() != FiberStatus::RUNNING) {
+        cond.wait([fiber]() {
+            return fiber->status == FiberStatus::RUNNABLE;
+        });
+
+        SetFiberStatus(FiberStatus::RUNNING);
+
+        res = Eval(fiber);
+    }
+
+    fiber->sync_cv = prev_cond;
+    fiber->unwind_limit = prev_limit;
+
+    return res;
 }
 
 ArObject *argon::vm::GetLastError() {
@@ -1031,6 +1071,12 @@ void argon::vm::SetFiberStatus(FiberStatus status) {
 
 void argon::vm::Spawn(argon::vm::Fiber *fiber) {
     fiber->status = FiberStatus::RUNNABLE;
+
+    if (fiber->unwind_limit != nullptr) {
+        fiber->sync_cv->Notify();
+
+        return;
+    }
 
     fiber_global.Enqueue(fiber);
 

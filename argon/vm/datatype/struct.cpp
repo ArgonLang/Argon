@@ -59,7 +59,7 @@ ArObject *struct_compare(Struct *self, ArObject *other, CompareMode mode) {
     args[0] = (ArObject *) self;
     args[1] = other;
 
-    auto *res = argon::vm::EvalRaiseError(meth, args, 2, argon::vm::OpCodeCallMode::FASTCALL);
+    auto *res = argon::vm::EvalSync(meth, args, 2, argon::vm::OpCodeCallMode::FASTCALL);
 
     Release(meth);
 

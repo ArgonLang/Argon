@@ -280,7 +280,7 @@ bool PopExecutedFrame(Fiber *fiber, const Code **out_code, Frame **out_frame, Ar
 
         FrameDel(FiberPopFrame(fiber));
 
-        if (fiber->frame == nullptr) {
+        if (fiber->frame == nullptr || fiber->unwind_limit == cu_frame) {
             if (IsPanicking())
                 Release(ret);
 
