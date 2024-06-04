@@ -122,7 +122,11 @@ bool RefCount::IncStrong() {
         desired = current;
 
         if (!RC_HAVE_INLINE_COUNTER(desired)) {
-            assert(RC_GET_SIDETABLE(desired)->strong.fetch_add(1) != 0);
+            auto *side = RC_GET_SIDETABLE(desired);
+            auto s_fetch = side->strong.fetch_add(1);
+
+            assert(s_fetch != 0);
+
             return true;
         }
 
