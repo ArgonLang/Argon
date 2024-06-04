@@ -380,10 +380,8 @@ ArObject *set_compare(Set *self, ArObject *other, CompareMode mode) {
     if (self == o)
         return BoolToArBool(true);
 
-    // *** WARNING ***
-    // Why std::unique_lock? See vm/sync/rsm.h
-    std::unique_lock self_lock(self->rwlock);
-    std::unique_lock other_lock(o->rwlock);
+    std::shared_lock self_lock(self->rwlock);
+    std::shared_lock other_lock(o->rwlock);
 
     if (self->set.length != o->set.length)
         return BoolToArBool(false);

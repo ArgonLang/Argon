@@ -82,9 +82,7 @@ ARGON_METHOD(list_find, find,
              ": object", false, false) {
     auto *self = (List *) _self;
 
-    // *** WARNING ***
-    // Why std::unique_lock? See vm/sync/rsm.h
-    std::unique_lock _(self->rwlock);
+    std::shared_lock _(self->rwlock);
 
     for (ArSize i = 0; i < self->length; i++) {
         if (Equal(self->objects[i], *args))
@@ -335,9 +333,7 @@ ArObject *list_add(ArObject *left, ArObject *right) {
 
     if (AR_SAME_TYPE(l, r)) {
         std::shared_lock left_lock(l->rwlock);
-
-        if (l != r)
-            r->rwlock.lock_shared();
+        std::shared_lock right_lock(r->rwlock);
 
         size_new = l->length + r->length;
 
@@ -355,9 +351,6 @@ ArObject *list_add(ArObject *left, ArObject *right) {
             list->length = size_new;
         }
     }
-
-    if (l != r)
-        r->rwlock.unlock_shared();
 
     return (ArObject *) list;
 }
@@ -662,15 +655,10 @@ bool argon::vm::datatype::ListExtend(List *list, ArObject *iterator) {
         // List fast-path
         auto *right = (List *) iterator;
 
-        if (list != right)
-            right->rwlock.lock_shared();
+        std::shared_lock r_lck(right->rwlock);
 
-        if (!CheckSize(list, right->length)) {
-            if (list != right)
-                right->rwlock.unlock_shared();
-
+        if (!CheckSize(list, right->length))
             return false;
-        }
 
         for (ArSize i = 0; i < right->length; i++) {
             auto *object = IncRef(right->objects[i]);
@@ -683,9 +671,7 @@ bool argon::vm::datatype::ListExtend(List *list, ArObject *iterator) {
 
         list->length += right->length;
 
-        if (list != right)
-            right->rwlock.unlock_shared();
-
+        r_lck.unlock();
         _.unlock();
 
         if (need_tracking)

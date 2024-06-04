@@ -26,10 +26,8 @@ ArObject *namespace_compare(Namespace *self, ArObject *other, CompareMode mode) 
     if (self == o)
         return BoolToArBool(true);
 
-    // *** WARNING ***
-    // Why std::unique_lock? See vm/sync/rsm.h
-    std::unique_lock self_lock(self->rwlock);
-    std::unique_lock other_lock(o->rwlock);
+    std::shared_lock self_lock(self->rwlock);
+    std::shared_lock other_lock(o->rwlock);
 
     if (self->ns.length != o->ns.length)
         return BoolToArBool(false);
@@ -300,7 +298,7 @@ bool NewEntry(Namespace *ns, ArObject *key, ArObject *value, AttributeFlag aa) {
 }
 
 List *argon::vm::datatype::NamespaceKeysToList(Namespace *ns, AttributeFlag match) {
-    std::unique_lock dst_lck(ns->rwlock);
+    std::shared_lock dst_lck(ns->rwlock);
 
     auto *list = ListNew(ns->ns.length);
 
@@ -361,7 +359,7 @@ Namespace *argon::vm::datatype::NamespaceNew(Namespace *ns, AttributeFlag ignore
 Set *argon::vm::datatype::NamespaceKeysToSet(Namespace *ns, AttributeFlag match) {
     auto *set = SetNew();
 
-    std::unique_lock dst_lck(ns->rwlock);
+    std::shared_lock dst_lck(ns->rwlock);
 
     for (auto *cursor = ns->ns.iter_begin; cursor != nullptr; cursor = cursor->iter_next) {
         if ((int) match == 0 || (cursor->value.properties.flags & match) == match) {

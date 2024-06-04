@@ -18,14 +18,6 @@
 
 using namespace argon::vm::datatype;
 
-#define CHECK_HASHABLE(key, retval)                                                     \
-    do {                                                                                \
-        if(!Hash(key, nullptr)) {                                                       \
-            ErrorFormat(kUnhashableError[0], kUnhashableError[1], AR_TYPE_NAME(key));   \
-            return retval;                                                              \
-        }                                                                               \
-    } while(0)
-
 ARGON_FUNCTION(dict_dict, Dict,
                "Create an empty dict or construct it from an iterable object.\n"
                "\n"
@@ -141,7 +133,7 @@ ARGON_METHOD(dict_pop, pop,
     auto *self = (Dict *) _self;
     DictEntry *item;
 
-    std::shared_lock _(self->rwlock);
+    std::unique_lock _(self->rwlock);
 
     if (!self->hmap.Remove(args[0], &item))
         return nullptr;
@@ -263,10 +255,8 @@ ArObject *dict_compare(Dict *self, ArObject *other, CompareMode mode) {
     if (self == o)
         return BoolToArBool(true);
 
-    // *** WARNING ***
-    // Why std::unique_lock? See vm/sync/rsm.h
-    std::unique_lock self_lock(self->rwlock);
-    std::unique_lock other_lock(o->rwlock);
+    std::shared_lock self_lock(self->rwlock);
+    std::shared_lock other_lock(o->rwlock);
 
     if (self->hmap.length != o->hmap.length)
         return BoolToArBool(false);
