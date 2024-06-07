@@ -856,6 +856,30 @@ String *SanitizeModulePath(String *name, const String *path_sep) {
 
     Release(altsep);
 
+    auto last_sep = StringRFind(res, path_sep);
+    if (last_sep < 0)
+        return res;
+
+    auto mname_length = ARGON_RAW_STRING_LENGTH(res) - (last_sep + 1);
+    if (mname_length >= ARGON_RAW_STRING_LENGTH(res) - mname_length)
+        return res;
+
+    auto ok = argon::vm::memory::MemoryCompare(
+            (ARGON_RAW_STRING(name) + last_sep) - mname_length,
+            (ARGON_RAW_STRING(name) + last_sep + 1),
+            mname_length);
+
+    if (ok == 0) {
+        if ((name = StringSubs(res, 0, last_sep)) == nullptr) {
+            Release(res);
+            return nullptr;
+        }
+
+        Release(res);
+
+        return name;
+    }
+
     return res;
 }
 

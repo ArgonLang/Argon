@@ -273,7 +273,7 @@ const TypeInfo TypeTrait = {
         nullptr,
         nullptr,
         nullptr,
-        nullptr,
+        type_compare,
         nullptr,
         nullptr,
         nullptr,
