@@ -164,12 +164,14 @@ Struct *argon::vm::datatype::StructNew(TypeInfo *type, ArObject **argv, unsigned
         }
     }
 
-    if ((ret = MakeGCObject<Struct>(type, true)) == nullptr) {
+    if ((ret = MakeGCObject<Struct>(type)) == nullptr) {
         Release(ns);
         return nullptr;
     }
 
     ret->ns = ns;
+
+    memory::Track((ArObject *) ret);
 
     return ret;
 }

@@ -111,13 +111,13 @@ namespace argon::vm::datatype {
     }
 
     template<typename T>
-    T *MakeGCObject(const TypeInfo *type, bool track) {
-        return (T *) memory::GCNew(type, track);
+    T *MakeGCObject(const TypeInfo *type) {
+        return (T *) memory::GCNew(type, false);
     }
 
     template<typename T>
-    T *MakeGCObject(TypeInfo *type, bool track) {
-        auto *ret = (T *) memory::GCNew(type, track);
+    T *MakeGCObject(TypeInfo *type) {
+        auto *ret = (T *) memory::GCNew(type, false);
         if (ret != nullptr)
             IncRef(type);
 

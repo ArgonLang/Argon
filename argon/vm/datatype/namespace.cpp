@@ -317,7 +317,7 @@ List *argon::vm::datatype::NamespaceKeysToList(Namespace *ns, AttributeFlag matc
 }
 
 Namespace *argon::vm::datatype::NamespaceNew() {
-    auto *ns = MakeGCObject<Namespace>(&NamespaceType, true);
+    auto *ns = MakeGCObject<Namespace>(&NamespaceType);
 
     if (ns != nullptr) {
         if (!ns->ns.Initialize()) {
@@ -327,6 +327,8 @@ Namespace *argon::vm::datatype::NamespaceNew() {
         }
 
         new(&ns->rwlock)sync::RecursiveSharedMutex();
+
+        memory::Track((ArObject*)ns);
     }
 
     return ns;

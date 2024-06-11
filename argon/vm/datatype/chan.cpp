@@ -270,7 +270,7 @@ bool argon::vm::datatype::ChanWrite(Chan *chan, ArObject *value) {
 }
 
 Chan *argon::vm::datatype::ChanNew(ArObject *defval, unsigned int backlog) {
-    auto *chan = MakeGCObject<Chan>(type_chan_, false);
+    auto *chan = MakeGCObject<Chan>(type_chan_);
 
     if (chan != nullptr) {
         if ((chan->queue = (ArObject **) argon::vm::memory::Alloc(backlog * sizeof(void *))) == nullptr) {

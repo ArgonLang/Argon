@@ -499,7 +499,7 @@ ArObject *list_compare(List *self, ArObject *other, CompareMode mode) {
 }
 
 ArObject *list_iter(List *self, bool reverse) {
-    auto *li = MakeGCObject<ListIterator>(type_list_iterator_, true);
+    auto *li = MakeGCObject<ListIterator>(type_list_iterator_);
 
     if (li != nullptr) {
         new(&li->lock)std::mutex;
@@ -507,6 +507,8 @@ ArObject *list_iter(List *self, bool reverse) {
         li->iterable = IncRef(self);
         li->index = 0;
         li->reverse = reverse;
+
+        argon::vm::memory::Track((ArObject *) li);
     }
 
     return (ArObject *) li;
@@ -817,7 +819,7 @@ List *ListFromIterable(List **dest, ArObject *iterable) {
 }
 
 List *argon::vm::datatype::ListNew(ArSize capacity) {
-    auto *list = MakeGCObject<List>(type_list_, false);
+    auto *list = MakeGCObject<List>(type_list_);
 
     if (list != nullptr) {
         list->objects = nullptr;

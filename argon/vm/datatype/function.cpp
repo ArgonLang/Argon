@@ -186,7 +186,7 @@ bool FunctionCheckParams(const PCheck *pcheck, ArObject **args, ArSize count) {
 }
 
 Function *FunctionClone(const Function *func) {
-    auto *fn = MakeGCObject<Function>(type_function_, false);
+    auto *fn = MakeGCObject<Function>(type_function_);
 
     if (fn != nullptr) {
         if (func->IsNative())
@@ -213,7 +213,7 @@ Function *FunctionClone(const Function *func) {
 }
 
 Function *FunctionNew(String *name, String *doc, unsigned short arity, FunctionFlags flags) {
-    auto *fn = MakeGCObject<Function>(type_function_, false);
+    auto *fn = MakeGCObject<Function>(type_function_);
 
     if (fn != nullptr) {
         fn->name = IncRef(name);

@@ -60,6 +60,8 @@ namespace argon::vm::datatype {
     }
 
     inline void IteratorTrace(IteratorGeneric *self, Void_UnaryOp trace){
+        std::unique_lock _(self->lock);
+
         trace(self->iterable);
     }
 

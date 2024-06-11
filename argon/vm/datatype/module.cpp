@@ -347,7 +347,7 @@ Module *argon::vm::datatype::ModuleNew(const ModuleInit *init) {
 }
 
 Module *argon::vm::datatype::ModuleNew(String *name, String *doc) {
-    auto *mod = MakeGCObject<Module>(type_module_, true);
+    auto *mod = MakeGCObject<Module>(type_module_);
 
     if (mod != nullptr) {
         mod->fini = nullptr;
@@ -368,6 +368,8 @@ Module *argon::vm::datatype::ModuleNew(String *name, String *doc) {
             Release(mod);
             return nullptr;
         }
+
+        memory::Track((ArObject *) mod);
     }
 
     return mod;

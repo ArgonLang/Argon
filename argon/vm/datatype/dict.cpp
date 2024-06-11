@@ -277,7 +277,7 @@ ArObject *dict_compare(Dict *self, ArObject *other, CompareMode mode) {
 }
 
 ArObject *dict_iter(Dict *self, bool reverse) {
-    auto *li = MakeGCObject<DictIterator>(type_dict_iterator_, true);
+    auto *li = MakeGCObject<DictIterator>(type_dict_iterator_);
 
     if (li != nullptr) {
         std::shared_lock _(self->rwlock);
@@ -291,6 +291,8 @@ ArObject *dict_iter(Dict *self, bool reverse) {
             li->cursor->ref++;
 
         li->reverse = reverse;
+
+        argon::vm::memory::Track((ArObject*)li);
     }
 
     return (ArObject *) li;
@@ -631,7 +633,7 @@ Dict *argon::vm::datatype::DictMerge(Dict *dict1, Dict *dict2, bool clone) {
 }
 
 Dict *argon::vm::datatype::DictNew() {
-    auto *dict = MakeGCObject<Dict>(type_dict_, false);
+    auto *dict = MakeGCObject<Dict>(type_dict_);
 
     if (dict != nullptr) {
         if (!dict->hmap.Initialize()) {
@@ -719,7 +721,7 @@ Dict *argon::vm::datatype::DictNew(ArObject *object) {
 }
 
 Dict *argon::vm::datatype::DictNew(unsigned int size) {
-    auto *dict = MakeGCObject<Dict>(type_dict_, false);
+    auto *dict = MakeGCObject<Dict>(type_dict_);
 
     if (dict != nullptr) {
         if (!dict->hmap.Initialize(size)) {

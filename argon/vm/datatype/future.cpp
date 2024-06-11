@@ -80,7 +80,7 @@ bool argon::vm::datatype::FutureAWait(Future *future) {
 }
 
 Future *argon::vm::datatype::FutureNew() {
-    auto *future = MakeGCObject<Future>(type_future_, false);
+    auto *future = MakeGCObject<Future>(type_future_);
 
     if (future != nullptr) {
         future->value = nullptr;

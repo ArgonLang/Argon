@@ -140,7 +140,7 @@ TypeInfo ResultType = {
 const TypeInfo *argon::vm::datatype::type_result_ = &ResultType;
 
 Result *argon::vm::datatype::ResultNew(ArObject *value, bool success) {
-    auto *result = MakeGCObject<Result>(&ResultType, false);
+    auto *result = MakeGCObject<Result>(&ResultType);
 
     if (result != nullptr) {
         result->value = IncRef(value == nullptr ? (ArObject *) Nil : value);

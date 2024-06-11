@@ -135,7 +135,7 @@ TypeInfo OptionType = {
 const TypeInfo *argon::vm::datatype::type_option_ = &OptionType;
 
 Option *argon::vm::datatype::OptionNew(ArObject *value) {
-    auto *opt = MakeGCObject<Option>(&OptionType, false);
+    auto *opt = MakeGCObject<Option>(&OptionType);
 
     if (opt != nullptr)
         opt->some = IncRef(value);

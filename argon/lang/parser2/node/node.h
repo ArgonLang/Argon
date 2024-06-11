@@ -269,10 +269,7 @@ const argon::vm::datatype::TypeInfo *argon::lang::parser2::ExtName = &alias##Ast
     T *NewNode(const TypeInfo *t_info, bool gc, NodeType node_type) {
         T *node;
 
-        if (!gc)
-            node = MakeObject<T>(t_info);
-        else
-            node = MakeGCObject<T>(t_info, false);
+        node = !gc ? MakeObject<T>(t_info) : MakeGCObject<T>(t_info);
 
         if (node == nullptr)
             return nullptr;
@@ -282,6 +279,9 @@ const argon::vm::datatype::TypeInfo *argon::lang::parser2::ExtName = &alias##Ast
         vm::memory::MemoryZero(n_obj, t_info->size - sizeof(ArObject));
 
         *((NodeType *) n_obj) = node_type;
+
+        if (gc)
+            argon::vm::memory::Track((ArObject *) node);
 
         return node;
     }

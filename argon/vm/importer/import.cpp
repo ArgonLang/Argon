@@ -491,7 +491,7 @@ Import *argon::vm::importer::ImportNew(Context *context) {
             goto ERROR;                         \
     } while(0)
 
-    auto *imp = MakeGCObject<Import>(type_import_, true);
+    auto *imp = MakeGCObject<Import>(type_import_);
 
     if (imp == nullptr)
         return nullptr;
@@ -527,6 +527,8 @@ Import *argon::vm::importer::ImportNew(Context *context) {
     ADD_FUNC(imp->locators, import_source_locator);
 
     new(&imp->lock)std::mutex();
+
+    memory::Track((ArObject*)imp);
 
     return imp;
 
