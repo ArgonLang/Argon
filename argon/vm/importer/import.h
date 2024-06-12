@@ -51,7 +51,7 @@ namespace argon::vm::importer {
     struct Import {
         AROBJ_HEAD;
 
-        std::mutex lock;
+        sync::RecursiveSharedMutex lock;
 
         ImportModuleCache module_cache;
 
