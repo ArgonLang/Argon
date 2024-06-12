@@ -48,15 +48,16 @@ using namespace argon::vm::sync;
 
 // PRIVATE
 void RecursiveSharedMutex::lock_shared_slow(std::thread::id id) {
-    auto current = this->_lock.load(std::memory_order_relaxed);
+    auto current = this->_lock.load(std::memory_order_acquire);
     MutexBits desired{};
 
     do {
         while (current.is_ulocked() && this->_id != id) {
             this->_pending++;
             OS_WAIT(&this->_lock, current.value());
+            this->_pending--;
 
-            current = this->_lock.load(std::memory_order_relaxed);
+            current = this->_lock.load(std::memory_order_acquire);
         }
 
         desired = current;
@@ -74,6 +75,7 @@ void RecursiveSharedMutex::lock_slow() {
     while (!this->_lock.compare_exchange_strong(current, desired)) {
         this->_pending++;
         OS_WAIT(&this->_lock, current.value());
+        this->_pending--;
 
         current = MutexBits{};
     }
@@ -141,12 +143,10 @@ void RecursiveSharedMutex::unlock() {
     do {
         desired = current;
         desired.release_unique();
-    } while (!this->_lock.compare_exchange_strong(current, desired));
+    } while (!this->_lock.compare_exchange_strong(current, desired, std::memory_order_acq_rel));
 
-    if (this->_pending > 0) {
-        this->_pending--;
+    if (this->_pending > 0)
         OS_WAKE(&this->_lock);
-    }
 }
 
 void RecursiveSharedMutex::unlock_shared() {
@@ -157,10 +157,8 @@ void RecursiveSharedMutex::unlock_shared() {
         desired = current;
 
         desired.dec_shared();
-    } while (!this->_lock.compare_exchange_strong(current, desired));
+    } while (!this->_lock.compare_exchange_strong(current, desired, std::memory_order_acq_rel));
 
-    if (this->_pending > 0) {
-        this->_pending--;
+    if (this->_pending > 0)
         OS_WAKE(&this->_lock);
-    }
 }
