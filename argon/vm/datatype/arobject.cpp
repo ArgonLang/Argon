@@ -82,6 +82,9 @@ ArObject *type_get_attr(const ArObject *instance, ArObject *key, bool static_att
         return nullptr;
     }
 
+    if (static_attr && AR_TYPEOF(instance, type_type_))
+        ancestor = (TypeInfo *) instance;
+
     if (!aprop.IsPublic() && !TraitIsImplemented(ancestor, base)) {
         ErrorFormat(kAccessViolationError[0], kAccessViolationError[1],
                     ARGON_RAW_STRING((String *) key), ancestor->name);
