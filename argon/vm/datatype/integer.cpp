@@ -33,7 +33,7 @@ ARGON_FUNCTION(number_frombytes, frombytes,
                "Return the number represented by the given array of bytes.\n"
                "\n"
                "- Parameter bytes: Array of bytes to convert.\n"
-               "- KWParameters:"
+               "- KWParameters:\n"
                "  - byteorder: Byte order used to represent the integer (big | little).\n"
                "- Returns: Number.\n",
                "x: bytes", false, true) {
@@ -172,7 +172,7 @@ ARGON_METHOD(number_digits, digits,
 ARGON_METHOD(number_tobytes, tobytes,
              "Return an array of bytes representing the number.\n"
              "\n"
-             "- KWParameters:"
+             "- KWParameters:\n"
              "  - byteorder: Byte order used to represent the integer (big | little).\n"
              "- Returns: Bytes object.\n",
              nullptr, false, true) {

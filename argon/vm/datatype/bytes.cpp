@@ -1150,7 +1150,7 @@ ArObject *bytes_add(Bytes *left, Bytes *right) {
     std::shared_lock _(*left);
 
     Bytes *ret;
-    if ((ret = BytesNew(BUFFER_LEN(left) + 1, false, false, false)) != nullptr) {
+    if ((ret = BytesNew(BUFFER_LEN(left) + 1, false, false, BUFFER_FROZEN(left))) != nullptr) {
         if (BUFFER_GET(left) != nullptr) {
             argon::vm::memory::MemoryCopy(BUFFER_GET(ret), BUFFER_GET(left), BUFFER_LEN(left));
             BUFFER_LEN(ret) = BUFFER_LEN(left);
@@ -1225,7 +1225,7 @@ ArObject *bytes_mul(const Bytes *left, const ArObject *right) {
     std::shared_lock _(*l);
 
     Bytes *ret;
-    if ((ret = BytesNew(BUFFER_LEN(l) * times, true, false, false)) != nullptr) {
+    if ((ret = BytesNew(BUFFER_LEN(l) * times, true, false, BUFFER_FROZEN(left))) != nullptr) {
         while (times--)
             argon::vm::memory::MemoryCopy(BUFFER_GET(ret) + (BUFFER_LEN(l) * times), BUFFER_GET(l), BUFFER_LEN(l));
     }
@@ -1407,7 +1407,7 @@ Bytes *argon::vm::datatype::BytesConcat(Bytes *left, Bytes *right) {
 
     Bytes *ret;
 
-    if ((ret = BytesNew(BUFFER_LEN(left) + BUFFER_LEN(right), true, false, false)) != nullptr) {
+    if ((ret = BytesNew(BUFFER_LEN(left) + BUFFER_LEN(right), true, false, BUFFER_FROZEN(left))) != nullptr) {
         memory::MemoryCopy(BUFFER_GET(ret), BUFFER_GET(left), BUFFER_LEN(left));
         memory::MemoryCopy(BUFFER_GET(ret) + BUFFER_LEN(left), BUFFER_GET(right), BUFFER_LEN(right));
     }

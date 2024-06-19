@@ -62,7 +62,7 @@ bool import_dtor(Import *self) {
         Release(entry->value);
     });
 
-    self->lock.~mutex();
+    self->lock.~RecursiveSharedMutex();
 
     return true;
 }
@@ -526,7 +526,7 @@ Import *argon::vm::importer::ImportNew(Context *context) {
     ADD_FUNC(imp->locators, import_builtins_locator);
     ADD_FUNC(imp->locators, import_source_locator);
 
-    new(&imp->lock)std::mutex();
+    new(&imp->lock)sync::RecursiveSharedMutex();
 
     memory::Track((ArObject*)imp);
 
