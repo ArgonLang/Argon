@@ -108,11 +108,11 @@ bool SymbolT::NewNestedTable() {
     return true;
 }
 
-SymbolT *SymbolT::SymbolInsert(String *s_name, SymbolType s_type) {
+SymbolT *SymbolT::SymbolInsert(String *s_name, SymbolType s_type, bool freevar) {
     SymbolT *sym = SymbolLookup(s_name, true);
     SymbolT *target = this;
 
-    if (this->stack != nullptr)
+    if (!freevar && this->stack != nullptr)
         target = this->stack;
 
     if (sym != nullptr) {

@@ -104,9 +104,9 @@ ARGON_METHOD(list_insert, insert,
     bool ok = false;
 
     if (AR_TYPEOF(*args, type_int_))
-        ok = ListInsert(self, args[0], ((Integer *) args[1])->sint);
+        ok = ListInsert(self, args[1], ((Integer *) args[0])->sint);
     else if (AR_TYPEOF(*args, type_uint_))
-        ok = ListInsert(self, args[0], (ArSSize) ((Integer *) args[1])->uint);
+        ok = ListInsert(self, args[1], (ArSSize) ((Integer *) args[0])->uint);
     else
         ErrorFormat(kTypeError[0], "expected %s/%s, got '%s'", type_int_->name,
                     type_uint_->name, AR_TYPE_NAME(args[0]));

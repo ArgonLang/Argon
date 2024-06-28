@@ -62,7 +62,11 @@ namespace argon::lang::compiler2 {
 
         bool NewNestedTable();
 
-        SymbolT *SymbolInsert(vm::datatype::String *s_name, SymbolType s_type);
+        SymbolT *SymbolInsert(vm::datatype::String *s_name, SymbolType s_type, bool freevar);
+
+        inline SymbolT *SymbolInsert(vm::datatype::String *s_name, SymbolType s_type) {
+            return SymbolInsert(s_name, s_type, false);
+        }
 
         SymbolT *SymbolLookup(const vm::datatype::String *s_name, bool local) const;
     };

@@ -1213,6 +1213,8 @@ Node *Parser::ParseSyncBlock(Context *context) {
     this->Eat(true);
 
     expr = (ArObject *) this->ParseExpression(context, PeekPrecedence(TokenType::ASTERISK));
+    if (!expr)
+        throw ParserException(this->tkcur_.loc, kStandardError[0]);
 
     if (((Node *) expr.Get())->node_type == NodeType::LITERAL)
         throw ParserException(((Node *) expr.Get())->loc, kStandardError[14]);
@@ -2144,6 +2146,8 @@ Node *Parser::ParseFuncCall(Context *context, Node *left) {
             }
 
             arg = (ArObject *) this->ParseExpression(context, PeekPrecedence(TokenType::COMMA));
+            if (!arg)
+                throw ParserException(this->tkcur_.loc, kStandardError[0]);
 
             if (this->ParseFuncCallSpread(args, (Node *) arg.Get(), mode == 1))
                 mode = 1;

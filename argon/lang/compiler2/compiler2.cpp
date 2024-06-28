@@ -65,10 +65,12 @@ SymbolT *Compiler::IdentifierLookupOrCreate(String *id, argon::lang::compiler2::
 
     auto *sym = this->unit_->symt->SymbolLookup(id, false);
     if (sym == nullptr) {
-        if ((sym = this->unit_->symt->SymbolInsert(id, type)) == nullptr)
+        auto freevar = this->unit_->IsFreeVar(id);
+
+        if ((sym = this->unit_->symt->SymbolInsert(id, type, freevar)) == nullptr)
             throw DatatypeException();
 
-        if (this->unit_->IsFreeVar(id)) {
+        if (freevar) {
             dst = this->unit_->enclosed;
             sym->free = true;
         }
