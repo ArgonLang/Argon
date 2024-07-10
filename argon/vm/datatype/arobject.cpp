@@ -655,16 +655,7 @@ ArObject *argon::vm::datatype::TypeNew(const TypeInfo *type, const char *name, c
         ((char *) ret->doc)[doc_len] = '\0';
     }
 
-    if ((ret->mro = ComputeMRO(ret, bases, length)) == nullptr) {
-        memory::Free((void *) ret->name);
-        memory::Free((void *) ret->qname);
-        memory::Free((void *) ret->doc);
-
-        memory::Free(ret);
-        return nullptr;
-    }
-
-    if (!TypeInit(ret, ns))
+    if (!TypeInit(ret, ns, bases, length))
         Release((ArObject **) &ret);
 
     return (ArObject *) ret;
@@ -1080,7 +1071,7 @@ bool MethodCheckOverride(TypeInfo *type) {
     return true;
 }
 
-bool argon::vm::datatype::TypeInit(TypeInfo *type, ArObject *auxiliary) {
+bool argon::vm::datatype::TypeInit(TypeInfo *type, ArObject *auxiliary, TypeInfo **bases, unsigned int length) {
     bool qname_free = false;
 
     if (ENUMBITMASK_ISTRUE(type->flags, TypeInfoFlags::INITIALIZED))
@@ -1089,9 +1080,14 @@ bool argon::vm::datatype::TypeInit(TypeInfo *type, ArObject *auxiliary) {
     assert(type->tp_map == nullptr);
 
     // Calculate MRO
+    if (bases != nullptr && length > 0) {
+        if ((type->mro = ComputeMRO(type, bases, length)) == nullptr)
+            return false;
+    }
+
     if (type->object != nullptr && type->object->traits != nullptr) {
         // Count base traits
-        unsigned int length = 0;
+        length = 0;
         for (auto **base = type->object->traits; *base != nullptr; length++, base++);
 
         if ((type->mro = ComputeMRO(type, type->object->traits, length)) == nullptr)
@@ -1141,9 +1137,13 @@ bool argon::vm::datatype::TypeInit(TypeInfo *type, ArObject *auxiliary) {
     return true;
 
     ERROR:
+    Release(&type->mro);
     Release(&type->tp_map);
-    if (qname_free)
+
+    if (qname_free) {
         vm::memory::Free((char *) type->qname);
+        type->qname = nullptr;
+    }
 
     return false;
 }

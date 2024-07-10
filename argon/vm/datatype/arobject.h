@@ -70,7 +70,11 @@ namespace argon::vm::datatype {
 
     bool IsTrue(const ArObject *object);
 
-    bool TypeInit(TypeInfo *type, ArObject *auxiliary);
+    bool TypeInit(TypeInfo *type, ArObject *auxiliary, TypeInfo **bases, unsigned int length);
+
+    inline bool TypeInit(TypeInfo *type, ArObject *auxiliary) {
+        return TypeInit(type, auxiliary, nullptr, 0);
+    }
 
     bool TraitIsImplemented(const TypeInfo *obj_type, const TypeInfo *type);
 
