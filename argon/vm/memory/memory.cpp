@@ -39,3 +39,23 @@ void *argon::vm::memory::Realloc(void *ptr, size_t size) {
 
     return mem;
 }
+
+// MALLOC WRAPPER
+
+void *argon::vm::memory::Copy2Malloc(void *src, size_t size) {
+    auto *buf = WMalloc(size);
+
+    if(buf!= nullptr)
+        argon::vm::memory::MemoryCopy(buf, src, size);
+
+    return buf;
+}
+
+void *argon::vm::memory::WMalloc(size_t size) {
+    void *ptr = malloc(size);
+
+    if(ptr == nullptr)
+        Panic((datatype::ArObject *) datatype::error_oom);
+
+    return ptr;
+}

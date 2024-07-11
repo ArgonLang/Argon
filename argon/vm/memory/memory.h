@@ -26,6 +26,14 @@ namespace argon::vm::memory {
     void *Realloc(void *ptr, size_t size);
 
     void Free(void *ptr);
+
+    // MALLOC WRAPPER
+
+    void *Copy2Malloc(void *src, size_t size);
+
+    void *WMalloc(size_t size);
+
+    const auto WFree= free;
 }
 
 #endif // !ARGON_VM_MEMORY_MEMORY_H_
