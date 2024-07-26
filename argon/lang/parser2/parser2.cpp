@@ -975,9 +975,11 @@ Node *Parser::ParseFuncNameParam(Context *context, bool parse_pexpr) {
 
     bool identifier = false;
 
-    if (parse_pexpr)
+    if (parse_pexpr) {
         id = this->ParseExpression(context, PeekPrecedence(TokenType::COMMA));
-    else if (this->CheckIDExt()) {
+        if (!id)
+            throw ParserException(TKCUR_LOC, kStandardError[0]);
+    } else if (this->CheckIDExt()) {
         id = Parser::ParseIdentifierSimple(&this->tkcur_);
         identifier = true;
 
@@ -2637,7 +2639,7 @@ Node *Parser::ParsePrefix(Context *context) {
     this->Eat(true);
 
     auto *right = this->ParseExpression(context, PeekPrecedence(TokenType::ASTERISK));
-    if(right == nullptr)
+    if (right == nullptr)
         throw ParserException(this->tkcur_.loc, kStandardError[0]);
 
     auto *unary = NewNode<Unary>(type_ast_prefix_, false, NodeType::PREFIX);
