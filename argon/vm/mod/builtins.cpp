@@ -161,6 +161,18 @@ ARGON_FUNCTION(builtins_getattr, getattr,
     return res;
 }
 
+ARGON_FUNCTION(builtins_id, id,
+               "Return the identity of an object.\n"
+               "\n"
+               "Returns a unique integer identifier for an object. This identifier remains constant throughout the object's lifetime. "
+               "The same identifier may be reused for different objects that exist at separate times.\n"
+               "\n"
+               "- Parameter obj: Object to check.\n"
+               "- Returns: Object memory address (UInt).\n",
+               ": obj", false, false) {
+    return (ArObject *) UIntNew(*((uintptr_t *) args));
+}
+
 ARGON_FUNCTION(builtins_iscallable, iscallable,
                "Return true if argument appears callable, false otherwise.\n"
                "\n"
@@ -339,7 +351,7 @@ ARGON_FUNCTION(builtins_show, show,
         Release(aux);
     }
 
-    ret = ListNew((ArObject*)target);
+    ret = ListNew((ArObject *) target);
 
     Release(target);
 
@@ -417,6 +429,7 @@ const ModuleEntry builtins_entries[] = {
         //MODULE_EXPORT_FUNCTION(builtins_exit),
         MODULE_EXPORT_FUNCTION(builtins_eval),
         MODULE_EXPORT_FUNCTION(builtins_getattr),
+        MODULE_EXPORT_FUNCTION(builtins_id),
         MODULE_EXPORT_FUNCTION(builtins_iscallable),
         MODULE_EXPORT_FUNCTION(builtins_implements),
         MODULE_EXPORT_FUNCTION(builtins_len),
