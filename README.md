@@ -3,8 +3,8 @@
 </p>
 
 <p align="center">
-    <a href="https://img.shields.io/badge/version-0.5.2--alpha-red">
-      <img src="https://img.shields.io/badge/version-0.5.2--alpha-red" alt="Version 0.5.2-alpha">
+    <a href="https://img.shields.io/badge/version-0.6.0--alpha-red">
+      <img src="https://img.shields.io/badge/version-0.6.0--alpha-red" alt="Version 0.6.0-alpha">
     </a>
     <a href="https://www.apache.org/licenses/LICENSE-2.0">
       <img src="https://img.shields.io/badge/license-apache--2.0-blue" alt="Apache License 2.0">

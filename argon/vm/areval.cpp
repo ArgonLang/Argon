@@ -988,7 +988,11 @@ ArObject *argon::vm::Eval(Fiber *fiber) {
                 }
 
                 ErrorFormat(kUndeclaredeError[0], kUndeclaredeError[1], ARGON_RAW_STRING((String *) key));
+
                 Release(key);
+
+                // Prevent crash when using 'trap' keyword with non-existent variables
+                PUSH(nullptr);
 
                 break;
             }
