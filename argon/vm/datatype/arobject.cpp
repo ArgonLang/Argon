@@ -307,7 +307,13 @@ ArObject *argon::vm::datatype::AttributeLoadMethod(const ArObject *object, ArObj
     if ((aload = AttributeLoad(object, key, false)) == nullptr)
         return nullptr;
 
-    if (AR_TYPEOF(aload, type_function_) && ((Function *) aload)->IsMethod())
+    const auto *func = (Function *) aload;
+    const auto *base = (TypeInfo *) object;
+
+    if(AR_GET_TYPE(base) != type_type_)
+        base = AR_GET_TYPE(base);
+
+    if (AR_TYPEOF(func, type_function_) && func->IsMethod() && TraitIsImplemented(base, func->base))
         *is_method = true;
 
     return aload;
