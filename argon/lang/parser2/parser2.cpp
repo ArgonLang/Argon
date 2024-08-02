@@ -2776,6 +2776,8 @@ Node *Parser::ParseTrap(Context *context) {
     this->Eat(true);
 
     auto *right = this->ParseExpression(context, PeekPrecedence(TokenType::COMMA));
+    if (right == nullptr)
+        throw ParserException(this->tkcur_.loc, kStandardError[0]);
 
     // Expressions with multiple traps are useless,
     // if the expression is already a trap, return it immediately
@@ -2917,10 +2919,10 @@ Module *Parser::Parse() {
         // This exception can be safely ignored!
         return nullptr;
     } catch (const ParserException &e) {
-        ErrorFormat("ParserError", "%s - column: %d, line: %d: %s",
+        ErrorFormat("ParserError", "%s - line: %d, column: %d: %s",
                     this->filename_,
-                    e.loc.start.column,
                     e.loc.start.line,
+                    e.loc.start.column,
                     e.what());
         return nullptr;
     } catch (const ScannerException &) {
