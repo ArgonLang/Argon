@@ -915,6 +915,8 @@ Node *Parser::ParseOOBCall(Context *context) {
     this->Eat(true);
 
     auto *expr = this->ParseExpression(context, Parser::PeekPrecedence(TokenType::COMMA));
+    if(expr == nullptr)
+        throw ParserException(this->tkcur_.loc,kStandardError[0]);
 
     if (expr->node_type != NodeType::CALL) {
         Release(expr);
