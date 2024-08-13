@@ -698,6 +698,44 @@ ArObject *argon::vm::GetLastError() {
     return error;
 }
 
+ArObject *argon::vm::TrapPanic(Fiber *fiber, const Frame *frame) {
+    ArObject *error = nullptr;
+
+    struct Panic *expected = nullptr;
+
+    if (fiber == nullptr || frame == nullptr || fiber->panic == nullptr)
+        return nullptr;
+
+    const auto *baseline = frame->panic_baseline;
+    auto oom_check = false;
+
+    auto *tmp = fiber->panic;
+    for (auto *cursor = fiber->panic; cursor != nullptr && cursor != baseline; cursor = tmp) {
+        tmp = cursor->panic;
+
+        if (error == nullptr)
+            error = cursor->object;
+
+        FrameDelRec(cursor->frame);
+
+        if (!oom_check) {
+            if (panic_oom.compare_exchange_strong(expected, cursor)) {
+                oom_check = true;
+                continue;
+            }
+        }
+
+        memory::Free(cursor);
+    }
+
+    if (tmp != nullptr)
+        tmp->aborted = false;
+
+    fiber->panic = tmp;
+
+    return error;
+}
+
 Future *argon::vm::EvalAsync(Context *context, datatype::Function *func, datatype::ArObject **argv,
                              datatype::ArSize argc, argon::vm::OpCodeCallMode mode) {
     auto *fiber = AllocFiber(context);

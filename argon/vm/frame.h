@@ -42,6 +42,9 @@ namespace argon::vm {
         /// Pointer to the code trap handler for this frame.
         unsigned char *trap_ptr;
 
+        /// Pointer to panic state(if any).
+        void *panic_baseline;
+
         /// Evaluation stack.
         datatype::ArObject **eval_stack;
 

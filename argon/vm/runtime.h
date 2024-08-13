@@ -34,6 +34,8 @@ namespace argon::vm {
 
     argon::vm::datatype::ArObject *GetLastError();
 
+    argon::vm::datatype::ArObject *TrapPanic(Fiber *fiber, const Frame *frame);
+
     argon::vm::datatype::Future *EvalAsync(Context *context,
                                            datatype::Function *func,
                                            datatype::ArObject **argv,

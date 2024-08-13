@@ -1425,6 +1425,9 @@ ArObject *argon::vm::Eval(Fiber *fiber) {
             }
             TARGET_OP(ST) {
                 cu_frame->trap_ptr = JUMPADDR(I32Arg(cu_frame->instr_ptr));
+
+                cu_frame->panic_baseline = (void *) fiber->panic;
+
                 DISPATCH4();
             }
             TARGET_OP(STATTR) {
@@ -1554,14 +1557,15 @@ ArObject *argon::vm::Eval(Fiber *fiber) {
             }
             TARGET_OP(TRAP) {
                 auto handler = I32Arg(cu_frame->instr_ptr);
-                ArObject *tmp = GetLastError();
+                ArObject *tmp = TrapPanic(fiber, cu_frame);
 
                 cu_frame->trap_ptr = handler > 0 ? JUMPADDR(handler) : nullptr;
 
-                if (tmp == nullptr)
-                    ret = (ArObject *) ResultNew(TOP(), true);
-                else
-                    ret = (ArObject *) ResultNew(tmp, false);
+                if (handler == 0)
+                    cu_frame->panic_baseline = nullptr;
+
+                ret = (ArObject *) (tmp == nullptr ? ResultNew(TOP(), true)
+                                                   : ResultNew(tmp, false));
 
                 Release(tmp);
 
