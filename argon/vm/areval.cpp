@@ -264,12 +264,15 @@ bool CallFunction(Fiber *fiber, Frame **cu_frame, const Code **cu_code, bool val
 
 bool PopExecutedFrame(Fiber *fiber, const Code **out_code, Frame **out_frame, ArObject **ret) {
     auto *cu_frame = *out_frame;
+    auto is_panicking = IsPanickingFrame();
+    auto panicking = false;
 
     do {
         if (cu_frame->eval_stack != nullptr) {
             for (ArSize i = cu_frame->eval_stack - cu_frame->extra; i > 0; i--)
                 Release(*(--cu_frame->eval_stack));
-        }
+        } else
+            is_panicking = IsPanicking();
 
         cu_frame->eval_stack = nullptr;
 
@@ -277,6 +280,9 @@ bool PopExecutedFrame(Fiber *fiber, const Code **out_code, Frame **out_frame, Ar
             return true; // Continue execution on new frame
 
         *ret = IncRef(cu_frame->return_value);
+
+        if (!panicking && is_panicking)
+            panicking = true;
 
         FrameDel(FiberPopFrame(fiber));
 
@@ -304,7 +310,7 @@ bool PopExecutedFrame(Fiber *fiber, const Code **out_code, Frame **out_frame, Ar
 
         Replace(cu_frame->eval_stack - 1,
                 *ret != nullptr ? *ret : (ArObject *) IncRef(Nil));
-    } while (cu_frame->eval_stack == nullptr || (IsPanicking() && cu_frame->trap_ptr == nullptr));
+    } while (cu_frame->eval_stack == nullptr || (panicking && cu_frame->trap_ptr == nullptr));
 
     return true;
 }
