@@ -2,8 +2,10 @@
 //
 // Licensed under the Apache License v2.0
 
-#include <argon/vm/fiber.h>
+#include <argon/vm/runtime.h>
+
 #include <argon/vm/datatype/nil.h>
+#include <argon/vm/fiber.h>
 
 using namespace argon::vm;
 using namespace argon::vm::datatype;
@@ -61,6 +63,9 @@ Fiber *argon::vm::FiberNew(Context *context, unsigned int stack_space) {
 
 Frame *argon::vm::FrameNew(Fiber *fiber, Code *code, Namespace *globals, bool floating) {
     auto slots = code->stack_sz + code->sstack_sz + code->locals_sz;
+
+    if (!floating && fiber->frame != nullptr && fiber->frame->fiber_id == 0)
+        floating = true;
 
     auto *frame = fiber->FrameAlloc(slots, floating);
     if (frame == nullptr)
@@ -120,7 +125,9 @@ Frame *argon::vm::FrameNew(Fiber *fiber, Function *func, ArObject **argv, ArSize
     if (func->IsNative())
         return FrameWrapFnNew(fiber, func, argv, argc, mode);
 
-    if ((frame = FrameNew(fiber, func->code, func->gns, func->IsGenerator())) == nullptr)
+    auto floating  = func->IsGenerator() || IsPanicking();
+
+    if ((frame = FrameNew(fiber, func->code, func->gns, floating)) == nullptr)
         return nullptr;
 
     // Push currying args
