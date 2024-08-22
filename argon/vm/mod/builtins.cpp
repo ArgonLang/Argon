@@ -292,6 +292,60 @@ ARGON_FUNCTION(builtins_require, require,
     return (ArObject *) result;
 }
 
+ARGON_FUNCTION(builtins_recover, recover,
+               "Recover from a panic and retrieve the panic value.\n"
+               "\n"
+               "This function must be called inside a defer block. It stops the panic\n"
+               "propagation and returns the panic value (usually an error object).\n"
+               "\n"
+               "If there is no active panic, recover() returns nil.\n"
+               "\n"
+               "Usage:\n"
+               "  Inside a defer block, call recover() to handle panics:\n"
+               "  - If a panic occurred, recover() returns the panic value and stops the panic.\n"
+               "  - If no panic occurred, recover() returns nil.\n"
+               "\n"
+               "- Returns: The panic value if a panic is active, otherwise nil.\n",
+               nullptr, false, false) {
+    auto *err = argon::vm::GetLastError();
+    if (err != nullptr)
+        return err;
+
+    return ARGON_NIL_VALUE;
+}
+
+ARGON_FUNCTION(builtins_retval, retval,
+               "Get or set the return value of the function that invoked the current defer block.\n"
+               "\n"
+               "This function can only be called inside a defer block. It affects the return value\n"
+               "of the function that is executing the defer, not the defer function itself.\n"
+               "\n"
+               "If called without arguments, returns the current return value of the calling function.\n"
+               "If called with an argument, sets the return value of the calling function to that argument.\n"
+               "\n"
+               "- Parameter value: Optional. The new return value to set for the calling function.\n"
+               "- Returns: The current return value of the calling function.\n",
+               nullptr, true, false) {
+    auto *fiber = argon::vm::GetFiber();
+    auto *frame = fiber->frame;
+
+    if (!VariadicCheckPositional((const char *) ARGON_RAW_STRING(((Function *) _func)->name), argc, 0, 1))
+        return nullptr;
+
+    auto *back = frame->back;
+    if (back == nullptr)
+        return ARGON_NIL_VALUE;
+
+    if (argc == 0)
+        return NilOrValue(back->return_value);
+
+    auto *old = NilOrValue(back->return_value);
+
+    back->return_value = IncRef(args[0]);
+
+    return old;
+}
+
 ARGON_FUNCTION(builtins_show, show,
                "Returns a list of names in the local scope or the attributes of the instance.\n"
                "\n"
@@ -433,7 +487,9 @@ const ModuleEntry builtins_entries[] = {
         MODULE_EXPORT_FUNCTION(builtins_iscallable),
         MODULE_EXPORT_FUNCTION(builtins_implements),
         MODULE_EXPORT_FUNCTION(builtins_len),
+        MODULE_EXPORT_FUNCTION(builtins_recover),
         MODULE_EXPORT_FUNCTION(builtins_require),
+        MODULE_EXPORT_FUNCTION(builtins_retval),
         //MODULE_EXPORT_FUNCTION(builtins_repr),
         MODULE_EXPORT_FUNCTION(builtins_show),
         //MODULE_EXPORT_FUNCTION(builtins_str),
