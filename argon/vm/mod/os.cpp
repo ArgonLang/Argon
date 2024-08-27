@@ -89,6 +89,63 @@ ARGON_FUNCTION(os_chdir, chdir,
     return (ArObject *) IncRef(Nil);
 }
 
+ARGON_FUNCTION(os_cls, cls,
+               "Clear the console screen.\n"
+               "\n"
+               "This function clears the console screen.",
+               nullptr, false, false) {
+#ifdef _ARGON_PLATFORM_WINDOWS
+    HANDLE hConsole = GetStdHandle(STD_OUTPUT_HANDLE);
+    CONSOLE_SCREEN_BUFFER_INFO csbi;
+    DWORD count;
+    DWORD cellCount;
+    COORD homeCoords = {0, 0};
+
+    if (!GetConsoleScreenBufferInfo(hConsole, &csbi)) {
+        ErrorFromWinErr();
+
+        return nullptr;
+    }
+
+    cellCount = csbi.dwSize.X * csbi.dwSize.Y;
+
+    if (!FillConsoleOutputCharacter(hConsole, (TCHAR)' ', cellCount, homeCoords, &count)) {
+        ErrorFromWinErr();
+
+        return nullptr;
+    }
+
+    if (!FillConsoleOutputAttribute(hConsole, csbi.wAttributes, cellCount, homeCoords, &count)) {
+        ErrorFromWinErr();
+
+        return nullptr;
+    }
+
+    SetConsoleCursorPosition(hConsole, homeCoords);
+#else
+    const char *clearScreen = "\033[2J";  // Clear entire screen
+    const char *moveCursor = "\033[H";    // Move cursor to home position
+
+    if (isatty(STDOUT_FILENO)) {
+        if (write(STDOUT_FILENO, clearScreen, 4) == -1 ||
+            write(STDOUT_FILENO, moveCursor, 3) == -1) {
+            ErrorFromErrno(errno);
+
+            return nullptr;
+        }
+    } else {
+        // If not a terminal, just print a form feed character
+        if (write(STDOUT_FILENO, "\f", 1) == -1) {
+            ErrorFromErrno(errno);
+
+            return nullptr;
+        }
+    }
+#endif
+
+    return ARGON_NIL_VALUE;
+}
+
 ARGON_FUNCTION(os_dup, dup,
                "Duplicate or reassigns a file descriptor.\n"
                "\n"
@@ -1140,6 +1197,7 @@ const ModuleEntry os_entries[] = {
 #endif
 
         MODULE_EXPORT_FUNCTION(os_chdir),
+        MODULE_EXPORT_FUNCTION(os_cls),
 #ifdef _ARGON_PLATFORM_WINDOWS
         MODULE_EXPORT_FUNCTION(os_createprocess),
 #endif
