@@ -253,6 +253,42 @@ ARGON_FUNCTION(builtins_repr, repr,
 }
 */
 
+ARGON_FUNCTION(builtins_panicking, panicking,
+               "Check if the current execution is in a panicking state.\n"
+               "\n"
+               "This function returns a boolean value indicating whether the Argon VM is currently in a panicking state. "
+               "A panicking state typically occurs when an unhandled exception has been raised.\n"
+               "\n"
+               "Note: This function is intended to be used within a 'defer' call. In other contexts, "
+               "it may not provide meaningful information and will likely always return False.\n"
+               "\n"
+               "- Returns: True if the VM is panicking, false otherwise.\n",
+               nullptr, false, false) {
+    return BoolToArBool(argon::vm::IsPanicking());
+}
+
+ARGON_FUNCTION(builtins_recover, recover,
+               "Recover from a panic and retrieve the panic value.\n"
+               "\n"
+               "This function must be called inside a defer block. It stops the panic\n"
+               "propagation and returns the panic value (usually an error object).\n"
+               "\n"
+               "If there is no active panic, recover() returns nil.\n"
+               "\n"
+               "Usage:\n"
+               "  Inside a defer block, call recover() to handle panics:\n"
+               "  - If a panic occurred, recover() returns the panic value and stops the panic.\n"
+               "  - If no panic occurred, recover() returns nil.\n"
+               "\n"
+               "- Returns: The panic value if a panic is active, otherwise nil.\n",
+               nullptr, false, false) {
+    auto *err = argon::vm::GetLastError();
+    if (err != nullptr)
+        return err;
+
+    return ARGON_NIL_VALUE;
+}
+
 ARGON_FUNCTION(builtins_require, require,
                "Allows you to dynamically import a module.\n"
                "\n"
@@ -290,28 +326,6 @@ ARGON_FUNCTION(builtins_require, require,
         Release(error);
 
     return (ArObject *) result;
-}
-
-ARGON_FUNCTION(builtins_recover, recover,
-               "Recover from a panic and retrieve the panic value.\n"
-               "\n"
-               "This function must be called inside a defer block. It stops the panic\n"
-               "propagation and returns the panic value (usually an error object).\n"
-               "\n"
-               "If there is no active panic, recover() returns nil.\n"
-               "\n"
-               "Usage:\n"
-               "  Inside a defer block, call recover() to handle panics:\n"
-               "  - If a panic occurred, recover() returns the panic value and stops the panic.\n"
-               "  - If no panic occurred, recover() returns nil.\n"
-               "\n"
-               "- Returns: The panic value if a panic is active, otherwise nil.\n",
-               nullptr, false, false) {
-    auto *err = argon::vm::GetLastError();
-    if (err != nullptr)
-        return err;
-
-    return ARGON_NIL_VALUE;
 }
 
 ARGON_FUNCTION(builtins_retval, retval,
@@ -487,6 +501,7 @@ const ModuleEntry builtins_entries[] = {
         MODULE_EXPORT_FUNCTION(builtins_iscallable),
         MODULE_EXPORT_FUNCTION(builtins_implements),
         MODULE_EXPORT_FUNCTION(builtins_len),
+        MODULE_EXPORT_FUNCTION(builtins_panicking),
         MODULE_EXPORT_FUNCTION(builtins_recover),
         MODULE_EXPORT_FUNCTION(builtins_require),
         MODULE_EXPORT_FUNCTION(builtins_retval),
