@@ -12,6 +12,10 @@
 
 using namespace argon::vm::datatype;
 
+ArObject *function_member_get_code(const Function *self) {
+    return self->IsNative() ? ARGON_NIL_VALUE : (ArObject *) IncRef(self->code);
+}
+
 ArObject *function_member_get_isasync(const Function *self) {
     return BoolToArBool(self->IsAsync());
 }
@@ -42,13 +46,13 @@ ArObject *function_member_get_isvariadic(const Function *self) {
 
 const MemberDef function_members[] = {
         ARGON_MEMBER_GETSET("__async", (MemberGetFn) function_member_get_isasync, nullptr),
+        ARGON_MEMBER_GETSET("__code", (MemberGetFn) function_member_get_code, nullptr),
         ARGON_MEMBER_GETSET("__kwargs", (MemberGetFn) function_member_get_iskwargs, nullptr),
         ARGON_MEMBER_GETSET("__generator", (MemberGetFn) function_member_get_isgenerator, nullptr),
         ARGON_MEMBER_GETSET("__method", (MemberGetFn) function_member_get_ismethod, nullptr),
         ARGON_MEMBER_GETSET("__native", (MemberGetFn) function_member_get_isnative, nullptr),
         ARGON_MEMBER_GETSET("__recoverable", (MemberGetFn) function_member_get_isrecoverable, nullptr),
         ARGON_MEMBER_GETSET("__variadic", (MemberGetFn) function_member_get_isvariadic, nullptr),
-
 
         ARGON_MEMBER("__arity", MemberType::SHORT, offsetof(Function, arity), true),
         ARGON_MEMBER("__base", MemberType::OBJECT, offsetof(Function, base), true),
