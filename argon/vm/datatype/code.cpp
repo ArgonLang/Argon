@@ -3,6 +3,8 @@
 // Licensed under the Apache License v2.0
 
 #include <argon/vm/datatype/boolean.h>
+#include <argon/vm/datatype/bytes.h>
+
 #include <argon/vm/datatype/hash_magic.h>
 
 #include <argon/vm/datatype/code.h>
@@ -22,6 +24,37 @@ unsigned int Code::GetLineMapping(ArSize offset) const {
 
     return mapping_line;
 }
+
+ArObject *code_member_get_instr(const Code *self) {
+    return (ArObject *) BytesNew(self->instr, self->instr_end - self->instr, true);
+}
+
+const MemberDef code_members[] = {
+        ARGON_MEMBER_GETSET("instr", (MemberGetFn) code_member_get_instr, nullptr),
+
+        ARGON_MEMBER("__name", MemberType::OBJECT, offsetof(Code, name), true),
+        ARGON_MEMBER("__qname", MemberType::OBJECT, offsetof(Code, qname), true),
+        ARGON_MEMBER("__doc", MemberType::OBJECT, offsetof(Code, doc), true),
+
+        ARGON_MEMBER("instr_begin", MemberType::UINT, offsetof(Code, instr), true),
+        ARGON_MEMBER("instr_end", MemberType::UINT, offsetof(Code, instr_end), true),
+
+        ARGON_MEMBER("instr_sz", MemberType::OBJECT, offsetof(Code, instr_sz), true),
+        ARGON_MEMBER("locals_sz", MemberType::SHORT, offsetof(Code, locals_sz), true),
+        ARGON_MEMBER("stack_sz", MemberType::SHORT, offsetof(Code, stack_sz), true),
+        ARGON_MEMBER("sstack_sz", MemberType::SHORT, offsetof(Code, sstack_sz), true),
+
+        ARGON_MEMBER_SENTINEL
+};
+
+const ObjectSlots code_objslot = {
+        nullptr,
+        code_members,
+        nullptr,
+        nullptr,
+        nullptr,
+        -1
+};
 
 ArObject *code_compare(const Code *self, const ArObject *other, CompareMode mode) {
     bool equal = false;
@@ -81,7 +114,7 @@ TypeInfo CodeType = {
         nullptr,
         nullptr,
         nullptr,
-        nullptr,
+        &code_objslot,
         nullptr,
         nullptr,
         nullptr,
