@@ -259,7 +259,8 @@ ARGON_FUNCTION(import_builtins_locator, builtins_locator,
             argon::vm::mod::module_os_,
             argon::vm::mod::module_runtime_,
             argon::vm::mod::module_signal_,
-            argon::vm::mod::module_socket_
+            argon::vm::mod::module_socket_,
+            argon::vm::mod::module_traceback_
     };
     ImportSpec *spec = nullptr;
 
@@ -528,7 +529,7 @@ Import *argon::vm::importer::ImportNew(Context *context) {
 
     new(&imp->lock)sync::RecursiveSharedMutex();
 
-    memory::Track((ArObject*)imp);
+    memory::Track((ArObject *) imp);
 
     return imp;
 

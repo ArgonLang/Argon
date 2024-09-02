@@ -17,7 +17,7 @@ namespace argon::vm::mod {
     extern const datatype::ModuleInit *module_runtime_;
     extern const datatype::ModuleInit *module_signal_;
     extern const datatype::ModuleInit *module_socket_;
-
+    extern const datatype::ModuleInit *module_traceback_;
 } // namespace argon::vm::mod
 
 #endif // !ARGON_VM_MOD_MODULES_H_

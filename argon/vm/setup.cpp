@@ -25,6 +25,7 @@
 #include <argon/vm/datatype/option.h>
 #include <argon/vm/datatype/result.h>
 #include <argon/vm/datatype/set.h>
+#include <argon/vm/datatype/traceback.h>
 #include <argon/vm/datatype/tuple.h>
 
 #include <argon/vm/io/io.h>
@@ -75,6 +76,7 @@ bool argon::vm::Setup() {
     INIT(type_result_);
     INIT(type_set_);
     INIT(type_string_);
+    INIT(type_traceback_);
     INIT(type_tuple_);
     INIT(type_uint_);
 
