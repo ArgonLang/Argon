@@ -1,0 +1,125 @@
+/*
+ * This source file is part of the Argon project.
+ *
+ * Licensed under the Apache License v2.0
+ *
+ * This module provides functionality allowing for the extraction, formatting, and printing of stack traces and panic information.
+*/
+
+from "argon:traceback" import *
+from "error" import TypeError
+
+import "io"
+
+pub struct StackSummary {
+    var tb
+
+    pub func extract_stack() {
+        /*
+            Extract the current stack and return a new StackSummary object.
+
+            - Returns: A new StackSummary object representing the current stack.
+        */
+
+        return StackSummary@(extract_stack())
+    }
+
+    pub func extract_panic() {
+        /*
+            Extract the traceback of the current panic and return a new StackSummary object.
+
+            - Returns:  A new StackSummary object representing the current panic's traceback.
+        */
+
+        return StackSummary@(extract_panic())
+    }
+
+    pub func StackSummary(tb) {
+        /*
+            Constructor for the StackSummary structure.
+
+            - Parameter tb: A Traceback object.
+            - Returns: A new StackSummary object.
+            - Panic: TypeError if tb is not a Traceback object.
+        */
+
+        if !typeof(tb, Traceback) {
+            panic TypeError("StackSummary expect %s, got: %s" % (Traceback::__qname, type(tb)::__qname))
+        }
+
+        return StackSummary@(tb)
+    }
+
+    pub func format_tb(tb) {
+        /*
+            Format a single traceback entry.
+
+            - Parameter tb: A Traceback object.
+            - Returns: A formatted string representing the traceback entry.
+        */
+
+        if tb {
+            if !tb.panic {
+                return "%s: %d" % (tb.code.__qname, tb.lineno)
+            } else {
+                return "%s: %d\n\t\t%s" % (tb.code.__qname, tb.lineno, tb.panic)
+            }
+        }
+
+        return ""
+    }
+
+    pub func format(self) {
+        /*
+            Format the entire traceback.
+
+            - Parameter tb: A Traceback object.
+            - Returns: A string representing the formatted entire traceback.
+        */
+
+        tb_list := []
+
+        tb := self.tb
+        loop tb.back {
+            tb_list.append(StackSummary::format_tb(tb))
+            tb = tb.back
+        }
+
+       return "%s\n" % "\n".join(tb_list)
+    }
+
+    pub func print(self, file=) {
+        /*
+            Print the formatted traceback to a file.
+
+            - KWParameters:
+              - file: The file to print to. If not specified, uses stderr.
+        */
+
+        if !file {
+            file = io.stderr
+        }
+
+        file.write(self.format())
+    }
+
+    pub func print_panic(self, file=) {
+        /*
+            Print only the traceback object that corresponding to the last panic entry to a file.
+
+            - KWParameters:
+              - file: The file to print to. If not specified, uses stderr.
+        */
+
+        if !file {
+            file = io.stderr
+        }
+
+        cursor := self.tb
+        loop !cursor.panic {
+            cursor = cursor.back
+        }
+
+        cursor ? file.write(StackSummary::format_tb(cursor) + "\n")
+    }
+}
