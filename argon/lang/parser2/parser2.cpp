@@ -21,10 +21,12 @@ using namespace argon::lang::parser2::node;
 #define TKCUR_END   this->tkcur_.loc.end
 
 bool Parser::CheckIDExt() const {
-    return this->Match(scanner::TokenType::IDENTIFIER,
-                       scanner::TokenType::KW_DEFAULT,
-                       scanner::TokenType::SELF,
-                       scanner::TokenType::BLANK);
+    return this->Match(
+            scanner::TokenType::BLANK,
+            scanner::TokenType::IDENTIFIER,
+            scanner::TokenType::KW_DEFAULT,
+            scanner::TokenType::KW_PANIC,
+            scanner::TokenType::SELF);
 }
 
 int Parser::PeekPrecedence(TokenType type) {
@@ -915,8 +917,8 @@ Node *Parser::ParseOOBCall(Context *context) {
     this->Eat(true);
 
     auto *expr = this->ParseExpression(context, Parser::PeekPrecedence(TokenType::COMMA));
-    if(expr == nullptr)
-        throw ParserException(this->tkcur_.loc,kStandardError[0]);
+    if (expr == nullptr)
+        throw ParserException(this->tkcur_.loc, kStandardError[0]);
 
     if (expr->node_type != NodeType::CALL) {
         Release(expr);
