@@ -87,13 +87,14 @@ TypeInfo TracebackType = {
 };
 const TypeInfo *argon::vm::datatype::type_traceback_ = &TracebackType;
 
-Traceback *argon::vm::datatype::TracebackNew(Code *code, IntegerUnderlying lineno, IntegerUnderlying pc_offset) {
+Traceback *argon::vm::datatype::TracebackNew(Code *code, argon::vm::Panic *panic,
+                                             IntegerUnderlying lineno, IntegerUnderlying pc_offset) {
     auto *tb = MakeObject<Traceback>(type_traceback_);
 
     if (tb != nullptr) {
         tb->back = nullptr;
 
-        tb->panic_obj = nullptr;
+        tb->panic_obj = panic != nullptr ? IncRef(panic->object) : nullptr;
         tb->code = IncRef(code);
         tb->lineno = lineno;
         tb->pc_offset = pc_offset;

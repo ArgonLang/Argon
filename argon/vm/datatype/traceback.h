@@ -6,6 +6,7 @@
 #define ARGON_VM_DATATYPE_TRACEBACK_H_
 
 #include <argon/vm/opcode.h>
+#include <argon/vm/panic.h>
 
 #include <argon/vm/datatype/arobject.h>
 #include <argon/vm/datatype/arstring.h>
@@ -28,7 +29,7 @@ namespace argon::vm::datatype {
     };
     extern const datatype::TypeInfo *type_traceback_;
 
-    Traceback *TracebackNew(Code *code, IntegerUnderlying lineno, IntegerUnderlying pc_offset);
+    Traceback *TracebackNew(Code *code, struct argon::vm::Panic *panic, IntegerUnderlying lineno, IntegerUnderlying pc_offset);
 
 } // namespace argon::vm::datatype
 

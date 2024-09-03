@@ -22,17 +22,16 @@ Traceback *extract_stack(argon::vm::Fiber *fiber, argon::vm::Frame *frame) {
         auto pc_offset = frame->instr_ptr - code->instr;
         auto lineno = code->GetLineMapping(pc_offset);
 
-        auto *tb = TracebackNew(frame->code, lineno, pc_offset);
+        Traceback *tb;
+        if (l_panic != nullptr && l_panic->frame == frame)
+            tb = TracebackNew(frame->code, l_panic, lineno, pc_offset);
+        else
+            tb = TracebackNew(frame->code, nullptr, lineno, pc_offset);
+
         if (tb == nullptr) {
             Release(tb_base);
 
             return nullptr;
-        }
-
-        if (l_panic != nullptr && l_panic->frame == frame) {
-            tb->panic_obj = IncRef(l_panic->object);
-
-            l_panic = l_panic->panic;
         }
 
         if (tb_base == nullptr) {
@@ -94,6 +93,7 @@ ARGON_FUNCTION(traceback_extract_panicinfo, extract_panicinfo,
     auto *code = panic->frame->code;
 
     return (ArObject *) TracebackNew(code,
+                                     panic,
                                      code->GetLineMapping(frame->instr_ptr - code->instr),
                                      frame->instr_ptr - code->instr);
 }
