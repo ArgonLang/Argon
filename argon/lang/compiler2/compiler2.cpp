@@ -63,7 +63,12 @@ String *Compiler::MakeQName(String *name) {
 SymbolT *Compiler::IdentifierLookupOrCreate(String *id, argon::lang::compiler2::SymbolType type) {
     auto *dst = this->unit_->names;
 
-    auto *sym = this->unit_->symt->SymbolLookup(id, false);
+    auto *symt = this->unit_->symt;
+
+    if(symt->type == SymbolType::STRUCT || symt->type == SymbolType::TRAIT)
+        symt = symt->back;
+
+    auto *sym = symt->SymbolLookup(id, false);
     if (sym == nullptr) {
         auto freevar = this->unit_->IsFreeVar(id);
 
