@@ -1629,6 +1629,8 @@ ArObject *argon::vm::Eval(Fiber *fiber) {
                 cu_frame = fiber->frame;
                 cu_code = cu_frame->code;
 
+                cu_frame->counter--;
+
                 ((Function *) TOP())->Unlock(fiber);
 
                 Replace(cu_frame->eval_stack - 1, ret);
