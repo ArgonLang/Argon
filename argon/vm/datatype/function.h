@@ -130,6 +130,8 @@ namespace argon::vm::datatype {
 
     _ARGONAPI extern const TypeInfo *type_function_;
 
+    bool FunctionCheckOverride(const Function *override, const Function *overridden);
+
     Function *FunctionInitGenerator(Function *func, vm::Frame *frame);
 
     ArObject *FunctionInvokeNative(Function *func, ArObject **args, ArSize count, bool kwargs);
@@ -140,6 +142,8 @@ namespace argon::vm::datatype {
     Function *FunctionNew(const Function *func, ArObject **args, ArSize nargs);
 
     Function *FunctionNew(const FunctionDef *func, TypeInfo *base, Namespace *ns);
+
+    String *FunctionPrintSignature(const Function *func);
 
 } // namespace argon::vm::datatype
 

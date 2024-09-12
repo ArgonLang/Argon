@@ -310,7 +310,7 @@ ArObject *argon::vm::datatype::AttributeLoadMethod(const ArObject *object, ArObj
     const auto *func = (Function *) aload;
     const auto *base = (TypeInfo *) object;
 
-    if(AR_GET_TYPE(base) != type_type_)
+    if (AR_GET_TYPE(base) != type_type_)
         base = AR_GET_TYPE(base);
 
     if (AR_TYPEOF(func, type_function_) && func->IsMethod() && TraitIsImplemented(base, func->base))
@@ -849,6 +849,36 @@ bool argon::vm::datatype::BufferSimpleFill(const ArObject *object, ArBuffer *buf
     return true;
 }
 
+bool argon::vm::datatype::CheckOverrideMethod(TypeInfo *type, ArObject *method) {
+    auto *fn = (Function *) method;
+
+    if (!AR_TYPEOF(fn, type_function_) || !fn->IsMethod())
+        return true;
+
+    auto *other = (Function *) MROSearch(type, (ArObject *) fn->name, nullptr);
+    if (other == nullptr || !other->IsMethod())
+        return true;
+
+    if (!FunctionCheckOverride((Function *) method, other)) {
+        auto *override = FunctionPrintSignature((Function *) method);
+        auto *overridden = FunctionPrintSignature((Function *) other);
+
+        ErrorFormat(kOverrideError[0], "signature mismatch for %s, expected %s",
+                    ARGON_RAW_STRING(override), ARGON_RAW_STRING(overridden));
+
+        Release(override);
+        Release(overridden);
+
+        Release(other);
+
+        return false;
+    }
+
+    Release(other);
+
+    return true;
+}
+
 bool argon::vm::datatype::Equal(const ArObject *self, const ArObject *other) {
     auto *cmp = Compare(self, other, CompareMode::EQ);
     bool result = ArBoolToBool((Boolean *) cmp);
@@ -1018,63 +1048,46 @@ bool InitMembers(TypeInfo *type) {
     return true;
 }
 
-bool MethodCheckOverride(TypeInfo *type) {
+void CheckMethodsOverride(TypeInfo *type) {
     auto *tp_map = (Namespace *) type->tp_map;
 
     if (type->mro == nullptr || ((Tuple *) type->mro)->length == 0)
-        return true;
+        return;
 
     auto *cursor = tp_map->ns.iter_begin;
     while (cursor != nullptr) {
         auto *fn = (Function *) cursor->value.value.Get();
-        if (fn == nullptr)
+
+        cursor = cursor->iter_next;
+
+        if (fn == nullptr || !AR_TYPEOF(fn, type_function_) || !fn->IsMethod()) {
+            Release(fn);
+
             continue;
+        }
 
-        if (AR_TYPEOF(fn, type_function_) && fn->IsMethod()) {
-            auto *other = (Function *) MROSearch(type, cursor->key, nullptr);
-            if (other == nullptr || !other->IsMethod()) {
-                Release(fn);
-                cursor = cursor->iter_next;
-
-                continue;
-            }
-
-            if (!fn->IsNative() && (fn->arity != other->arity ||
-                                    fn->IsVariadic() != other->IsVariadic() ||
-                                    fn->IsKWArgs() != other->IsKWArgs())) {
-                ErrorFormat(kOverrideError[0],
-                            "signature mismatch for %s(%d%s%s), expected %s(%d%s%s)",
-                            ARGON_RAW_STRING(fn->qname),
-                            fn->arity - 1,
-                            fn->IsVariadic() ? ", ..." : "", fn->IsKWArgs() ? ", &" : "",
-                            ARGON_RAW_STRING(other->qname),
-                            other->arity - 1,
-                            other->IsVariadic() ? ", ..." : "", other->IsKWArgs() ? ", &" : "");
-
-                Release(fn);
-                Release(other);
-                return false;
-            }
-
-            if (other->doc != nullptr && fn->doc == nullptr)
-                fn->doc = IncRef(other->doc);
-
-            if (fn->IsNative()) {
-                Release(fn->pcheck);
-
-                fn->pcheck = IncRef(other->pcheck);
-                fn->arity = other->arity;
-                fn->flags = other->flags;
-            }
-
+        auto *other = (Function *) MROSearch(type, (ArObject *) fn->name, nullptr);
+        if (other == nullptr || !other->IsMethod()) {
+            Release(fn);
             Release(other);
+
+            continue;
+        }
+
+        if (other->doc != nullptr && fn->doc == nullptr)
+            fn->doc = IncRef(other->doc);
+
+        if (fn->IsNative()) {
+            Release(fn->pcheck);
+
+            fn->pcheck = IncRef(other->pcheck);
+            fn->arity = other->arity;
+            fn->flags = other->flags;
         }
 
         Release(fn);
-        cursor = cursor->iter_next;
+        Release(other);
     }
-
-    return true;
 }
 
 bool argon::vm::datatype::TypeInit(TypeInfo *type, ArObject *auxiliary, TypeInfo **bases, unsigned int length) {
@@ -1135,8 +1148,7 @@ bool argon::vm::datatype::TypeInit(TypeInfo *type, ArObject *auxiliary, TypeInfo
     if (!InitMembers(type))
         goto ERROR;
 
-    if (!MethodCheckOverride(type))
-        goto ERROR;
+    CheckMethodsOverride(type);
 
     *((TypeInfoFlags *) &type->flags) = type->flags | TypeInfoFlags::INITIALIZED;
 

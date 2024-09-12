@@ -51,6 +51,8 @@ namespace argon::vm::datatype {
     bool BufferSimpleFill(const ArObject *object, ArBuffer *buffer, BufferFlags flags, unsigned char *raw,
                           ArSize item_size, ArSize nelem, bool writable);
 
+    bool CheckOverrideMethod(TypeInfo *type, ArObject *method);
+
     bool Equal(const ArObject *self, const ArObject *other);
 
     inline bool EqualStrict(const ArObject *self, const ArObject *other) {

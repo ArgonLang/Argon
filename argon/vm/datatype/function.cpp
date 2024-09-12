@@ -6,6 +6,7 @@
 #include <argon/vm/frame.h>
 
 #include <argon/vm/datatype/arstring.h>
+#include <argon/vm/datatype/stringbuilder.h>
 #include <argon/vm/datatype/boolean.h>
 #include <argon/vm/datatype/function.h>
 #include <argon/vm/datatype/nil.h>
@@ -238,6 +239,54 @@ Function *FunctionNew(String *name, String *doc, unsigned short arity, FunctionF
     return fn;
 }
 
+bool argon::vm::datatype::FunctionCheckOverride(const Function *override, const Function *overridden) {
+    if (!override->IsMethod() || !overridden->IsMethod())
+        return true;
+
+    if (overridden->IsNative())
+        return override->arity == overridden->arity
+               && override->flags == (overridden->flags & ~FunctionFlags::NATIVE);
+
+    if (override->flags != overridden->flags) {
+        auto l_flags = override->flags & ~FunctionFlags::DEFARGS;
+        auto r_flags = overridden->flags;
+
+        if (l_flags != r_flags) {
+            l_flags &= ~FunctionFlags::GENERATOR;
+            r_flags &= ~(FunctionFlags::DEFARGS | FunctionFlags::GENERATOR);
+
+            if (l_flags != r_flags)
+                return false;
+        }
+    }
+
+    if (override->arity != overridden->arity)
+        return false;
+
+    if (!override->HaveDefaults())
+        return true;
+
+    if (overridden->default_args == nullptr)
+        return true;
+
+    auto l_index = override->default_args->length;
+    auto r_index = overridden->default_args->length;
+
+    if (r_index > l_index)
+        return false;
+
+    const auto *l_lnames = override->code->lnames;
+    const auto *r_lnames = overridden->code->lnames;
+
+    for (int i = 0; i < r_index; i++) {
+        if (StringCompare((String *) l_lnames->objects[override->arity + i],
+                          (String *) r_lnames->objects[overridden->arity + i]) != 0)
+            return false;
+    }
+
+    return true;
+}
+
 Function *argon::vm::datatype::FunctionInitGenerator(Function *func, vm::Frame *frame) {
     auto *gen = FunctionClone(func);
 
@@ -430,6 +479,73 @@ Function *argon::vm::datatype::FunctionNew(const FunctionDef *func, TypeInfo *ba
     Release(pcheck);
 
     return fn;
+}
+
+String *argon::vm::datatype::FunctionPrintSignature(const Function *func) {
+    StringBuilder builder{};
+    String *ret;
+
+    if (func->IsNative())
+        return StringFormat("%s<NATIVE>", ARGON_RAW_STRING(func->qname));
+
+    auto *code = (const Code *) func->code;
+    auto ln_length = code->lnames->length;
+    auto def_length = func->default_args == nullptr ? 0 : func->default_args->length;
+    bool first = true;
+
+    if (!builder.Write(func->qname, 128))
+        goto ERROR;
+
+    if (!builder.Write((unsigned char *) "(", 1, 1))
+        goto ERROR;
+
+    for (int i = 0; i < ln_length; i++) {
+        if (i >= func->arity && def_length == 0) {
+            if (func->IsVariadic() && first) {
+                if (!builder.Write((unsigned char *) "...", 3, 0))
+                    goto ERROR;
+
+                first = false;
+            } else {
+                if (func->IsKWArgs()) {
+                    if (!builder.Write((unsigned char *) "&", 1, 0))
+                        goto ERROR;
+                }
+            }
+        }
+
+        if (!builder.Write((String *) code->lnames->objects[i], 3))
+            goto ERROR;
+
+        if (i >= func->arity && def_length > 0) {
+            if (!builder.Write((unsigned char *) "=", 1, 2))
+                goto ERROR;
+
+            def_length--;
+        }
+
+        if (i + 1 < ln_length) {
+            if (!builder.Write((unsigned char *) ", ", 2, 0))
+                goto ERROR;
+        }
+    }
+
+    if (!builder.Write((unsigned char *) ")", 1, 0))
+        goto ERROR;
+
+    if (func->IsAsync() && !builder.Write((unsigned char *) " async", 6, 0))
+        goto ERROR;
+
+    if (func->IsGenerator() && !builder.Write((unsigned char *) " generator", 10, 0))
+        goto ERROR;
+
+    if ((ret = builder.BuildString()) != nullptr)
+        return ret;
+
+    ERROR:
+    argon::vm::Panic((ArObject *) builder.GetError());
+
+    return nullptr;
 }
 
 void *argon::vm::datatype::Function::LockAndGetStatus(void *on_address) {
