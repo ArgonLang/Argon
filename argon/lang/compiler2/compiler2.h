@@ -26,7 +26,8 @@ namespace argon::lang::compiler2 {
             "unknown loop label(%s), loop cannot be %s",
             "alias required for: %s",
             "weak modifier cannot be used with a constant declaration",
-            "defining a constant requires a value"
+            "defining a constant requires a value",
+            "async generator not supported"
     };
 
     class Compiler {

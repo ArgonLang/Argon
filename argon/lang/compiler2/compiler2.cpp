@@ -65,7 +65,7 @@ SymbolT *Compiler::IdentifierLookupOrCreate(String *id, argon::lang::compiler2::
 
     auto *symt = this->unit_->symt;
 
-    if(symt->type == SymbolType::STRUCT || symt->type == SymbolType::TRAIT)
+    if (symt->type == SymbolType::STRUCT || symt->type == SymbolType::TRAIT)
         symt = symt->back;
 
     auto *sym = symt->SymbolLookup(id, false);
@@ -1515,8 +1515,12 @@ void Compiler::CompileFunction(const node::Function *func) {
 
     this->LoadStatic(code.Get(), &func->loc, false, true);
 
-    if (func->async)
+    if (func->async) {
+        if (ENUMBITMASK_ISTRUE(flags, FunctionFlags::GENERATOR))
+            throw CompilerException(kCompilerErrors[11]);
+
         flags |= FunctionFlags::ASYNC;
+    }
 
     this->unit_->Emit(vm::OpCode::MKFN, (unsigned char) flags, p_count, &func->loc);
 
@@ -1617,7 +1621,7 @@ void Compiler::CompileFunctionParams(List *params, unsigned short &count, Functi
         if (count == 0 && this->unit_->prev != nullptr) {
             auto pscope = this->unit_->prev->symt->type;
             if ((pscope == SymbolType::STRUCT || pscope == SymbolType::TRAIT) && StringEqual(param->id, "self"))
-                flags |= FunctionFlags::METHOD;
+                flags = (flags & ~FunctionFlags::STATIC) | FunctionFlags::METHOD;
         }
 
         this->IdentifierNew(param->id, &param->loc, SymbolType::VARIABLE, {}, false);
